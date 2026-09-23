@@ -12,7 +12,7 @@
 <p align="center">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white" />
   <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" />
-  <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.02%25-2ea043" />
+  <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.01%25-2ea043" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
 </p>
 
@@ -27,7 +27,7 @@ Play games all day, come back in the evening, and Rigsight can tell you:
 - what sat open in the background doing nothing;
 - why your PC restarted on its own last Tuesday.
 
-It does all of this while using about **0.02% of your CPU**.
+It does all of this while using about **0.01% of your CPU**.
 
 ## Contents
 
@@ -121,9 +121,10 @@ Measured over 60 seconds on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti a
 
 | | CPU | Memory |
 |---|---|---|
-| **Background agent, window closed** (the normal all-day state) | **0.016%** | **~79 MB** |
-| Background agent while the window is open (reads every sensor each second) | ~0.13% | ~80 MB |
-| Rigsight window, open on a page | ~0.03–0.07% | ~115–160 MB (pages you've opened stay loaded, so switching back is instant) |
+| **Background agent, window closed** (the normal all-day state) | **~0.006%** | **~50 MB** |
+| Background agent with the game overlay showing | ~0.02% | ~56 MB |
+| Background agent while the window is open (reads every sensor each second) | ~0.13–0.18% | ~60–75 MB |
+| Rigsight window, open on a page | ~0.07–0.09% | ~140–160 MB (pages you've opened stay loaded, so switching back is instant) |
 
 Close the window and its memory is released completely; the agent drops back to the first row.
 
@@ -218,7 +219,7 @@ Windows only lets programs with admin rights read CPU and motherboard sensors. O
 Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight. Also check the agent is running as admin: the sidebar shows a warning if it isn't.
 
 **Does it slow down games?**
-No. The agent uses about 0.02% of total CPU and runs at below-normal priority. Non-urgent notifications also wait until you leave fullscreen.
+No. The agent uses about 0.01% of total CPU (0.02% with the overlay showing) and runs at below-normal priority. Non-urgent notifications also wait until you leave fullscreen.
 
 **The overlay doesn't show up over my game.**
 The game is probably in *exclusive* fullscreen, which hides every ordinary window. Check the Overlay page: RivaTuner should be installed and running (the page can install it for you), and a game that was already open when RivaTuner started needs a restart. Or switch the game to borderless (sometimes called "fullscreen windowed"). The page also warns you if another program already uses the shortcut.
