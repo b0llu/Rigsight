@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Rigsight.Agent/Rigsight.Agent.csproj" />
+    <Project Path="src/Rigsight.Core/Rigsight.Core.csproj" />
+    <Project Path="src/Rigsight/Rigsight.csproj" />
+  </Folder>
+</Solution>

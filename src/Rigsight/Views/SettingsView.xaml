@@ -1,0 +1,408 @@
+<UserControl x:Class="Rigsight.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="Row" TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,10" />
+            <Setter Property="LastChildFill" Value="True" />
+        </Style>
+        <Style x:Key="Title" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource FaintBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,2,16,0" />
+        </Style>
+        <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="Margin" Value="4,26,0,8" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,40" MaxWidth="900" HorizontalAlignment="Left">
+            <TextBlock Text="Settings" Style="{StaticResource H1}" />
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}" Margin="0,6,0,0"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource Vis}}" />
+
+            <!-- General -->
+            <TextBlock Text="GENERAL" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Unit" Content="°C"
+                                             IsChecked="{Binding UseFahrenheit, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Unit" Content="°F"
+                                             IsChecked="{Binding UseFahrenheit, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Temperature unit" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="0.5 s"
+                                             IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=500}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="1 s"
+                                             IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="2 s"
+                                             IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Live refresh rate" Style="{StaticResource Title}" />
+                            <TextBlock Text="How often the open app updates. Only applies while this window is open." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <ComboBox DockPanel.Dock="Right" Width="190" SelectedValuePath="Tag" SelectedValue="{Binding TrayMetric}" VerticalAlignment="Center">
+                            <ComboBoxItem Content="Logo + health dot" Tag="Status" />
+                            <ComboBoxItem Content="CPU temperature" Tag="CpuTemp" />
+                            <ComboBoxItem Content="GPU temperature" Tag="GpuTemp" />
+                            <ComboBoxItem Content="CPU load" Tag="CpuLoad" />
+                            <ComboBoxItem Content="GPU load" Tag="GpuLoad" />
+                            <ComboBoxItem Content="Rigsight logo" Tag="Logo" />
+                        </ComboBox>
+                        <StackPanel>
+                            <TextBlock Text="Tray icon shows" Style="{StaticResource Title}" />
+                            <TextBlock Text="The health dot is green when cool, amber near a limit, red at a limit. Hover the icon for exact numbers." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Tracking -->
+            <TextBlock Text="TRACKING" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding TrackingEnabled}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Record app usage and temperatures" Style="{StaticResource Title}" />
+                            <TextBlock Text="Turn off to stop building history. Live readings, the tray icon and widgets keep working." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Style="{StaticResource GhostButton}" Content="Pause 1 hour" Command="{Binding PauseCommand}" CommandParameter="60" />
+                            <Button Style="{StaticResource GhostButton}" Content="Pause until resumed" Command="{Binding PauseCommand}" CommandParameter="-1" Margin="8,0,0,0" />
+                            <Button Style="{StaticResource AccentButton}" Content="Resume" Command="{Binding ResumeCommand}" Margin="8,0,0,0" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Pause" Style="{StaticResource Title}" />
+                            <TextBlock Text="{Binding PauseText, TargetNullValue='Take a break from tracking (also in the tray menu).'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="2 min" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=2}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="5 min" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="10 min" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="15 min" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Count me as away after" Style="{StaticResource Title}" />
+                            <TextBlock Text="No keyboard or mouse input for this long counts as away (not as using the app)." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FullscreenCountsAsActive}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Fullscreen apps count as in use" Style="{StaticResource Title}" />
+                            <TextBlock Text="So playing with a controller or watching a movie isn't counted as away." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="1 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="2 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="5 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=5000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="10 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=10000}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Background sensor sampling" Style="{StaticResource Title}" />
+                            <TextBlock Text="How often temperatures are read while this window is closed. Slower = even lighter; faster = catches shorter spikes." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="5 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="10 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="30 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Per-app CPU and memory sampling" Style="{StaticResource Title}" />
+                            <TextBlock Text="How often each app's resource use and window state (background / minimized) are checked." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="1 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=1}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="2 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=2}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="5 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="10 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Shortest session to keep" Style="{StaticResource Title}" />
+                            <TextBlock Text="Quick glances at an app aren't listed as sessions." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="5 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="10 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="20 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=20}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="45 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=45}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Session break" Style="{StaticResource Title}" />
+                            <TextBlock Text="Coming back to an app within this time continues the same session (e.g. a quick Discord check mid-game)." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Privacy -->
+            <TextBlock Text="PRIVACY" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}" Padding="20,14">
+                <StackPanel>
+                    <TextBlock Text="Apps that are never recorded" Style="{StaticResource Title}" />
+                    <TextBlock Text="Everything Rigsight records stays on this PC. It never records window titles, what you type, or what's on screen — only which app is in front and how hard your hardware works."
+                               Style="{StaticResource Hint}" Margin="0,2,0,10" />
+                    <ItemsControl ItemsSource="{Binding ExcludedApps}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="8" Background="{StaticResource Surface2Brush}" Padding="10,3,4,3" Margin="0,0,8,8">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                        <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="6,0,0,0" ToolTip="Remove"
+                                                Command="{Binding DataContext.RemoveExcludedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                            <TextBlock Text="&#xE711;" FontSize="9" />
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                        <ComboBox Width="260" IsEditable="True" ItemsSource="{Binding KnownApps}" Text="{Binding AppToExclude, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Style="{StaticResource GhostButton}" Content="Don't track" Command="{Binding AddExcludedCommand}" Margin="8,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Notifications -->
+            <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource GhostButton}" Content="Daily recap" Command="{Binding PreviewCommand}" CommandParameter="recap" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Game session" Command="{Binding PreviewCommand}" CommandParameter="session" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Temperature alert" Command="{Binding PreviewCommand}" CommandParameter="alert" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Crash" Command="{Binding PreviewCommand}" CommandParameter="crash" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Preview" Style="{StaticResource Title}" />
+                            <TextBlock Text="See exactly how each notification looks." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Rigsight cards" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Windows notifications" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Windows}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Style" Style="{StaticResource Title}" />
+                            <TextBlock Text="Rigsight cards appear bottom-right, never take focus, pause while you hover and vanish on their own. Windows notifications also land in the notification center." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="5 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="8 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=8}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="15 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Cards stay on screen for" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding QuietDuringFullscreen}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Stay quiet while I'm gaming" Style="{StaticResource Title}" />
+                            <TextBlock Text="While a fullscreen game or video is in front, recaps and summaries wait until you're done. Temperature alerts still come through." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Daily recap" Style="{StaticResource Title}" />
+                            <TextBlock Text="The first time you use your PC each day, a short summary of yesterday." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SessionSummaries}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Game session summaries" Style="{StaticResource Title}" />
+                            <TextBlock Text="When you close a game: how long you played and how hot it got. Never shown after a crash unless crash notifications are on." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding SessionSummaries}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="5 min" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="15 min" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="30 min" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="1 hour" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Only for sessions longer than" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Tell me when something crashes" Style="{StaticResource Title}" />
+                            <TextBlock Text="A calm note with the likely cause when a game crashes, the graphics driver resets, or the PC shut down unexpectedly. Off by default — everything is always listed on the Crashes page either way." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AlertsEnabled}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Temperature alerts" Style="{StaticResource Title}" />
+                            <TextBlock Text="Warn when something stays above its limit — brief spikes are ignored." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <StackPanel IsEnabled="{Binding AlertsEnabled}">
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding CpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <Slider DockPanel.Dock="Right" Width="280" Minimum="60" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding CpuLimit}" VerticalAlignment="Center" />
+                            <TextBlock Text="CPU limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding GpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <Slider DockPanel.Dock="Right" Width="280" Minimum="60" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding GpuLimit}" VerticalAlignment="Center" />
+                            <TextBlock Text="GPU limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding HotSpotLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <Slider DockPanel.Dock="Right" Width="280" Minimum="70" Maximum="110" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding HotSpotLimit}" VerticalAlignment="Center" />
+                            <TextBlock Text="GPU hot spot limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="5 s" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="10 s" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="30 s" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="60 s" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Only alert if it lasts" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="5 min" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="10 min" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="30 min" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="1 hour" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="At most one alert every" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <!-- Startup & data -->
+            <TextBlock Text="STARTUP &amp; DATA" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Start with Windows" Style="{StaticResource Title}" />
+                            <TextBlock Text="Starts the lightweight background agent at sign-in (no UAC prompt) so your whole day is tracked." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="30 days" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="90 days" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=90}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="1 year" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=365}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Keep minute-by-minute timelines for" Style="{StaticResource Title}" />
+                            <TextBlock Text="About 150 KB per day." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="1 year" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=365}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="2 years" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=730}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="Forever" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=3650}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Keep app usage reports for" Style="{StaticResource Title}" />
+                            <TextBlock Text="Hourly per-app totals used by weekly and monthly reports." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <WrapPanel Margin="0,10,0,12">
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                <TextBlock Text="Export app usage (CSV)" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                <TextBlock Text="Open data folder" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{StaticResource HotBrush}" />
+                                <TextBlock Text="Clear all history…" Foreground="{StaticResource HotBrush}" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- About -->
+            <TextBlock Text="ABOUT" Style="{StaticResource Section}" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Title}">
+                        <Run Text="Rigsight" FontWeight="SemiBold" /> <Run Text="{Binding AppVersion, Mode=OneWay}" Foreground="{StaticResource MutedBrush}" />
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                               Text="Hardware readings come from LibreHardwareMonitor (MPL-2.0), with low-level access through the PawnIO driver. NVIDIA readings in the background use NVML for minimal overhead." />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Foreground="{StaticResource WarmBrush}"
+                               Text="The background agent is running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar."
+                               Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <Button Style="{StaticResource GhostButton}" Content="Quit background agent…" Command="{Binding QuitAgentCommand}"
+                            HorizontalAlignment="Left" Margin="0,14,0,0" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

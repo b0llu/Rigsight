@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- System.Drawing is used to pull icons out of .exe files. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Rigsight</RootNamespace>
+    <AssemblyName>Rigsight</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\Rigsight.ico</ApplicationIcon>
+    <OutDir>$(SharedBinDir)</OutDir>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- WPF0001: Fluent ThemeMode is experimental. WFO0003: WinForms DPI advice (not applicable to WPF). -->
+    <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\Rigsight.ico" Link="Assets\Rigsight.ico" />
+    <Resource Include="..\..\assets\Rigsight.png" Link="Assets\Rigsight.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Rigsight.Core\Rigsight.Core.csproj" />
+  </ItemGroup>
+
+</Project>

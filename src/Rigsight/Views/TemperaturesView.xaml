@@ -1,0 +1,230 @@
+<UserControl x:Class="Rigsight.Views.TemperaturesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32">
+            <TextBlock Text="Temperatures" Style="{StaticResource H1}" />
+            <TextBlock Text="{Binding SystemSummary}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
+
+            <!-- CPU + GPU -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <Border Style="{StaticResource Badge}" Background="{StaticResource CpuSoftBrush}">
+                                <TextBlock Text="CPU" Style="{StaticResource BadgeText}" Foreground="{StaticResource CpuBrush}" />
+                            </Border>
+                            <TextBlock Text="{Binding CpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                        </DockPanel>
+
+                        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0" Visibility="{Binding CpuThreads.Count, Converter={StaticResource Vis}}">
+                            <TextBlock Text="LOAD PER THREAD" Style="{StaticResource Caption}" Margin="5,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding CpuThreads}" Margin="5,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Height="40" Margin="2,0" CornerRadius="4" Background="{StaticResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
+                                            <Border VerticalAlignment="Bottom" CornerRadius="4" Background="{StaticResource CpuBrush}"
+                                                    Height="{Binding Value, Converter={StaticResource Scale}, ConverterParameter=0.4}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="190" Height="190" VerticalAlignment="Center">
+                                <ctl:ArcGauge Value="{Binding CpuTemp.Value}" Maximum="100" Thickness="13"
+                                              Brush="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               Foreground="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
+                                    <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                                <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{StaticResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{StaticResource CpuBrush}" />
+                                <ctl:MetricTile Label="AVG CLOCK" Sensor="{Binding CpuClock}" Accent="{StaticResource CpuBrush}" />
+                                <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{StaticResource CpuBrush}" />
+                            </UniformGrid>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <Border Style="{StaticResource Badge}" Background="{StaticResource GpuSoftBrush}">
+                                <TextBlock Text="GPU" Style="{StaticResource BadgeText}" Foreground="{StaticResource GpuBrush}" />
+                            </Border>
+                            <TextBlock Text="{Binding GpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                        </DockPanel>
+
+                        <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding GpuVramLoad, Converter={StaticResource Vis}}">
+                            <DockPanel Margin="0,0,0,8">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding GpuVramText}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock Text="VIDEO MEMORY" Style="{StaticResource Caption}" />
+                            </DockPanel>
+                            <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{StaticResource GpuBrush}"
+                                         Value="{Binding GpuVramLoad.Value, Mode=OneWay, TargetNullValue=0, FallbackValue=0}" />
+                            <DockPanel Margin="0,12,0,0">
+                                <TextBlock DockPanel.Dock="Right" FontSize="12" Foreground="{StaticResource MutedBrush}">
+                                    <Run Text="{Binding GpuFan.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text="{Binding GpuClock.FormattedValue, Mode=OneWay, StringFormat='   ·   core {0}'}" />
+                                </TextBlock>
+                                <TextBlock Text="FAN · CLOCK" Style="{StaticResource Caption}" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="190" Height="190" VerticalAlignment="Center">
+                                <ctl:ArcGauge Value="{Binding GpuTemp.Value}" Maximum="100" Thickness="13"
+                                              Brush="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding GpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               Foreground="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                    <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                                <ctl:MetricTile Label="LOAD" Sensor="{Binding GpuLoad}" Accent="{StaticResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="POWER" Sensor="{Binding GpuPower}" Accent="{StaticResource GpuBrush}" />
+                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding GpuHotSpot}" Accent="{StaticResource GpuBrush}"
+                                                ValueBrush="{Binding GpuHotSpot.Value, Converter={StaticResource TempBrush}, ConverterParameter='50,80,95'}" />
+                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding GpuMemJunction}" Accent="{StaticResource GpuBrush}"
+                                                ValueBrush="{Binding GpuMemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
+                            </UniformGrid>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- History -->
+            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="1 min"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="5 min"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=300}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="15 min"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=900}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="1 hour"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=3600}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Temperature history" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding TempSeries}" Margin="0,0,0,12">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,22,0">
+                                    <Ellipse Width="8" Height="8" Fill="{Binding Brush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" />
+                </DockPanel>
+            </Border>
+
+            <!-- Fans, motherboard, drives -->
+            <Grid Margin="0,18,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Fans" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding Fans}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,5" Visibility="{Binding IsHidden, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" Style="{StaticResource Body}" FontWeight="SemiBold" />
+                                        <ctl:Sparkline DockPanel.Dock="Right" Width="90" Height="18" Margin="12,0" Source="{Binding History}" Version="{Binding Version}"
+                                                       Stroke="{StaticResource AccentBrush}" />
+                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Muted}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="No spinning fans reported." Style="{StaticResource Muted}"
+                                   Visibility="{Binding Fans.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Motherboard" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding BoardTemps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,5" Visibility="{Binding IsHidden, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{Binding Value, Converter={StaticResource TempBrush}, ConverterParameter='40,60,80'}" />
+                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Muted}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Tip: rename these on the All sensors page (e.g. “Temperature #5” → “VRM”)."
+                                   FontSize="11" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="4" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Drives" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding Drives}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,5">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
+                                        <ctl:Sparkline DockPanel.Dock="Right" Width="70" Height="18" Margin="12,0" Source="{Binding Temperature.History}"
+                                                       Version="{Binding Temperature.Version}" Stroke="{StaticResource PurpleBrush}" />
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Muted}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="SSDs are happiest below about 60°C; hard drives below 50°C." FontSize="11" Foreground="{StaticResource FaintBrush}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,108 @@
+<UserControl x:Class="Rigsight.Views.WidgetsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Width" Value="70" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32">
+            <TextBlock Text="Desktop widgets" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,8"
+                       Text="Turn on as many as you like. Drag them anywhere; right-click one for quick options. Widgets are drawn by the background agent, so they cost almost nothing even while you game." />
+            <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                       Text="Tip: set “Show” to “Only in fullscreen” for an in-game overlay (works with borderless/windowed games). “Lock” makes a widget click-through so it never gets in the way." />
+
+            <ItemsControl ItemsSource="{Binding Cards}" Margin="-9,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Card}" Margin="9">
+                            <StackPanel>
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" />
+                                        <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Border Height="150" CornerRadius="12" Margin="0,14" ClipToBounds="True">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#2A3350" Offset="0" />
+                                            <GradientStop Color="#1B3A36" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <TextBlock Text="Preview appears when the agent is running" Style="{StaticResource Muted}" FontSize="12"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                        <Image Source="{Binding Preview}" Stretch="Uniform" MaxHeight="130" Margin="12"
+                                               RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel IsEnabled="{Binding Enabled}">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                                        <TextBlock Text="THEME" Style="{StaticResource OptionLabel}" />
+                                        <Border Style="{StaticResource SegmentHost}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource Segment}" Content="Dark" GroupName="{Binding Title, StringFormat='theme-{0}'}"
+                                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="Black" GroupName="{Binding Title, StringFormat='theme-{0}'}"
+                                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Black}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="Light" GroupName="{Binding Title, StringFormat='theme-{0}'}"
+                                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                                        <TextBlock Text="SIZE" Style="{StaticResource OptionLabel}" />
+                                        <Border Style="{StaticResource SegmentHost}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource Segment}" Content="S" GroupName="{Binding Title, StringFormat='size-{0}'}"
+                                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=0.8}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="M" GroupName="{Binding Title, StringFormat='size-{0}'}"
+                                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="L" GroupName="{Binding Title, StringFormat='size-{0}'}"
+                                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.25}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="XL" GroupName="{Binding Title, StringFormat='size-{0}'}"
+                                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.5}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                                        <TextBlock Text="SHOW" Style="{StaticResource OptionLabel}" />
+                                        <ComboBox Width="230" SelectedValuePath="Tag" SelectedValue="{Binding Visibility}">
+                                            <ComboBoxItem Content="Always" Tag="Always" />
+                                            <ComboBoxItem Content="Hide in fullscreen apps" Tag="HideInFullscreen" />
+                                            <ComboBoxItem Content="Only in fullscreen (overlay)" Tag="OnlyInFullscreen" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <DockPanel Margin="0,4">
+                                        <TextBlock Text="OPACITY" Style="{StaticResource OptionLabel}" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding OpacityPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
+                                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                        <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                Value="{Binding OpacityPercent}" />
+                                    </DockPanel>
+                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Locked}" Margin="0,8,0,0">
+                                        <TextBlock Text="Lock in place (click-through)" Style="{StaticResource Body}" />
+                                    </CheckBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

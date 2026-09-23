@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Rigsight app",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/bin/Debug/Rigsight.exe",
+      "cwd": "${workspaceFolder}/bin/Debug",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Rigsight agent (no admin)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/bin/Debug/Rigsight.Agent.exe",
+      "args": ["--no-elevate"],
+      "cwd": "${workspaceFolder}/bin/Debug",
+      "env": { "RIGSIGHT_PROFILE": "1" },
+      "console": "internalConsole"
+    }
+  ]
+}

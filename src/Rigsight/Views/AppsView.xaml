@@ -1,0 +1,217 @@
+<UserControl x:Class="Rigsight.Views.AppsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <UserControl.Resources>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="32,26,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="340" />
+            <ColumnDefinition Width="18" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Grid.ColumnSpan="3" Margin="0,0,0,18">
+            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="Today"
+                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=1}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="7 days"
+                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=7}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="30 days"
+                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="All time"
+                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=all}" />
+                </StackPanel>
+            </Border>
+            <StackPanel>
+                <TextBlock Text="Apps" Style="{StaticResource H1}" />
+                <TextBlock Text="How long you use each app, how long it sits in the background, and how hard it pushes your hardware."
+                           Style="{StaticResource Muted}" Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- App list -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12,14">
+            <DockPanel>
+                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search apps…" Margin="4,0,4,10"
+                         Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" />
+                <DockPanel DockPanel.Dock="Top" Margin="6,0,4,8">
+                    <ComboBox DockPanel.Dock="Right" Width="170" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
+                        <ComboBoxItem Content="Most used" Tag="Active" />
+                        <ComboBoxItem Content="Most in background" Tag="Background" />
+                        <ComboBoxItem Content="Hottest GPU" Tag="GpuTemp" />
+                        <ComboBoxItem Content="Hottest CPU" Tag="CpuTemp" />
+                        <ComboBoxItem Content="Most memory" Tag="Memory" />
+                        <ComboBoxItem Content="Most CPU use" Tag="Cpu" />
+                    </ComboBox>
+                    <TextBlock Text="SORT BY" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                </DockPanel>
+                <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedRow}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Image Source="{Binding Stat.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" />
+                                <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Stat.Name}" Style="{StaticResource Body}" />
+                                    <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,6,0,0" Value="{Binding Bar, Mode=OneWay}"
+                                                 Foreground="{Binding Stat.Category, Converter={StaticResource CategoryBrush}}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="{Binding Metric}" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Detail -->
+        <ScrollViewer Grid.Row="1" Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <Border Style="{StaticResource Card}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <TextBlock Text="Nothing recorded yet for this period. Use your PC for a bit and come back." Style="{StaticResource Muted}" />
+                </Border>
+
+                <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource Vis}}">
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource Surface2Brush}" VerticalAlignment="Top">
+                                <Image Source="{Binding Selected.Path, Converter={StaticResource ExeIcon}}" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="18,0,12,0">
+                                <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
+                                         Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
+                                         ToolTip="Click to rename this app everywhere in Rigsight" />
+                                <TextBlock Text="{Binding Selected.Path, TargetNullValue='', FallbackValue=''}" FontSize="11.5" Foreground="{StaticResource FaintBrush}"
+                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding Selected.Path}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <TextBlock Text="CATEGORY" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <ComboBox Width="170" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Converter={StaticResource CategoryLabel}}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                            <CheckBox Grid.Column="2" Style="{StaticResource Switch}" VerticalAlignment="Top" IsChecked="{Binding SelectedExcluded}"
+                                      ToolTip="Rigsight will stop recording this app (existing history stays until you clear it).">
+                                <TextBlock Text="Don't track this app" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                            </CheckBox>
+                        </Grid>
+                    </Border>
+
+                    <UniformGrid Columns="4" Margin="-5,13,-5,0">
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="OPEN IN BACKGROUND" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.BackgroundSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="MINIMIZED" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="LONGEST SESSION" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.LongestSessionSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="AVG / PEAK CPU TEMP" Style="{StaticResource Caption}" />
+                                <TextBlock Style="{StaticResource StatValue}">
+                                    <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /><Run Text=" / " Foreground="{StaticResource FaintBrush}" /><Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="AVG / PEAK GPU TEMP" Style="{StaticResource Caption}" />
+                                <TextBlock Style="{StaticResource StatValue}">
+                                    <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" / " Foreground="{StaticResource FaintBrush}" /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="PEAK MEMORY" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Tile}" Margin="5">
+                            <StackPanel>
+                                <TextBlock Text="AVG CPU USE" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—'}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <Border Style="{StaticResource Card}" Margin="0,13,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Last 14 days" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                            <ctl:DailyBars Height="170" Days="{Binding SelectedDaily}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding SelectedSessions.Count, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="Recent sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                            <ItemsControl ItemsSource="{Binding SelectedSessions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="160" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Style="{StaticResource Body}">
+                                                <Run Text="{Binding Start, StringFormat='{}{0:ddd d MMM, h:mm tt}', Mode=OneWay}" /><Run Text=" – " Foreground="{StaticResource FaintBrush}" /><Run Text="{Binding End, StringFormat='{}{0:h:mm tt}', Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="2" Style="{StaticResource Muted}" HorizontalAlignment="Right">
+                                                <Run Text="CPU" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   GPU" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

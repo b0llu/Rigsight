@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["build", "${workspaceFolder}/Rigsight.slnx", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "run Rigsight (agent + app)",
+      "detail": "Starts the background agent (asks for admin once) and opens the app.",
+      "type": "shell",
+      "command": "Start-Process '${workspaceFolder}/bin/Debug/Rigsight.Agent.exe'; Start-Sleep 3; Start-Process '${workspaceFolder}/bin/Debug/Rigsight.exe'",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "dependsOn": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "quit agent",
+      "detail": "Asks the running agent to exit (so a rebuild can replace it).",
+      "type": "shell",
+      "command": "$p = New-Object System.IO.Pipes.NamedPipeClientStream '.', 'Rigsight.Agent.v1', 'InOut'; try { $p.Connect(2000); $w = New-Object System.IO.StreamWriter $p; $w.WriteLine('{\"T\":\"cmd\",\"Cmd\":\"quit\"}'); $w.Flush(); Start-Sleep 2 } catch { 'Agent is not running.' } finally { $p.Dispose() }",
+      "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": []
+    },
+    {
+      "label": "publish",
+      "detail": "Builds a release folder (publish/) with both programs; no .NET install needed to run it.",
+      "type": "shell",
+      "command": "dotnet publish src/Rigsight.Agent -c Release -r win-x64 --self-contained true -o publish; dotnet publish src/Rigsight -c Release -r win-x64 --self-contained true -o publish",
+      "options": { "cwd": "${workspaceFolder}", "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build installer",
+      "detail": "Creates dist/Rigsight-Setup-<version>.exe to share with others (needs Inno Setup).",
+      "type": "shell",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-installer.ps1",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

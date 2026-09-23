@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.2.0</Version>
+    <Product>Rigsight</Product>
+    <Company>Rigsight</Company>
+    <Copyright>Rigsight</Copyright>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- English only: skips the framework's translated resource folders (smaller installer). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <!-- The agent and the app are built into one folder so each can find the other. -->
+    <SharedBinDir>$(MSBuildThisFileDirectory)bin\$(Configuration)\</SharedBinDir>
+  </PropertyGroup>
+</Project>

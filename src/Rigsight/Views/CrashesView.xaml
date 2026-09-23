@@ -1,0 +1,104 @@
+<UserControl x:Class="Rigsight.Views.CrashesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}" GroupName="CrashRange" Content="7 days"
+                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=7}" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="CrashRange" Content="30 days"
+                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="CrashRange" Content="90 days"
+                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=90}" />
+                        </StackPanel>
+                    </Border>
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding OpenEventViewerCommand}" ToolTip="Windows' own (much more technical) log">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                            <TextBlock Text="Event Viewer" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Crashes" Style="{StaticResource H1}" />
+                    <TextBlock Text="App and game crashes, graphics driver resets, blue screens and sudden shutdowns — explained in plain language."
+                               Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
+
+            <UniformGrid Columns="3" Margin="-5,18,-5,0">
+                <Border Style="{StaticResource Tile}" Margin="5">
+                    <StackPanel>
+                        <TextBlock Text="APP &amp; GAME CRASHES" Style="{StaticResource Caption}" />
+                        <TextBlock Text="{Binding AppCrashCount}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Tile}" Margin="5">
+                    <StackPanel>
+                        <TextBlock Text="GPU DRIVER RESETS" Style="{StaticResource Caption}" />
+                        <TextBlock Text="{Binding DriverResetCount}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Tile}" Margin="5">
+                    <StackPanel>
+                        <TextBlock Text="BLUE SCREENS &amp; SUDDEN SHUTDOWNS" Style="{StaticResource Caption}" />
+                        <TextBlock Text="{Binding SystemCount}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Border Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding Patterns.Count, Converter={StaticResource Vis}}">
+                <StackPanel>
+                    <TextBlock Text="Patterns" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding Patterns}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,5">
+                                    <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="14" Foreground="{StaticResource WarmBrush}" VerticalAlignment="Top" Margin="0,1,12,0" />
+                                    <TextBlock Text="{Binding}" FontSize="13" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,14">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CrashFilter" Content="All"
+                                             IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=All}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CrashFilter" Content="Apps &amp; games"
+                                             IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=Apps}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CrashFilter" Content="PC problems"
+                                             ToolTip="Blue screens, sudden shutdowns and graphics driver resets"
+                                             IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=Pc}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Everything that went wrong" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <ItemsControl ItemsSource="{Binding Crashes}" ItemTemplate="{StaticResource CrashTemplate}" />
+                    <StackPanel HorizontalAlignment="Center" Margin="0,24" Visibility="{Binding HasCrashes, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="30" Foreground="{StaticResource GpuBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
+                        <TextBlock Text="Rigsight reads Windows' own crash records, so this includes crashes from before it was installed." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
