@@ -196,6 +196,9 @@ Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight
 **Does it slow down games?**
 No. The agent uses about 0.02% of total CPU and runs at below-normal priority. Non-urgent notifications also wait until you leave fullscreen.
 
+**Does it work with AMD (or Intel) graphics cards and CPUs?**
+Yes. All hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel GPUs and Intel and AMD CPUs. NVIDIA cards also get an extra fast path (NVML/NVAPI) because NVIDIA's full driver query is unusually expensive. Other cards use the standard route, which is already light.
+
 **Where is my data?**
 In `%LocalAppData%\Rigsight`: `settings.json`, the `rigsight.db` SQLite database, and a small log.
 
