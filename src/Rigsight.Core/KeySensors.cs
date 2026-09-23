@@ -30,7 +30,7 @@ public static class KeySensors
     /// <summary>Keys whose recent history is sent to the app when it connects.</summary>
     public static readonly string[] HistoryKeys = [CpuTemp, GpuTemp, GpuHotSpot, GpuMemJunction, CpuLoad, GpuLoad, RamLoad];
 
-    public readonly record struct Candidate(int Index, string HardwareType, string Name, SensorKind Kind);
+    public readonly record struct Candidate(int Index, string HardwareType, string HardwareName, string Name, SensorKind Kind);
 
     /// <summary>Maps key names to indexes into the flat sensor list.</summary>
     public static Dictionary<string, int> Pick(IReadOnlyList<Candidate> all)
@@ -39,7 +39,8 @@ public static class KeySensors
         bool IsCpu(Candidate c) => c.HardwareType == "Cpu";
         bool IsGpu(Candidate c) => c.HardwareType is "GpuNvidia" or "GpuAmd";
         bool IsIgpu(Candidate c) => c.HardwareType == "GpuIntel";
-        bool IsRam(Candidate c) => c.HardwareType == "Memory";
+        // "Virtual Memory" (RAM plus the page file) uses the same sensor names as the real RAM: skip it.
+        bool IsRam(Candidate c) => c.HardwareType == "Memory" && !c.HardwareName.Contains("Virtual", StringComparison.OrdinalIgnoreCase);
 
         var gpuFilter = all.Any(IsGpu) ? (Func<Candidate, bool>)IsGpu : IsIgpu;
 

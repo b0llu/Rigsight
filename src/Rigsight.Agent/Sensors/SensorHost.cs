@@ -73,7 +73,7 @@ internal sealed class SensorHost
         int index = 0;
         foreach (var hwMeta in Schema)
             foreach (var s in hwMeta.Sensors)
-                candidates.Add(new KeySensors.Candidate(index++, hwMeta.Type, s.Name, s.Kind));
+                candidates.Add(new KeySensors.Candidate(index++, hwMeta.Type, hwMeta.Name, s.Name, s.Kind));
         Keys = KeySensors.Pick(candidates);
     }
 
