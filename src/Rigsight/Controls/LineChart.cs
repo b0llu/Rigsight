@@ -69,8 +69,12 @@ public sealed class LineChart : FrameworkElement
     // Transparent background so the whole plot receives mouse moves, not just the lines.
     protected override HitTestResult HitTestCore(PointHitTestParameters p) => new PointHitTestResult(this, p.HitPoint);
 
-    /// <summary>Where a series switches from its minute history to its live buffer.</summary>
-    private static long LiveStart(ChartSeries s) => s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
+    /// <summary>
+    /// Where a series switches from its minute history to its live buffer. Short windows use live data
+    /// only: one averaged point a minute, joined by straight lines, would look like real readings there.
+    /// </summary>
+    private long LiveStart(ChartSeries s) =>
+        WindowSeconds < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
 
     protected override void OnRender(DrawingContext dc)
     {
