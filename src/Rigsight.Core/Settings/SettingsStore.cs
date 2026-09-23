@@ -79,7 +79,7 @@ public static class SettingsStore
         foreach (var page in s.CustomPages)
         {
             if (string.IsNullOrWhiteSpace(page.Id)) page.Id = CustomPageConfig.NewId();
-            if (string.IsNullOrWhiteSpace(page.Name)) page.Name = "My page";
+            if (string.IsNullOrWhiteSpace(page.Name)) page.Name = "Dashboard";
             page.Tiles = [.. page.Tiles.Where(tile => !string.IsNullOrEmpty(tile.Kind)).DistinctBy(tile => tile.Id)];
             if (page.Grid < CustomPageConfig.CurrentGrid)
             {

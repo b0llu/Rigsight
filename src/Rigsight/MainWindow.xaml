@@ -69,7 +69,7 @@
                     </Border>
                 </StackPanel>
 
-                <!-- Navigation (scrolls if there are many custom pages on a short screen) -->
+                <!-- Navigation (scrolls if there are many dashboards on a short screen) -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <StackPanel>
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE80F;" Content="Home"
@@ -81,7 +81,7 @@
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7BA;" Content="Crashes"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=crashes}" />
 
-                    <TextBlock Text="MY PAGES" Style="{StaticResource Caption}" Margin="12,18,0,8" />
+                    <TextBlock Text="DASHBOARDS" Style="{StaticResource Caption}" Margin="12,18,0,8" />
                     <ItemsControl ItemsSource="{Binding CustomPages}" Focusable="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -91,14 +91,14 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New page" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{StaticResource FaintBrush}" Margin="0,0,0,4"
-                            ToolTip="Build your own page from tiles">
+                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New dashboard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{StaticResource FaintBrush}" Margin="0,0,0,4"
+                            ToolTip="Build your own dashboard from tiles">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                        <TextBlock Text="New page" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                        <TextBlock Text="New dashboard" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>

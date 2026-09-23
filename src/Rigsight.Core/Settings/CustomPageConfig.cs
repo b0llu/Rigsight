@@ -1,10 +1,10 @@
 namespace Rigsight.Core.Settings;
 
-/// <summary>A page the user builds from tiles ("My pages" in the sidebar).</summary>
+/// <summary>A dashboard the user builds from tiles ("Dashboards" in the sidebar).</summary>
 public sealed class CustomPageConfig
 {
     public string Id { get; set; } = NewId();
-    public string Name { get; set; } = "My page";
+    public string Name { get; set; } = "Dashboard";
 
     /// <summary>
     /// Grid the tiles are measured in: 1 = the first version (4 columns), 2 = 12 columns with half-height

@@ -327,15 +327,15 @@
         <!-- Header -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                <!-- Open the app on this page -->
+                <!-- Open the app on this dashboard -->
                 <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="Start page">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="ToolTip" Value="Open Rigsight on this page instead of Home" />
+                            <Setter Property="ToolTip" Value="Open Rigsight on this dashboard instead of Home" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsStartPage}" Value="True">
                                     <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                                    <Setter Property="ToolTip" Value="Rigsight opens on this page. Click to open on Home again." />
+                                    <Setter Property="ToolTip" Value="Rigsight opens on this dashboard. Click to open on Home again." />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -367,14 +367,14 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete page" Margin="0,0,8,0"
+                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0"
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                        <TextBlock Text="Delete page" />
+                        <TextBlock Text="Delete" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="Edit page">
+                <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="Edit dashboard">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                             <Style.Triggers>
@@ -401,7 +401,7 @@
                         <TextBlock>
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="Edit page" />
+                                    <Setter Property="Text" Value="Edit" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsEditing}" Value="True">
                                             <Setter Property="Text" Value="Done" />
@@ -418,16 +418,16 @@
                     <TextBlock Text="{Binding Name}" Style="{StaticResource H1}"
                                Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <TextBox Style="{StaticResource InlineEdit}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Left" MinWidth="220" Margin="-6,0,0,0"
-                             Text="{Binding Name, UpdateSourceTrigger=LostFocus}" KeyDown="NameBox_KeyDown" ToolTip="Rename this page"
+                             Text="{Binding Name, UpdateSourceTrigger=LostFocus}" KeyDown="NameBox_KeyDown" ToolTip="Rename this dashboard"
                              Visibility="{Binding IsEditing, Converter={StaticResource Vis}}" />
                 </Grid>
                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                            <Setter Property="Text" Value="Your own page. Choose Edit page to add, move and resize tiles." />
+                            <Setter Property="Text" Value="Your own dashboard. Choose Edit to add, move and resize tiles." />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                    <Setter Property="Text" Value="Drag a tile to move it; drag its edges or corner to resize it. Click the page name to rename it." />
+                                    <Setter Property="Text" Value="Drag a tile to move it; drag its edges or corner to resize it. Click the name to rename the dashboard." />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -514,8 +514,8 @@
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"
                             Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
                     <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="34" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="This page is empty" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="Choose Edit page, then pick tiles from the list on the right." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
+                    <TextBlock Text="This dashboard is empty" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
+                    <TextBlock Text="Choose Edit, then pick tiles from the list on the right." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
                 <ItemsControl x:Name="TileList" ItemsSource="{Binding Tiles}" ItemTemplateSelector="{StaticResource TileFrameSelector}" Focusable="False">
                     <ItemsControl.ItemsPanel>

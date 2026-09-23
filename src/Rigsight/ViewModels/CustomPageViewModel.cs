@@ -7,7 +7,7 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>A page the user builds from tiles: add, remove, resize and drag tiles into place.</summary>
+/// <summary>A dashboard the user builds from tiles: add, remove, resize and drag tiles into place.</summary>
 public sealed partial class CustomPageViewModel : ObservableObject
 {
     private readonly SettingsModel _settings;
@@ -207,7 +207,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
                 page = new CustomPageConfig { Id = Id, Grid = CustomPageConfig.CurrentGrid };
                 s.CustomPages.Add(page);
             }
-            page.Name = string.IsNullOrWhiteSpace(Name) ? "My page" : Name.Trim();
+            page.Name = string.IsNullOrWhiteSpace(Name) ? "Dashboard" : Name.Trim();
             page.Tiles = tiles;
             page.Grid = CustomPageConfig.CurrentGrid; // the tiles above are measured in the current grid
         });

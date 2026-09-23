@@ -44,7 +44,7 @@ It does all of this while using about **0.02% of your CPU**.
 ## Features
 
 ### 📅 Your day
-- **Home**: what you're doing right now, today so far, and a recap of yesterday.
+- **Home**: today so far, highlights, and a recap of yesterday.
 - **Reports** for the day, week and month:
   - a timeline of your day with temperatures drawn over it;
   - time per app, split into *in use*, *in the background* and *minimized*;
@@ -69,10 +69,10 @@ It does all of this while using about **0.02% of your CPU**.
 - **Storage**: drive usage and growth, drive health, cleanup suggestions, and a folder scanner with a treemap.
 - **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.
 
-### 🧱 My pages
-- **Build your own pages** from tiles: gauges, a temperature chart, any single sensor, fans, drives, top memory users, today's totals, most used apps, highlights, yesterday and crashes.
-- **Drag tiles anywhere.** The others slide out of the way and fill the gaps.
-- **Resize, remove, rename.** Make as many pages as you like, such as "Gaming" or "Work". Each is saved automatically.
+### 🧱 Dashboards
+- **Build your own dashboards** from tiles: gauges, a temperature chart, any single sensor, fans, drives, top memory users, today's totals, most used apps, highlights, yesterday and crashes.
+- **Drag tiles anywhere, and resize them by dragging their edges.** The others slide out of the way and fill the gaps.
+- **Make as many as you like**, such as "Gaming" or "Work", and pick one to open Rigsight on. Each is saved automatically.
 
 ### 🖥️ On your desktop
 - **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity, click-through lock, and a *game overlay* mode that only appears over fullscreen games.
@@ -106,7 +106,7 @@ Rigsight is split into two programs:
 | | Runs | Does |
 |---|---|---|
 | **`Rigsight.Agent.exe`** | Always, from sign-in, with admin rights | Reads sensors, notices which app is in front, writes one small summary per minute to a local SQLite database, and draws the tray icon, widgets and notifications. |
-| **`Rigsight.exe`** | Only while you have the window open | The dashboard. It needs no admin rights, reads history from the database, streams live data from the agent over a named pipe, and **fully exits when closed**. |
+| **`Rigsight.exe`** | Only while you have the window open | The app window. It needs no admin rights, reads history from the database, streams live data from the agent over a named pipe, and **fully exits when closed**. |
 
 ### Measured resource use
 
@@ -122,7 +122,7 @@ Close the window and its memory is released completely; the agent drops back to 
 
 The agent is built to be almost invisible:
 
-- **Tiered sensors**: fast sensors like temperatures and load are read every second, slow ones like drive health every few minutes, and static ones once. While the dashboard is closed, only what the widgets and tray need is read.
+- **Tiered sensors**: fast sensors like temperatures and load are read every second, slow ones like drive health every few minutes, and static ones once. While the window is closed, only what the widgets and tray need is read.
 - **An NVIDIA fast path**: GPU temperature and load come from NVIDIA's lightweight NVML/NVAPI calls instead of a full driver query, which is about 70× cheaper.
 - **One system call for every process**: per-app CPU and memory come from a single `NtQuerySystemInformation` call per sample, not thousands of per-process queries.
 - **No UI framework in the background**: widgets, tray and notifications are drawn with plain GDI+ into layered windows.
@@ -195,7 +195,7 @@ src/
     Widgets/                GDI+ widget renderer and layered windows
     Ui/                     tray icon, menus, notification cards
     Ipc/                    named-pipe server
-  Rigsight/               the dashboard (WPF, Fluent dark theme, MVVM)
+  Rigsight/               the app window (WPF, Fluent dark theme, MVVM)
     Views/ ViewModels/ Controls/ Services/ Themes/
 installer/Rigsight.iss    Inno Setup script
 tools/                    build-installer.ps1, make-icon.ps1
@@ -205,7 +205,7 @@ assets/                   logo and icon
 ## FAQ
 
 **Why does it need admin rights?**
-Windows only lets programs with admin rights read CPU and motherboard sensors. Only the small background agent runs as admin, and it's started by a Task Scheduler task, so you get one UAC prompt ever instead of one at every boot. The dashboard runs as a normal user.
+Windows only lets programs with admin rights read CPU and motherboard sensors. Only the small background agent runs as admin, and it's started by a Task Scheduler task, so you get one UAC prompt ever instead of one at every boot. The app window runs as a normal user.
 
 **My CPU temperature is missing.**
 Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight. Also check the agent is running as admin: the sidebar shows a warning if it isn't.

@@ -28,7 +28,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
 
-    /// <summary>Supplied by the shell: the user's own pages, which can also be the start page.</summary>
+    /// <summary>Supplied by the shell: the user's dashboards, which can also be the start page.</summary>
     public Func<IEnumerable<PageOption>>? GetCustomPages { get; set; }
     public List<PageOption> StartPageOptions => [.. ShellViewModel.BuiltInPages, .. GetCustomPages?.Invoke() ?? []];
     public string StartPage

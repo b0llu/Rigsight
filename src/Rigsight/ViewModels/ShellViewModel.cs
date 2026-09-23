@@ -77,7 +77,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public WidgetsViewModel Widgets { get; }
     public SettingsViewModel SettingsPage { get; }
 
-    /// <summary>Pages the user built ("My pages" in the sidebar).</summary>
+    /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
     public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];
 
     /// <summary>Raised with a page's navigation key after it was deleted, so its view can be dropped.</summary>
@@ -92,8 +92,8 @@ public sealed partial class ShellViewModel : ObservableObject
     private void NewPage()
     {
         var names = CustomPages.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        string name = "My page";
-        for (int i = 2; names.Contains(name); i++) name = $"My page {i}";
+        string name = "Dashboard";
+        for (int i = 2; names.Contains(name); i++) name = $"Dashboard {i}";
 
         var page = CreateCustomPage(new CustomPageConfig { Name = name, Grid = CustomPageConfig.CurrentGrid });
         CustomPages.Add(page);
@@ -104,8 +104,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void DeleteCustomPage(CustomPageViewModel page)
     {
-        var answer = MessageBox.Show($"Delete the page \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
-            "Delete page", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        var answer = MessageBox.Show($"Delete the dashboard \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
+            "Delete dashboard", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
 
         Settings.Update(s =>
@@ -120,7 +120,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [ObservableProperty] private string _currentPage = "home";
 
-    /// <summary>Pages that can be chosen as the start page (besides custom pages).</summary>
+    /// <summary>Pages that can be chosen as the start page (besides dashboards).</summary>
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
         new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"),

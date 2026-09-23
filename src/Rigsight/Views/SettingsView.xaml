@@ -47,7 +47,7 @@
                                   DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />
                         <StackPanel>
                             <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" />
-                            <TextBlock Text="The page you see when you open the app. You can also star one of your own pages." Style="{StaticResource Hint}" />
+                            <TextBlock Text="The page you see when you open the app: Home, another page, or one of your dashboards." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">

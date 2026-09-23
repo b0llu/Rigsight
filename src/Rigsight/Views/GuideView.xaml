@@ -104,7 +104,7 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="YOUR CONTROL" Style="{StaticResource Caption}" Foreground="{StaticResource PurpleBrush}" Margin="0,0,0,6" />
-                                <TextBlock Style="{StaticResource F}" Text="• My pages: build your own pages from tiles and drag them into place" />
+                                <TextBlock Style="{StaticResource F}" Text="• Dashboards: build your own from tiles, drag and resize them freely" />
                                 <TextBlock Style="{StaticResource F}" Text="• Alert limits, quiet while gaming, notification style and previews" />
                                 <TextBlock Style="{StaticResource F}" Text="• Tracking sensitivity: away time and sampling speed" />
                                 <TextBlock Style="{StaticResource F}" Text="• Privacy: excluded apps, pause, data retention, clear history" />
