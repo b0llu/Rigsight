@@ -98,6 +98,11 @@ internal sealed class AgentContext : ApplicationContext
             _startupEnabled = StartupTask.Enable();
             MutateSettings(s => s.StartupConfigured = true);
         }
+        else if (_startupEnabled && _isAdmin && !StartupTask.PointsHere())
+        {
+            // Installed somewhere new (or reinstalled): point the task at this copy.
+            _startupEnabled = StartupTask.Enable();
+        }
 
         _sampler = new Thread(SamplerLoop) { IsBackground = true, Name = "Sampler", Priority = ThreadPriority.BelowNormal };
         _sampler.Start();

@@ -14,6 +14,15 @@ internal static class StartupTask
 {
     public static bool IsEnabled() => Schtasks("/Query", "/TN", RigsightPaths.AgentTaskName) == 0;
 
+    /// <summary>True when the task starts this copy of the agent (not an older install elsewhere).</summary>
+    public static bool PointsHere()
+    {
+        var exe = Environment.ProcessPath;
+        if (exe is null) return true;
+        Schtasks(out var xml, "/Query", "/TN", RigsightPaths.AgentTaskName, "/XML");
+        return xml.Contains($"<Command>{SecurityElement.Escape(exe)}</Command>", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool Enable()
     {
         var exe = Environment.ProcessPath;
@@ -70,8 +79,11 @@ internal static class StartupTask
 
     public static bool Disable() => Schtasks("/Delete", "/TN", RigsightPaths.AgentTaskName, "/F") == 0;
 
-    private static int Schtasks(params string[] args)
+    private static int Schtasks(params string[] args) => Schtasks(out _, args);
+
+    private static int Schtasks(out string output, params string[] args)
     {
+        output = "";
         try
         {
             var psi = new ProcessStartInfo("schtasks.exe")
@@ -83,7 +95,7 @@ internal static class StartupTask
             };
             foreach (var a in args) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
-            p.StandardOutput.ReadToEnd();
+            output = p.StandardOutput.ReadToEnd();
             p.StandardError.ReadToEnd();
             p.WaitForExit(10_000);
             return p.ExitCode;
