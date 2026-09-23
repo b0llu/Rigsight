@@ -403,8 +403,12 @@ public sealed partial class LiveData : ObservableObject
         foreach (var s in _flat) s.ResetStats();
     }
 
+    /// <remarks>
+    /// Takes object: the sensor list recycles rows, and while a row is being reused its button can
+    /// briefly be bound to a card header instead of a sensor. Anything that isn't a sensor is ignored.
+    /// </remarks>
     [RelayCommand]
-    private static void ToggleHidden(SensorItem? item) => item?.ToggleHidden();
+    private static void ToggleHidden(object? item) => (item as SensorItem)?.ToggleHidden();
 
     public IReadOnlyList<SensorItem> AllSensors => _flat;
 

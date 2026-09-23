@@ -70,11 +70,26 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    private bool _showingError;
+    private readonly HashSet<string> _shownErrors = [];
+
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error("app", e.Exception);
-        MessageBox.Show($"Something went wrong:\n\n{e.Exception.Message}\n\nDetails were saved to rigsight.log in {RigsightPaths.DataDir}.",
-            "Rigsight", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
+
+        // One dialog at a time, and each distinct error only once per run: an error that repeats
+        // (say, on every frame while scrolling) must not bury the screen in dialogs. The log has them all.
+        if (_showingError || !_shownErrors.Add(e.Exception.Message)) return;
+        _showingError = true;
+        try
+        {
+            MessageBox.Show($"Something went wrong:\n\n{e.Exception.Message}\n\nDetails were saved to rigsight.log in {RigsightPaths.DataDir}.",
+                "Rigsight", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _showingError = false;
+        }
     }
 }
