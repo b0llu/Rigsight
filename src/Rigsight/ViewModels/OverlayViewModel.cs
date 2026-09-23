@@ -81,6 +81,51 @@ public sealed partial class OverlayViewModel : ObservableObject
         set => Change(c => c.Scale = double.Parse(value, CultureInfo.InvariantCulture), nameof(Scale));
     }
 
+    // ── Inside fullscreen games (RivaTuner) ──
+
+    public bool UseRivaTuner
+    {
+        get => Config.UseRivaTuner;
+        set { Change(c => c.UseRivaTuner = value, nameof(UseRivaTuner)); NotifyRtss(); }
+    }
+
+    /// <summary>running · stopped · missing · installing · install-failed (from the agent).</summary>
+    [ObservableProperty] private string _rtssState = "";
+
+    partial void OnRtssStateChanged(string value) => NotifyRtss();
+
+    private void NotifyRtss()
+    {
+        OnPropertyChanged(nameof(RtssStatus));
+        OnPropertyChanged(nameof(RtssGood));
+        OnPropertyChanged(nameof(CanInstallRtss));
+    }
+
+    public bool RtssGood => RtssState == "running";
+    public bool CanInstallRtss => UseRivaTuner && RtssState is "missing" or "install-failed";
+
+    public string RtssStatus => !UseRivaTuner ? "Off: in exclusive fullscreen games the overlay won't appear."
+        : RtssState switch
+        {
+            "running" => "RivaTuner is running. Games started from now on show the overlay inside them, fullscreen or not.",
+            "stopped" => "RivaTuner is installed but not running. Rigsight starts it when the agent starts.",
+            "installing" => "Installing RivaTuner… this takes a minute.",
+            "install-failed" => "Couldn't install RivaTuner automatically. Download it from Guru3D instead.",
+            "missing" => "RivaTuner isn't installed yet. It's free and takes a minute.",
+            _ => "Checking for RivaTuner…",
+        };
+
+    [RelayCommand]
+    private void InstallRtss() => _client.SendCommand("install-rtss");
+
+    [RelayCommand]
+    private static void OpenRtssDownload() =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/") { UseShellExecute = true })?.Dispose();
+
+    /// <summary>Asks the agent for the latest shortcut and RivaTuner state (RivaTuner may have been installed meanwhile).</summary>
+    public void RequestStatus() => _client.SendCommand("overlay-status");
+
     // ── State reported by the agent ──
 
     [ObservableProperty]

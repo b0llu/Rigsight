@@ -78,7 +78,8 @@ It does all of this while using about **0.02% of your CPU**.
 - **Press `Alt+Shift+O` in any game** to show or hide a compact readout: CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
 - **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size and opacity. Change the shortcut to anything you like.
 - **Never gets in the way**: it never takes focus, and clicks pass straight through it.
-- **Safe with anti-cheat**: it's a normal always-on-top window, and Rigsight never hooks into games. It works over borderless and windowed games and most DirectX 11/12 games in fullscreen; for the rest, switch the game to borderless.
+- **Works in every game, exclusive fullscreen included**, through [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (free, the engine behind MSI Afterburner's overlay). Rigsight hands it the readings and RivaTuner draws them inside the game. The installer offers to install RivaTuner, and Rigsight keeps it running. Without it, the overlay still shows over borderless and windowed games.
+- **Safe with anti-cheat**: Rigsight itself never hooks into games. Its own overlay is a normal always-on-top window, and RivaTuner is a long-established tool that anti-cheat systems accept.
 
 ### 🖥️ On your desktop
 - **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity and a click-through lock.
@@ -171,7 +172,7 @@ Or in VS Code: **Terminal → Run Task… → build installer**.
 This produces `dist\Rigsight-Setup-<version>.exe`. The installer:
 - is about 50 MB and self-contained, so the target PC doesn't need .NET;
 - installs to Program Files and adds Start menu and (optional) desktop shortcuts;
-- offers to install PawnIO;
+- offers to install PawnIO and RivaTuner Statistics Server;
 - stops a running copy before updating;
 - removes the startup task when uninstalled.
 
@@ -220,7 +221,7 @@ Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight
 No. The agent uses about 0.02% of total CPU and runs at below-normal priority. Non-urgent notifications also wait until you leave fullscreen.
 
 **The overlay doesn't show up over my game.**
-The game is probably in *exclusive* fullscreen, which nothing but injected overlays can draw over. Switch it to borderless (sometimes called "fullscreen windowed"). Also check the Overlay page: if another program already uses the shortcut, it says so, and you can pick a different one.
+The game is probably in *exclusive* fullscreen, which hides every ordinary window. Check the Overlay page: RivaTuner should be installed and running (the page can install it for you), and a game that was already open when RivaTuner started needs a restart. Or switch the game to borderless (sometimes called "fullscreen windowed"). The page also warns you if another program already uses the shortcut.
 
 **Does it work with AMD (or Intel) graphics cards and CPUs?**
 Yes. All hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel GPUs and Intel and AMD CPUs. NVIDIA cards also get an extra fast path (NVML/NVAPI) because NVIDIA's full driver query is unusually expensive. Other cards use the standard route, which is already light.
@@ -234,6 +235,7 @@ In `%LocalAppData%\Rigsight`: `settings.json`, the `rigsight.db` SQLite database
 - MVVM: [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet)
 - Storage: [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore)
 - Installer: [Inno Setup](https://jrsoftware.org/isinfo.php)
+- In-game overlay in fullscreen games: [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) by Unwinder (optional, installed separately)
 
 ## License
 

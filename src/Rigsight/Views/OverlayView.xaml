@@ -147,6 +147,31 @@
                 </Grid>
             </Border>
 
+            <!-- Inside fullscreen games -->
+            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding UseRivaTuner}">
+                        <StackPanel>
+                            <TextBlock Text="Show inside games through RivaTuner" Style="{StaticResource H2}" />
+                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Text="Games in exclusive fullscreen (like Dota 2 set to Fullscreen) hide every window, including this overlay. RivaTuner Statistics Server, the free tool behind MSI Afterburner's overlay, draws the same readings inside the game instead. It's been around for years and anti-cheat accepts it; Rigsight only hands it the text." />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Margin="0,14,0,0">
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" Margin="0,1,8,0"
+                                   Foreground="{StaticResource GpuBrush}" VerticalAlignment="Top"
+                                   Visibility="{Binding RtssGood, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{Binding RtssStatus}" Style="{StaticResource Body}" TextWrapping="Wrap" />
+                    </DockPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}">
+                        <Button Style="{StaticResource AccentButton}" Content="Install RivaTuner" Command="{Binding InstallRtssCommand}" />
+                        <Button Style="{StaticResource GhostButton}" Content="Download from Guru3D" Margin="8,0,0,0" Command="{Binding OpenRtssDownloadCommand}" />
+                    </StackPanel>
+                    <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Text="Inside games, RivaTuner decides the position and text size: open RivaTuner from the tray to change them. A game that was already running when RivaTuner started needs a restart." />
+                </StackPanel>
+            </Border>
+
             <!-- What it shows -->
             <Border Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
@@ -233,7 +258,7 @@
             </Border>
 
             <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,16,0,0"
-                       Text="The overlay works over games in borderless or windowed mode, and over most DirectX 11 and 12 games in fullscreen. If it doesn't appear over a game, switch that game to borderless. Rigsight never hooks into games, so it's safe with anti-cheat." />
+                       Text="Without RivaTuner, the overlay shows over games in borderless or windowed mode. Rigsight itself never hooks into games, so it's safe with anti-cheat." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

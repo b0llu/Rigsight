@@ -110,6 +110,8 @@ public sealed class AgentMessage
     // overlay (also on hello): whether it's on screen, and whether another program already owns its shortcut
     public bool? OverlayVisible { get; set; }
     public bool? OverlayHotkeyTaken { get; set; }
+    /// <summary>RivaTuner: running · stopped · missing · installing · install-failed</summary>
+    public string? RtssState { get; set; }
 
     // navigate (also allowed on hello)
     public string? Page { get; set; }
@@ -122,7 +124,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle …</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · install-rtss …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

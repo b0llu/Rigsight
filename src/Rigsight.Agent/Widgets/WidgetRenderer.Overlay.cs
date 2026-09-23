@@ -85,6 +85,40 @@ internal static partial class WidgetRenderer
         }
     }
 
+    /// <summary>
+    /// The same readout as RivaTuner text: one line per part (or one line in all), coloured with RTSS
+    /// colour tags. Colours are declared once up front as variables (&lt;C0=RRGGBB&gt;) and used as &lt;C0&gt;…&lt;C&gt;.
+    /// </summary>
+    public static string RtssText(OverlaySettings o, WidgetData? data)
+    {
+        var rows = OverlayRows(o, data ?? new WidgetData());
+        var colors = new List<Color>();
+        string Paint(Color c, string text)
+        {
+            int i = colors.IndexOf(c);
+            if (i < 0 && colors.Count < 10) { colors.Add(c); i = colors.Count - 1; }
+            return i < 0 ? text : $"<C{i}>{text}<C>";
+        }
+
+        var lines = new List<string>();
+        foreach (var row in rows)
+        {
+            var parts = new List<string>();
+            if (row.Label.Length > 0) parts.Add(Paint(row.LabelColor, row.Label));
+            foreach (var cell in row.Cells)
+            {
+                // Units that are words read better with a space ("4.41 GHz"); signs stay attached ("34%").
+                string unit = cell.Unit.Length == 0 ? ""
+                    : Paint(OverlayPalette.Muted, (char.IsLetter(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + cell.Unit);
+                parts.Add(Paint(cell.Color, cell.Value) + unit);
+            }
+            lines.Add(string.Join("  ", parts));
+        }
+
+        string declarations = string.Concat(colors.Select((c, i) => $"<C{i}={c.R:X2}{c.G:X2}{c.B:X2}>"));
+        return declarations + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", lines);
+    }
+
     /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
     public static Bitmap RenderOverlay(OverlaySettings o, WidgetData? data, float scale)
     {

@@ -33,6 +33,12 @@ public sealed class OverlaySettings
 
     public List<OverlayMetric> Metrics { get; set; } = DefaultMetrics();
 
+    /// <summary>
+    /// Also hand the readings to RivaTuner Statistics Server, which draws them inside the game itself,
+    /// so they show in exclusive fullscreen too (where no ordinary window can appear).
+    /// </summary>
+    public bool UseRivaTuner { get; set; } = true;
+
     public const string DefaultHotkey = "Alt+Shift+O";
 
     public static List<OverlayMetric> DefaultMetrics() =>

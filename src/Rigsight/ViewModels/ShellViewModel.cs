@@ -172,7 +172,10 @@ public sealed partial class ShellViewModel : ObservableObject
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
-            case "overlay": Overlay.RequestPreview(); break;
+            case "overlay":
+                Overlay.RequestPreview();
+                Overlay.RequestStatus();
+                break;
             case "settings":
                 SettingsPage.Refresh();
                 await SettingsPage.LoadKnownAppsAsync();
@@ -249,6 +252,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (msg.OverlayVisible is bool visible) Overlay.IsVisible = visible;
         if (msg.OverlayHotkeyTaken is bool taken) Overlay.HotkeyTaken = taken;
+        if (msg.RtssState is { } rtss) Overlay.RtssState = rtss;
     }
 
     private void OnMessage(AgentMessage msg)

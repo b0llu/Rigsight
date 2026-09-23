@@ -85,8 +85,9 @@ internal sealed class AgentContext : ApplicationContext
         _tracker.SessionEnded += OnSessionEnded;
 
         _widgets = new WidgetManager(() => _settings, MutateSettings, () => OpenApp("widgets"));
-        _overlay = new OverlayManager();
+        _overlay = new OverlayManager(isAdmin);
         _overlay.StateChanged += OnOverlayStateChanged;
+        _overlay.CantReachGame += OnOverlayCantReachGame;
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp);
@@ -95,6 +96,7 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);
+        _overlay.EnsureRtssRunning();
 
         // First run: register to start with Windows (the user can turn this off in Settings).
         _startupEnabled = StartupTask.IsEnabled();
@@ -440,6 +442,7 @@ internal sealed class AgentContext : ApplicationContext
             Arg = _pendingArg,
             OverlayVisible = _overlayVisible,
             OverlayHotkeyTaken = _overlay.HotkeyTaken,
+            RtssState = _overlay.RtssState,
         };
         if (_sensorsReady)
         {
@@ -496,6 +499,12 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "overlay-toggle":
                 _ui.Post(_ => _overlay.Toggle(), null);
+                break;
+            case "install-rtss":
+                _ui.Post(_ => _overlay.InstallRtss(_ui), null);
+                break;
+            case "overlay-status":
+                _ui.Post(_ => OnOverlayStateChanged(), null);
                 break;
             case "restart-elevated":
                 _ui.Post(_ => RestartElevated(), null);
@@ -584,7 +593,25 @@ internal sealed class AgentContext : ApplicationContext
     private void OnOverlayStateChanged()
     {
         _overlayVisible = _overlay.Visible;
-        _pipe.Broadcast(new AgentMessage { T = "overlay", OverlayVisible = _overlay.Visible, OverlayHotkeyTaken = _overlay.HotkeyTaken });
+        _pipe.Broadcast(new AgentMessage
+        {
+            T = "overlay", OverlayVisible = _overlay.Visible, OverlayHotkeyTaken = _overlay.HotkeyTaken, RtssState = _overlay.RtssState,
+        });
+    }
+
+    /// <summary>The overlay was turned on over an exclusive-fullscreen game it can't reach: explain (after the game).</summary>
+    private void OnOverlayCantReachGame(string app)
+    {
+        string body = _overlay.RtssState switch
+        {
+            "running" when _settings.Overlay.UseRivaTuner =>
+                $"RivaTuner started after {app} did. Restart {app} and the overlay will show inside it, or switch it to borderless.",
+            _ when !_settings.Overlay.UseRivaTuner =>
+                $"Turn on \"Show inside games through RivaTuner\" on the Overlay page, or switch {app} to borderless.",
+            _ => $"Install RivaTuner (free) from Rigsight's Overlay page to show it inside fullscreen games, or switch {app} to borderless.",
+        };
+        _notices.Show(new Notice(NoticeKind.Info, $"The overlay couldn't appear over {app}",
+            $"{app} is in exclusive fullscreen. {body}", _tracker.Activity.Path, "overlay"));
     }
 
     private void PauseFor(int minutes) =>

@@ -36,6 +36,7 @@ CloseApplications=no
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
 Name: "pawnio"; Description: "Install the PawnIO driver (needed for CPU and motherboard temperatures)"; GroupDescription: "Sensors:"; Check: not PawnIOInstalled
+Name: "rtss"; Description: "Install RivaTuner Statistics Server (shows the game overlay inside fullscreen games)"; GroupDescription: "Game overlay:"; Check: not RtssInstalled
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -47,6 +48,7 @@ Name: "{autodesktop}\Rigsight"; Filename: "{app}\Rigsight.exe"; Tasks: desktopic
 
 [Run]
 Filename: "{cmd}"; Parameters: "/c winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements"; StatusMsg: "Installing the PawnIO sensor driver..."; Flags: runhidden waituntilterminated; Tasks: pawnio
+Filename: "{cmd}"; Parameters: "/c winget install --id Guru3D.RTSS -e --silent --accept-package-agreements --accept-source-agreements"; StatusMsg: "Installing RivaTuner Statistics Server..."; Flags: runhidden waituntilterminated; Tasks: rtss
 ; Setup already has admin rights: use them to register "start with Windows" and start the agent,
 ; so the user never sees a second UAC prompt.
 Filename: "{app}\Rigsight.Agent.exe"; Parameters: "--register-startup"; StatusMsg: "Starting the Rigsight background agent..."; Flags: runhidden waituntilterminated
@@ -62,6 +64,12 @@ function PawnIOInstalled: Boolean;
 begin
   Result := FileExists(ExpandConstant('{commonpf64}\PawnIO\PawnIOLib.dll'))
          or RegKeyExists(HKLM64, 'SYSTEM\CurrentControlSet\Services\PawnIO');
+end;
+
+function RtssInstalled: Boolean;
+begin
+  Result := RegKeyExists(HKLM32, 'SOFTWARE\Unwinder\RTSS')
+         or FileExists(ExpandConstant('{commonpf32}\RivaTuner Statistics Server\RTSS.exe'));
 end;
 
 procedure StopRigsight;
