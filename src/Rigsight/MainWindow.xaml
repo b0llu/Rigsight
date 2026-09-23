@@ -95,7 +95,7 @@
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=widgets}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE946;" Content="How it works"
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE946;" Content="Guide"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=guide}" />
                 </StackPanel>
             </DockPanel>

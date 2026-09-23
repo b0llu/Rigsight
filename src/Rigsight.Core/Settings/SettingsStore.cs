@@ -52,8 +52,7 @@ public static class SettingsStore
     {
         if (s.SettingsVersion < 2)
         {
-            // v2: the tray shows a status dot instead of a bare number, and the slim bar is the default widget.
-            s.Tray.Metric = TrayMetric.Status;
+            // v2: the slim bar is the default widget.
             s.Widgets = WidgetConfig.Defaults();
         }
         s.SettingsVersion = CurrentVersion;

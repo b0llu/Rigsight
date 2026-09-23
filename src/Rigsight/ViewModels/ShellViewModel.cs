@@ -38,9 +38,10 @@ public sealed partial class ShellViewModel : ObservableObject
         client.MessageReceived += OnMessage;
         client.ConnectionChanged += OnConnectionChanged;
 
-        // Keep history-based pages fresh while open (the agent writes once a minute).
+        // Keep history-based pages fresh while open (the agent writes once a minute). Widget previews are
+        // still snapshots: drawn when the page opens or a widget changes, not on this timer.
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _refresh.Tick += (_, _) => _ = RefreshCurrentPageAsync();
+        _refresh.Tick += (_, _) => { if (CurrentPage != "widgets") _ = RefreshCurrentPageAsync(); };
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
 

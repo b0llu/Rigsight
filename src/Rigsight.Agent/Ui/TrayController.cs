@@ -1,13 +1,10 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Text;
 using Rigsight.Agent.Native;
-using Rigsight.Core;
-using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
 
-/// <summary>Notification-area icon: shows a live reading as a colored number, plus the agent's menu.</summary>
+/// <summary>Notification-area icon: the logo with a temperature health dot, plus the agent's menu.</summary>
 internal sealed class TrayController : IDisposable
 {
     private readonly NotifyIcon _icon = new();
@@ -64,38 +61,16 @@ internal sealed class TrayController : IDisposable
         _icon.ShowBalloonTip(8000, title, text, warning ? ToolTipIcon.Warning : ToolTipIcon.Info);
     }
 
-    /// <param name="health">0 = cool, 1 = warm, 2 = at or above an alert limit (used by the Status style).</param>
-    public void Update(TrayMetric metric, double? value, bool isTemperature, string tooltip, int health)
+    /// <param name="health">0 = cool, 1 = warm, 2 = at or above an alert limit.</param>
+    public void Update(string tooltip, int health)
     {
         // NotifyIcon.Text is limited to 127 characters.
         _icon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
 
-        if (metric == TrayMetric.Status)
-        {
-            string statusKey = "status" + health;
-            if (statusKey == _lastKey) return;
-            _lastKey = statusKey;
-            SetIcon(RenderStatus(health));
-            return;
-        }
-
-        if (metric == TrayMetric.Logo || value is null)
-        {
-            if (_lastKey != "logo")
-            {
-                _lastKey = "logo";
-                SetIcon(null);
-            }
-            return;
-        }
-
-        double shown = isTemperature ? Units.Temp(value.Value) : value.Value;
-        string text = Math.Round(shown).ToString("0");
-        var color = isTemperature ? TempColor(value.Value) : Color.FromArgb(91, 140, 255);
-        string key = text + color.ToArgb();
+        string key = "status" + health;
         if (key == _lastKey) return;
         _lastKey = key;
-        SetIcon(Render(text, color));
+        SetIcon(RenderStatus(health));
     }
 
     private void SetIcon(Icon? icon)
@@ -109,14 +84,6 @@ internal sealed class TrayController : IDisposable
             old.Dispose();
         }
     }
-
-    private static Color TempColor(double c) => c switch
-    {
-        < 45 => Color.FromArgb(56, 189, 248),
-        < 70 => Color.FromArgb(52, 211, 153),
-        < 85 => Color.FromArgb(251, 191, 36),
-        _ => Color.FromArgb(248, 113, 113),
-    };
 
     /// <summary>The logo with a small colored dot in the corner: a calm, glanceable health signal.</summary>
     private Icon RenderStatus(int health)
@@ -142,35 +109,6 @@ internal sealed class TrayController : IDisposable
                 g.FillEllipse(ring, x - 1, y - 1, d + 1, d + 1);
             using (var dot = new SolidBrush(color))
                 g.FillEllipse(dot, x + size * 0.06f, y + size * 0.06f, d - size * 0.12f - 1, d - size * 0.12f - 1);
-        }
-        return Icon.FromHandle(bmp.GetHicon());
-    }
-
-    private static Icon Render(string text, Color background)
-    {
-        int size = Math.Max(16, SystemInformation.SmallIconSize.Width);
-        using var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            g.Clear(Color.Transparent);
-
-            float r = size * 0.28f;
-            using var path = new GraphicsPath();
-            path.AddArc(0, 0, 2 * r, 2 * r, 180, 90);
-            path.AddArc(size - 2 * r - 1, 0, 2 * r, 2 * r, 270, 90);
-            path.AddArc(size - 2 * r - 1, size - 2 * r - 1, 2 * r, 2 * r, 0, 90);
-            path.AddArc(0, size - 2 * r - 1, 2 * r, 2 * r, 90, 90);
-            path.CloseFigure();
-            using (var bg = new SolidBrush(background))
-                g.FillPath(bg, path);
-
-            float fontPx = size * (text.Length >= 3 ? 0.50f : 0.70f);
-            using var font = new Font("Segoe UI", fontPx, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var fg = new SolidBrush(Color.FromArgb(11, 14, 20));
-            using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(text, font, fg, new RectangleF(0, size * 0.04f, size, size), fmt);
         }
         return Icon.FromHandle(bmp.GetHicon());
     }

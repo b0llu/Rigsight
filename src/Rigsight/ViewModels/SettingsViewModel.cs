@@ -27,7 +27,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     // ── General ───────────────────────────────────────────────────────────
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
-    public string TrayMetric { get => S.Tray.Metric.ToString(); set => Set(s => s.Tray.Metric = Enum.Parse<TrayMetric>(value)); }
 
     // ── Tracking ──────────────────────────────────────────────────────────
     public bool TrackingEnabled { get => S.Tracking.Enabled; set => Set(s => s.Tracking.Enabled = value); }
@@ -35,8 +34,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public int ProcessIntervalSeconds { get => S.Tracking.ProcessIntervalSeconds; set => Set(s => s.Tracking.ProcessIntervalSeconds = value); }
     public int IdleMinutes { get => S.Tracking.IdleMinutes; set => Set(s => s.Tracking.IdleMinutes = value); }
     public bool FullscreenCountsAsActive { get => S.Tracking.FullscreenCountsAsActive; set => Set(s => s.Tracking.FullscreenCountsAsActive = value); }
-    public int MinSessionMinutes { get => S.Tracking.MinSessionMinutes; set => Set(s => s.Tracking.MinSessionMinutes = value); }
-    public int SessionGapMinutes { get => S.Tracking.SessionGapMinutes; set => Set(s => s.Tracking.SessionGapMinutes = value); }
     public int KeepDetailedDays { get => S.Tracking.KeepDetailedDays; set => Set(s => s.Tracking.KeepDetailedDays = value); }
     public int KeepHistoryDays { get => S.Tracking.KeepHistoryDays; set => Set(s => s.Tracking.KeepHistoryDays = value); }
 

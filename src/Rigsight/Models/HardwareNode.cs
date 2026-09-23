@@ -21,6 +21,9 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
 
     public bool IsGpu => Type is "GpuNvidia" or "GpuAmd" or "GpuIntel";
 
+    /// <summary>Marks the bottom edge of this component's card in the All sensors list.</summary>
+    public SensorGroupEnd End { get; } = new();
+
     public string Badge => Type switch
     {
         "Cpu" => "CPU",
@@ -35,3 +38,9 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
         _ => "DEVICE",
     };
 }
+
+/// <summary>
+/// The All sensors page is one flat, virtualized list (so only rows on screen are built): each card is
+/// a <see cref="HardwareNode"/> header, its <see cref="SensorItem"/> rows, then one of these.
+/// </summary>
+public sealed class SensorGroupEnd;

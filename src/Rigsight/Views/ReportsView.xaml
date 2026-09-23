@@ -190,7 +190,7 @@
                         <DockPanel Margin="0,0,0,12">
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowBackgroundApps}"
                                       Visibility="{Binding BackgroundOnlyCount, Converter={StaticResource Vis}}"
-                                      ToolTip="Apps that had a window open (in the background or minimized) but that you never actually used.">
+                                      ToolTip="Apps that were open in the background or minimized, but that you never actually switched to.">
                                 <TextBlock Text="{Binding BackgroundToggleText}" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
                             </CheckBox>
                             <StackPanel>

@@ -72,9 +72,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public int BackgroundOnlyCount => Report?.Apps.Count(a => !UsedActively(a) && a.OpenSec >= 30) ?? 0;
 
-    public string BackgroundToggleText => BackgroundOnlyCount == 1
-        ? "Also show 1 app that was only open in the background"
-        : $"Also show {BackgroundOnlyCount} apps that were only open in the background";
+    public string BackgroundToggleText => $"Show unused apps ({BackgroundOnlyCount})";
 
     public double MaxActive => Math.Max(1, Report?.Apps.FirstOrDefault()?.ActiveSec ?? 1);
 

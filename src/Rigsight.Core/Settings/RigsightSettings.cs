@@ -18,7 +18,6 @@ public sealed class RigsightSettings
 
     public TrackingSettings Tracking { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
-    public TraySettings Tray { get; set; } = new();
     public List<WidgetConfig> Widgets { get; set; } = WidgetConfig.Defaults();
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
@@ -63,12 +62,6 @@ public sealed class TrackingSettings
 
     /// <summary>Count a fullscreen app (games, movies) as in use even without keyboard/mouse input.</summary>
     public bool FullscreenCountsAsActive { get; set; } = true;
-
-    /// <summary>Sessions shorter than this aren't listed.</summary>
-    public int MinSessionMinutes { get; set; } = 2;
-
-    /// <summary>A session continues if you return to the app within this many minutes.</summary>
-    public int SessionGapMinutes { get; set; } = 10;
 
     /// <summary>How long minute-by-minute data (timelines, temperature curves) is kept.</summary>
     public int KeepDetailedDays { get; set; } = 90;
@@ -121,14 +114,6 @@ public enum NotificationStyle
     Card,
     /// <summary>Standard Windows notifications (appear in the notification center).</summary>
     Windows,
-}
-
-/// <summary>What the tray icon shows. Status = the logo with a colored dot for overall temperature health.</summary>
-public enum TrayMetric { Status, CpuTemp, GpuTemp, CpuLoad, GpuLoad, Logo }
-
-public sealed class TraySettings
-{
-    public TrayMetric Metric { get; set; } = TrayMetric.Status;
 }
 
 public enum AppCategory { Other, Game, Browser, Development, Communication, Media, Launcher, Productivity, System }

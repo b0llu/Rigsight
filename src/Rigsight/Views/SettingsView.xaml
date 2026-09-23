@@ -58,20 +58,6 @@
                             <TextBlock Text="How often the open app updates. Only applies while this window is open." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <ComboBox DockPanel.Dock="Right" Width="190" SelectedValuePath="Tag" SelectedValue="{Binding TrayMetric}" VerticalAlignment="Center">
-                            <ComboBoxItem Content="Logo + health dot" Tag="Status" />
-                            <ComboBoxItem Content="CPU temperature" Tag="CpuTemp" />
-                            <ComboBoxItem Content="GPU temperature" Tag="GpuTemp" />
-                            <ComboBoxItem Content="CPU load" Tag="CpuLoad" />
-                            <ComboBoxItem Content="GPU load" Tag="GpuLoad" />
-                            <ComboBoxItem Content="Rigsight logo" Tag="Logo" />
-                        </ComboBox>
-                        <StackPanel>
-                            <TextBlock Text="Tray icon shows" Style="{StaticResource Title}" />
-                            <TextBlock Text="The health dot is green when cool, amber near a limit, red at a limit. Hover the icon for exact numbers." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
                 </StackPanel>
             </Border>
 
@@ -141,34 +127,6 @@
                         <StackPanel>
                             <TextBlock Text="Per-app CPU and memory sampling" Style="{StaticResource Title}" />
                             <TextBlock Text="How often each app's resource use and window state (background / minimized) are checked." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="1 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=1}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="2 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=2}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="5 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="MinSess" Content="10 min" IsChecked="{Binding MinSessionMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                            </StackPanel>
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Text="Shortest session to keep" Style="{StaticResource Title}" />
-                            <TextBlock Text="Quick glances at an app aren't listed as sessions." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="5 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="10 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="20 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=20}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Gap" Content="45 min" IsChecked="{Binding SessionGapMinutes, Converter={StaticResource Equals}, ConverterParameter=45}" />
-                            </StackPanel>
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Text="Session break" Style="{StaticResource Title}" />
-                            <TextBlock Text="Coming back to an app within this time continues the same session (e.g. a quick Discord check mid-game)." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>

@@ -76,8 +76,8 @@ public static class InsightEngine
                 $"GPU peaked at {Units.TempShort(gpu.Value)}{hot} at {gpu.Time:h:mm tt}{Using(gpu.App)}.", ToneFor(gpu.Value, 75, 85)));
         }
 
-        // Which app runs the hardware hottest on average.
-        var ranked = r.Apps.Where(a => a.ActiveSec >= MinUseForRanking).ToList();
+        // Which app runs the hardware hottest on average (not Windows parts or Rigsight itself).
+        var ranked = r.Apps.Where(a => a.ActiveSec >= MinUseForRanking && a.Category != AppCategory.System).ToList();
         var hottestGpu = ranked.Where(a => a.GpuTempAvg is not null).MaxBy(a => a.GpuTempAvg);
         var hottestCpu = ranked.Where(a => a.CpuTempAvg is not null).MaxBy(a => a.CpuTempAvg);
         if (hottestGpu is not null && ranked.Count > 1)

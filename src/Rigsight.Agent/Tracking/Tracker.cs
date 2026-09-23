@@ -13,6 +13,12 @@ namespace Rigsight.Agent.Tracking;
 /// </summary>
 internal sealed class Tracker(RigsightDb db, AppResolver apps)
 {
+    /// <summary>
+    /// Coming back to an app within this time continues the same session, so alt-tabbing to Discord
+    /// mid-match doesn't split one game into many sessions. The other app gets its own session either way.
+    /// </summary>
+    private const int SessionBreakSeconds = 10 * 60;
+
     private sealed class MinuteAcc
     {
         public double Seconds, Active, Idle;
@@ -57,7 +63,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     public ActivityInfo Activity { get; private set; } = new();
 
-    /// <summary>Raised (on the sampler thread) when a session long enough to keep has ended.</summary>
+    /// <summary>Raised (on the sampler thread) when a session has ended.</summary>
     public event Action<SessionRow, AppInfo>? SessionEnded;
 
     public void SetSettings(RigsightSettings settings) => _settings = settings;
@@ -242,7 +248,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         // Resource use of apps that matter (windowed, memory-heavy or busy).
         foreach (var usage in snapshot.Apps.Values)
         {
-            if (!usage.Exe.Contains('.') || Excluded(usage.Exe) || usage.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!usage.Exe.Contains('.') || Excluded(usage.Exe) || usage.Exe.Equals(RigsightPaths.AgentExe, StringComparison.OrdinalIgnoreCase)) continue;
             bool interesting = windows.ContainsKey(usage.Exe) || usage.MemMB >= 150 || usage.Cpu >= 2;
             if (!interesting) continue;
 
@@ -304,7 +310,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
             foreach (var session in _sessions.Values.ToList())
             {
-                if (!closeAllSessions && now - session.LastActive <= _settings.Tracking.SessionGapMinutes * 60) continue;
+                if (!closeAllSessions && now - session.LastActive <= SessionBreakSeconds) continue;
                 CloseSession(session);
             }
 
@@ -329,11 +335,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
             _today = new TodayState { Day = DateTime.Today };
     }
 
-    /// <summary>Ends a session: saves it if it was long enough and tells listeners (for the summary notification).</summary>
+    /// <summary>Ends a session: saves it (however short) and tells listeners (for the summary notification).</summary>
     private void CloseSession(Session session)
     {
         _sessions.Remove(session.App.Id);
-        if (session.ActiveSec < _settings.Tracking.MinSessionMinutes * 60) return;
+        if (session.ActiveSec <= 0) return;
 
         var row = new SessionRow
         {

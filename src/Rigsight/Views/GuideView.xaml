@@ -33,7 +33,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,40" MaxWidth="980" HorizontalAlignment="Left">
-            <TextBlock Text="How Rigsight works" Style="{StaticResource H1}" />
+            <TextBlock Text="Guide" Style="{StaticResource H1}" />
             <TextBlock Style="{StaticResource P}" Margin="0,6,0,18"
                        Text="Rigsight quietly keeps track of your PC through the day — which apps you use, how hard they push your hardware, and anything that goes wrong — then turns it into simple reports. Here's exactly what it does and doesn't do." />
 
@@ -105,7 +105,7 @@
                             <StackPanel>
                                 <TextBlock Text="YOUR CONTROL" Style="{StaticResource Caption}" Foreground="{StaticResource PurpleBrush}" Margin="0,0,0,6" />
                                 <TextBlock Style="{StaticResource F}" Text="• Alert limits, quiet while gaming, notification style and previews" />
-                                <TextBlock Style="{StaticResource F}" Text="• Tracking sensitivity: away time, sampling, session length" />
+                                <TextBlock Style="{StaticResource F}" Text="• Tracking sensitivity: away time and sampling speed" />
                                 <TextBlock Style="{StaticResource F}" Text="• Privacy: excluded apps, pause, data retention, clear history" />
                                 <TextBlock Style="{StaticResource F}" Text="• Export to CSV, °C/°F, start with Windows" />
                             </StackPanel>

@@ -1,7 +1,8 @@
 <UserControl x:Class="Rigsight.Views.SensorsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctl="clr-namespace:Rigsight.Controls">
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:m="clr-namespace:Rigsight.Models">
     <UserControl.Resources>
         <Style x:Key="ColHeader" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -75,109 +76,126 @@
             </Border>
         </DockPanel>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding Hardware}" Margin="0,0,0,32">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,16" Padding="20,16"
-                                Visibility="{Binding HasVisibleSensors, Converter={StaticResource Vis}}">
-                            <StackPanel>
-                                <!-- Clickable header: collapses/expands the group -->
-                                <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,0" Padding="8,6" CornerRadius="10"
-                                        MouseLeftButtonUp="Header_Click" ToolTip="Click to collapse or expand">
-                                    <DockPanel>
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" />
-                                        <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,12,0" />
-                                        <Border Style="{StaticResource Badge}" Background="{StaticResource AccentSoftBrush}">
-                                            <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{StaticResource AccentBrush}" />
-                                        </Border>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,0" />
-                                    </DockPanel>
+        <!-- One flat, virtualized list: only the rows on screen are built, the rest as you scroll.
+             Each card is a header item, its sensor rows, and an end item, drawn so they join up. -->
+        <ItemsControl ItemsSource="{Binding SensorRows}"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
+            <ItemsControl.Template>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer CanContentScroll="True" Focusable="False"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsPresenter Margin="0,0,0,32" />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </ItemsControl.Template>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.Resources>
+                <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
+                <DataTemplate DataType="{x:Type m:HardwareNode}">
+                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                            BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
+                        <StackPanel>
+                            <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,0" Padding="8,6" CornerRadius="10"
+                                    MouseLeftButtonUp="Header_Click" ToolTip="Click to collapse or expand">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,12,0" />
+                                    <Border Style="{StaticResource Badge}" Background="{StaticResource AccentSoftBrush}">
+                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{StaticResource AccentBrush}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                                </DockPanel>
+                            </Border>
+                            <Grid x:Name="Columns" Margin="0,14,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="*" MinWidth="160" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="40" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
+                                <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+                                <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
+                                <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" />
+                                <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" />
+                                <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                            <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                            <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+
+                <!-- Card bottom -->
+                <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
+                    <Border Height="16" Margin="0,0,0,16" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                            BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
+                </DataTemplate>
+
+                <!-- One sensor -->
+                <DataTemplate DataType="{x:Type m:SensorItem}">
+                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                            BorderThickness="1,0,1,0" Padding="20,0">
+                        <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="*" MinWidth="160" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="40" />
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource Badge}" Background="{StaticResource Surface2Brush}"
+                                        HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
+                                    <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
+                                               Foreground="{StaticResource FaintBrush}" />
                                 </Border>
-
-                                <StackPanel Margin="0,10,0,0" Visibility="{Binding IsExpanded, Converter={StaticResource Vis}}">
-                                <!-- Column headers -->
-                                <Grid Margin="0,4,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="*" MinWidth="160" />
-                                        <ColumnDefinition Width="130" />
-                                        <ColumnDefinition Width="110" />
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="40" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
-                                    <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
-                                    <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" />
-                                </Grid>
-
-                                <ItemsControl ItemsSource="{Binding Sensors}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent"
-                                                    Visibility="{Binding IsShown, Converter={StaticResource Vis}}">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="64" />
-                                                        <ColumnDefinition Width="*" MinWidth="160" />
-                                                        <ColumnDefinition Width="130" />
-                                                        <ColumnDefinition Width="110" />
-                                                        <ColumnDefinition Width="100" />
-                                                        <ColumnDefinition Width="100" />
-                                                        <ColumnDefinition Width="100" />
-                                                        <ColumnDefinition Width="40" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Style="{StaticResource Badge}" Background="{StaticResource Surface2Brush}"
-                                                            HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
-                                                        <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
-                                                                   Foreground="{StaticResource FaintBrush}" />
-                                                    </Border>
-                                                    <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
-                                                             Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
-                                                             ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
-                                                    <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
-                                                                   Source="{Binding History}" Version="{Binding Version}"
-                                                                   Stroke="{StaticResource AccentBrush}" />
-                                                    <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" Style="{StaticResource Num}"
-                                                               Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
-                                                    <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
-                                                    <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
-                                                    <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
-                                                    <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
-                                                            Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
-                                                        <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
-                                                    </Button>
-                                                </Grid>
-                                            </Border>
-                                            <DataTemplate.Triggers>
-                                                <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Row" Property="Background" Value="{StaticResource Surface2Brush}" />
-                                                </Trigger>
-                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                    <Setter TargetName="Row" Property="Opacity" Value="0.45" />
-                                                    <Setter TargetName="EyeGlyph" Property="Text" Value="&#xED1A;" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                </StackPanel>
-                            </StackPanel>
+                                <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
+                                         Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
+                                         ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
+                                <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
+                                               Source="{Binding History}" Version="{Binding Version}"
+                                               Stroke="{StaticResource AccentBrush}" />
+                                <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" Style="{StaticResource Num}"
+                                           Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
+                                <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
+                                <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
+                                <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
+                                        Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
+                                    <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
+                                </Button>
+                            </Grid>
                         </Border>
-                        <DataTemplate.Triggers>
-                            <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
-                            </DataTrigger>
-                        </DataTemplate.Triggers>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Surface2Brush}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="EyeGlyph" Property="Text" Value="&#xED1A;" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ItemsControl.Resources>
+        </ItemsControl>
     </DockPanel>
 </UserControl>

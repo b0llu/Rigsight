@@ -13,11 +13,11 @@ internal sealed class ActivityMonitor
     // The desktop and taskbar belong to explorer.exe, but looking at them isn't "using File Explorer".
     private static readonly HashSet<string> ShellClasses = ["WorkerW", "Progman", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOverflowWindow", "TopLevelWindowForOverflowXamlIsland"];
 
-    /// <summary>Parts of Windows (and Rigsight itself) that are never counted as an app you're using.</summary>
+    /// <summary>Parts of Windows (and the windowless Rigsight agent) that are never counted as an app you're using.</summary>
     private static readonly HashSet<string> NotApps = new(StringComparer.OrdinalIgnoreCase)
     {
         "SearchHost.exe", "SearchApp.exe", "StartMenuExperienceHost.exe", "ShellExperienceHost.exe", "ShellHost.exe",
-        "TextInputHost.exe", "LockApp.exe", "Rigsight.exe", "Rigsight.Agent.exe",
+        "TextInputHost.exe", "LockApp.exe", "Rigsight.Agent.exe",
     };
     private Dictionary<int, string> _pidToExe = [];
 

@@ -35,6 +35,9 @@ public sealed partial class LiveData : ObservableObject
 
     public ObservableCollection<HardwareNode> Hardware { get; } = [];
 
+    /// <summary>What the All sensors page lists: per card, a header, the rows that pass the filters, and an end marker.</summary>
+    [ObservableProperty] private List<object> _sensorRows = [];
+
     [ObservableProperty] private bool _hasHardware;
     [ObservableProperty] private long _tick;
 
@@ -359,8 +362,21 @@ public sealed partial class LiveData : ObservableObject
             }
             node.HasVisibleSensors = any;
             int hidden = node.Sensors.Count(s => s.IsHidden);
-            node.Summary = $"{node.Sensors.Count} sensors" + (hidden > 0 ? $"  ·  {hidden} hidden" : "");
+            node.Summary = (node.Sensors.Count == 1 ? "1 sensor" : $"{node.Sensors.Count} sensors") + (hidden > 0 ? $"  ·  {hidden} hidden" : "");
         }
+        RebuildRows();
+    }
+
+    private void RebuildRows()
+    {
+        var rows = new List<object>(_flat.Count + Hardware.Count * 2);
+        foreach (var node in Hardware.Where(n => n.HasVisibleSensors))
+        {
+            rows.Add(node);
+            if (node.IsExpanded) rows.AddRange(node.Sensors.Where(s => s.IsShown));
+            rows.Add(node.End);
+        }
+        SensorRows = rows;
     }
 
     [RelayCommand]
@@ -369,6 +385,7 @@ public sealed partial class LiveData : ObservableObject
         if (node is null) return;
         node.IsExpanded = !node.IsExpanded;
         SaveCollapsed();
+        RebuildRows();
     }
 
     [RelayCommand]
@@ -377,6 +394,7 @@ public sealed partial class LiveData : ObservableObject
         bool value = expand == "True";
         foreach (var n in Hardware) n.IsExpanded = value;
         SaveCollapsed();
+        RebuildRows();
     }
 
     private void SaveCollapsed() =>

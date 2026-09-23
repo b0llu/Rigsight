@@ -257,15 +257,6 @@ internal sealed class AgentContext : ApplicationContext
             Today = _tracker.Today(),
         };
 
-        var (metricValue, isTemp) = settings.Tray.Metric switch
-        {
-            TrayMetric.GpuTemp => (k.GpuTemp, true),
-            TrayMetric.CpuLoad => (k.CpuLoad, false),
-            TrayMetric.GpuLoad => (k.GpuLoad, false),
-            TrayMetric.Logo => (null, false),
-            _ => (k.CpuTemp, true),
-        };
-
         var tip = $"Rigsight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
         if (activity.Paused) tip += "\nTracking paused";
         else if (activity.Name is not null && activity.SessionActiveSec > 0) tip += $"\n{activity.Name}  ·  {Units.Duration(activity.SessionActiveSec)}";
@@ -283,7 +274,7 @@ internal sealed class AgentContext : ApplicationContext
         _ui.Post(_ =>
         {
             long t0 = Stopwatch.GetTimestamp();
-            _tray.Update(settings.Tray.Metric, metricValue, isTemp, tip, health);
+            _tray.Update(tip, health);
             _widgets.Update(data, otherFullscreen);
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
