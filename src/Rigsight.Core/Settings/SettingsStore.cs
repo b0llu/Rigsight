@@ -81,6 +81,18 @@ public static class SettingsStore
             if (string.IsNullOrWhiteSpace(page.Id)) page.Id = CustomPageConfig.NewId();
             if (string.IsNullOrWhiteSpace(page.Name)) page.Name = "My page";
             page.Tiles = [.. page.Tiles.Where(tile => !string.IsNullOrEmpty(tile.Kind)).DistinctBy(tile => tile.Id)];
+            if (page.Grid < CustomPageConfig.CurrentGrid)
+            {
+                // 4 columns → 12, and each row → two half-height rows: same look, finer resizing.
+                foreach (var tile in page.Tiles)
+                {
+                    tile.X *= 3;
+                    tile.W *= 3;
+                    tile.Y *= 2;
+                    tile.H *= 2;
+                }
+                page.Grid = CustomPageConfig.CurrentGrid;
+            }
             foreach (var tile in page.Tiles)
             {
                 tile.W = Math.Clamp(tile.W, 1, TileConfig.Columns);

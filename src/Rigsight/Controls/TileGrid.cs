@@ -13,9 +13,9 @@ namespace Rigsight.Controls;
 public sealed class TileGrid : Panel
 {
     public static readonly DependencyProperty ColumnsProperty = DependencyProperty.Register(nameof(Columns), typeof(int), typeof(TileGrid),
-        new FrameworkPropertyMetadata(4, FrameworkPropertyMetadataOptions.AffectsMeasure));
+        new FrameworkPropertyMetadata(Core.Settings.TileConfig.Columns, FrameworkPropertyMetadataOptions.AffectsMeasure));
     public static readonly DependencyProperty RowHeightProperty = DependencyProperty.Register(nameof(RowHeight), typeof(double), typeof(TileGrid),
-        new FrameworkPropertyMetadata(128.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+        new FrameworkPropertyMetadata(56.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
     public static readonly DependencyProperty GapProperty = DependencyProperty.Register(nameof(Gap), typeof(double), typeof(TileGrid),
         new FrameworkPropertyMetadata(16.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
@@ -28,7 +28,15 @@ public sealed class TileGrid : Panel
 
     public double CellWidth { get; private set; }
 
-    private double ColumnWidth(double width) => Math.Max(40, (width - Gap * (Columns - 1)) / Columns);
+    private double ColumnWidth(double width) => Math.Max(10, (width - Gap * (Columns - 1)) / Columns);
+
+    /// <summary>
+    /// How many cells a tile at (<paramref name="x"/>, <paramref name="y"/>) spans if its right/bottom
+    /// edge is dragged to <paramref name="edge"/>: rounds to the nearest cell boundary.
+    /// </summary>
+    public (int W, int H) SpanTo(int x, int y, Point edge) =>
+        ((int)Math.Round((edge.X - x * (CellWidth + Gap) + Gap) / (CellWidth + Gap)),
+         (int)Math.Round((edge.Y - y * (RowHeight + Gap) + Gap) / (RowHeight + Gap)));
 
     private Rect Slot(TileViewModel t) => new(
         t.X * (CellWidth + Gap), t.Y * (RowHeight + Gap),

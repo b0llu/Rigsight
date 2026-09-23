@@ -108,15 +108,45 @@ public partial class CustomPageView : UserControl
         return false;
     }
 
-    // ── Tile size menu ────────────────────────────────────────────────────
+    // ── Resizing tiles (drag an edge or the corner) ───────────────────────
 
-    private void Size_Click(object sender, RoutedEventArgs e)
+    private FrameworkElement? _grip;
+    private TileViewModel? _resizing;
+    private string _gripMode = "";
+
+    private void Resize_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not FrameworkElement button || button.DataContext is not TileViewModel tile) return;
-        var menu = new ContextMenu { PlacementTarget = button, Placement = PlacementMode.Bottom };
-        foreach (var option in tile.SizeOptions)
-            menu.Items.Add(new MenuItem { Header = option.Label, Command = option.Apply, IsEnabled = !option.IsCurrent });
-        menu.IsOpen = true;
+        if (_page is not { IsEditing: true } || _grid is null) return;
+        if (sender is not FrameworkElement grip || grip.DataContext is not TileViewModel { IsPlaceholder: false } tile) return;
+        _grip = grip;
+        _resizing = tile;
+        _gripMode = grip.Tag as string ?? "RB";
+        _page.BeginResize(tile);
+        grip.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void Resize_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_resizing is null || _grid is null || _page is null || e.LeftButton != MouseButtonState.Pressed) return;
+        var (w, h) = _grid.SpanTo(_resizing.X, _resizing.Y, e.GetPosition(_grid));
+        _page.ResizeTo(_gripMode.Contains('R') ? w : _resizing.W, _gripMode.Contains('B') ? h : _resizing.H);
+        AutoScroll(e.GetPosition(PageScroll));
+    }
+
+    private void Resize_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_resizing is null) return;
+        e.Handled = true;
+        _grip?.ReleaseMouseCapture(); // finishes via LostMouseCapture
+    }
+
+    private void Resize_LostCapture(object sender, MouseEventArgs e)
+    {
+        if (_resizing is null) return;
+        _page?.EndResize();
+        _resizing = null;
+        _grip = null;
     }
 
     // ── Page name ─────────────────────────────────────────────────────────

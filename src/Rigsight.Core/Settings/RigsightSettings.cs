@@ -38,6 +38,9 @@ public sealed class RigsightSettings
     /// <summary>Pages the user built from tiles.</summary>
     public List<CustomPageConfig> CustomPages { get; set; } = [];
 
+    /// <summary>The page the app opens on: "home", another page's key, or "custom:&lt;id&gt;".</summary>
+    public string StartPage { get; set; } = "home";
+
     /// <summary>Set once the agent has registered itself to start with Windows (so turning it off sticks).</summary>
     public bool StartupConfigured { get; set; }
 

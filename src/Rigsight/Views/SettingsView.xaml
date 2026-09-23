@@ -43,6 +43,14 @@
                         <TextBlock Text="Temperature unit" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
+                        <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
+                                  DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />
+                        <StackPanel>
+                            <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" />
+                            <TextBlock Text="The page you see when you open the app. You can also star one of your own pages." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="0.5 s"

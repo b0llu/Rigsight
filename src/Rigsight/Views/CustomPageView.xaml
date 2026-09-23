@@ -31,6 +31,7 @@
 
         <!-- ── The frame around every tile ────────────────────────────── -->
         <DataTemplate x:Key="Tile.Frame">
+            <Grid>
             <Border x:Name="Frame" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
                     CornerRadius="16" Padding="16,10,12,14" ClipToBounds="True"
                     PreviewMouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove"
@@ -38,9 +39,6 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" MinHeight="26">
                         <StackPanel x:Name="EditButtons" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed">
-                            <Button Style="{StaticResource IconButton}" Click="Size_Click" ToolTip="Change size" AutomationProperties.Name="Change size">
-                                <TextBlock Text="&#xE740;" />
-                            </Button>
                             <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" ToolTip="Remove tile" AutomationProperties.Name="Remove tile">
                                 <TextBlock Text="&#xE711;" />
                             </Button>
@@ -50,9 +48,25 @@
                     <ContentControl x:Name="Body" Content="{Binding}" ContentTemplateSelector="{StaticResource TileContentSelector}" Focusable="False" />
                 </DockPanel>
             </Border>
+            <!-- Resize handles (edit mode): drag the right edge, bottom edge or corner. Sizes snap to whole cells. -->
+            <Border x:Name="RightGrip" Tag="R" Width="12" HorizontalAlignment="Right" Margin="0,18,-6,18" Background="Transparent"
+                    Cursor="SizeWE" Visibility="Collapsed" ToolTip="Drag to resize"
+                    MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture" />
+            <Border x:Name="BottomGrip" Tag="B" Height="12" VerticalAlignment="Bottom" Margin="18,0,18,-6" Background="Transparent"
+                    Cursor="SizeNS" Visibility="Collapsed" ToolTip="Drag to resize"
+                    MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture" />
+            <Border x:Name="CornerGrip" Tag="RB" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4"
+                    Background="Transparent" Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="Drag to resize"
+                    MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture">
+                <Path Data="M 15,6 L 6,15 M 15,11 L 11,15" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            </Border>
+            </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Page.IsEditing}" Value="True">
                     <Setter TargetName="EditButtons" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="RightGrip" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="BottomGrip" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="CornerGrip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Frame" Property="Cursor" Value="SizeAll" />
                     <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FaintBrush}" />
                     <!-- While editing, clicks anywhere on a tile grab it (except its buttons). -->
@@ -313,6 +327,46 @@
         <!-- Header -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <!-- Open the app on this page -->
+                <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="Start page">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="ToolTip" Value="Open Rigsight on this page instead of Home" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsStartPage}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                    <Setter Property="ToolTip" Value="Rigsight opens on this page. Click to open on Home again." />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="12" Margin="0,0,8,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                    <Setter Property="Text" Value="&#xE734;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStartPage}" Value="True">
+                                            <Setter Property="Text" Value="&#xE735;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Set as start page" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStartPage}" Value="True">
+                                            <Setter Property="Text" Value="Start page" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
                 <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete page" Margin="0,0,8,0"
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
@@ -373,7 +427,7 @@
                             <Setter Property="Text" Value="Your own page. Choose Edit page to add, move and resize tiles." />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                    <Setter Property="Text" Value="Drag tiles to move them. Use a tile's buttons to resize or remove it. Click a name to rename the page." />
+                                    <Setter Property="Text" Value="Drag a tile to move it; drag its edges or corner to resize it. Click the page name to rename it." />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

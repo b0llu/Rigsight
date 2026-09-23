@@ -28,6 +28,15 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
 
+    /// <summary>Supplied by the shell: the user's own pages, which can also be the start page.</summary>
+    public Func<IEnumerable<PageOption>>? GetCustomPages { get; set; }
+    public List<PageOption> StartPageOptions => [.. ShellViewModel.BuiltInPages, .. GetCustomPages?.Invoke() ?? []];
+    public string StartPage
+    {
+        get => S.StartPage;
+        set { if (value is not null) Set(s => s.StartPage = value); }
+    }
+
     // ── Tracking ──────────────────────────────────────────────────────────
     public bool TrackingEnabled { get => S.Tracking.Enabled; set => Set(s => s.Tracking.Enabled = value); }
     public int SensorIntervalMs { get => S.Tracking.SensorIntervalMs; set => Set(s => s.Tracking.SensorIntervalMs = value); }

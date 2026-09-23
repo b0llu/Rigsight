@@ -82,11 +82,8 @@ public sealed partial class TileViewModel : ObservableObject
 
     private static Brush Res(string key) => Application.Current.TryFindResource(key) as Brush ?? Brushes.SteelBlue;
 
-    /// <summary>Sizes this tile can take (big gauges and lists have a minimum).</summary>
-    public IReadOnlyList<TileSizeOption> SizeOptions => TileCatalog.Sizes
-        .Where(s => s.W >= (Definition?.MinW ?? 1) && s.H >= (Definition?.MinH ?? 1))
-        .Select(s => new TileSizeOption(s, s.W == W && s.H == H, new RelayCommand(() => Page.Resize(this, s.W, s.H))))
-        .ToList();
+    public int MinW => Definition?.MinW ?? 1;
+    public int MinH => Definition?.MinH ?? 1;
 
     [RelayCommand]
     private void Remove() => Page.Remove(this);
@@ -100,9 +97,4 @@ public sealed partial class TileViewModel : ObservableObject
     }
 
     public TileConfig ToConfig() => new() { Id = Id, Kind = Kind, Sensor = SensorRef, X = X, Y = Y, W = W, H = H };
-}
-
-public sealed record TileSizeOption(TileSize Size, bool IsCurrent, IRelayCommand Apply)
-{
-    public string Label => IsCurrent ? $"{Size.Label}  ✓" : Size.Label;
 }

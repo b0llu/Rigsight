@@ -31,6 +31,17 @@ public sealed partial class CustomPageViewModel : ObservableObject
         Crashes = crashes;
         foreach (var t in config.Tiles) Tiles.Add(new TileViewModel(t, this));
         Live.SensorsRebuilt += () => { foreach (var t in Tiles) t.ResolveSensor(); };
+        settings.Changed += () => OnPropertyChanged(nameof(IsStartPage));
+    }
+
+    /// <summary>Whether the app opens on this page.</summary>
+    public bool IsStartPage => _settings.Current.StartPage == NavKey;
+
+    [RelayCommand]
+    private void ToggleStartPage()
+    {
+        bool make = !IsStartPage;
+        _settings.Update(s => s.StartPage = make ? NavKey : "home");
     }
 
     public string Id { get; }
@@ -84,7 +95,8 @@ public sealed partial class CustomPageViewModel : ObservableObject
     private void AddSensorTile()
     {
         if (SensorToAdd is null) return;
-        Add("sensor", SensorToAdd.Id, 1, 1);
+        var single = TileCatalog.Find("sensor");
+        Add("sensor", SensorToAdd.Id, single.W, single.H);
         SensorToAdd = null;
     }
 
@@ -114,12 +126,34 @@ public sealed partial class CustomPageViewModel : ObservableObject
         Save();
     }
 
-    public void Resize(TileViewModel tile, int w, int h)
+    // ── Resizing (by dragging a tile's edge or corner) ────────────────────
+
+    private TileViewModel? _resized;
+
+    public void BeginResize(TileViewModel tile)
     {
+        _resized = tile;
+        _dragHome = Tiles.ToDictionary(t => t, t => (t.X, t.Y));
+    }
+
+    /// <summary>The edge is over this many cells: resize (within the tile's limits) and let the others move.</summary>
+    public void ResizeTo(int w, int h)
+    {
+        if (_resized is not { } tile) return;
+        w = Math.Clamp(w, tile.MinW, TileConfig.Columns - tile.X);
+        h = Math.Clamp(h, tile.MinH, TileConfig.MaxHeight);
+        if (w == tile.W && h == tile.H) return;
         tile.W = w;
         tile.H = h;
-        TileLayout.Flow(Tiles, tile);
+        TileLayout.Flow(Tiles, tile, _dragHome);
         LayoutChanged?.Invoke();
+    }
+
+    public void EndResize()
+    {
+        if (_resized is null) return;
+        _resized = null;
+        _dragHome = null;
         Save();
     }
 
@@ -170,11 +204,12 @@ public sealed partial class CustomPageViewModel : ObservableObject
             var page = s.CustomPages.FirstOrDefault(p => p.Id == Id);
             if (page is null)
             {
-                page = new CustomPageConfig { Id = Id };
+                page = new CustomPageConfig { Id = Id, Grid = CustomPageConfig.CurrentGrid };
                 s.CustomPages.Add(page);
             }
             page.Name = string.IsNullOrWhiteSpace(Name) ? "My page" : Name.Trim();
             page.Tiles = tiles;
+            page.Grid = CustomPageConfig.CurrentGrid; // the tiles above are measured in the current grid
         });
     }
 }

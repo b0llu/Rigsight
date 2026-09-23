@@ -5,6 +5,13 @@ public sealed class CustomPageConfig
 {
     public string Id { get; set; } = NewId();
     public string Name { get; set; } = "My page";
+
+    /// <summary>
+    /// Grid the tiles are measured in: 1 = the first version (4 columns), 2 = 12 columns with half-height
+    /// rows. Pages saved before this field existed read as 1 and are converted on load.
+    /// </summary>
+    public int Grid { get; set; } = 1;
+    public const int CurrentGrid = 2;
     public List<TileConfig> Tiles { get; set; } = [];
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..10];
@@ -16,8 +23,8 @@ public sealed class CustomPageConfig
 /// </summary>
 public sealed class TileConfig
 {
-    public const int Columns = 4;
-    public const int MaxHeight = 4;
+    public const int Columns = 12;
+    public const int MaxHeight = 16;
 
     public string Id { get; set; } = CustomPageConfig.NewId();
 

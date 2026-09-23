@@ -32,6 +32,12 @@ public sealed partial class ShellViewModel : ObservableObject
         Widgets = new WidgetsViewModel(Settings, client);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
+        SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
+
+        // Open on the page the user picked (if it still exists).
+        var start = Settings.Current.StartPage;
+        if (BuiltInPages.Any(p => p.Key == start) || FindCustomPage(start) is not null) _currentPage = start;
+        foreach (var page in CustomPages) page.IsSelected = page.NavKey == _currentPage;
 
         Settings.Changed += () =>
         {
@@ -89,7 +95,7 @@ public sealed partial class ShellViewModel : ObservableObject
         string name = "My page";
         for (int i = 2; names.Contains(name); i++) name = $"My page {i}";
 
-        var page = CreateCustomPage(new CustomPageConfig { Name = name });
+        var page = CreateCustomPage(new CustomPageConfig { Name = name, Grid = CustomPageConfig.CurrentGrid });
         CustomPages.Add(page);
         page.AddStarterTiles();
         page.IsEditing = true;
@@ -102,13 +108,24 @@ public sealed partial class ShellViewModel : ObservableObject
             "Delete page", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
 
-        Settings.Update(s => s.CustomPages.RemoveAll(p => p.Id == page.Id));
+        Settings.Update(s =>
+        {
+            s.CustomPages.RemoveAll(p => p.Id == page.Id);
+            if (s.StartPage == page.NavKey) s.StartPage = "home";
+        });
         CustomPages.Remove(page);
         if (CurrentPage == page.NavKey) CurrentPage = "home";
         CustomPageDeleted?.Invoke(page.NavKey);
     }
 
     [ObservableProperty] private string _currentPage = "home";
+
+    /// <summary>Pages that can be chosen as the start page (besides custom pages).</summary>
+    public static readonly IReadOnlyList<PageOption> BuiltInPages =
+    [
+        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"),
+        new("temperatures", "Temperatures"), new("memory", "Memory"), new("storage", "Storage"), new("sensors", "All sensors"),
+    ];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText))]
@@ -267,3 +284,5 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 }
+
+public sealed record PageOption(string Key, string Name);
