@@ -84,7 +84,20 @@ public sealed partial class SensorItem : ObservableObject
     public void Seed(long[] times, float?[] values)
     {
         for (int i = 0; i < times.Length && i < values.Length; i++)
-            History.Add(times[i], values[i] is float f ? f : double.NaN);
+            AddSample(times[i], values[i] is float f ? f : double.NaN);
+    }
+
+    /// <summary>
+    /// Readings come every second or two (drives every few minutes); a longer silence means the PC slept or
+    /// the agent wasn't running. A break is recorded there, so charts show a gap instead of a straight line.
+    /// </summary>
+    private long GapMs => HardwareType == "Storage" ? 7 * 60_000 : 15_000;
+
+    private void AddSample(long timeMs, double value)
+    {
+        long last = History.LastTime;
+        if (History.Count > 0 && timeMs - last > GapMs) History.Add(last + 1, double.NaN);
+        History.Add(timeMs, value);
     }
 
     public void Push(long timeMs, float? raw)
@@ -92,7 +105,7 @@ public sealed partial class SensorItem : ObservableObject
         double? v = raw is float f && float.IsFinite(f) ? f : null;
         if (Kind == SensorKind.Temperature && v <= 0) v = null;
 
-        History.Add(timeMs, v ?? double.NaN);
+        AddSample(timeMs, v ?? double.NaN);
         Value = v;
         if (v is double d)
         {
@@ -120,14 +133,6 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedMin));
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(MinMaxText));
-    }
-
-    public void ResetStats()
-    {
-        Min = Max = Average = Value;
-        _sum = Value ?? 0;
-        _count = Value is null ? 0 : 1;
-        RefreshFormatting();
     }
 
     /// <summary>Re-evaluates every formatted string (e.g. after switching °C/°F).</summary>

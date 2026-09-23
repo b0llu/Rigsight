@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
@@ -32,7 +33,11 @@ internal sealed class AgentContext : ApplicationContext
     private readonly SensorHost _sensors = new();
     private readonly KeyHistory _history = new();
     private readonly DailyExtremes _extremes = new();
-    private int _clientsSeen;
+    private readonly DriveTempHistory _driveHistory = new();
+    // Set when an app connects (hello), so the next tick carries every sensor's range, not just changes.
+    private volatile bool _sendAllExtremes;
+    private readonly EventWaitHandle _quitSignal;
+    private RegisteredWaitHandle? _quitWait;
     private readonly RigsightDb _db;
     private readonly AppResolver _apps;
     private readonly Tracker _tracker;
@@ -100,7 +105,15 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);
-        _overlay.EnsureRtssRunning();
+        if (_settings.Overlay.Enabled) _overlay.EnsureRtssRunning();
+
+        // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
+        // the game session in progress), and let the installer ask for a clean stop ("--quit").
+        SystemEvents.SessionEnding += OnSessionEnding;
+        // A time zone change (e.g. travelling) must move "today" too; .NET caches the zone otherwise.
+        SystemEvents.TimeChanged += OnTimeChanged;
+        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
+        _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit(), null), null, Timeout.Infinite, executeOnlyOnce: true);
 
         // First run: register to start with Windows (the user can turn this off in Settings).
         _startupEnabled = StartupTask.IsEnabled();
@@ -146,8 +159,7 @@ internal sealed class AgentContext : ApplicationContext
 
         // Hardware discovery allocates a lot of short-lived data; hand it back once so the
         // always-running agent settles at its real (small) footprint.
-        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        CompactMemory();
 
         RecordDrives();
         RestoreExtremes();
@@ -155,6 +167,10 @@ internal sealed class AgentContext : ApplicationContext
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
         long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000;
+        // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
+        // last window closes, hand that back too.
+        bool wasLive = false;
+        long compactAt = long.MaxValue;
 
         while (!_stopping)
         {
@@ -165,6 +181,14 @@ internal sealed class AgentContext : ApplicationContext
                 long now = clock.ElapsedMilliseconds;
                 var settings = _settings;
                 bool live = _pipe.ClientCount > 0;
+                if (wasLive && !live) compactAt = now + 15_000;
+                if (live) compactAt = long.MaxValue;
+                wasLive = live;
+                if (now >= compactAt)
+                {
+                    compactAt = long.MaxValue;
+                    CompactMemory();
+                }
 
                 // Activity, every second. A long gap means the PC was asleep: don't count it.
                 double dt = (now - lastActivity) / 1000.0;
@@ -187,6 +211,7 @@ internal sealed class AgentContext : ApplicationContext
                     _tracker.OnSensors(keys);
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
+                    if (_sensors.DrivesUpdated) _driveHistory.Add(unixMs, _sensors);
 
                     var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
                     PublishToUi(keys, sample.Fullscreen, alert);
@@ -195,25 +220,21 @@ internal sealed class AgentContext : ApplicationContext
                     if (live)
                     {
                         // A newly connected app gets every range once; after that, only what changed.
-                        int clients = _pipe.ClientCount;
-                        bool full = clients > _clientsSeen;
-                        _clientsSeen = clients;
+                        bool full = _sendAllExtremes;
+                        _sendAllExtremes = false;
                         _pipe.Broadcast(new AgentMessage
                         {
                             T = "tick",
                             Time = unixMs,
                             Values = values,
                             Activity = _tracker.Activity,
-                            Today = _tracker.Today(),
+                            Today = _lastToday,
                             Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
                             ExtremesDay = _extremes.Day,
                             ExtremesFull = full,
                         });
                     }
-                    else
-                    {
-                        _clientsSeen = 0;
-                    }
+
                     int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
                     // The overlay is read mid-game: keep it to the second.
                     if (_overlayVisible) interval = Math.Min(interval, 1000);
@@ -240,7 +261,7 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     nextMinuteCheck = now + 60_000;
                     MaybeShowDailyRecap();
-                    _db.SetMeta("extremes", _extremes.Serialize());
+                    SaveExtremes();
                 }
 
                 if (now >= nextCrashScan)
@@ -266,7 +287,7 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         _tracker.Flush(closeAllSessions: true);
-        _db.SetMeta("extremes", _extremes.Serialize());
+        SaveExtremes(force: true);
         _sensors.Close();
         _db.Dispose();
     }
@@ -274,10 +295,14 @@ internal sealed class AgentContext : ApplicationContext
     /// <summary>Sampler thread: widens today's range of every sensor with this reading.</summary>
     private void ObserveExtremes(float?[] values)
     {
+        _extremes.BeginTick();
         var ids = _sensors.Ids;
         var isTemp = _sensors.IsTemperature;
         for (int i = 0; i < values.Length && i < ids.Length; i++)
         {
+            // Only sensors actually read this tick: others keep old values (hardware only read while the
+            // app is open, or the GPU while its cheaper fast path is in use), which must not count as today.
+            if (!_sensors.IsFresh(i)) continue;
             // Without driver access some temperature sensors report 0 instead of nothing.
             if (values[i] is float v && !(isTemp[i] && v <= 0)) _extremes.Observe(ids[i], v);
         }
@@ -311,6 +336,54 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    /// <summary>Sampler thread: stores today's ranges (only when they changed, unless forced).</summary>
+    private void SaveExtremes(bool force = false)
+    {
+        if (!force && !_extremes.Dirty) return;
+        _db.SetMeta("extremes", _extremes.Serialize());
+        _extremes.Dirty = false;
+    }
+
+    /// <summary>
+    /// Windows is shutting down or signing out: finish the session in progress and save today's ranges
+    /// now, on the sampler thread (which owns the database), waiting a few seconds at most.
+    /// </summary>
+    private void OnSessionEnding(object? sender, SessionEndingEventArgs e)
+    {
+        using var done = new ManualResetEventSlim();
+        RunOnSampler(() =>
+        {
+            try
+            {
+                _tracker.Flush(closeAllSessions: true);
+                SaveExtremes(force: true);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("agent", ex);
+            }
+            finally
+            {
+                done.Set();
+            }
+        });
+        done.Wait(TimeSpan.FromSeconds(3));
+        Log.Write("agent", $"Saved before Windows {(e.Reason == SessionEndReasons.SystemShutdown ? "shut down" : "signed out")}");
+    }
+
+    private static void OnTimeChanged(object? sender, EventArgs e)
+    {
+        TimeZoneInfo.ClearCachedData();
+        System.Globalization.CultureInfo.CurrentCulture.ClearCachedData();
+    }
+
+    /// <summary>Returns memory the agent no longer needs to Windows (a one-off full, compacting collection).</summary>
+    private static void CompactMemory()
+    {
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+    }
+
     private void RunOnSampler(Action work)
     {
         _samplerWork.Enqueue(work);
@@ -321,6 +394,7 @@ internal sealed class AgentContext : ApplicationContext
     {
         var settings = _settings;
         var activity = _tracker.Activity;
+        bool drawsHistory = settings.Widgets.Any(w => w.Enabled && w.Style is WidgetStyle.Compact or WidgetStyle.Graph);
         var data = new WidgetData
         {
             CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower, CpuClock = k.CpuClock,
@@ -328,8 +402,9 @@ internal sealed class AgentContext : ApplicationContext
             VramUsedMb = k.GpuVramUsed, VramTotalMb = k.GpuVramTotal,
             RamLoad = k.RamLoad, RamUsedGb = k.RamUsed,
             RamTotalGb = k.RamUsed + k.RamAvailable,
-            CpuHistory = _history.Recent(KeySensors.CpuTemp, 300_000),
-            GpuHistory = _history.Recent(KeySensors.GpuTemp, 300_000),
+            // Only the compact and graph widgets draw history lines; skip scanning it otherwise.
+            CpuHistory = drawsHistory ? _history.Recent(KeySensors.CpuTemp, 300_000) : [],
+            GpuHistory = drawsHistory ? _history.Recent(KeySensors.GpuTemp, 300_000) : [],
             Activity = activity,
             Today = _tracker.Today(),
         };
@@ -517,8 +592,9 @@ internal sealed class AgentContext : ApplicationContext
         {
             hello.Hardware = _sensors.Schema;
             hello.Keys = _sensors.Keys;
-            hello.History = _history.Snapshot();
-            hello.Drives = _sensors.DriveHealth();
+            hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
+            hello.Drives = _sensors.DriveHealth;
+            _sendAllExtremes = true;
         }
         _pendingPage = _pendingArg = null;
         return hello;
@@ -526,13 +602,18 @@ internal sealed class AgentContext : ApplicationContext
 
     private void OnUiMessage(UiMessage msg)
     {
-        if (msg.T == "settings" && msg.Settings is { } incoming)
+        if (msg.T == "settings" && msg.Settings is not null)
         {
+            // Through the store, so the app's copy gets the same repairs and limits as a file on disk
+            // (case-insensitive app lookups, clamped intervals, a valid shortcut...).
+            var incoming = SettingsStore.Deserialize(SettingsStore.Serialize(msg.Settings));
             MutateSettings(s =>
             {
-                // Fields the agent owns are kept from the agent's copy.
+                // Fields the agent owns are kept from the agent's copy (pausing goes through commands,
+                // so a tray "Pause" is never undone by the app sending settings it had before).
                 incoming.StartupConfigured = s.StartupConfigured;
                 incoming.LastRecapDay = s.LastRecapDay;
+                incoming.Tracking.PausedUntil = s.Tracking.PausedUntil;
                 foreach (var w in incoming.Widgets)
                 {
                     var mine = s.Widgets.FirstOrDefault(x => x.Style == w.Style);
@@ -712,6 +793,10 @@ internal sealed class AgentContext : ApplicationContext
 
     private void Quit()
     {
+        if (_stopping) return;
+        SystemEvents.SessionEnding -= OnSessionEnding;
+        SystemEvents.TimeChanged -= OnTimeChanged;
+        _quitWait?.Unregister(null);
         _stopping = true;
         _wake.Set();
         _sampler.Join(5000);

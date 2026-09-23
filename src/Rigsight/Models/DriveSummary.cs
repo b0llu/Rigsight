@@ -6,14 +6,25 @@ using Rigsight.Core.Protocol;
 namespace Rigsight.Models;
 
 /// <summary>Summary of one physical drive (from its SMART sensors and the agent's health check).</summary>
-public sealed partial class DriveSummary(string name, SensorItem? temperature, SensorItem? life, SensorItem? usedSpace, SensorItem? powerOnHours)
-    : ObservableObject
+public sealed partial class DriveSummary : ObservableObject
 {
-    public string Name { get; } = name;
-    public SensorItem? Temperature { get; } = temperature;
-    public SensorItem? Life { get; } = life;
-    public SensorItem? UsedSpace { get; } = usedSpace;
-    public SensorItem? PowerOnHours { get; } = powerOnHours;
+    public DriveSummary(string name, SensorItem? temperature, SensorItem? life, SensorItem? usedSpace, SensorItem? powerOnHours)
+    {
+        Name = name;
+        Temperature = temperature;
+        Life = life;
+        UsedSpace = usedSpace;
+        PowerOnHours = powerOnHours;
+        // The SSD's wear arrives with the readings, after this summary is made: follow it.
+        if (life is not null)
+            life.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(SensorItem.ShortValue) or "" or null) OnPropertyChanged(nameof(HealthText)); };
+    }
+
+    public string Name { get; }
+    public SensorItem? Temperature { get; }
+    public SensorItem? Life { get; }
+    public SensorItem? UsedSpace { get; }
+    public SensorItem? PowerOnHours { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasHealth), nameof(HealthText), nameof(HealthBrush), nameof(SectorsText), nameof(HealthToolTip))]

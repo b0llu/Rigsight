@@ -60,7 +60,7 @@
                                 <TextBlock Text="YOUR DAY" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6" />
                                 <TextBlock Style="{StaticResource F}" Text="• Home: today so far, highlights and yesterday's recap" />
                                 <TextBlock Style="{StaticResource F}" Text="• Reports: day, week and month, with a minute-by-minute timeline" />
-                                <TextBlock Style="{StaticResource F}" Text="• Time per app: in use, in the background, minimized, away" />
+                                <TextBlock Style="{StaticResource F}" Text="• Time per app: in use, in the background, minimized (plus your total time away)" />
                                 <TextBlock Style="{StaticResource F}" Text="• Sessions and automatic game detection" />
                                 <TextBlock Style="{StaticResource F}" Text="• Plain-language insights and comparisons with previous days" />
                             </StackPanel>
@@ -68,9 +68,9 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="APPS" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6" />
-                                <TextBlock Style="{StaticResource F}" Text="• Which app ran your CPU and GPU hottest, with peaks and voltages" />
+                                <TextBlock Style="{StaticResource F}" Text="• Which app ran your CPU and GPU hottest, with averages and peaks" />
                                 <TextBlock Style="{StaticResource F}" Text="• Per-app memory and CPU use, 14-day history, recent sessions" />
-                                <TextBlock Style="{StaticResource F}" Text="• Sort by most used, hottest, most memory or most background time" />
+                                <TextBlock Style="{StaticResource F}" Text="• Sort by most used, hottest, most memory, most CPU use or most background time" />
                                 <TextBlock Style="{StaticResource F}" Text="• Rename apps, change their category, or stop tracking them" />
                             </StackPanel>
                         </Border>
@@ -109,7 +109,7 @@
                                 <TextBlock Style="{StaticResource F}" Text="• Alert limits, quiet while gaming, notification style and previews" />
                                 <TextBlock Style="{StaticResource F}" Text="• Tracking sensitivity: away time and sampling speed" />
                                 <TextBlock Style="{StaticResource F}" Text="• Privacy: excluded apps, pause, data retention, clear history" />
-                                <TextBlock Style="{StaticResource F}" Text="• Export to CSV, °C/°F, start with Windows" />
+                                <TextBlock Style="{StaticResource F}" Text="• Export app usage to CSV, °C/°F, start with Windows" />
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -194,7 +194,7 @@
                     <StackPanel>
                         <TextBlock Text="Reports and notifications" Style="{StaticResource SectionTitle}" />
                         <DockPanel><TextBlock Text="Daily recap" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="The first time you use your PC each day, a small card summarises yesterday. The full recap is on the Reports page." /></DockPanel>
-                        <DockPanel><TextBlock Text="Session summary" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="When you close a game you played for 15+ minutes: how long, and how hot it got. If the game crashed, there's no summary (unless you turn on crash notifications)." /></DockPanel>
+                        <DockPanel><TextBlock Text="Session summary" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="When you close a game you played for a while (15 minutes by default; change it in Settings): how long, and how hot it got. If the game crashed, there's no summary (unless you turn on crash notifications)." /></DockPanel>
                         <DockPanel><TextBlock Text="Temperature alerts" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Only when something stays above your limit for a while — brief spikes are ignored, and alerts are spaced out." /></DockPanel>
                         <DockPanel><TextBlock Text="Quiet while gaming" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="While a fullscreen game or video is in front, recaps and summaries wait until you're done. Temperature alerts still come through." /></DockPanel>
                         <TextBlock Style="{StaticResource P}" Text="See exactly what each one looks like with the Preview buttons in Settings → Notifications." />
@@ -242,7 +242,7 @@
                         <TextBlock Style="{StaticResource P}"
                                    Text="Everything stays on this PC, in a small database in your AppData folder (roughly 150 KB per day). Rigsight never records window titles, website addresses, what you type, or what's on screen — only which program is in front and how your hardware is doing." />
                         <TextBlock Style="{StaticResource P}"
-                                   Text="You can stop any app from being recorded (Apps page or Settings → Privacy), pause tracking from the tray, choose how long history is kept, export it, or clear it all in Settings." />
+                                   Text="You can stop any app from being recorded (Apps page or Settings → Privacy), pause tracking from the tray, choose how long history is kept, export your app usage, or clear it all in Settings." />
                     </StackPanel>
                 </DockPanel>
             </Border>

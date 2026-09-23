@@ -19,7 +19,11 @@ public partial class MainWindow : Window
         DataContext = _vm = vm;
         vm.PropertyChanged += OnViewModelChanged;
         vm.ActivateRequested += BringToFront;
-        vm.CustomPageDeleted += key => _pages.Remove(key);
+        vm.CustomPageDeleted += key =>
+        {
+            // Unbind the deleted page's view so nothing keeps it (or its tiles) updating.
+            if (_pages.Remove(key, out var view)) view.DataContext = null;
+        };
         ShowPage(vm.CurrentPage);
 
         SourceInitialized += (_, _) =>

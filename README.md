@@ -84,7 +84,7 @@ It does all of this while using about **0.02% of your CPU**.
 ### 🖥️ On your desktop
 - **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity and a click-through lock.
 - **Tray icon** with a health dot (green, amber or red) and a live readout on hover.
-- **Calm notifications**: a daily recap, game session summaries, and temperature alerts that ignore brief spikes. Non-urgent cards wait until you leave a fullscreen game.
+- **Calm notifications**: a daily recap, game session summaries, temperature alerts that ignore brief spikes, and (optionally) a plain-language note when something crashes. Non-urgent cards wait until you leave a fullscreen game.
 
 ### 🎛️ Your control
 - Dozens of settings: what gets tracked, how long history is kept, alert thresholds, units, widget looks, and start with Windows.

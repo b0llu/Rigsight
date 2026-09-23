@@ -32,10 +32,7 @@ public sealed partial class LiveData : ObservableObject
         ProcsView = CollectionViewSource.GetDefaultView(Procs);
         ProcsView.SortDescriptions.Add(new SortDescription(nameof(ProcRow.MemMB), ListSortDirection.Descending));
         if (ProcsView is ICollectionViewLiveShaping live && live.CanChangeLiveSorting)
-        {
             live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
-            live.IsLiveSorting = true;
-        }
         ProcsView.Filter = o => !OnlyWindowedApps || o is ProcRow { HasWindow: true };
     }
 
@@ -132,9 +129,11 @@ public sealed partial class LiveData : ObservableObject
         {
             foreach (var series in hello.History)
             {
-                if (!hello.Keys.TryGetValue(series.Key, out int index) || index >= _flat.Count) continue;
-                var item = _flat[index];
-                if (item.History.Count == 0) item.Seed(series.Times, series.Values);
+                // Key sensors by key name; others (drive temperatures) as "id:<sensor id>".
+                SensorItem? item = series.Key.StartsWith("id:", StringComparison.Ordinal)
+                    ? _byId.GetValueOrDefault(series.Key[3..])
+                    : hello.Keys.TryGetValue(series.Key, out int index) && index < _flat.Count ? _flat[index] : null;
+                if (item is { History.Count: 0 }) item.Seed(series.Times, series.Values);
             }
             Tick++;
         }
@@ -142,7 +141,7 @@ public sealed partial class LiveData : ObservableObject
 
     private void Build(AgentMessage hello)
     {
-        _boardPruned = false;
+        _ticksSinceBuild = 0;
         _flat.Clear();
         Hardware.Clear();
         CpuThreads.Clear();
@@ -294,6 +293,14 @@ public sealed partial class LiveData : ObservableObject
         Tick++;
     }
 
+    /// <summary>Keep the process list sorted as memory changes, only while the Memory page shows it.</summary>
+    public void SetProcessSorting(bool on)
+    {
+        if (ProcsView is not ICollectionViewLiveShaping { CanChangeLiveSorting: true } live || live.IsLiveSorting == on) return;
+        live.IsLiveSorting = on;
+        if (on) ProcsView.Refresh();
+    }
+
     public void ApplyProcs(List<ProcInfo> procs)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -320,21 +327,24 @@ public sealed partial class LiveData : ObservableObject
                 Procs.RemoveAt(i);
             }
         }
-        TopMemory = [.. Procs.OrderByDescending(p => p.MemMB).Take(6)];
+        // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
+        var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
+        if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
         double top = Procs.Count > 0 ? Procs.Max(p => p.MemMB) : 1;
         foreach (var p in Procs) p.MemShare = top > 0 ? p.MemMB / top * 100 : 0;
         if (OnlyWindowedApps) ProcsView.Refresh();
     }
 
-    private bool _boardPruned;
+    private int _ticksSinceBuild;
 
     private void UpdateDerived()
     {
-        // Once real values arrive, drop fan headers with nothing plugged in and sensors that read nonsense.
-        if (!_boardPruned)
+        // A few readings in (by then today's ranges have arrived too), drop fan headers that haven't spun
+        // at all today (nothing plugged in) and board sensors that read nonsense. A fan that's merely
+        // stopped right now (0 RPM fans at idle) stays.
+        if (++_ticksSinceBuild == 3)
         {
-            _boardPruned = true;
-            foreach (var f in Fans.Where(f => f.Value is not > 0).ToList()) Fans.Remove(f);
+            foreach (var f in Fans.Where(f => f.Value is not > 0 && f.Max is not > 0).ToList()) Fans.Remove(f);
             foreach (var t in BoardTemps.Where(t => t.Value is not (> 0 and < 115)).ToList()) BoardTemps.Remove(t);
         }
 
@@ -352,9 +362,16 @@ public sealed partial class LiveData : ObservableObject
     }
 
     /// <summary>Re-applies names, hidden flags and units after settings changed.</summary>
+    private string? _appliedSensorSettings;
+
+    /// <summary>Applies sensor names, hidden sensors and units, but only when one of them actually changed
+    /// (settings change often, e.g. while dragging a slider, and this refreshes every sensor).</summary>
     public void ApplySettings()
     {
         var s = _settings.Current;
+        string key = $"{s.UseFahrenheit}|{string.Join(",", s.SensorLabels.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value))}|{string.Join(",", s.HiddenSensors.Order())}|{_flat.Count}";
+        if (key == _appliedSensorSettings) return;
+        _appliedSensorSettings = key;
         foreach (var item in _flat)
         {
             item.CustomLabel = s.SensorLabels.GetValueOrDefault(item.Id);
@@ -462,12 +479,6 @@ public sealed partial class LiveData : ObservableObject
         "Voltage" => k == SensorKind.Voltage,
         _ => true,
     };
-
-    [RelayCommand]
-    private void ResetStats()
-    {
-        foreach (var s in _flat) s.ResetStats();
-    }
 
     /// <remarks>
     /// Takes object: the sensor list recycles rows, and while a row is being reused its button can

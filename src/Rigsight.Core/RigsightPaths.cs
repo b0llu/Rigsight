@@ -14,6 +14,9 @@ public static class RigsightPaths
     /// <summary>Named pipe the agent serves live data on.</summary>
     public const string PipeName = "Rigsight.Agent.v1";
 
+    /// <summary>Signalled (by "Rigsight.Agent.exe --quit", e.g. from the installer) to ask the agent to save and exit.</summary>
+    public const string AgentQuitEvent = @"Local\Rigsight.Agent.Quit";
+
     /// <summary>Task Scheduler task that starts the agent at sign-in.</summary>
     public const string AgentTaskName = "Rigsight Agent";
 

@@ -13,6 +13,26 @@ internal static class Program
     {
         bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
+        // Run by the installer before replacing or removing files: ask a running agent to save and exit
+        // cleanly (a forced kill would lose the game session in progress), waiting a few seconds.
+        if (args.Contains("--quit"))
+        {
+            try
+            {
+                if (EventWaitHandle.TryOpenExisting(RigsightPaths.AgentQuitEvent, out var quit))
+                {
+                    quit.Set();
+                    var others = Process.GetProcessesByName("Rigsight.Agent").Where(p => p.Id != Environment.ProcessId).ToList();
+                    foreach (var p in others) p.WaitForExit(6000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("agent", ex);
+            }
+            return;
+        }
+
         // Run by the installer (already elevated): register "start with Windows" and start the agent
         // through the task, so the user never sees a separate UAC prompt.
         if (args.Contains("--register-startup"))

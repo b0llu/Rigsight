@@ -78,7 +78,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     private AppHour Delta(long appId)
     {
-        long hour = TimeUtil.ToUnix(TimeUtil.LocalHourStart(DateTime.Now));
+        long hour = TimeUtil.LocalHourStartUnix();
         if (!_deltas.TryGetValue((hour, appId), out var h))
         {
             h = new AppHour { Ts = hour, AppId = appId };
@@ -270,7 +270,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     private void RollMinute()
     {
-        long minute = TimeUtil.ToUnix(TimeUtil.LocalMinuteStart(DateTime.Now));
+        long minute = TimeUtil.NowUnix() / 60 * 60;
         if (_minuteTs == 0) _minuteTs = minute;
         if (minute == _minuteTs) return;
         Flush(closeAllSessions: false);

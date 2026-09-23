@@ -210,17 +210,25 @@
                         <ItemsControl ItemsSource="{Binding Drives}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,5">
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
-                                        <ctl:Sparkline DockPanel.Dock="Right" Width="70" Height="18" Margin="12,0" Source="{Binding Temperature.History}"
-                                                       Version="{Binding Temperature.Version}" Stroke="{StaticResource PurpleBrush}" />
+                                    <!-- The graph takes whatever width the name leaves, instead of a fixed thumbnail. -->
+                                    <Grid Margin="0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.2*" MinWidth="110" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Muted}" />
                                             <TextBlock Text="{Binding Temperature.MinMaxText, FallbackValue=''}" FontSize="11" Foreground="{StaticResource FaintBrush}"
                                                        ToolTip="Lowest and highest today" Margin="0,2,0,0" />
                                         </StackPanel>
-                                    </DockPanel>
+                                        <Border Grid.Column="1" Margin="12,0" Background="Transparent" ToolTip="Recent temperature, up to the last 6 hours">
+                                            <ctl:Sparkline Height="34" Source="{Binding Temperature.History}" WindowSeconds="21600" FitToData="True"
+                                                           Version="{Binding Temperature.Version}" Stroke="{StaticResource PurpleBrush}" />
+                                        </Border>
+                                        <TextBlock Grid.Column="2" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

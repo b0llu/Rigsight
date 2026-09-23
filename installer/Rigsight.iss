@@ -55,6 +55,8 @@ Filename: "{app}\Rigsight.Agent.exe"; Parameters: "--register-startup"; StatusMs
 Filename: "{app}\Rigsight.exe"; Description: "Open Rigsight"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
+; Ask the agent to save and exit first (a forced kill would lose the game session in progress).
+Filename: "{app}\Rigsight.Agent.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated; RunOnceId: "QuitAgent"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM Rigsight.exe"; Flags: runhidden; RunOnceId: "KillApp"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM Rigsight.Agent.exe"; Flags: runhidden; RunOnceId: "KillAgent"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""Rigsight Agent"" /F"; Flags: runhidden; RunOnceId: "DeleteTask"
@@ -76,6 +78,9 @@ procedure StopRigsight;
 var
   Code: Integer;
 begin
+  // Ask a running agent to save and exit cleanly; the force-kill below only catches what's left.
+  if FileExists(ExpandConstant('{app}\Rigsight.Agent.exe')) then
+    Exec(ExpandConstant('{app}\Rigsight.Agent.exe'), '--quit', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Rigsight.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Rigsight.Agent.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Sleep(500);

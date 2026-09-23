@@ -28,10 +28,15 @@ public sealed class SettingsModel
     /// <summary>Raised after settings changed, locally or from the agent.</summary>
     public event Action? Changed;
 
+    // A change not yet delivered to the agent (debouncing, or no connection): keep it, send it when the
+    // agent connects, and don't let the agent's older copy overwrite it meanwhile.
+    private bool _dirty;
+
     public void Update(Action<RigsightSettings> change)
     {
         change(Current);
         Units.Fahrenheit = Current.UseFahrenheit;
+        _dirty = true;
         _debounce.Stop();
         _debounce.Start();
         Changed?.Invoke();
@@ -40,13 +45,22 @@ public sealed class SettingsModel
     public void Flush()
     {
         _debounce.Stop();
-        _client.Send(new UiMessage { T = "settings", Settings = Current.Clone() });
+        if (!_dirty) return;
+        if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone() })) _dirty = false;
+    }
+
+    /// <summary>The agent (re)connected: deliver a change made while it wasn't there.</summary>
+    public void OnConnected()
+    {
+        if (_dirty) Flush();
     }
 
     public void ApplyFromAgent(RigsightSettings settings)
     {
-        // A local change is about to be sent; the agent will echo it back afterwards.
-        if (_debounce.IsEnabled) return;
+        // A local change is about to be (or couldn't yet be) sent; the agent will echo it back afterwards.
+        if (_debounce.IsEnabled || _dirty) return;
+        // Most messages echo what we already have: nothing to refresh then.
+        if (SettingsStore.Serialize(settings) == SettingsStore.Serialize(Current)) return;
         Current = settings;
         Units.Fahrenheit = settings.UseFahrenheit;
         Changed?.Invoke();

@@ -72,6 +72,7 @@ internal static unsafe class Rtss
     public static bool IsHooked(int pid) => pid > 0 && Use(memory =>
     {
         uint size = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);
+        if (!Fits(offset, count, size, 4)) return false;
         for (uint i = 0; i < count; i++)
             if (*(int*)(memory + offset + i * size) == pid) return true;
         return false;
@@ -85,6 +86,8 @@ internal static unsafe class Rtss
     /// Frame rate, frame time and 1% low (over the last 1,024 frames) of a process RTSS is drawing in,
     /// or null when it isn't (not a game, or started before RTSS).
     /// </summary>
+    private static readonly uint[] FrameTimes = new uint[FrameTimeBufLength];
+
     public static FrameStats? ReadFrameStats(int pid)
     {
         FrameStats? stats = null;
@@ -92,7 +95,7 @@ internal static unsafe class Rtss
         Use(memory =>
         {
             uint size = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);
-            if (size < FrameTimeBufAt + FrameTimeBufLength * 4) return false;
+            if (!Fits(offset, count, size, FrameTimeBufAt + FrameTimeBufLength * 4)) return false;
             for (uint i = 0; i < count; i++)
             {
                 byte* entry = memory + offset + i * size;
@@ -102,15 +105,15 @@ internal static unsafe class Rtss
                 double fps = 1000.0 * frames / (t1 - t0);
                 double frameTimeMs = U(entry, FrameTimeAt) / 1000.0;
 
-                var times = new List<uint>(FrameTimeBufLength);
+                int n = 0;
                 for (int k = 0; k < FrameTimeBufLength; k++)
-                    if (U(entry, FrameTimeBufAt + 4 * k) is > 0 and var ft) times.Add(ft);
+                    if (U(entry, FrameTimeBufAt + 4 * k) is > 0 and var ft) FrameTimes[n++] = ft;
                 double? low = null;
-                if (times.Count >= 100)
+                if (n >= 100)
                 {
                     // 1% low: the frame rate of the slowest 1% of recent frames.
-                    times.Sort();
-                    low = 1_000_000.0 / times[times.Count - 1 - times.Count / 100];
+                    Array.Sort(FrameTimes, 0, n);
+                    low = 1_000_000.0 / FrameTimes[n - 1 - n / 100];
                 }
                 stats = new FrameStats(fps, frameTimeMs, low);
                 return true;
@@ -122,42 +125,95 @@ internal static unsafe class Rtss
 
     private static uint U(byte* memory, int at) => *(uint*)(memory + at);
 
+    // The shared memory stays mapped between calls (it's used up to twice a second while the overlay is
+    // up); when RTSS isn't running, opening it is retried at most every few seconds.
+    private static readonly Lock Gate = new();
+    private static MemoryMappedFile? _map;
+    private static MemoryMappedViewAccessor? _view;
+    private static byte* _memory;
+    private static long _capacity;
+    private static long _retryAfter;
+    private const int RetryMs = 5000;
+
     private static bool Use(MemoryAction action)
     {
-        try
+        lock (Gate)
         {
-            using var map = MemoryMappedFile.OpenExisting(MapName, MemoryMappedFileRights.ReadWrite);
-            using var view = map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.ReadWrite);
-            byte* memory = null;
-            view.SafeMemoryMappedViewHandle.AcquirePointer(ref memory);
             try
             {
-                memory += view.PointerOffset;
-                if (U(memory, 0) != Signature || U(memory, VersionAt) < 0x00020000) return false;
-                return action(memory);
+                if (_view is null && !Open()) return false;
+                // "RTSS" while live; RTSS marks the memory 0xDEAD when it's closing.
+                if (U(_memory, 0) != Signature || U(_memory, VersionAt) < 0x00020000)
+                {
+                    Close();
+                    _retryAfter = Environment.TickCount64 + RetryMs;
+                    return false;
+                }
+                return action(_memory);
             }
-            finally
+            catch (Exception ex)
             {
-                view.SafeMemoryMappedViewHandle.ReleasePointer();
+                if (!_loggedError) Log.Error("rtss", ex);
+                _loggedError = true;
+                Close();
+                _retryAfter = Environment.TickCount64 + RetryMs;
+                return false;
             }
+        }
+    }
+
+    private static bool Open()
+    {
+        if (Environment.TickCount64 < _retryAfter) return false;
+        try
+        {
+            _map = MemoryMappedFile.OpenExisting(MapName, MemoryMappedFileRights.ReadWrite);
+            _view = _map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.ReadWrite);
+            byte* memory = null;
+            _view.SafeMemoryMappedViewHandle.AcquirePointer(ref memory);
+            _memory = memory + _view.PointerOffset;
+            _capacity = _view.Capacity;
+            return _capacity >= 64;
         }
         catch (FileNotFoundException)
         {
-            return false; // RTSS isn't running.
-        }
-        catch (Exception ex)
-        {
-            if (!_loggedError) Log.Error("rtss", ex);
-            _loggedError = true;
+            Close(); // RTSS isn't running.
+            _retryAfter = Environment.TickCount64 + RetryMs;
             return false;
         }
     }
+
+    private static void Close()
+    {
+        if (_view is not null && _memory is not null) _view.SafeMemoryMappedViewHandle.ReleasePointer();
+        _memory = null;
+        _view?.Dispose();
+        _map?.Dispose();
+        _view = null;
+        _map = null;
+    }
+
+    /// <summary>Lets go of RTSS's shared memory (when the agent exits).</summary>
+    public static void Release()
+    {
+        lock (Gate) Close();
+    }
+
+    /// <summary>
+    /// Whether an array of <paramref name="count"/> entries of <paramref name="size"/> bytes at <paramref name="offset"/>
+    /// lies inside the shared memory, with at least <paramref name="needed"/> bytes per entry. Reading outside it
+    /// would crash the agent (an access violation can't be caught), so every array is checked before use.
+    /// </summary>
+    private static bool Fits(uint offset, uint count, uint size, uint needed) =>
+        size >= needed && offset + (ulong)count * size <= (ulong)_capacity;
 
     /// <summary>Finds (or claims) Rigsight's OSD slot and writes the text; null frees the slot.</summary>
     private static bool WriteEntry(byte* memory, string? text)
     {
         uint version = U(memory, VersionAt);
         uint entrySize = U(memory, OsdEntrySizeAt), offset = U(memory, OsdArrOffsetAt), count = U(memory, OsdArrSizeAt);
+        uint needed = version >= 0x00020007 ? (uint)(OsdTextExAt + OsdTextExSize) : (uint)(OsdOwnerAt + 256);
+        if (!Fits(offset, count, entrySize, needed)) return false;
 
         // 2.14+: a busy bit guards the memory against RTSS reading a half-written entry.
         int* busy = (int*)(memory + BusyAt);

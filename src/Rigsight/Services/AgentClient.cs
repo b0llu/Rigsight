@@ -73,11 +73,17 @@ public sealed class AgentClient(Dispatcher dispatcher) : IDisposable
         _ = dispatcher.BeginInvoke(() => ConnectionChanged?.Invoke(connected));
     }
 
-    public async void Send(UiMessage message)
+    /// <summary>Queues a message for the agent. Returns false when there's no connection to send it on.</summary>
+    public bool Send(UiMessage message)
     {
         var pipe = _pipe;
-        if (pipe is null) return;
-        var bytes = Encoding.UTF8.GetBytes(ProtocolJson.Serialize(message) + "\n");
+        if (pipe is null) return false;
+        _ = WriteAsync(pipe, Encoding.UTF8.GetBytes(ProtocolJson.Serialize(message) + "\n"));
+        return true;
+    }
+
+    private async Task WriteAsync(Stream pipe, byte[] bytes)
+    {
         await _writeLock.WaitAsync();
         try
         {
@@ -87,6 +93,10 @@ public sealed class AgentClient(Dispatcher dispatcher) : IDisposable
         catch (Exception ex) when (ex is IOException or ObjectDisposedException)
         {
             // Disconnected; the read loop will reconnect.
+        }
+        catch (Exception ex)
+        {
+            Log.Error("client", ex);
         }
         finally
         {

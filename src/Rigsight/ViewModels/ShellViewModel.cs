@@ -117,6 +117,7 @@ public sealed partial class ShellViewModel : ObservableObject
             if (s.StartPage == page.NavKey) s.StartPage = "home";
         });
         CustomPages.Remove(page);
+        page.Dispose();
         if (CurrentPage == page.NavKey) CurrentPage = "home";
         CustomPageDeleted?.Invoke(page.NavKey);
     }
@@ -251,6 +252,7 @@ public sealed partial class ShellViewModel : ObservableObject
         IsConnected = connected;
         AgentStatus = "";
         // The agent may have just created the database (first run): load the page now rather than in a minute.
+        if (connected) Settings.OnConnected();
         if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)
         {

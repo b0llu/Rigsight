@@ -36,6 +36,9 @@ internal sealed class SensorHost
 
     private readonly List<(IHardware Hw, Tier Tier)> _hardware = [];
     private readonly List<ISensor> _sensors = [];
+    private readonly List<IHardware> _sensorHardware = [];   // each sensor's hardware, same order
+    private readonly HashSet<IHardware> _updatedNow = [];
+    private bool[] _fresh = [];
     // 0, not long.MinValue: "now - long.MinValue" overflows to a negative number, and drives would never refresh.
     private long _lastSlowMs;
 
@@ -84,7 +87,12 @@ internal sealed class SensorHost
         Keys = KeySensors.Pick(candidates);
         Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
+        _fresh = new bool[_sensors.Count];
+        DriveHealth = ReadDriveHealth();
     }
+
+    /// <summary>Whether sensor <paramref name="index"/> was read by the last <see cref="Update"/> (not an old value).</summary>
+    public bool IsFresh(int index) => index < _fresh.Length && _fresh[index];
 
     private void Collect(IHardware hw)
     {
@@ -121,6 +129,7 @@ internal sealed class SensorHost
                     Kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor,
                 });
                 _sensors.Add(s);
+                _sensorHardware.Add(hw);
             }
             Schema.Add(meta);
         }
@@ -144,6 +153,7 @@ internal sealed class SensorHost
         // drive temperature range is known even when nobody is watching.
         bool slowDue = nowMs - _lastSlowMs >= (everything ? 10_000 : 300_000);
         if (slowDue) _lastSlowMs = nowMs;
+        DrivesUpdated = slowDue;
 
         _usingFastValues = !everything && _fastGpu is not null;
         if (_usingFastValues)
@@ -152,6 +162,7 @@ internal sealed class SensorHost
             _fastGpu!.Read(_fastValues);
         }
 
+        _updatedNow.Clear();
         foreach (var (hw, tier) in _hardware)
         {
             if (_usingFastValues && hw == _fastGpuHardware) continue;
@@ -162,8 +173,16 @@ internal sealed class SensorHost
                 Tier.Slow => slowDue,
                 _ => false,
             };
-            if (update) SafeUpdate(hw);
+            if (update)
+            {
+                SafeUpdate(hw);
+                _updatedNow.Add(hw);
+            }
         }
+        for (int i = 0; i < _fresh.Length; i++) _fresh[i] = _updatedNow.Contains(_sensorHardware[i]);
+        // SMART health is read here, on the sampler thread, right after the drives were updated: the
+        // library isn't thread-safe, so the app's connection thread only ever reads this cached copy.
+        if (slowDue) DriveHealth = ReadDriveHealth();
     }
 
     public float?[] ReadAll()
@@ -210,9 +229,27 @@ internal sealed class SensorHost
         RamAvailable = Read(KeySensors.RamAvailable),
     };
 
+    /// <summary>Whether the last <see cref="Update"/> read the drives (they're read far less often than the rest).</summary>
+    public bool DrivesUpdated { get; private set; }
+
+    /// <summary>Current drive temperatures by sensor id (not their fixed warning/critical limits).</summary>
+    public IEnumerable<(string Id, double Value)> DriveTemperatures()
+    {
+        for (int i = 0; i < _sensors.Count; i++)
+        {
+            var s = _sensors[i];
+            if (s.SensorType != SensorType.Temperature || s.Hardware.HardwareType != HardwareType.Storage) continue;
+            if (s.Name.Contains("Warning", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Critical", StringComparison.OrdinalIgnoreCase)) continue;
+            if (s.Value is float v && float.IsFinite(v) && v > 0) yield return (Ids[i], v);
+        }
+    }
+
+    /// <summary>Each drive's SMART health, as of the last drive update (safe to read from any thread).</summary>
+    public List<DriveHealthInfo> DriveHealth { get; private set; } = [];
+
     /// <summary>Each drive's SMART health (status for every drive; sector counts for SATA drives only,
     /// since NVMe reports its health under different attribute numbers).</summary>
-    public List<DriveHealthInfo> DriveHealth()
+    private List<DriveHealthInfo> ReadDriveHealth()
     {
         var list = new List<DriveHealthInfo>();
         foreach (var (hw, _) in _hardware)
@@ -224,13 +261,23 @@ internal sealed class SensorHost
                 bool sata = !device.Storage.IsNVMe;
                 long? Raw(byte id) => sata && smart.SmartAttributes?.FirstOrDefault(a => a.Info.ID == id) is { } attr
                     ? (long)attr.Attribute.RawValueULong : null;
+                long? reallocated = Raw(0x05), pending = Raw(0xC5), uncorrectable = Raw(0xC6);
+                string status = smart.DiskStatus.ToString();
+                // The library leaves SATA drives "Unknown"; judge them the way CrystalDiskInfo does: failing
+                // if any attribute has fallen to its threshold, a caution for bad sectors, otherwise good.
+                if (status == "Unknown" && sata && smart.SmartAttributes is { Count: > 0 } attrs)
+                {
+                    bool failing = attrs.Any(a => a.Attribute.Threshold > 0 && a.Attribute.CurrentValue > 0 && a.Attribute.CurrentValue <= a.Attribute.Threshold);
+                    bool badSectors = reallocated > 0 || pending > 0 || uncorrectable > 0;
+                    status = failing ? "Bad" : badSectors ? "Caution" : "Good";
+                }
                 list.Add(new DriveHealthInfo
                 {
                     Name = hw.Name,
-                    Status = smart.DiskStatus.ToString(),
-                    ReallocatedSectors = Raw(0x05),
-                    PendingSectors = Raw(0xC5),
-                    UncorrectableSectors = Raw(0xC6),
+                    Status = status,
+                    ReallocatedSectors = reallocated,
+                    PendingSectors = pending,
+                    UncorrectableSectors = uncorrectable,
                 });
             }
             catch (Exception ex)

@@ -21,6 +21,18 @@ public sealed class ChartSeries
     public Color Color { get; }
     public SolidColorBrush Brush { get; }
 
+    // Drawing resources, made once (the chart redraws every second).
+    private Pen? _linePen;
+    private System.Windows.Media.Brush? _fill;
+    public Pen LinePen => _linePen ??= Frozen(new Pen(Brush, 2) { LineJoin = PenLineJoin.Round });
+    public System.Windows.Media.Brush Fill => _fill ??= Rigsight.Controls.ChartGeometry.FadeFill(Color, 0.10);
+
+    private static Pen Frozen(Pen pen)
+    {
+        pen.Freeze();
+        return pen;
+    }
+
     /// <summary>Picks this line's value out of a stored minute (null: the minute history doesn't have it).</summary>
     public Func<SystemMinute, double?>? FromMinute { get; }
 

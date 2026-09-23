@@ -278,14 +278,25 @@ internal static partial class WidgetRenderer
 
     // ── Primitives ────────────────────────────────────────────────────────
 
-    private static Font MakeFont(float px, FontStyle style, bool semibold) =>
-        semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
-                 : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+    // Fonts are cached: widgets and the overlay redraw every second and measure the same few sizes over and
+    // over. Only a handful of combinations are ever used. UI thread only; never disposed.
+    private static readonly Dictionary<(float Px, FontStyle Style, bool Semibold), Font> Fonts = [];
+
+    private static Font MakeFont(float px, FontStyle style, bool semibold)
+    {
+        if (!Fonts.TryGetValue((px, style, semibold), out var font))
+        {
+            font = semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
+                            : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+            Fonts[(px, style, semibold)] = font;
+        }
+        return font;
+    }
 
     private static void Text(Graphics g, string text, float px, FontStyle style, Color color, float x, float y,
         bool semibold = false, float maxWidth = 0)
     {
-        using var font = MakeFont(px, style, semibold);
+        var font = MakeFont(px, style, semibold);
         using var brush = new SolidBrush(color);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
@@ -305,7 +316,7 @@ internal static partial class WidgetRenderer
 
     private static float Measure(Graphics g, string text, float px, FontStyle style, bool semibold = false)
     {
-        using var font = MakeFont(px, style, semibold);
+        var font = MakeFont(px, style, semibold);
         return g.MeasureString(text, font, int.MaxValue, StringFormat.GenericTypographic).Width;
     }
 

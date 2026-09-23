@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Rigsight.Agent.Sensors;
@@ -11,44 +12,56 @@ internal sealed class DailyExtremes
     private sealed record Saved(string Day, Dictionary<string, double[]> Values);
 
     private string _day = Today();
+    private DateTime _nextMidnight = DateTime.Today.AddDays(1);
     private readonly Dictionary<string, double[]> _values = [];
     private readonly HashSet<string> _changed = [];
 
     public string Day => _day;
 
-    private static string Today() => DateTime.Today.ToString("yyyy-MM-dd");
+    /// <summary>Some range changed since the last save.</summary>
+    public bool Dirty { get; set; }
+
+    private static string Today() => DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>Call once per round of readings, before <see cref="Observe"/>: starts a new day after midnight.</summary>
+    public void BeginTick() => RollDay();
 
     public void Observe(string sensorId, double? value)
     {
         if (value is not double v || !double.IsFinite(v)) return;
-        RollDay();
         if (!_values.TryGetValue(sensorId, out var mm))
         {
             _values[sensorId] = [v, v];
             _changed.Add(sensorId);
+            Dirty = true;
         }
         else if (v < mm[0] || v > mm[1])
         {
             mm[0] = Math.Min(mm[0], v);
             mm[1] = Math.Max(mm[1], v);
             _changed.Add(sensorId);
+            Dirty = true;
         }
     }
 
     /// <summary>Widens today's range with values recorded earlier (e.g. from the minute history).</summary>
     public void Include(string sensorId, double? min, double? max)
     {
+        RollDay();
         Observe(sensorId, min);
         Observe(sensorId, max);
     }
 
     private void RollDay()
     {
+        if (DateTime.Now < _nextMidnight) return;
+        _nextMidnight = DateTime.Today.AddDays(1);
         string today = Today();
         if (today == _day) return;
         _day = today;
         _values.Clear();
         _changed.Clear();
+        Dirty = true;
     }
 
     public Dictionary<string, double[]> Snapshot()

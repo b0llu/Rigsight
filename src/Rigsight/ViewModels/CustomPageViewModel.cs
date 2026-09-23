@@ -30,8 +30,22 @@ public sealed partial class CustomPageViewModel : ObservableObject
         Home = home;
         Crashes = crashes;
         foreach (var t in config.Tiles) Tiles.Add(new TileViewModel(t, this));
-        Live.SensorsRebuilt += () => { foreach (var t in Tiles) t.ResolveSensor(); };
-        settings.Changed += () => OnPropertyChanged(nameof(IsStartPage));
+        Live.SensorsRebuilt += OnSensorsRebuilt;
+        settings.Changed += OnSettingsChanged;
+    }
+
+    private void OnSensorsRebuilt()
+    {
+        foreach (var t in Tiles) t.ResolveSensor();
+    }
+
+    private void OnSettingsChanged() => OnPropertyChanged(nameof(IsStartPage));
+
+    /// <summary>The page was deleted: stop listening to app-wide events, so it can be freed.</summary>
+    public void Dispose()
+    {
+        Live.SensorsRebuilt -= OnSensorsRebuilt;
+        _settings.Changed -= OnSettingsChanged;
     }
 
     /// <summary>Whether the app opens on this page.</summary>

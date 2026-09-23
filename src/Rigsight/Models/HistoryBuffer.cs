@@ -16,7 +16,7 @@ public sealed class HistoryBuffer
     public int Capacity => _values.Length;
     public int Count { get; private set; }
 
-    /// <summary>Timestamp (Environment.TickCount64, ms) of the newest sample, or 0 when empty.</summary>
+    /// <summary>Time (Unix milliseconds) of the newest sample, or 0 when empty.</summary>
     public long LastTime => Count == 0 ? 0 : _times[(_start + Count - 1) % Capacity];
 
     public void Add(long timeMs, double value)

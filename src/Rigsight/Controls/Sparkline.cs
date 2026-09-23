@@ -28,11 +28,22 @@ public sealed class Sparkline : FrameworkElement
 
     private Brush? _fill;
 
+    private Pen? _pen;
+
     public HistoryBuffer? Source { get => (HistoryBuffer?)GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
     public Brush Stroke { get => (Brush)GetValue(StrokeProperty); set => SetValue(StrokeProperty, value); }
     public double WindowSeconds { get => (double)GetValue(WindowSecondsProperty); set => SetValue(WindowSecondsProperty, value); }
     public double? Minimum { get => (double?)GetValue(MinimumProperty); set => SetValue(MinimumProperty, value); }
+
+    public static readonly DependencyProperty FitToDataProperty = DependencyProperty.Register(
+        nameof(FitToData), typeof(bool), typeof(Sparkline), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>
+    /// Stretch whatever history there is (up to <see cref="WindowSeconds"/>) across the full width, instead of
+    /// a fixed window mostly empty until it fills (e.g. drive temperatures, kept for a few hours by the agent).
+    /// </summary>
+    public bool FitToData { get => (bool)GetValue(FitToDataProperty); set => SetValue(FitToDataProperty, value); }
     public double? Maximum { get => (double?)GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
 
     protected override void OnRender(DrawingContext dc)
@@ -45,6 +56,7 @@ public sealed class Sparkline : FrameworkElement
 
         long to = buffer.LastTime;
         long from = to - (long)(WindowSeconds * 1000);
+        if (FitToData) from = Math.Min(Math.Max(from, buffer.FirstTime), to - 60_000);
         var range = ChartGeometry.Range(buffer, from, v => v);
         if (range is null) return;
         var (lo, hi) = range.Value;
@@ -70,7 +82,12 @@ public sealed class Sparkline : FrameworkElement
         _fill ??= ChartGeometry.FadeFill(color, 0.28);
         dc.PushClip(new RectangleGeometry(new Rect(RenderSize)));
         dc.DrawGeometry(_fill, null, area);
-        dc.DrawGeometry(null, new Pen(Stroke, 1.6) { LineJoin = PenLineJoin.Round }, line);
+        if (_pen is null || _pen.Brush != Stroke)
+        {
+            _pen = new Pen(Stroke, 1.6) { LineJoin = PenLineJoin.Round };
+            _pen.Freeze();
+        }
+        dc.DrawGeometry(null, _pen, line);
         dc.Pop();
     }
 }

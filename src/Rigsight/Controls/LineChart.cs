@@ -41,6 +41,7 @@ public sealed class LineChart : FrameworkElement
     private static readonly Brush HoverMuted = Frozen(new SolidColorBrush(Color.FromRgb(0x8A, 0x93, 0xA8)));
 
     private double? _hoverX;
+    private Pen? _gridPen;
 
     public IEnumerable<ChartSeries>? Series { get => (IEnumerable<ChartSeries>?)GetValue(SeriesProperty); set => SetValue(SeriesProperty, value); }
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
@@ -113,7 +114,12 @@ public sealed class LineChart : FrameworkElement
         if (hi - lo < 20) hi = lo + 20;
 
         // Horizontal grid + Y labels.
-        var gridPen = new Pen(GridBrush, 1) { DashStyle = new DashStyle([3, 4], 0) };
+        if (_gridPen is null || _gridPen.Brush != GridBrush)
+        {
+            _gridPen = new Pen(GridBrush, 1) { DashStyle = new DashStyle([3, 4], 0) };
+            _gridPen.Freeze();
+        }
+        var gridPen = _gridPen;
         const int rows = 4;
         for (int i = 0; i <= rows; i++)
         {
@@ -125,6 +131,8 @@ public sealed class LineChart : FrameworkElement
 
         // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
         int step = WindowSeconds switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, <= 3600 => 900, <= 21600 => 3600, _ => 4 * 3600 };
+        // On a narrow chart (a small dashboard tile), skip labels until each has room ("12:04 PM" ≈ 50 px).
+        while (step < WindowSeconds && plot.Width * step / WindowSeconds < 56) step *= 2;
         for (int t = 0; t <= WindowSeconds; t += step)
         {
             double x = plot.Right - plot.Width * t / WindowSeconds;
@@ -149,8 +157,8 @@ public sealed class LineChart : FrameworkElement
         void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue)
         {
             if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Units.Temp, until) is not { } g) return;
-            dc.DrawGeometry(ChartGeometry.FadeFill(s.Color, 0.10), null, g.Fill);
-            dc.DrawGeometry(null, new Pen(s.Brush, 2) { LineJoin = PenLineJoin.Round }, g.Line);
+            dc.DrawGeometry(s.Fill, null, g.Fill);
+            dc.DrawGeometry(null, s.LinePen, g.Line);
         }
     }
 

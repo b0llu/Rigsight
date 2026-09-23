@@ -108,4 +108,15 @@ public static class TimeUtil
 
     public static DateTime LocalMinuteStart(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, t.Minute, 0, t.Kind);
     public static DateTime LocalHourStart(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, 0, 0, t.Kind);
+
+    /// <summary>
+    /// Start of the current local hour as Unix seconds, counted back from now. Unlike converting a local
+    /// time, this can't be off by an hour in the repeated hour when clocks go back, and it keeps local hour
+    /// boundaries for half-hour time zones (e.g. India, UTC+5:30).
+    /// </summary>
+    public static long LocalHourStartUnix()
+    {
+        var now = DateTime.Now;
+        return NowUnix() - (now.Minute * 60 + now.Second);
+    }
 }

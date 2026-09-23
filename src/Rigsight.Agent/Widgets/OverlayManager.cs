@@ -26,6 +26,8 @@ internal sealed class OverlayManager : IDisposable
     public OverlayManager(bool isAdmin)
     {
         _isAdmin = isAdmin;
+        // Text left in RivaTuner by a previous run that didn't exit cleanly would stay frozen in every game.
+        Rtss.Clear();
         _hotkey.Pressed += Toggle;
         _trayItem.Click += (_, _) => Toggle();
     }
@@ -225,6 +227,7 @@ internal sealed class OverlayManager : IDisposable
     public void Dispose()
     {
         ClearRtss();
+        Rtss.Release();
         _hotkey.Dispose();
         _form?.Close();
         _form?.Dispose();

@@ -24,7 +24,7 @@ internal static partial class WidgetRenderer
     /// <summary>Distance from the top of a line of text to its baseline, as GDI+ draws it.</summary>
     private static float Ascent(float px, FontStyle style, bool semibold)
     {
-        using var font = MakeFont(px, style, semibold);
+        var font = MakeFont(px, style, semibold);
         var f = font.FontFamily;
         return px * f.GetCellAscent(font.Style) / f.GetEmHeight(font.Style);
     }
