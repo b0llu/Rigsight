@@ -112,6 +112,8 @@ public sealed partial class LiveData : ObservableObject
 
     public void LoadHello(AgentMessage hello)
     {
+        // Today's totals arrive with the hello, before the agent has finished discovering the hardware.
+        if (hello.Today is not null) Today = hello.Today;
         if (hello.Hardware is null) return;
 
         int total = hello.Hardware.Sum(h => h.Sensors.Count);

@@ -81,39 +81,30 @@ public sealed partial class OverlayViewModel : ObservableObject
         set => Change(c => c.Scale = double.Parse(value, CultureInfo.InvariantCulture), nameof(Scale));
     }
 
-    // ── Inside fullscreen games (RivaTuner) ──
+    // ── Fullscreen games (RivaTuner) ──
 
-    public bool UseRivaTuner
+    /// <summary>running · stopped · missing · installing · install-failed (from the agent; empty until it says).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRtssWarning), nameof(RtssTitle), nameof(RtssStatus), nameof(CanInstallRtss), nameof(CanStartRtss))]
+    private string _rtssState = "";
+
+    /// <summary>Fullscreen games need RivaTuner; say so only when it isn't ready.</summary>
+    public bool ShowRtssWarning => RtssState is not ("" or "running");
+    public bool CanInstallRtss => RtssState is "missing" or "install-failed";
+    public bool CanStartRtss => RtssState == "stopped";
+
+    public string RtssTitle => RtssState == "installing" ? "Installing RivaTuner…" : "The overlay won't show in fullscreen games";
+
+    public string RtssStatus => RtssState switch
     {
-        get => Config.UseRivaTuner;
-        set { Change(c => c.UseRivaTuner = value, nameof(UseRivaTuner)); NotifyRtss(); }
-    }
+        "stopped" => "Fullscreen games hide every window, so Rigsight shows the overlay inside them through RivaTuner Statistics Server, and it isn't running. Start it, then restart any game that's already open.",
+        "installing" => "This takes a minute. Restart any game that's already open once it's done.",
+        "install-failed" => "Couldn't install RivaTuner automatically. Download it from Guru3D and install it, then come back here.",
+        _ => "Fullscreen games hide every window, so Rigsight shows the overlay inside them through RivaTuner Statistics Server, a free tool that anti-cheat accepts. It isn't installed yet.",
+    };
 
-    /// <summary>running · stopped · missing · installing · install-failed (from the agent).</summary>
-    [ObservableProperty] private string _rtssState = "";
-
-    partial void OnRtssStateChanged(string value) => NotifyRtss();
-
-    private void NotifyRtss()
-    {
-        OnPropertyChanged(nameof(RtssStatus));
-        OnPropertyChanged(nameof(RtssGood));
-        OnPropertyChanged(nameof(CanInstallRtss));
-    }
-
-    public bool RtssGood => RtssState == "running";
-    public bool CanInstallRtss => UseRivaTuner && RtssState is "missing" or "install-failed";
-
-    public string RtssStatus => !UseRivaTuner ? "Off: in exclusive fullscreen games the overlay won't appear."
-        : RtssState switch
-        {
-            "running" => "RivaTuner is running. Games started from now on show the overlay inside them, fullscreen or not.",
-            "stopped" => "RivaTuner is installed but not running. Rigsight starts it when the agent starts.",
-            "installing" => "Installing RivaTuner… this takes a minute.",
-            "install-failed" => "Couldn't install RivaTuner automatically. Download it from Guru3D instead.",
-            "missing" => "RivaTuner isn't installed yet. It's free and takes a minute.",
-            _ => "Checking for RivaTuner…",
-        };
+    [RelayCommand]
+    private void StartRtss() => _client.SendCommand("start-rtss");
 
     [RelayCommand]
     private void InstallRtss() => _client.SendCommand("install-rtss");

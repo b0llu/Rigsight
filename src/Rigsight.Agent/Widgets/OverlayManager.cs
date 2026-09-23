@@ -7,8 +7,8 @@ namespace Rigsight.Agent.Widgets;
 
 /// <summary>
 /// Shows and hides the overlay with its keyboard shortcut, and keeps it up to date. The overlay is
-/// our own always-on-top window, plus (optionally) the same readings inside games through
-/// RivaTuner, which also reaches exclusive fullscreen games. UI thread only.
+/// our own always-on-top window, or the same readings drawn inside exclusive-fullscreen games by
+/// RivaTuner (see <see cref="Refresh"/>). UI thread only.
 /// </summary>
 internal sealed class OverlayManager : IDisposable
 {
@@ -56,7 +56,6 @@ internal sealed class OverlayManager : IDisposable
 
     public void Apply(OverlaySettings settings)
     {
-        bool rtssWas = _settings.UseRivaTuner;
         _settings = settings;
         string? wanted = settings.Enabled ? settings.Hotkey : null;
         if (wanted != _registered)
@@ -73,8 +72,6 @@ internal sealed class OverlayManager : IDisposable
         }
         _trayItem.ShortcutKeyDisplayString = settings.Enabled ? settings.Hotkey : null;
 
-        if (!settings.UseRivaTuner) ClearRtss();
-        else if (!rtssWas) EnsureRtssRunning();
         if (Visible) Refresh();
     }
 
@@ -104,21 +101,21 @@ internal sealed class OverlayManager : IDisposable
         if (Visible) Refresh();
     }
 
+    /// <summary>
+    /// One overlay at a time: RivaTuner inside an exclusive-fullscreen game in front (where no window can
+    /// appear), our own window everywhere else (desktop, windowed and borderless games, or the fullscreen
+    /// game once it's minimised). Checked on every update, so switching follows Alt+Tab within a second.
+    /// </summary>
     private void Refresh()
     {
-        bool inGame = false;
-        if (_settings.UseRivaTuner)
+        if (IsExclusiveFullscreen())
         {
             _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data));
-            // RivaTuner is already drawing inside the app in front: showing our window too would double up.
-            inGame = _rtssWritten && Rtss.IsHooked(ForegroundPid());
-        }
-
-        if (inGame)
-        {
             if (_form is { Visible: true }) _form.Hide();
             return;
         }
+
+        ClearRtss();
         _form ??= new OverlayForm();
         if (!_form.Visible) _form.Show();
         _form.Redraw(_settings, _data);
@@ -131,28 +128,33 @@ internal sealed class OverlayManager : IDisposable
         _rtssWritten = false;
     }
 
+    /// <summary>A Direct3D game is running in exclusive fullscreen in front (not borderless, not minimised).</summary>
+    private static bool IsExclusiveFullscreen() =>
+        Win32.SHQueryUserNotificationState(out int state) == 0 && state == Win32.QUNS_RUNNING_D3D_FULL_SCREEN;
+
     private static int ForegroundPid()
     {
         Win32.GetWindowThreadProcessId(Win32.GetForegroundWindow(), out int pid);
         return pid;
     }
 
-    /// <summary>Exclusive fullscreen and RivaTuner isn't in the game: nothing can show. Say so (once per app).</summary>
+    /// <summary>Exclusive fullscreen and RivaTuner isn't in the game: nothing can show. Say so (once per app and run).</summary>
     private void WarnIfUnreachable()
     {
-        if (Win32.SHQueryUserNotificationState(out int state) != 0 || state != Win32.QUNS_RUNNING_D3D_FULL_SCREEN) return;
-        if (_settings.UseRivaTuner && Rtss.IsHooked(ForegroundPid())) return;
+        if (!IsExclusiveFullscreen()) return;
+        if (Rtss.IsHooked(ForegroundPid())) return;
         string app = _data?.Activity.Name ?? "This game";
         if (_warnedApps.Add(app)) CantReachGame?.Invoke(app);
     }
 
     /// <summary>
-    /// RivaTuner only reaches games started after it, so with the option on, keep it running (it sits
-    /// quietly in the tray). Tried once per agent run; needs admin, as RTSS itself does.
+    /// Fullscreen games only show the overlay through RivaTuner, and it only reaches games started after
+    /// it, so keep it running (it sits quietly in the tray). Tried once per agent run unless asked again
+    /// (<see cref="StartRtss"/>); needs admin, as RTSS itself does.
     /// </summary>
     public void EnsureRtssRunning()
     {
-        if (!_settings.UseRivaTuner || !_isAdmin || _rtssStartTried) return;
+        if (!_isAdmin || _rtssStartTried) return;
         var exe = Rtss.FindExe();
         if (exe is null || Rtss.IsRunning()) return;
         _rtssStartTried = true;
@@ -165,6 +167,14 @@ internal sealed class OverlayManager : IDisposable
         {
             Log.Error("overlay", ex);
         }
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>The Overlay page's "Start RivaTuner" button.</summary>
+    public void StartRtss()
+    {
+        _rtssStartTried = false;
+        EnsureRtssRunning();
         StateChanged?.Invoke();
     }
 

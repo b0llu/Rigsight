@@ -124,7 +124,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · install-rtss …</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

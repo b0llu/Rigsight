@@ -123,7 +123,7 @@ Measured over 60 seconds on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti a
 |---|---|---|
 | **Background agent, window closed** (the normal all-day state) | **0.016%** | **~79 MB** |
 | Background agent while the window is open (reads every sensor each second) | ~0.13% | ~80 MB |
-| Rigsight window, open on a page | ~0.03–0.07% | ~115–140 MB |
+| Rigsight window, open on a page | ~0.03–0.07% | ~115–160 MB (pages you've opened stay loaded, so switching back is instant) |
 
 Close the window and its memory is released completely; the agent drops back to the first row.
 

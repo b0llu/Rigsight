@@ -31,6 +31,9 @@ internal static partial class WidgetRenderer
 
     private static readonly Palette OverlayPalette = For(WidgetTheme.Black);
 
+    /// <summary>The panel's own see-through-ness at 100% opacity (the same in our window and in RivaTuner).</summary>
+    private const int OverlayPanelAlpha = 190;
+
     private static List<OverlayRow> OverlayRows(OverlaySettings o, WidgetData d)
     {
         var p = OverlayPalette;
@@ -96,7 +99,9 @@ internal static partial class WidgetRenderer
     {
         var rows = OverlayRows(o, data ?? new WidgetData());
         if (rows.Count == 0) return "";
-        static string Hex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
+        // Our window fades everything by the opacity setting, text included; RTSS colours take an alpha too.
+        int textAlpha = (int)Math.Round(255 * o.Opacity);
+        string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
         static string Clean(string text) => text.Replace("<", "").Replace(">", "");
 
         string Row(OverlayRow row)
@@ -104,12 +109,17 @@ internal static partial class WidgetRenderer
             var parts = new List<string>();
             // Labels share a left-aligned column so the numbers line up, as in the window.
             if (row.Label.Length > 0) parts.Add($"<A=4><S=-80><C={Hex(row.LabelColor)}>{row.Label}<C><S><A>");
-            foreach (var cell in row.Cells)
+            for (int i = 0; i < row.Cells.Count; i++)
             {
+                var cell = row.Cells[i];
                 string value = Clean(cell.Value);
                 // Numbers are right-aligned to their usual width, so they don't jump around (62° → 100°).
-                string cellText = cell.Template.Length > 0
-                    ? $"<A=-{cell.Template.Length}><C={Hex(cell.Color)}>{value}<C><A>"
+                // RTSS sizes the panel from these widths, so a value wider than its slot ("5:38 PM") must widen
+                // the slot, or it runs past the panel (and off-screen in right-hand corners). The unlabelled
+                // last row starts at the left edge, as in the window.
+                bool align = cell.Template.Length > 0 && !(row.Label.Length == 0 && i == 0);
+                string cellText = align
+                    ? $"<A=-{Math.Max(cell.Template.Length, value.Length)}><C={Hex(cell.Color)}>{value}<C><A>"
                     : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>";
                 if (cell.Unit.Length > 0)
                 {
@@ -118,7 +128,7 @@ internal static partial class WidgetRenderer
                 }
                 parts.Add(cellText);
             }
-            return string.Join("  ", parts);
+            return RtssLeftSpacer + string.Join("  ", parts);
         }
 
         int corner = o.Corner switch
@@ -129,12 +139,50 @@ internal static partial class WidgetRenderer
             _ => 0,
         };
         int fontHeight = -(int)Math.Round(8 * o.Scale);
-        int alpha = (int)Math.Round(200 * o.Opacity);
+        int alpha = (int)Math.Round(OverlayPanelAlpha * o.Opacity);
+        bool right = o.Corner is OverlayCorner.TopRight or OverlayCorner.BottomRight;
+        bool bottom = o.Corner is OverlayCorner.BottomLeft or OverlayCorner.BottomRight;
+        var (left, top, rightM, bottomM) = RtssMargins(right, bottom, o.Scale);
         string header =
-            $"<FNT=Segoe UI Semibold,{fontHeight},600,2>" +      // our font instead of RivaTuner's default
-            $"<P{corner}><L0><M=10,6,10,6>" +                      // our corner; inner margins pad the text inside the panel
-            $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";            // rounded translucent panel behind it
-        return header + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", rows.Select(Row));
+            $"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}>" +   // our font instead of RivaTuner's default
+            $"<P{corner}><L0><M={left},{top},{rightM},{bottomM}>" +    // our corner, gap and padding (see RtssMargins)
+            $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";                   // rounded translucent panel behind the text
+        return header + RtssTopSpacer + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", rows.Select(Row));
+    }
+
+    /// <summary>RTSS draws at this zoom ratio (set by our &lt;FNT&gt; tag): one margin unit is this many screen pixels.</summary>
+    private const int RtssZoom = 2;
+
+    /// <summary>Gap between the panel and the screen edges, as for our own window (screen pixels).</summary>
+    internal static int RtssGapPx = 16;
+
+    /// <summary>Space between the text and the panel's right edge (screen pixels at size M).</summary>
+    internal static int RtssPadPx = 10;
+
+    /// <summary>Space between the text and the panel's bottom edge (screen pixels at size M).</summary>
+    internal static int RtssPadBottomPx = 11;
+
+    /// <summary>Starts each line: the panel's left padding (margins can't add it; see RtssMargins).</summary>
+    internal static string RtssLeftSpacer = "  ";
+
+    /// <summary>Starts the text: the panel's top padding, as a thin empty line (38% of a line).</summary>
+    internal static string RtssTopSpacer = "<S=-38> <S>\n";
+
+    /// <summary>
+    /// &lt;M=left,top,right,bottom&gt; for a corner. Measured in RTSS 7.3.7 (sticky corner layers, content-sized):
+    /// with W the text width and k the zoom, the layer is W − k(L+R) wide and pinned to its corner; the text
+    /// starts at kL from the layer's left and the panel spans from there to W − kR. So left/top margins move
+    /// the text and panel together, and right/bottom ones only grow or shrink the panel. Solving for "panel
+    /// <see cref="RtssGapPx"/> from both screen edges, text at its start, <see cref="RtssPadPx"/> spare at its end":
+    /// near edge L = gap/k (or −gap/k when pinned to the far edge), far edge R = −(gap+pad)/k (or (gap−pad)/k).
+    /// Left and top padding come from spacers instead (<see cref="RtssLeftSpacer"/>, <see cref="RtssTopSpacer"/>).
+    /// The spacing was tuned to match our own window, and checked across corners, layouts and readings.
+    /// </summary>
+    private static (int Left, int Top, int Right, int Bottom) RtssMargins(bool right, bool bottom, double scale)
+    {
+        int near = RtssGapPx / RtssZoom;
+        int Far(bool pinnedFar, int padAt1) { int pad = (int)Math.Round(padAt1 * scale); return pinnedFar ? (RtssGapPx - pad) / RtssZoom : -(RtssGapPx + pad) / RtssZoom; }
+        return (right ? -near : near, bottom ? -near : near, Far(right, RtssPadPx), Far(bottom, RtssPadBottomPx));
     }
 
     /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
@@ -179,7 +227,7 @@ internal static partial class WidgetRenderer
         g.ScaleTransform(scale, scale);
 
         using (var path = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), 10))
-        using (var bg = new SolidBrush(Color.FromArgb(190, 8, 10, 14)))
+        using (var bg = new SolidBrush(Color.FromArgb(OverlayPanelAlpha, 8, 10, 14)))
         using (var border = new Pen(Color.FromArgb(30, 255, 255, 255), 1))
         {
             g.FillPath(bg, path);

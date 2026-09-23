@@ -49,6 +49,8 @@ internal sealed class AgentContext : ApplicationContext
     private volatile bool _stopping;
     private volatile bool _sensorsReady;
     private volatile bool _overlayVisible;
+    // Today's totals as last computed on the sampler thread, for the hello sent to a newly connected app.
+    private volatile TodayInfo? _lastToday;
     private bool _startupEnabled;
     private string? _pendingPage, _pendingArg;
 
@@ -121,6 +123,13 @@ internal sealed class AgentContext : ApplicationContext
 
     private void SamplerLoop()
     {
+        // Today's totals come from the database, not the sensors: load and send them first, so the app's
+        // Home page isn't left waiting while hardware discovery runs (several seconds on a fresh start).
+        _tracker.Initialize();
+        _lastToday = _tracker.Today();
+        if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
+
+        var discovery = Stopwatch.StartNew();
         try
         {
             _sensors.Open();
@@ -129,6 +138,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             Log.Error("sensors", ex);
         }
+        Log.Write("agent", $"Sensors ready in {discovery.Elapsed.TotalSeconds:0.0} s ({_sensors.SensorCount} sensors)");
         _sensorsReady = true;
         if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
 
@@ -137,7 +147,6 @@ internal sealed class AgentContext : ApplicationContext
         System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
         GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
 
-        _tracker.Initialize();
         RecordDrives();
 
         var clock = Stopwatch.StartNew();
@@ -266,6 +275,7 @@ internal sealed class AgentContext : ApplicationContext
             Activity = activity,
             Today = _tracker.Today(),
         };
+        _lastToday = data.Today;
 
         var tip = $"Rigsight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
         if (activity.Paused) tip += "\nTracking paused";
@@ -443,6 +453,7 @@ internal sealed class AgentContext : ApplicationContext
             OverlayVisible = _overlayVisible,
             OverlayHotkeyTaken = _overlay.HotkeyTaken,
             RtssState = _overlay.RtssState,
+            Today = _lastToday,
         };
         if (_sensorsReady)
         {
@@ -499,6 +510,9 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "overlay-toggle":
                 _ui.Post(_ => _overlay.Toggle(), null);
+                break;
+            case "start-rtss":
+                _ui.Post(_ => _overlay.StartRtss(), null);
                 break;
             case "install-rtss":
                 _ui.Post(_ => _overlay.InstallRtss(_ui), null);
@@ -599,19 +613,22 @@ internal sealed class AgentContext : ApplicationContext
         });
     }
 
-    /// <summary>The overlay was turned on over an exclusive-fullscreen game it can't reach: explain (after the game).</summary>
+    /// <summary>
+    /// The overlay was turned on over a fullscreen game it can't reach. Notifications wait until the game
+    /// is closed or minimised (nothing can show over it), then explain what to do.
+    /// </summary>
     private void OnOverlayCantReachGame(string app)
     {
-        string body = _overlay.RtssState switch
+        var (title, body) = _overlay.RtssState switch
         {
-            "running" when _settings.Overlay.UseRivaTuner =>
-                $"RivaTuner started after {app} did. Restart {app} and the overlay will show inside it, or switch it to borderless.",
-            _ when !_settings.Overlay.UseRivaTuner =>
-                $"Turn on \"Show inside games through RivaTuner\" on the Overlay page, or switch {app} to borderless.",
-            _ => $"Install RivaTuner (free) from Rigsight's Overlay page to show it inside fullscreen games, or switch {app} to borderless.",
+            "running" => ($"Restart {app} to see the overlay",
+                $"{app} was already open when RivaTuner started, so RivaTuner isn't drawing in it yet. Restart it and the overlay will show."),
+            "stopped" => ("The overlay can't show in fullscreen games",
+                "RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from Rigsight's Overlay page, then restart the game."),
+            _ => ("The overlay can't show in fullscreen games",
+                "Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from Rigsight's Overlay page, then restart the game."),
         };
-        _notices.Show(new Notice(NoticeKind.Info, $"The overlay couldn't appear over {app}",
-            $"{app} is in exclusive fullscreen. {body}", _tracker.Activity.Path, "overlay"));
+        _notices.Show(new Notice(NoticeKind.Info, title, body, _tracker.Activity.Path, "overlay"));
     }
 
     private void PauseFor(int minutes) =>
