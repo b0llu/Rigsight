@@ -69,6 +69,11 @@ It does all of this while using about **0.02% of your CPU**.
 - **Storage**: drive usage and growth, drive health, cleanup suggestions, and a folder scanner with a treemap.
 - **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.
 
+### 🧱 My pages
+- **Build your own pages** from tiles: gauges, a temperature chart, any single sensor, fans, drives, top memory users, today's totals, most used apps, highlights, yesterday and crashes.
+- **Drag tiles anywhere.** The others slide out of the way and fill the gaps.
+- **Resize, remove, rename.** Make as many pages as you like, such as "Gaming" or "Work". Each is saved automatically.
+
 ### 🖥️ On your desktop
 - **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity, click-through lock, and a *game overlay* mode that only appears over fullscreen games.
 - **Tray icon** with a health dot (green, amber or red) and a live readout on hover.
@@ -102,6 +107,18 @@ Rigsight is split into two programs:
 |---|---|---|
 | **`Rigsight.Agent.exe`** | Always, from sign-in, with admin rights | Reads sensors, notices which app is in front, writes one small summary per minute to a local SQLite database, and draws the tray icon, widgets and notifications. |
 | **`Rigsight.exe`** | Only while you have the window open | The dashboard. It needs no admin rights, reads history from the database, streams live data from the agent over a named pipe, and **fully exits when closed**. |
+
+### Measured resource use
+
+Measured over 60 seconds on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti and 202 sensors. CPU is the share of the whole PC; memory is private memory, the "Memory" column in Task Manager.
+
+| | CPU | Memory |
+|---|---|---|
+| **Background agent, window closed** (the normal all-day state) | **0.016%** | **~79 MB** |
+| Background agent while the window is open (reads every sensor each second) | ~0.13% | ~80 MB |
+| Rigsight window, open on a page | ~0.03–0.07% | ~115–140 MB |
+
+Close the window and its memory is released completely; the agent drops back to the first row.
 
 The agent is built to be almost invisible:
 

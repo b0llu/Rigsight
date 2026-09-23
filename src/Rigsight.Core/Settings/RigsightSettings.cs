@@ -35,6 +35,9 @@ public sealed class RigsightSettings
     /// <summary>Hardware groups collapsed on the All sensors page (by name).</summary>
     public HashSet<string> CollapsedHardware { get; set; } = [];
 
+    /// <summary>Pages the user built from tiles.</summary>
+    public List<CustomPageConfig> CustomPages { get; set; } = [];
+
     /// <summary>Set once the agent has registered itself to start with Windows (so turning it off sticks).</summary>
     public bool StartupConfigured { get; set; }
 

@@ -19,6 +19,7 @@ public partial class MainWindow : Window
         DataContext = _vm = vm;
         vm.PropertyChanged += OnViewModelChanged;
         vm.ActivateRequested += BringToFront;
+        vm.CustomPageDeleted += key => _pages.Remove(key);
         ShowPage(vm.CurrentPage);
 
         SourceInitialized += (_, _) =>
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
                 "sensors" => new SensorsView { DataContext = _vm.Live },
                 "widgets" => new WidgetsView { DataContext = _vm.Widgets },
                 "settings" => new SettingsView { DataContext = _vm.SettingsPage },
+                _ when _vm.FindCustomPage(page) is { } custom => new CustomPageView { DataContext = custom },
                 _ => new HomeView { DataContext = _vm.Home },
             };
             _pages[page] = view;

@@ -1,0 +1,476 @@
+<UserControl x:Class="Rigsight.Views.CustomPageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <UserControl.Resources>
+        <ctl:TileTemplateSelector x:Key="TileFrameSelector" Chrome="True" />
+        <ctl:TileTemplateSelector x:Key="TileContentSelector" />
+
+        <Style x:Key="TileTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="Big" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+        <Style x:Key="Row" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="RowValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ── The frame around every tile ────────────────────────────── -->
+        <DataTemplate x:Key="Tile.Frame">
+            <Border x:Name="Frame" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                    CornerRadius="16" Padding="16,10,12,14" ClipToBounds="True"
+                    PreviewMouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove"
+                    MouseLeftButtonUp="Tile_MouseUp" LostMouseCapture="Tile_LostCapture">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" MinHeight="26">
+                        <StackPanel x:Name="EditButtons" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed">
+                            <Button Style="{StaticResource IconButton}" Click="Size_Click" ToolTip="Change size" AutomationProperties.Name="Change size">
+                                <TextBlock Text="&#xE740;" />
+                            </Button>
+                            <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" ToolTip="Remove tile" AutomationProperties.Name="Remove tile">
+                                <TextBlock Text="&#xE711;" />
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource TileTitle}" />
+                    </DockPanel>
+                    <ContentControl x:Name="Body" Content="{Binding}" ContentTemplateSelector="{StaticResource TileContentSelector}" Focusable="False" />
+                </DockPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Page.IsEditing}" Value="True">
+                    <Setter TargetName="EditButtons" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="Frame" Property="Cursor" Value="SizeAll" />
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FaintBrush}" />
+                    <!-- While editing, clicks anywhere on a tile grab it (except its buttons). -->
+                    <Setter TargetName="Body" Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsDragging}" Value="True">
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                    <Setter TargetName="Frame" Property="Opacity" Value="0.94" />
+                    <Setter TargetName="Frame" Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.45" Color="Black" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Where a dragged tile will land -->
+        <DataTemplate x:Key="Tile.Placeholder">
+            <Rectangle RadiusX="16" RadiusY="16" Stroke="{StaticResource AccentBrush}" StrokeThickness="2" StrokeDashArray="4 3"
+                       Fill="{StaticResource AccentSoftBrush}" />
+        </DataTemplate>
+
+        <!-- ── What's inside each kind of tile ────────────────────────── -->
+        <DataTemplate x:Key="Tile.Unknown">
+            <TextBlock Text="This tile isn't available in this version." Style="{StaticResource Row}" TextWrapping="Wrap" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.cpu-gauge">
+            <Grid>
+                <ctl:ArcGauge Value="{Binding Live.CpuTemp.Value}" Maximum="100" Thickness="11"
+                              Brush="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
+                    <TextBlock Text="{Binding Live.CpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
+                               Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.gpu-gauge">
+            <Grid>
+                <ctl:ArcGauge Value="{Binding Live.GpuTemp.Value}" Maximum="100" Thickness="11"
+                              Brush="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                    <TextBlock Text="{Binding Live.GpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
+                               Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.sensor">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" Style="{StaticResource Big}" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" Margin="0,1,0,0" />
+                <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" />
+            </DockPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.temp-chart">
+            <DockPanel>
+                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Live.TempSeries}" Margin="0,-4,0,6">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
+                                <Ellipse Width="7" Height="7" Fill="{Binding Brush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ctl:LineChart Series="{Binding Live.TempSeries}" Version="{Binding Live.Tick}" WindowSeconds="{Binding Live.ChartWindowSeconds}" />
+            </DockPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.fans">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Live.Fans}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,3">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" Style="{StaticResource RowValue}" />
+                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Row}" Margin="0,0,10,0" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="No spinning fans reported." Style="{StaticResource Row}" TextWrapping="Wrap"
+                           Visibility="{Binding Live.Fans.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.drives">
+            <ItemsControl ItemsSource="{Binding Live.Drives}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,3,0,6">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Temperature.ShortValue, FallbackValue=''}" FontSize="12.5" FontWeight="SemiBold" Margin="10,0,0,0"
+                                           Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding UsedSpace.ShortValue, StringFormat='{}{0} full', FallbackValue=''}" Style="{StaticResource RowValue}" />
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="0,0,10,0" />
+                            </DockPanel>
+                            <ProgressBar Style="{StaticResource Bar}" Margin="0,5,0,0" Maximum="100" Value="{Binding UsedSpace.Value, Mode=OneWay, FallbackValue=0}"
+                                         Foreground="{StaticResource PurpleBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.top-memory">
+            <ItemsControl ItemsSource="{Binding Live.TopMemory}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,3">
+                            <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding MemText}" Style="{StaticResource RowValue}" />
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.today">
+            <UniformGrid Columns="3" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Live.Today.ActiveSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="PC ON" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Live.Today.OnSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="AWAY" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Live.Today.IdleSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                </StackPanel>
+            </UniformGrid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.most-used">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Home.TodayTopApps}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,3">
+                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource RowValue}" />
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Nothing yet today." Style="{StaticResource Row}"
+                           Visibility="{Binding Home.TodayTopApps.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.insights">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Home.TodayInsights}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,4">
+                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,2,10,0"
+                                           Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Highlights appear once there's a bit of today to talk about." Style="{StaticResource Row}" TextWrapping="Wrap"
+                           Visibility="{Binding Home.TodayInsights.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.peaks">
+            <StackPanel>
+                <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.CpuPeakApp}" Style="{StaticResource Row}" Margin="10,0,0,0" />
+                    <TextBlock Style="{StaticResource Row}">
+                        <Run Text="CPU" Foreground="{StaticResource CpuBrush}" FontWeight="SemiBold" />
+                        <Run Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
+                             Foreground="{Binding Live.Today.CpuPeak, Converter={StaticResource TempBrush}}" FontSize="18" />
+                    </TextBlock>
+                </DockPanel>
+                <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.GpuPeakApp}" Style="{StaticResource Row}" Margin="10,0,0,0" />
+                    <TextBlock Style="{StaticResource Row}">
+                        <Run Text="GPU" Foreground="{StaticResource GpuBrush}" FontWeight="SemiBold" />
+                        <Run Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
+                             Foreground="{Binding Live.Today.GpuPeak, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" FontSize="18" />
+                    </TextBlock>
+                </DockPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.yesterday">
+            <Grid>
+                <StackPanel Visibility="{Binding Home.YesterdayHasData, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{Binding Home.Yesterday.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Big}" />
+                    <TextBlock Style="{StaticResource Row}" Margin="0,0,0,8">
+                        <Run Text="active · PC on for" /> <Run Text="{Binding Home.Yesterday.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding Home.YesterdayTopApps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,3">
+                                    <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource RowValue}" />
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <TextBlock Text="Yesterday's recap will be here tomorrow." Style="{StaticResource Row}" TextWrapping="Wrap"
+                           Visibility="{Binding Home.YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.crashes">
+            <DockPanel>
+                <UniformGrid DockPanel.Dock="Top" Columns="3">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Crashes.AppCrashCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="apps &amp; games" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Crashes.DriverResetCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="driver resets" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Crashes.SystemCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="PC crashes" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                </UniformGrid>
+                <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.HasCrashes, Converter={StaticResource Vis}}">
+                    <TextBlock Text="LATEST" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Crashes.Crashes[0].Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding Crashes.Crashes[0].TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel Margin="32,26,32,0">
+        <!-- Header -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete page" Margin="0,0,8,0"
+                        Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                        <TextBlock Text="Delete page" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="Edit page">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="12" Margin="0,0,8,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                    <Setter Property="Text" Value="&#xE70F;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                            <Setter Property="Text" Value="&#xE73E;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Edit page" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                            <Setter Property="Text" Value="Done" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <StackPanel>
+                <Grid>
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource H1}"
+                               Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <TextBox Style="{StaticResource InlineEdit}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Left" MinWidth="220" Margin="-6,0,0,0"
+                             Text="{Binding Name, UpdateSourceTrigger=LostFocus}" KeyDown="NameBox_KeyDown" ToolTip="Rename this page"
+                             Visibility="{Binding IsEditing, Converter={StaticResource Vis}}" />
+                </Grid>
+                <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                            <Setter Property="Text" Value="Your own page. Choose Edit page to add, move and resize tiles." />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                    <Setter Property="Text" Value="Drag tiles to move them. Use a tile's buttons to resize or remove it. Click a name to rename the page." />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Add tiles (edit mode) -->
+        <Border DockPanel.Dock="Right" Width="300" Margin="18,0,0,32" Style="{StaticResource Card}" Padding="0"
+                Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="18,16,18,18">
+                    <TextBlock Text="Add tiles" Style="{StaticResource H2}" />
+                    <TextBlock Text="Click a tile to add it. You can move it afterwards." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,6" />
+                    <ItemsControl ItemsSource="{Binding Catalog}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="0,14,0,6" />
+                                    <ItemsControl ItemsSource="{Binding Tiles}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Command="{Binding DataContext.AddTileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding Title, StringFormat=Add {0}}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="10,8">
+                                                                <ContentPresenter />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface2Brush}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12"
+                                                                   Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14"
+                                                                   Foreground="{StaticResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,12,0" />
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{StaticResource TextBrush}" />
+                                                            <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="ANY SENSOR" Style="{StaticResource Caption}" Margin="0,18,0,6" />
+                    <TextBlock Text="Pick any of your sensors (type to search)." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <ComboBox ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
+                              TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360">
+                        <ComboBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ComboBox.ItemsPanel>
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="13" />
+                                    <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Style="{StaticResource AccentButton}" Content="Add sensor" Command="{Binding AddSensorTileCommand}"
+                            HorizontalAlignment="Left" Margin="0,10,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Tiles -->
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="0,0,0,32">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"
+                            Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                    <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="34" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="This page is empty" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
+                    <TextBlock Text="Choose Edit page, then pick tiles from the list on the right." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
+                </StackPanel>
+                <ItemsControl x:Name="TileList" ItemsSource="{Binding Tiles}" ItemTemplateSelector="{StaticResource TileFrameSelector}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ctl:TileGrid Loaded="Grid_Loaded" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Grid>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

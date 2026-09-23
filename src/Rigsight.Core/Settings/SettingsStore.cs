@@ -76,6 +76,21 @@ public static class SettingsStore
         t.KeepHistoryDays = Math.Clamp(t.KeepHistoryDays, 30, 3650);
         s.LiveRefreshMs = Math.Clamp(s.LiveRefreshMs, 250, 10_000);
 
+        foreach (var page in s.CustomPages)
+        {
+            if (string.IsNullOrWhiteSpace(page.Id)) page.Id = CustomPageConfig.NewId();
+            if (string.IsNullOrWhiteSpace(page.Name)) page.Name = "My page";
+            page.Tiles = [.. page.Tiles.Where(tile => !string.IsNullOrEmpty(tile.Kind)).DistinctBy(tile => tile.Id)];
+            foreach (var tile in page.Tiles)
+            {
+                tile.W = Math.Clamp(tile.W, 1, TileConfig.Columns);
+                tile.H = Math.Clamp(tile.H, 1, TileConfig.MaxHeight);
+                tile.X = Math.Clamp(tile.X, 0, TileConfig.Columns - tile.W);
+                tile.Y = Math.Max(0, tile.Y);
+            }
+        }
+        s.CustomPages = [.. s.CustomPages.DistinctBy(p => p.Id)];
+
         // JSON loses the case-insensitive comparers.
         s.AppNames = new Dictionary<string, string>(s.AppNames, StringComparer.OrdinalIgnoreCase);
         s.AppCategories = new Dictionary<string, AppCategory>(s.AppCategories, StringComparer.OrdinalIgnoreCase);

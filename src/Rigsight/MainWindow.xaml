@@ -69,7 +69,8 @@
                     </Border>
                 </StackPanel>
 
-                <!-- Navigation -->
+                <!-- Navigation (scrolls if there are many custom pages on a short screen) -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <StackPanel>
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE80F;" Content="Home"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=home}" />
@@ -79,6 +80,36 @@
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=apps}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7BA;" Content="Crashes"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=crashes}" />
+
+                    <TextBlock Text="MY PAGES" Style="{StaticResource Caption}" Margin="12,18,0,8" />
+                    <ItemsControl ItemsSource="{Binding CustomPages}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton Style="{StaticResource NavItem}" Tag="&#xF0E2;" IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                </RadioButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New page" Cursor="Hand" Focusable="False" Foreground="{StaticResource FaintBrush}" Margin="0,0,0,4"
+                            ToolTip="Build your own page from tiles">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                        <TextBlock Text="New page" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface2Brush}" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
                     <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" Margin="12,18,0,8" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE9CA;" Content="Temperatures"
@@ -98,6 +129,7 @@
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE946;" Content="Guide"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=guide}" />
                 </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 

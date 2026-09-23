@@ -1,7 +1,10 @@
+using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Protocol;
+using Rigsight.Core.Settings;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
@@ -28,6 +31,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Storage = new StorageViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
+        foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
 
         Settings.Changed += () =>
         {
@@ -67,6 +71,43 @@ public sealed partial class ShellViewModel : ObservableObject
     public WidgetsViewModel Widgets { get; }
     public SettingsViewModel SettingsPage { get; }
 
+    /// <summary>Pages the user built ("My pages" in the sidebar).</summary>
+    public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];
+
+    /// <summary>Raised with a page's navigation key after it was deleted, so its view can be dropped.</summary>
+    public event Action<string>? CustomPageDeleted;
+
+    public CustomPageViewModel? FindCustomPage(string key) => CustomPages.FirstOrDefault(p => p.NavKey == key);
+
+    private CustomPageViewModel CreateCustomPage(CustomPageConfig config) =>
+        new(config, Settings, Live, Home, Crashes, open: p => CurrentPage = p.NavKey, delete: DeleteCustomPage);
+
+    [RelayCommand]
+    private void NewPage()
+    {
+        var names = CustomPages.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string name = "My page";
+        for (int i = 2; names.Contains(name); i++) name = $"My page {i}";
+
+        var page = CreateCustomPage(new CustomPageConfig { Name = name });
+        CustomPages.Add(page);
+        page.AddStarterTiles();
+        page.IsEditing = true;
+        CurrentPage = page.NavKey;
+    }
+
+    private void DeleteCustomPage(CustomPageViewModel page)
+    {
+        var answer = MessageBox.Show($"Delete the page \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
+            "Delete page", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        Settings.Update(s => s.CustomPages.RemoveAll(p => p.Id == page.Id));
+        CustomPages.Remove(page);
+        if (CurrentPage == page.NavKey) CurrentPage = "home";
+        CustomPageDeleted?.Invoke(page.NavKey);
+    }
+
     [ObservableProperty] private string _currentPage = "home";
 
     [ObservableProperty]
@@ -94,7 +135,11 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Raised when the agent asks the app to come to the front.</summary>
     public event Action? ActivateRequested;
 
-    partial void OnCurrentPageChanged(string value) => _ = RefreshCurrentPageAsync();
+    partial void OnCurrentPageChanged(string value)
+    {
+        foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
+        _ = RefreshCurrentPageAsync();
+    }
 
     public async Task RefreshCurrentPageAsync()
     {
@@ -110,6 +155,9 @@ public sealed partial class ShellViewModel : ObservableObject
             case "settings":
                 SettingsPage.Refresh();
                 await SettingsPage.LoadKnownAppsAsync();
+                break;
+            default:
+                if (FindCustomPage(CurrentPage) is { } custom) await custom.RefreshAsync();
                 break;
         }
     }

@@ -18,6 +18,8 @@ public sealed partial class LiveData : ObservableObject
 {
     private readonly SettingsModel _settings;
     private readonly List<SensorItem> _flat = [];
+    private readonly Dictionary<string, SensorItem> _byKey = [];
+    private readonly Dictionary<string, SensorItem> _byId = [];
     private readonly Dictionary<string, ProcRow> _procIndex = new(StringComparer.OrdinalIgnoreCase);
 
     public LiveData(SettingsModel settings)
@@ -91,6 +93,9 @@ public sealed partial class LiveData : ObservableObject
 
     // ── Processes ─────────────────────────────────────────────────────────
     public ObservableCollection<ProcRow> Procs { get; } = [];
+
+    /// <summary>The six apps using the most memory (for the custom page tile).</summary>
+    [ObservableProperty] private List<ProcRow> _topMemory = [];
     public ICollectionView ProcsView { get; }
     [ObservableProperty] private bool _onlyWindowedApps;
     partial void OnOnlyWindowedAppsChanged(bool value) => ProcsView.Refresh();
@@ -213,9 +218,26 @@ public sealed partial class LiveData : ObservableObject
         AddSeries("GPU hot spot", GpuHotSpot, "#FBBF24");
         AddSeries("GPU memory", GpuMemJunction, "#F472B6");
 
+        _byKey.Clear();
+        if (hello.Keys is not null)
+            foreach (var (key, index) in hello.Keys)
+                if (index < _flat.Count) _byKey[key] = _flat[index];
+        _byId.Clear();
+        foreach (var item in _flat) _byId.TryAdd(item.Id, item);
+
         HasHardware = _flat.Count > 0;
         ApplyFilter();
+        SensorsRebuilt?.Invoke();
     }
+
+    /// <summary>Raised when the sensor list was (re)built, so anything holding sensors can look them up again.</summary>
+    public event Action? SensorsRebuilt;
+
+    /// <summary>A sensor by id, or "key:&lt;name&gt;" for a well-known one (CPU load, GPU power…). Null until the agent has sent its sensors.</summary>
+    public SensorItem? Resolve(string? reference) =>
+        reference is null ? null
+        : reference.StartsWith("key:", StringComparison.Ordinal) ? _byKey.GetValueOrDefault(reference[4..])
+        : _byId.GetValueOrDefault(reference);
 
     public void ApplyTick(AgentMessage tick)
     {
@@ -255,6 +277,7 @@ public sealed partial class LiveData : ObservableObject
                 Procs.RemoveAt(i);
             }
         }
+        TopMemory = [.. Procs.OrderByDescending(p => p.MemMB).Take(6)];
         double top = Procs.Count > 0 ? Procs.Max(p => p.MemMB) : 1;
         foreach (var p in Procs) p.MemShare = top > 0 ? p.MemMB / top * 100 : 0;
         if (OnlyWindowedApps) ProcsView.Refresh();

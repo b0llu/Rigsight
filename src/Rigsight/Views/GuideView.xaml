@@ -58,7 +58,7 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="YOUR DAY" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6" />
-                                <TextBlock Style="{StaticResource F}" Text="• Home: what you're doing now, today so far, yesterday's recap" />
+                                <TextBlock Style="{StaticResource F}" Text="• Home: today so far, highlights and yesterday's recap" />
                                 <TextBlock Style="{StaticResource F}" Text="• Reports: day, week and month, with a minute-by-minute timeline" />
                                 <TextBlock Style="{StaticResource F}" Text="• Time per app: in use, in the background, minimized, away" />
                                 <TextBlock Style="{StaticResource F}" Text="• Sessions and automatic game detection" />
@@ -104,6 +104,7 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="YOUR CONTROL" Style="{StaticResource Caption}" Foreground="{StaticResource PurpleBrush}" Margin="0,0,0,6" />
+                                <TextBlock Style="{StaticResource F}" Text="• My pages: build your own pages from tiles and drag them into place" />
                                 <TextBlock Style="{StaticResource F}" Text="• Alert limits, quiet while gaming, notification style and previews" />
                                 <TextBlock Style="{StaticResource F}" Text="• Tracking sensitivity: away time and sampling speed" />
                                 <TextBlock Style="{StaticResource F}" Text="• Privacy: excluded apps, pause, data retention, clear history" />
