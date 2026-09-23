@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security;
 using System.Security.Principal;
 using System.Text;
@@ -12,16 +11,10 @@ namespace Rigsight.Agent;
 /// </summary>
 internal static class StartupTask
 {
-    public static bool IsEnabled() => Schtasks("/Query", "/TN", RigsightPaths.AgentTaskName) == 0;
+    public static bool IsEnabled() => AgentTask.Exists();
 
     /// <summary>True when the task starts this copy of the agent (not an older install elsewhere).</summary>
-    public static bool PointsHere()
-    {
-        var exe = Environment.ProcessPath;
-        if (exe is null) return true;
-        Schtasks(out var xml, "/Query", "/TN", RigsightPaths.AgentTaskName, "/XML");
-        return xml.Contains($"<Command>{SecurityElement.Escape(exe)}</Command>", StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool PointsHere() => Environment.ProcessPath is not { } exe || AgentTask.PointsTo(exe);
 
     public static bool Enable()
     {
@@ -69,7 +62,7 @@ internal static class StartupTask
         try
         {
             File.WriteAllText(file, xml, Encoding.Unicode);
-            return Schtasks("/Create", "/TN", RigsightPaths.AgentTaskName, "/XML", file, "/F") == 0;
+            return AgentTask.Schtasks(out _, "/Create", "/TN", RigsightPaths.AgentTaskName, "/XML", file, "/F") == 0;
         }
         finally
         {
@@ -77,33 +70,5 @@ internal static class StartupTask
         }
     }
 
-    public static bool Disable() => Schtasks("/Delete", "/TN", RigsightPaths.AgentTaskName, "/F") == 0;
-
-    private static int Schtasks(params string[] args) => Schtasks(out _, args);
-
-    private static int Schtasks(out string output, params string[] args)
-    {
-        output = "";
-        try
-        {
-            var psi = new ProcessStartInfo("schtasks.exe")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            foreach (var a in args) psi.ArgumentList.Add(a);
-            using var p = Process.Start(psi)!;
-            output = p.StandardOutput.ReadToEnd();
-            p.StandardError.ReadToEnd();
-            p.WaitForExit(10_000);
-            return p.ExitCode;
-        }
-        catch (Exception ex)
-        {
-            Log.Error("startup", ex);
-            return -1;
-        }
-    }
+    public static bool Disable() => AgentTask.Delete();
 }

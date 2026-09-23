@@ -11,7 +11,7 @@ public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly AgentClient _client;
     private readonly DispatcherTimer _refresh;
-    private bool _launchAttempted;
+    private DispatcherTimer? _startTimeout;
     private bool _elevationRequested;
 
     public ShellViewModel(AgentClient client)
@@ -68,13 +68,26 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _currentPage = "home";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowAgentWarning))]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText))]
     private bool _isConnected;
 
-    [ObservableProperty] private bool _agentIsAdmin = true;
-    [ObservableProperty] private string _agentStatus = "Connecting to the Rigsight agent…";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText))]
+    private bool _agentIsAdmin = true;
+
+    /// <summary>Progress of the last start attempt; empty when there is nothing to report.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AgentHint))]
+    private string _agentStatus = "";
 
     public bool ShowAgentWarning => !IsConnected || !AgentIsAdmin;
+
+    public string AgentHint =>
+        !string.IsNullOrEmpty(AgentStatus) ? AgentStatus
+        : IsConnected ? "CPU temperatures, fans and voltages need admin rights."
+        : "Tracking and some sensors need it.";
+
+    public string AgentButtonText => IsConnected ? "Restart with admin" : "Start agent";
 
     /// <summary>Raised when the agent asks the app to come to the front.</summary>
     public event Action? ActivateRequested;
@@ -129,16 +142,33 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
         AgentStatus = "Starting the Rigsight agent…";
-        // Only prompt for admin rights once per session if the startup task isn't available.
-        bool started = AgentLauncher.Start(allowUacPrompt: !_launchAttempted);
-        _launchAttempted = true;
-        if (!started) AgentStatus = "The Rigsight agent isn't running.";
+        if (!AgentLauncher.Start())
+        {
+            AgentStatus = "Couldn't start the agent. Try again, and accept the admin prompt.";
+            return;
+        }
+
+        // If it still hasn't connected after a while (UAC declined, blocked by antivirus…), say so.
+        _startTimeout?.Stop();
+        _startTimeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _startTimeout.Tick += (_, _) =>
+        {
+            _startTimeout.Stop();
+            if (!IsConnected) AgentStatus = "The agent didn't start. Try again, and accept the admin prompt.";
+        };
+        _startTimeout.Start();
     }
 
     private void OnConnectionChanged(bool connected)
     {
         IsConnected = connected;
-        AgentStatus = connected ? "" : "The Rigsight agent isn't running.";
+        AgentStatus = "";
+        if (!connected)
+        {
+            // Unknown until the agent says hello again; the sidebar already explains it isn't running.
+            AgentIsAdmin = true;
+            SettingsPage.AgentIsAdmin = true;
+        }
     }
 
     private void OnMessage(AgentMessage msg)

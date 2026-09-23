@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Principal;
 using Rigsight.Core;
+using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent;
 
@@ -11,6 +12,26 @@ internal static class Program
     private static void Main(string[] args)
     {
         bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+
+        // Run by the installer (already elevated): register "start with Windows" and start the agent
+        // through the task, so the user never sees a separate UAC prompt.
+        if (args.Contains("--register-startup"))
+        {
+            if (!isAdmin) Environment.Exit(1);
+            bool ok = StartupTask.Enable();
+            if (ok)
+            {
+                var settings = SettingsStore.Load();
+                if (!settings.StartupConfigured)
+                {
+                    settings.StartupConfigured = true;
+                    SettingsStore.Save(settings);
+                }
+                ok = AgentTask.Run();
+            }
+            Log.Write("agent", $"Registered startup task: {ok}");
+            Environment.Exit(ok ? 0 : 1);
+        }
 
         // CPU and motherboard sensors need admin rights. Relaunch elevated unless told not to.
         if (!isAdmin && !args.Contains("--no-elevate") && !Debugger.IsAttached)

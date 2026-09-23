@@ -9,46 +9,22 @@ namespace Rigsight.Services;
 public static class AgentLauncher
 {
     /// <summary>
-    /// Tries the startup task first (runs elevated with no UAC prompt), then falls back to starting
-    /// the agent directly, which asks for admin rights.
+    /// Uses the startup task when it points at this install (runs elevated with no UAC prompt).
+    /// Otherwise starts the agent directly, which asks for admin rights once and then re-registers
+    /// the task for next time.
     /// </summary>
-    public static bool Start(bool allowUacPrompt)
+    public static bool Start()
     {
-        if (RunTask()) return true;
-        if (!allowUacPrompt) return false;
-
         var exe = RigsightPaths.Sibling(RigsightPaths.AgentExe);
         if (!File.Exists(exe)) return false;
+        if (AgentTask.PointsTo(exe) && AgentTask.Run()) return true;
+
         try
         {
             Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
             return true;
         }
         catch (Win32Exception)
-        {
-            return false;
-        }
-    }
-
-    private static bool RunTask()
-    {
-        try
-        {
-            var psi = new ProcessStartInfo("schtasks.exe")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            foreach (var a in new[] { "/Run", "/TN", RigsightPaths.AgentTaskName }) psi.ArgumentList.Add(a);
-            using var p = Process.Start(psi)!;
-            p.StandardOutput.ReadToEnd();
-            p.StandardError.ReadToEnd();
-            p.WaitForExit(5000);
-            return p.ExitCode == 0;
-        }
-        catch
         {
             return false;
         }

@@ -47,7 +47,9 @@ Name: "{autodesktop}\Rigsight"; Filename: "{app}\Rigsight.exe"; Tasks: desktopic
 
 [Run]
 Filename: "{cmd}"; Parameters: "/c winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements"; StatusMsg: "Installing the PawnIO sensor driver..."; Flags: runhidden waituntilterminated; Tasks: pawnio
-; Opening the app starts the background agent, which asks for admin once and then starts with Windows.
+; Setup already has admin rights: use them to register "start with Windows" and start the agent,
+; so the user never sees a second UAC prompt.
+Filename: "{app}\Rigsight.Agent.exe"; Parameters: "--register-startup"; StatusMsg: "Starting the Rigsight background agent..."; Flags: runhidden waituntilterminated
 Filename: "{app}\Rigsight.exe"; Description: "Open Rigsight"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]

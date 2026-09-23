@@ -42,11 +42,11 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Text="Tracking and some sensors need it." FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <TextBlock Text="{Binding AgentHint}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
                             <Button Style="{StaticResource AccentButton}" Command="{Binding StartAgentCommand}" HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                    <TextBlock Text="Start agent" />
+                                    <TextBlock Text="{Binding AgentButtonText}" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>

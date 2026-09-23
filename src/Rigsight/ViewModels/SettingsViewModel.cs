@@ -76,7 +76,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     // ── Agent ─────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _startupEnabled;
-    [ObservableProperty] private bool _agentIsAdmin;
+    /// <summary>True until the agent reports otherwise, so no admin warning shows while it isn't connected.</summary>
+    [ObservableProperty] private bool _agentIsAdmin = true;
     [ObservableProperty] private string? _statusMessage;
     public string AppVersion { get; } = "v" + (typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
 
