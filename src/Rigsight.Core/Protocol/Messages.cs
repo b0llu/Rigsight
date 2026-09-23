@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Rigsight.Core.Apps;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Protocol;
@@ -57,8 +58,14 @@ public sealed class TodayInfo
     public double TopAppSec { get; set; }
     public double? CpuPeak { get; set; }
     public string? CpuPeakApp { get; set; }
+    public AppCategory CpuPeakCategory { get; set; }
     public double? GpuPeak { get; set; }
     public string? GpuPeakApp { get; set; }
+    public AppCategory GpuPeakCategory { get; set; }
+
+    /// <summary>"while playing Dota 2", "while browsing in Chrome"… (null before the first reading).</summary>
+    [JsonIgnore] public string? CpuPeakWhile => CpuPeakApp is null ? null : ActivityWords.While(CpuPeakApp, CpuPeakCategory);
+    [JsonIgnore] public string? GpuPeakWhile => GpuPeakApp is null ? null : ActivityWords.While(GpuPeakApp, GpuPeakCategory);
 }
 
 /// <summary>One app's live resource use (all of its processes combined).</summary>

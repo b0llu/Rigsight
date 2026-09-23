@@ -1,3 +1,4 @@
+using Rigsight.Core.Apps;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -68,12 +69,12 @@ public static class InsightEngine
         // Hottest moments.
         if (r.CpuTempPeak is { } cpu)
             list.Add(new Insight("",
-                $"CPU peaked at {Units.TempShort(cpu.Value)} at {cpu.Time:h:mm tt}{Using(cpu.App)}.", ToneFor(cpu.Value, 75, 88)));
+                $"CPU peaked at {Units.TempShort(cpu.Value)} at {cpu.Time:h:mm tt}{While(r, cpu.App)}.", ToneFor(cpu.Value, 75, 88)));
         if (r.GpuTempPeak is { } gpu)
         {
             string hot = r.GpuHotPeak is { } hs ? $" (hot spot {Units.TempShort(hs.Value)})" : "";
             list.Add(new Insight("",
-                $"GPU peaked at {Units.TempShort(gpu.Value)}{hot} at {gpu.Time:h:mm tt}{Using(gpu.App)}.", ToneFor(gpu.Value, 75, 85)));
+                $"GPU peaked at {Units.TempShort(gpu.Value)}{hot} at {gpu.Time:h:mm tt}{While(r, gpu.App)}.", ToneFor(gpu.Value, 75, 85)));
         }
 
         // Which app runs the hardware hottest on average (not Windows parts or Rigsight itself).
@@ -99,7 +100,7 @@ public static class InsightEngine
 
         // Voltage.
         if (r.CpuVoltPeak is { } volt)
-            list.Add(new Insight("", $"Highest CPU core voltage was {volt.Value:0.000} V{Using(volt.App)}."));
+            list.Add(new Insight("", $"Highest CPU core voltage was {volt.Value:0.000} V{While(r, volt.App)}."));
 
         // Open-but-unused apps.
         var idleHog = r.Apps
@@ -127,7 +128,9 @@ public static class InsightEngine
         return list;
     }
 
-    private static string Using(string? app) => app is null ? "" : $" while using {app}";
+    /// <summary>" while playing Dota 2", " while browsing in Chrome"… (empty if no app was in front).</summary>
+    private static string While(Report r, string? app) => app is null ? ""
+        : " " + ActivityWords.While(app, r.Apps.FirstOrDefault(a => a.Name == app)?.Category ?? AppCategory.Other);
 
     private static string DegreesDiff(double celsiusDiff)
     {

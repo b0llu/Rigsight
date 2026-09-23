@@ -64,7 +64,7 @@
                                     <TextBlock Text="CPU PEAK" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.CpuPeak, Converter={StaticResource TempBrush}}" />
-                                    <TextBlock Text="{Binding Live.Today.CpuPeakApp, StringFormat='while using {0}', TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding Live.Today.CpuPeakWhile, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource Tile}" Margin="5">
@@ -72,7 +72,7 @@
                                     <TextBlock Text="GPU PEAK" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.GpuPeak, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                                    <TextBlock Text="{Binding Live.Today.GpuPeakApp, StringFormat='while using {0}', TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding Live.Today.GpuPeakWhile, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
                         </UniformGrid>

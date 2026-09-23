@@ -256,7 +256,7 @@
         <DataTemplate x:Key="Tile.peaks">
             <StackPanel>
                 <DockPanel Margin="0,2">
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.CpuPeakApp}" Style="{StaticResource Row}" Margin="10,0,0,0" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.CpuPeakWhile}" Style="{StaticResource Row}" Margin="10,0,0,0" />
                     <TextBlock Style="{StaticResource Row}">
                         <Run Text="CPU" Foreground="{StaticResource CpuBrush}" FontWeight="SemiBold" />
                         <Run Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
@@ -264,7 +264,7 @@
                     </TextBlock>
                 </DockPanel>
                 <DockPanel Margin="0,2">
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.GpuPeakApp}" Style="{StaticResource Row}" Margin="10,0,0,0" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.GpuPeakWhile}" Style="{StaticResource Row}" Margin="10,0,0,0" />
                     <TextBlock Style="{StaticResource Row}">
                         <Run Text="GPU" Foreground="{StaticResource GpuBrush}" FontWeight="SemiBold" />
                         <Run Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"

@@ -46,6 +46,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         public readonly Dictionary<long, double> AppSec = [];
         public double? CpuPeak, GpuPeak;
         public string? CpuPeakApp, GpuPeakApp;
+        public AppCategory CpuPeakCategory, GpuPeakCategory;
     }
 
     private RigsightSettings _settings = new();
@@ -223,8 +224,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         }
 
         string name = AppResolver.DisplayName(app, _settings);
-        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak)) { _today.CpuPeak = c; _today.CpuPeakApp = name; }
-        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak)) { _today.GpuPeak = g; _today.GpuPeakApp = name; }
+        var category = AppResolver.Category(app, _settings);
+        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak)) { _today.CpuPeak = c; _today.CpuPeakApp = name; _today.CpuPeakCategory = category; }
+        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak)) { _today.GpuPeak = g; _today.GpuPeakApp = name; _today.GpuPeakCategory = category; }
     }
 
     public void OnProcesses(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows, double dt)
@@ -356,6 +358,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         SessionEnded?.Invoke(row, session.App);
     }
 
+    private static AppCategory CategoryOf(Report r, string? app) =>
+        app is null ? AppCategory.Other : r.Apps.FirstOrDefault(a => a.Name == app)?.Category ?? AppCategory.Other;
+
     private void LoadToday()
     {
         try
@@ -370,8 +375,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
                 IdleSec = r.AwaySec,
                 CpuPeak = r.CpuTempPeak?.Value,
                 CpuPeakApp = r.CpuTempPeak?.App,
+                CpuPeakCategory = CategoryOf(r, r.CpuTempPeak?.App),
                 GpuPeak = r.GpuTempPeak?.Value,
                 GpuPeakApp = r.GpuTempPeak?.App,
+                GpuPeakCategory = CategoryOf(r, r.GpuTempPeak?.App),
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;
@@ -391,8 +398,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
             IdleSec = _today.IdleSec,
             CpuPeak = _today.CpuPeak,
             CpuPeakApp = _today.CpuPeakApp,
+            CpuPeakCategory = _today.CpuPeakCategory,
             GpuPeak = _today.GpuPeak,
             GpuPeakApp = _today.GpuPeakApp,
+            GpuPeakCategory = _today.GpuPeakCategory,
         };
         if (_today.AppSec.Count > 0)
         {
