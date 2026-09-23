@@ -13,7 +13,7 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>Live readings streamed from the agent: every sensor, per-app resource use, and current activity.</summary>
+/// <summary>Live readings streamed from the agent: every sensor, per-app resource use, and today's totals.</summary>
 public sealed partial class LiveData : ObservableObject
 {
     private readonly SettingsModel _settings;
@@ -86,28 +86,8 @@ public sealed partial class LiveData : ObservableObject
 
     public string SystemSummary => string.Join("  ·  ", new[] { CpuName, GpuName }.Where(n => n is not "CPU" and not "GPU"));
 
-    // ── Activity ──────────────────────────────────────────────────────────
-    [ObservableProperty] private ActivityInfo _activity = new();
+    // ── Today ─────────────────────────────────────────────────────────────
     [ObservableProperty] private TodayInfo _today = new();
-    [ObservableProperty] private ImageSource? _activityIcon;
-
-    public string ActivityCaption => Activity switch
-    {
-        { Paused: true } => "TRACKING PAUSED",
-        { Name: null } => "NOTHING IN FOCUS",
-        { Present: false } => "AWAY",
-        { Category: AppCategory.Game } => "NOW PLAYING",
-        _ => "IN USE",
-    };
-
-    public string ActivitySession => Activity.SessionActiveSec > 0 ? $"for {Units.Duration(Activity.SessionActiveSec)}" : "";
-
-    partial void OnActivityChanged(ActivityInfo? oldValue, ActivityInfo newValue)
-    {
-        if (oldValue?.Path != newValue.Path) ActivityIcon = IconCache.Get(newValue.Path);
-        OnPropertyChanged(nameof(ActivityCaption));
-        OnPropertyChanged(nameof(ActivitySession));
-    }
 
     // ── Processes ─────────────────────────────────────────────────────────
     public ObservableCollection<ProcRow> Procs { get; } = [];
@@ -245,7 +225,6 @@ public sealed partial class LiveData : ObservableObject
                 _flat[i].Push(tick.Time, values[i]);
             UpdateDerived();
         }
-        if (tick.Activity is not null) Activity = tick.Activity;
         if (tick.Today is not null) Today = tick.Today;
         Tick++;
     }
@@ -317,7 +296,6 @@ public sealed partial class LiveData : ObservableObject
             item.RefreshFormatting();
         }
         ApplyFilter();
-        OnPropertyChanged(nameof(Activity));
         Tick++;
     }
 

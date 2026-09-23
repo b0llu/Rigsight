@@ -15,48 +15,7 @@
             <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding DateText}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
 
-            <!-- Right now -->
-            <Border Style="{StaticResource Card}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource Surface2Brush}" VerticalAlignment="Center">
-                        <Grid>
-                            <TextBlock Text="&#xE7F4;" Style="{StaticResource Icon}" FontSize="22" HorizontalAlignment="Center"
-                                       Foreground="{StaticResource FaintBrush}" />
-                            <Image Source="{Binding Live.ActivityIcon}" Width="40" Height="40" RenderOptions.BitmapScalingMode="HighQuality" />
-                        </Grid>
-                    </Border>
-                    <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Live.ActivityCaption}" Style="{StaticResource Caption}" />
-                        <TextBlock Text="{Binding Live.Activity.Name, FallbackValue='Nothing in focus', TargetNullValue='Nothing in focus'}"
-                                   FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Live.ActivitySession}" Style="{StaticResource Muted}" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <StackPanel Margin="24,0,0,0">
-                            <TextBlock Text="CPU" Style="{StaticResource Caption}" Foreground="{StaticResource CpuBrush}" />
-                            <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="28" FontWeight="SemiBold"
-                                       Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
-                        </StackPanel>
-                        <StackPanel Margin="28,0,0,0">
-                            <TextBlock Text="GPU" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" />
-                            <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="28" FontWeight="SemiBold"
-                                       Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                        </StackPanel>
-                        <StackPanel Margin="28,0,8,0">
-                            <TextBlock Text="RAM" Style="{StaticResource Caption}" Foreground="{StaticResource PurpleBrush}" />
-                            <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="28" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextBrush}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Grid Margin="0,18,0,0">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*" />
                     <ColumnDefinition Width="18" />
