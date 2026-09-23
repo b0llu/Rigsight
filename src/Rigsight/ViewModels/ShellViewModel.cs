@@ -42,6 +42,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
         _refresh.Tick += (_, _) => _ = RefreshCurrentPageAsync();
         _refresh.Start();
+        _ = RefreshCurrentPageAsync();
 
         // If the agent isn't running a moment after startup, start it.
         var launchCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
@@ -161,8 +162,11 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void OnConnectionChanged(bool connected)
     {
+        bool wasConnected = IsConnected;
         IsConnected = connected;
         AgentStatus = "";
+        // The agent may have just created the database (first run): load the page now rather than in a minute.
+        if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)
         {
             // Unknown until the agent says hello again; the sidebar already explains it isn't running.

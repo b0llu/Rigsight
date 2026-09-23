@@ -15,15 +15,7 @@
 
         <!-- Sidebar -->
         <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,0,1,0">
-            <DockPanel Margin="14,22,14,16">
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,26">
-                    <Image Source="Assets/Rigsight.png" Width="34" Height="34" RenderOptions.BitmapScalingMode="Fant" />
-                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="Rigsight" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding SettingsPage.AppVersion}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
-                    </StackPanel>
-                </StackPanel>
-
+            <DockPanel Margin="14,16,14,16">
                 <!-- Bottom: an agent warning if needed, then a live readout -->
                 <StackPanel DockPanel.Dock="Bottom">
                     <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{StaticResource WarmSoftBrush}"

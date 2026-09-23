@@ -124,7 +124,7 @@
                         </ItemsControl>
                         <TextBlock Text="Rigsight is learning your day — your most-used apps will show up here in a few minutes."
                                    Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                   Visibility="{Binding TodayTopApps.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                   Visibility="{Binding ShowLearning, Converter={StaticResource Vis}}" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                             <TextBlock Style="{StaticResource Muted}" Margin="0,0,24,0">

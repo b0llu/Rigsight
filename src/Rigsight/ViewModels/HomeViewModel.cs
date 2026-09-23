@@ -10,14 +10,19 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public LiveData Live { get; } = live;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TodayTopApps), nameof(TodayTopMax), nameof(TodayInsights), nameof(HasTodayData))]
+    [NotifyPropertyChangedFor(nameof(TodayTopApps), nameof(TodayTopMax), nameof(TodayInsights), nameof(HasTodayData), nameof(ShowLearning))]
     private Report? _today;
+
+    /// <summary>"Learning your day" only once history has loaded and really has no apps yet.</summary>
+    public bool ShowLearning => Loaded && TodayTopApps.Count == 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(YesterdayTopApps), nameof(YesterdayHasData), nameof(YesterdayInsights))]
     private Report? _yesterday;
 
-    [ObservableProperty] private bool _loaded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLearning))]
+    private bool _loaded;
 
     public string Greeting => DateTime.Now.Hour switch
     {
