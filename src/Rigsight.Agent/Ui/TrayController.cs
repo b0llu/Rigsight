@@ -14,13 +14,14 @@ internal sealed class TrayController : IDisposable
     private string _lastKey = "";
     private Action? _balloonAction;
 
-    public TrayController(Action open, ToolStripMenuItem widgetsMenu, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
+    public TrayController(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         _logo = new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
 
         var menu = DarkMenuRenderer.Create();
         menu.Items.Add(Item("Open Rigsight", open));
         menu.Items.Add(widgetsMenu);
+        menu.Items.Add(overlayItem);
 
         _pauseItem = new ToolStripMenuItem("Pause tracking");
         var pauseFor = new[] { ("For 30 minutes", 30), ("For 1 hour", 60), ("For 3 hours", 180), ("Until I resume", -1) };

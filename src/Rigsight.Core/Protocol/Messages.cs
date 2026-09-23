@@ -83,7 +83,7 @@ public sealed class ProcInfo
 /// <summary>Agent → app.</summary>
 public sealed class AgentMessage
 {
-    /// <summary>hello · tick · procs · settings · navigate</summary>
+    /// <summary>hello · tick · procs · settings · navigate · overlay</summary>
     public string T { get; set; } = "";
 
     // hello
@@ -107,6 +107,10 @@ public sealed class AgentMessage
     // procs
     public List<ProcInfo>? Procs { get; set; }
 
+    // overlay (also on hello): whether it's on screen, and whether another program already owns its shortcut
+    public bool? OverlayVisible { get; set; }
+    public bool? OverlayHotkeyTaken { get; set; }
+
     // navigate (also allowed on hello)
     public string? Page { get; set; }
     public string? Arg { get; set; }
@@ -118,7 +122,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

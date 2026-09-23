@@ -93,7 +93,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             bool show = form.Config.Visibility switch
             {
                 WidgetVisibility.HideInFullscreen => !_fullscreen,
-                WidgetVisibility.OnlyInFullscreen => _fullscreen,
                 _ => true,
             };
             if (show && !form.Visible)
@@ -141,7 +140,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         var show = new ToolStripMenuItem("Show");
         show.DropDownItems.Add(Check("Always", cfg.Visibility == WidgetVisibility.Always, () => Mutate(cfg.Style, c => c.Visibility = WidgetVisibility.Always)));
         show.DropDownItems.Add(Check("Hide during fullscreen apps", cfg.Visibility == WidgetVisibility.HideInFullscreen, () => Mutate(cfg.Style, c => c.Visibility = WidgetVisibility.HideInFullscreen)));
-        show.DropDownItems.Add(Check("Only during fullscreen apps (game overlay)", cfg.Visibility == WidgetVisibility.OnlyInFullscreen, () => Mutate(cfg.Style, c => c.Visibility = WidgetVisibility.OnlyInFullscreen)));
         menu.Items.Add(show);
 
         menu.Items.Add(Check("Lock in place (click-through)", cfg.Locked, () => Mutate(cfg.Style, c => c.Locked = !c.Locked)));

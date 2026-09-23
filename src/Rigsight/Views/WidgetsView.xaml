@@ -14,7 +14,7 @@
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,8"
                        Text="Turn on as many as you like. Drag them anywhere; right-click one for quick options. Widgets are drawn by the background agent, so they cost almost nothing even while you game." />
             <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                       Text="Tip: set “Show” to “Only in fullscreen” for an in-game overlay (works with borderless/windowed games). “Lock” makes a widget click-through so it never gets in the way." />
+                       Text="Tip: “Lock” makes a widget click-through so it never gets in the way. For numbers over your games, use the Overlay page." />
 
             <ItemsControl ItemsSource="{Binding Cards}" Margin="-9,0">
                 <ItemsControl.ItemsPanel>
@@ -84,7 +84,6 @@
                                         <ComboBox Width="230" SelectedValuePath="Tag" SelectedValue="{Binding Visibility}">
                                             <ComboBoxItem Content="Always" Tag="Always" />
                                             <ComboBoxItem Content="Hide in fullscreen apps" Tag="HideInFullscreen" />
-                                            <ComboBoxItem Content="Only in fullscreen (overlay)" Tag="OnlyInFullscreen" />
                                         </ComboBox>
                                     </StackPanel>
                                     <DockPanel Margin="0,4">

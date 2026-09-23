@@ -11,7 +11,8 @@ namespace Rigsight.Agent.Widgets;
 /// <summary>Everything a widget can show, captured once per update.</summary>
 internal sealed class WidgetData
 {
-    public double? CpuTemp, CpuLoad, CpuPower, GpuTemp, GpuLoad, GpuPower, GpuHotSpot, RamLoad, RamUsedGb, RamTotalGb;
+    public double? CpuTemp, CpuLoad, CpuPower, CpuClock, GpuTemp, GpuLoad, GpuPower, GpuHotSpot, GpuClock, RamLoad, RamUsedGb, RamTotalGb;
+    public double? VramUsedMb, VramTotalMb;
     public float[] CpuHistory = [];
     public float[] GpuHistory = [];
     public ActivityInfo Activity = new();
@@ -19,7 +20,7 @@ internal sealed class WidgetData
 }
 
 /// <summary>Draws widget bitmaps with GDI+ (per-pixel alpha, no UI framework needed).</summary>
-internal static class WidgetRenderer
+internal static partial class WidgetRenderer
 {
     private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light);
 

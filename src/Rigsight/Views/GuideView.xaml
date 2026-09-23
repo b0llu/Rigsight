@@ -96,7 +96,8 @@
                             <StackPanel>
                                 <TextBlock Text="ON YOUR DESKTOP" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" Margin="0,0,0,6" />
                                 <TextBlock Style="{StaticResource F}" Text="• Six widgets: Compact, Slim bar, Gauges, Now playing, Today, Graph" />
-                                <TextBlock Style="{StaticResource F}" Text="• Themes, sizes, opacity, click-through lock, in-game overlay mode" />
+                                <TextBlock Style="{StaticResource F}" Text="• Themes, sizes, opacity, click-through lock" />
+                                <TextBlock Style="{StaticResource F}" Text="• Game overlay: press Alt+Shift+O in any game for live readings" />
                                 <TextBlock Style="{StaticResource F}" Text="• Tray icon with a health dot, quick menu, pause tracking" />
                                 <TextBlock Style="{StaticResource F}" Text="• Notification cards: daily recap, game summaries, alerts, crashes" />
                             </StackPanel>
@@ -132,7 +133,7 @@
                                 <StackPanel>
                                     <TextBlock Text="BACKGROUND AGENT" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" />
                                     <TextBlock Style="{StaticResource P}"
-                                               Text="Starts when you sign in and runs all day. It reads your temperatures, notices which app is in front, and saves a small summary once a minute. It also runs the tray icon, the desktop widgets and notifications. It uses about 0.02% of your CPU — you won't feel it, even mid-game." />
+                                               Text="Starts when you sign in and runs all day. It reads your temperatures, notices which app is in front, and saves a small summary once a minute. It also runs the tray icon, the desktop widgets, the game overlay and notifications. It uses about 0.02% of your CPU — you won't feel it, even mid-game." />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource Tile}" Padding="16,14">
@@ -223,8 +224,9 @@
                     </Border>
                     <StackPanel>
                         <TextBlock Text="Tray icon and widgets" Style="{StaticResource SectionTitle}" />
-                        <DockPanel><TextBlock Text="Tray dot" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Green: everything's cool. Amber: something is within 12° of your alert limit. Red: at or over a limit. Hover for exact temperatures; click to open Rigsight; right-click for widgets, pausing and quitting." /></DockPanel>
-                        <DockPanel><TextBlock Text="Widgets" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Small always-on-top readouts. Drag them anywhere, right-click for options, hover for the close button. “Only in fullscreen” turns one into an in-game overlay for borderless or windowed games (exclusive fullscreen games draw over everything, so no overlay can appear there)." /></DockPanel>
+                        <DockPanel><TextBlock Text="Tray dot" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Green: everything's cool. Amber: something is within 12° of your alert limit. Red: at or over a limit. Hover for exact temperatures; click to open Rigsight; right-click for widgets, the overlay, pausing and quitting." /></DockPanel>
+                        <DockPanel><TextBlock Text="Widgets" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Small always-on-top readouts. Drag them anywhere, right-click for options, hover for the close button." /></DockPanel>
+                        <DockPanel><TextBlock Text="Overlay" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="A compact readout for games. Press its shortcut (Alt+Shift+O unless you change it) to show or hide it; it never takes focus and clicks pass through it. It works over borderless and windowed games and most DirectX 11/12 games in fullscreen. If it doesn’t appear over a game, switch that game to borderless. Rigsight never hooks into games, so it’s safe with anti-cheat." /></DockPanel>
                     </StackPanel>
                 </DockPanel>
             </Border>

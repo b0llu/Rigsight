@@ -74,8 +74,14 @@ It does all of this while using about **0.02% of your CPU**.
 - **Drag tiles anywhere, and resize them by dragging their edges.** The others slide out of the way and fill the gaps.
 - **Make as many as you like**, such as "Gaming" or "Work", and pick one to open Rigsight on. Each is saved automatically.
 
+### 🎮 Game overlay
+- **Press `Alt+Shift+O` in any game** to show or hide a compact readout: CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
+- **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size and opacity. Change the shortcut to anything you like.
+- **Never gets in the way**: it never takes focus, and clicks pass straight through it.
+- **Safe with anti-cheat**: it's a normal always-on-top window, and Rigsight never hooks into games. It works over borderless and windowed games and most DirectX 11/12 games in fullscreen; for the rest, switch the game to borderless.
+
 ### 🖥️ On your desktop
-- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity, click-through lock, and a *game overlay* mode that only appears over fullscreen games.
+- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity and a click-through lock.
 - **Tray icon** with a health dot (green, amber or red) and a live readout on hover.
 - **Calm notifications**: a daily recap, game session summaries, and temperature alerts that ignore brief spikes. Non-urgent cards wait until you leave a fullscreen game.
 
@@ -105,7 +111,7 @@ Rigsight is split into two programs:
 
 | | Runs | Does |
 |---|---|---|
-| **`Rigsight.Agent.exe`** | Always, from sign-in, with admin rights | Reads sensors, notices which app is in front, writes one small summary per minute to a local SQLite database, and draws the tray icon, widgets and notifications. |
+| **`Rigsight.Agent.exe`** | Always, from sign-in, with admin rights | Reads sensors, notices which app is in front, writes one small summary per minute to a local SQLite database, and draws the tray icon, widgets, game overlay and notifications. |
 | **`Rigsight.exe`** | Only while you have the window open | The app window. It needs no admin rights, reads history from the database, streams live data from the agent over a named pipe, and **fully exits when closed**. |
 
 ### Measured resource use
@@ -125,7 +131,7 @@ The agent is built to be almost invisible:
 - **Tiered sensors**: fast sensors like temperatures and load are read every second, slow ones like drive health every few minutes, and static ones once. While the window is closed, only what the widgets and tray need is read.
 - **An NVIDIA fast path**: GPU temperature and load come from NVIDIA's lightweight NVML/NVAPI calls instead of a full driver query, which is about 70× cheaper.
 - **One system call for every process**: per-app CPU and memory come from a single `NtQuerySystemInformation` call per sample, not thousands of per-process queries.
-- **No UI framework in the background**: widgets, tray and notifications are drawn with plain GDI+ into layered windows.
+- **No UI framework in the background**: widgets, the overlay, tray and notifications are drawn with plain GDI+ into layered windows.
 - **Frugal by design**: below-normal priority, a conserving garbage collector, and nothing kept in memory that the database already has.
 
 ## Building from source
@@ -212,6 +218,9 @@ Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight
 
 **Does it slow down games?**
 No. The agent uses about 0.02% of total CPU and runs at below-normal priority. Non-urgent notifications also wait until you leave fullscreen.
+
+**The overlay doesn't show up over my game.**
+The game is probably in *exclusive* fullscreen, which nothing but injected overlays can draw over. Switch it to borderless (sometimes called "fullscreen windowed"). Also check the Overlay page: if another program already uses the shortcut, it says so, and you can pick a different one.
 
 **Does it work with AMD (or Intel) graphics cards and CPUs?**
 Yes. All hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel GPUs and Intel and AMD CPUs. NVIDIA cards also get an extra fast path (NVML/NVAPI) because NVIDIA's full driver query is unusually expensive. Other cards use the standard route, which is already light.

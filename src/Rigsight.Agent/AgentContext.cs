@@ -40,6 +40,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly PipeServer _pipe;
     private readonly TrayController _tray;
     private readonly WidgetManager _widgets;
+    private readonly OverlayManager _overlay;
     private readonly NotificationCenter _notices;
 
     private readonly ConcurrentQueue<Action> _samplerWork = new();
@@ -47,6 +48,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly Thread _sampler;
     private volatile bool _stopping;
     private volatile bool _sensorsReady;
+    private volatile bool _overlayVisible;
     private bool _startupEnabled;
     private string? _pendingPage, _pendingArg;
 
@@ -83,13 +85,16 @@ internal sealed class AgentContext : ApplicationContext
         _tracker.SessionEnded += OnSessionEnded;
 
         _widgets = new WidgetManager(() => _settings, MutateSettings, () => OpenApp("widgets"));
-        _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), PauseFor, Resume,
+        _overlay = new OverlayManager();
+        _overlay.StateChanged += OnOverlayStateChanged;
+        _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp);
 
         _pipe = new PipeServer(BuildHello, OnUiMessage);
         _pipe.Start();
         _widgets.Apply(_settings);
+        _overlay.Apply(_settings.Overlay);
 
         // First run: register to start with Windows (the user can turn this off in Settings).
         _startupEnabled = StartupTask.IsEnabled();
@@ -183,6 +188,8 @@ internal sealed class AgentContext : ApplicationContext
                         });
                     }
                     int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
+                    // The overlay is read mid-game: keep it to the second.
+                    if (_overlayVisible) interval = Math.Min(interval, 1000);
                     nextSensor = now + interval;
                 }
 
@@ -247,8 +254,9 @@ internal sealed class AgentContext : ApplicationContext
         var activity = _tracker.Activity;
         var data = new WidgetData
         {
-            CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower,
-            GpuTemp = k.GpuTemp, GpuLoad = k.GpuLoad, GpuPower = k.GpuPower, GpuHotSpot = k.GpuHotSpot,
+            CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower, CpuClock = k.CpuClock,
+            GpuTemp = k.GpuTemp, GpuLoad = k.GpuLoad, GpuPower = k.GpuPower, GpuHotSpot = k.GpuHotSpot, GpuClock = k.GpuClock,
+            VramUsedMb = k.GpuVramUsed, VramTotalMb = k.GpuVramTotal,
             RamLoad = k.RamLoad, RamUsedGb = k.RamUsed,
             RamTotalGb = k.RamUsed + k.RamAvailable,
             CpuHistory = _history.Recent(KeySensors.CpuTemp, 300_000),
@@ -276,6 +284,7 @@ internal sealed class AgentContext : ApplicationContext
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
             _widgets.Update(data, otherFullscreen);
+            _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is not null)
@@ -429,6 +438,8 @@ internal sealed class AgentContext : ApplicationContext
             Settings = _settings,
             Page = _pendingPage,
             Arg = _pendingArg,
+            OverlayVisible = _overlayVisible,
+            OverlayHotkeyTaken = _overlay.HotkeyTaken,
         };
         if (_sensorsReady)
         {
@@ -482,6 +493,9 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "preview-notification":
                 _ui.Post(_ => PreviewNotification(msg.Arg), null);
+                break;
+            case "overlay-toggle":
+                _ui.Post(_ => _overlay.Toggle(), null);
                 break;
             case "restart-elevated":
                 _ui.Post(_ => RestartElevated(), null);
@@ -544,6 +558,7 @@ internal sealed class AgentContext : ApplicationContext
         _ui.Post(_ =>
         {
             _widgets.Apply(updated);
+            _overlay.Apply(updated.Overlay);
             // Keep the app's widget previews in sync with theme changes.
             if (_pipe.ClientCount > 0) RenderPreviews(updated);
         }, null);
@@ -554,7 +569,22 @@ internal sealed class AgentContext : ApplicationContext
     private void RenderPreviews(RigsightSettings settings)
     {
         _widgets.RenderPreviews(settings);
+        try
+        {
+            _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("overlay", ex);
+        }
         _pipe.Broadcast(new AgentMessage { T = "previews" });
+    }
+
+    /// <summary>UI thread: the overlay appeared, disappeared, or its shortcut turned out to be taken.</summary>
+    private void OnOverlayStateChanged()
+    {
+        _overlayVisible = _overlay.Visible;
+        _pipe.Broadcast(new AgentMessage { T = "overlay", OverlayVisible = _overlay.Visible, OverlayHotkeyTaken = _overlay.HotkeyTaken });
     }
 
     private void PauseFor(int minutes) =>
@@ -584,7 +614,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _notices.CloseAll, _tray.Dispose })
+        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }

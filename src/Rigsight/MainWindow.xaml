@@ -124,6 +124,8 @@
                     <TextBlock Text="CUSTOMIZE" Style="{StaticResource Caption}" Margin="12,18,0,8" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xF246;" Content="Widgets"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=widgets}" />
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7FC;" Content="Overlay"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=overlay}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE946;" Content="Guide"

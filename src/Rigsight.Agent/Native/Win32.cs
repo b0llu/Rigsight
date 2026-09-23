@@ -26,9 +26,17 @@ internal static partial class Win32
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
     [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
     [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
+    [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint vk);
+    [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+    [DllImport("shcore.dll")] public static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
 
     public const uint GW_OWNER = 4;
+    public const int WM_HOTKEY = 0x312;
+    public const uint MOD_NOREPEAT = 0x4000;
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
+    public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10;
     public const int GWL_EXSTYLE = -20;
     public const int WS_EX_TOOLWINDOW = 0x80;
     public const int WS_EX_TRANSPARENT = 0x20;
@@ -141,6 +149,30 @@ internal static partial class Win32
     [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr hIcon);
 
     public const int ULW_ALPHA = 2;
+
+    /// <summary>Puts a per-pixel-alpha bitmap on a layered window, moving and resizing it to fit.</summary>
+    public static void SetLayeredBitmap(IntPtr hwnd, System.Drawing.Bitmap bitmap, System.Drawing.Point topLeft, byte opacity)
+    {
+        IntPtr screenDc = GetDC(IntPtr.Zero);
+        IntPtr memDc = CreateCompatibleDC(screenDc);
+        IntPtr hBitmap = bitmap.GetHbitmap(System.Drawing.Color.FromArgb(0));
+        IntPtr old = SelectObject(memDc, hBitmap);
+        try
+        {
+            var size = new SIZE(bitmap.Width, bitmap.Height);
+            var source = new POINT(0, 0);
+            var dest = new POINT(topLeft.X, topLeft.Y);
+            var blend = new BLENDFUNCTION { BlendOp = 0, BlendFlags = 0, SourceConstantAlpha = opacity, AlphaFormat = 1 };
+            UpdateLayeredWindow(hwnd, screenDc, ref dest, ref size, memDc, ref source, 0, ref blend, ULW_ALPHA);
+        }
+        finally
+        {
+            SelectObject(memDc, old);
+            DeleteObject(hBitmap);
+            DeleteDC(memDc);
+            ReleaseDC(IntPtr.Zero, screenDc);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; public POINT(int x, int y) { X = x; Y = y; } }
     [StructLayout(LayoutKind.Sequential)] public struct SIZE { public int Cx, Cy; public SIZE(int cx, int cy) { Cx = cx; Cy = cy; } }

@@ -82,30 +82,7 @@ internal sealed class WidgetForm : Form
         float scale = DeviceDpi / 96f * (float)Config.Scale;
         using var bmp = WidgetRenderer.Render(Config, _data, scale, _hover, out _closeRect);
         if (Size != bmp.Size) Size = bmp.Size;
-        SetBitmap(bmp, (byte)Math.Round(Config.Opacity * 255));
-    }
-
-    private void SetBitmap(Bitmap bitmap, byte opacity)
-    {
-        IntPtr screenDc = Win32.GetDC(IntPtr.Zero);
-        IntPtr memDc = Win32.CreateCompatibleDC(screenDc);
-        IntPtr hBitmap = bitmap.GetHbitmap(Color.FromArgb(0));
-        IntPtr old = Win32.SelectObject(memDc, hBitmap);
-        try
-        {
-            var size = new Win32.SIZE(bitmap.Width, bitmap.Height);
-            var source = new Win32.POINT(0, 0);
-            var topLeft = new Win32.POINT(Left, Top);
-            var blend = new Win32.BLENDFUNCTION { BlendOp = 0, BlendFlags = 0, SourceConstantAlpha = opacity, AlphaFormat = 1 };
-            Win32.UpdateLayeredWindow(Handle, screenDc, ref topLeft, ref size, memDc, ref source, 0, ref blend, Win32.ULW_ALPHA);
-        }
-        finally
-        {
-            Win32.SelectObject(memDc, old);
-            Win32.DeleteObject(hBitmap);
-            Win32.DeleteDC(memDc);
-            Win32.ReleaseDC(IntPtr.Zero, screenDc);
-        }
+        Win32.SetLayeredBitmap(Handle, bmp, Location, (byte)Math.Round(Config.Opacity * 255));
     }
 
     protected override void OnHandleCreated(EventArgs e)

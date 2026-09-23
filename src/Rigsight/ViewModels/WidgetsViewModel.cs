@@ -51,10 +51,18 @@ public sealed partial class WidgetCard(WidgetStyle style, SettingsModel settings
 
     [ObservableProperty] private ImageSource? _preview;
 
-    public void LoadPreview()
+    public void LoadPreview() => Preview = PreviewImages.Load(Style.ToString()) ?? Preview;
+
+    public void Refresh() => OnPropertyChanged(string.Empty);
+}
+
+/// <summary>Pictures of widgets and the overlay, drawn by the agent into the data folder.</summary>
+public static class PreviewImages
+{
+    public static ImageSource? Load(string name)
     {
-        var file = Path.Combine(RigsightPaths.DataDir, "previews", $"{Style}.png");
-        if (!File.Exists(file)) return;
+        var file = Path.Combine(RigsightPaths.DataDir, "previews", $"{name}.png");
+        if (!File.Exists(file)) return null;
         try
         {
             var bmp = new BitmapImage();
@@ -64,15 +72,14 @@ public sealed partial class WidgetCard(WidgetStyle style, SettingsModel settings
             bmp.UriSource = new Uri(file);
             bmp.EndInit();
             bmp.Freeze();
-            Preview = bmp;
+            return bmp;
         }
         catch
         {
             // Being rewritten by the agent right now; the next refresh will pick it up.
+            return null;
         }
     }
-
-    public void Refresh() => OnPropertyChanged(string.Empty);
 }
 
 public sealed class WidgetsViewModel

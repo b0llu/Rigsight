@@ -23,7 +23,7 @@ public enum WidgetVisibility
     Always,
     /// <summary>Hide while a fullscreen app (game, video) is in front.</summary>
     HideInFullscreen,
-    /// <summary>Only show while a fullscreen app is in front — an in-game overlay.</summary>
+    /// <summary>No longer offered (the overlay replaced it); kept so older settings files still load.</summary>
     OnlyInFullscreen,
 }
 

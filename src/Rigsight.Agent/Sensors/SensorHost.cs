@@ -184,12 +184,16 @@ internal sealed class SensorHost
         CpuLoad = Read(KeySensors.CpuLoad),
         CpuPower = Read(KeySensors.CpuPower),
         CpuVoltage = Read(KeySensors.CpuVoltage),
+        CpuClock = Read(KeySensors.CpuClock),
         GpuTemp = Read(KeySensors.GpuTemp),
         GpuHotSpot = Read(KeySensors.GpuHotSpot),
         GpuMemJunction = Read(KeySensors.GpuMemJunction),
         GpuLoad = Read(KeySensors.GpuLoad),
         GpuPower = Read(KeySensors.GpuPower),
         GpuVoltage = Read(KeySensors.GpuVoltage),
+        GpuClock = Read(KeySensors.GpuClock),
+        GpuVramUsed = Read(KeySensors.GpuVramUsed),
+        GpuVramTotal = Read(KeySensors.GpuVramTotal),
         RamLoad = Read(KeySensors.RamLoad),
         RamUsed = Read(KeySensors.RamUsed),
         RamAvailable = Read(KeySensors.RamAvailable),
@@ -214,12 +218,16 @@ internal readonly record struct KeyValues
     public double? CpuLoad { get; init; }
     public double? CpuPower { get; init; }
     public double? CpuVoltage { get; init; }
+    public double? CpuClock { get; init; }
     public double? GpuTemp { get; init; }
     public double? GpuHotSpot { get; init; }
     public double? GpuMemJunction { get; init; }
     public double? GpuLoad { get; init; }
     public double? GpuPower { get; init; }
     public double? GpuVoltage { get; init; }
+    public double? GpuClock { get; init; }
+    public double? GpuVramUsed { get; init; }
+    public double? GpuVramTotal { get; init; }
     public double? RamLoad { get; init; }
     public double? RamUsed { get; init; }
     public double? RamAvailable { get; init; }

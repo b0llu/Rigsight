@@ -1,0 +1,148 @@
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.Drawing.Text;
+using System.Globalization;
+using Rigsight.Core;
+using Rigsight.Core.Settings;
+
+namespace Rigsight.Agent.Widgets;
+
+internal static partial class WidgetRenderer
+{
+    /// <summary>
+    /// One number on the overlay. <paramref name="Template"/> is the widest text the value usually
+    /// takes, so the overlay doesn't jitter as numbers change (62° → 100°).
+    /// </summary>
+    private sealed record Cell(string Value, string Unit, Color Color, string Template, float Px = OverlayValuePx);
+
+    private sealed record OverlayRow(string Label, Color LabelColor, List<Cell> Cells);
+
+    private const float OverlayValuePx = 15, OverlayUnitPx = 11, OverlayLabelPx = 11;
+    private const float OverlayPad = 10, OverlayRowHeight = 22, OverlayCellGap = 12, OverlayGroupGap = 20, OverlayLabelWidth = 34;
+
+    private static readonly Palette OverlayPalette = For(WidgetTheme.Black);
+
+    private static List<OverlayRow> OverlayRows(OverlaySettings o, WidgetData d)
+    {
+        var p = OverlayPalette;
+        bool Has(OverlayMetric m) => o.Metrics.Contains(m);
+        var rows = new List<OverlayRow>();
+
+        var cpu = new List<Cell>();
+        if (Has(OverlayMetric.CpuTemp)) cpu.Add(TempCell(d.CpuTemp));
+        if (Has(OverlayMetric.CpuLoad)) cpu.Add(LoadCell(d.CpuLoad));
+        if (Has(OverlayMetric.CpuClock)) cpu.Add(ClockCell(d.CpuClock));
+        if (Has(OverlayMetric.CpuPower)) cpu.Add(PowerCell(d.CpuPower));
+        if (cpu.Count > 0) rows.Add(new("CPU", Cpu, cpu));
+
+        var gpu = new List<Cell>();
+        if (Has(OverlayMetric.GpuTemp)) gpu.Add(TempCell(d.GpuTemp));
+        if (Has(OverlayMetric.GpuHotSpot) && d.GpuHotSpot is not null) gpu.Add(TempCell(d.GpuHotSpot, "hot"));
+        if (Has(OverlayMetric.GpuLoad)) gpu.Add(LoadCell(d.GpuLoad));
+        if (Has(OverlayMetric.GpuClock)) gpu.Add(ClockCell(d.GpuClock));
+        if (Has(OverlayMetric.GpuPower)) gpu.Add(PowerCell(d.GpuPower));
+        if (Has(OverlayMetric.GpuMemory) && d.VramUsedMb is double vu)
+            gpu.Add(MemoryCell(vu / 1024, d.VramTotalMb / 1024, "VRAM"));
+        if (gpu.Count > 0) rows.Add(new("GPU", Gpu, gpu));
+
+        if (Has(OverlayMetric.Ram) && d.RamUsedGb is double ru)
+            rows.Add(new("RAM", Ram, [MemoryCell(ru, d.RamTotalGb, "")]));
+
+        // The last row has no label: the app in front, how long you've been on it, and the time.
+        var other = new List<Cell>();
+        var a = d.Activity;
+        if (Has(OverlayMetric.Session) && !a.Paused && a.Name is not null)
+        {
+            string app = a.Name.Length > 24 ? a.Name[..23] + "…" : a.Name;
+            other.Add(new(app, "", p.Muted, "", 12.5f));
+            other.Add(new(a.SessionActiveSec > 0 ? Units.Duration(a.SessionActiveSec) : "0m", "", p.Text, "8h 88m"));
+        }
+        if (Has(OverlayMetric.Clock))
+            other.Add(new(DateTime.Now.ToString("t", CultureInfo.CurrentCulture), "", p.Muted, "88:88"));
+        if (other.Count > 0) rows.Add(new("", p.Muted, other));
+
+        return rows;
+
+        Cell TempCell(double? c, string unit = "") =>
+            new(c is double v ? $"{Units.Temp(v):0}°" : "—", unit, TempColor(c, p), "188°");
+        Cell LoadCell(double? v) => new(v is double l ? $"{l:0}" : "—", "%", p.Text, "100");
+        Cell ClockCell(double? mhz) => new(mhz is double v ? $"{v / 1000:0.00}" : "—", "GHz", p.Text, "8.88");
+        Cell PowerCell(double? w) => new(w is double v ? $"{v:0}" : "—", "W", p.Text, "888");
+        Cell MemoryCell(double usedGb, double? totalGb, string label)
+        {
+            string unit = totalGb is double t && t > 0 ? $"/ {t:0} GB" : "GB";
+            if (label.Length > 0) unit += " " + label;
+            return new($"{usedGb:0.0}", unit, p.Text, "88.8");
+        }
+    }
+
+    /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
+    public static Bitmap RenderOverlay(OverlaySettings o, WidgetData? data, float scale)
+    {
+        var d = data ?? new WidgetData();
+        var rows = OverlayRows(o, d);
+        bool line = o.Layout == OverlayLayout.Line;
+
+        using var probe = new Bitmap(1, 1);
+        using var mg = Graphics.FromImage(probe);
+        float LabelWidth(OverlayRow r) => r.Label.Length == 0 ? 0
+            : Math.Max(OverlayLabelWidth, Measure(mg, r.Label, OverlayLabelPx, FontStyle.Bold) + 8);
+        float CellWidth(Cell c) =>
+            Math.Max(Measure(mg, c.Template, c.Px, FontStyle.Bold, semibold: true), Measure(mg, c.Value, c.Px, FontStyle.Bold, semibold: true))
+            + (c.Unit.Length > 0 ? 2 + Measure(mg, c.Unit, OverlayUnitPx, FontStyle.Regular) : 0);
+        float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + OverlayCellGap * (r.Cells.Count - 1);
+
+        // In rows, labels share one column so the numbers line up. The unlabelled last row starts at the edge.
+        float labelColumn = rows.Count > 0 ? rows.Max(LabelWidth) : 0;
+        float Indent(OverlayRow r) => r.Label.Length == 0 ? 0 : labelColumn;
+        float w, h;
+        if (rows.Count == 0) { w = 1; h = 1; }
+        else if (line)
+        {
+            w = OverlayPad * 2 + rows.Sum(RowWidth) + OverlayGroupGap * (rows.Count - 1);
+            h = OverlayPad * 2 + OverlayRowHeight - 4;
+        }
+        else
+        {
+            w = OverlayPad * 2 + rows.Max(r => Indent(r) + RowWidth(r) - LabelWidth(r));
+            h = OverlayPad * 2 + OverlayRowHeight * rows.Count - 4;
+        }
+
+        var bmp = new Bitmap(Math.Max(1, (int)Math.Ceiling(w * scale)), Math.Max(1, (int)Math.Ceiling(h * scale)), PixelFormat.Format32bppArgb);
+        if (rows.Count == 0) return bmp;
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.Clear(Color.Transparent);
+        g.ScaleTransform(scale, scale);
+
+        using (var path = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), 10))
+        using (var bg = new SolidBrush(Color.FromArgb(190, 8, 10, 14)))
+        using (var border = new Pen(Color.FromArgb(30, 255, 255, 255), 1))
+        {
+            g.FillPath(bg, path);
+            g.DrawPath(border, path);
+        }
+
+        float x = OverlayPad, y = OverlayPad;
+        foreach (var row in rows)
+        {
+            float cx = x;
+            if (row.Label.Length > 0) Text(g, row.Label, OverlayLabelPx, FontStyle.Bold, row.LabelColor, cx, y + 4);
+            cx += line ? LabelWidth(row) : Indent(row);
+            foreach (var cell in row.Cells)
+            {
+                Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, y + (OverlayValuePx - cell.Px) * 0.8f, semibold: true);
+                float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
+                if (cell.Unit.Length > 0)
+                    Text(g, cell.Unit, OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, y + 4);
+                cx += CellWidth(cell) + OverlayCellGap;
+            }
+            if (line) x = cx - OverlayCellGap + OverlayGroupGap;
+            else y += OverlayRowHeight;
+        }
+        return bmp;
+    }
+}

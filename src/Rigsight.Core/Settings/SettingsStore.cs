@@ -45,7 +45,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -54,6 +54,15 @@ public static class SettingsStore
         {
             // v2: the slim bar is the default widget.
             s.Widgets = WidgetConfig.Defaults();
+        }
+        if (s.SettingsVersion < 3)
+        {
+            // v3: the overlay replaced "only show this widget over fullscreen apps".
+            foreach (var w in s.Widgets.Where(w => w.Visibility == WidgetVisibility.OnlyInFullscreen))
+            {
+                w.Visibility = WidgetVisibility.Always;
+                w.Enabled = false;
+            }
         }
         s.SettingsVersion = CurrentVersion;
 
@@ -67,6 +76,12 @@ public static class SettingsStore
             w.Opacity = Math.Clamp(w.Opacity, 0.3, 1.0);
             w.Scale = Math.Clamp(w.Scale, 0.6, 2.0);
         }
+
+        var o = s.Overlay ??= new OverlaySettings();
+        o.Opacity = Math.Clamp(o.Opacity, 0.3, 1.0);
+        o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
+        if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
+        o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
 
         var t = s.Tracking;
         t.SensorIntervalMs = Math.Clamp(t.SensorIntervalMs, 500, 30_000);

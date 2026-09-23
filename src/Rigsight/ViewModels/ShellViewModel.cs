@@ -30,6 +30,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client);
+        Overlay = new OverlayViewModel(Settings, client);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
@@ -43,15 +44,16 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Live.ApplySettings();
             Widgets.Refresh();
+            Overlay.Refresh();
             SettingsPage.Refresh();
         };
         client.MessageReceived += OnMessage;
         client.ConnectionChanged += OnConnectionChanged;
 
-        // Keep history-based pages fresh while open (the agent writes once a minute). Widget previews are
-        // still snapshots: drawn when the page opens or a widget changes, not on this timer.
+        // Keep history-based pages fresh while open (the agent writes once a minute). Widget and overlay
+        // previews are still snapshots: drawn when the page opens or something changes, not on this timer.
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _refresh.Tick += (_, _) => { if (CurrentPage != "widgets") _ = RefreshCurrentPageAsync(); };
+        _refresh.Tick += (_, _) => { if (CurrentPage is not ("widgets" or "overlay")) _ = RefreshCurrentPageAsync(); };
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
 
@@ -75,6 +77,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public MemoryViewModel Memory { get; }
     public StorageViewModel Storage { get; }
     public WidgetsViewModel Widgets { get; }
+    public OverlayViewModel Overlay { get; }
     public SettingsViewModel SettingsPage { get; }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
@@ -169,6 +172,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
+            case "overlay": Overlay.RequestPreview(); break;
             case "settings":
                 SettingsPage.Refresh();
                 await SettingsPage.LoadKnownAppsAsync();
@@ -241,6 +245,12 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    private void ApplyOverlayState(AgentMessage msg)
+    {
+        if (msg.OverlayVisible is bool visible) Overlay.IsVisible = visible;
+        if (msg.OverlayHotkeyTaken is bool taken) Overlay.HotkeyTaken = taken;
+    }
+
     private void OnMessage(AgentMessage msg)
     {
         switch (msg.T)
@@ -257,6 +267,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
                 Live.LoadHello(msg);
+                ApplyOverlayState(msg);
                 if (msg.Page is not null || msg.Arg is not null) Navigate(msg.Page, msg.Arg);
                 break;
             case "tick":
@@ -277,6 +288,10 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "previews":
                 Widgets.OnPreviewsReady();
+                Overlay.OnPreviewsReady();
+                break;
+            case "overlay":
+                ApplyOverlayState(msg);
                 break;
             case "navigate":
                 Navigate(msg.Page, msg.Arg);

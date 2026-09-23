@@ -47,6 +47,7 @@ public partial class MainWindow : Window
                 "storage" => new StorageView { DataContext = _vm.Storage },
                 "sensors" => new SensorsView { DataContext = _vm.Live },
                 "widgets" => new WidgetsView { DataContext = _vm.Widgets },
+                "overlay" => new OverlayView { DataContext = _vm.Overlay },
                 "settings" => new SettingsView { DataContext = _vm.SettingsPage },
                 _ when _vm.FindCustomPage(page) is { } custom => new CustomPageView { DataContext = custom },
                 _ => new HomeView { DataContext = _vm.Home },

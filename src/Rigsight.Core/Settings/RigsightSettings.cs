@@ -19,6 +19,7 @@ public sealed class RigsightSettings
     public TrackingSettings Tracking { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
     public List<WidgetConfig> Widgets { get; set; } = WidgetConfig.Defaults();
+    public OverlaySettings Overlay { get; set; } = new();
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
     public Dictionary<string, string> AppNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
