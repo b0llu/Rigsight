@@ -19,7 +19,15 @@ internal static partial class WidgetRenderer
     private sealed record OverlayRow(string Label, Color LabelColor, List<Cell> Cells);
 
     private const float OverlayValuePx = 15, OverlayUnitPx = 11, OverlayLabelPx = 11;
-    private const float OverlayPad = 10, OverlayRowHeight = 22, OverlayCellGap = 12, OverlayGroupGap = 20, OverlayLabelWidth = 34;
+    private const float OverlayPad = 8, OverlayRowHeight = 23, OverlayCellGap = 12, OverlayGroupGap = 20, OverlayLabelWidth = 34;
+
+    /// <summary>Distance from the top of a line of text to its baseline, as GDI+ draws it.</summary>
+    private static float Ascent(float px, FontStyle style, bool semibold)
+    {
+        using var font = MakeFont(px, style, semibold);
+        var f = font.FontFamily;
+        return px * f.GetCellAscent(font.Style) / f.GetEmHeight(font.Style);
+    }
 
     private static readonly Palette OverlayPalette = For(WidgetTheme.Black);
 
@@ -101,12 +109,12 @@ internal static partial class WidgetRenderer
         else if (line)
         {
             w = OverlayPad * 2 + rows.Sum(RowWidth) + OverlayGroupGap * (rows.Count - 1);
-            h = OverlayPad * 2 + OverlayRowHeight - 4;
+            h = OverlayPad * 2 + OverlayRowHeight;
         }
         else
         {
             w = OverlayPad * 2 + rows.Max(r => Indent(r) + RowWidth(r) - LabelWidth(r));
-            h = OverlayPad * 2 + OverlayRowHeight * rows.Count - 4;
+            h = OverlayPad * 2 + OverlayRowHeight * rows.Count;
         }
 
         var bmp = new Bitmap(Math.Max(1, (int)Math.Ceiling(w * scale)), Math.Max(1, (int)Math.Ceiling(h * scale)), PixelFormat.Format32bppArgb);
@@ -126,18 +134,23 @@ internal static partial class WidgetRenderer
             g.DrawPath(border, path);
         }
 
+        // Every piece of text in a row sits on one baseline, placed so the numbers' capitals are
+        // centred in the row (Segoe UI's capitals are 0.7 em tall).
+        float labelAscent = Ascent(OverlayLabelPx, FontStyle.Bold, false);
+        float unitAscent = Ascent(OverlayUnitPx, FontStyle.Regular, false);
         float x = OverlayPad, y = OverlayPad;
         foreach (var row in rows)
         {
+            float baseline = y + OverlayRowHeight / 2 + OverlayValuePx * 0.7f / 2;
             float cx = x;
-            if (row.Label.Length > 0) Text(g, row.Label, OverlayLabelPx, FontStyle.Bold, row.LabelColor, cx, y + 4);
+            if (row.Label.Length > 0) Text(g, row.Label, OverlayLabelPx, FontStyle.Bold, row.LabelColor, cx, baseline - labelAscent);
             cx += line ? LabelWidth(row) : Indent(row);
             foreach (var cell in row.Cells)
             {
-                Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, y + (OverlayValuePx - cell.Px) * 0.8f, semibold: true);
+                Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, baseline - Ascent(cell.Px, FontStyle.Bold, true), semibold: true);
                 float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
                 if (cell.Unit.Length > 0)
-                    Text(g, cell.Unit, OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, y + 4);
+                    Text(g, cell.Unit, OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
                 cx += CellWidth(cell) + OverlayCellGap;
             }
             if (line) x = cx - OverlayCellGap + OverlayGroupGap;
