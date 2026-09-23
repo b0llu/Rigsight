@@ -132,7 +132,7 @@ internal static partial class WidgetRenderer
         int alpha = (int)Math.Round(200 * o.Opacity);
         string header =
             $"<FNT=Segoe UI Semibold,{fontHeight},600,2>" +      // our font instead of RivaTuner's default
-            $"<P{corner}><L0><M=-9,-6,-9,-6>" +                    // our corner, with padding around the text
+            $"<P{corner}><L0><M=10,6,10,6>" +                      // our corner; inner margins pad the text inside the panel
             $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";            // rounded translucent panel behind it
         return header + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", rows.Select(Row));
     }
