@@ -168,7 +168,7 @@
                         <Button Style="{StaticResource GhostButton}" Content="Download from Guru3D" Margin="8,0,0,0" Command="{Binding OpenRtssDownloadCommand}" />
                     </StackPanel>
                     <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
-                               Text="Inside games, RivaTuner decides the position and text size: open RivaTuner from the tray to change them. A game that was already running when RivaTuner started needs a restart." />
+                               Text="Inside games it keeps your style: the same corner, size, colours and rounded panel. A game that was already running when RivaTuner started needs a restart. If RivaTuner shows its own FPS counter in the same corner, you can move or turn it off in RivaTuner." />
                 </StackPanel>
             </Border>
 

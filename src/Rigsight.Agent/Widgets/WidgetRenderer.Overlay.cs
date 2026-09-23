@@ -86,37 +86,55 @@ internal static partial class WidgetRenderer
     }
 
     /// <summary>
-    /// The same readout as RivaTuner text: one line per part (or one line in all), coloured with RTSS
-    /// colour tags. Colours are declared once up front as variables (&lt;C0=RRGGBB&gt;) and used as &lt;C0&gt;…&lt;C&gt;.
+    /// The same readout in RivaTuner's hypertext, styled like our own window: Segoe UI, a rounded
+    /// translucent panel, coloured values with smaller grey units, pinned to the chosen corner.
+    /// Tag meanings follow RTSS's SDK (RTSSSharedMemorySample and the OverlayEditor plugin source):
+    /// &lt;P0/2/6/8&gt;&lt;Ln&gt; sticky corner layer, &lt;M&gt; margins, &lt;C=AARRGGBB&gt;&lt;B=0,0,Rr&gt;\b rounded
+    /// background, &lt;A=±n&gt; alignment in symbols (negative = right), &lt;S=-n&gt; n% subscript size.
     /// </summary>
     public static string RtssText(OverlaySettings o, WidgetData? data)
     {
         var rows = OverlayRows(o, data ?? new WidgetData());
-        var colors = new List<Color>();
-        string Paint(Color c, string text)
-        {
-            int i = colors.IndexOf(c);
-            if (i < 0 && colors.Count < 10) { colors.Add(c); i = colors.Count - 1; }
-            return i < 0 ? text : $"<C{i}>{text}<C>";
-        }
+        if (rows.Count == 0) return "";
+        static string Hex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
 
-        var lines = new List<string>();
-        foreach (var row in rows)
+        string Row(OverlayRow row)
         {
             var parts = new List<string>();
-            if (row.Label.Length > 0) parts.Add(Paint(row.LabelColor, row.Label));
+            // Labels share a left-aligned column so the numbers line up, as in the window.
+            if (row.Label.Length > 0) parts.Add($"<A=4><S=-80><C={Hex(row.LabelColor)}>{row.Label}<C><S><A>");
             foreach (var cell in row.Cells)
             {
-                // Units that are words read better with a space ("4.41 GHz"); signs stay attached ("34%").
-                string unit = cell.Unit.Length == 0 ? ""
-                    : Paint(OverlayPalette.Muted, (char.IsLetter(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + cell.Unit);
-                parts.Add(Paint(cell.Color, cell.Value) + unit);
+                string value = Clean(cell.Value);
+                // Numbers are right-aligned to their usual width, so they don't jump around (62° → 100°).
+                string cellText = cell.Template.Length > 0
+                    ? $"<A=-{cell.Template.Length}><C={Hex(cell.Color)}>{value}<C><A>"
+                    : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>";
+                if (cell.Unit.Length > 0)
+                {
+                    string unit = (char.IsLetter(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
+                    cellText += $"<S=-72><C={Hex(OverlayPalette.Muted)}>{unit}<C><S>";
+                }
+                parts.Add(cellText);
             }
-            lines.Add(string.Join("  ", parts));
+            return string.Join("  ", parts);
         }
 
-        string declarations = string.Concat(colors.Select((c, i) => $"<C{i}={c.R:X2}{c.G:X2}{c.B:X2}>"));
-        return declarations + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", lines);
+        int corner = o.Corner switch
+        {
+            OverlayCorner.TopRight => 2,
+            OverlayCorner.BottomLeft => 6,
+            OverlayCorner.BottomRight => 8,
+            _ => 0,
+        };
+        int fontHeight = -(int)Math.Round(8 * o.Scale);
+        int alpha = (int)Math.Round(200 * o.Opacity);
+        string header =
+            $"<FNT=Segoe UI Semibold,{fontHeight},600,2>" +      // our font instead of RivaTuner's default
+            $"<P{corner}><L0><M=-9,-6,-9,-6>" +                    // our corner, with padding around the text
+            $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";            // rounded translucent panel behind it
+        return header + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", rows.Select(Row));
     }
 
     /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
