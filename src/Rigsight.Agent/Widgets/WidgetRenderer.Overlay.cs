@@ -40,6 +40,16 @@ internal static partial class WidgetRenderer
         bool Has(OverlayMetric m) => o.Metrics.Contains(m);
         var rows = new List<OverlayRow>();
 
+        // Only while a game is drawing frames (RivaTuner measures them), so the desktop shows no empty FPS row.
+        var game = new List<Cell>();
+        if (d.Frame is { } f)
+        {
+            if (Has(OverlayMetric.Fps)) game.Add(new($"{f.Fps:0}", "", p.Text, "888"));
+            if (Has(OverlayMetric.FrameTime)) game.Add(new($"{f.FrameTimeMs:0.0}", "ms", p.Text, "88.8"));
+            if (Has(OverlayMetric.OnePercentLow) && f.OnePercentLow is double low) game.Add(new($"{low:0}", "1% low", p.Text, "888"));
+        }
+        if (game.Count > 0) rows.Add(new("FPS", Fps, game));
+
         var cpu = new List<Cell>();
         if (Has(OverlayMetric.CpuTemp)) cpu.Add(TempCell(d.CpuTemp));
         if (Has(OverlayMetric.CpuLoad)) cpu.Add(LoadCell(d.CpuLoad));
@@ -123,7 +133,7 @@ internal static partial class WidgetRenderer
                     : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>";
                 if (cell.Unit.Length > 0)
                 {
-                    string unit = (char.IsLetter(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
+                    string unit = (char.IsLetterOrDigit(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
                     cellText += $"<S=-72><C={Hex(OverlayPalette.Muted)}>{unit}<C><S>";
                 }
                 parts.Add(cellText);
@@ -185,6 +195,11 @@ internal static partial class WidgetRenderer
         return (right ? -near : near, bottom ? -near : near, Far(right, RtssPadPx), Far(bottom, RtssPadBottomPx));
     }
 
+    /// <summary>A unit that starts with a number ("1% low") needs a space after the value; others sit close ("6.9ms" reads as "6.9 ms").</summary>
+    private static string UnitText(Cell c) => char.IsDigit(c.Unit[0]) ? " " + c.Unit : c.Unit;
+
+    private static readonly Color Fps = Color.FromArgb(251, 191, 36);
+
     /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
     public static Bitmap RenderOverlay(OverlaySettings o, WidgetData? data, float scale)
     {
@@ -198,7 +213,7 @@ internal static partial class WidgetRenderer
             : Math.Max(OverlayLabelWidth, Measure(mg, r.Label, OverlayLabelPx, FontStyle.Bold) + 8);
         float CellWidth(Cell c) =>
             Math.Max(Measure(mg, c.Template, c.Px, FontStyle.Bold, semibold: true), Measure(mg, c.Value, c.Px, FontStyle.Bold, semibold: true))
-            + (c.Unit.Length > 0 ? 2 + Measure(mg, c.Unit, OverlayUnitPx, FontStyle.Regular) : 0);
+            + (c.Unit.Length > 0 ? 2 + Measure(mg, UnitText(c), OverlayUnitPx, FontStyle.Regular) : 0);
         float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + OverlayCellGap * (r.Cells.Count - 1);
 
         // In rows, labels share one column so the numbers line up. The unlabelled last row starts at the edge.
@@ -250,7 +265,7 @@ internal static partial class WidgetRenderer
                 Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, baseline - Ascent(cell.Px, FontStyle.Bold, true), semibold: true);
                 float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
                 if (cell.Unit.Length > 0)
-                    Text(g, cell.Unit, OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
+                    Text(g, UnitText(cell), OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
                 cx += CellWidth(cell) + OverlayCellGap;
             }
             if (line) x = cx - OverlayCellGap + OverlayGroupGap;

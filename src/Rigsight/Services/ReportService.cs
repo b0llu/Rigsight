@@ -65,6 +65,9 @@ public sealed class ReportService(SettingsModel settings)
     public Task<List<DriveDay>?> DriveHistoryAsync(int days) =>
         Run(db => db.GetDriveDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-days))));
 
+    /// <summary>Minute-by-minute system history for [from, to) (Unix seconds).</summary>
+    public Task<List<SystemMinute>?> MinutesAsync(long from, long to) => Run(db => db.GetMinutes(from, to));
+
     public Task<List<AppRow>?> KnownAppsAsync() => Run(db => db.LoadApps());
 
     /// <summary>Crashes in a range, explained, with the temperatures just before each one.</summary>

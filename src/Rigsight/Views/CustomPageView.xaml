@@ -124,7 +124,7 @@
         <DataTemplate x:Key="Tile.sensor">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" Style="{StaticResource Big}" />
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" Margin="0,1,0,0" />
                 <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" />
             </DockPanel>
         </DataTemplate>
@@ -157,7 +157,7 @@
                         <DataTemplate>
                             <DockPanel Margin="0,3">
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" Style="{StaticResource RowValue}" />
-                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Row}" Margin="0,0,10,0" />
+                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding DisplayName}" Style="{StaticResource Row}" Margin="0,0,10,0" />
                             </DockPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -176,7 +176,7 @@
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding Temperature.ShortValue, FallbackValue=''}" FontSize="12.5" FontWeight="SemiBold" Margin="10,0,0,0"
                                            Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding UsedSpace.ShortValue, StringFormat='{}{0} full', FallbackValue=''}" Style="{StaticResource RowValue}" />
-                                <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="0,0,10,0" />
+                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="0,0,10,0" />
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Margin="0,5,0,0" Maximum="100" Value="{Binding UsedSpace.Value, Mode=OneWay, FallbackValue=0}"
                                          Foreground="{StaticResource PurpleBrush}" />
@@ -193,7 +193,7 @@
                         <DockPanel Margin="0,3">
                             <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
                             <TextBlock DockPanel.Dock="Right" Text="{Binding MemText}" Style="{StaticResource RowValue}" />
-                            <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
                         </DockPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -225,7 +225,7 @@
                             <DockPanel Margin="0,3">
                                 <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource RowValue}" />
-                                <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
                             </DockPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -287,7 +287,7 @@
                                 <DockPanel Margin="0,3">
                                     <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource RowValue}" />
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
                                 </DockPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

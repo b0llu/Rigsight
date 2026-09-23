@@ -36,6 +36,25 @@ public sealed class HistoryBuffer
         }
     }
 
+    public void Clear()
+    {
+        _start = 0;
+        Count = 0;
+    }
+
+    /// <summary>Time of the oldest sample, or 0 when empty.</summary>
+    public long FirstTime => Count == 0 ? 0 : _times[_start];
+
+    /// <summary>Index of the sample closest in time to <paramref name="timeMs"/>, or -1 when empty.</summary>
+    public int NearestIndex(long timeMs)
+    {
+        if (Count == 0) return -1;
+        int i = IndexAtOrAfter(timeMs);
+        if (i >= Count) return Count - 1;
+        if (i > 0 && timeMs - TimeAt(i - 1) < TimeAt(i) - timeMs) return i - 1;
+        return i;
+    }
+
     public double ValueAt(int i) => _values[(_start + i) % Capacity];
     public long TimeAt(int i) => _times[(_start + i) % Capacity];
 

@@ -240,7 +240,7 @@
                                             <DockPanel>
                                                 <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" />
                                                 <StackPanel Margin="14,0,8,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
+                                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                                         <Border Style="{StaticResource Chip}" Background="{Binding Category, Converter={StaticResource CategoryBrush}, ConverterParameter=Soft}">
                                                             <TextBlock Text="{Binding Category, Converter={StaticResource CategoryLabel}}" FontSize="10.5" FontWeight="SemiBold"

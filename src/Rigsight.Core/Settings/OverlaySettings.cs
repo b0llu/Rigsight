@@ -13,6 +13,8 @@ public enum OverlayLayout
 /// <summary>A reading the overlay can show. The order here is the order on screen.</summary>
 public enum OverlayMetric
 {
+    // From RivaTuner, which measures every game it draws in.
+    Fps, FrameTime, OnePercentLow,
     CpuTemp, CpuLoad, CpuClock, CpuPower,
     GpuTemp, GpuHotSpot, GpuLoad, GpuClock, GpuPower, GpuMemory,
     Ram,
@@ -37,6 +39,7 @@ public sealed class OverlaySettings
 
     public static List<OverlayMetric> DefaultMetrics() =>
     [
+        OverlayMetric.Fps, OverlayMetric.OnePercentLow,
         OverlayMetric.CpuTemp, OverlayMetric.CpuLoad,
         OverlayMetric.GpuTemp, OverlayMetric.GpuLoad, OverlayMetric.GpuMemory,
         OverlayMetric.Ram, OverlayMetric.Session,

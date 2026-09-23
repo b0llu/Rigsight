@@ -84,9 +84,10 @@ public sealed class DailyBars : FrameworkElement
                 y -= bh;
             }
 
-            if (i % labelEvery == 0)
+            // Count from the right, so today (the last bar) always has a label.
+            if ((days.Count - 1 - i) % labelEvery == 0)
             {
-                string label = days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
+                string label = d.Day == DateTime.Today ? "Today" : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
                 var brush = d.Day == DateTime.Today ? ChartPaint.TextBrush : ChartPaint.Label;
                 ChartPaint.Text(dc, this, label, new Point(cx, h - AxisHeight / 2), 11, brush, ChartPaint.Align.Center);
             }

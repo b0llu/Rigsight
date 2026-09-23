@@ -36,7 +36,8 @@ internal sealed class SensorHost
 
     private readonly List<(IHardware Hw, Tier Tier)> _hardware = [];
     private readonly List<ISensor> _sensors = [];
-    private long _lastSlowMs = long.MinValue;
+    // 0, not long.MinValue: "now - long.MinValue" overflows to a negative number, and drives would never refresh.
+    private long _lastSlowMs;
 
     // Cheap NVIDIA readings used instead of the full GPU update while the app is closed.
     private NvidiaFastPath? _fastGpu;
@@ -47,6 +48,12 @@ internal sealed class SensorHost
     public List<HardwareMeta> Schema { get; } = [];
     public Dictionary<string, int> Keys { get; private set; } = [];
     public int SensorCount => _sensors.Count;
+
+    /// <summary>Each sensor's identifier, in the same order as <see cref="ReadAll"/>.</summary>
+    public string[] Ids { get; private set; } = [];
+
+    /// <summary>Whether each sensor (same order) is a temperature, where 0 means "no reading".</summary>
+    public bool[] IsTemperature { get; private set; } = [];
 
     public void Open()
     {
@@ -75,6 +82,8 @@ internal sealed class SensorHost
             foreach (var s in hwMeta.Sensors)
                 candidates.Add(new KeySensors.Candidate(index++, hwMeta.Type, hwMeta.Name, s.Name, s.Kind));
         Keys = KeySensors.Pick(candidates);
+        Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
+        IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
     }
 
     private void Collect(IHardware hw)
@@ -131,7 +140,9 @@ internal sealed class SensorHost
     /// <summary>Reads hardware. <paramref name="everything"/> is true while the app is open.</summary>
     public void Update(bool everything, long nowMs)
     {
-        bool slowDue = everything && nowMs - _lastSlowMs >= 10_000;
+        // Slow hardware (drives): every 10 s while the app is open, otherwise every 5 minutes, so today's
+        // drive temperature range is known even when nobody is watching.
+        bool slowDue = nowMs - _lastSlowMs >= (everything ? 10_000 : 300_000);
         if (slowDue) _lastSlowMs = nowMs;
 
         _usingFastValues = !everything && _fastGpu is not null;
@@ -198,6 +209,37 @@ internal sealed class SensorHost
         RamUsed = Read(KeySensors.RamUsed),
         RamAvailable = Read(KeySensors.RamAvailable),
     };
+
+    /// <summary>Each drive's SMART health (status for every drive; sector counts for SATA drives only,
+    /// since NVMe reports its health under different attribute numbers).</summary>
+    public List<DriveHealthInfo> DriveHealth()
+    {
+        var list = new List<DriveHealthInfo>();
+        foreach (var (hw, _) in _hardware)
+        {
+            if (hw is not LibreHardwareMonitor.Hardware.Storage.StorageDevice device) continue;
+            try
+            {
+                if (device.Storage?.Smart is not { } smart) continue;
+                bool sata = !device.Storage.IsNVMe;
+                long? Raw(byte id) => sata && smart.SmartAttributes?.FirstOrDefault(a => a.Info.ID == id) is { } attr
+                    ? (long)attr.Attribute.RawValueULong : null;
+                list.Add(new DriveHealthInfo
+                {
+                    Name = hw.Name,
+                    Status = smart.DiskStatus.ToString(),
+                    ReallocatedSectors = Raw(0x05),
+                    PendingSectors = Raw(0xC5),
+                    UncorrectableSectors = Raw(0xC6),
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("drives", ex);
+            }
+        }
+        return list;
+    }
 
     private static void SafeUpdate(IHardware hw)
     {

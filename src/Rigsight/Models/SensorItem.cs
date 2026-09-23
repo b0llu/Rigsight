@@ -71,6 +71,7 @@ public sealed partial class SensorItem : ObservableObject
     public string FormattedMax => Units.Format(Kind, Max);
     public string FormattedAverage => Units.Format(Kind, Average);
     public string ShortValue => Units.Short(Kind, Value);
+    /// <summary>Today's range: the agent tracks it all day; readings while the app is open widen it too.</summary>
     public string MinMaxText => Min is null ? "" : $"↓ {Units.Compact(Kind, Min)}   ↑ {Units.Compact(Kind, Max)}";
 
     public void ToggleHidden()
@@ -109,6 +110,16 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedAverage));
         OnPropertyChanged(nameof(MinMaxText));
         Version++;
+    }
+
+    /// <summary>Today's lowest and highest reading as tracked by the agent (replaces the since-opened range).</summary>
+    public void SetTodayRange(double min, double max)
+    {
+        Min = min;
+        Max = max;
+        OnPropertyChanged(nameof(FormattedMin));
+        OnPropertyChanged(nameof(FormattedMax));
+        OnPropertyChanged(nameof(MinMaxText));
     }
 
     public void ResetStats()

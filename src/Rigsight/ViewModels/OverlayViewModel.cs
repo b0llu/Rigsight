@@ -42,6 +42,7 @@ public sealed partial class OverlayViewModel : ObservableObject
         OverlayMetricOption O(OverlayMetric m, string label) => new(m, label, settings);
         Groups =
         [
+            new("GAME", [O(OverlayMetric.Fps, "Frame rate (FPS)"), O(OverlayMetric.FrameTime, "Frame time"), O(OverlayMetric.OnePercentLow, "1% low")]),
             new("CPU", [O(OverlayMetric.CpuTemp, "Temperature"), O(OverlayMetric.CpuLoad, "Load"), O(OverlayMetric.CpuClock, "Clock speed"), O(OverlayMetric.CpuPower, "Power")]),
             new("GPU", [O(OverlayMetric.GpuTemp, "Temperature"), O(OverlayMetric.GpuHotSpot, "Hot spot"), O(OverlayMetric.GpuLoad, "Load"),
                         O(OverlayMetric.GpuClock, "Clock speed"), O(OverlayMetric.GpuPower, "Power"), O(OverlayMetric.GpuMemory, "Video memory")]),

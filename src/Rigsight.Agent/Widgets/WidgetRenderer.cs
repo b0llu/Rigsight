@@ -13,6 +13,8 @@ internal sealed class WidgetData
 {
     public double? CpuTemp, CpuLoad, CpuPower, CpuClock, GpuTemp, GpuLoad, GpuPower, GpuHotSpot, GpuClock, RamLoad, RamUsedGb, RamTotalGb;
     public double? VramUsedMb, VramTotalMb;
+    /// <summary>The game in front's frame rate, from RivaTuner (null when it isn't drawing in it).</summary>
+    public FrameStats? Frame;
     public float[] CpuHistory = [];
     public float[] GpuHistory = [];
     public ActivityInfo Activity = new();

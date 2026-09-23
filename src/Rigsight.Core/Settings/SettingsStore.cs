@@ -45,7 +45,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 3;
+    private const int CurrentVersion = 4;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -63,6 +63,12 @@ public static class SettingsStore
                 w.Visibility = WidgetVisibility.Always;
                 w.Enabled = false;
             }
+        }
+        if (s.SettingsVersion < 4 && s.Overlay is { } overlay)
+        {
+            // v4: the overlay can show frame rate; turn it on once for existing setups.
+            if (!overlay.Metrics.Contains(OverlayMetric.Fps)) overlay.Metrics.Add(OverlayMetric.Fps);
+            if (!overlay.Metrics.Contains(OverlayMetric.OnePercentLow)) overlay.Metrics.Add(OverlayMetric.OnePercentLow);
         }
         s.SettingsVersion = CurrentVersion;
 
@@ -90,6 +96,9 @@ public static class SettingsStore
         t.KeepDetailedDays = Math.Clamp(t.KeepDetailedDays, 7, 3650);
         t.KeepHistoryDays = Math.Clamp(t.KeepHistoryDays, 30, 3650);
         s.LiveRefreshMs = Math.Clamp(s.LiveRefreshMs, 250, 10_000);
+        // The temperature chart offers 5 minutes, 1 hour, 6 hours and 24 hours.
+        if (s.ChartWindowSeconds is not (300 or 3600 or 21600 or 86400))
+            s.ChartWindowSeconds = s.ChartWindowSeconds <= 300 ? 300 : 3600;
 
         foreach (var page in s.CustomPages)
         {

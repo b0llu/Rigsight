@@ -8,11 +8,12 @@ namespace Rigsight.Controls;
 internal static class ChartGeometry
 {
     /// <summary>
-    /// Builds the line (and the filled area under it) for samples in [from, to], averaging samples
-    /// that land in the same horizontal pixel so long windows stay cheap to draw.
+    /// Builds the line (and the filled area under it) for samples in [from, to] (which map to the plot's
+    /// left and right edges), averaging samples that land in the same horizontal pixel so long windows stay
+    /// cheap to draw. Samples after <paramref name="until"/> are left out (another source covers them).
     /// </summary>
     public static (StreamGeometry Line, StreamGeometry Fill)? Build(
-        HistoryBuffer buffer, long from, long to, Rect plot, double min, double max, Func<double, double> transform)
+        HistoryBuffer buffer, long from, long to, Rect plot, double min, double max, Func<double, double> transform, long until = long.MaxValue)
     {
         if (buffer.Count == 0 || to <= from || max <= min) return null;
 
@@ -39,6 +40,7 @@ internal static class ChartGeometry
 
         for (int i = start; i < buffer.Count; i++)
         {
+            if (buffer.TimeAt(i) > until) break;
             double value = buffer.ValueAt(i);
             double x = plot.Left + (buffer.TimeAt(i) - from) / span * plot.Width;
             if (x < plot.Left - plot.Width) continue;
@@ -93,10 +95,10 @@ internal static class ChartGeometry
     }
 
     /// <summary>Range of finite values in [from, to], or null when there are none.</summary>
-    public static (double Min, double Max)? Range(HistoryBuffer buffer, long from, Func<double, double> transform)
+    public static (double Min, double Max)? Range(HistoryBuffer buffer, long from, Func<double, double> transform, long to = long.MaxValue)
     {
         double min = double.MaxValue, max = double.MinValue;
-        for (int i = buffer.IndexAtOrAfter(from); i < buffer.Count; i++)
+        for (int i = buffer.IndexAtOrAfter(from); i < buffer.Count && buffer.TimeAt(i) <= to; i++)
         {
             double v = buffer.ValueAt(i);
             if (double.IsNaN(v)) continue;

@@ -77,6 +77,49 @@ internal static unsafe class Rtss
         return false;
     });
 
+    // App entry fields (RTSSSharedMemory.h): framerate period start/end (ms) and frames in it, the last
+    // frame time (µs), and a ring of the last 1,024 frame times (µs) that RTSS keeps for its graphs.
+    private const int FrameTime0At = 268, FrameTime1At = 272, FramesAt = 276, FrameTimeAt = 280, FrameTimeBufAt = 924, FrameTimeBufLength = 1024;
+
+    /// <summary>
+    /// Frame rate, frame time and 1% low (over the last 1,024 frames) of a process RTSS is drawing in,
+    /// or null when it isn't (not a game, or started before RTSS).
+    /// </summary>
+    public static FrameStats? ReadFrameStats(int pid)
+    {
+        FrameStats? stats = null;
+        if (pid <= 0) return null;
+        Use(memory =>
+        {
+            uint size = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);
+            if (size < FrameTimeBufAt + FrameTimeBufLength * 4) return false;
+            for (uint i = 0; i < count; i++)
+            {
+                byte* entry = memory + offset + i * size;
+                if (*(int*)entry != pid) continue;
+                uint t0 = U(entry, FrameTime0At), t1 = U(entry, FrameTime1At), frames = U(entry, FramesAt);
+                if (t0 == 0 || t1 <= t0 || frames == 0) return false; // not rendering
+                double fps = 1000.0 * frames / (t1 - t0);
+                double frameTimeMs = U(entry, FrameTimeAt) / 1000.0;
+
+                var times = new List<uint>(FrameTimeBufLength);
+                for (int k = 0; k < FrameTimeBufLength; k++)
+                    if (U(entry, FrameTimeBufAt + 4 * k) is > 0 and var ft) times.Add(ft);
+                double? low = null;
+                if (times.Count >= 100)
+                {
+                    // 1% low: the frame rate of the slowest 1% of recent frames.
+                    times.Sort();
+                    low = 1_000_000.0 / times[times.Count - 1 - times.Count / 100];
+                }
+                stats = new FrameStats(fps, frameTimeMs, low);
+                return true;
+            }
+            return false;
+        });
+        return stats;
+    }
+
     private static uint U(byte* memory, int at) => *(uint*)(memory + at);
 
     private static bool Use(MemoryAction action)
@@ -168,3 +211,6 @@ internal static unsafe class Rtss
         at[n] = 0;
     }
 }
+
+/// <summary>A game's frame rate (per second), last frame time and 1% low, as measured by RivaTuner.</summary>
+internal readonly record struct FrameStats(double Fps, double FrameTimeMs, double? OnePercentLow);

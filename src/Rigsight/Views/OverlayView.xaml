@@ -170,8 +170,8 @@
             <Border Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="What it shows" Style="{StaticResource H2}" />
-                    <TextBlock Text="Pick the readings you want. Fewer is easier to read at a glance." Style="{StaticResource Muted}"
-                               FontSize="12.5" Margin="0,2,0,14" />
+                    <TextBlock Text="Pick the readings you want. Fewer is easier to read at a glance. Game readings appear while a game is running; RivaTuner measures them." Style="{StaticResource Muted}"
+                               FontSize="12.5" Margin="0,2,0,14" TextWrapping="Wrap" />
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>

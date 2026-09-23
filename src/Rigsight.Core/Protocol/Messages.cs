@@ -68,6 +68,18 @@ public sealed class TodayInfo
     [JsonIgnore] public string? GpuPeakWhile => GpuPeakApp is null ? null : ActivityWords.While(GpuPeakApp, GpuPeakCategory);
 }
 
+/// <summary>A drive's SMART health, as judged the way CrystalDiskInfo does (hard drives have no wear "Life").</summary>
+public sealed class DriveHealthInfo
+{
+    public string Name { get; set; } = "";
+    /// <summary>Good · Caution · Bad · Unknown</summary>
+    public string Status { get; set; } = "Unknown";
+    /// <summary>Sectors moved to spares, waiting to be, and unreadable (SATA drives; null when not reported).</summary>
+    public long? ReallocatedSectors { get; set; }
+    public long? PendingSectors { get; set; }
+    public long? UncorrectableSectors { get; set; }
+}
+
 /// <summary>One app's live resource use (all of its processes combined).</summary>
 public sealed class ProcInfo
 {
@@ -94,6 +106,7 @@ public sealed class AgentMessage
     public List<HardwareMeta>? Hardware { get; set; }
     public Dictionary<string, int>? Keys { get; set; }
     public List<SeriesHistory>? History { get; set; }
+    public List<DriveHealthInfo>? Drives { get; set; }
 
     // hello / settings
     public RigsightSettings? Settings { get; set; }
@@ -103,6 +116,10 @@ public sealed class AgentMessage
     public float?[]? Values { get; set; }
     public ActivityInfo? Activity { get; set; }
     public TodayInfo? Today { get; set; }
+    /// <summary>Today's [lowest, highest] per sensor id: every sensor when <see cref="ExtremesFull"/>, else only changes.</summary>
+    public Dictionary<string, double[]>? Extremes { get; set; }
+    public string? ExtremesDay { get; set; }
+    public bool ExtremesFull { get; set; }
 
     // procs
     public List<ProcInfo>? Procs { get; set; }

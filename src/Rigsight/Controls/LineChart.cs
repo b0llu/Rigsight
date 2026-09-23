@@ -1,12 +1,17 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using Rigsight.Core;
 using Rigsight.Models;
 
 namespace Rigsight.Controls;
 
-/// <summary>Multi-series time chart with a labelled grid, used for temperature history.</summary>
+/// <summary>
+/// Multi-series time chart with a labelled grid, used for temperature history. Recent time comes from each
+/// sensor's live buffer (one point a second); anything older from the minute history. Hovering shows the
+/// exact time and every series' value there.
+/// </summary>
 public sealed class LineChart : FrameworkElement
 {
     private const double AxisWidth = 42;
@@ -28,12 +33,44 @@ public sealed class LineChart : FrameworkElement
         nameof(LabelBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0x5B, 0x64, 0x7A)), FrameworkPropertyMetadataOptions.AffectsRender));
 
     private static readonly Typeface LabelFont = new("Segoe UI");
+    private static readonly Typeface HoverFont = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+    private static readonly Brush HoverBack = Frozen(new SolidColorBrush(Color.FromArgb(0xF2, 0x1B, 0x21, 0x30)));
+    private static readonly Pen HoverBorder = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x2E, 0x37, 0x4D)), 1));
+    private static readonly Pen HoverLine = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x90, 0x8A, 0x93, 0xA8)), 1));
+    private static readonly Brush HoverText = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xEC, 0xF4)));
+    private static readonly Brush HoverMuted = Frozen(new SolidColorBrush(Color.FromRgb(0x8A, 0x93, 0xA8)));
+
+    private double? _hoverX;
 
     public IEnumerable<ChartSeries>? Series { get => (IEnumerable<ChartSeries>?)GetValue(SeriesProperty); set => SetValue(SeriesProperty, value); }
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
     public int WindowSeconds { get => (int)GetValue(WindowSecondsProperty); set => SetValue(WindowSecondsProperty, value); }
     public Brush GridBrush { get => (Brush)GetValue(GridBrushProperty); set => SetValue(GridBrushProperty, value); }
     public Brush LabelBrush { get => (Brush)GetValue(LabelBrushProperty); set => SetValue(LabelBrushProperty, value); }
+
+    private static T Frozen<T>(T f) where T : Freezable
+    {
+        f.Freeze();
+        return f;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        _hoverX = e.GetPosition(this).X;
+        InvalidateVisual();
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        _hoverX = null;
+        InvalidateVisual();
+    }
+
+    // Transparent background so the whole plot receives mouse moves, not just the lines.
+    protected override HitTestResult HitTestCore(PointHitTestParameters p) => new PointHitTestResult(this, p.HitPoint);
+
+    /// <summary>Where a series switches from its minute history to its live buffer.</summary>
+    private static long LiveStart(ChartSeries s) => s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -43,19 +80,22 @@ public sealed class LineChart : FrameworkElement
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var series = Series?.ToList() ?? [];
 
-        long to = series.Count == 0 ? 0 : series.Max(s => s.Sensor.History.LastTime);
+        long to = series.Count == 0 ? 0 : series.Max(s => Math.Max(s.Sensor.History.LastTime, s.Minutes.LastTime));
         long windowMs = WindowSeconds * 1000L;
         long from = to - windowMs;
 
-        // Y range across all series, in display units, snapped to multiples of 10.
+        // Y range across all series (live and minute history), in display units, snapped to multiples of 10.
         double lo = double.MaxValue, hi = double.MinValue;
+        void Widen((double Min, double Max)? r)
+        {
+            if (r is not { } v) return;
+            lo = Math.Min(lo, v.Min);
+            hi = Math.Max(hi, v.Max);
+        }
         foreach (var s in series)
         {
-            if (ChartGeometry.Range(s.Sensor.History, from, Units.Temp) is { } r)
-            {
-                lo = Math.Min(lo, r.Min);
-                hi = Math.Max(hi, r.Max);
-            }
+            Widen(ChartGeometry.Range(s.Sensor.History, from, Units.Temp));
+            if (from < LiveStart(s)) Widen(ChartGeometry.Range(s.Minutes, from, Units.Temp, LiveStart(s)));
         }
 
         if (lo > hi)
@@ -79,24 +119,97 @@ public sealed class LineChart : FrameworkElement
             DrawText(dc, $"{v:0}°", new Point(plot.Left - 8, y), dpi, alignRight: true);
         }
 
-        // X labels at "nice" steps.
-        int step = WindowSeconds switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, _ => 900 };
+        // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
+        int step = WindowSeconds switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, <= 3600 => 900, <= 21600 => 3600, _ => 4 * 3600 };
         for (int t = 0; t <= WindowSeconds; t += step)
         {
             double x = plot.Right - plot.Width * t / WindowSeconds;
-            string label = t == 0 ? "now" : t < 60 ? $"-{t}s" : $"-{t / 60}m";
+            string label = t == 0 ? "now"
+                : WindowSeconds > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("t", CultureInfo.CurrentCulture)
+                : t < 60 ? $"-{t}s" : $"-{t / 60}m";
             DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: true);
         }
 
         dc.PushClip(new RectangleGeometry(new Rect(plot.Left, plot.Top - 2, plot.Width, plot.Height + 4)));
         foreach (var s in series)
         {
-            if (ChartGeometry.Build(s.Sensor.History, from, to, plot, lo, hi, Units.Temp) is not { } g) continue;
+            long liveStart = LiveStart(s);
+            if (from < liveStart) Draw(s, s.Minutes, liveStart);
+            Draw(s, s.Sensor.History);
+        }
+        dc.Pop();
+
+        if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
+            DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
+
+        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue)
+        {
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Units.Temp, until) is not { } g) return;
             dc.DrawGeometry(ChartGeometry.FadeFill(s.Color, 0.10), null, g.Fill);
             dc.DrawGeometry(null, new Pen(s.Brush, 2) { LineJoin = PenLineJoin.Round }, g.Line);
         }
-        dc.Pop();
     }
+
+    /// <summary>A guide line at the pointer, a dot on each series, and a box with the time and values.</summary>
+    private void DrawHover(DrawingContext dc, Rect plot, List<ChartSeries> series, long from, long to, double lo, double hi, double hx, double dpi)
+    {
+        long t = from + (long)((hx - plot.Left) / plot.Width * (to - from));
+        dc.DrawLine(HoverLine, new Point(Math.Round(hx) + 0.5, plot.Top), new Point(Math.Round(hx) + 0.5, plot.Bottom));
+
+        long shownTime = t;
+        bool fromMinutes = false;
+        var rows = new List<(ChartSeries Series, double? Value)>();
+        foreach (var s in series)
+        {
+            // The live buffer covers recent time; before it starts, the minute history.
+            bool useMinutes = t < LiveStart(s);
+            var buffer = useMinutes ? s.Minutes : s.Sensor.History;
+            int i = buffer.NearestIndex(t);
+            double? value = null;
+            // Only a sample near the pointer counts (none across a gap, e.g. while the PC was off).
+            if (i >= 0 && Math.Abs(buffer.TimeAt(i) - t) <= (useMinutes ? 90_000 : 5_000) && !double.IsNaN(buffer.ValueAt(i)))
+            {
+                value = buffer.ValueAt(i);
+                if (rows.Count == 0 || rows.All(r => r.Value is null)) shownTime = buffer.TimeAt(i);
+                fromMinutes |= useMinutes;
+                double y = plot.Bottom - (Units.Temp(value.Value) - lo) / (hi - lo) * plot.Height;
+                dc.DrawEllipse(s.Brush, new Pen(HoverBack, 2), new Point(hx, Math.Clamp(y, plot.Top, plot.Bottom)), 4, 4);
+            }
+            rows.Add((s, value));
+        }
+
+        var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
+        string when = (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture))
+            + local.ToString(fromMinutes ? "t" : "T", CultureInfo.CurrentCulture);
+
+        var title = Text(when, HoverFont, 12, HoverText, dpi);
+        var lines = rows.Select(r => (r.Series, Name: Text(r.Series.Label, LabelFont, 12, HoverMuted, dpi),
+            Value: Text(r.Value is double v ? Units.Format(SensorKind.Temperature, v) : "—", HoverFont, 12, HoverText, dpi))).ToList();
+
+        const double pad = 10, dot = 14, gap = 16, lineH = 19;
+        double nameW = lines.Count == 0 ? 0 : lines.Max(l => l.Name.Width);
+        double valueW = lines.Count == 0 ? 0 : lines.Max(l => l.Value.Width);
+        double w = Math.Max(title.Width, dot + nameW + gap + valueW) + pad * 2;
+        double h = pad * 2 + title.Height + 4 + lines.Count * lineH;
+
+        // Beside the pointer, flipping to the other side near the right edge.
+        double x = hx + 14 + w > plot.Right ? hx - 14 - w : hx + 14;
+        double y0 = plot.Top + 4;
+        var box = new Rect(Math.Max(plot.Left, x), y0, w, h);
+        dc.DrawRoundedRectangle(HoverBack, HoverBorder, box, 8, 8);
+        dc.DrawText(title, new Point(box.Left + pad, box.Top + pad));
+        double ly = box.Top + pad + title.Height + 4;
+        foreach (var (s, name, value) in lines)
+        {
+            dc.DrawEllipse(s.Brush, null, new Point(box.Left + pad + 4, ly + lineH / 2), 4, 4);
+            dc.DrawText(name, new Point(box.Left + pad + dot, ly + (lineH - name.Height) / 2));
+            dc.DrawText(value, new Point(box.Right - pad - value.Width, ly + (lineH - value.Height) / 2));
+            ly += lineH;
+        }
+    }
+
+    private static FormattedText Text(string text, Typeface font, double size, Brush brush, double dpi) =>
+        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, font, size, brush, dpi);
 
     private void DrawText(DrawingContext dc, string text, Point anchor, double dpi, bool alignRight = false, bool center = false)
     {

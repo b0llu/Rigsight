@@ -24,6 +24,7 @@ public sealed class SystemMinute
     public double? GpuTemp { get; set; }
     public double? GpuTempMax { get; set; }
     public double? GpuHotMax { get; set; }
+    public double? GpuMemMax { get; set; }
     public double? CpuLoad { get; set; }
     public double? GpuLoad { get; set; }
     public double? CpuPower { get; set; }

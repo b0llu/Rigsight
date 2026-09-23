@@ -68,10 +68,10 @@
                                 <DataTemplate>
                                     <Border Style="{StaticResource Tile}" Margin="0,5">
                                         <DockPanel>
-                                            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0"
-                                                        Visibility="{Binding Life, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="{Binding Life.ShortValue}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"
-                                                           Foreground="{StaticResource GpuBrush}" />
+                                            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Background="Transparent"
+                                                        Visibility="{Binding HasHealth, Converter={StaticResource Vis}}" ToolTip="{Binding HealthToolTip}">
+                                                <TextBlock Text="{Binding HealthText}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                                           Foreground="{Binding HealthBrush}" />
                                                 <TextBlock Text="HEALTH" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                                             </StackPanel>
                                             <StackPanel>
@@ -86,6 +86,8 @@
                                                         <Run Text="Full" /> <Run Text="{Binding UsedSpace.ShortValue, Mode=OneWay}" Foreground="{StaticResource MutedBrush}" />
                                                     </TextBlock>
                                                 </StackPanel>
+                                                <TextBlock Text="{Binding SectorsText}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" Margin="0,3,0,0"
+                                                           Visibility="{Binding SectorsText, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>
@@ -223,7 +225,7 @@
                                                 <ColumnDefinition Width="110" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="14" Foreground="{StaticResource WarmBrush}" Margin="12,0,0,0" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="8,0" />
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="8,0" />
                                             <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Value="{Binding Share, Mode=OneWay}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="3" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Body}" FontWeight="SemiBold" HorizontalAlignment="Right" />
                                             <TextBlock Grid.Column="4" Text="{Binding Files, StringFormat='{}{0:N0} files'}" Style="{StaticResource Muted}" HorizontalAlignment="Right" Margin="0,0,24,0" />
@@ -245,7 +247,7 @@
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" Margin="12,0" />
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" />
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
                                             <TextBlock Text="{Binding Folder}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </DockPanel>

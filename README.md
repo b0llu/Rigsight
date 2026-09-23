@@ -64,9 +64,9 @@ It does all of this while using about **0.02% of your CPU**.
 - Filter by **Apps & games** or **PC problems**.
 
 ### 🌡️ Hardware
-- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, and history.
+- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, each with today's lowest and highest (tracked all day, even with the window closed), and a history chart from 5 minutes to 24 hours; hover it for the exact time and temperatures.
 - **Memory**: RAM use, live per-app memory (like Task Manager's "private working set"), and today's biggest memory users.
-- **Storage**: drive usage and growth, drive health, cleanup suggestions, and a folder scanner with a treemap.
+- **Storage**: drive usage and growth, drive health (SSD wear, and a CrystalDiskInfo-style Good/Caution/Bad check with bad-sector counts for hard drives), cleanup suggestions, and a folder scanner with a treemap.
 - **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.
 
 ### 🧱 Dashboards
@@ -75,7 +75,7 @@ It does all of this while using about **0.02% of your CPU**.
 - **Make as many as you like**, such as "Gaming" or "Work", and pick one to open Rigsight on. Each is saved automatically.
 
 ### 🎮 Game overlay
-- **Press `Alt+Shift+O` in any game** to show or hide a compact readout: CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
+- **Press `Alt+Shift+O` in any game** to show or hide a compact readout: FPS, frame time and 1% lows, CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
 - **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size and opacity. Change the shortcut to anything you like.
 - **Never gets in the way**: it never takes focus, and clicks pass straight through it.
 - **Works in every game, exclusive fullscreen included**, through [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (free, the engine behind MSI Afterburner's overlay). Rigsight hands it the readings and RivaTuner draws them inside the game. The installer offers to install RivaTuner, and Rigsight keeps it running. Without it, the overlay still shows over borderless and windowed games.

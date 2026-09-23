@@ -26,7 +26,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         public int N;
         public double CpuTempSum, GpuTempSum, CpuLoadSum, GpuLoadSum, CpuPowerSum, GpuPowerSum, RamSum;
         public int CpuTempN, GpuTempN, CpuLoadN, GpuLoadN, CpuPowerN, GpuPowerN, RamN;
-        public double? CpuTempMax, GpuTempMax, GpuHotMax, CpuVoltMax, GpuVoltMax;
+        public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
     }
 
     private sealed class Session
@@ -200,6 +200,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         m.CpuTempMax = Max(m.CpuTempMax, k.CpuTemp);
         m.GpuTempMax = Max(m.GpuTempMax, k.GpuTemp);
         m.GpuHotMax = Max(m.GpuHotMax, k.GpuHotSpot);
+        m.GpuMemMax = Max(m.GpuMemMax, k.GpuMemJunction);
         m.CpuVoltMax = Max(m.CpuVoltMax, k.CpuVoltage);
         m.GpuVoltMax = Max(m.GpuVoltMax, k.GpuVoltage);
 
@@ -294,6 +295,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
                     GpuTemp = Avg(m.GpuTempSum, m.GpuTempN),
                     GpuTempMax = m.GpuTempMax,
                     GpuHotMax = m.GpuHotMax,
+                    GpuMemMax = m.GpuMemMax,
                     CpuLoad = Avg(m.CpuLoadSum, m.CpuLoadN),
                     GpuLoad = Avg(m.GpuLoadSum, m.GpuLoadN),
                     CpuPower = Avg(m.CpuPowerSum, m.CpuPowerN),

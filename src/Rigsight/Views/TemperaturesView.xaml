@@ -55,7 +55,7 @@
                                     <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                                     <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
@@ -104,7 +104,7 @@
                                     <TextBlock Text="{Binding GpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                     <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
@@ -126,14 +126,14 @@
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="1 min"
-                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=60}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="5 min"
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=300}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="15 min"
-                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=900}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="1 hour"
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=3600}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="6 hours"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=21600}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="24 hours"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=86400}" />
                             </StackPanel>
                         </Border>
                         <TextBlock Text="Temperature history" Style="{StaticResource H2}" />
@@ -215,7 +215,11 @@
                                                    Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
                                         <ctl:Sparkline DockPanel.Dock="Right" Width="70" Height="18" Margin="12,0" Source="{Binding Temperature.History}"
                                                        Version="{Binding Temperature.Version}" Stroke="{StaticResource PurpleBrush}" />
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Muted}" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Muted}" />
+                                            <TextBlock Text="{Binding Temperature.MinMaxText, FallbackValue=''}" FontSize="11" Foreground="{StaticResource FaintBrush}"
+                                                       ToolTip="Lowest and highest today" Margin="0,2,0,0" />
+                                        </StackPanel>
                                     </DockPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

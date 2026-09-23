@@ -86,7 +86,7 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" Margin="0,0,0,6" />
-                                <TextBlock Style="{StaticResource F}" Text="• Temperatures: CPU, GPU (hot spot, memory), motherboard, drives, fans" />
+                                <TextBlock Style="{StaticResource F}" Text="• Temperatures: CPU, GPU (hot spot, memory), motherboard, drives, fans, with today's lows and highs and up to 24 hours of history" />
                                 <TextBlock Style="{StaticResource F}" Text="• Memory: RAM use and live per-app memory" />
                                 <TextBlock Style="{StaticResource F}" Text="• Storage: space, weekly growth, health, cleanup ideas, folder map" />
                                 <TextBlock Style="{StaticResource F}" Text="• All sensors: every reading with min/max/avg, search, rename, hide, collapse" />
@@ -97,7 +97,7 @@
                                 <TextBlock Text="ON YOUR DESKTOP" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" Margin="0,0,0,6" />
                                 <TextBlock Style="{StaticResource F}" Text="• Six widgets: Compact, Slim bar, Gauges, Now playing, Today, Graph" />
                                 <TextBlock Style="{StaticResource F}" Text="• Themes, sizes, opacity, click-through lock" />
-                                <TextBlock Style="{StaticResource F}" Text="• Game overlay: press Alt+Shift+O in any game for live readings" />
+                                <TextBlock Style="{StaticResource F}" Text="• Game overlay: press Alt+Shift+O in any game for FPS, 1% lows and live readings" />
                                 <TextBlock Style="{StaticResource F}" Text="• Tray icon with a health dot, quick menu, pause tracking" />
                                 <TextBlock Style="{StaticResource F}" Text="• Notification cards: daily recap, game summaries, alerts, crashes" />
                             </StackPanel>

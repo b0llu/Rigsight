@@ -31,6 +31,8 @@ internal sealed class AgentContext : ApplicationContext
 
     private readonly SensorHost _sensors = new();
     private readonly KeyHistory _history = new();
+    private readonly DailyExtremes _extremes = new();
+    private int _clientsSeen;
     private readonly RigsightDb _db;
     private readonly AppResolver _apps;
     private readonly Tracker _tracker;
@@ -148,6 +150,7 @@ internal sealed class AgentContext : ApplicationContext
         GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
 
         RecordDrives();
+        RestoreExtremes();
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
@@ -182,6 +185,8 @@ internal sealed class AgentContext : ApplicationContext
                     long unixMs = TimeUtil.NowUnixMs();
                     _history.Add(unixMs, _sensors);
                     _tracker.OnSensors(keys);
+                    var values = _sensors.ReadAll();
+                    ObserveExtremes(values);
 
                     var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
                     PublishToUi(keys, sample.Fullscreen, alert);
@@ -189,14 +194,25 @@ internal sealed class AgentContext : ApplicationContext
 
                     if (live)
                     {
+                        // A newly connected app gets every range once; after that, only what changed.
+                        int clients = _pipe.ClientCount;
+                        bool full = clients > _clientsSeen;
+                        _clientsSeen = clients;
                         _pipe.Broadcast(new AgentMessage
                         {
                             T = "tick",
                             Time = unixMs,
-                            Values = _sensors.ReadAll(),
+                            Values = values,
                             Activity = _tracker.Activity,
                             Today = _tracker.Today(),
+                            Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
+                            ExtremesDay = _extremes.Day,
+                            ExtremesFull = full,
                         });
+                    }
+                    else
+                    {
+                        _clientsSeen = 0;
                     }
                     int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
                     // The overlay is read mid-game: keep it to the second.
@@ -224,6 +240,7 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     nextMinuteCheck = now + 60_000;
                     MaybeShowDailyRecap();
+                    _db.SetMeta("extremes", _extremes.Serialize());
                 }
 
                 if (now >= nextCrashScan)
@@ -249,8 +266,49 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         _tracker.Flush(closeAllSessions: true);
+        _db.SetMeta("extremes", _extremes.Serialize());
         _sensors.Close();
         _db.Dispose();
+    }
+
+    /// <summary>Sampler thread: widens today's range of every sensor with this reading.</summary>
+    private void ObserveExtremes(float?[] values)
+    {
+        var ids = _sensors.Ids;
+        var isTemp = _sensors.IsTemperature;
+        for (int i = 0; i < values.Length && i < ids.Length; i++)
+        {
+            // Without driver access some temperature sensors report 0 instead of nothing.
+            if (values[i] is float v && !(isTemp[i] && v <= 0)) _extremes.Observe(ids[i], v);
+        }
+        // Key sensors may come from a cheaper source (the NVIDIA fast path) while the app is closed.
+        foreach (var (key, index) in _sensors.Keys)
+            if (index < ids.Length) _extremes.Observe(ids[index], _sensors.Read(key));
+    }
+
+    /// <summary>
+    /// Sampler thread, at start: today's ranges saved before a restart, widened with the CPU/GPU
+    /// temperatures in today's minute history (so a game played before the first run of this version counts).
+    /// </summary>
+    private void RestoreExtremes()
+    {
+        try
+        {
+            _extremes.Load(_db.GetMeta("extremes"));
+            var (cpuMin, cpuMax, gpuMin, gpuMax, hotMax, memMax) = _db.TempRange(TimeUtil.ToUnix(DateTime.Today), TimeUtil.NowUnix() + 60);
+            void Include(string key, double? min, double? max)
+            {
+                if (_sensors.Keys.TryGetValue(key, out int i) && i < _sensors.Ids.Length) _extremes.Include(_sensors.Ids[i], min, max);
+            }
+            Include(KeySensors.CpuTemp, cpuMin, cpuMax);
+            Include(KeySensors.GpuTemp, gpuMin, gpuMax);
+            Include(KeySensors.GpuHotSpot, null, hotMax);
+            Include(KeySensors.GpuMemJunction, null, memMax);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("extremes", ex);
+        }
     }
 
     private void RunOnSampler(Action work)
@@ -460,6 +518,7 @@ internal sealed class AgentContext : ApplicationContext
             hello.Hardware = _sensors.Schema;
             hello.Keys = _sensors.Keys;
             hello.History = _history.Snapshot();
+            hello.Drives = _sensors.DriveHealth();
         }
         _pendingPage = _pendingArg = null;
         return hello;

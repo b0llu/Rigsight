@@ -171,6 +171,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "crashes": await Crashes.LoadAsync(); break;
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
+            case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
                 Overlay.RequestPreview();
@@ -181,9 +182,20 @@ public sealed partial class ShellViewModel : ObservableObject
                 await SettingsPage.LoadKnownAppsAsync();
                 break;
             default:
-                if (FindCustomPage(CurrentPage) is { } custom) await custom.RefreshAsync();
+                if (FindCustomPage(CurrentPage) is { } custom)
+                {
+                    await custom.RefreshAsync();
+                    await LoadTemperatureHistoryAsync(); // for a temperature chart tile's longer windows
+                }
                 break;
         }
+    }
+
+    /// <summary>The last day of minute history, for the temperature chart's 1-hour to 24-hour windows.</summary>
+    private async Task LoadTemperatureHistoryAsync()
+    {
+        long now = Core.Data.TimeUtil.NowUnix();
+        if (await Reports.MinutesAsync(now - 24 * 3600, now + 60) is { } minutes) Live.LoadMinuteHistory(minutes);
     }
 
     public void Navigate(string? page, string? arg)

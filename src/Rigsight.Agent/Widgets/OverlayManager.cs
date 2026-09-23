@@ -108,6 +108,10 @@ internal sealed class OverlayManager : IDisposable
     /// </summary>
     private void Refresh()
     {
+        if (_data is not null)
+            _data.Frame = _settings.Metrics.Any(m => m is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow)
+                ? Rtss.ReadFrameStats(ForegroundPid()) : null;
+
         if (IsExclusiveFullscreen())
         {
             _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data));

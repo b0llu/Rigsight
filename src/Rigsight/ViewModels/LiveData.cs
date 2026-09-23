@@ -20,6 +20,10 @@ public sealed partial class LiveData : ObservableObject
     private readonly List<SensorItem> _flat = [];
     private readonly Dictionary<string, SensorItem> _byKey = [];
     private readonly Dictionary<string, SensorItem> _byId = [];
+
+    // Today's [lowest, highest] per sensor id from the agent, kept so sensors created later get them too.
+    private readonly Dictionary<string, double[]> _extremes = [];
+    private string? _extremesDay;
     private readonly Dictionary<string, ProcRow> _procIndex = new(StringComparer.OrdinalIgnoreCase);
 
     public LiveData(SettingsModel settings)
@@ -114,12 +118,14 @@ public sealed partial class LiveData : ObservableObject
     {
         // Today's totals arrive with the hello, before the agent has finished discovering the hardware.
         if (hello.Today is not null) Today = hello.Today;
+        if (hello.Drives is not null) _driveHealth = hello.Drives;
         if (hello.Hardware is null) return;
 
         int total = hello.Hardware.Sum(h => h.Sensors.Count);
         bool sameSchema = total == _flat.Count &&
             hello.Hardware.SelectMany(h => h.Sensors).Select(s => s.Id).SequenceEqual(_flat.Select(s => s.Id));
         if (!sameSchema) Build(hello);
+        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
 
         // Pre-fill charts with the agent's recent history.
         if (hello.History is not null && hello.Keys is not null)
@@ -211,14 +217,19 @@ public sealed partial class LiveData : ObservableObject
             foreach (var t in n.Sensors.Where(x => x.Kind == SensorKind.Temperature)) BoardTemps.Add(t);
         }
 
-        void AddSeries(string label, SensorItem? sensor, string hex)
+        // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
+        // hot spot and memory (only stored as the minute's highest) as that.
+        void AddSeries(string label, SensorItem? sensor, string hex, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute)
         {
-            if (sensor is not null) TempSeries.Add(new ChartSeries(label, sensor, (Color)ColorConverter.ConvertFromString(hex)));
+            if (sensor is null) return;
+            var series = new ChartSeries(label, sensor, (Color)ColorConverter.ConvertFromString(hex), fromMinute);
+            series.LoadMinutes(_minutes);
+            TempSeries.Add(series);
         }
-        AddSeries("CPU", CpuTemp, "#5B8CFF");
-        AddSeries("GPU", GpuTemp, "#3DDC97");
-        AddSeries("GPU hot spot", GpuHotSpot, "#FBBF24");
-        AddSeries("GPU memory", GpuMemJunction, "#F472B6");
+        AddSeries("CPU", CpuTemp, "#5B8CFF", m => m.CpuTemp);
+        AddSeries("GPU", GpuTemp, "#3DDC97", m => m.GpuTemp);
+        AddSeries("GPU hot spot", GpuHotSpot, "#FBBF24", m => m.GpuHotMax);
+        AddSeries("GPU memory", GpuMemJunction, "#F472B6", m => m.GpuMemMax);
 
         _byKey.Clear();
         if (hello.Keys is not null)
@@ -226,6 +237,8 @@ public sealed partial class LiveData : ObservableObject
                 if (index < _flat.Count) _byKey[key] = _flat[index];
         _byId.Clear();
         foreach (var item in _flat) _byId.TryAdd(item.Id, item);
+        foreach (var (id, range) in _extremes)
+            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
 
         HasHardware = _flat.Count > 0;
         ApplyFilter();
@@ -250,6 +263,34 @@ public sealed partial class LiveData : ObservableObject
             UpdateDerived();
         }
         if (tick.Today is not null) Today = tick.Today;
+        if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
+        Tick++;
+    }
+
+    /// <summary>Today's lowest and highest readings, which the agent tracks all day (even with the app closed).</summary>
+    private void ApplyExtremes(Dictionary<string, double[]> extremes, string? day, bool full)
+    {
+        if (full || day != _extremesDay)
+        {
+            _extremes.Clear();
+            _extremesDay = day;
+        }
+        foreach (var (id, range) in extremes)
+        {
+            if (range.Length != 2) continue;
+            _extremes[id] = range;
+            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
+        }
+    }
+
+    private List<Rigsight.Core.Data.SystemMinute> _minutes = [];
+    private List<DriveHealthInfo> _driveHealth = [];
+
+    /// <summary>The last day of minute history, for the temperature chart's longer windows.</summary>
+    public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes)
+    {
+        _minutes = minutes;
+        foreach (var series in TempSeries) series.LoadMinutes(minutes);
         Tick++;
     }
 

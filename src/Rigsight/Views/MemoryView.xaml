@@ -50,23 +50,30 @@
             <Border Grid.Column="2" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="Today's biggest memory users" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                    <ItemsControl ItemsSource="{Binding TodayTop}">
+                    <!-- Rows share the peak/avg column widths, so every bar starts and ends at the same place. -->
+                    <ItemsControl ItemsSource="{Binding TodayTop}" Grid.IsSharedSizeScope="True">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,4">
+                                    <!-- The name gives way (cut with a tooltip); the peak and average always show in full. -->
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="30" />
-                                        <ColumnDefinition Width="150" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="3*" MinWidth="60" />
+                                        <ColumnDefinition Width="2*" MinWidth="40" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Peak" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Avg" />
                                     </Grid.ColumnDefinitions>
                                     <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" />
                                     <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="10,0" VerticalAlignment="Center" Foreground="{StaticResource PurpleBrush}"
                                                  Maximum="{Binding DataContext.TodayMemoryMax, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  Value="{Binding MemMax, Mode=OneWay, TargetNullValue=0}" />
-                                    <TextBlock Grid.Column="3" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" /><Run Text="  avg" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
+                                    <!-- Each phrase starts at the same place in every row ("peak 5.8 GB", "peak 886 MB"). -->
+                                    <TextBlock Grid.Column="3" Style="{StaticResource Muted}" VerticalAlignment="Center">
+                                        <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                                    </TextBlock>
+                                    <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0">
+                                        <Run Text="avg" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
                                     </TextBlock>
                                 </Grid>
                             </DataTemplate>
@@ -110,7 +117,7 @@
                                 <DockPanel>
                                     <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
                                     <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" />
+                                        <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
                                         <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
                                     </StackPanel>
                                 </DockPanel>

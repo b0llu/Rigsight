@@ -77,6 +77,27 @@ public sealed class RigsightDb : IDisposable
                 day INTEGER NOT NULL, drive TEXT NOT NULL, used_gb REAL NOT NULL, total_gb REAL NOT NULL, PRIMARY KEY(day, drive));
             """);
         Exec($"INSERT OR IGNORE INTO meta(key, value) VALUES('schema', '{SchemaVersion}')");
+
+        // Columns added after the first release.
+        if (!HasColumn("system_minute", "gpu_mem_max")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_max REAL");
+    }
+
+    private bool HasColumn(string table, string column)
+    {
+        using var cmd = Cmd($"SELECT count(*) FROM pragma_table_info('{table}') WHERE name = $c", ("$c", column));
+        return cmd.ExecuteScalar() is long n && n > 0;
+    }
+
+    public string? GetMeta(string key)
+    {
+        using var cmd = Cmd("SELECT value FROM meta WHERE key = $k", ("$k", key));
+        return cmd.ExecuteScalar() as string;
+    }
+
+    public void SetMeta(string key, string value)
+    {
+        using var cmd = Cmd("INSERT OR REPLACE INTO meta(key, value) VALUES($k, $v)", ("$k", key), ("$v", value));
+        cmd.ExecuteNonQuery();
     }
 
     public void Dispose() => _conn.Dispose();
@@ -134,12 +155,12 @@ public sealed class RigsightDb : IDisposable
     public void WriteMinute(SystemMinute m)
     {
         using var cmd = Cmd("""
-            INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load,
+            INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $act, $idle)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $act, $idle)
             """,
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
-            ("$gh", m.GpuHotMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
+            ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
             ("$act", m.ActiveSec), ("$idle", m.IdleSec));
         cmd.ExecuteNonQuery();
@@ -230,11 +251,15 @@ public sealed class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
+    // Whether system_minute has gpu_mem_max yet (added in 0.4.5; the agent adds it, the app may read first).
+    private bool? _hasGpuMem;
+
     public List<SystemMinute> GetMinutes(long from, long to)
     {
-        using var cmd = Cmd("""
+        _hasGpuMem ??= HasColumn("system_minute", "gpu_mem_max");
+        using var cmd = Cmd($"""
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
-                   cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec
+                   cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -248,7 +273,7 @@ public sealed class RigsightDb : IDisposable
                 CpuLoad = D(r, 6), GpuLoad = D(r, 7), CpuPower = D(r, 8), GpuPower = D(r, 9),
                 CpuVoltMax = D(r, 10), GpuVoltMax = D(r, 11), RamUsed = D(r, 12),
                 FgApp = r.IsDBNull(13) ? null : r.GetInt64(13),
-                ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15),
+                ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
             });
         }
         return list;
@@ -308,6 +333,18 @@ public sealed class RigsightDb : IDisposable
         while (r.Read())
             list.Add(new DriveDay { Day = r.GetInt64(0), Drive = r.GetString(1), UsedGb = r.GetDouble(2), TotalGb = r.GetDouble(3) });
         return list;
+    }
+
+    /// <summary>Lowest and highest CPU/GPU temperatures recorded in a range (lowest from minute averages).</summary>
+    public (double? CpuMin, double? CpuMax, double? GpuMin, double? GpuMax, double? HotMax, double? MemMax) TempRange(long from, long to)
+    {
+        _hasGpuMem ??= HasColumn("system_minute", "gpu_mem_max");
+        using var cmd = Cmd($"""
+            SELECT min(cpu_temp), max(cpu_temp_max), min(gpu_temp), max(gpu_temp_max), max(gpu_hot_max), {(_hasGpuMem.Value ? "max(gpu_mem_max)" : "NULL")}
+            FROM system_minute WHERE ts >= $from AND ts < $to
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (D(r, 0), D(r, 1), D(r, 2), D(r, 3), D(r, 4), D(r, 5)) : default;
     }
 
     /// <summary>Average CPU and GPU temperature over a range (for "hotter than usual" comparisons).</summary>
