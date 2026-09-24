@@ -164,6 +164,18 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         if (Selected == app) SelectedDaily = days;
     }
 
+    /// <summary>
+    /// From a session summary notification: the app, on today (the session just ended), whatever range the
+    /// page was left on.
+    /// </summary>
+    public void ShowToday(string exe)
+    {
+        _pendingSelection = exe;
+        Day = DateTime.Today;
+        Range = "day";
+        SelectExe(exe);
+    }
+
     public void SelectExe(string exe)
     {
         _pendingSelection = exe;

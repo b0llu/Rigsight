@@ -7,7 +7,7 @@ using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
 
-internal enum NoticeKind { Alert, Recap, Session, Crash, Info }
+internal enum NoticeKind { Alert, Recap, Session, Crash, Overlay, Update }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
 internal sealed record Notice(NoticeKind Kind, string Title, string Body, string? IconPath = null,
@@ -237,13 +237,12 @@ internal sealed class ToastForm : Form
 /// <summary>Draws a notification card.</summary>
 internal static class ToastRenderer
 {
-    private const float Width = 372, Pad = 16, IconSize = 38;
+    private const float Width = 404, Pad = 17, IconSize = 42;
 
     private static readonly Color Bg = Color.FromArgb(250, 22, 27, 40);
     private static readonly Color Border = Color.FromArgb(45, 54, 76);
     private static readonly Color Text = Color.FromArgb(232, 236, 244);
     private static readonly Color Muted = Color.FromArgb(160, 168, 186);
-    private static readonly Color Faint = Color.FromArgb(100, 110, 132);
     private static Bitmap? _logo;
     private static readonly Dictionary<string, Bitmap?> Icons = new(StringComparer.OrdinalIgnoreCase);
 
@@ -262,21 +261,22 @@ internal static class ToastRenderer
         NoticeKind.Recap => "DAILY RECAP",
         NoticeKind.Session => "SESSION SUMMARY",
         NoticeKind.Crash => "WHAT HAPPENED",
-        _ => "RIGSIGHT",
+        NoticeKind.Overlay => "OVERLAY",
+        _ => "UPDATE",
     };
 
     public static Bitmap Render(Notice n, float scale, bool hover, out RectangleF closeRect)
     {
-        using var titleFont = new Font("Segoe UI Semibold", 14.5f, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var bodyFont = new Font("Segoe UI", 12.5f, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var capFont = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var titleFont = new Font("Segoe UI Semibold", 16f, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var bodyFont = new Font("Segoe UI", 14f, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var capFont = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Pixel);
         float textX = Pad + 4 + IconSize + 12, textW = Width - textX - Pad - 18;
 
         SizeF bodySize;
         using (var tmp = new Bitmap(1, 1))
         using (var mg = Graphics.FromImage(tmp))
             bodySize = mg.MeasureString(n.Body, bodyFont, (int)textW, StringFormat.GenericTypographic);
-        float height = Math.Max(Pad + 16 + 22 + bodySize.Height + Pad, Pad * 2 + IconSize + 6);
+        float height = Math.Max(Pad + 41 + bodySize.Height + Pad, Pad * 2 + IconSize + 6);
 
         var bmp = new Bitmap((int)Math.Ceiling(Width * scale), (int)Math.Ceiling(height * scale), PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bmp);
@@ -306,16 +306,13 @@ internal static class ToastRenderer
         using var capBrush = new SolidBrush(accent);
         using var titleBrush = new SolidBrush(Text);
         using var bodyBrush = new SolidBrush(Muted);
-        using var faintBrush = new SolidBrush(Faint);
         g.DrawString(KindLabel(n.Kind), capFont, capBrush, textX, Pad - 2, StringFormat.GenericTypographic);
-        float capW = g.MeasureString(KindLabel(n.Kind), capFont, int.MaxValue, StringFormat.GenericTypographic).Width;
-        g.DrawString("·  Rigsight", capFont, faintBrush, textX + capW + 6, Pad - 2, StringFormat.GenericTypographic);
 
         using var trim = (StringFormat)StringFormat.GenericTypographic.Clone();
         trim.Trimming = StringTrimming.EllipsisCharacter;
         trim.FormatFlags |= StringFormatFlags.NoWrap;
-        g.DrawString(n.Title, titleFont, titleBrush, new RectangleF(textX, Pad + 13, textW, 22), trim);
-        g.DrawString(n.Body, bodyFont, bodyBrush, new RectangleF(textX, Pad + 36, textW, bodySize.Height + 4), StringFormat.GenericTypographic);
+        g.DrawString(n.Title, titleFont, titleBrush, new RectangleF(textX, Pad + 14, textW, 24), trim);
+        g.DrawString(n.Body, bodyFont, bodyBrush, new RectangleF(textX, Pad + 40, textW, bodySize.Height + 4), StringFormat.GenericTypographic);
 
         var close = new RectangleF(Width - 30, 10, 20, 20);
         if (hover)

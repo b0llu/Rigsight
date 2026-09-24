@@ -195,7 +195,8 @@ public sealed partial class UpdateViewModel : ObservableObject
             return;
         }
         IsChecking = false;
-        await ApplyAsync(latest);
+        // "Check for updates" only says what it found; downloading is the next click.
+        await ApplyAsync(latest, autoDownload: quiet);
     }
 
     /// <summary>The agent found (or downloaded) a new version while the app is open.</summary>
@@ -221,8 +222,11 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (_autoUpdate() && State == UpdateState.Available) _ = DownloadAsync(automatic: true);
     }
 
-    /// <summary>Shows what the latest release means for this copy, and tidies up installers that are no longer needed.</summary>
-    private async Task ApplyAsync(Release? latest)
+    /// <summary>
+    /// Shows what the latest release means for this copy, and tidies up installers that are no longer needed.
+    /// With automatic updates on, a newer version starts downloading unless <paramref name="autoDownload"/> is false.
+    /// </summary>
+    private async Task ApplyAsync(Release? latest, bool autoDownload = true)
     {
         bool newer = ReleaseFeed.IsNewer(latest);
         var (downloaded, attempt) = await Task.Run(async () =>
@@ -246,7 +250,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (downloaded && attempt is not null && attempt.Version == latest!.Version && DateTime.Now - attempt.At > TimeSpan.FromMinutes(5))
             Fail("The update didn't install.");
         else if (downloaded) AskOrWait();
-        else if (_autoUpdate()) await DownloadAsync(automatic: true);
+        else if (autoDownload && _autoUpdate()) await DownloadAsync(automatic: true);
         else State = UpdateState.Available;
         RefreshTexts();
     }

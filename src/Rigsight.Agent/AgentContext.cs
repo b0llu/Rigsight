@@ -188,10 +188,10 @@ internal sealed class AgentContext : ApplicationContext
         var version = UpdateStore.ReadCheck()?.Latest?.Version.ToString(3);
         if (version is null || _settings.LastUpdateNotice == version) return;
         MutateSettings(s => s.LastUpdateNotice = version);
-        string body = !downloaded ? "A new version is out. Open Rigsight to update."
-            : _settings.AutoUpdate && _isAdmin ? "It installs by itself the next time you start your PC, or open Rigsight to update now."
-            : "It's downloaded. Open Rigsight to finish updating.";
-        _notices.Show(new Notice(NoticeKind.Info, downloaded ? $"Rigsight {version} is ready" : $"Rigsight {version} is out", body));
+        string body = !downloaded ? "Click to update."
+            : _settings.AutoUpdate && _isAdmin ? "It installs by itself the next time you start your PC, or click to update now."
+            : "It's downloaded. Click to finish updating.";
+        _notices.Show(new Notice(NoticeKind.Update, downloaded ? $"Version {version} is ready" : $"Version {version} is out", body));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -848,11 +848,11 @@ internal sealed class AgentContext : ApplicationContext
             "running" => ($"Restart {app} to see the overlay",
                 $"{app} was already open when RivaTuner started, so RivaTuner isn't drawing in it yet. Restart it and the overlay will show."),
             "stopped" => ("The overlay can't show in fullscreen games",
-                "RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from Rigsight's Overlay page, then restart the game."),
+                "RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from the Overlay page, then restart the game."),
             _ => ("The overlay can't show in fullscreen games",
-                "Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from Rigsight's Overlay page, then restart the game."),
+                "Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from the Overlay page, then restart the game."),
         };
-        _notices.Show(new Notice(NoticeKind.Info, title, body, _tracker.Activity.Path, "overlay"));
+        _notices.Show(new Notice(NoticeKind.Overlay, title, body, _tracker.Activity.Path, "overlay"));
     }
 
     private void PauseFor(int minutes) =>

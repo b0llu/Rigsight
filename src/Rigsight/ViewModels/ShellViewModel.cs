@@ -287,7 +287,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 ReportsPage.ShowDay(DateTime.Today.AddDays(-1));
                 return;
             }
-            if (page == "apps" && arg is not null) Apps.SelectExe(arg);
+            if (page == "apps" && arg is not null) Apps.ShowToday(arg);
             CurrentPage = page;
         }
         ActivateRequested?.Invoke();
