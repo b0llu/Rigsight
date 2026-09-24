@@ -138,28 +138,40 @@
                             </UniformGrid>
 
                             <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
-                            <WrapPanel>
-                                <WrapPanel.Resources>
-                                    <Style x:Key="Detail" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                                        <Setter Property="Margin" Value="0,2,28,2" />
+                            <UniformGrid Columns="5">
+                                <UniformGrid.Resources>
+                                    <Style x:Key="DetailValue" TargetType="TextBlock">
+                                        <Setter Property="FontSize" Value="14" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <Setter Property="Margin" Value="0,4,0,0" />
                                     </Style>
-                                </WrapPanel.Resources>
-                                <TextBlock Style="{StaticResource Detail}">
-                                    <Run Text="CPU" /> <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /><Run Text=" avg · " /><Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text=" peak" />
-                                </TextBlock>
-                                <TextBlock Style="{StaticResource Detail}">
-                                    <Run Text="GPU" /> <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" avg · " /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" peak" />
-                                </TextBlock>
-                                <TextBlock Style="{StaticResource Detail}">
-                                    <Run Text="Memory" /> <Run Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" /><Run Text=" peak" />
-                                </TextBlock>
-                                <TextBlock Style="{StaticResource Detail}">
-                                    <Run Text="CPU use" /> <Run Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—', Mode=OneWay}" Foreground="{DynamicResource TextBrush}" /><Run Text=" avg" />
-                                </TextBlock>
-                                <TextBlock Style="{StaticResource Detail}">
-                                    <Run Text="Minimized" /> <Run Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
-                                </TextBlock>
-                            </WrapPanel>
+                                </UniformGrid.Resources>
+                                <StackPanel ToolTip="Average / peak while it was in front">
+                                    <TextBlock Text="CPU TEMP" Style="{StaticResource Caption}" />
+                                    <TextBlock Style="{StaticResource DetailValue}">
+                                        <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /><Run Text=" / " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel ToolTip="Average / peak while it was in front">
+                                    <TextBlock Text="GPU TEMP" Style="{StaticResource Caption}" />
+                                    <TextBlock Style="{StaticResource DetailValue}">
+                                        <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" / " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PEAK MEMORY" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}}" Style="{StaticResource DetailValue}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="AVG CPU USE" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—'}" Style="{StaticResource DetailValue}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="MINIMIZED" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}}" Style="{StaticResource DetailValue}" />
+                                </StackPanel>
+                            </UniformGrid>
                         </StackPanel>
                     </ctl:SmoothBorder>
 

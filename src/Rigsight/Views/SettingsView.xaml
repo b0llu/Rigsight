@@ -54,18 +54,12 @@
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=system}" />
                             </StackPanel>
                         </Border>
-                        <StackPanel>
-                            <TextBlock Text="Theme" Style="{StaticResource Title}" />
-                            <TextBlock Text="Black or white. System follows the app mode set in Windows." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Theme" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
                                   DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />
-                        <StackPanel>
-                            <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" />
-                            <TextBlock Text="The page you see when you open the app: Home, another page, or one of your dashboards." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -80,7 +74,7 @@
                         </Border>
                         <StackPanel>
                             <TextBlock Text="Live refresh rate" Style="{StaticResource Title}" />
-                            <TextBlock Text="How often the open app updates. Only applies while this window is open." Style="{StaticResource Hint}" />
+                            <TextBlock Text="While this window is open." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>
@@ -91,10 +85,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding TrackingEnabled}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Record app usage and temperatures" Style="{StaticResource Title}" />
-                            <TextBlock Text="Turn off to stop building history. Live readings, the tray icon and widgets keep working." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Record app usage and temperatures" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -102,9 +93,9 @@
                             <Button Style="{StaticResource GhostButton}" Content="Pause until resumed" Command="{Binding PauseCommand}" CommandParameter="-1" Margin="8,0,0,0" />
                             <Button Style="{StaticResource AccentButton}" Content="Resume" Command="{Binding ResumeCommand}" Margin="8,0,0,0" />
                         </StackPanel>
-                        <StackPanel>
+                        <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="Pause" Style="{StaticResource Title}" />
-                            <TextBlock Text="{Binding PauseText, TargetNullValue='Take a break from tracking (also in the tray menu).'}" Style="{StaticResource Hint}" />
+                            <TextBlock Text="{Binding PauseText}" Style="{StaticResource Hint}" Visibility="{Binding PauseText, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -116,16 +107,10 @@
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="15 min" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
                             </StackPanel>
                         </Border>
-                        <StackPanel>
-                            <TextBlock Text="Count me as away after" Style="{StaticResource Title}" />
-                            <TextBlock Text="No keyboard or mouse input for this long counts as away (not as using the app)." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Count me as away after" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FullscreenCountsAsActive}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Fullscreen apps count as in use" Style="{StaticResource Title}" />
-                            <TextBlock Text="So playing with a controller or watching a movie isn't counted as away." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Fullscreen apps count as in use" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -138,7 +123,7 @@
                         </Border>
                         <StackPanel>
                             <TextBlock Text="Background sensor sampling" Style="{StaticResource Title}" />
-                            <TextBlock Text="How often temperatures are read while this window is closed. Slower = even lighter; faster = catches shorter spikes." Style="{StaticResource Hint}" />
+                            <TextBlock Text="While this window is closed." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -149,10 +134,7 @@
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="30 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
                             </StackPanel>
                         </Border>
-                        <StackPanel>
-                            <TextBlock Text="Per-app CPU and memory sampling" Style="{StaticResource Title}" />
-                            <TextBlock Text="How often each app's resource use and window state (background / minimized) are checked." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Per-app CPU and memory sampling" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -162,8 +144,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,14">
                 <StackPanel>
                     <TextBlock Text="Apps that are never recorded" Style="{StaticResource Title}" />
-                    <TextBlock Text="Everything Rigsight records stays on this PC. It never records window titles, what you type, or what's on screen — only which app is in front and how hard your hardware works."
-                               Style="{StaticResource Hint}" Margin="0,2,0,10" />
+                    <Border Height="10" />
                     <ItemsControl ItemsSource="{Binding ExcludedApps}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -202,10 +183,7 @@
                             <Button Style="{StaticResource GhostButton}" Content="Temperature alert" Command="{Binding PreviewCommand}" CommandParameter="alert" Margin="0,0,6,0" />
                             <Button Style="{StaticResource GhostButton}" Content="Crash" Command="{Binding PreviewCommand}" CommandParameter="crash" />
                         </StackPanel>
-                        <StackPanel>
-                            <TextBlock Text="Preview" Style="{StaticResource Title}" />
-                            <TextBlock Text="See exactly how each notification looks." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Preview" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -216,7 +194,7 @@
                         </Border>
                         <StackPanel>
                             <TextBlock Text="Style" Style="{StaticResource Title}" />
-                            <TextBlock Text="Rigsight cards appear bottom-right, never take focus, pause while you hover and vanish on their own. Windows notifications also land in the notification center." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Windows notifications also stay in the notification center." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -232,20 +210,14 @@
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding QuietDuringFullscreen}" Margin="0,10">
                         <StackPanel>
                             <TextBlock Text="Stay quiet while I'm gaming" Style="{StaticResource Title}" />
-                            <TextBlock Text="While a fullscreen game or video is in front, recaps and summaries wait until you're done. Temperature alerts still come through." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Temperature alerts still come through." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Daily recap" Style="{StaticResource Title}" />
-                            <TextBlock Text="The first time you use your PC each day, a short summary of yesterday." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Daily recap" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SessionSummaries}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Game session summaries" Style="{StaticResource Title}" />
-                            <TextBlock Text="When you close a game: how long you played and how hot it got. Never shown after a crash unless crash notifications are on." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Game session summaries" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding SessionSummaries}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -259,16 +231,10 @@
                         <TextBlock Text="Only for sessions longer than" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Tell me when something crashes" Style="{StaticResource Title}" />
-                            <TextBlock Text="A calm note with the likely cause when a game crashes, the graphics driver resets, or the PC shut down unexpectedly. Off by default — everything is always listed on the Crashes page either way." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Tell me when something crashes" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AlertsEnabled}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Temperature alerts" Style="{StaticResource Title}" />
-                            <TextBlock Text="Warn when something stays above its limit — brief spikes are ignored." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Temperature alerts" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <StackPanel IsEnabled="{Binding AlertsEnabled}">
                         <DockPanel Style="{StaticResource Row}">
@@ -316,10 +282,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Start with Windows" Style="{StaticResource Title}" />
-                            <TextBlock Text="Starts the lightweight background agent at sign-in (no UAC prompt) so your whole day is tracked." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Start with Windows" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -332,7 +295,7 @@
                         </Border>
                         <StackPanel>
                             <TextBlock Text="Keep history for" Style="{StaticResource Title}" />
-                            <TextBlock Text="Temperatures minute by minute, app time, sessions and crashes, all kept for the same time. About 25 MB a year, up to about 70 MB if the PC is on all day." Style="{StaticResource Hint}" TextWrapping="Wrap" />
+                            <TextBlock Text="About 25 MB a year." Style="{StaticResource Hint}" TextWrapping="Wrap" />
                         </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding TrackingSince}" Style="{StaticResource Hint}" Margin="0,12,0,0"
@@ -396,10 +359,7 @@
                         </StackPanel>
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Update automatically" Style="{StaticResource Title}" />
-                            <TextBlock Text="New versions download in the background and install the next time you start your PC. When this is off, Rigsight just tells you a new version is out." Style="{StaticResource Hint}" />
-                        </StackPanel>
+                        <TextBlock Text="Update automatically" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -413,7 +373,7 @@
                                 VerticalAlignment="Center" AutomationProperties.Name="Quit background agent" />
                         <StackPanel>
                             <TextBlock Text="Background agent" Style="{StaticResource Title}" />
-                            <TextBlock Text="Records your history and runs the widgets, overlay and notifications. It starts again with Windows, or when you open Rigsight." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Records your history and runs the widgets, overlay and notifications." Style="{StaticResource Hint}" />
                             <TextBlock Style="{StaticResource Hint}" Margin="0,4,16,0" Foreground="{DynamicResource WarmBrush}"
                                        Text="It's running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar."
                                        Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />

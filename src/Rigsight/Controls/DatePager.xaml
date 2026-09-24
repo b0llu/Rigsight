@@ -12,6 +12,22 @@
         </Button>
         <Button x:Name="LabelButton" Style="{StaticResource GhostButton}" Margin="4,0" MinWidth="118" Height="32" Click="Label_Click"
                 ToolTip="Pick a date" AutomationProperties.Name="Pick a date">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <!-- Centred on the letters, not the line: without descenders, a centred line sits a pixel low. -->
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Padding="14,0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Label, ElementName=Root}" />
                 <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" />
