@@ -202,6 +202,8 @@ internal sealed class AgentContext : ApplicationContext
                 if (now >= nextSensor)
                 {
                     t0 = Stopwatch.GetTimestamp();
+                    // Sensors on the overlay stay live in games (the app is usually closed then).
+                    _sensors.Watch(_overlayVisible ? [.. _settings.Overlay.Sensors.Select(s => s.Id)] : []);
                     _sensors.Update(everything: live, now);
                     Measure("sensors", t0);
                     t0 = Stopwatch.GetTimestamp();
@@ -390,6 +392,19 @@ internal sealed class AgentContext : ApplicationContext
         _wake.Set();
     }
 
+    /// <summary>The overlay's chosen sensors with their labels: its own short name, else the name given on All sensors.</summary>
+    private List<OverlaySensorReading> OverlaySensors(RigsightSettings settings)
+    {
+        var list = new List<OverlaySensorReading>();
+        foreach (var x in settings.Overlay.Sensors)
+        {
+            if (_sensors.ReadSensor(x.Id) is not { } r) continue;
+            string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? r.Name;
+            list.Add(new OverlaySensorReading(label, r.Kind, r.Value));
+        }
+        return list;
+    }
+
     private void PublishToUi(KeyValues k, bool fullscreen, string? alert)
     {
         var settings = _settings;
@@ -407,6 +422,7 @@ internal sealed class AgentContext : ApplicationContext
             GpuHistory = drawsHistory ? _history.Recent(KeySensors.GpuTemp, 300_000) : [],
             Activity = activity,
             Today = _tracker.Today(),
+            Sensors = OverlaySensors(settings),
         };
         _lastToday = data.Today;
 

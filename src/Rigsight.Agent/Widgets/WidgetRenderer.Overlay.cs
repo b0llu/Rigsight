@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Globalization;
 using Rigsight.Core;
+using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Widgets;
@@ -16,7 +17,22 @@ internal static partial class WidgetRenderer
     /// </summary>
     private sealed record Cell(string Value, string Unit, Color Color, string Template, float Px = OverlayValuePx);
 
-    private sealed record OverlayRow(string Label, Color LabelColor, List<Cell> Cells);
+    /// <param name="Sensor">One of the user's own sensors (a single value; wraps onto its own lines in the Line layout).</param>
+    private sealed record OverlayRow(string Label, Color LabelColor, List<Cell> Cells, bool Sensor = false);
+
+    /// <summary>In the Line layout, the user's sensors go on lines of their own, this many to a line, so it fits the screen.</summary>
+    private const int SensorsPerLine = 4;
+
+    /// <summary>Rows grouped into lines: one row per line, or (Line layout) the readings on one line and sensors on the next.</summary>
+    private static List<List<OverlayRow>> OverlayLines(List<OverlayRow> rows, bool line)
+    {
+        if (!line) return [.. rows.Select(r => new List<OverlayRow> { r })];
+        var lines = new List<List<OverlayRow>>();
+        var main = rows.Where(r => !r.Sensor).ToList();
+        if (main.Count > 0) lines.Add(main);
+        lines.AddRange(rows.Where(r => r.Sensor).Chunk(SensorsPerLine).Select(c => c.ToList()));
+        return lines;
+    }
 
     private const float OverlayValuePx = 15, OverlayUnitPx = 11, OverlayLabelPx = 11;
     private const float OverlayPad = 8, OverlayRowHeight = 23, OverlayCellGap = 12, OverlayGroupGap = 20, OverlayLabelWidth = 34;
@@ -70,6 +86,10 @@ internal static partial class WidgetRenderer
         if (Has(OverlayMetric.Ram) && d.RamUsedGb is double ru)
             rows.Add(new("RAM", Ram, [MemoryCell(ru, d.RamTotalGb, "")]));
 
+        // The user's own sensors: one row each, labelled with its name.
+        foreach (var s in d.Sensors)
+            rows.Add(new(s.Label, p.Muted, [SensorCell(s.Kind, s.Value)], Sensor: true));
+
         // The last row has no label: the app in front, how long you've been on it, and the time.
         var other = new List<Cell>();
         var a = d.Activity;
@@ -84,6 +104,36 @@ internal static partial class WidgetRenderer
         if (other.Count > 0) rows.Add(new("", p.Muted, other));
 
         return rows;
+
+        // Value and unit apart, sized to the usual widest value so the overlay doesn't jitter.
+        Cell SensorCell(SensorKind kind, double? v)
+        {
+            if (kind == SensorKind.Temperature) return TempCell(v);
+            var (text, unit, template) = kind switch
+            {
+                SensorKind.Load or SensorKind.Control or SensorKind.Level or SensorKind.Humidity => (v?.ToString("0"), "%", "100"),
+                SensorKind.Clock when v >= 1000 => ((v / 1000)?.ToString("0.00"), "GHz", "8.88"),
+                SensorKind.Clock => (v?.ToString("0"), "MHz", "8888"),
+                SensorKind.Power => (v?.ToString("0.0"), "W", "888.8"),
+                SensorKind.Voltage => (v?.ToString("0.000"), "V", "8.888"),
+                SensorKind.Current => (v?.ToString("0.00"), "A", "88.88"),
+                SensorKind.Fan => (v?.ToString("0"), "RPM", "8888"),
+                SensorKind.Flow => (v?.ToString("0.0"), "L/h", "888.8"),
+                SensorKind.Data => (v?.ToString("0.0"), "GB", "888.8"),
+                SensorKind.SmallData => (v?.ToString("0"), "MB", "88888"),
+                SensorKind.Frequency => (v?.ToString("0"), "Hz", "8888"),
+                SensorKind.Noise => (v?.ToString("0"), "dBA", "888"),
+                _ => SplitUnit(Units.Format(kind, v)),
+            };
+            // No reading: just a dash, without a unit.
+            return text is null ? new("—", "", p.Muted, template) : new(text, unit, p.Text, template);
+        }
+
+        static (string? Text, string Unit, string Template) SplitUnit(string formatted)
+        {
+            int space = formatted.LastIndexOf(' ');
+            return space > 0 ? (formatted[..space], formatted[(space + 1)..], new string('8', space)) : (formatted, "", new string('8', formatted.Length));
+        }
 
         Cell TempCell(double? c, string unit = "") =>
             new(c is double v ? $"{Units.Temp(v):0}°" : "—", unit, TempColor(c, p), "188°");
@@ -114,11 +164,18 @@ internal static partial class WidgetRenderer
         string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
         static string Clean(string text) => text.Replace("<", "").Replace(">", "");
 
+        // Labels share a left-aligned column so the numbers line up, as in the window. Its width (in symbols)
+        // fits the longest label: 4 for "CPU"/"GPU", more for sensor names.
+        // Measured in full-size symbols while labels are drawn at 80%: about 0.75 symbol per letter, plus a gap.
+        int labelColumn = Math.Max(4, (int)Math.Ceiling(rows.Max(r => Clean(r.Label).Length) * 0.75) + 1);
+
         string Row(OverlayRow row)
         {
             var parts = new List<string>();
-            // Labels share a left-aligned column so the numbers line up, as in the window.
-            if (row.Label.Length > 0) parts.Add($"<A=4><S=-80><C={Hex(row.LabelColor)}>{row.Label}<C><S><A>");
+            if (row.Label.Length > 0)
+                parts.Add(o.Layout == OverlayLayout.Line
+                    ? $"<S=-80><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S> "
+                    : $"<A={labelColumn}><S=-80><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S><A>");
             for (int i = 0; i < row.Cells.Count; i++)
             {
                 var cell = row.Cells[i];
@@ -127,7 +184,8 @@ internal static partial class WidgetRenderer
                 // RTSS sizes the panel from these widths, so a value wider than its slot ("5:38 PM") must widen
                 // the slot, or it runs past the panel (and off-screen in right-hand corners). The unlabelled
                 // last row starts at the left edge, as in the window.
-                bool align = cell.Template.Length > 0 && !(row.Label.Length == 0 && i == 0);
+                // A sensor row has one value: it starts at the column (left edges line up), as in the window.
+                bool align = cell.Template.Length > 0 && !(row.Label.Length == 0 && i == 0) && !row.Sensor;
                 string cellText = align
                     ? $"<A=-{Math.Max(cell.Template.Length, value.Length)}><C={Hex(cell.Color)}>{value}<C><A>"
                     : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>";
@@ -157,7 +215,8 @@ internal static partial class WidgetRenderer
             $"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}>" +   // our font instead of RivaTuner's default
             $"<P{corner}><L0><M={left},{top},{rightM},{bottomM}>" +    // our corner, gap and padding (see RtssMargins)
             $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";                   // rounded translucent panel behind the text
-        return header + RtssTopSpacer + string.Join(o.Layout == OverlayLayout.Line ? "    " : "\n", rows.Select(Row));
+        var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
+        return header + RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
     }
 
     /// <summary>RTSS draws at this zoom ratio (set by our &lt;FNT&gt; tag): one margin unit is this many screen pixels.</summary>
@@ -219,12 +278,13 @@ internal static partial class WidgetRenderer
         // In rows, labels share one column so the numbers line up. The unlabelled last row starts at the edge.
         float labelColumn = rows.Count > 0 ? rows.Max(LabelWidth) : 0;
         float Indent(OverlayRow r) => r.Label.Length == 0 ? 0 : labelColumn;
+        var lines = OverlayLines(rows, line);
         float w, h;
         if (rows.Count == 0) { w = 1; h = 1; }
         else if (line)
         {
-            w = OverlayPad * 2 + rows.Sum(RowWidth) + OverlayGroupGap * (rows.Count - 1);
-            h = OverlayPad * 2 + OverlayRowHeight;
+            w = OverlayPad * 2 + lines.Max(l => l.Sum(RowWidth) + OverlayGroupGap * (l.Count - 1));
+            h = OverlayPad * 2 + OverlayRowHeight * lines.Count;
         }
         else
         {
@@ -253,23 +313,27 @@ internal static partial class WidgetRenderer
         // centred in the row (Segoe UI's capitals are 0.7 em tall).
         float labelAscent = Ascent(OverlayLabelPx, FontStyle.Bold, false);
         float unitAscent = Ascent(OverlayUnitPx, FontStyle.Regular, false);
-        float x = OverlayPad, y = OverlayPad;
-        foreach (var row in rows)
+        float y = OverlayPad;
+        foreach (var l in lines)
         {
+            float x = OverlayPad;
             float baseline = y + OverlayRowHeight / 2 + OverlayValuePx * 0.7f / 2;
-            float cx = x;
-            if (row.Label.Length > 0) Text(g, row.Label, OverlayLabelPx, FontStyle.Bold, row.LabelColor, cx, baseline - labelAscent);
-            cx += line ? LabelWidth(row) : Indent(row);
-            foreach (var cell in row.Cells)
+            foreach (var row in l)
             {
-                Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, baseline - Ascent(cell.Px, FontStyle.Bold, true), semibold: true);
-                float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
-                if (cell.Unit.Length > 0)
-                    Text(g, UnitText(cell), OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
-                cx += CellWidth(cell) + OverlayCellGap;
+                float cx = x;
+                if (row.Label.Length > 0) Text(g, row.Label, OverlayLabelPx, FontStyle.Bold, row.LabelColor, cx, baseline - labelAscent);
+                cx += line ? LabelWidth(row) : Indent(row);
+                foreach (var cell in row.Cells)
+                {
+                    Text(g, cell.Value, cell.Px, FontStyle.Bold, cell.Color, cx, baseline - Ascent(cell.Px, FontStyle.Bold, true), semibold: true);
+                    float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
+                    if (cell.Unit.Length > 0)
+                        Text(g, UnitText(cell), OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
+                    cx += CellWidth(cell) + OverlayCellGap;
+                }
+                x = cx - OverlayCellGap + OverlayGroupGap;
             }
-            if (line) x = cx - OverlayCellGap + OverlayGroupGap;
-            else y += OverlayRowHeight;
+            y += OverlayRowHeight;
         }
         return bmp;
     }

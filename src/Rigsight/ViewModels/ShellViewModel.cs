@@ -31,7 +31,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client);
-        Overlay = new OverlayViewModel(Settings, client);
+        Overlay = new OverlayViewModel(Settings, client, Live);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
@@ -51,10 +51,9 @@ public sealed partial class ShellViewModel : ObservableObject
         client.MessageReceived += OnMessage;
         client.ConnectionChanged += OnConnectionChanged;
 
-        // Keep history-based pages fresh while open (the agent writes once a minute). Widget and overlay
-        // previews are still snapshots: drawn when the page opens or something changes, not on this timer.
+        // Keep history-based pages fresh while open (the agent writes once a minute).
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _refresh.Tick += (_, _) => { if (CurrentPage is not ("widgets" or "overlay")) _ = RefreshCurrentPageAsync(); };
+        _refresh.Tick += (_, _) => _ = RefreshTickAsync();
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
 
@@ -176,6 +175,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
+                Overlay.LoadSensors();
                 Overlay.RequestPreview();
                 Overlay.RequestStatus();
                 break;
@@ -192,6 +192,54 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
         }
     }
+
+    private bool _ticking;
+    private int _tickCount;
+
+    /// <summary>
+    /// The once-a-minute refresh of the page on screen. Only data that can still change is re-read (periods that
+    /// include now), nothing while the window is minimized or hidden, and in ways that keep what you're looking
+    /// at in place (scroll position, selection, expanded cards). Settings, widget and overlay pages don't show
+    /// history, so they aren't refreshed.
+    /// </summary>
+    private async Task RefreshTickAsync()
+    {
+        if (_ticking || Application.Current?.MainWindow is not { IsVisible: true, WindowState: not WindowState.Minimized }) return;
+        _ticking = true;
+        _tickCount++;
+        try
+        {
+            switch (CurrentPage)
+            {
+                case "home": await Home.RefreshAsync(); break;
+                case "reports": if (ReportsPage.IncludesNow) await ReportsPage.LoadAsync(); break;
+                case "apps": if (Apps.IncludesToday) await Apps.LoadAsync(); break;
+                case "crashes": if (Crashes.IncludesToday) await Crashes.LoadAsync(onlyIfChanged: true); break;
+                case "memory": await Memory.RefreshAsync(); break;
+                // Free space changes slowly: every five minutes is plenty.
+                case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
+                case "temperatures": if (ChartShowsNow) await LoadTemperatureHistoryAsync(); break;
+                default:
+                    if (FindCustomPage(CurrentPage) is { } custom)
+                    {
+                        await custom.RefreshAsync(quiet: true);
+                        if (ChartShowsNow) await LoadTemperatureHistoryAsync();
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Core.Log.Error("refresh", ex);
+        }
+        finally
+        {
+            _ticking = false;
+        }
+    }
+
+    /// <summary>An earlier day on the temperature chart never changes; anything else includes now.</summary>
+    private bool ChartShowsNow => !(Live.IsChartDay && Live.ChartDay < DateTime.Today);
 
     private int _historyLoad;
 

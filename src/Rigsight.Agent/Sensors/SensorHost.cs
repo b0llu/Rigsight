@@ -48,6 +48,14 @@ internal sealed class SensorHost
     private readonly Dictionary<string, double?> _fastValues = [];
     private bool _usingFastValues;
 
+    private Dictionary<string, int> _indexById = [];
+
+    // Hardware behind the sensors the overlay shows: read every tick while it's up, whatever its tier.
+    private readonly HashSet<IHardware> _watched = [];
+    private string _watchedKey = "";
+    private bool _watchesFastGpu;
+    private long _lastWatchedSlowMs;
+
     public List<HardwareMeta> Schema { get; } = [];
     public Dictionary<string, int> Keys { get; private set; } = [];
     public int SensorCount => _sensors.Count;
@@ -86,6 +94,8 @@ internal sealed class SensorHost
                 candidates.Add(new KeySensors.Candidate(index++, hwMeta.Type, hwMeta.Name, s.Name, s.Kind));
         Keys = KeySensors.Pick(candidates);
         Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
+        _indexById = [];
+        for (int i = 0; i < Ids.Length; i++) _indexById.TryAdd(Ids[i], i);
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
         _fresh = new bool[_sensors.Count];
         DriveHealth = ReadDriveHealth();
@@ -155,7 +165,11 @@ internal sealed class SensorHost
         if (slowDue) _lastSlowMs = nowMs;
         DrivesUpdated = slowDue;
 
-        _usingFastValues = !everything && _fastGpu is not null;
+        // The quick NVIDIA readings only cover the key GPU sensors; a GPU sensor on the overlay needs the full read.
+        _usingFastValues = !everything && _fastGpu is not null && !_watchesFastGpu;
+        // Drives are slow to read: a watched drive sensor every 10 s is plenty.
+        bool watchedSlowDue = nowMs - _lastWatchedSlowMs >= 10_000;
+        if (watchedSlowDue) _lastWatchedSlowMs = nowMs;
         if (_usingFastValues)
         {
             _fastValues.Clear();
@@ -172,7 +186,7 @@ internal sealed class SensorHost
                 Tier.Live => everything,
                 Tier.Slow => slowDue,
                 _ => false,
-            };
+            } || (_watched.Contains(hw) && (tier != Tier.Slow || watchedSlowDue));
             if (update)
             {
                 SafeUpdate(hw);
@@ -183,6 +197,33 @@ internal sealed class SensorHost
         // SMART health is read here, on the sampler thread, right after the drives were updated: the
         // library isn't thread-safe, so the app's connection thread only ever reads this cached copy.
         if (slowDue) DriveHealth = ReadDriveHealth();
+    }
+
+    /// <summary>
+    /// Keeps the hardware behind these sensors (the overlay's) up to date on every <see cref="Update"/>, even with
+    /// the app closed. An empty list goes back to the usual light reading.
+    /// </summary>
+    public void Watch(IReadOnlyList<string> ids)
+    {
+        string key = string.Join('|', ids);
+        if (key == _watchedKey) return;
+        _watchedKey = key;
+        _watched.Clear();
+        foreach (var id in ids)
+            if (_indexById.TryGetValue(id, out int i)) _watched.Add(_sensorHardware[i]);
+        _watchesFastGpu = _fastGpuHardware is not null && _watched.Contains(_fastGpuHardware);
+    }
+
+    /// <summary>One sensor's current reading, kind and name, by identifier (null if this PC doesn't have it).</summary>
+    public (double? Value, SensorKind Kind, string Name)? ReadSensor(string id)
+    {
+        if (!_indexById.TryGetValue(id, out int i)) return null;
+        var s = _sensors[i];
+        var kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor;
+        double? value = s.Value is float f && float.IsFinite(f) ? f : null;
+        // Without driver access some temperature sensors report 0 instead of nothing.
+        if (kind == SensorKind.Temperature && value <= 0) value = null;
+        return (value, kind, s.Name);
     }
 
     public float?[] ReadAll()

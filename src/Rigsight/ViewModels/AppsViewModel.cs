@@ -34,6 +34,9 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     private DateTime? _firstDay;
 
     public bool IsDay => Range == "day";
+
+    /// <summary>Every range but an earlier single day includes today, so it can still change.</summary>
+    public bool IncludesToday => !IsDay || Day >= DateTime.Today;
     public string DayLabel => ReportsViewModel.PeriodText(ReportRange.Day, Day);
     public bool CanGoNextDay => Day < DateTime.Today;
     public bool CanGoPreviousDay => FirstDay is not { } f || Day > f;
@@ -140,10 +143,11 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     partial void OnSortChanged(string value) => ApplyView();
     partial void OnSearchChanged(string value) => ApplyView();
 
-    partial void OnSelectedChanged(AppStat? value)
+    partial void OnSelectedChanged(AppStat? oldValue, AppStat? newValue)
     {
-        SelectedDaily = null;
-        if (value is not null) _ = LoadDailyAsync(value);
+        // The same app re-read by the minute refresh keeps its chart until the new one is ready (no flicker).
+        if (oldValue?.Id != newValue?.Id) SelectedDaily = null;
+        if (newValue is not null) _ = LoadDailyAsync(newValue);
     }
 
     private async Task LoadDailyAsync(AppStat app)
@@ -216,8 +220,14 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             .ToList();
         var selected = Selected;
         double max = Math.Max(1e-6, list.Count > 0 ? Key(list[0]) : 1);
-        Apps.Clear();
-        foreach (var a in list) Apps.Add(new AppListRow(a, Math.Max(0, Key(a)) / max * 100, Metric(a)));
+        // Update rows in place rather than clearing the list, so a refresh doesn't scroll it back to the top.
+        var rows = list.Select(a => new AppListRow(a, Math.Max(0, Key(a)) / max * 100, Metric(a))).ToList();
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (i < Apps.Count) Apps[i] = rows[i];
+            else Apps.Add(rows[i]);
+        }
+        while (Apps.Count > rows.Count) Apps.RemoveAt(Apps.Count - 1);
         MaxValue = max;
         if (selected is not null && Apps.FirstOrDefault(r => r.Stat.Id == selected.Id) is { } row) SelectedRow = row;
     }

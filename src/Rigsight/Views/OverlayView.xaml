@@ -196,6 +196,89 @@
                 </StackPanel>
             </Border>
 
+            <!-- The user's own sensors -->
+            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding SensorsCount}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="Your sensors" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,14" TextWrapping="Wrap"
+                               Text="Add up to 10 of your PC's sensors (fans, voltages, drive or motherboard temperatures, anything on All sensors). Each gets its own row under the readings above, in games too. Give one a short name to keep the overlay compact." />
+
+                    <ItemsControl ItemsSource="{Binding Sensors}" Visibility="{Binding HasSensors, Converter={StaticResource Vis}}" Margin="0,0,0,12">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                                    Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE70E;" />
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                                    Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE70D;" />
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Remove from the overlay" AutomationProperties.Name="Remove"
+                                                    Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE711;" />
+                                            </Button>
+                                        </StackPanel>
+                                        <!-- Short name on the overlay: typed over the sensor's own name, which shows as the hint. -->
+                                        <Grid DockPanel.Dock="Right" Width="190" Margin="12,0,8,0" VerticalAlignment="Center">
+                                            <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12.5"
+                                                     ToolTip="Short name on the overlay (up to 18 letters). Leave empty to use the sensor's own name." />
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{StaticResource FaintBrush}" IsHitTestVisible="False"
+                                                       Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=LabelBox}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <DockPanel Visibility="{Binding CanAddMoreSensors, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Add to overlay" Margin="10,0,0,0"
+                                Command="{Binding AddSensorCommand}" />
+                        <ComboBox ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
+                                  TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360"
+                                  ToolTip="Pick a sensor (type to search)">
+                            <ComboBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ComboBox.ItemsPanel>
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" />
+                                        <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </DockPanel>
+                    <TextBlock Text="That's the most the overlay shows. Remove one to add another." Style="{StaticResource Muted}" FontSize="12"
+                               Visibility="{Binding CanAddMoreSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                </StackPanel>
+            </Border>
+
             <!-- Look -->
             <Border Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>

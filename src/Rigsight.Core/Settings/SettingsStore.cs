@@ -88,6 +88,12 @@ public static class SettingsStore
         o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
         if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
         o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
+        o.Sensors = [.. (o.Sensors ?? []).Where(x => !string.IsNullOrWhiteSpace(x.Id)).DistinctBy(x => x.Id).Take(OverlaySettings.MaxSensors)];
+        foreach (var x in o.Sensors)
+        {
+            x.Label = string.IsNullOrWhiteSpace(x.Label) ? null : x.Label.Trim();
+            if (x.Label is { Length: > OverlaySettings.MaxLabelLength }) x.Label = x.Label[..OverlaySettings.MaxLabelLength];
+        }
 
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 

@@ -21,6 +21,13 @@ public enum OverlayMetric
     Session, Clock,
 }
 
+/// <summary>A sensor on the overlay: its identifier and, optionally, a short name to show instead of its own.</summary>
+public sealed class OverlaySensor
+{
+    public string Id { get; set; } = "";
+    public string? Label { get; set; }
+}
+
 /// <summary>The in-game overlay: a click-through readout shown and hidden with a keyboard shortcut.</summary>
 public sealed class OverlaySettings
 {
@@ -34,6 +41,12 @@ public sealed class OverlaySettings
     public double Scale { get; set; } = 1.0;
 
     public List<OverlayMetric> Metrics { get; set; } = DefaultMetrics();
+
+    /// <summary>Any of the PC's sensors, shown as extra rows under the readings above (at most <see cref="MaxSensors"/>).</summary>
+    public List<OverlaySensor> Sensors { get; set; } = [];
+
+    public const int MaxSensors = 10;
+    public const int MaxLabelLength = 18;
 
     public const string DefaultHotkey = "Alt+Shift+O";
 

@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Settings;
+using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
@@ -29,16 +31,42 @@ public sealed partial class OverlayMetricOption(OverlayMetric metric, string lab
 
 public sealed record OverlayMetricGroup(string Title, IReadOnlyList<OverlayMetricOption> Options);
 
+/// <summary>One of the user's sensors on the overlay: what it is, and the short name shown for it.</summary>
+public sealed partial class OverlaySensorRow(string id, string name, string hardware, bool found, SettingsModel settings) : ObservableObject
+{
+    public string Id { get; } = id;
+    /// <summary>The sensor's own name (or the one given on All sensors): shown when no short name is set.</summary>
+    public string Name { get; } = name;
+    public string Hardware { get; } = found ? hardware : "Not found on this PC right now";
+    public bool Found { get; } = found;
+
+    /// <summary>The short name on the overlay; empty uses <see cref="Name"/>.</summary>
+    public string Label
+    {
+        get => settings.Current.Overlay.Sensors.FirstOrDefault(s => s.Id == Id)?.Label ?? "";
+        set
+        {
+            var label = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            settings.Update(s =>
+            {
+                if (s.Overlay.Sensors.FirstOrDefault(x => x.Id == Id) is { } x) x.Label = label;
+            });
+            OnPropertyChanged();
+        }
+    }
+}
+
 /// <summary>The Overlay page: the shortcut, what the overlay shows, and how it looks.</summary>
 public sealed partial class OverlayViewModel : ObservableObject
 {
     private readonly SettingsModel _settings;
     private readonly AgentClient _client;
 
-    public OverlayViewModel(SettingsModel settings, AgentClient client)
+    public OverlayViewModel(SettingsModel settings, AgentClient client, LiveData live)
     {
         _settings = settings;
         _client = client;
+        _live = live;
         OverlayMetricOption O(OverlayMetric m, string label) => new(m, label, settings);
         Groups =
         [
@@ -51,7 +79,90 @@ public sealed partial class OverlayViewModel : ObservableObject
         ];
     }
 
+    private readonly LiveData _live;
+
     private OverlaySettings Config => _settings.Current.Overlay;
+
+    // ── The user's own sensors ──
+
+    /// <summary>Every sensor on this PC, for the picker.</summary>
+    public IReadOnlyList<SensorItem> AllSensors => _live.AllSensors;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddSensorCommand))]
+    private SensorItem? _sensorToAdd;
+
+    public ObservableCollection<OverlaySensorRow> Sensors { get; } = [];
+
+    public int MaxSensors => OverlaySettings.MaxSensors;
+    public bool HasSensors => Sensors.Count > 0;
+    public bool CanAddMoreSensors => Sensors.Count < OverlaySettings.MaxSensors;
+    public string SensorsCount => $"{Sensors.Count} of {OverlaySettings.MaxSensors}";
+
+    private bool CanAddSensor() => SensorToAdd is not null && CanAddMoreSensors && Sensors.All(r => r.Id != SensorToAdd.Id);
+
+    [RelayCommand(CanExecute = nameof(CanAddSensor))]
+    private void AddSensor()
+    {
+        if (SensorToAdd is not { } sensor) return;
+        _settings.Update(s =>
+        {
+            if (s.Overlay.Sensors.Count < OverlaySettings.MaxSensors && s.Overlay.Sensors.All(x => x.Id != sensor.Id))
+                s.Overlay.Sensors.Add(new OverlaySensor { Id = sensor.Id });
+        });
+        SensorToAdd = null;
+        LoadSensors();
+    }
+
+    [RelayCommand]
+    private void RemoveSensor(OverlaySensorRow row)
+    {
+        _settings.Update(s => s.Overlay.Sensors.RemoveAll(x => x.Id == row.Id));
+        LoadSensors();
+    }
+
+    [RelayCommand]
+    private void MoveSensorUp(OverlaySensorRow row) => MoveSensor(row, -1);
+
+    [RelayCommand]
+    private void MoveSensorDown(OverlaySensorRow row) => MoveSensor(row, 1);
+
+    private void MoveSensor(OverlaySensorRow row, int by)
+    {
+        _settings.Update(s =>
+        {
+            var list = s.Overlay.Sensors;
+            int i = list.FindIndex(x => x.Id == row.Id), j = i + by;
+            if (i < 0 || j < 0 || j >= list.Count) return;
+            (list[i], list[j]) = (list[j], list[i]);
+        });
+        LoadSensors();
+    }
+
+    /// <summary>Rebuilds the list from settings (only when it changed, so a name being typed isn't disturbed).</summary>
+    public void LoadSensors()
+    {
+        var wanted = Config.Sensors;
+        // Sensor identifiers aren't always unique (NVIDIA can list one twice): the first one wins.
+        var names = new Dictionary<string, SensorItem>();
+        foreach (var item in _live.AllSensors) names.TryAdd(item.Id, item);
+        bool same = wanted.Count == Sensors.Count && wanted.Select(x => x.Id).SequenceEqual(Sensors.Select(r => r.Id))
+                    && Sensors.All(r => r.Found == names.ContainsKey(r.Id));
+        if (!same)
+        {
+            Sensors.Clear();
+            foreach (var x in wanted)
+            {
+                bool found = names.TryGetValue(x.Id, out var item);
+                Sensors.Add(new OverlaySensorRow(x.Id, item?.DisplayName ?? x.Label ?? x.Id, item?.HardwareName ?? "", found, _settings));
+            }
+        }
+        OnPropertyChanged(nameof(HasSensors));
+        OnPropertyChanged(nameof(CanAddMoreSensors));
+        OnPropertyChanged(nameof(SensorsCount));
+        OnPropertyChanged(nameof(AllSensors));
+        AddSensorCommand.NotifyCanExecuteChanged();
+    }
 
     private void Change(Action<OverlaySettings> change, string property)
     {
@@ -199,5 +310,6 @@ public sealed partial class OverlayViewModel : ObservableObject
         OnPropertyChanged(string.Empty);
         foreach (var group in Groups)
             foreach (var option in group.Options) option.Refresh();
+        LoadSensors();
     }
 }

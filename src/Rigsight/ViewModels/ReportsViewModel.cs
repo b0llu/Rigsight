@@ -48,6 +48,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public bool IsMultiDay => !IsDay;
     public bool IsMonth => Range == ReportRange.Month;
 
+    /// <summary>The period shown includes now, so it can still change.</summary>
+    public bool IncludesNow => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To;
+
     /// <summary>Which period is shown, in words: "Today", "Last week", "Mon, 21 Sep", "August 2026".</summary>
     public string PeriodLabel => PeriodText(Range, Anchor);
 

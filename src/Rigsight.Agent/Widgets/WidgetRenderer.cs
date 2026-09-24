@@ -18,8 +18,12 @@ internal sealed class WidgetData
     public float[] CpuHistory = [];
     public float[] GpuHistory = [];
     public ActivityInfo Activity = new();
+    /// <summary>The overlay's chosen sensors, in order: label, kind and current value.</summary>
+    public List<OverlaySensorReading> Sensors = [];
     public TodayInfo Today = new();
 }
+
+internal sealed record OverlaySensorReading(string Label, SensorKind Kind, double? Value);
 
 /// <summary>Draws widget bitmaps with GDI+ (per-pixel alpha, no UI framework needed).</summary>
 internal static partial class WidgetRenderer

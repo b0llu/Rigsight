@@ -29,6 +29,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private DateTime? _since;
 
     public bool IsDay => Range == "day";
+
+    /// <summary>Every range but an earlier single day includes today, so new crashes can appear.</summary>
+    public bool IncludesToday => !IsDay || Day >= DateTime.Today;
     public bool ShowTimeline => !IsDay;
     public string DayLabel => ReportsViewModel.PeriodText(Core.Reports.ReportRange.Day, Day);
     public bool CanGoNextDay => Day < DateTime.Today;
@@ -145,7 +148,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     private int _loadId;
 
-    public async Task LoadAsync()
+    /// <param name="onlyIfChanged">The minute refresh: leave the page alone unless a crash arrived.</param>
+    public async Task LoadAsync(bool onlyIfChanged = false)
     {
         int id = ++_loadId;
         var since = await reports.FirstCrashDayAsync();
@@ -158,6 +162,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         };
         var to = Range == "day" ? Day.Date.AddDays(1) : DateTime.Now.AddMinutes(1);
         var rows = await reports.CrashesAsync(from, to, includeMuted: true) ?? [];
+        if (onlyIfChanged && rows.Select(r => r.Event.Id).SequenceEqual(_all.Select(r => r.Event.Id))) return;
         // Drivers and updates from a week before the oldest problem, to explain what came after.
         var changesFrom = (rows.Count > 0 ? rows.Min(c => c.Time) : from).Date.AddDays(-7);
         if (Range != "all" && changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
@@ -173,7 +178,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     private void Regroup()
     {
+        // Cards the user opened ("All N times", "Details") stay open when the list is rebuilt.
+        static string KeyOf(CrashGroup g) => $"{g.IsIncident}|{g.First.Event.Id}";
+        var open = _groups.Where(g => g.IsExpanded || g.ShowDetails).ToDictionary(KeyOf, g => (g.IsExpanded, g.ShowDetails));
         _groups = CrashGroup.Build(_all, groupRepeats: Grouped);
+        foreach (var g in _groups)
+            if (open.TryGetValue(KeyOf(g), out var state)) (g.IsExpanded, g.ShowDetails) = state;
         foreach (var g in _groups) g.ChangesText = ChangesBefore(g);
     }
 

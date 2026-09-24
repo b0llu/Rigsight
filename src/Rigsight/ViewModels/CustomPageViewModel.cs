@@ -93,11 +93,12 @@ public sealed partial class CustomPageViewModel : ObservableObject
     private void DeletePage() => _delete(this);
 
     /// <summary>Loads the history the page's tiles need (only what's on it).</summary>
-    public async Task RefreshAsync()
+    /// <param name="quiet">The minute refresh: the crash list is only rebuilt if a crash arrived.</param>
+    public async Task RefreshAsync(bool quiet = false)
     {
         var kinds = Tiles.Select(t => t.Kind).ToHashSet();
         if (kinds.Overlaps(["most-used", "insights", "yesterday"])) await Home.RefreshAsync();
-        if (kinds.Contains("crashes")) await Crashes.LoadAsync();
+        if (kinds.Contains("crashes") && (!quiet || Crashes.IncludesToday)) await Crashes.LoadAsync(onlyIfChanged: quiet);
     }
 
     // ── Adding, removing, resizing ────────────────────────────────────────

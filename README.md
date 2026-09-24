@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Know your rig.</b><br />
-  An intelligent PC tracker for Windows. Temperatures, app usage, crashes and storage, explained in plain language.
+  Hardware and usage metrics for Windows, recorded all day and kept as history.
 </p>
 
 <p align="center">
@@ -18,16 +18,16 @@
 
 ---
 
-Most hardware monitors show you a wall of numbers *right now*. Rigsight remembers them and tells you what they mean.
+Rigsight records your PC's metrics: temperatures, loads, clocks, power, fans and voltages, memory, drive space and health, which app was in front and for how long, and every crash Windows logs.
 
-Play games all day, come back in the evening, and Rigsight can tell you:
+Most hardware monitors only show numbers while you're watching. Rigsight keeps them, minute by minute, so you can look back at any day, week or month:
 
-- what you played and for how long;
-- which game pushed your GPU the hottest;
-- what sat open in the background doing nothing;
-- why your PC restarted on its own last Tuesday.
+- the peak GPU temperature in each game, and when it happened;
+- CPU and GPU temperatures at idle and under load, compared with the week before;
+- active time per app and per day, against your daily average;
+- every crash, grouped, with the temperatures just before it and any driver installed in the days before.
 
-It does all of this while using about **0.01% of your CPU**.
+The background agent that records all of this uses about **0.01% of your CPU**.
 
 ## Contents
 
@@ -43,18 +43,24 @@ It does all of this while using about **0.01% of your CPU**.
 
 ## Features
 
-### 📅 Your day
-- **Home**: today so far, highlights, and a recap of yesterday.
-- **Reports** for the day, week and month; step back through time or click the date to jump to any day or month since tracking started:
-  - a timeline of your day with temperatures drawn over it;
+### 🌡️ Hardware
+- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, each with today's lowest and highest (tracked all day, even with the window closed), and a history chart for the last 5 minutes to 24 hours or any single day (today, yesterday, or pick a date); hover it for the exact time and temperatures.
+- **Memory**: RAM use, live per-app memory (like Task Manager's "private working set"), and today's biggest memory users.
+- **Storage**: drive usage and growth, drive health (SSD wear, and a CrystalDiskInfo-style Good/Caution/Bad check with bad-sector counts for hard drives), cleanup suggestions, and a folder scanner with a treemap.
+- **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.
+
+### 📅 History and reports
+- **Home**: today so far (active time, peak temperatures, most-used apps), highlights, and yesterday's totals.
+- **Reports** for any day, week or month (step back, or pick a date from a calendar):
+  - a minute-by-minute timeline of the app in front, with CPU and GPU temperature drawn over it;
   - time per app, split into *in use*, *in the background* and *minimized*;
-  - the hottest moments and the app responsible;
+  - peak CPU and GPU temperature, hot spot, voltage and power, with the time and the app in front;
   - your longest sessions (a minute or more; quick switches still count towards app time);
-  - insights that only speak up when there's something to say: time against your daily average, your longest stretch without a break, temperatures compared at the same load (idle against idle, gaming against gaming), time at your alert limit, and a GPU hot spot running far above the core (a sign the thermal paste needs redoing).
-- **Discord-style sessions**: Rigsight knows when you're actually using an app and when you're away, and counts a fullscreen game as in use even when you're not touching the mouse.
+  - highlights, shown only when there's something to report: time against your daily average, the longest stretch without a break, temperatures compared at the same load (idle against idle, heavy load against heavy load), minutes at your alert limit, and a GPU hot spot running far above the core (a sign the thermal paste needs redoing).
+- **Active time, not just time open**: time counts as active only while you're using the app; a fullscreen game counts even when you're not touching the mouse. Time away from the PC is counted separately.
 
 ### 🧩 Apps
-- Every app you use, for any single day, the last 7 or 30 days, or all time (with the date tracking started), with active time, average and peak CPU/GPU temperatures while it was in front, peak memory, sessions and a 14-day chart.
+- Per app, for any single day, the last 7 or 30 days, or all time: active, background and minimized time, average and peak CPU/GPU temperature while it was in front, peak memory, average CPU use, sessions and a 14-day chart.
 - Rename apps, change their category (game, browser, work…), or exclude them from tracking.
 
 ### 💥 Crashes
@@ -69,12 +75,6 @@ It does all of this while using about **0.01% of your CPU**.
 - **Patterns**, such as "3 of 4 shutdowns happened while asleep" or "the graphics driver was involved in 5 crashes".
 - Filter by **Apps & games** or **PC problems**.
 
-### 🌡️ Hardware
-- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, each with today's lowest and highest (tracked all day, even with the window closed), and a history chart for the last 5 minutes to 24 hours or any single day (today, yesterday, or pick a date); hover it for the exact time and temperatures.
-- **Memory**: RAM use, live per-app memory (like Task Manager's "private working set"), and today's biggest memory users.
-- **Storage**: drive usage and growth, drive health (SSD wear, and a CrystalDiskInfo-style Good/Caution/Bad check with bad-sector counts for hard drives), cleanup suggestions, and a folder scanner with a treemap.
-- **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.
-
 ### 🧱 Dashboards
 - **Build your own dashboards** from tiles: gauges, a temperature chart, any single sensor, fans, drives, top memory users, today's totals, most used apps, highlights, yesterday and crashes.
 - **Drag tiles anywhere, and resize them by dragging their edges.** The others slide out of the way and fill the gaps.
@@ -83,6 +83,7 @@ It does all of this while using about **0.01% of your CPU**.
 ### 🎮 Game overlay
 - **Press `Alt+Shift+O` in any game** to show or hide a compact readout: FPS, frame time and 1% lows, CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
 - **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size and opacity. Change the shortcut to anything you like.
+- **Add any of your sensors** (up to 10): a case fan, a pump, a voltage, a drive or motherboard temperature, anything on All sensors, each with a short name if you like. They stay live in games, even with Rigsight's window closed.
 - **Never gets in the way**: it never takes focus, and clicks pass straight through it.
 - **Works in every game, exclusive fullscreen included**, through [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (free, the engine behind MSI Afterburner's overlay). Rigsight hands it the readings and RivaTuner draws them inside the game. The installer offers to install RivaTuner, and Rigsight keeps it running. Without it, the overlay still shows over borderless and windowed games.
 - **Safe with anti-cheat**: Rigsight itself never hooks into games. Its own overlay is a normal always-on-top window, and RivaTuner is a long-established tool that anti-cheat systems accept.
@@ -101,8 +102,8 @@ It does all of this while using about **0.01% of your CPU**.
 
 1. Download **`Rigsight-Setup-x.y.z.exe`** from the [Releases](../../releases) page.
 2. Run it. Windows may show *"Windows protected your PC"* because the installer isn't code-signed. Click **More info → Run anyway**.
-3. Leave **Install the PawnIO driver** ticked if it's offered. CPU and motherboard temperatures need it.
-4. Open Rigsight. The background agent asks for admin rights **once**, then starts with Windows silently (you can turn this off in Settings).
+3. Accept the one admin prompt. The installer sets up the background agent to start with Windows (you can turn this off in Settings).
+4. Leave **Install the PawnIO driver** and **Install RivaTuner Statistics Server** ticked if they're offered. PawnIO is needed for CPU and motherboard sensors, RivaTuner for the overlay in exclusive-fullscreen games. Both can take a minute or more to download.
 
 To uninstall, use **Settings → Apps → Rigsight → Uninstall**. This removes the program and its startup task. Your history stays in `%LocalAppData%\Rigsight`; delete that folder too for a clean removal.
 
@@ -187,7 +188,7 @@ The version number comes from `<Version>` in `Directory.Build.props`.
 
 To publish a release:
 ```powershell
-gh release create v0.2.0 dist\Rigsight-Setup-0.2.0.exe --title "Rigsight 0.2.0" --notes "First public build"
+gh release create vX.Y.Z dist\Rigsight-Setup-X.Y.Z.exe --title "Rigsight X.Y.Z" --notes-file notes.md
 ```
 
 ## Project layout

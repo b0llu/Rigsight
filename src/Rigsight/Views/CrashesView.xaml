@@ -130,9 +130,8 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBox Text="{Binding TechnicalText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0"
-                                     FontSize="11" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
-                                     Visibility="{Binding ShowDetails, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding TechnicalText}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Visibility="{Binding ShowDetails, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </Grid>
                 </Grid>
