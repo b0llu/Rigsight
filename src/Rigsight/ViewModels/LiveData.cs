@@ -264,17 +264,17 @@ public sealed partial class LiveData : ObservableObject
 
         // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
         // hot spot and memory (only stored as the minute's highest) as that.
-        void AddSeries(string label, SensorItem? sensor, string hex, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute)
+        void AddSeries(string label, SensorItem? sensor, string colorKey, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute)
         {
             if (sensor is null) return;
-            var series = new ChartSeries(label, sensor, (Color)ColorConverter.ConvertFromString(hex), fromMinute);
+            var series = new ChartSeries(label, sensor, colorKey, fromMinute);
             series.LoadMinutes(_minutes);
             TempSeries.Add(series);
         }
-        AddSeries("CPU", CpuTemp, "#5B8CFF", m => m.CpuTemp);
-        AddSeries("GPU", GpuTemp, "#3DDC97", m => m.GpuTemp);
-        AddSeries("GPU hot spot", GpuHotSpot, "#FBBF24", m => m.GpuHotMax);
-        AddSeries("GPU memory", GpuMemJunction, "#F472B6", m => m.GpuMemMax);
+        AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp);
+        AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp);
+        AddSeries("GPU hot spot", GpuHotSpot, "WarmColor", m => m.GpuHotMax);
+        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemMax);
 
         _byKey.Clear();
         if (hello.Keys is not null)

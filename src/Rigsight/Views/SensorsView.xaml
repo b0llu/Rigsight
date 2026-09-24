@@ -11,7 +11,7 @@
             <Setter Property="FontSize" Value="13" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
     </UserControl.Resources>
 
@@ -44,7 +44,7 @@
                         Visibility="{Binding HiddenCount, Converter={StaticResource Vis}}">
                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center"
                           ToolTip="Hidden sensors appear dimmed; click their eye icon to bring them back.">
-                    <TextBlock Text="{Binding ShowHiddenText}" FontSize="13" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="{Binding ShowHiddenText}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
                 </CheckBox>
                 <Button Style="{StaticResource GhostButton}" Content="Unhide all" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
             </StackPanel>
@@ -91,16 +91,16 @@
             <ItemsControl.Resources>
                 <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
                 <DataTemplate DataType="{x:Type m:HardwareNode}">
-                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
                         <StackPanel>
                             <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,0" Padding="8,6" CornerRadius="10"
                                     MouseLeftButtonUp="Header_Click" ToolTip="Click to collapse or expand">
                                 <DockPanel>
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,12,0" />
-                                    <Border Style="{StaticResource Badge}" Background="{StaticResource AccentSoftBrush}">
-                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{StaticResource AccentBrush}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
+                                    <Border Style="{StaticResource Badge}" Background="{DynamicResource AccentSoftBrush}">
+                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{DynamicResource AccentBrush}" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                                 </DockPanel>
@@ -135,13 +135,13 @@
 
                 <!-- Card bottom -->
                 <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
-                    <Border Height="16" Margin="0,0,0,16" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                    <Border Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
                 </DataTemplate>
 
                 <!-- One sensor -->
                 <DataTemplate DataType="{x:Type m:SensorItem}">
-                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,0,1,0" Padding="20,0">
                         <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent">
                             <Grid>
@@ -155,19 +155,19 @@
                                     <ColumnDefinition Width="100" />
                                     <ColumnDefinition Width="40" />
                                 </Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource Badge}" Background="{StaticResource Surface2Brush}"
+                                <Border Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}"
                                         HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
                                     <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
-                                               Foreground="{StaticResource FaintBrush}" />
+                                               Foreground="{DynamicResource FaintBrush}" />
                                 </Border>
                                 <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
                                          Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
                                          ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
                                 <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
                                                Source="{Binding History}" Version="{Binding Version}"
-                                               Stroke="{StaticResource AccentBrush}" />
+                                               Stroke="{DynamicResource AccentBrush}" />
                                 <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" Style="{StaticResource Num}"
-                                           Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                                           Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                 <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
                                 <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
                                 <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
@@ -181,7 +181,7 @@
                     </Border>
                     <DataTemplate.Triggers>
                         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Surface2Brush}" />
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
                         </Trigger>
                         <DataTrigger Binding="{Binding IsHidden}" Value="True">
                             <Setter TargetName="Row" Property="Opacity" Value="0.45" />

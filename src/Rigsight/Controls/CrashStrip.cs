@@ -40,12 +40,12 @@ public sealed class CrashStrip : FrameworkElement
         if (Days is { } days && _hover >= 0 && _hover < days.Count) DayCommand?.Execute(days[_hover].Day);
     }
 
-    public static readonly Brush CriticalBrush = ChartPaint.Frozen(0xF8, 0x71, 0x71);
-    public static readonly Brush SeriousBrush = ChartPaint.Frozen(0xFB, 0x92, 0x3C);
-    public static readonly Brush MinorBrush = ChartPaint.Frozen(0xFB, 0xBF, 0x24);
-    public static readonly Brush InfoBrush = ChartPaint.Frozen(0x5B, 0x64, 0x7A);
-    private static readonly Brush ChangeBrush = ChartPaint.Brush(ChartPaint.Cpu);
-    private static readonly Brush[] Fills = [InfoBrush, MinorBrush, SeriousBrush, CriticalBrush];
+    public static SolidColorBrush CriticalBrush => ChartPaint.Hot;
+    public static SolidColorBrush SeriousBrush => ChartPaint.Orange;
+    public static SolidColorBrush MinorBrush => ChartPaint.Warm;
+    public static SolidColorBrush InfoBrush => ChartPaint.Faint;
+    private static Brush ChangeBrush => ChartPaint.CpuBrush;
+    private static Brush[] Fills => [InfoBrush, MinorBrush, SeriousBrush, CriticalBrush];
 
     private int _hover = -1;
 

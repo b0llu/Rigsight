@@ -6,7 +6,7 @@
         <Style x:Key="StatValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="24" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
     </UserControl.Resources>
@@ -117,7 +117,7 @@
 
                         <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding Yesterday.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextBrush}" />
+                                       Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Style="{StaticResource Muted}">
                                 <Run Text="active · PC on for" /> <Run Text="{Binding Yesterday.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
                             </TextBlock>
@@ -140,7 +140,7 @@
                                         <DockPanel Margin="0,5">
                                             <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,2,10,0"
                                                        Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                                         </DockPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -155,7 +155,7 @@
                         </StackPanel>
 
                         <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Left" />
+                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
                             <TextBlock Text="No history for yesterday yet." Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
                             <TextBlock Text="Yesterday's active time, most-used apps and highlights show here once there's a full day of history."
                                        Style="{StaticResource Muted}" TextWrapping="Wrap" />
@@ -172,7 +172,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <DockPanel Margin="0,6">
-                                    <Border Width="30" Height="30" CornerRadius="8" Background="{StaticResource Surface2Brush}" VerticalAlignment="Top">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
                                         <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
                                                    Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                                     </Border>

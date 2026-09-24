@@ -8,11 +8,11 @@
         </Style>
         <Style x:Key="Title" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         </Style>
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{StaticResource FaintBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,2,16,0" />
         </Style>
@@ -24,7 +24,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,40" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource H1}" />
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}" Margin="0,6,0,0"
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0"
                        Visibility="{Binding StatusMessage, Converter={StaticResource Vis}}" />
 
             <!-- General -->
@@ -41,6 +41,22 @@
                             </StackPanel>
                         </Border>
                         <TextBlock Text="Temperature unit" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=dark}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=light}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=system}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Theme" Style="{StaticResource Title}" />
+                            <TextBlock Text="Black or white. System follows the app mode set in Windows." Style="{StaticResource Hint}" />
+                        </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
@@ -155,7 +171,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border CornerRadius="8" Background="{StaticResource Surface2Brush}" Padding="10,3,4,3" Margin="0,0,8,8">
+                                <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,3,4,3" Margin="0,0,8,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding}" Style="{StaticResource Body}" VerticalAlignment="Center" />
                                         <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="6,0,0,0" ToolTip="Remove"
@@ -255,17 +271,17 @@
                     </CheckBox>
                     <StackPanel IsEnabled="{Binding AlertsEnabled}">
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding CpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding CpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                             <Slider DockPanel.Dock="Right" Width="280" Minimum="60" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding CpuLimit}" VerticalAlignment="Center" />
                             <TextBlock Text="CPU limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding GpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding GpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                             <Slider DockPanel.Dock="Right" Width="280" Minimum="60" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding GpuLimit}" VerticalAlignment="Center" />
                             <TextBlock Text="GPU limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding HotSpotLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding HotSpotLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                             <Slider DockPanel.Dock="Right" Width="280" Minimum="70" Maximum="110" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding HotSpotLimit}" VerticalAlignment="Center" />
                             <TextBlock Text="GPU hot spot limit" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
@@ -347,8 +363,8 @@
                         </Button>
                         <Button Style="{StaticResource GhostButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,8">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{StaticResource HotBrush}" />
-                                <TextBlock Text="Clear all history…" Foreground="{StaticResource HotBrush}" />
+                                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{DynamicResource HotBrush}" />
+                                <TextBlock Text="Clear all history…" Foreground="{DynamicResource HotBrush}" />
                             </StackPanel>
                         </Button>
                     </WrapPanel>
@@ -360,11 +376,11 @@
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Title}">
-                        <Run Text="Rigsight" FontWeight="SemiBold" /> <Run Text="{Binding AppVersion, Mode=OneWay}" Foreground="{StaticResource MutedBrush}" />
+                        <Run Text="Rigsight" FontWeight="SemiBold" /> <Run Text="{Binding AppVersion, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                     </TextBlock>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
                                Text="Hardware readings come from LibreHardwareMonitor (MPL-2.0), with low-level access through the PawnIO driver. NVIDIA readings in the background use NVML for minimal overhead." />
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Foreground="{StaticResource WarmBrush}"
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Foreground="{DynamicResource WarmBrush}"
                                Text="The background agent is running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar."
                                Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <Button Style="{StaticResource GhostButton}" Content="Quit background agent…" Command="{Binding QuitAgentCommand}"

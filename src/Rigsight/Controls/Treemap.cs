@@ -22,7 +22,7 @@ public sealed class Treemap : FrameworkElement
         ChartPaint.Frozen(0xFB, 0xBF, 0x24), ChartPaint.Frozen(0xF4, 0x72, 0xB6), ChartPaint.Frozen(0x22, 0xD3, 0xEE),
         ChartPaint.Frozen(0xF8, 0x71, 0x71), ChartPaint.Frozen(0x7C, 0x83, 0xFD),
     ];
-    private static readonly Brush Dim = ChartPaint.Frozen(0x0B, 0x0E, 0x14, 0x70);
+    private static Brush Dim => ChartPaint.Brush(ChartPaint.Res("BgColor", 0), 0.44);
     private static readonly Brush Highlight = ChartPaint.Frozen(0xFF, 0xFF, 0xFF, 0x30);
     private static readonly Brush Ink = ChartPaint.Frozen(0x0B, 0x0E, 0x14);
 

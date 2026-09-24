@@ -16,7 +16,8 @@ public enum WidgetStyle
     Graph,
 }
 
-public enum WidgetTheme { Dark, Black, Light }
+/// <summary>System follows Windows' app mode. Black is no longer offered (it became Dark); kept so older settings files still load.</summary>
+public enum WidgetTheme { Dark, Light, System, Black }
 
 public enum WidgetVisibility
 {

@@ -6,26 +6,41 @@ namespace Rigsight.Models;
 /// <summary>One line on a history chart.</summary>
 public sealed class ChartSeries
 {
-    public ChartSeries(string label, SensorItem sensor, Color color, Func<SystemMinute, double?>? fromMinute = null)
+    /// <param name="colorKey">The palette color ("CpuColor"…), so the line follows the dark or light theme.</param>
+    public ChartSeries(string label, SensorItem sensor, string colorKey, Func<SystemMinute, double?>? fromMinute = null)
     {
         Label = label;
         Sensor = sensor;
-        Color = color;
+        _colorKey = colorKey;
         FromMinute = fromMinute;
-        Brush = new SolidColorBrush(color);
-        Brush.Freeze();
     }
 
     public string Label { get; }
     public SensorItem Sensor { get; }
-    public Color Color { get; }
-    public SolidColorBrush Brush { get; }
 
-    // Drawing resources, made once (the chart redraws every second).
-    private Pen? _linePen;
-    private System.Windows.Media.Brush? _fill;
-    public Pen LinePen => _linePen ??= Frozen(new Pen(Brush, 2) { LineJoin = PenLineJoin.Round });
-    public System.Windows.Media.Brush Fill => _fill ??= Rigsight.Controls.ChartGeometry.FadeFill(Color, 0.10);
+    // Drawing resources, made once per theme (the chart redraws every second).
+    private readonly string _colorKey;
+    private int _theme = -1;
+    private Color _color;
+    private SolidColorBrush _brush = null!;
+    private Pen _linePen = null!;
+    private System.Windows.Media.Brush _fill = null!;
+
+    private void EnsureColors()
+    {
+        if (_theme == Services.ThemeManager.Version) return;
+        _theme = Services.ThemeManager.Version;
+        _color = Rigsight.Controls.ChartPaint.Res(_colorKey, 0x80);
+        _brush = new SolidColorBrush(_color);
+        _brush.Freeze();
+        _linePen = Frozen(new Pen(_brush, 2) { LineJoin = PenLineJoin.Round });
+        _fill = Rigsight.Controls.ChartGeometry.FadeFill(_color, Services.ThemeManager.IsLight ? 0.05 : 0.10);
+    }
+
+    public Color Color { get { EnsureColors(); return _color; } }
+    public SolidColorBrush Brush { get { EnsureColors(); return _brush; } }
+    public Pen LinePen { get { EnsureColors(); return _linePen; } }
+    public System.Windows.Media.Brush Fill { get { EnsureColors(); return _fill; } }
 
     private static Pen Frozen(Pen pen)
     {

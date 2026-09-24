@@ -9,14 +9,14 @@
         <Style x:Key="TileTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="Big" TargetType="TextBlock">
             <Setter Property="FontSize" Value="26" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         </Style>
         <Style x:Key="Row" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
             <Setter Property="FontSize" Value="12.5" />
@@ -25,14 +25,14 @@
         <Style x:Key="RowValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <!-- ── The frame around every tile ────────────────────────────── -->
         <DataTemplate x:Key="Tile.Frame">
             <Grid>
-            <Border x:Name="Frame" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+            <Border x:Name="Frame" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                     CornerRadius="16" Padding="16,10,12,14" ClipToBounds="True"
                     PreviewMouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove"
                     MouseLeftButtonUp="Tile_MouseUp" LostMouseCapture="Tile_LostCapture">
@@ -58,7 +58,7 @@
             <Border x:Name="CornerGrip" Tag="RB" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4"
                     Background="Transparent" Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="Drag to resize"
                     MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture">
-                <Path Data="M 15,6 L 6,15 M 15,11 L 11,15" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                <Path Data="M 15,6 L 6,15 M 15,11 L 11,15" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
             </Border>
             </Grid>
             <DataTemplate.Triggers>
@@ -68,12 +68,12 @@
                     <Setter TargetName="BottomGrip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="CornerGrip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Frame" Property="Cursor" Value="SizeAll" />
-                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FaintBrush}" />
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource FaintBrush}" />
                     <!-- While editing, clicks anywhere on a tile grab it (except its buttons). -->
                     <Setter TargetName="Body" Property="IsHitTestVisible" Value="False" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsDragging}" Value="True">
-                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter TargetName="Frame" Property="Opacity" Value="0.94" />
                     <Setter TargetName="Frame" Property="Effect">
                         <Setter.Value>
@@ -86,8 +86,8 @@
 
         <!-- Where a dragged tile will land -->
         <DataTemplate x:Key="Tile.Placeholder">
-            <Rectangle RadiusX="16" RadiusY="16" Stroke="{StaticResource AccentBrush}" StrokeThickness="2" StrokeDashArray="4 3"
-                       Fill="{StaticResource AccentSoftBrush}" />
+            <Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeDashArray="4 3"
+                       Fill="{DynamicResource AccentSoftBrush}" />
         </DataTemplate>
 
         <!-- ── What's inside each kind of tile ────────────────────────── -->
@@ -103,7 +103,7 @@
                     <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                     <TextBlock Text="{Binding Live.CpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
-                               Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                               Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -116,7 +116,7 @@
                     <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                     <TextBlock Text="{Binding Live.GpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
-                               Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                               Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -124,7 +124,7 @@
         <DataTemplate x:Key="Tile.sensor">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" Style="{StaticResource Big}" />
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" />
             </DockPanel>
         </DataTemplate>
@@ -141,7 +141,7 @@
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
                                 <Ellipse Width="7" Height="7" Fill="{Binding Brush}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" Margin="6,0,0,0" />
+                                <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -179,7 +179,7 @@
                                 <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="0,0,10,0" />
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Margin="0,5,0,0" Maximum="100" Value="{Binding UsedSpace.Value, Mode=OneWay, FallbackValue=0}"
-                                         Foreground="{StaticResource PurpleBrush}" />
+                                         Foreground="{DynamicResource PurpleBrush}" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -204,15 +204,15 @@
             <UniformGrid Columns="3" VerticalAlignment="Top">
                 <StackPanel>
                     <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
-                    <TextBlock Text="{Binding Live.Today.ActiveSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="{Binding Live.Today.ActiveSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
                     <TextBlock Text="PC ON" Style="{StaticResource Caption}" />
-                    <TextBlock Text="{Binding Live.Today.OnSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="{Binding Live.Today.OnSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
                     <TextBlock Text="AWAY" Style="{StaticResource Caption}" />
-                    <TextBlock Text="{Binding Live.Today.IdleSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="{Binding Live.Today.IdleSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
             </UniformGrid>
         </DataTemplate>
@@ -243,7 +243,7 @@
                             <DockPanel Margin="0,4">
                                 <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,2,10,0"
                                            Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                             </DockPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -258,7 +258,7 @@
                 <DockPanel Margin="0,2">
                     <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.CpuPeakWhile}" Style="{StaticResource Row}" Margin="10,0,0,0" />
                     <TextBlock Style="{StaticResource Row}">
-                        <Run Text="CPU" Foreground="{StaticResource CpuBrush}" FontWeight="SemiBold" />
+                        <Run Text="CPU" Foreground="{DynamicResource CpuBrush}" FontWeight="SemiBold" />
                         <Run Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
                              Foreground="{Binding Live.Today.CpuPeak, Converter={StaticResource TempBrush}}" FontSize="18" />
                     </TextBlock>
@@ -266,7 +266,7 @@
                 <DockPanel Margin="0,2">
                     <TextBlock DockPanel.Dock="Right" Text="{Binding Live.Today.GpuPeakWhile}" Style="{StaticResource Row}" Margin="10,0,0,0" />
                     <TextBlock Style="{StaticResource Row}">
-                        <Run Text="GPU" Foreground="{StaticResource GpuBrush}" FontWeight="SemiBold" />
+                        <Run Text="GPU" Foreground="{DynamicResource GpuBrush}" FontWeight="SemiBold" />
                         <Run Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
                              Foreground="{Binding Live.Today.GpuPeak, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" FontSize="18" />
                     </TextBlock>
@@ -334,7 +334,7 @@
                             <Setter Property="ToolTip" Value="Open Rigsight on this dashboard instead of Home" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsStartPage}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
                                     <Setter Property="ToolTip" Value="Rigsight opens on this dashboard. Click to open on Home again." />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -379,8 +379,8 @@
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-                                    <Setter Property="Foreground" Value="White" />
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -460,19 +460,19 @@
                                                             </Border>
                                                             <ControlTemplate.Triggers>
                                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface2Brush}" />
+                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
                                                                 </Trigger>
                                                             </ControlTemplate.Triggers>
                                                         </ControlTemplate>
                                                     </Button.Template>
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12"
-                                                                   Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14"
-                                                                   Foreground="{StaticResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,12,0" />
+                                                                   Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,12,0" />
                                                         <StackPanel>
-                                                            <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{StaticResource TextBrush}" />
-                                                            <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
+                                                            <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                                                         </StackPanel>
                                                     </DockPanel>
                                                 </Button>
@@ -497,7 +497,7 @@
                             <DataTemplate>
                                 <StackPanel>
                                     <TextBlock Text="{Binding DisplayName}" FontSize="13" />
-                                    <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                                    <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -513,7 +513,7 @@
             <Grid Margin="0,0,0,32">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"
                             Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
-                    <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="34" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="This dashboard is empty" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
                     <TextBlock Text="Choose Edit, then pick tiles from the list on the right." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>

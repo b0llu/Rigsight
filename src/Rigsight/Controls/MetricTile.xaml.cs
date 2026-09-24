@@ -18,7 +18,7 @@ public partial class MetricTile : UserControl
         nameof(Accent), typeof(Brush), typeof(MetricTile), new PropertyMetadata(Brushes.DeepSkyBlue));
 
     public static readonly DependencyProperty ValueBrushProperty = DependencyProperty.Register(
-        nameof(ValueBrush), typeof(Brush), typeof(MetricTile), new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0xE8, 0xEC, 0xF4))));
+        nameof(ValueBrush), typeof(Brush), typeof(MetricTile), new PropertyMetadata(null));
 
     public static readonly DependencyProperty SparkMinimumProperty = DependencyProperty.Register(
         nameof(SparkMinimum), typeof(double?), typeof(MetricTile), new PropertyMetadata(null));
@@ -26,7 +26,11 @@ public partial class MetricTile : UserControl
     public static readonly DependencyProperty SparkMaximumProperty = DependencyProperty.Register(
         nameof(SparkMaximum), typeof(double?), typeof(MetricTile), new PropertyMetadata(null));
 
-    public MetricTile() => InitializeComponent();
+    public MetricTile()
+    {
+        SetResourceReference(ValueBrushProperty, "TextBrush");
+        InitializeComponent();
+    }
 
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public SensorItem? Sensor { get => (SensorItem?)GetValue(SensorProperty); set => SetValue(SensorProperty, value); }

@@ -130,7 +130,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     [ObservableProperty] private string _statusTitle = "";
     [ObservableProperty] private string _statusDetail = "";
-    [ObservableProperty] private Brush _statusBrush = Brushes.Transparent;
+    /// <summary>The palette brush for the status (a key, so it follows the dark or light theme).</summary>
+    [ObservableProperty] private string _statusBrush = "MutedBrush";
     [ObservableProperty] private string _statusIcon = "";
 
     public bool HasCrashes => GroupsShown.Count > 0;
@@ -236,10 +237,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
                 : string.Join(" · ", rows.GroupBy(r => r.Event.Kind).Select(g => KindCount(g.Key, g.Count()))) + ".";
             (StatusIcon, StatusBrush) = worst switch
             {
-                >= (int)CrashSeverity.Critical => ("", Res("HotBrush")),
-                >= (int)CrashSeverity.Serious => ("", Res("WarmBrush")),
-                >= (int)CrashSeverity.Minor => ("", Res("WarmBrush")),
-                _ => ("", Res("GpuBrush")),
+                >= (int)CrashSeverity.Critical => ("", "HotBrush"),
+                >= (int)CrashSeverity.Serious => ("", "WarmBrush"),
+                >= (int)CrashSeverity.Minor => ("", "WarmBrush"),
+                _ => ("", "GpuBrush"),
             };
             return;
         }
@@ -256,13 +257,13 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         (StatusTitle, StatusIcon, StatusBrush) = daysSince switch
         {
             <= 7 when lastSerious!.Event.Kind is CrashKind.SystemCrash =>
-                ($"Blue screen {Ago(lastSerious.Time)}", "", Res("HotBrush")),
+                ($"Blue screen {Ago(lastSerious.Time)}", "", "HotBrush"),
             <= 7 when lastSerious!.Event.Kind is CrashKind.UnexpectedShutdown =>
-                ($"Your PC shut off unexpectedly {Ago(lastSerious.Time)}", "", Res("HotBrush")),
-            <= 7 when inIncidents.Contains(lastSerious!) => ($"Your PC froze {Ago(lastSerious.Time)}", "", Res("WarmBrush")),
-            <= 7 => ($"Graphics trouble {Ago(lastSerious!.Time)}", "", Res("WarmBrush")),
-            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", Res("GpuBrush")),
-            _ => ($"Stable for {daysSince} days", "", Res("GpuBrush")),
+                ($"Your PC shut off unexpectedly {Ago(lastSerious.Time)}", "", "HotBrush"),
+            <= 7 when inIncidents.Contains(lastSerious!) => ($"Your PC froze {Ago(lastSerious.Time)}", "", "WarmBrush"),
+            <= 7 => ($"Graphics trouble {Ago(lastSerious!.Time)}", "", "WarmBrush"),
+            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", "GpuBrush"),
+            _ => ($"Stable for {daysSince} days", "", "GpuBrush"),
         };
     }
 
@@ -274,8 +275,6 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         CrashKind.SystemCrash => n == 1 ? "1 blue screen" : $"{n} blue screens",
         _ => n == 1 ? "1 unexpected shutdown" : $"{n} unexpected shutdowns",
     };
-
-    private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
 
     // ── Patterns ────────────────────────────────────────────────────────
 

@@ -11,6 +11,9 @@ public sealed class RigsightSettings
 
     public bool UseFahrenheit { get; set; }
 
+    /// <summary>The app's colors: "dark", "light" or "system" (follow Windows).</summary>
+    public string Theme { get; set; } = "dark";
+
     /// <summary>How often the app's live views refresh while it is open.</summary>
     public int LiveRefreshMs { get; set; } = 1000;
 

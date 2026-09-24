@@ -27,21 +27,29 @@ public sealed class LineChart : FrameworkElement
         nameof(WindowSeconds), typeof(int), typeof(LineChart), new FrameworkPropertyMetadata(300, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public static readonly DependencyProperty GridBrushProperty = DependencyProperty.Register(
-        nameof(GridBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0x23, 0x2B, 0x3D)), FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(GridBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public static readonly DependencyProperty LabelBrushProperty = DependencyProperty.Register(
-        nameof(LabelBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0x5B, 0x64, 0x7A)), FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(LabelBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     private static readonly Typeface LabelFont = new("Segoe UI");
     private static readonly Typeface HoverFont = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-    private static readonly Brush HoverBack = Frozen(new SolidColorBrush(Color.FromArgb(0xF2, 0x1B, 0x21, 0x30)));
-    private static readonly Pen HoverBorder = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x2E, 0x37, 0x4D)), 1));
-    private static readonly Pen HoverLine = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x90, 0x8A, 0x93, 0xA8)), 1));
-    private static readonly Brush HoverText = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xEC, 0xF4)));
-    private static readonly Brush HoverMuted = Frozen(new SolidColorBrush(Color.FromRgb(0x8A, 0x93, 0xA8)));
+    private static Brush HoverBack => ChartPaint.TooltipBg;
+    private static Pen HoverBorder => ChartPaint.TooltipBorder;
+    private static Pen HoverLine => _hoverLine?.Brush == ChartPaint.Cursor ? _hoverLine : _hoverLine = Frozen(new Pen(ChartPaint.Cursor, 1));
+    private static Pen? _hoverLine;
+    private static Brush HoverText => ChartPaint.TextBrush;
+    private static Brush HoverMuted => ChartPaint.Muted;
 
     private double? _hoverX;
     private Pen? _gridPen;
+
+    public LineChart()
+    {
+        // Theme colors unless a page sets its own.
+        SetResourceReference(GridBrushProperty, "StrokeBrush");
+        SetResourceReference(LabelBrushProperty, "FaintBrush");
+    }
 
     public IEnumerable<ChartSeries>? Series { get => (IEnumerable<ChartSeries>?)GetValue(SeriesProperty); set => SetValue(SeriesProperty, value); }
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }

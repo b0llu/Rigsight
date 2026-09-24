@@ -12,10 +12,10 @@ public static partial class WindowTheme
     private const int DWMWA_CAPTION_COLOR = 35;
     private const int DWMWA_TEXT_COLOR = 36;
 
-    public static void ApplyDarkTitleBar(Window window, Color caption, Color text)
+    public static void ApplyTitleBar(Window window, bool darkMode, Color caption, Color text)
     {
         var hwnd = new WindowInteropHelper(window).EnsureHandle();
-        int dark = 1;
+        int dark = darkMode ? 1 : 0;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
         int captionRef = ToColorRef(caption);
         DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref captionRef, sizeof(int));

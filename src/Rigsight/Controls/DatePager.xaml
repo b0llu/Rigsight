@@ -12,7 +12,7 @@
                 ToolTip="Pick a date" AutomationProperties.Name="Pick a date">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Label, ElementName=Root}" />
-                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{StaticResource MutedBrush}" />
+                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" />
             </StackPanel>
         </Button>
         <Button Style="{StaticResource IconButton}" Width="34" Height="34" Click="Next_Click" ToolTip="Next" AutomationProperties.Name="Next"
@@ -22,7 +22,7 @@
 
         <Popup x:Name="Picker" PlacementTarget="{Binding ElementName=LabelButton}" Placement="Custom"
                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                     CornerRadius="12" Padding="10" Margin="0,0,8,8">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
@@ -40,7 +40,7 @@
                                     ToolTip="Previous year" AutomationProperties.Name="Previous year">
                                 <TextBlock Text="&#xE76B;" />
                             </Button>
-                            <TextBlock x:Name="YearText" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="YearText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                         </DockPanel>
                         <UniformGrid x:Name="MonthGrid" Columns="4" Rows="3" />
                     </StackPanel>

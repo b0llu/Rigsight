@@ -18,8 +18,8 @@
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                            <Border Style="{StaticResource Badge}" Background="{StaticResource CpuSoftBrush}">
-                                <TextBlock Text="CPU" Style="{StaticResource BadgeText}" Foreground="{StaticResource CpuBrush}" />
+                            <Border Style="{StaticResource Badge}" Background="{DynamicResource CpuSoftBrush}">
+                                <TextBlock Text="CPU" Style="{StaticResource BadgeText}" Foreground="{DynamicResource CpuBrush}" />
                             </Border>
                             <TextBlock Text="{Binding CpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                         </DockPanel>
@@ -34,8 +34,8 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Height="40" Margin="2,0" CornerRadius="4" Background="{StaticResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
-                                            <Border VerticalAlignment="Bottom" CornerRadius="4" Background="{StaticResource CpuBrush}"
+                                        <Border Height="40" Margin="2,0" CornerRadius="4" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
+                                            <Border VerticalAlignment="Bottom" CornerRadius="4" Background="{DynamicResource CpuBrush}"
                                                     Height="{Binding Value, Converter={StaticResource Scale}, ConverterParameter=0.4}" />
                                         </Border>
                                     </DataTemplate>
@@ -55,14 +55,14 @@
                                     <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                                     <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
-                                <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{StaticResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
-                                <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{StaticResource CpuBrush}" />
-                                <ctl:MetricTile Label="AVG CLOCK" Sensor="{Binding CpuClock}" Accent="{StaticResource CpuBrush}" />
-                                <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{StaticResource CpuBrush}" />
+                                <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{DynamicResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="AVG CLOCK" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
                             </UniformGrid>
                         </Grid>
                     </DockPanel>
@@ -71,21 +71,21 @@
                 <Border Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                            <Border Style="{StaticResource Badge}" Background="{StaticResource GpuSoftBrush}">
-                                <TextBlock Text="GPU" Style="{StaticResource BadgeText}" Foreground="{StaticResource GpuBrush}" />
+                            <Border Style="{StaticResource Badge}" Background="{DynamicResource GpuSoftBrush}">
+                                <TextBlock Text="GPU" Style="{StaticResource BadgeText}" Foreground="{DynamicResource GpuBrush}" />
                             </Border>
                             <TextBlock Text="{Binding GpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                         </DockPanel>
 
                         <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding GpuVramLoad, Converter={StaticResource Vis}}">
                             <DockPanel Margin="0,0,0,8">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding GpuVramText}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding GpuVramText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                 <TextBlock Text="VIDEO MEMORY" Style="{StaticResource Caption}" />
                             </DockPanel>
-                            <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{StaticResource GpuBrush}"
+                            <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{DynamicResource GpuBrush}"
                                          Value="{Binding GpuVramLoad.Value, Mode=OneWay, TargetNullValue=0, FallbackValue=0}" />
                             <DockPanel Margin="0,12,0,0">
-                                <TextBlock DockPanel.Dock="Right" FontSize="12" Foreground="{StaticResource MutedBrush}">
+                                <TextBlock DockPanel.Dock="Right" FontSize="12" Foreground="{DynamicResource MutedBrush}">
                                     <Run Text="{Binding GpuFan.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text="{Binding GpuClock.FormattedValue, Mode=OneWay, StringFormat='   ·   core {0}'}" />
                                 </TextBlock>
                                 <TextBlock Text="FAN · CLOCK" Style="{StaticResource Caption}" />
@@ -104,15 +104,15 @@
                                     <TextBlock Text="{Binding GpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                     <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
-                                <ctl:MetricTile Label="LOAD" Sensor="{Binding GpuLoad}" Accent="{StaticResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
-                                <ctl:MetricTile Label="POWER" Sensor="{Binding GpuPower}" Accent="{StaticResource GpuBrush}" />
-                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding GpuHotSpot}" Accent="{StaticResource GpuBrush}"
+                                <ctl:MetricTile Label="LOAD" Sensor="{Binding GpuLoad}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="POWER" Sensor="{Binding GpuPower}" Accent="{DynamicResource GpuBrush}" />
+                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding GpuHotSpot}" Accent="{DynamicResource GpuBrush}"
                                                 ValueBrush="{Binding GpuHotSpot.Value, Converter={StaticResource TempBrush}, ConverterParameter='50,80,95'}" />
-                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding GpuMemJunction}" Accent="{StaticResource GpuBrush}"
+                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding GpuMemJunction}" Accent="{DynamicResource GpuBrush}"
                                                 ValueBrush="{Binding GpuMemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
                             </UniformGrid>
                         </Grid>
@@ -157,8 +157,8 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,22,0">
                                     <Ellipse Width="8" Height="8" Fill="{Binding Brush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                                    <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                    <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -185,7 +185,7 @@
                                     <DockPanel Margin="0,5" Visibility="{Binding IsHidden, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                         <ctl:Sparkline DockPanel.Dock="Right" Width="90" Height="18" Margin="12,0" Source="{Binding History}" Version="{Binding Version}"
-                                                       Stroke="{StaticResource AccentBrush}" />
+                                                       Stroke="{DynamicResource AccentBrush}" />
                                         <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Muted}" />
                                     </DockPanel>
                                 </DataTemplate>
@@ -210,7 +210,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock Text="Tip: rename these on the All sensors page (e.g. “Temperature #5” → “VRM”)."
-                                   FontSize="11" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource Card}">
@@ -228,12 +228,12 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Muted}" />
-                                            <TextBlock Text="{Binding Temperature.MinMaxText, FallbackValue=''}" FontSize="11" Foreground="{StaticResource FaintBrush}"
+                                            <TextBlock Text="{Binding Temperature.MinMaxText, FallbackValue=''}" FontSize="11" Foreground="{DynamicResource FaintBrush}"
                                                        ToolTip="Lowest and highest today" Margin="0,2,0,0" />
                                         </StackPanel>
                                         <Border Grid.Column="1" Margin="12,0" Background="Transparent" ToolTip="Recent temperature, up to the last 6 hours">
                                             <ctl:Sparkline Height="34" Source="{Binding Temperature.History}" WindowSeconds="21600" FitToData="True"
-                                                           Version="{Binding Temperature.Version}" Stroke="{StaticResource PurpleBrush}" />
+                                                           Version="{Binding Temperature.Version}" Stroke="{DynamicResource PurpleBrush}" />
                                         </Border>
                                         <TextBlock Grid.Column="2" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
@@ -241,7 +241,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="SSDs are happiest below about 60°C; hard drives below 50°C." FontSize="11" Foreground="{StaticResource FaintBrush}"
+                        <TextBlock Text="SSDs are happiest below about 60°C; hard drives below 50°C." FontSize="11" Foreground="{DynamicResource FaintBrush}"
                                    TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>

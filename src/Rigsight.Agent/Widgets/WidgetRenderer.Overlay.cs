@@ -45,7 +45,9 @@ internal static partial class WidgetRenderer
         return px * f.GetCellAscent(font.Style) / f.GetEmHeight(font.Style);
     }
 
-    private static readonly Palette OverlayPalette = For(WidgetTheme.Black);
+    // Its own fixed look, whatever the widgets' theme: it has to read over any game.
+    private static readonly Palette OverlayPalette = new(Color.FromArgb(215, 0, 0, 0), Color.FromArgb(40, 255, 255, 255), Color.White,
+        Color.FromArgb(170, 176, 190), Color.FromArgb(110, 116, 130), Color.FromArgb(45, 255, 255, 255), false);
 
     /// <summary>The panel's own see-through-ness at 100% opacity (the same in our window and in RivaTuner).</summary>
     private const int OverlayPanelAlpha = 190;

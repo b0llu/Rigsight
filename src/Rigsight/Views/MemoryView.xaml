@@ -28,10 +28,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid Width="150" Height="150">
-                        <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="12" Brush="{StaticResource PurpleBrush}" />
+                        <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="12" Brush="{DynamicResource PurpleBrush}" />
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="34" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" />
+                                       Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                             <TextBlock Text="IN USE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Grid>
@@ -39,10 +39,10 @@
                         <TextBlock Text="System memory" Style="{StaticResource H2}" />
                         <TextBlock Text="{Binding Live.RamText}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                         <TextBlock Style="{StaticResource Muted}">
-                            <Run Text="Available:" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{StaticResource TextBrush}" />
+                            <Run Text="Available:" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
                         </TextBlock>
                         <ctl:Sparkline Height="44" Margin="0,14,0,0" Source="{Binding Live.RamLoad.History}" Version="{Binding Live.RamLoad.Version}"
-                                       Stroke="{StaticResource PurpleBrush}" Minimum="0" Maximum="100" WindowSeconds="600" />
+                                       Stroke="{DynamicResource PurpleBrush}" Minimum="0" Maximum="100" WindowSeconds="600" />
                         <TextBlock Text="LAST 10 MINUTES" Style="{StaticResource Caption}" Margin="0,6,0,0" />
                     </StackPanel>
                 </Grid>
@@ -65,12 +65,12 @@
                                     </Grid.ColumnDefinitions>
                                     <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
                                     <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                    <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="10,0" VerticalAlignment="Center" Foreground="{StaticResource PurpleBrush}"
+                                    <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="10,0" VerticalAlignment="Center" Foreground="{DynamicResource PurpleBrush}"
                                                  Maximum="{Binding DataContext.TodayMemoryMax, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  Value="{Binding MemMax, Mode=OneWay, TargetNullValue=0}" />
                                     <!-- Each phrase starts at the same place in every row ("peak 5.8 GB", "peak 886 MB"). -->
                                     <TextBlock Grid.Column="3" Style="{StaticResource Muted}" VerticalAlignment="Center">
-                                        <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                                        <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                     </TextBlock>
                                     <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0">
                                         <Run Text="avg" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
@@ -118,11 +118,11 @@
                                     <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
                                     <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
                                         <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                        <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                                        <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
                                     </StackPanel>
                                 </DockPanel>
                                 <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" VerticalAlignment="Center" Margin="8,0"
-                                             Value="{Binding MemShare, Mode=OneWay}" Foreground="{StaticResource PurpleBrush}" />
+                                             Value="{Binding MemShare, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}" />
                                 <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="3" Text="{Binding CpuText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />

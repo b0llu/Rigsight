@@ -43,6 +43,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Settings.Changed += () =>
         {
+            ThemeManager.Apply(Settings.Current.Theme);
             Live.ApplySettings();
             Widgets.Refresh();
             Overlay.Refresh();

@@ -13,7 +13,7 @@
             <TextBlock Text="Desktop widgets" Style="{StaticResource H1}" />
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,8"
                        Text="Turn on as many as you like. Drag them anywhere; right-click one for quick options. Widgets are drawn by the background agent, so they cost almost nothing even while you game." />
-            <TextBlock FontSize="12" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+            <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
                        Text="Tip: “Lock” makes a widget click-through so it never gets in the way. For numbers over your games, use the Overlay page." />
 
             <ItemsControl ItemsSource="{Binding Cards}" Margin="-9,0">
@@ -57,10 +57,10 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <RadioButton Style="{StaticResource Segment}" Content="Dark" GroupName="{Binding Title, StringFormat='theme-{0}'}"
                                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}" />
-                                                <RadioButton Style="{StaticResource Segment}" Content="Black" GroupName="{Binding Title, StringFormat='theme-{0}'}"
-                                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Black}" />
-                                                <RadioButton Style="{StaticResource Segment}" Content="Light" GroupName="{Binding Title, StringFormat='theme-{0}'}"
+                                                                                                <RadioButton Style="{StaticResource Segment}" Content="Light" GroupName="{Binding Title, StringFormat='theme-{0}'}"
                                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="System" GroupName="{Binding Title, StringFormat='theme-{0}'}"
+                                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=System}" />
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>

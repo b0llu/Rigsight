@@ -89,12 +89,12 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - **Safe with anti-cheat**: Rigsight itself never hooks into games. Its own overlay is a normal always-on-top window, and RivaTuner is a long-established tool that anti-cheat systems accept.
 
 ### 🖥️ On your desktop
-- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has themes, sizes, opacity and a click-through lock.
+- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has a dark, light or system theme, sizes, opacity and a click-through lock.
 - **Tray icon** with a health dot (green, amber or red) and a live readout on hover.
 - **Calm notifications**: a daily recap, game session summaries, temperature alerts that ignore brief spikes, and (optionally) a plain-language note when something crashes. Non-urgent cards wait until you leave a fullscreen game.
 
 ### 🎛️ Your control
-- Dozens of settings: what gets tracked, how long history is kept, alert thresholds, units, widget looks, and start with Windows.
+- Dozens of settings: what gets tracked, how long history is kept, alert thresholds, units, a black or white app theme (or follow Windows), widget looks, and start with Windows.
 - Pause tracking at any time from the tray.
 - Clear your history with one click.
 
@@ -210,7 +210,7 @@ src/
     Widgets/                GDI+ widget renderer and layered windows
     Ui/                     tray icon, menus, notification cards
     Ipc/                    named-pipe server
-  Rigsight/               the app window (WPF, Fluent dark theme, MVVM)
+  Rigsight/               the app window (WPF, Fluent, dark and light themes, MVVM)
     Views/ ViewModels/ Controls/ Services/ Themes/
 installer/Rigsight.iss    Inno Setup script
 tools/                    build-installer.ps1, make-icon.ps1

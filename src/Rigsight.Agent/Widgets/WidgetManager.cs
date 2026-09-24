@@ -123,7 +123,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(new ToolStripSeparator());
 
         var theme = new ToolStripMenuItem("Theme");
-        foreach (var t in Enum.GetValues<WidgetTheme>())
+        foreach (var t in new[] { WidgetTheme.Dark, WidgetTheme.Light, WidgetTheme.System })
             theme.DropDownItems.Add(Check(t.ToString(), cfg.Theme == t, () => Mutate(cfg.Style, c => c.Theme = t)));
         menu.Items.Add(theme);
 

@@ -26,7 +26,7 @@ public sealed class ArcGauge : FrameworkElement
         nameof(Brush), typeof(Brush), typeof(ArcGauge), new FrameworkPropertyMetadata(Brushes.DeepSkyBlue, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public static readonly DependencyProperty TrackBrushProperty = DependencyProperty.Register(
-        nameof(TrackBrush), typeof(Brush), typeof(ArcGauge), new FrameworkPropertyMetadata(new SolidColorBrush(Color.FromRgb(0x23, 0x2B, 0x3D)), FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(TrackBrush), typeof(Brush), typeof(ArcGauge), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     private static readonly DependencyProperty FractionProperty = DependencyProperty.Register(
         "Fraction", typeof(double), typeof(ArcGauge), new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -42,6 +42,7 @@ public sealed class ArcGauge : FrameworkElement
 
     public ArcGauge()
     {
+        SetResourceReference(TrackBrushProperty, "HoverBrush");
         // A page that isn't shown keeps its gauges bound; don't let them animate (and redraw) off-screen.
         IsVisibleChanged += (_, _) => { if (!IsVisible) SetFraction(_target); };
     }

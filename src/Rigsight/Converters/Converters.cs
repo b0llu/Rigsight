@@ -33,11 +33,11 @@ internal static class Brushes2
 /// </summary>
 public sealed class TempToBrushConverter : IValueConverter
 {
-    public static readonly SolidColorBrush Cool = Brushes2.Frozen(0x38, 0xBD, 0xF8);
-    public static readonly SolidColorBrush Good = Brushes2.Frozen(0x34, 0xD3, 0x99);
-    public static readonly SolidColorBrush Warm = Brushes2.Frozen(0xFB, 0xBF, 0x24);
-    public static readonly SolidColorBrush Hot = Brushes2.Frozen(0xF8, 0x71, 0x71);
-    public static readonly SolidColorBrush None = Brushes2.Frozen(0x5B, 0x64, 0x7A);
+    public static SolidColorBrush Cool => Controls.ChartPaint.Cool;
+    public static SolidColorBrush Good => Controls.ChartPaint.Good;
+    public static SolidColorBrush Warm => Controls.ChartPaint.Warm;
+    public static SolidColorBrush Hot => Controls.ChartPaint.Hot;
+    public static SolidColorBrush None => Controls.ChartPaint.Faint;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -194,7 +194,7 @@ public sealed class CategoryLabelConverter : IValueConverter
 /// <summary>Insight tone → accent color.</summary>
 public sealed class ToneBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush Neutral = Brushes2.Frozen(0x5B, 0x8C, 0xFF);
+    private static SolidColorBrush Neutral => Controls.ChartPaint.CpuBrush;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
@@ -225,6 +225,15 @@ public sealed class SeverityBrushConverter : IValueConverter
         soft.Freeze();
         return soft;
     }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>A palette brush by its key ("HotBrush"…), looked up in the current theme.</summary>
+public sealed class ResourceBrushConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string key ? Application.Current.TryFindResource(key) as Brush : null;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

@@ -72,6 +72,8 @@ public static class SettingsStore
         }
         s.SettingsVersion = CurrentVersion;
 
+        if (s.Theme is not ("dark" or "light" or "system")) s.Theme = "dark";
+
         foreach (var style in Enum.GetValues<WidgetStyle>())
             if (s.Widgets.All(w => w.Style != style))
                 s.Widgets.Add(new WidgetConfig { Style = style });
@@ -79,6 +81,7 @@ public static class SettingsStore
 
         foreach (var w in s.Widgets)
         {
+            if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
             w.Opacity = Math.Clamp(w.Opacity, 0.3, 1.0);
             w.Scale = Math.Clamp(w.Scale, 0.6, 2.0);
         }

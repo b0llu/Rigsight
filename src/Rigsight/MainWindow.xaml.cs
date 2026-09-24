@@ -26,8 +26,20 @@ public partial class MainWindow : Window
         };
         ShowPage(vm.CurrentPage);
 
-        SourceInitialized += (_, _) =>
-            WindowTheme.ApplyDarkTitleBar(this, (Color)FindResource("BgColor"), (Color)FindResource("TextColor"));
+        SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
+        ThemeManager.Changed += RebuildPages;
+    }
+
+    /// <summary>
+    /// After a theme change, build the pages again: the palette follows by itself, but the charts' colors and
+    /// converted colors (temperatures, severities) are picked when a page is built.
+    /// </summary>
+    private void RebuildPages()
+    {
+        foreach (var view in _pages.Values) view.DataContext = null;
+        _pages.Clear();
+        PageHost.Content = null;
+        ShowPage(_vm.CurrentPage);
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -45,7 +57,6 @@ public partial class MainWindow : Window
                 "reports" => new ReportsView { DataContext = _vm.ReportsPage },
                 "apps" => new AppsView { DataContext = _vm.Apps },
                 "crashes" => new CrashesView { DataContext = _vm.Crashes },
-                "guide" => new GuideView(),
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
                 "storage" => new StorageView { DataContext = _vm.Storage },

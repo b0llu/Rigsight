@@ -34,15 +34,36 @@ internal static partial class WidgetRenderer
     private static readonly Color Gpu = Color.FromArgb(61, 220, 151);
     private static readonly Color Ram = Color.FromArgb(177, 140, 255);
 
+    // Black and white, like the app's own dark and light themes.
+    private static readonly Palette DarkPalette = new(Color.FromArgb(10, 10, 10), Color.FromArgb(38, 38, 38), Color.White,
+        Color.FromArgb(163, 163, 163), Color.FromArgb(107, 107, 107), Color.FromArgb(38, 38, 38), false);
+    private static readonly Palette LightPalette = new(Color.White, Color.FromArgb(222, 222, 222), Color.Black,
+        Color.FromArgb(85, 85, 85), Color.FromArgb(140, 140, 140), Color.FromArgb(230, 230, 230), true);
+
     private static Palette For(WidgetTheme theme) => theme switch
     {
-        WidgetTheme.Black => new(Color.FromArgb(215, 0, 0, 0), Color.FromArgb(40, 255, 255, 255), Color.White,
-            Color.FromArgb(170, 176, 190), Color.FromArgb(110, 116, 130), Color.FromArgb(45, 255, 255, 255), false),
-        WidgetTheme.Light => new(Color.FromArgb(245, 247, 248, 251), Color.FromArgb(221, 226, 234), Color.FromArgb(17, 24, 39),
-            Color.FromArgb(75, 85, 99), Color.FromArgb(150, 158, 170), Color.FromArgb(229, 231, 235), true),
-        _ => new(Color.FromArgb(244, 20, 25, 37), Color.FromArgb(35, 43, 61), Color.FromArgb(232, 236, 244),
-            Color.FromArgb(138, 147, 168), Color.FromArgb(91, 100, 122), Color.FromArgb(35, 43, 61), false),
+        WidgetTheme.Light => LightPalette,
+        WidgetTheme.System => WindowsUsesLight() ? LightPalette : DarkPalette,
+        _ => DarkPalette,
     };
+
+    // Widgets redraw every second or so: read Windows' app mode at most every few seconds.
+    private static bool _windowsLight;
+    private static long _windowsLightChecked;
+
+    private static bool WindowsUsesLight()
+    {
+        long now = Environment.TickCount64;
+        if (now - _windowsLightChecked < 3000) return _windowsLight;
+        _windowsLightChecked = now;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            _windowsLight = key?.GetValue("AppsUseLightTheme") is int v && v != 0;
+        }
+        catch { _windowsLight = false; }
+        return _windowsLight;
+    }
 
     private static Color TempColor(double? c, Palette p)
     {

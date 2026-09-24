@@ -5,7 +5,7 @@
         Title="Rigsight" Icon="Assets/Rigsight.ico"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI Variable Text, Segoe UI">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -14,15 +14,15 @@
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar -->
-        <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,0,1,0">
+        <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0">
             <DockPanel Margin="14,16,14,16">
                 <!-- Bottom: an agent warning if needed, then a live readout -->
                 <StackPanel DockPanel.Dock="Bottom">
-                    <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{StaticResource WarmSoftBrush}"
-                            BorderBrush="{StaticResource WarmBrush}" BorderThickness="1"
+                    <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
+                            BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                             Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}">
                         <StackPanel>
-                            <TextBlock FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource WarmBrush}" TextWrapping="Wrap">
+                            <TextBlock FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="Background agent not running" />
@@ -34,7 +34,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Text="{Binding AgentHint}" FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <TextBlock Text="{Binding AgentHint}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
                             <Button Style="{StaticResource AccentButton}" Command="{Binding StartAgentCommand}" HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
@@ -44,7 +44,8 @@
                         </StackPanel>
                     </Border>
 
-                    <Border CornerRadius="12" Padding="8,10" Background="{StaticResource SurfaceBrush}"
+                    <Border CornerRadius="12" Padding="8,10" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                             Visibility="{Binding IsConnected, Converter={StaticResource Vis}}">
                         <UniformGrid Columns="3">
                             <UniformGrid.Resources>
@@ -52,17 +53,17 @@
                                 <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Center" /></Style>
                             </UniformGrid.Resources>
                             <StackPanel>
-                                <TextBlock Text="CPU" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource CpuBrush}" />
+                                <TextBlock Text="CPU" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource CpuBrush}" />
                                 <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
                                            Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="GPU" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource GpuBrush}" />
+                                <TextBlock Text="GPU" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource GpuBrush}" />
                                 <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
                                            Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="RAM" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource PurpleBrush}" />
+                                <TextBlock Text="RAM" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource PurpleBrush}" />
                                 <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold" />
                             </StackPanel>
                         </UniformGrid>
@@ -91,7 +92,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New dashboard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{StaticResource FaintBrush}" Margin="0,0,0,4"
+                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New dashboard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
                             ToolTip="Build your own dashboard from tiles">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
@@ -103,8 +104,8 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface2Brush}" />
-                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -128,8 +129,6 @@
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=overlay}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE946;" Content="Guide"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=guide}" />
                 </StackPanel>
                 </ScrollViewer>
             </DockPanel>

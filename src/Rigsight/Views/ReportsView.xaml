@@ -6,7 +6,7 @@
         <Style x:Key="StatValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="22" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
         <Style x:Key="Col" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -16,7 +16,7 @@
         </Style>
         <Style x:Key="Cell" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -49,13 +49,13 @@
                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                 </StackPanel>
             </DockPanel>
-            <TextBlock Text="{Binding CoverageNote}" Foreground="{StaticResource FaintBrush}" FontSize="12" Margin="0,8,0,0"
+            <TextBlock Text="{Binding CoverageNote}" Foreground="{DynamicResource FaintBrush}" FontSize="12" Margin="0,8,0,0"
                        Visibility="{Binding CoverageNote, Converter={StaticResource Vis}}" />
 
             <!-- Empty state -->
             <Border Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
-                    <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="Nothing recorded for this period" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
                     <TextBlock Text="No data for this period: the PC was off, or the background agent wasn't running. Pick another period."
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
@@ -111,9 +111,9 @@
                         <DockPanel Margin="0,0,0,12">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
                                         Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                <Ellipse Width="8" Height="8" Fill="{StaticResource CpuBrush}" VerticalAlignment="Center" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" />
-                                <Ellipse Width="8" Height="8" Fill="{StaticResource GpuBrush}" VerticalAlignment="Center" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" />
                             </StackPanel>
                             <Grid>
@@ -124,7 +124,7 @@
                         <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" RecordedUntil="{Binding Report.BuiltAt}"
                                          Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                         <ctl:DailyBars Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                        <TextBlock FontSize="11.5" Foreground="{StaticResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
+                        <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
                                    Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details."
                                    Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                     </StackPanel>
@@ -144,11 +144,11 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <DockPanel Margin="0,6">
-                                            <Border Width="30" Height="30" CornerRadius="8" Background="{StaticResource Surface2Brush}" VerticalAlignment="Top">
+                                            <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
                                                            Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                                             </Border>
-                                            <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap"
+                                            <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap"
                                                        Margin="14,0,0,0" VerticalAlignment="Center" />
                                         </DockPanel>
                                     </DataTemplate>
@@ -167,7 +167,7 @@
                                                        Foreground="{Binding Brush}" VerticalAlignment="Center" />
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource Body}" />
-                                                <TextBlock FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextTrimming="CharacterEllipsis">
+                                                <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis">
                                                     <Run Text="{Binding When, Mode=OneWay}" /><Run Text="{Binding App, Mode=OneWay, StringFormat='  ·  {0}'}" />
                                                 </TextBlock>
                                             </StackPanel>
@@ -186,12 +186,12 @@
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowBackgroundApps}"
                                       Visibility="{Binding BackgroundOnlyCount, Converter={StaticResource Vis}}"
                                       ToolTip="Apps that were open in the background or minimized, but that you never actually switched to.">
-                                <TextBlock Text="{Binding BackgroundToggleText}" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock Text="{Binding BackgroundToggleText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
                             </CheckBox>
                             <StackPanel>
                                 <TextBlock Text="Apps you used" Style="{StaticResource H2}" />
                                 <TextBlock Text="Temperatures are averaged over the time each app was in front and in use." FontSize="12"
-                                           Foreground="{StaticResource FaintBrush}" Margin="0,2,0,0" />
+                                           Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <Grid Margin="0,0,0,6">
@@ -249,7 +249,7 @@
                                                 </StackPanel>
                                             </DockPanel>
                                             <TextBlock Grid.Column="1" Text="{Binding ActiveSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource Cell}"
-                                                       Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                                                       Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                             <TextBlock Grid.Column="2" Text="{Binding BackgroundSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource Cell}" />
                                             <TextBlock Grid.Column="3" Text="{Binding MinimizedSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource Cell}" />
                                             <TextBlock Grid.Column="4" Text="{Binding CpuTempAvg, Converter={StaticResource TempShort}}" Style="{StaticResource Cell}"
@@ -265,7 +265,7 @@
                                     </Border>
                                     <DataTemplate.Triggers>
                                         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Surface2Brush}" />
+                                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
                                         </Trigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -300,9 +300,9 @@
                                         <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="24" Height="24" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
-                                            <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{StaticResource GpuSoftBrush}"
+                                            <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{DynamicResource GpuSoftBrush}"
                                                     Visibility="{Binding IsGame, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="GAME" FontSize="10" FontWeight="Bold" Foreground="{StaticResource GpuBrush}" />
+                                                <TextBlock Text="GAME" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GpuBrush}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Style="{StaticResource Muted}" VerticalAlignment="Center">

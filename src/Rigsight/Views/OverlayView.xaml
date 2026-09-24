@@ -10,30 +10,30 @@
 
         <!-- An on/off chip for one reading. -->
         <Style x:Key="MetricChip" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Margin" Value="0,0,8,8" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border x:Name="Bd" Background="{StaticResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
+                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
                                 CornerRadius="9" Padding="12,6">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="Check" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,7,0"
-                                           Foreground="{StaticResource AccentBrush}" Visibility="Collapsed" />
+                                           Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
                                 <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="13" />
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                 <Setter TargetName="Check" Property="Visibility" Value="Visible" />
-                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -48,13 +48,13 @@
             <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,18" />
 
             <!-- Only when fullscreen games can't show the overlay -->
-            <Border Background="{StaticResource WarmSoftBrush}" CornerRadius="12" Padding="18,14" Margin="0,0,0,18"
+            <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="12" Padding="18,14" Margin="0,0,0,18"
                     Visibility="{Binding ShowRtssWarning, Converter={StaticResource Vis}}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
-                               Foreground="{StaticResource WarmBrush}" VerticalAlignment="Top" />
+                               Foreground="{DynamicResource WarmBrush}" VerticalAlignment="Top" />
                     <StackPanel>
-                        <TextBlock Text="{Binding RtssTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource WarmBrush}" />
+                        <TextBlock Text="{Binding RtssTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
                         <TextBlock Text="{Binding RtssStatus}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}">
                             <Button Style="{StaticResource AccentButton}" Content="Install RivaTuner" Command="{Binding InstallRtssCommand}" />
@@ -89,19 +89,19 @@
                                     AutomationProperties.Name="Change shortcut" ToolTip="Click, then press the new shortcut">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource StrokeBrush}"
+                                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
                                                 BorderThickness="1" CornerRadius="9" Padding="14,8" MinWidth="170" Cursor="Hand">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="&#xE765;" Style="{StaticResource Icon}" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="0,0,10,0" />
-                                                <TextBlock Text="{Binding RecordText}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                                <TextBlock Text="&#xE765;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" />
+                                                <TextBlock Text="{Binding RecordText}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                             </StackPanel>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
                                             </Trigger>
                                             <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                             </DataTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -113,9 +113,9 @@
                         <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Visibility="{Binding RecordHint, Converter={StaticResource Vis}}" />
 
-                        <Border Background="{StaticResource WarmSoftBrush}" CornerRadius="9" Padding="12,8" Margin="0,12,0,0"
+                        <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="9" Padding="12,8" Margin="0,12,0,0"
                                 Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
-                            <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource WarmBrush}"
+                            <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource WarmBrush}"
                                        Text="Another program already uses this shortcut, so Rigsight can't hear it. Pick a different one." />
                         </Border>
 
@@ -209,7 +209,7 @@
                     <ItemsControl ItemsSource="{Binding Sensors}" Visibility="{Binding HasSensors, Converter={StaticResource Vis}}" Margin="0,0,0,12">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
@@ -229,7 +229,7 @@
                                         <Grid DockPanel.Dock="Right" Width="190" Margin="12,0,8,0" VerticalAlignment="Center">
                                             <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12.5"
                                                      ToolTip="Short name on the overlay (up to 18 letters). Leave empty to use the sensor's own name." />
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{StaticResource FaintBrush}" IsHitTestVisible="False"
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
                                                        Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
@@ -244,8 +244,8 @@
                                             </TextBlock>
                                         </Grid>
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>
@@ -268,7 +268,7 @@
                                 <DataTemplate>
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisplayName}" FontSize="13" />
-                                        <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                                        <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
@@ -338,9 +338,9 @@
             <Border Style="{StaticResource Card}" Margin="0,18,0,0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
-                               Foreground="{StaticResource AccentBrush}" VerticalAlignment="Top" />
+                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
                     <StackPanel>
-                        <TextBlock Text="Rigsight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <TextBlock Text="Rigsight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="In exclusive-fullscreen games the overlay is drawn by RivaTuner Statistics Server; everywhere else (the desktop, windowed and borderless games) Rigsight draws it itself. Either way it uses the readings, corner, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"

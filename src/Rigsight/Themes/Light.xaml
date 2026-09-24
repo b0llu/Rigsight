@@ -1,0 +1,76 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Light: pure white and black. The coloured readings are darker so they read on white.
+         Swapped at runtime by ThemeManager; everything that uses these refers to them with DynamicResource. -->
+    <Color x:Key="BgColor">#FFFFFF</Color>
+    <Color x:Key="SidebarColor">#FFFFFF</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="Surface2Color">#F3F3F3</Color>
+    <Color x:Key="HoverColor">#E6E6E6</Color>
+    <Color x:Key="StrokeColor">#E3E3E3</Color>
+    <Color x:Key="TextColor">#000000</Color>
+    <Color x:Key="MutedColor">#555555</Color>
+    <Color x:Key="FaintColor">#8C8C8C</Color>
+    <Color x:Key="AccentColor">#000000</Color>
+    <Color x:Key="OnAccentColor">#FFFFFF</Color>
+    <Color x:Key="CpuColor">#2563EB</Color>
+    <Color x:Key="GpuColor">#059669</Color>
+    <Color x:Key="WarmColor">#D97706</Color>
+    <Color x:Key="HotColor">#DC2626</Color>
+    <Color x:Key="PurpleColor">#7C3AED</Color>
+    <Color x:Key="OrangeColor">#EA580C</Color>
+    <Color x:Key="CoolColor">#0284C7</Color>
+    <Color x:Key="GoodColor">#16A34A</Color>
+    <Color x:Key="PinkColor">#DB2777</Color>
+    <Color x:Key="TooltipColor">#FFFFFF</Color>
+
+    <SolidColorBrush x:Key="BgBrush" Color="{StaticResource BgColor}" />
+    <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2Color}" />
+    <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}" />
+    <SolidColorBrush x:Key="StrokeBrush" Color="{StaticResource StrokeColor}" />
+    <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
+    <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
+    <SolidColorBrush x:Key="FaintBrush" Color="{StaticResource FaintColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccentColor}" />
+    <SolidColorBrush x:Key="CpuBrush" Color="{StaticResource CpuColor}" />
+    <SolidColorBrush x:Key="GpuBrush" Color="{StaticResource GpuColor}" />
+    <SolidColorBrush x:Key="WarmBrush" Color="{StaticResource WarmColor}" />
+    <SolidColorBrush x:Key="HotBrush" Color="{StaticResource HotColor}" />
+    <SolidColorBrush x:Key="PurpleBrush" Color="{StaticResource PurpleColor}" />
+    <SolidColorBrush x:Key="OrangeBrush" Color="{StaticResource OrangeColor}" />
+    <SolidColorBrush x:Key="CoolBrush" Color="{StaticResource CoolColor}" />
+    <SolidColorBrush x:Key="GoodBrush" Color="{StaticResource GoodColor}" />
+    <SolidColorBrush x:Key="PinkBrush" Color="{StaticResource PinkColor}" />
+    <SolidColorBrush x:Key="TooltipBrush" Color="{StaticResource TooltipColor}" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentColor}" Opacity="0.08" />
+    <SolidColorBrush x:Key="CpuSoftBrush" Color="{StaticResource CpuColor}" Opacity="0.16" />
+    <SolidColorBrush x:Key="GpuSoftBrush" Color="{StaticResource GpuColor}" Opacity="0.16" />
+    <SolidColorBrush x:Key="HotSoftBrush" Color="{StaticResource HotColor}" Opacity="0.14" />
+    <SolidColorBrush x:Key="WarmSoftBrush" Color="{StaticResource WarmColor}" Opacity="0.12" />
+    <SolidColorBrush x:Key="PurpleSoftBrush" Color="{StaticResource PurpleColor}" Opacity="0.16" />
+
+    <!-- The Fluent controls (calendar, combo boxes, text boxes, sliders, check boxes) use the same monochrome accent. -->
+    <Color x:Key="SystemAccentColor">#000000</Color>
+    <Color x:Key="SystemAccentColorPrimary">#000000</Color>
+    <Color x:Key="SystemAccentColorSecondary">#000000</Color>
+    <Color x:Key="SystemAccentColorTertiary">#555555</Color>
+    <Color x:Key="SystemAccentColorLight1">#000000</Color>
+    <Color x:Key="SystemAccentColorLight2">#000000</Color>
+    <Color x:Key="SystemAccentColorLight3">#000000</Color>
+    <Color x:Key="SystemAccentColorDark1">#000000</Color>
+    <Color x:Key="SystemAccentColorDark2">#000000</Color>
+    <Color x:Key="SystemAccentColorDark3">#000000</Color>
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource AccentColor}" Opacity="0.9" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{StaticResource AccentColor}" Opacity="0.8" />
+    <SolidColorBrush x:Key="AccentFillColorSelectedTextBackgroundBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="{StaticResource MutedColor}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="{StaticResource OnAccentColor}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="{StaticResource OnAccentColor}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSelectedTextBrush" Color="{StaticResource OnAccentColor}" />
+</ResourceDictionary>
