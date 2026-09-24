@@ -127,10 +127,15 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             theme.DropDownItems.Add(Check(t.ToString(), cfg.Theme == t, () => Mutate(cfg.Style, c => c.Theme = t)));
         menu.Items.Add(theme);
 
-        var opacity = new ToolStripMenuItem("Opacity");
+        var background = new ToolStripMenuItem("Background opacity");
+        foreach (var o in new[] { 1.0, 0.9, 0.75, 0.5, 0.25, 0.0 })
+            background.DropDownItems.Add(Check(o == 0 ? "None" : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Style, c => c.BackgroundOpacity = o)));
+        menu.Items.Add(background);
+
+        var contentOpacity = new ToolStripMenuItem("Content opacity");
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.6, 0.45 })
-            opacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.Opacity - o) < 0.01, () => Mutate(cfg.Style, c => c.Opacity = o)));
-        menu.Items.Add(opacity);
+            contentOpacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.ContentOpacity - o) < 0.01, () => Mutate(cfg.Style, c => c.ContentOpacity = o)));
+        menu.Items.Add(contentOpacity);
 
         var size = new ToolStripMenuItem("Size");
         foreach (var (label, s) in new[] { ("Small", 0.8), ("Normal", 1.0), ("Large", 1.25), ("Extra large", 1.5) })
@@ -182,7 +187,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             Directory.CreateDirectory(dir);
             foreach (var cfg in settings.Widgets)
             {
-                var preview = new WidgetConfig { Style = cfg.Style, Theme = cfg.Theme, Opacity = 1, Scale = 1 };
+                // Shown over a backdrop in the app, so both opacities are visible there as on the desktop.
+                var preview = new WidgetConfig { Style = cfg.Style, Theme = cfg.Theme, BackgroundOpacity = cfg.BackgroundOpacity, ContentOpacity = cfg.ContentOpacity, Scale = 1 };
                 using var bmp = WidgetRenderer.Render(preview, _data, 2f, hover: false, out _);
                 bmp.Save(Path.Combine(dir, $"{cfg.Style}.png"), System.Drawing.Imaging.ImageFormat.Png);
             }

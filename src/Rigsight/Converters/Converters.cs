@@ -229,6 +229,55 @@ public sealed class SeverityBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
+/// <summary>
+/// The colour of a kind of reading (a <see cref="SensorKind"/>) or of a piece of hardware (its type name, "Cpu",
+/// "GpuNvidia"…), from the current theme's palette: temperatures orange, load blue, clocks purple, power amber,
+/// voltages cyan, fans green, data pink; CPU blue, GPU green, memory purple, drives cyan, the board orange.
+/// ConverterParameter "soft" gives the faint background version for chips.
+/// </summary>
+public sealed class KindBrushConverter : IValueConverter
+{
+    private static readonly Dictionary<(string Key, bool Soft, int Theme), SolidColorBrush> Cache = [];
+
+    public static string ColorKey(object? value) => value switch
+    {
+        SensorKind.Temperature => "OrangeColor",
+        SensorKind.Load => "CpuColor",
+        SensorKind.Clock or SensorKind.Frequency or SensorKind.Timing => "PurpleColor",
+        SensorKind.Power or SensorKind.Energy or SensorKind.Current => "WarmColor",
+        SensorKind.Voltage => "CoolColor",
+        SensorKind.Fan or SensorKind.Flow or SensorKind.Control => "GoodColor",
+        SensorKind.Data or SensorKind.SmallData or SensorKind.Throughput => "PinkColor",
+        SensorKind => "MutedColor",
+        "Cpu" => "CpuColor",
+        "GpuNvidia" or "GpuAmd" or "GpuIntel" => "GpuColor",
+        "Memory" => "PurpleColor",
+        "Storage" => "CoolColor",
+        "Motherboard" or "SuperIO" or "EmbeddedController" => "OrangeColor",
+        "Cooler" => "GoodColor",
+        "Psu" or "Battery" => "WarmColor",
+        "Network" => "PinkColor",
+        _ => "MutedColor",
+    };
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        string key = ColorKey(value);
+        bool soft = parameter as string == "soft";
+        var cacheKey = (key, soft, ThemeManager.Version);
+        if (!Cache.TryGetValue(cacheKey, out var brush))
+        {
+            var color = Application.Current.TryFindResource(key) is Color c ? c : Colors.Gray;
+            brush = new SolidColorBrush(color) { Opacity = soft ? 0.14 : 1 };
+            brush.Freeze();
+            Cache[cacheKey] = brush;
+        }
+        return brush;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>A palette brush by its key ("HotBrush"…), looked up in the current theme.</summary>
 public sealed class ResourceBrushConverter : IValueConverter
 {

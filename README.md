@@ -57,6 +57,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
   - peak CPU and GPU temperature, hot spot, voltage and power, with the time and the app in front;
   - your longest sessions (a minute or more; quick switches still count towards app time);
   - highlights, shown only when there's something to report: time against your daily average, the longest stretch without a break, temperatures compared at the same load (idle against idle, heavy load against heavy load), minutes at your alert limit, and a GPU hot spot running far above the core (a sign the thermal paste needs redoing).
+- **One history, all kept for the same time**: minute-by-minute temperatures, app time, sessions and crashes all go back equally far, so every page and every period covers the same dates. Choose how far back it goes, from 3 months to forever; a year takes about 25 MB.
 - **Active time, not just time open**: time counts as active only while you're using the app; a fullscreen game counts even when you're not touching the mouse. Time away from the PC is counted separately.
 
 ### 🧩 Apps
@@ -67,7 +68,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - App and game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns, all read from Windows' own records.
 - **Plain-language explanations**: blue screen codes and faulting modules are translated into what probably happened and what to try.
 - Shows what was going on just before each crash: CPU and GPU temperatures, and which game you were in and for how long.
-- **List** (every crash, newest at the top) or **Grouped**: the same crash repeated is one row with a count ("Wallpaper Engine crashed ×36"), and several things failing within minutes is one incident ("Your PC froze: 5 apps stopped responding").
+- **List** (every crash, newest at the top, more loading as you scroll) or **Grouped**: the same crash repeated is one row with a count ("Wallpaper Engine crashed ×36"), and several things failing within minutes is one incident ("Your PC froze: 5 apps stopped responding").
 - **A timeline** of problems per day, coloured by severity, with the days a driver or Windows update was installed marked, and **"what changed before"**: a blue screen that started two days after a graphics driver install says so.
 - **Copy report** (a ready-to-paste summary with your CPU, GPU and driver, RAM and Windows version), **Search online**, and **Show dump file** for blue screens.
 - **Mute** an app you don't care about: its crashes leave the totals, timeline, reports and notifications (nothing is deleted).
@@ -82,23 +83,33 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 
 ### 🎮 Game overlay
 - **Press `Alt+Shift+O` in any game** to show or hide a compact readout: FPS, frame time and 1% lows, CPU and GPU temperature, load, clock and power, hot spot, video memory, RAM, the game you're playing and for how long, and the time.
-- **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size and opacity. Change the shortcut to anything you like.
+- **Pick exactly what it shows**, which corner it sits in, one row per part or a single line, its size, and the opacity of its background and its readings separately (down to no panel at all, with a soft shadow keeping the numbers readable). Change the shortcut to anything you like.
 - **Add any of your sensors** (up to 10): a case fan, a pump, a voltage, a drive or motherboard temperature, anything on All sensors, each with a short name if you like. They stay live in games, even with Rigsight's window closed.
 - **Never gets in the way**: it never takes focus, and clicks pass straight through it.
 - **Works in every game, exclusive fullscreen included**, through [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (free, the engine behind MSI Afterburner's overlay). Rigsight hands it the readings and RivaTuner draws them inside the game. The installer offers to install RivaTuner, and Rigsight keeps it running. Without it, the overlay still shows over borderless and windowed games.
 - **Safe with anti-cheat**: Rigsight itself never hooks into games. Its own overlay is a normal always-on-top window, and RivaTuner is a long-established tool that anti-cheat systems accept.
 
 ### 🖥️ On your desktop
-- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has a dark, light or system theme, sizes, opacity and a click-through lock.
+- **Six widgets**: Compact, Slim bar, Gauges, Now playing, Today, Temperature graph. Each has a dark, light or system theme, sizes, separate background and content opacity (down to just the numbers on your wallpaper), and a click-through lock.
 - **Tray icon** with a health dot (green, amber or red) and a live readout on hover.
 - **Calm notifications**: a daily recap, game session summaries, temperature alerts that ignore brief spikes, and (optionally) a plain-language note when something crashes. Non-urgent cards wait until you leave a fullscreen game.
 
 ### 🎛️ Your control
-- Dozens of settings: what gets tracked, how long history is kept, alert thresholds, units, a black or white app theme (or follow Windows), widget looks, and start with Windows.
+- Dozens of settings: what gets tracked, how long history is kept (3 months, 1 year, 2 years or forever), alert thresholds, units, a black or white app theme (or follow Windows), widget looks, and start with Windows.
 - Pause tracking at any time from the tray.
 - Clear your history with one click.
 
 ## Install
+
+**One command.** Open PowerShell (press Start, type *PowerShell*) and paste:
+
+```powershell
+irm https://b0llu.github.io/Rigsight/install.ps1 | iex
+```
+
+It downloads the latest setup from the [Releases](../../releases) page, checks it against GitHub's checksum and opens it. Run it again any time to update: it always opens the newest version's setup. Installing this way doesn't bring up the "Windows protected your PC" screen. ([What the script does](docs/install.ps1).)
+
+**Or download it:**
 
 1. Download **`Rigsight-Setup-x.y.z.exe`** from the [Releases](../../releases) page.
 2. Run it. Windows may show *"Windows protected your PC"* because the installer isn't code-signed. Click **More info → Run anyway**.
@@ -124,24 +135,63 @@ Rigsight is split into two programs:
 
 ### Measured resource use
 
-Measured over 60 seconds on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti and 202 sensors. CPU is the share of the whole PC; memory is private memory, the "Memory" column in Task Manager.
+Release build on a Ryzen 7 5700X3D (16 threads, 96 MB L3) with an RTX 3080 Ti and 202 sensors. CPU is the share of the whole PC; memory is private working set, the "Memory" column in Task Manager.
 
 | | CPU | Memory |
 |---|---|---|
-| **Background agent, window closed** (the normal all-day state) | **~0.006%** | **~50 MB** |
-| Background agent with the game overlay showing | ~0.02% | ~56 MB |
-| Background agent while the window is open (reads every sensor each second) | ~0.13–0.18% | ~60–75 MB |
-| Rigsight window, open on a page | ~0.07–0.09% | ~140–160 MB (pages you've opened stay loaded, so switching back is instant) |
+| **Background agent, window closed** (the normal all-day state) | **~0.006%** | **~40 MB** |
+| Background agent with the game overlay showing | ~0.02% | ~40 MB |
+| Background agent while the window is open (reads every sensor each second) | ~0.13–0.18% | ~55 MB |
+| Rigsight window, on its first page | ~0.07–0.09% | ~45 MB |
+| Rigsight window, after opening every page | | ~75 MB (pages stay loaded, so switching back is instant) |
 
 Close the window and its memory is released completely; the agent drops back to the first row.
 
-The agent is built to be almost invisible:
+Where the agent's ~40 MB goes:
 
-- **Tiered sensors**: fast sensors like temperatures and load are read every second, slow ones like drive health every few minutes, and static ones once. While the window is closed, only what the widgets and tray need is read.
-- **An NVIDIA fast path**: GPU temperature and load come from NVIDIA's lightweight NVML/NVAPI calls instead of a full driver query, which is about 70× cheaper.
-- **One system call for every process**: per-app CPU and memory come from a single `NtQuerySystemInformation` call per sample, not thousands of per-process queries.
-- **No UI framework in the background**: widgets, the overlay, tray and notifications are drawn with plain GDI+ into layered windows.
-- **Frugal by design**: below-normal priority, a conserving garbage collector, and nothing kept in memory that the database already has.
+| | Private working set |
+|---|---|
+| NVIDIA's NVML (`nvml.dll` from the driver store), loaded and initialised by LibreHardwareMonitor for GPU power and PCIe throughput | ~18 MB |
+| Everything else: the .NET runtime, compiled code, LibreHardwareMonitor, WinForms/GDI+, SQLite, thread stacks | ~18 MB |
+| of which the managed (GC) heap | ~1.5 MB |
+
+NVML's cost comes from `nvmlInit`, not from loading the DLL (measured in isolation: +0.4 MB for `LoadLibrary`, +19 MB for `nvmlInit`, none of it returned by `nvmlShutdown`). It's the price of reading an NVIDIA card's power in watts, which NVIDIA's documented NVAPI doesn't provide; on AMD and Intel GPUs it isn't loaded at all.
+
+### How the agent is kept small
+
+- **Tiered sensors**: fast sensors like temperatures and load are read every second, slow ones like drive health every few minutes, and static ones once. While the window is closed, only what the widgets, tray and overlay need is read (`SensorHost.Watch` keeps a watched sensor's hardware updating while it's on screen).
+- **An NVIDIA fast path**: GPU temperature, load, power, clocks and memory come from direct NVML calls instead of LibreHardwareMonitor's full `Update()` of the GPU, which is about 70× more expensive.
+- **One system call for every process**: per-app CPU and memory come from a single `NtQuerySystemInformation(SystemProcessInformation)` call per sample, not per-process handles and queries.
+- **No UI framework in the background**: widgets, the overlay, tray and notifications are drawn with GDI+ into layered windows (`UpdateLayeredWindow` with per-pixel alpha). Background and content opacity are composited into the bitmap, so the window itself stays fully opaque.
+- **Garbage collector**: workstation, non-concurrent (no background GC thread), `System.GC.ConserveMemory=7`. The managed heap stays around 1.5 MB.
+- **Compiled ahead of time**: published with `PublishReadyToRun` and `TieredCompilation=false`, so code is neither JIT-compiled at startup nor recompiled at tier 1 later. Measured: 22 → 18 MB of its own memory and about 35% less CPU than tiered JIT.
+- **Below-normal priority**, and nothing kept in memory that the database already has (the app reads history from SQLite directly).
+
+### How the window is kept small
+
+- **A right-sized gen0 budget.** The workstation GC sizes its gen0 allocation budget from the CPU's last-level cache; on a 96 MB L3 that's ~40 MB of mostly-empty gen0 committed for a UI that allocates a few hundred KB a second. The budget can only be set before the runtime starts (`GCgen0size` isn't honoured from `runtimeconfig.json`), so `Program.Main` starts the app again with `DOTNET_GCgen0size=0x400000` (4 MB) and the child clears the variable so nothing it launches inherits it. Measured: 123 → 73 MB after opening every page; the extra process start costs about 0.1 s. (Server GC with DATAS was tried and used more.)
+- **Live history that grows as it's used.** Every sensor keeps the last hour at 1 Hz for sparklines and charts. The ring buffer starts at 64 samples and doubles up to 3,600, stores values as `float` and times as 32-bit millisecond offsets from a base (re-based every ~12 days): 8 bytes a sample instead of 16, and nothing reserved for sensors whose history hasn't filled. The old fixed buffers cost ~12 MB up front for 202 sensors.
+- **Only what's on screen is built**: the Apps and Memory lists are virtualized, the Crashes list loads 50 cards at a time as you scroll (infinite scroll), and long tables on Reports start short with "Show more".
+- **ReadyToRun, tiered compilation off** as for the agent: about half the CPU over a session, at the cost of about 0.1 s of startup.
+
+### History at scale
+
+Everything (minute readings, hourly per-app totals, sessions, crashes, drive fill) is kept for the same period, set in Settings: 3 months, 1 year, 2 years or forever. Measured with generated history, a typical PC (on ~7 hours a day) uses about **25 MB a year**, a PC on all day about **70 MB a year**.
+
+With two years of heavy synthetic history (656k minute rows, 295k app-hours, 218k sessions, 2k crashes) every page loads in well under a second:
+
+| Query | Time |
+|---|---|
+| A day, week or month report | 50–240 ms |
+| Apps, all time (300 apps) | ~170 ms (~380 ms with five years) |
+| Crashes, all time, with each crash's context | ~45 ms (~100 ms with five years) |
+| Temperature history for any day | ~8 ms |
+
+What makes that possible:
+
+- **Bounded session lookups**: sessions have no length limit, so "sessions overlapping a range" can't use the start index alone. The agent records the longest session ever saved (`meta.max_session_sec`) and queries bound `start >= from - longest`.
+- **A monthly rollup** (`app_month`), updated in the same transaction as `app_hour`: long ranges sum whole months from the rollup and only the partial months at either end from the hourly rows. Month keys are computed by SQLite itself, so writes, reads and pruning always agree; pruning rebuilds the boundary month from the hours that remain.
+- **One query for every crash's context** (the app in front, the temperatures in the five minutes before, and the session it ended) instead of three per crash; indexes on `crashes(ts)` and `sessions(app_id, start)`.
 
 ## Building from source
 
@@ -178,7 +228,7 @@ powershell -ExecutionPolicy Bypass -File tools\build-installer.ps1
 Or in VS Code: **Terminal → Run Task… → build installer**.
 
 This produces `dist\Rigsight-Setup-<version>.exe`. The installer:
-- is about 50 MB and self-contained, so the target PC doesn't need .NET;
+- is about 50 MB and self-contained (both programs published ReadyToRun for win-x64), so the target PC doesn't need .NET;
 - installs to Program Files and adds Start menu and (optional) desktop shortcuts;
 - offers to install PawnIO and RivaTuner Statistics Server;
 - stops a running copy before updating;
@@ -195,7 +245,7 @@ gh release create vX.Y.Z dist\Rigsight-Setup-X.Y.Z.exe --title "Rigsight X.Y.Z" 
 
 ```
 Rigsight.slnx
-Directory.Build.props     version + shared build settings
+Directory.Build.props     version + shared build settings (ReadyToRun, tiered compilation off)
 src/
   Rigsight.Core/          shared by both programs
     Settings/               settings model + JSON store (the agent is the only writer)
@@ -211,10 +261,12 @@ src/
     Ui/                     tray icon, menus, notification cards
     Ipc/                    named-pipe server
   Rigsight/               the app window (WPF, Fluent, dark and light themes, MVVM)
+    Program.cs              entry point (sets the GC's gen0 budget, then starts the app)
     Views/ ViewModels/ Controls/ Services/ Themes/
 installer/Rigsight.iss    Inno Setup script
 tools/                    build-installer.ps1, make-icon.ps1
 assets/                   logo and icon
+docs/                     the website (GitHub Pages) and install.ps1, the one-command installer
 ```
 
 ## FAQ

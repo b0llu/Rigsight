@@ -186,7 +186,8 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     public string Corner { get => Config.Corner.ToString(); set => Change(c => c.Corner = Enum.Parse<OverlayCorner>(value), nameof(Corner)); }
     public string Layout { get => Config.Layout.ToString(); set => Change(c => c.Layout = Enum.Parse<OverlayLayout>(value), nameof(Layout)); }
-    public double OpacityPercent { get => Math.Round(Config.Opacity * 100); set => Change(c => c.Opacity = value / 100, nameof(OpacityPercent)); }
+    public double BackgroundPercent { get => Math.Round(Config.BackgroundOpacity * 100); set => Change(c => c.BackgroundOpacity = value / 100, nameof(BackgroundPercent)); }
+    public double ContentPercent { get => Math.Round(Config.ContentOpacity * 100); set => Change(c => c.ContentOpacity = value / 100, nameof(ContentPercent)); }
     public string Scale
     {
         get => Config.Scale.ToString("0.##", CultureInfo.InvariantCulture);

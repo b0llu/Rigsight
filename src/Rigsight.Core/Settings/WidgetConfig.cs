@@ -34,7 +34,16 @@ public sealed class WidgetConfig
     public bool Enabled { get; set; }
     public int? X { get; set; }
     public int? Y { get; set; }
-    public double Opacity { get; set; } = 0.94;
+    /// <summary>How solid the panel behind the readings is (0: none, just the readings).</summary>
+    public double BackgroundOpacity { get; set; } = 0.94;
+
+    /// <summary>How solid the readings themselves are.</summary>
+    public double ContentOpacity { get; set; } = 1.0;
+
+    /// <summary>Before 0.4.13: one opacity for the whole thing. Read once to set both values below, never written.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public double? Opacity { get; set; }
+
     public double Scale { get; set; } = 1.0;
 
     /// <summary>Locked widgets can't be dragged and let clicks pass through to what's underneath.</summary>

@@ -52,7 +52,7 @@ internal sealed class OverlayForm : Form
             right ? screen.Right - bmp.Width - margin : screen.Left + margin,
             bottom ? screen.Bottom - bmp.Height - margin : screen.Top + margin);
 
-        Win32.SetLayeredBitmap(Handle, bmp, at, (byte)Math.Round(settings.Opacity * 255));
+        Win32.SetLayeredBitmap(Handle, bmp, at, 255); // opacity is in the bitmap (background and content apart)
         // Games that switch to fullscreen can end up above us; stay on top without taking focus.
         Win32.SetWindowPos(Handle, Win32.HWND_TOPMOST, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
     }

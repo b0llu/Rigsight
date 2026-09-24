@@ -321,9 +321,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
             if (DateTime.Today != _lastPrune)
             {
                 _lastPrune = DateTime.Today;
-                db.Prune(
-                    TimeUtil.ToUnix(DateTime.Today.AddDays(-_settings.Tracking.KeepDetailedDays)),
-                    TimeUtil.ToUnix(DateTime.Today.AddDays(-_settings.Tracking.KeepHistoryDays)));
+                if (_settings.Tracking.KeepHistoryDays > 0)
+                    db.Prune(TimeUtil.ToUnix(DateTime.Today.AddDays(-_settings.Tracking.KeepHistoryDays)));
             }
             tx.Commit();
         }

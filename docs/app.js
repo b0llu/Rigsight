@@ -156,6 +156,18 @@
   lb.addEventListener("click", closeLb);
   addEventListener("keydown", e => { if (e.key === "Escape" && !lb.hidden) closeLb(); });
 
+  // ── Copy the PowerShell install command ──
+  document.querySelectorAll("[data-copy]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        const label = btn.querySelector("span");
+        if (label) { label.textContent = "Copied"; setTimeout(() => (label.textContent = "Copy"), 1800); }
+        showToast("Copied. Paste it into PowerShell.");
+      } catch { /* clipboard blocked */ }
+    });
+  });
+
   // ── Phone visitors: copy the link to open on their PC ──
   const toast = document.getElementById("toast");
   function showToast(msg) {

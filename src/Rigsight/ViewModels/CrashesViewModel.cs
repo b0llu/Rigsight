@@ -42,12 +42,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     partial void OnGroupedChanged(bool value)
     {
+        _limit = PageSize;
         Regroup();
         ApplyView();
     }
 
     partial void OnDayChanged(DateTime value)
     {
+        _limit = PageSize;
         if (IsDay) _ = LoadAsync();
     }
 
@@ -111,6 +113,27 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(EmptyText))]
     private List<CrashGroup> _groupsShown = [];
 
+    // Years of history can hold thousands of crashes: build the newest cards, and more as the page scrolls.
+    private const int PageSize = 50;
+    private int _limit = PageSize;
+    private List<CrashGroup> _matching = [];
+
+    public bool HasMore => _matching.Count > GroupsShown.Count;
+    /// <summary>Called by the page's infinite scroll near the bottom.</summary>
+    [RelayCommand]
+    private void ShowMore()
+    {
+        if (!HasMore) return;
+        _limit += PageSize;
+        ShowPage();
+    }
+
+    private void ShowPage()
+    {
+        GroupsShown = [.. _matching.Take(_limit)];
+        OnPropertyChanged(nameof(HasMore));
+    }
+
     /// <summary>Individual crashes (not muted) for the current filter, newest first (dashboard tile).</summary>
     [ObservableProperty] private List<CrashRow> _crashes = [];
 
@@ -143,9 +166,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         _ => "No crashes in this period",
     };
 
-    partial void OnFilterChanged(string value) => ApplyView();
-    partial void OnShowMutedChanged(bool value) => ApplyView();
-    partial void OnRangeChanged(string value) => _ = LoadAsync();
+    partial void OnFilterChanged(string value) { _limit = PageSize; ApplyView(); }
+    partial void OnShowMutedChanged(bool value) { _limit = PageSize; ApplyView(); }
+    partial void OnRangeChanged(string value) { _limit = PageSize; _ = LoadAsync(); }
 
     private int _loadId;
 
@@ -207,7 +230,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             "Pc" => g.IsIncident || g.Latest.IsSystem,
             _ => true,
         };
-        GroupsShown = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g))];
+        _matching = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g))];
+        ShowPage();
         Crashes = [.. counted.Where(Matches).SelectMany(g => g.Rows).OrderByDescending(r => r.Time)];
         Days = IsDay ? [] : CrashStrip.BuildDays(From, counted, _changes);
         Patterns = BuildPatterns(rows);

@@ -12,6 +12,8 @@
     <ApplicationIcon>..\..\assets\Rigsight.ico</ApplicationIcon>
     <OutDir>$(SharedBinDir)</OutDir>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Program.Main (it sets the GC's allocation area before the runtime starts; see Program.cs). -->
+    <StartupObject>Rigsight.Program</StartupObject>
     <!-- WPF0001: Fluent ThemeMode is experimental. WFO0003: WinForms DPI advice (not applicable to WPF). -->
     <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
   </PropertyGroup>

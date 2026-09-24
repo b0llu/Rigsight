@@ -46,7 +46,8 @@ public sealed partial class WidgetCard(WidgetStyle style, SettingsModel settings
     public string Theme { get => Config.Theme.ToString(); set => Change(c => c.Theme = Enum.Parse<WidgetTheme>(value), nameof(Theme)); }
     public string Visibility { get => Config.Visibility.ToString(); set => Change(c => c.Visibility = Enum.Parse<WidgetVisibility>(value), nameof(Visibility)); }
     public bool Locked { get => Config.Locked; set => Change(c => c.Locked = value, nameof(Locked)); }
-    public double OpacityPercent { get => Math.Round(Config.Opacity * 100); set => Change(c => c.Opacity = value / 100, nameof(OpacityPercent)); }
+    public double BackgroundPercent { get => Math.Round(Config.BackgroundOpacity * 100); set => Change(c => c.BackgroundOpacity = value / 100, nameof(BackgroundPercent)); }
+    public double ContentPercent { get => Math.Round(Config.ContentOpacity * 100); set => Change(c => c.ContentOpacity = value / 100, nameof(ContentPercent)); }
     public string Scale { get => Config.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture); set => Change(c => c.Scale = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture), nameof(Scale)); }
 
     [ObservableProperty] private ImageSource? _preview;

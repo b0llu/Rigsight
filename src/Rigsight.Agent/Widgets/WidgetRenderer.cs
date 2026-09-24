@@ -89,13 +89,16 @@ internal static partial class WidgetRenderer
     public static Bitmap Render(WidgetConfig cfg, WidgetData? data, float scale, bool hover, out RectangleF closeRect)
     {
         var pal = For(cfg.Theme);
+        TextShadow = ShadowFor(cfg.BackgroundOpacity, pal.Light);
         SizeF size;
         using (var tmp = new Bitmap(1, 1))
         using (var mg = Graphics.FromImage(tmp))
             size = BaseSize(cfg.Style, data, mg);
 
         var bmp = new Bitmap((int)Math.Ceiling(size.Width * scale), (int)Math.Ceiling(size.Height * scale), PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
+        // The readings go on their own layer, so they can have their own opacity (see Compose).
+        using var content = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(content);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
@@ -105,13 +108,7 @@ internal static partial class WidgetRenderer
 
         float w = size.Width, h = size.Height;
         bool pill = cfg.Style == WidgetStyle.Pill;
-        using (var path = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14))
-        {
-            using var bg = new SolidBrush(pal.Bg);
-            using var border = new Pen(pal.Border, 1);
-            g.FillPath(bg, path);
-            g.DrawPath(border, path);
-        }
+        var panel = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
 
         var d = data ?? new WidgetData();
         switch (cfg.Style)
@@ -124,11 +121,62 @@ internal static partial class WidgetRenderer
             default: DrawGraph(g, d, pal, w, h); break;
         }
 
-        var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
-        if (hover && !cfg.Locked) DrawClose(g, close, pal);
-        closeRect = new RectangleF(close.X * scale, close.Y * scale, close.Width * scale, close.Height * scale);
+        using (var final = Graphics.FromImage(bmp))
+        {
+            Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
+            // The close button stays fully visible, whatever the opacity: it's how you get rid of the widget.
+            var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
+            if (hover && !cfg.Locked)
+            {
+                final.SmoothingMode = SmoothingMode.AntiAlias;
+                final.ScaleTransform(scale, scale);
+                DrawClose(final, close, pal);
+            }
+            closeRect = new RectangleF(close.X * scale, close.Y * scale, close.Width * scale, close.Height * scale);
+        }
+        panel.Dispose();
         return bmp;
     }
+
+    /// <summary>
+    /// Paints the panel at the background opacity, then the readings layer at the content opacity. The panel never
+    /// goes fully transparent (1 of 255 at 0%): a layered window lets clicks through where it's clear, and a widget
+    /// with no background should still be draggable anywhere on it, not only by its text.
+    /// </summary>
+    private static void Compose(Graphics g, Bitmap content, GraphicsPath panel, float scale, Color bg, Color border,
+        double backgroundOpacity, double contentOpacity)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        var state = g.Save();
+        g.ScaleTransform(scale, scale);
+        int bgAlpha = Math.Max(1, (int)Math.Round(bg.A * backgroundOpacity));
+        using (var fill = new SolidBrush(Color.FromArgb(bgAlpha, bg)))
+            g.FillPath(fill, panel);
+        int borderAlpha = (int)Math.Round(border.A * backgroundOpacity);
+        if (borderAlpha > 0)
+            using (var pen = new Pen(Color.FromArgb(borderAlpha, border), 1))
+                g.DrawPath(pen, panel);
+        g.Restore(state);
+
+        using var attrs = new ImageAttributes();
+        attrs.SetColorMatrix(new ColorMatrix { Matrix33 = (float)contentOpacity });
+        g.DrawImage(content, new Rectangle(0, 0, content.Width, content.Height), 0, 0, content.Width, content.Height, GraphicsUnit.Pixel, attrs);
+    }
+
+    /// <summary>
+    /// With little or no panel behind them, the readings sit straight on a wallpaper or a game, so they get a soft
+    /// shadow in the opposite colour (dark behind light text, light behind the light theme's dark text). It grows as
+    /// the background fades below 40%; with a solid enough panel there's none.
+    /// </summary>
+    private static Color ShadowFor(double backgroundOpacity, bool lightTheme)
+    {
+        if (backgroundOpacity >= 0.4) return Color.Empty;
+        int alpha = (int)Math.Round(170 * (1 - backgroundOpacity / 0.4));
+        return lightTheme ? Color.FromArgb(alpha, 255, 255, 255) : Color.FromArgb(alpha, 0, 0, 0);
+    }
+
+    [ThreadStatic] private static Color TextShadow;
 
     // ── Styles ────────────────────────────────────────────────────────────
 
@@ -322,18 +370,25 @@ internal static partial class WidgetRenderer
         bool semibold = false, float maxWidth = 0)
     {
         var font = MakeFont(px, style, semibold);
-        using var brush = new SolidBrush(color);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
-        if (maxWidth > 0)
+        if (maxWidth > 0) fmt.Trimming = StringTrimming.EllipsisCharacter;
+        void Draw(Brush b, float dx, float dy)
         {
-            fmt.Trimming = StringTrimming.EllipsisCharacter;
-            g.DrawString(text, font, brush, new RectangleF(x, y, maxWidth, px * 1.6f), fmt);
+            if (maxWidth > 0) g.DrawString(text, font, b, new RectangleF(x + dx, y + dy, maxWidth, px * 1.6f), fmt);
+            else g.DrawString(text, font, b, x + dx, y + dy, fmt);
         }
-        else
+        if (TextShadow.A > 0)
         {
-            g.DrawString(text, font, brush, x, y, fmt);
+            // Scaled with the text, so it reads the same at every size (see ShadowFor).
+            float o = Math.Max(0.6f, px / 16f);
+            using var shadow = new SolidBrush(TextShadow);
+            Draw(shadow, o, o);
+            using var soft = new SolidBrush(Color.FromArgb(TextShadow.A / 2, TextShadow));
+            Draw(soft, 0, o * 1.6f);
         }
+        using var brush = new SolidBrush(color);
+        Draw(brush, 0, 0);
     }
 
     private static void TextCentered(Graphics g, string text, float px, FontStyle style, Color color, float cx, float y, bool semibold = false) =>

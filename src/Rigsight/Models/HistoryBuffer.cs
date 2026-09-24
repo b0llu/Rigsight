@@ -1,37 +1,52 @@
 namespace Rigsight.Models;
 
-/// <summary>Fixed-size ring buffer of timestamped samples. NaN marks a missing reading.</summary>
+/// <summary>
+/// Ring buffer of timestamped samples, up to a fixed number. NaN marks a missing reading.
+/// Every sensor has one, so it is kept small: storage grows as samples arrive (a window open for a few minutes
+/// holds a few minutes, not a full hour of empty slots), values are floats (far finer than anything shown),
+/// and times are 32-bit millisecond offsets from a base (re-based long before they could overflow).
+/// </summary>
 public sealed class HistoryBuffer
 {
-    private readonly double[] _values;
-    private readonly long[] _times;
+    private const int InitialSize = 64;
+    // Offsets stay well below int.MaxValue (~24.8 days); the newest sample is never more than this past the base.
+    private const long RebaseAfterMs = 1L << 30; // ~12.4 days
+
+    private float[] _values = [];
+    private int[] _offsets = [];
+    private long _base;
     private int _start;
 
-    public HistoryBuffer(int capacity)
-    {
-        _values = new double[capacity];
-        _times = new long[capacity];
-    }
+    public HistoryBuffer(int capacity) => Capacity = capacity;
 
-    public int Capacity => _values.Length;
+    /// <summary>The most samples kept; older ones are dropped.</summary>
+    public int Capacity { get; }
     public int Count { get; private set; }
 
     /// <summary>Time (Unix milliseconds) of the newest sample, or 0 when empty.</summary>
-    public long LastTime => Count == 0 ? 0 : _times[(_start + Count - 1) % Capacity];
+    public long LastTime => Count == 0 ? 0 : TimeAt(Count - 1);
 
     public void Add(long timeMs, double value)
     {
-        if (Count < Capacity)
+        if (Count == 0) _base = timeMs;
+        else if (timeMs - _base > RebaseAfterMs) Rebase(TimeAt(0));
+
+        if (Count < _values.Length)
         {
-            int i = (_start + Count) % Capacity;
-            _values[i] = value;
-            _times[i] = timeMs;
+            // Not full yet (storage never wraps before it has reached Capacity, so _start is 0 here).
+            _values[Count] = (float)value;
+            _offsets[Count] = (int)(timeMs - _base);
             Count++;
+        }
+        else if (_values.Length < Capacity)
+        {
+            Grow();
+            Add(timeMs, value);
         }
         else
         {
-            _values[_start] = value;
-            _times[_start] = timeMs;
+            _values[_start] = (float)value;
+            _offsets[_start] = (int)(timeMs - _base);
             _start = (_start + 1) % Capacity;
         }
     }
@@ -43,7 +58,7 @@ public sealed class HistoryBuffer
     }
 
     /// <summary>Time of the oldest sample, or 0 when empty.</summary>
-    public long FirstTime => Count == 0 ? 0 : _times[_start];
+    public long FirstTime => Count == 0 ? 0 : TimeAt(0);
 
     /// <summary>Index of the sample closest in time to <paramref name="timeMs"/>, or -1 when empty.</summary>
     public int NearestIndex(long timeMs)
@@ -55,8 +70,8 @@ public sealed class HistoryBuffer
         return i;
     }
 
-    public double ValueAt(int i) => _values[(_start + i) % Capacity];
-    public long TimeAt(int i) => _times[(_start + i) % Capacity];
+    public double ValueAt(int i) => _values[Slot(i)];
+    public long TimeAt(int i) => _base + _offsets[Slot(i)];
 
     /// <summary>Index of the first sample at or after <paramref name="timeMs"/> (binary search; samples are time-ordered).</summary>
     public int IndexAtOrAfter(long timeMs)
@@ -69,5 +84,26 @@ public sealed class HistoryBuffer
             else hi = mid;
         }
         return lo;
+    }
+
+    private int Slot(int i)
+    {
+        int s = _start + i;
+        return s >= _values.Length ? s - _values.Length : s;
+    }
+
+    private void Grow()
+    {
+        int size = Math.Min(Capacity, Math.Max(InitialSize, _values.Length * 2));
+        Array.Resize(ref _values, size);
+        Array.Resize(ref _offsets, size);
+    }
+
+    /// <summary>Moves the base to <paramref name="newBase"/> (the oldest sample), shrinking every offset.</summary>
+    private void Rebase(long newBase)
+    {
+        int delta = (int)(newBase - _base);
+        for (int i = 0; i < Count; i++) _offsets[Slot(i)] -= delta;
+        _base = newBase;
     }
 }

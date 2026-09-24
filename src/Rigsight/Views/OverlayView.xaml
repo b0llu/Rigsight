@@ -324,12 +324,20 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520">
-                        <TextBlock Text="OPACITY" Style="{StaticResource OptionLabel}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding OpacityPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
+                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520"
+                               ToolTip="The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable over the game.">
+                        <TextBlock Text="BACKGROUND" Style="{StaticResource OptionLabel}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
-                        <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                Value="{Binding OpacityPercent}" />
+                        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                Value="{Binding BackgroundPercent}" />
+                    </DockPanel>
+                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520" ToolTip="The readings themselves.">
+                        <TextBlock Text="CONTENT" Style="{StaticResource OptionLabel}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
+                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
+                        <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                Value="{Binding ContentPercent}" />
                     </DockPanel>
                 </StackPanel>
             </Border>

@@ -271,6 +271,9 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,10,0,0"
+                                Content="{Binding MoreAppsText}" Command="{Binding ShowMoreAppsCommand}"
+                                Visibility="{Binding HasMoreApps, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </Border>
 
@@ -278,7 +281,10 @@
                 <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Crashes.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="Crashes &amp; unexpected shutdowns" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                        <ItemsControl ItemsSource="{Binding Crashes}" ItemTemplate="{StaticResource CrashTemplate}" />
+                        <ItemsControl ItemsSource="{Binding CrashesShown}" ItemTemplate="{StaticResource CrashTemplate}" />
+                        <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,4,0,0"
+                                Content="{Binding MoreCrashesText}" Command="{Binding ShowMoreCrashesCommand}"
+                                Visibility="{Binding HasMoreCrashes, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </Border>
 

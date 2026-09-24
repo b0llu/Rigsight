@@ -99,8 +99,8 @@
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                                     <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
-                                    <Border Style="{StaticResource Badge}" Background="{DynamicResource AccentSoftBrush}">
-                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{DynamicResource AccentBrush}" />
+                                    <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
+                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                                 </DockPanel>
@@ -155,19 +155,29 @@
                                     <ColumnDefinition Width="100" />
                                     <ColumnDefinition Width="40" />
                                 </Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}"
+                                <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
                                         HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
                                     <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
-                                               Foreground="{DynamicResource FaintBrush}" />
+                                               Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                 </Border>
                                 <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
                                          Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
                                          ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
                                 <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
                                                Source="{Binding History}" Version="{Binding Version}"
-                                               Stroke="{DynamicResource AccentBrush}" />
-                                <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" Style="{StaticResource Num}"
-                                           Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                               Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
+                                <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Kind}" Value="Temperature">
+                                                    <Setter Property="Foreground" Value="{Binding Value, Converter={StaticResource TempBrush}}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
                                 <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
                                 <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />

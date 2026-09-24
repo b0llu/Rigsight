@@ -44,8 +44,31 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public int ProcessIntervalSeconds { get => S.Tracking.ProcessIntervalSeconds; set => Set(s => s.Tracking.ProcessIntervalSeconds = value); }
     public int IdleMinutes { get => S.Tracking.IdleMinutes; set => Set(s => s.Tracking.IdleMinutes = value); }
     public bool FullscreenCountsAsActive { get => S.Tracking.FullscreenCountsAsActive; set => Set(s => s.Tracking.FullscreenCountsAsActive = value); }
-    public int KeepDetailedDays { get => S.Tracking.KeepDetailedDays; set => Set(s => s.Tracking.KeepDetailedDays = value); }
-    public int KeepHistoryDays { get => S.Tracking.KeepHistoryDays; set => Set(s => s.Tracking.KeepHistoryDays = value); }
+    public int KeepHistoryDays
+    {
+        get => S.Tracking.KeepHistoryDays;
+        set
+        {
+            int current = S.Tracking.KeepHistoryDays;
+            if (value == current) return;
+            // Shorter than now: say what goes before anything is lost (the agent tidies up once a day).
+            bool shorter = value > 0 && (current == 0 || value < current);
+            if (shorter)
+            {
+                string label = value switch { 90 => "3 months", 365 => "1 year", _ => "2 years" };
+                var answer = MessageBox.Show(Application.Current.MainWindow,
+                    $"History from before {DateTime.Today.AddDays(-value):d MMMM yyyy} will be permanently deleted: temperatures, app time, sessions and crashes.\n\nKeep history for {label}?",
+                    "Keep history", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                if (answer != MessageBoxResult.Yes)
+                {
+                    // Put the choice back once the radio button has finished changing.
+                    Application.Current.Dispatcher.BeginInvoke(() => OnPropertyChanged(nameof(KeepHistoryDays)));
+                    return;
+                }
+            }
+            Set(s => s.Tracking.KeepHistoryDays = value);
+        }
+    }
 
     public bool IsPaused => S.Tracking.IsPaused(TimeUtil.NowUnix()) && S.Tracking.Enabled;
     public string? PauseText => S.Tracking.PausedUntil switch

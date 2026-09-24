@@ -37,7 +37,16 @@ public sealed class OverlaySettings
     public string Hotkey { get; set; } = DefaultHotkey;
     public OverlayCorner Corner { get; set; } = OverlayCorner.TopLeft;
     public OverlayLayout Layout { get; set; } = OverlayLayout.Rows;
-    public double Opacity { get; set; } = 0.9;
+    /// <summary>How solid the panel behind the readings is (0: none, just the readings).</summary>
+    public double BackgroundOpacity { get; set; } = 0.9;
+
+    /// <summary>How solid the readings themselves are.</summary>
+    public double ContentOpacity { get; set; } = 1.0;
+
+    /// <summary>Before 0.4.13: one opacity for the whole thing. Read once to set both values below, never written.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public double? Opacity { get; set; }
+
     public double Scale { get; set; } = 1.0;
 
     public List<OverlayMetric> Metrics { get; set; } = DefaultMetrics();

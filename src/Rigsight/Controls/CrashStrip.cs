@@ -115,7 +115,8 @@ public sealed class CrashStrip : FrameworkElement
             }
         }
 
-        // Date labels: every day for short ranges, Mondays for about a month, the 1st of each month beyond; "Today" always.
+        // Date labels: every day for short ranges, Mondays for about a month, the 1st of each month up to a year,
+        // and each new year beyond that (the first label carries its year too); "Today" always.
         var todayText = ChartPaint.Format(this, "Today", 11, ChartPaint.TextBrush);
         double todayX = Math.Clamp(plot.Left + slot * (days.Count - 0.5) - todayText.Width / 2, 0, w - todayText.Width);
         if (days[^1].Day == DateTime.Today) dc.DrawText(todayText, new Point(todayX, h - AxisHeight + 3));
@@ -124,8 +125,15 @@ public sealed class CrashStrip : FrameworkElement
         for (int i = 0; i < days.Count - 1; i++)
         {
             var day = days[i].Day;
-            if (!(i == 0 || days.Count <= 14 || (days.Count <= 45 ? day.DayOfWeek == DayOfWeek.Monday : day.Day == 1))) continue;
-            var ft = ChartPaint.Format(this, days.Count <= 14 ? day.ToString("ddd d") : day.ToString("d MMM"), 11, ChartPaint.Label);
+            bool years = days.Count > 400;
+            // A new year soon after the start would collide with the first label: label that year instead.
+            if (i == 0 && years && days.Take(150).Any(d => d.Day.DayOfYear == 1)) continue;
+            if (!(i == 0 || days.Count <= 14 || (days.Count <= 45 ? day.DayOfWeek == DayOfWeek.Monday
+                : years ? day.DayOfYear == 1 : day.Day == 1))) continue;
+            string text = days.Count <= 14 ? day.ToString("ddd d")
+                : years ? (i == 0 ? day.ToString("MMM yyyy") : day.ToString("yyyy"))
+                : day.ToString("d MMM");
+            var ft = ChartPaint.Format(this, text, 11, ChartPaint.Label);
             double x = Math.Clamp(plot.Left + slot * (i + 0.5) - ft.Width / 2, 0, w - ft.Width);
             if (x < lastRight + 8 || x + ft.Width > todayX - 8) continue;
             dc.DrawText(ft, new Point(x, h - AxisHeight + 3));

@@ -24,6 +24,7 @@
     <conv:SeverityBrushConverter x:Key="SeverityBrush" />
     <conv:FractionConverter x:Key="Fraction" />
     <conv:ResourceBrushConverter x:Key="ResourceBrush" />
+    <conv:KindBrushConverter x:Key="KindBrush" />
 
     <!-- ── Selectable list rows (Apps page) ───────────────────────────── -->
     <Style x:Key="RowItem" TargetType="ListBoxItem">
@@ -77,10 +78,15 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="ItemContainerStyle" Value="{StaticResource RowItem}" />
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <!-- Only the rows on screen are built, however long the list; smooth pixel scrolling. -->
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBox">
-                    <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0">
+                    <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}">
                         <ItemsPresenter />
                     </ScrollViewer>
                 </ControlTemplate>

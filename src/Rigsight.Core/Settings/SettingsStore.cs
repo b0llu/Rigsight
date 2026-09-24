@@ -45,7 +45,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 4;
+    private const int CurrentVersion = 6;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -70,6 +70,17 @@ public static class SettingsStore
             if (!overlay.Metrics.Contains(OverlayMetric.Fps)) overlay.Metrics.Add(OverlayMetric.Fps);
             if (!overlay.Metrics.Contains(OverlayMetric.OnePercentLow)) overlay.Metrics.Add(OverlayMetric.OnePercentLow);
         }
+        if (s.SettingsVersion < 5)
+        {
+            // v5: one retention for all history. "Forever" used to be stored as ten years; it now means never delete.
+            if (s.Tracking.KeepHistoryDays >= 3650) s.Tracking.KeepHistoryDays = 0;
+        }
+        // v6: separate background and content opacity. The old single value faded both, so both start there
+        // (the widgets and overlay look exactly as before).
+        foreach (var w in s.Widgets ?? [])
+            if (w.Opacity is double old) (w.BackgroundOpacity, w.ContentOpacity, w.Opacity) = (old, old, null);
+        if (s.Overlay?.Opacity is double oldOverlay)
+            (s.Overlay.BackgroundOpacity, s.Overlay.ContentOpacity, s.Overlay.Opacity) = (oldOverlay, oldOverlay, null);
         s.SettingsVersion = CurrentVersion;
 
         if (s.Theme is not ("dark" or "light" or "system")) s.Theme = "dark";
@@ -82,12 +93,14 @@ public static class SettingsStore
         foreach (var w in s.Widgets)
         {
             if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
-            w.Opacity = Math.Clamp(w.Opacity, 0.3, 1.0);
+            w.BackgroundOpacity = Math.Clamp(w.BackgroundOpacity, 0, 1.0);
+            w.ContentOpacity = Math.Clamp(w.ContentOpacity, 0.2, 1.0);
             w.Scale = Math.Clamp(w.Scale, 0.6, 2.0);
         }
 
         var o = s.Overlay ??= new OverlaySettings();
-        o.Opacity = Math.Clamp(o.Opacity, 0.3, 1.0);
+        o.BackgroundOpacity = Math.Clamp(o.BackgroundOpacity, 0, 1.0);
+        o.ContentOpacity = Math.Clamp(o.ContentOpacity, 0.2, 1.0);
         o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
         if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
         o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
@@ -104,8 +117,15 @@ public static class SettingsStore
         t.SensorIntervalMs = Math.Clamp(t.SensorIntervalMs, 500, 30_000);
         t.ProcessIntervalSeconds = Math.Clamp(t.ProcessIntervalSeconds, 2, 60);
         t.IdleMinutes = Math.Clamp(t.IdleMinutes, 1, 120);
-        t.KeepDetailedDays = Math.Clamp(t.KeepDetailedDays, 7, 3650);
-        t.KeepHistoryDays = Math.Clamp(t.KeepHistoryDays, 30, 3650);
+        // Snap to the choices Settings offers: 3 months, 1 year, 2 years, forever (0).
+        t.KeepHistoryDays = t.KeepHistoryDays switch
+        {
+            <= 0 => 0,
+            <= 180 => 90,
+            <= 547 => 365,
+            <= 1500 => 730,
+            _ => 0,
+        };
         s.LiveRefreshMs = Math.Clamp(s.LiveRefreshMs, 250, 10_000);
         // The temperature chart offers 5 minutes, 1 hour, 6 hours, 24 hours and today (0: since midnight).
         if (s.ChartWindowSeconds is not (0 or 300 or 3600 or 21600 or 86400))

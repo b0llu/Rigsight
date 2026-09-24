@@ -82,7 +82,7 @@ internal sealed class WidgetForm : Form
         float scale = DeviceDpi / 96f * (float)Config.Scale;
         using var bmp = WidgetRenderer.Render(Config, _data, scale, _hover, out _closeRect);
         if (Size != bmp.Size) Size = bmp.Size;
-        Win32.SetLayeredBitmap(Handle, bmp, Location, (byte)Math.Round(Config.Opacity * 255));
+        Win32.SetLayeredBitmap(Handle, bmp, Location, 255); // opacity is in the bitmap (background and content apart)
     }
 
     protected override void OnHandleCreated(EventArgs e)

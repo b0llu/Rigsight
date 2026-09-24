@@ -72,6 +72,11 @@
           <a class="btn btn-ghost" href="#features">See what it does</a>
         </div>
         <p class="meta reveal"><span data-version>Latest version</span><span>Windows 10 &amp; 11</span><span>Free, MIT licensed</span></p>
+        <div class="cli reveal desktop-only" title="Paste into PowerShell: it downloads the latest setup from GitHub, checks it and opens it">
+          <span class="cli-label">or in PowerShell</span>
+          <code>irm https://b0llu.github.io/Rigsight/install.ps1 | iex</code>
+          <button type="button" class="cli-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><span>Copy</span></button>
+        </div>
         <button class="copy-link mobile-only reveal" type="button" id="copy-link">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg>
           <span>On your phone? Copy the link for your PC</span>
@@ -107,7 +112,7 @@
     <section class="strip" aria-label="At a glance">
       <div class="wrap strip-grid">
         <div class="stat reveal"><b>~0.01%</b><span>CPU while it records</span></div>
-        <div class="stat reveal"><b>Every minute</b><span>kept as history, for up to 2 years</span></div>
+        <div class="stat reveal"><b>Every minute</b><span>kept as history, for as long as you like</span></div>
         <div class="stat reveal"><b>Every sensor</b><span>temps, fans, clocks, power, voltages, drives</span></div>
         <div class="stat reveal"><b>0 bytes</b><span>sent anywhere. No account, no telemetry.</span></div>
       </div>
@@ -207,6 +212,7 @@
           <p>Press <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>O</kbd> in any game. FPS, 1% lows, frame time, CPU and GPU temperature, load, clock and power, VRAM, RAM, and up to 10 of your own sensors.</p>
           <ul class="checks">
             <li>Works in exclusive fullscreen, through RivaTuner (installed for you)</li>
+            <li>Fade the panel and the numbers separately, down to just the numbers</li>
             <li>Never takes focus; clicks pass straight through</li>
             <li>Rigsight never hooks into games, so it's safe with anti-cheat</li>
           </ul>
@@ -253,7 +259,7 @@
         <div class="card reveal">
           <div class="c-icon" style="--c: var(--amber)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-6v2h3v2H6v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m1 2v9h16V6zm9 1h6v3h-6z"/></svg></div>
           <h3>Desktop widgets</h3>
-          <p>Six widgets: compact, slim bar, gauges, now playing, today and a temperature graph. Dark, light or match Windows.</p>
+          <p>Six widgets: compact, slim bar, gauges, now playing, today and a temperature graph. Dark, light or match Windows, with the background and the numbers faded separately.</p>
         </div>
         <div class="card reveal">
           <div class="c-icon" style="--c: var(--red)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 3.2 1 5.2 2 6.5V17H3v-1.5C4 14.2 5 12.2 5 9a7 7 0 0 1 7-7m-2 17h4a2 2 0 0 1-4 0"/></svg></div>
@@ -293,20 +299,9 @@
           <h2>Records all day.<br /><span class="dim">You'll never notice it.</span></h2>
           <p class="sub">A tiny background agent reads the sensors and writes one small summary a minute. The window only runs while it's open, and fully exits when you close it.</p>
         </div>
-        <div class="meters reveal">
-          <div class="meter">
-            <div class="m-head"><span>Background agent, window closed</span><b>~0.006% CPU · 50 MB</b></div>
-            <div class="m-bar"><i style="--w: 6%"></i></div>
-          </div>
-          <div class="meter">
-            <div class="m-head"><span>With the game overlay showing</span><b>~0.02% CPU · 56 MB</b></div>
-            <div class="m-bar"><i style="--w: 20%"></i></div>
-          </div>
-          <div class="meter">
-            <div class="m-head"><span>The Rigsight window, while it's open</span><b>~0.08% CPU · 150 MB</b></div>
-            <div class="m-bar"><i class="m-muted" style="--w: 80%"></i></div>
-          </div>
-          <p class="m-note">Bars are to scale: a full bar is 0.1% of your CPU. Measured on a Ryzen 7 5700X3D with an RTX 3080 Ti and 202 sensors. CPU is the share of the whole PC.</p>
+        <div class="lite reveal">
+          <div><b>~0.01%</b><span>of your CPU, recording in the background</span></div>
+          <div><b>~40 MB</b><span>of memory while it does</span></div>
         </div>
       </div>
     </section>
@@ -332,6 +327,17 @@
     <section class="install wrap">
       <p class="eyebrow reveal">Get started</p>
       <h2 class="reveal">Running in two minutes.</h2>
+      <div class="cli-card reveal">
+        <div>
+          <h3>One command</h3>
+          <p>Open PowerShell and paste this. It downloads the latest setup from GitHub, checks it against GitHub's checksum and opens it. Run it again any time to update.</p>
+        </div>
+        <div class="cli cli-big">
+          <code>irm https://b0llu.github.io/Rigsight/install.ps1 | iex</code>
+          <button type="button" class="cli-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><span>Copy</span></button>
+        </div>
+      </div>
+      <p class="or reveal">or download it</p>
       <ol class="steps">
         <li class="reveal"><span class="n">1</span><h3>Download</h3><p>Grab the installer. It's free, with no account and no ads.</p></li>
         <li class="reveal"><span class="n">2</span><h3>Install</h3><p>Accept the one admin prompt. It sets up the recorder to start with Windows, plus the free sensor driver and RivaTuner if you want them.</p></li>
@@ -339,7 +345,7 @@
       </ol>
       <p class="smartscreen reveal">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6zm-1 5h2v6h-2zm0 8h2v2h-2z"/></svg>
-        <span>Windows may say <b>"Windows protected your PC"</b> because the installer isn't code-signed yet. Click <b>More info → Run anyway</b>. The full source is on <a href="https://github.com/b0llu/Rigsight">GitHub</a> if you'd like to check it first.</span>
+        <span>Downloaded in a browser, Windows may say <b>"Windows protected your PC"</b> because the installer isn't code-signed yet: click <b>More info → Run anyway</b>, or use the PowerShell command above, which doesn't trigger it. The full source is on <a href="https://github.com/b0llu/Rigsight">GitHub</a> if you'd like to check it first.</span>
       </p>
     </section>
 
@@ -352,7 +358,7 @@
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
         <details class="reveal"><summary>Will it slow my games down?</summary><p>No. The background agent uses around 0.006% of your CPU with the window closed, runs at below-normal priority, and reads only what the tray and widgets need.</p></details>
         <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and nothing is sent anywhere.</p></details>
-        <details class="reveal"><summary>How much history does it keep?</summary><p>Minute-by-minute detail for 90 days and daily summaries for two years, by default. Both are adjustable in Settings.</p></details>
+        <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 25 MB.</p></details>
         <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>
       </div>
     </section>

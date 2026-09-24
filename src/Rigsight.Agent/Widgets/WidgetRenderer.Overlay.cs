@@ -161,8 +161,8 @@ internal static partial class WidgetRenderer
     {
         var rows = OverlayRows(o, data ?? new WidgetData());
         if (rows.Count == 0) return "";
-        // Our window fades everything by the opacity setting, text included; RTSS colours take an alpha too.
-        int textAlpha = (int)Math.Round(255 * o.Opacity);
+        // The readings at the content opacity and the panel at the background opacity, as in our own window.
+        int textAlpha = (int)Math.Round(255 * o.ContentOpacity);
         string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
         static string Clean(string text) => text.Replace("<", "").Replace(">", "");
 
@@ -209,7 +209,7 @@ internal static partial class WidgetRenderer
             _ => 0,
         };
         int fontHeight = -(int)Math.Round(8 * o.Scale);
-        int alpha = (int)Math.Round(OverlayPanelAlpha * o.Opacity);
+        int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);
         bool right = o.Corner is OverlayCorner.TopRight or OverlayCorner.BottomRight;
         bool bottom = o.Corner is OverlayCorner.BottomLeft or OverlayCorner.BottomRight;
         var (left, top, rightM, bottomM) = RtssMargins(right, bottom, o.Scale);
@@ -296,20 +296,16 @@ internal static partial class WidgetRenderer
 
         var bmp = new Bitmap(Math.Max(1, (int)Math.Ceiling(w * scale)), Math.Max(1, (int)Math.Ceiling(h * scale)), PixelFormat.Format32bppArgb);
         if (rows.Count == 0) return bmp;
-        using var g = Graphics.FromImage(bmp);
+        TextShadow = ShadowFor(o.BackgroundOpacity, lightTheme: false);
+        // The readings on their own layer, for their own opacity (see Compose).
+        using var content = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(content);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.Clear(Color.Transparent);
         g.ScaleTransform(scale, scale);
 
-        using (var path = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), 10))
-        using (var bg = new SolidBrush(Color.FromArgb(OverlayPanelAlpha, 8, 10, 14)))
-        using (var border = new Pen(Color.FromArgb(30, 255, 255, 255), 1))
-        {
-            g.FillPath(bg, path);
-            g.DrawPath(border, path);
-        }
 
         // Every piece of text in a row sits on one baseline, placed so the numbers' capitals are
         // centred in the row (Segoe UI's capitals are 0.7 em tall).
@@ -337,6 +333,10 @@ internal static partial class WidgetRenderer
             }
             y += OverlayRowHeight;
         }
+        using (var final = Graphics.FromImage(bmp))
+        using (var panel = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), 10))
+            Compose(final, content, panel, scale, Color.FromArgb(OverlayPanelAlpha, 8, 10, 14), Color.FromArgb(30, 255, 255, 255),
+                o.BackgroundOpacity, o.ContentOpacity);
         return bmp;
     }
 }

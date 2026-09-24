@@ -110,54 +110,45 @@ public static class ReportBuilder
         report.CpuPowerPeak = PeakOf(m => m.CpuPower);
         report.GpuPowerPeak = PeakOf(m => m.GpuPower);
 
-        // Per-app statistics.
-        var stats = new Dictionary<long, AppStat>();
-        var acc = new Dictionary<long, double[]>(); // cpuTempSum, n, gpuTempSum, n, cpuSum, n, memSum, n, gpuLoadSum, n
-        foreach (var h in hours)
+        // All history is now kept for the same time, but versions before 0.4.13 deleted minute detail after 90 days
+        // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and
+        // temperature sums and highs, so days without minutes use them rather than showing "0 active".
+        var minuteDays = minutes.Select(m => TimeUtil.FromUnix(m.Ts).Date).ToHashSet();
+        var older = hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date)).ToList();
+        if (older.Count > 0)
         {
-            if (!stats.TryGetValue(h.AppId, out var s))
+            double oldActive = older.Sum(h => h.FgSec);
+            report.ActiveSec += oldActive;
+            report.AwaySec += older.Sum(h => h.IdleSec);
+            // Without minutes, "on" is the time someone was at it or away from it, hour by hour.
+            report.OnSec += older.GroupBy(h => h.Ts).Sum(g => Math.Min(3600, g.Sum(h => h.FgSec + h.IdleSec)));
+
+            // Averages: the recent part weighted by its minutes, the older part by its time in front.
+            double? oldCpu = WeightedAvg(older, h => h.CpuTempSum, h => h.CpuTempN);
+            double? oldGpu = WeightedAvg(older, h => h.GpuTempSum, h => h.GpuTempN);
+            double recentSec = minutes.Count * 60;
+            report.CpuTempAvg = Blend(report.CpuTempAvg, recentSec, oldCpu, oldActive);
+            report.GpuTempAvg = Blend(report.GpuTempAvg, recentSec, oldGpu, oldActive);
+
+            Peak? HourPeak(Func<AppHour, double?> sel)
             {
-                apps.TryGetValue(h.AppId, out var row);
-                s = new AppStat
-                {
-                    Id = h.AppId,
-                    Exe = row?.Exe ?? "?",
-                    Name = NameOf(h.AppId),
-                    Path = row?.Path,
-                    Category = CategoryOf(h.AppId),
-                };
-                stats[h.AppId] = s;
-                acc[h.AppId] = new double[10];
+                AppHour? best = null;
+                double bestV = double.MinValue;
+                foreach (var h in older)
+                    if (sel(h) is double v && v > bestV) { bestV = v; best = h; }
+                return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), NameOf(best.AppId));
             }
-            var a = acc[h.AppId];
-            s.ActiveSec += h.FgSec;
-            s.AwaySec += h.IdleSec;
-            s.BackgroundSec += h.BgSec;
-            s.MinimizedSec += h.MinSec;
-            a[0] += h.CpuTempSum; a[1] += h.CpuTempN;
-            a[2] += h.GpuTempSum; a[3] += h.GpuTempN;
-            a[4] += h.CpuSum; a[5] += h.CpuN;
-            a[6] += h.MemSum; a[7] += h.MemN;
-            a[8] += h.GpuLoadSum; a[9] += h.GpuLoadN;
-            s.CpuTempMax = Max(s.CpuTempMax, h.CpuTempMax);
-            s.GpuTempMax = Max(s.GpuTempMax, h.GpuTempMax);
-            s.GpuHotMax = Max(s.GpuHotMax, h.GpuHotMax);
-            s.CpuVoltMax = Max(s.CpuVoltMax, h.CpuVoltMax);
-            s.GpuVoltMax = Max(s.GpuVoltMax, h.GpuVoltMax);
-            s.CpuPowerMax = Max(s.CpuPowerMax, h.CpuPowerMax);
-            s.GpuPowerMax = Max(s.GpuPowerMax, h.GpuPowerMax);
-            s.CpuMax = Max(s.CpuMax, h.CpuMax);
-            s.MemMax = Max(s.MemMax, h.MemMax);
+            static Peak? Higher(Peak? a, Peak? b) => a is null ? b : b is null ? a : b.Value > a.Value ? b : a;
+            report.CpuTempPeak = Higher(report.CpuTempPeak, HourPeak(h => h.CpuTempMax));
+            report.GpuTempPeak = Higher(report.GpuTempPeak, HourPeak(h => h.GpuTempMax));
+            report.GpuHotPeak = Higher(report.GpuHotPeak, HourPeak(h => h.GpuHotMax));
+            report.CpuVoltPeak = Higher(report.CpuVoltPeak, HourPeak(h => h.CpuVoltMax));
+            report.GpuVoltPeak = Higher(report.GpuVoltPeak, HourPeak(h => h.GpuVoltMax));
+            // Power peaks stay minute-only: they're one-minute averages, and the hourly rows hold instant highs.
         }
-        foreach (var (id, s) in stats)
-        {
-            var a = acc[id];
-            s.CpuTempAvg = a[1] > 0 ? a[0] / a[1] : null;
-            s.GpuTempAvg = a[3] > 0 ? a[2] / a[3] : null;
-            s.CpuAvg = a[5] > 0 ? a[4] / a[5] : null;
-            s.MemAvg = a[7] > 0 ? a[6] / a[7] : null;
-            s.GpuLoadAvg = a[9] > 0 ? a[8] / a[9] : null;
-        }
+
+        // Per-app statistics.
+        var stats = AppStats(hours, apps, NameOf, CategoryOf);
 
         // Sessions.
         foreach (var s in sessions)
@@ -247,9 +238,107 @@ public static class ReportBuilder
                 }
                 var top = g.GroupBy(h => h.AppId).Select(x => (Id: x.Key, Sec: x.Sum(h => h.FgSec))).MaxBy(x => x.Sec);
                 if (top.Sec > 0) bucket.TopApp = NameOf(top.Id);
+
+                // A day older than the minute detail: its totals and temperatures from the hourly rows.
+                if (!minuteDays.Contains(g.Key))
+                {
+                    var list = g.ToList();
+                    bucket.ActiveSec = list.Sum(h => h.FgSec);
+                    bucket.OnSec = list.GroupBy(h => h.Ts).Sum(x => Math.Min(3600, x.Sum(h => h.FgSec + h.IdleSec)));
+                    bucket.CpuTempAvg = WeightedAvg(list, h => h.CpuTempSum, h => h.CpuTempN);
+                    bucket.GpuTempAvg = WeightedAvg(list, h => h.GpuTempSum, h => h.GpuTempN);
+                    bucket.CpuTempMax = list.Max(h => h.CpuTempMax);
+                    bucket.GpuTempMax = list.Max(h => h.GpuTempMax);
+                }
             }
         }
 
+        return report;
+    }
+
+    /// <summary>Per-app totals from hourly rows (or rows already summed per app, as GetAppTotals returns).</summary>
+    private static Dictionary<long, AppStat> AppStats(IEnumerable<AppHour> hours, IReadOnlyDictionary<long, AppRow> apps,
+        Func<long?, string> NameOf, Func<long?, AppCategory> CategoryOf)
+    {
+        var stats = new Dictionary<long, AppStat>();
+        var acc = new Dictionary<long, double[]>(); // cpuTempSum, n, gpuTempSum, n, cpuSum, n, memSum, n, gpuLoadSum, n
+        foreach (var h in hours)
+        {
+            if (!stats.TryGetValue(h.AppId, out var s))
+            {
+                apps.TryGetValue(h.AppId, out var row);
+                s = new AppStat
+                {
+                    Id = h.AppId,
+                    Exe = row?.Exe ?? "?",
+                    Name = NameOf(h.AppId),
+                    Path = row?.Path,
+                    Category = CategoryOf(h.AppId),
+                };
+                stats[h.AppId] = s;
+                acc[h.AppId] = new double[10];
+            }
+            var a = acc[h.AppId];
+            s.ActiveSec += h.FgSec;
+            s.AwaySec += h.IdleSec;
+            s.BackgroundSec += h.BgSec;
+            s.MinimizedSec += h.MinSec;
+            a[0] += h.CpuTempSum; a[1] += h.CpuTempN;
+            a[2] += h.GpuTempSum; a[3] += h.GpuTempN;
+            a[4] += h.CpuSum; a[5] += h.CpuN;
+            a[6] += h.MemSum; a[7] += h.MemN;
+            a[8] += h.GpuLoadSum; a[9] += h.GpuLoadN;
+            s.CpuTempMax = Max(s.CpuTempMax, h.CpuTempMax);
+            s.GpuTempMax = Max(s.GpuTempMax, h.GpuTempMax);
+            s.GpuHotMax = Max(s.GpuHotMax, h.GpuHotMax);
+            s.CpuVoltMax = Max(s.CpuVoltMax, h.CpuVoltMax);
+            s.GpuVoltMax = Max(s.GpuVoltMax, h.GpuVoltMax);
+            s.CpuPowerMax = Max(s.CpuPowerMax, h.CpuPowerMax);
+            s.GpuPowerMax = Max(s.GpuPowerMax, h.GpuPowerMax);
+            s.CpuMax = Max(s.CpuMax, h.CpuMax);
+            s.MemMax = Max(s.MemMax, h.MemMax);
+        }
+        foreach (var (id, s) in stats)
+        {
+            var a = acc[id];
+            s.CpuTempAvg = a[1] > 0 ? a[0] / a[1] : null;
+            s.GpuTempAvg = a[3] > 0 ? a[2] / a[3] : null;
+            s.CpuAvg = a[5] > 0 ? a[4] / a[5] : null;
+            s.MemAvg = a[7] > 0 ? a[6] / a[7] : null;
+            s.GpuLoadAvg = a[9] > 0 ? a[8] / a[9] : null;
+        }
+        return stats;
+    }
+
+    /// <summary>
+    /// What the Apps page needs for a range: per-app totals and session counts, summed by the database. Much
+    /// cheaper than <see cref="BuildRaw"/> over long ranges ("All time"), which reads every hourly row and session.
+    /// </summary>
+    public static Report BuildAppTotals(RigsightDb db, DateTime from, DateTime to, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings)
+    {
+        var report = new Report { Range = ReportRange.Month, From = from, To = to };
+        long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
+        string NameOf(long? id)
+        {
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+            return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
+        }
+        AppCategory CategoryOf(long? id)
+        {
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return AppCategory.Other;
+            return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;
+        }
+
+        var totals = db.GetAppTotals(f, t);
+        report.HasData = totals.Count > 0;
+        var stats = AppStats(totals, apps, NameOf, CategoryOf);
+        foreach (var (id, (count, longest)) in db.GetSessionStats(f, t, MinSessionSec))
+            if (stats.TryGetValue(id, out var st)) { st.SessionCount = count; st.LongestSessionSec = longest; }
+        report.ActiveSec = stats.Values.Sum(a => a.ActiveSec);
+        report.GamingSec = stats.Values.Where(a => a.Category == AppCategory.Game).Sum(a => a.ActiveSec);
+        report.Apps = [.. stats.Values.OrderByDescending(s => s.ActiveSec).ThenByDescending(s => s.OpenSec)];
+        foreach (var s in report.Apps.Where(s => s.ActiveSec > 0))
+            report.ActiveByCategory[s.Category] = report.ActiveByCategory.GetValueOrDefault(s.Category) + s.ActiveSec;
         return report;
     }
 
@@ -320,6 +409,16 @@ public static class ReportBuilder
             if (v is double d) { sum += d; n++; }
         return n > 0 ? sum / n : null;
     }
+
+    private static double? WeightedAvg(IEnumerable<AppHour> hours, Func<AppHour, double> sum, Func<AppHour, int> n)
+    {
+        double s = 0, c = 0;
+        foreach (var h in hours) { s += sum(h); c += n(h); }
+        return c > 0 ? s / c : null;
+    }
+
+    private static double? Blend(double? a, double weightA, double? b, double weightB) =>
+        a is null ? b : b is null ? a : (a * weightA + b * weightB) / (weightA + weightB);
 
     private static double? Max(double? a, double? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
 }

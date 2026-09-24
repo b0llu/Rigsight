@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(Apps), nameof(Peaks), nameof(TopSessions), nameof(HasData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText), nameof(Peaks), nameof(TopSessions), nameof(HasData),
         nameof(MaxActive), nameof(CanGoNext), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -39,10 +39,51 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private int _trackedDays;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Apps))]
+    [NotifyPropertyChangedFor(nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText))]
     private bool _showBackgroundApps;
 
-    [ObservableProperty] private List<CrashRow> _crashes = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText))]
+    private List<CrashRow> _crashes = [];
+
+    // A month can list hundreds of apps and dozens of crashes. Both lists sit mid-page (more sections follow),
+    // so they start short and grow on request rather than as the page scrolls.
+    private const int AppsPage = 20, CrashesPage = 5;
+    private int _appLimit = AppsPage, _crashLimit = CrashesPage;
+
+    public List<CrashRow> CrashesShown => [.. Crashes.Take(_crashLimit)];
+    public bool HasMoreCrashes => Crashes.Count > _crashLimit;
+    public string MoreCrashesText => $"Show {Math.Min(20, Crashes.Count - _crashLimit)} more ({Crashes.Count - _crashLimit} not shown)";
+
+    [RelayCommand]
+    private void ShowMoreCrashes()
+    {
+        _crashLimit += 20;
+        OnPropertyChanged(nameof(CrashesShown));
+        OnPropertyChanged(nameof(HasMoreCrashes));
+        OnPropertyChanged(nameof(MoreCrashesText));
+    }
+
+    private List<AppStat> AllApps => Report is null ? [] :
+        [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))];
+    public bool HasMoreApps => AllApps.Count > _appLimit;
+    public string MoreAppsText
+    {
+        get
+        {
+            int left = AllApps.Count - _appLimit;
+            return $"Show {Math.Min(AppsPage * 2, left)} more ({left} not shown)";
+        }
+    }
+
+    [RelayCommand]
+    private void ShowMoreApps()
+    {
+        _appLimit += AppsPage * 2;
+        OnPropertyChanged(nameof(Apps));
+        OnPropertyChanged(nameof(HasMoreApps));
+        OnPropertyChanged(nameof(MoreAppsText));
+    }
 
     public bool IsDay => Range == ReportRange.Day;
     public bool IsMultiDay => !IsDay;
@@ -107,8 +148,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private static bool UsedActively(AppStat a) => a.ActiveSec >= 30;
 
     /// <summary>Apps you actually used; background-only apps are added when the toggle is on.</summary>
-    public List<AppStat> Apps => Report is null ? [] :
-        [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))];
+    public List<AppStat> Apps => [.. AllApps.Take(_appLimit)];
 
     public int BackgroundOnlyCount => Report?.Apps.Count(a => !UsedActively(a) && a.OpenSec >= 30) ?? 0;
 
@@ -158,6 +198,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var report = await reports.BuildAsync(range, anchor);
         var crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
         if (id != _loadId) return;
+        // A different period starts with short lists again; the minute refresh of the same one keeps them open.
+        if (report?.From != Report?.From || report?.To != Report?.To) (_appLimit, _crashLimit) = (AppsPage, CrashesPage);
         TrackedDays = tracked;
         FirstDay = first;
         Report = report;

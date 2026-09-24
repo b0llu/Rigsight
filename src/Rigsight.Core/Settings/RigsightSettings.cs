@@ -79,10 +79,10 @@ public sealed class TrackingSettings
     /// <summary>Count a fullscreen app (games, movies) as in use even without keyboard/mouse input.</summary>
     public bool FullscreenCountsAsActive { get; set; } = true;
 
-    /// <summary>How long minute-by-minute data (timelines, temperature curves) is kept.</summary>
-    public int KeepDetailedDays { get; set; } = 90;
-
-    /// <summary>How long hourly per-app data (reports) is kept.</summary>
+    /// <summary>
+    /// How long history is kept, in days: minute-by-minute readings, hourly app time, sessions, crashes and drive
+    /// fill all expire together, so every page covers the same dates. 0 keeps everything.
+    /// </summary>
     public int KeepHistoryDays { get; set; } = 730;
 
     /// <summary>Apps (exe names) that are never recorded.</summary>

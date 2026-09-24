@@ -80,7 +80,49 @@ public sealed class RigsightDb : IDisposable
 
         // Columns added after the first release.
         if (!HasColumn("system_minute", "gpu_mem_max")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_max REAL");
+
+        // Added for long histories: crashes by time, and the longest session (see GetSessions).
+        Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
+        Exec("CREATE INDEX IF NOT EXISTS ix_sessions_app ON sessions(app_id, start)");
+
+        // Per-app totals per month, kept in step with app_hour, so long ranges ("All time") add up a few rows per
+        // app instead of every hour. Filled from app_hour the first time (databases from before 0.4.13).
+        bool newRollup = !HasTable("app_month");
+        Exec($"CREATE TABLE IF NOT EXISTS app_month(month INTEGER NOT NULL, app_id INTEGER NOT NULL, {HourColumnsDdl}, PRIMARY KEY(month, app_id))");
+        if (newRollup) Exec($"INSERT INTO app_month SELECT {MonthOf("ts")}, app_id, {HourSums} FROM app_hour GROUP BY 1, 2");
+        if (GetMeta(MaxSessionKey) is null) SetMeta(MaxSessionKey, ComputeMaxSessionSec().ToString());
     }
+
+    private bool HasTable(string table)
+    {
+        using var cmd = Cmd("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = $t", ("$t", table));
+        return cmd.ExecuteScalar() is long n && n > 0;
+    }
+
+    // app_hour's value columns, shared by app_month (same meaning, summed over the month).
+    private const string HourColumnsDdl = """
+        fg_sec REAL NOT NULL DEFAULT 0, idle_sec REAL NOT NULL DEFAULT 0, bg_sec REAL NOT NULL DEFAULT 0, min_sec REAL NOT NULL DEFAULT 0,
+        cpu_sum REAL NOT NULL DEFAULT 0, cpu_n INTEGER NOT NULL DEFAULT 0, cpu_max REAL,
+        mem_sum REAL NOT NULL DEFAULT 0, mem_n INTEGER NOT NULL DEFAULT 0, mem_max REAL,
+        cpu_temp_sum REAL NOT NULL DEFAULT 0, cpu_temp_n INTEGER NOT NULL DEFAULT 0, cpu_temp_max REAL,
+        gpu_temp_sum REAL NOT NULL DEFAULT 0, gpu_temp_n INTEGER NOT NULL DEFAULT 0, gpu_temp_max REAL, gpu_hot_max REAL,
+        cpu_power_max REAL, gpu_power_max REAL, cpu_volt_max REAL, gpu_volt_max REAL,
+        gpu_load_sum REAL NOT NULL DEFAULT 0, gpu_load_n INTEGER NOT NULL DEFAULT 0
+        """;
+
+    private const string HourSums = """
+        sum(fg_sec), sum(idle_sec), sum(bg_sec), sum(min_sec), sum(cpu_sum), sum(cpu_n), max(cpu_max),
+        sum(mem_sum), sum(mem_n), max(mem_max), sum(cpu_temp_sum), sum(cpu_temp_n), max(cpu_temp_max),
+        sum(gpu_temp_sum), sum(gpu_temp_n), max(gpu_temp_max), max(gpu_hot_max), max(cpu_power_max), max(gpu_power_max),
+        max(cpu_volt_max), max(gpu_volt_max), sum(gpu_load_sum), sum(gpu_load_n)
+        """;
+
+    /// <summary>
+    /// SQL for the start of the (local) month containing a unix time, as a unix time. Every month key is computed
+    /// by SQLite with this one expression, so writes, reads and clean-ups always agree on where a month starts.
+    /// </summary>
+    private static string MonthOf(string unix, string shift = "") =>
+        $"CAST(strftime('%s', {unix}, 'unixepoch', 'localtime', 'start of month'{shift}, 'utc') AS INTEGER)";
 
     private bool HasColumn(string table, string column)
     {
@@ -169,16 +211,23 @@ public sealed class RigsightDb : IDisposable
     /// <summary>Adds per-app deltas into their hour buckets (sums add up, maxima take the larger value).</summary>
     public void AddAppHour(AppHour h)
     {
+        // The same numbers into the hour and into its month (see app_month).
+        foreach (var (table, key) in new[] { ("app_hour", "ts"), ("app_month", "month") })
+            AddAppDelta(table, key, h);
+    }
+
+    private void AddAppDelta(string table, string key, AppHour h)
+    {
         static string Max(string col) => $"{col} = max(coalesce({col}, excluded.{col}), coalesce(excluded.{col}, {col}))";
         static string Sum(string col) => $"{col} = {col} + excluded.{col}";
 
         using var cmd = Cmd($"""
-            INSERT INTO app_hour(ts, app_id, fg_sec, idle_sec, bg_sec, min_sec, cpu_sum, cpu_n, cpu_max, mem_sum, mem_n, mem_max,
+            INSERT INTO {table}({key}, app_id, fg_sec, idle_sec, bg_sec, min_sec, cpu_sum, cpu_n, cpu_max, mem_sum, mem_n, mem_max,
                 cpu_temp_sum, cpu_temp_n, cpu_temp_max, gpu_temp_sum, gpu_temp_n, gpu_temp_max, gpu_hot_max,
                 cpu_power_max, gpu_power_max, cpu_volt_max, gpu_volt_max, gpu_load_sum, gpu_load_n)
-            VALUES($ts, $app, $fg, $idle, $bg, $min, $cs, $cn, $cm, $ms, $mn, $mm, $cts, $ctn, $ctm, $gts, $gtn, $gtm, $ghm,
+            VALUES({(key == "ts" ? "$ts" : MonthOf("$ts"))}, $app, $fg, $idle, $bg, $min, $cs, $cn, $cm, $ms, $mn, $mm, $cts, $ctn, $ctm, $gts, $gtn, $gtm, $ghm,
                 $cpm, $gpm, $cvm, $gvm, $gls, $gln)
-            ON CONFLICT(ts, app_id) DO UPDATE SET
+            ON CONFLICT({key}, app_id) DO UPDATE SET
                 {Sum("fg_sec")}, {Sum("idle_sec")}, {Sum("bg_sec")}, {Sum("min_sec")},
                 {Sum("cpu_sum")}, {Sum("cpu_n")}, {Max("cpu_max")}, {Sum("mem_sum")}, {Sum("mem_n")}, {Max("mem_max")},
                 {Sum("cpu_temp_sum")}, {Sum("cpu_temp_n")}, {Max("cpu_temp_max")},
@@ -203,6 +252,26 @@ public sealed class RigsightDb : IDisposable
             """, ("$app", s.AppId), ("$start", s.Start), ("$end", s.End), ("$act", s.ActiveSec),
             ("$ct", s.CpuTempMax), ("$gt", s.GpuTempMax), ("$game", s.IsGame ? 1 : 0));
         cmd.ExecuteNonQuery();
+        if (s.End - s.Start > MaxSessionSec())
+        {
+            _maxSessionSec = s.End - s.Start;
+            SetMeta(MaxSessionKey, _maxSessionSec.Value.ToString());
+        }
+    }
+
+    // Sessions have no length limit (one lasts as long as the app is used without a 10-minute break), so
+    // "sessions overlapping a range" can't use the start index on its own: it would read every session
+    // since the beginning of history. The longest session so far bounds how far back one can start.
+    private const string MaxSessionKey = "max_session_sec";
+    private long? _maxSessionSec;
+
+    private long MaxSessionSec() =>
+        _maxSessionSec ??= long.TryParse(GetMeta(MaxSessionKey), out var v) ? v : ComputeMaxSessionSec();
+
+    private long ComputeMaxSessionSec()
+    {
+        using var cmd = Cmd("SELECT coalesce(max(end - start), 0) FROM sessions");
+        return cmd.ExecuteScalar() is long v ? v : 0;
     }
 
     public void UpsertDriveDay(DriveDay d)
@@ -228,18 +297,24 @@ public sealed class RigsightDb : IDisposable
         return added;
     }
 
-    public void Prune(long detailedBefore, long historyBefore)
+    /// <summary>Deletes all history older than <paramref name="before"/>: every table uses the same cutoff.</summary>
+    public void Prune(long before)
     {
-        using (var c1 = Cmd("DELETE FROM system_minute WHERE ts < $t", ("$t", detailedBefore))) c1.ExecuteNonQuery();
-        using (var c2 = Cmd("DELETE FROM app_hour WHERE ts < $t", ("$t", historyBefore))) c2.ExecuteNonQuery();
-        using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", historyBefore))) c3.ExecuteNonQuery();
-        using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", historyBefore))) c4.ExecuteNonQuery();
-        using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", historyBefore))) c5.ExecuteNonQuery();
+        using (var c1 = Cmd("DELETE FROM system_minute WHERE ts < $t", ("$t", before))) c1.ExecuteNonQuery();
+        using (var c2 = Cmd("DELETE FROM app_hour WHERE ts < $t", ("$t", before))) c2.ExecuteNonQuery();
+        using (var c2m = Cmd($"""
+            DELETE FROM app_month WHERE month <= {MonthOf("$t")};
+            INSERT INTO app_month SELECT {MonthOf("ts")}, app_id, {HourSums} FROM app_hour
+                WHERE ts >= {MonthOf("$t")} AND ts < {MonthOf("$t", ", '+1 month'")} GROUP BY 1, 2;
+            """, ("$t", before))) c2m.ExecuteNonQuery();
+        using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
+        using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
+        using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
     }
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM app_hour; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;");
+        Exec("DELETE FROM system_minute; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;");
         Exec("VACUUM");
     }
 
@@ -288,6 +363,40 @@ public sealed class RigsightDb : IDisposable
                    cpu_power_max, gpu_power_max, cpu_volt_max, gpu_volt_max, gpu_load_sum, gpu_load_n
             FROM app_hour WHERE ts >= $from AND ts < $to
             """, ("$from", from), ("$to", to));
+        return ReadHours(cmd);
+    }
+
+    /// <summary>
+    /// One row per app with the range summed (sums added, highs as the highest). Ts is 0. Whole months inside the
+    /// range come from app_month and only the partial months at either end from app_hour: the same result as
+    /// adding up every hour, at a fraction of the cost over long ranges.
+    /// </summary>
+    public List<AppHour> GetAppTotals(long from, long to)
+    {
+        // The first whole month starting at or after `from`, and the start of the month `to` falls in.
+        long m1, m2;
+        using (var b = Cmd($"""
+            SELECT CASE WHEN {MonthOf("$from")} = $from THEN $from ELSE {MonthOf("$from", ", '+1 month'")} END, {MonthOf("$to")}
+            """, ("$from", from), ("$to", to)))
+        using (var r = b.ExecuteReader())
+        {
+            r.Read();
+            (m1, m2) = (r.GetInt64(0), r.GetInt64(1));
+        }
+        if (m1 >= m2) (m1, m2) = (to, to); // no whole month inside: hours only
+
+        using var cmd = Cmd($"""
+            SELECT 0, app_id, {HourSums} FROM (
+                SELECT * FROM app_hour WHERE (ts >= $from AND ts < $m1) OR (ts >= $m2 AND ts < $to)
+                UNION ALL
+                SELECT * FROM app_month WHERE month >= $m1 AND month < $m2)
+            GROUP BY app_id
+            """, ("$from", from), ("$to", to), ("$m1", m1), ("$m2", m2));
+        return ReadHours(cmd);
+    }
+
+    private static List<AppHour> ReadHours(SqliteCommand cmd)
+    {
         using var r = cmd.ExecuteReader();
         var list = new List<AppHour>();
         while (r.Read())
@@ -307,12 +416,63 @@ public sealed class RigsightDb : IDisposable
         return list;
     }
 
+    /// <summary>Per app: how many sessions of at least <paramref name="minSec"/> in the range, and the longest.</summary>
+    public Dictionary<long, (int Count, double Longest)> GetSessionStats(long from, long to, double minSec)
+    {
+        using var cmd = Cmd("""
+            SELECT app_id, count(*), max(active_sec) FROM sessions
+            WHERE start >= $earliest AND start < $to AND end > $from AND active_sec >= $min GROUP BY app_id
+            """, ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1), ("$min", minSec));
+        using var r = cmd.ExecuteReader();
+        var map = new Dictionary<long, (int, double)>();
+        while (r.Read()) map[r.GetInt64(0)] = (r.GetInt32(1), r.GetDouble(2));
+        return map;
+    }
+
+    /// <summary>One app's most recent sessions of at least <paramref name="minSec"/> in the range, newest first.</summary>
+    public List<SessionRow> GetRecentSessions(long appId, long from, long to, double minSec, int limit)
+    {
+        using var cmd = Cmd("""
+            SELECT id, app_id, start, end, active_sec, cpu_temp_max, gpu_temp_max, is_game FROM sessions
+            WHERE app_id = $app AND start >= $earliest AND start < $to AND end > $from AND active_sec >= $min
+            ORDER BY start DESC LIMIT $limit
+            """, ("$app", appId), ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1), ("$min", minSec), ("$limit", limit));
+        return ReadSessions(cmd);
+    }
+
+    /// <summary>
+    /// For every crash in the range, in one query: the highest CPU and GPU temperature in the 5 minutes before it,
+    /// the app in front (within 3 minutes), and how long the crashed app's session had run (the one it ended).
+    /// </summary>
+    public Dictionary<long, CrashContext> GetCrashContext(long from, long to)
+    {
+        using var cmd = Cmd("""
+            SELECT c.id,
+              (SELECT max(cpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
+              (SELECT max(gpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
+              (SELECT fg_app FROM system_minute m WHERE m.ts <= c.ts AND m.ts > c.ts - 180 AND fg_app IS NOT NULL ORDER BY m.ts DESC LIMIT 1),
+              (SELECT s.active_sec FROM sessions s WHERE s.app_id = (SELECT a.id FROM apps a WHERE a.exe = c.app_exe)
+                 AND s.start >= c.ts - $maxSession - 1 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1)
+            FROM crashes c WHERE c.ts >= $from AND c.ts < $to
+            """, ("$from", from), ("$to", to), ("$maxSession", MaxSessionSec()));
+        using var r = cmd.ExecuteReader();
+        var map = new Dictionary<long, CrashContext>();
+        while (r.Read())
+            map[r.GetInt64(0)] = new CrashContext(D(r, 1), D(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), D(r, 4));
+        return map;
+    }
+
     public List<SessionRow> GetSessions(long from, long to)
     {
         using var cmd = Cmd("""
             SELECT id, app_id, start, end, active_sec, cpu_temp_max, gpu_temp_max, is_game
-            FROM sessions WHERE start < $to AND end > $from ORDER BY start
-            """, ("$from", from), ("$to", to));
+            FROM sessions WHERE start >= $earliest AND start < $to AND end > $from ORDER BY start
+            """, ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1));
+        return ReadSessions(cmd);
+    }
+
+    private static List<SessionRow> ReadSessions(SqliteCommand cmd)
+    {
         using var r = cmd.ExecuteReader();
         var list = new List<SessionRow>();
         while (r.Read())

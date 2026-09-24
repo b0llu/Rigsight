@@ -144,7 +144,8 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  ctl:InfiniteScroll.LoadMore="{Binding ShowMoreCommand}">
         <StackPanel Margin="32,26,32,32">
             <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
             <DockPanel>

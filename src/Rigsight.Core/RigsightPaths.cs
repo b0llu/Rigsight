@@ -3,8 +3,13 @@ namespace Rigsight.Core;
 /// <summary>Well-known locations and names shared by the agent and the app.</summary>
 public static class RigsightPaths
 {
+    /// <summary>
+    /// %LocalAppData%\Rigsight. For testing, the RIGSIGHT_DATA_DIR environment variable points it elsewhere
+    /// (e.g. at a folder of generated history) without touching the real data.
+    /// </summary>
     public static string DataDir { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rigsight");
+        Environment.GetEnvironmentVariable("RIGSIGHT_DATA_DIR") is { Length: > 0 } dir ? dir
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rigsight");
 
     public static string SettingsFile => Path.Combine(DataDir, "settings.json");
     public static string Database => Path.Combine(DataDir, "rigsight.db");

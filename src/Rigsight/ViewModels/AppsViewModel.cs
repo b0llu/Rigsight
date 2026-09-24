@@ -75,7 +75,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [ObservableProperty] private double _maxValue = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectedSessions), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded))]
     private AppStat? _selected;
 
     [ObservableProperty] private AppListRow? _selectedRow;
@@ -89,8 +89,16 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     public bool HasSelection => Selected is not null;
 
-    public List<SessionInfo> SelectedSessions => Selected is null || _report is null ? [] :
-        [.. _report.Sessions.Where(s => s.AppId == Selected.Id).OrderByDescending(s => s.Start).Take(12)];
+    /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
+    [ObservableProperty] private List<SessionInfo> _selectedSessions = [];
+
+    private DateTime _from, _to;
+
+    private async Task LoadSessionsAsync(AppStat app)
+    {
+        var list = await reports.RecentSessionsAsync(app, _from, _to, 12) ?? [];
+        if (Selected == app) SelectedSessions = list;
+    }
 
     public string SelectedAlias
     {
@@ -146,8 +154,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     partial void OnSelectedChanged(AppStat? oldValue, AppStat? newValue)
     {
         // The same app re-read by the minute refresh keeps its chart until the new one is ready (no flicker).
-        if (oldValue?.Id != newValue?.Id) SelectedDaily = null;
-        if (newValue is not null) _ = LoadDailyAsync(newValue);
+        if (oldValue?.Id != newValue?.Id) { SelectedDaily = null; SelectedSessions = []; }
+        if (newValue is not null) { _ = LoadDailyAsync(newValue); _ = LoadSessionsAsync(newValue); }
     }
 
     private async Task LoadDailyAsync(AppStat app)
@@ -186,12 +194,13 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         if (id != _loadId) return; // a newer range or day was picked meanwhile
         FirstDay = first;
         _report = report;
+        (_from, _to) = (from, to);
         _all = _report?.Apps.Where(a => a.OpenSec >= 30 || a.MemMax >= 150).ToList() ?? [];
         var keep = _pendingSelection ?? Selected?.Exe;
         ApplyView();
         if (keep is not null) SelectExe(keep);
         else if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
-        OnPropertyChanged(nameof(SelectedSessions));
+        if (Selected is not null) await LoadSessionsAsync(Selected);
     }
 
     private double Key(AppStat a) => Sort switch

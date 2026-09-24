@@ -323,27 +323,15 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="30 days" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=30}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="90 days" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=90}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Detail" Content="1 year" IsChecked="{Binding KeepDetailedDays, Converter={StaticResource Equals}, ConverterParameter=365}" />
-                            </StackPanel>
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Text="Keep minute-by-minute timelines for" Style="{StaticResource Title}" />
-                            <TextBlock Text="About 150 KB per day." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="3 months" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=90}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="1 year" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=365}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="2 years" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=730}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="Forever" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=3650}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Hist" Content="Forever" IsChecked="{Binding KeepHistoryDays, Converter={StaticResource Equals}, ConverterParameter=0}" />
                             </StackPanel>
                         </Border>
                         <StackPanel>
-                            <TextBlock Text="Keep app usage reports for" Style="{StaticResource Title}" />
-                            <TextBlock Text="Hourly per-app totals used by weekly and monthly reports." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Keep history for" Style="{StaticResource Title}" />
+                            <TextBlock Text="Temperatures minute by minute, app time, sessions and crashes, all kept for the same time. About 25 MB a year, up to about 70 MB if the PC is on all day." Style="{StaticResource Hint}" TextWrapping="Wrap" />
                         </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding TrackingSince}" Style="{StaticResource Hint}" Margin="0,12,0,0"

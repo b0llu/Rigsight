@@ -120,3 +120,6 @@ public static class TimeUtil
         return NowUnix() - (now.Minute * 60 + now.Second);
     }
 }
+
+/// <summary>What was going on just before a crash (see RigsightDb.GetCrashContext).</summary>
+public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec);

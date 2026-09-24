@@ -30,12 +30,22 @@ public sealed class ReportService(SettingsModel settings)
         return Run(db => ReportBuilder.Build(db, range, anchor, s));
     }
 
-    /// <summary>Raw report for an arbitrary range (no insights), used by the Apps page.</summary>
+    /// <summary>Per-app totals and session counts for a range (Apps page, Memory page, CSV export), summed by the database.</summary>
     public Task<Report?> BuildRangeAsync(DateTime from, DateTime to)
     {
         var s = Snapshot();
-        return Run(db => ReportBuilder.BuildRaw(db, ReportRange.Month, from, to, db.LoadApps().ToDictionary(a => a.Id), s, withMinutes: false));
+        return Run(db => ReportBuilder.BuildAppTotals(db, from, to, db.LoadApps().ToDictionary(a => a.Id), s));
     }
+
+    /// <summary>One app's most recent sessions (a minute or longer) in the range, newest first.</summary>
+    public Task<List<SessionInfo>?> RecentSessionsAsync(AppStat app, DateTime from, DateTime to, int count) => Run(db =>
+        db.GetRecentSessions(app.Id, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), ReportBuilder.MinSessionSec, count)
+            .Select(x => new SessionInfo
+            {
+                AppId = app.Id, Name = app.Name, Exe = app.Exe, Path = app.Path, Category = app.Category,
+                Start = TimeUtil.FromUnix(x.Start), End = TimeUtil.FromUnix(x.End), ActiveSec = x.ActiveSec,
+                CpuTempMax = x.CpuTempMax, GpuTempMax = x.GpuTempMax, IsGame = x.IsGame || app.Category == AppCategory.Game,
+            }).ToList());
 
     /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
     public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
@@ -92,6 +102,8 @@ public sealed class ReportService(SettingsModel settings)
 
             var events = db.GetCrashes(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to))
                 .Where(e => includeMuted || !s.IsCrashMuted(e.AppExe)).ToList();
+            // What was going on just before each crash, for all of them in one query.
+            var context = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
 
             // Blue-screen dumps are logged at the next startup: match each to the closest earlier crash with the same code.
             var dumps = events.Any(e => e.Kind == Core.Stability.CrashKind.SystemCrash)
@@ -99,6 +111,7 @@ public sealed class ReportService(SettingsModel settings)
 
             return events.Select(e =>
             {
+                context.TryGetValue(e.Id, out var ctx);
                 string? name = null;
                 string? frontApp = null;
                 double? sessionSec = null;
@@ -115,20 +128,17 @@ public sealed class ReportService(SettingsModel settings)
                     {
                         isGame = (s.AppCategories.TryGetValue(row.Exe, out var c) ? c : row.Category) == AppCategory.Game;
                         // The session this crash ended: written when the app closed, so it ends right around the crash.
-                        var session = db.GetSessions(e.Ts - 86400, e.Ts + 600)
-                            .Where(x => x.AppId == row.Id && x.Start <= e.Ts + 60 && x.End >= e.Ts - 600)
-                            .MaxBy(x => x.End);
-                        sessionSec = session?.ActiveSec;
+                        sessionSec = ctx?.SessionSec;
                     }
                 }
-                if (db.FrontAppAt(e.Ts) is long front && byId.TryGetValue(front, out var frontRow)) frontApp = NameOf(frontRow);
+                if (ctx?.FrontApp is long front && byId.TryGetValue(front, out var frontRow)) frontApp = NameOf(frontRow);
 
                 string? dump = null;
                 if (e.Kind == Core.Stability.CrashKind.SystemCrash && ParseCode(e.Code) is uint code)
                     dump = dumps.Where(d => d.Code == code && d.Logged >= e.Time.AddMinutes(-5) && d.Logged <= e.Time.AddDays(2))
                         .OrderBy(d => d.Logged).Select(d => d.Path).FirstOrDefault();
 
-                var (cpu, gpu) = db.PeakTempsBefore(e.Ts, 5);
+                var (cpu, gpu) = (ctx?.CpuBefore, ctx?.GpuBefore);
                 return new Models.CrashRow
                 {
                     Event = e,

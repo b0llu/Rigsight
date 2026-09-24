@@ -4,7 +4,7 @@
     <UserControl.Resources>
         <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Width" Value="70" />
+            <Setter Property="Width" Value="90" />
         </Style>
     </UserControl.Resources>
 
@@ -86,12 +86,19 @@
                                             <ComboBoxItem Content="Hide in fullscreen apps" Tag="HideInFullscreen" />
                                         </ComboBox>
                                     </StackPanel>
-                                    <DockPanel Margin="0,4">
-                                        <TextBlock Text="OPACITY" Style="{StaticResource OptionLabel}" />
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding OpacityPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
+                                    <DockPanel Margin="0,4" ToolTip="The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.">
+                                        <TextBlock Text="BACKGROUND" Style="{StaticResource OptionLabel}" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                        <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                                Value="{Binding OpacityPercent}" />
+                                        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                Value="{Binding BackgroundPercent}" />
+                                    </DockPanel>
+                                    <DockPanel Margin="0,4" ToolTip="The readings themselves: numbers, labels, gauges and charts.">
+                                        <TextBlock Text="CONTENT" Style="{StaticResource OptionLabel}" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
+                                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                        <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                                Value="{Binding ContentPercent}" />
                                     </DockPanel>
                                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Locked}" Margin="0,8,0,0">
                                         <TextBlock Text="Lock in place (click-through)" Style="{StaticResource Body}" />
