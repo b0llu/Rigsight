@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Rigsight — Know your rig</title>
+  <meta name="description" content="Free Windows app that records your PC's temperatures, loads, app usage and crashes all day, and keeps them as history. In-game overlay, desktop widgets, ~0.01% CPU." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" type="image/png" href="img/logo.png" />
+  <link rel="apple-touch-icon" href="img/logo.png" />
+
+  <!-- Link previews (Discord, WhatsApp, X, Reddit…) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rigsight" />
+  <meta property="og:title" content="Rigsight — Know your rig" />
+  <meta property="og:description" content="Your PC's temperatures, app usage and crashes, recorded all day and kept as history. Free for Windows." />
+  <meta property="og:url" content="https://b0llu.github.io/Rigsight/" />
+  <meta property="og:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="image" href="img/temperatures.webp" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <!-- ── Navigation ─────────────────────────────────────────── -->
+  <header class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top" aria-label="Rigsight home">
+        <img src="img/logo.png" alt="" width="28" height="28" />
+        <span>Rigsight</span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#overlay">Overlay</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-cta">
+        <a class="icon-link" href="https://github.com/b0llu/Rigsight" aria-label="Rigsight on GitHub">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        </a>
+        <a class="btn btn-small btn-light" data-download href="https://github.com/b0llu/Rigsight/releases/latest">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ── Hero ────────────────────────────────────────────── -->
+    <section class="hero">
+      <div class="wrap hero-copy">
+        <a class="pill reveal" id="release-pill" href="https://github.com/b0llu/Rigsight/releases/latest">
+          <span class="pill-dot"></span>
+          <span id="release-pill-text">Free and open source for Windows</span>
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M6 3.5 10.5 8 6 12.5l-1-1L8.5 8 5 4.5z"/></svg>
+        </a>
+        <h1 class="reveal">Know your <span class="grad">rig.</span></h1>
+        <p class="lead reveal">Rigsight records your PC's temperatures, loads, app usage and crashes all day, and keeps them as history. See what happened, not just what's happening.</p>
+        <div class="cta-row reveal">
+          <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
+            <span>Download for Windows</span>
+          </a>
+          <a class="btn btn-ghost" href="#features">See what it does</a>
+        </div>
+        <p class="meta reveal"><span data-version>Latest version</span><span>Windows 10 &amp; 11</span><span>Free, MIT licensed</span></p>
+        <button class="copy-link mobile-only reveal" type="button" id="copy-link">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg>
+          <span>On your phone? Copy the link for your PC</span>
+        </button>
+      </div>
+
+      <div class="wrap hero-visual reveal">
+        <div class="stage" id="stage">
+          <figure class="window">
+            <img src="img/temperatures.webp" width="1440" height="932" alt="Rigsight's Temperatures page: CPU and GPU gauges, load, power, clocks and a six-hour temperature history chart" />
+          </figure>
+
+          <div class="float float-overlay" aria-hidden="true">
+            <div class="ov-row"><span class="ov-k">FPS</span><b data-tick="fps">144</b><span class="ov-u">1% low</span><b data-tick="low">118</b></div>
+            <div class="ov-row"><span class="ov-k cpu">CPU</span><b class="warm" data-tick="cpu">62°</b><b data-tick="cpul">38</b><span class="ov-u">%</span></div>
+            <div class="ov-row"><span class="ov-k gpu">GPU</span><b class="warm" data-tick="gpu">71°</b><b data-tick="gpul">97</b><span class="ov-u">%</span></div>
+          </div>
+
+          <div class="float float-peak" aria-hidden="true">
+            <span class="fp-label">GPU peak today</span>
+            <span class="fp-value">74°</span>
+            <span class="fp-sub">8:14 PM · in Cyberpunk 2077</span>
+          </div>
+
+          <div class="float float-cpu" aria-hidden="true">
+            <span class="fc-dot"></span> Background agent <b>0.006% CPU</b>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Numbers strip ──────────────────────────────────────── -->
+    <section class="strip" aria-label="At a glance">
+      <div class="wrap strip-grid">
+        <div class="stat reveal"><b>~0.01%</b><span>CPU while it records</span></div>
+        <div class="stat reveal"><b>Every minute</b><span>kept as history, for up to 2 years</span></div>
+        <div class="stat reveal"><b>Every sensor</b><span>temps, fans, clocks, power, voltages, drives</span></div>
+        <div class="stat reveal"><b>0 bytes</b><span>sent anywhere. No account, no telemetry.</span></div>
+      </div>
+    </section>
+
+    <!-- ── The idea ───────────────────────────────────────────── -->
+    <section class="idea wrap">
+      <p class="eyebrow reveal">Why Rigsight</p>
+      <h2 class="reveal">Most monitors forget.<br /><span class="dim">Rigsight remembers.</span></h2>
+      <div class="compare">
+        <div class="cmp cmp-old reveal">
+          <h3>A normal hardware monitor</h3>
+          <ul>
+            <li>Shows numbers only while you're watching</li>
+            <li>Close it, and the numbers are gone</li>
+            <li>A wall of sensors, no context</li>
+            <li>"Did it overheat last night?" — no idea</li>
+          </ul>
+        </div>
+        <div class="cmp cmp-new reveal">
+          <h3>Rigsight</h3>
+          <ul>
+            <li>Records all day, even with its window closed</li>
+            <li>Any day, week or month, minute by minute</li>
+            <li>Every number tied to the app that was in front</li>
+            <li>"GPU hit 74° at 8:14 PM in Cyberpunk" — yes</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Features ───────────────────────────────────────────── -->
+    <section id="features" class="features">
+      <article class="feature wrap">
+        <div class="f-copy reveal">
+          <span class="tag tag-blue">Temperatures</span>
+          <h2>Every degree, with a timestamp.</h2>
+          <p>Live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, clocks, power and voltages. Each shows today's low and high, recorded even when the window is closed.</p>
+          <ul class="checks">
+            <li>History for the last 5 minutes to 24 hours, or any single day</li>
+            <li>Hover the chart for the exact time and temperature</li>
+            <li>Alerts that ignore one-second spikes and only fire when it stays hot</li>
+          </ul>
+        </div>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/temperatures-gauges.webp" width="1152" height="427" alt="CPU and GPU temperature gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high" /></figure>
+      </article>
+
+      <article class="feature wrap flip">
+        <div class="f-copy reveal">
+          <span class="tag tag-green">Reports</span>
+          <h2>Your day, minute by minute.</h2>
+          <p>Pick any day, week or month. A timeline shows which app was in front each minute, with CPU and GPU temperature drawn over it, plus your peaks and when they happened.</p>
+          <ul class="checks">
+            <li>Active time vs. time the PC was just on</li>
+            <li>Highlights that only speak up when something stands out</li>
+            <li>Idle vs. idle and load vs. load comparisons with last week</li>
+          </ul>
+        </div>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/reports.webp" width="1440" height="932" alt="Reports page with a minute-by-minute timeline of apps and temperatures" /></figure>
+      </article>
+
+      <article class="feature wrap">
+        <div class="f-copy reveal">
+          <span class="tag tag-purple">Apps</span>
+          <h2>Where your time and heat go.</h2>
+          <p>Every app and game, measured: time you actually used it, time it sat in the background, and time it was minimized. See how hot each one runs your CPU and GPU, and how much memory it takes.</p>
+          <ul class="checks">
+            <li>Any day, the last 7 or 30 days, or all time</li>
+            <li>A fullscreen game counts as in use even on a controller</li>
+            <li>Rename apps, set categories, or never track one</li>
+          </ul>
+        </div>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/apps.webp" width="1440" height="932" alt="Apps page listing apps by time used, with per-app temperatures" /></figure>
+      </article>
+
+      <article class="feature wrap flip">
+        <div class="f-copy reveal">
+          <span class="tag tag-red">Crashes</span>
+          <h2>Crashes, explained in plain words.</h2>
+          <p>Game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns, read from Windows' own logs and translated into what probably happened and what to try.</p>
+          <ul class="checks">
+            <li>The temperatures and game right before each crash</li>
+            <li>"What changed before": drivers and updates installed in the days before</li>
+            <li>Patterns, one-click reports to paste in a forum, and mute for noisy apps</li>
+          </ul>
+        </div>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/crashes.webp" width="1440" height="932" alt="Crashes page with a severity timeline and plain-language explanations" /></figure>
+      </article>
+    </section>
+
+    <!-- ── Overlay ────────────────────────────────────────────── -->
+    <section id="overlay" class="overlay-sec">
+      <div class="wrap overlay-grid">
+        <div class="f-copy reveal">
+          <span class="tag tag-amber">In-game overlay</span>
+          <h2>Your numbers, inside the game.</h2>
+          <p>Press <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>O</kbd> in any game. FPS, 1% lows, frame time, CPU and GPU temperature, load, clock and power, VRAM, RAM, and up to 10 of your own sensors.</p>
+          <ul class="checks">
+            <li>Works in exclusive fullscreen, through RivaTuner (installed for you)</li>
+            <li>Never takes focus; clicks pass straight through</li>
+            <li>Rigsight never hooks into games, so it's safe with anti-cheat</li>
+          </ul>
+        </div>
+        <div class="game reveal" aria-hidden="true">
+          <div class="game-scene">
+            <div class="sun"></div>
+            <div class="mountain m1"></div>
+            <div class="mountain m2"></div>
+            <div class="road"></div>
+          </div>
+          <div class="game-ov">
+            <div class="ov-row"><span class="ov-k">FPS</span><b data-tick="fps">144</b><span class="ov-u">1% low</span><b data-tick="low">118</b></div>
+            <div class="ov-row"><span class="ov-k cpu">CPU</span><b class="warm" data-tick="cpu">62°</b><b data-tick="cpul">38</b><span class="ov-u">%</span><b data-tick="cpuw">88</b><span class="ov-u">W</span></div>
+            <div class="ov-row"><span class="ov-k gpu">GPU</span><b class="warm" data-tick="gpu">71°</b><b data-tick="gpul">97</b><span class="ov-u">%</span><b data-tick="gpuw">312</b><span class="ov-u">W</span></div>
+            <div class="ov-row"><span class="ov-k ram">RAM</span><b>9.6</b><span class="ov-u">/ 16 GB</span></div>
+            <div class="ov-row"><span class="ov-k">PUMP</span><b data-tick="pump">2140</b><span class="ov-u">RPM</span></div>
+          </div>
+          <div class="game-hint"><kbd>Alt</kbd><kbd>Shift</kbd><kbd>O</kbd></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── More ───────────────────────────────────────────────── -->
+    <section class="more wrap">
+      <p class="eyebrow reveal">And the rest of your rig</p>
+      <h2 class="reveal">Everything else you'd want to know.</h2>
+      <div class="cards">
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--blue)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1m0 8h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1m13-5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2m0 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg></div>
+          <h3>Storage &amp; drive health</h3>
+          <p>How full each drive is and how fast it's filling. SSD wear, SMART health and bad sectors, and a treemap of what's taking the space.</p>
+        </div>
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--purple)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7h18v10H3zm2 2v6h2V9zm4 0v6h2V9zm4 0v6h2V9zm4 0v6h2V9zM5 18h2v2H5zm4 0h2v2H9zm4 0h2v2h-2zm4 0h2v2h-2zM5 4h2v2H5zm4 0h2v2H9zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg></div>
+          <h3>Memory</h3>
+          <p>RAM in use right now, app by app, and the day's biggest memory users with their peaks.</p>
+        </div>
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--green)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v5h-8zm2 2v1h4V5zM3 13h8v8H3zm2 2v4h4v-4zm8-5h8v11h-8zm2 2v7h4v-7z"/></svg></div>
+          <h3>Your own dashboards</h3>
+          <p>Build pages from gauges, charts and any single sensor. Drag tiles anywhere, resize them, make one for gaming and one for work.</p>
+        </div>
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--amber)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-6v2h3v2H6v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m1 2v9h16V6zm9 1h6v3h-6z"/></svg></div>
+          <h3>Desktop widgets</h3>
+          <p>Six widgets: compact, slim bar, gauges, now playing, today and a temperature graph. Dark, light or match Windows.</p>
+        </div>
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--red)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 3.2 1 5.2 2 6.5V17H3v-1.5C4 14.2 5 12.2 5 9a7 7 0 0 1 7-7m-2 17h4a2 2 0 0 1-4 0"/></svg></div>
+          <h3>Calm notifications</h3>
+          <p>A daily recap, game session summaries and temperature alerts. Anything non-urgent waits until you leave your game.</p>
+        </div>
+        <div class="card reveal">
+          <div class="c-icon" style="--c: var(--cyan)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3m0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10"/></svg></div>
+          <h3>Every sensor</h3>
+          <p>Every sensor your hardware exposes (over 200 on a typical gaming PC), searchable, grouped and renamable. NVIDIA, AMD and Intel.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Themes ─────────────────────────────────────────────── -->
+    <section class="themes wrap">
+      <div class="themes-head">
+        <p class="eyebrow reveal">Looks</p>
+        <h2 class="reveal">Black. Or white.</h2>
+        <p class="sub reveal">Pure black or pure white, with colour only where it means something: a temperature, a warning, a crash. Or let it follow Windows. <span class="desktop-only">Drag to compare.</span></p>
+      </div>
+      <div class="compare-slider reveal" id="compare" style="--pos: 50%">
+        <img src="img/temperatures.webp" width="1440" height="932" alt="Rigsight in the dark theme" loading="lazy" />
+        <div class="cs-top"><img src="img/temperatures-light.webp" width="1440" height="932" alt="Rigsight in the light theme" loading="lazy" /></div>
+        <div class="cs-handle" aria-hidden="true"><span></span></div>
+        <input type="range" min="0" max="100" value="50" aria-label="Compare dark and light theme" />
+        <span class="cs-label cs-l">Light</span>
+        <span class="cs-label cs-r">Dark</span>
+      </div>
+    </section>
+
+    <!-- ── Light ──────────────────────────────────────────────── -->
+    <section class="light wrap">
+      <div class="light-grid">
+        <div class="reveal">
+          <p class="eyebrow">Built to be invisible</p>
+          <h2>Records all day.<br /><span class="dim">You'll never notice it.</span></h2>
+          <p class="sub">A tiny background agent reads the sensors and writes one small summary a minute. The window only runs while it's open, and fully exits when you close it.</p>
+        </div>
+        <div class="meters reveal">
+          <div class="meter">
+            <div class="m-head"><span>Background agent, window closed</span><b>~0.006% CPU · 50 MB</b></div>
+            <div class="m-bar"><i style="--w: 6%"></i></div>
+          </div>
+          <div class="meter">
+            <div class="m-head"><span>With the game overlay showing</span><b>~0.02% CPU · 56 MB</b></div>
+            <div class="m-bar"><i style="--w: 20%"></i></div>
+          </div>
+          <div class="meter">
+            <div class="m-head"><span>The Rigsight window, while it's open</span><b>~0.08% CPU · 150 MB</b></div>
+            <div class="m-bar"><i class="m-muted" style="--w: 80%"></i></div>
+          </div>
+          <p class="m-note">Bars are to scale: a full bar is 0.1% of your CPU. Measured on a Ryzen 7 5700X3D with an RTX 3080 Ti and 202 sensors. CPU is the share of the whole PC.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Privacy ────────────────────────────────────────────── -->
+    <section id="privacy" class="privacy wrap">
+      <div class="privacy-card reveal">
+        <div class="lock" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3m0 9a2 2 0 0 0-1 3.7V19h2v-2.3A2 2 0 0 0 12 13"/></svg>
+        </div>
+        <div>
+          <h2>Your data never leaves your PC.</h2>
+          <p class="sub">No account. No telemetry. No network access at all. Everything lives in one folder on your PC, and you can clear it with one click.</p>
+          <div class="never">
+            <span>Never records:</span>
+            <em>window titles</em><em>keystrokes</em><em>screenshots</em><em>file contents</em>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Install ────────────────────────────────────────────── -->
+    <section class="install wrap">
+      <p class="eyebrow reveal">Get started</p>
+      <h2 class="reveal">Running in two minutes.</h2>
+      <ol class="steps">
+        <li class="reveal"><span class="n">1</span><h3>Download</h3><p>Grab the installer. It's free, with no account and no ads.</p></li>
+        <li class="reveal"><span class="n">2</span><h3>Install</h3><p>Accept the one admin prompt. It sets up the recorder to start with Windows, plus the free sensor driver and RivaTuner if you want them.</p></li>
+        <li class="reveal"><span class="n">3</span><h3>Forget about it</h3><p>Use your PC as usual. Open Rigsight whenever you're curious; the history is already there.</p></li>
+      </ol>
+      <p class="smartscreen reveal">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6zm-1 5h2v6h-2zm0 8h2v2h-2z"/></svg>
+        <span>Windows may say <b>"Windows protected your PC"</b> because the installer isn't code-signed yet. Click <b>More info → Run anyway</b>. The full source is on <a href="https://github.com/b0llu/Rigsight">GitHub</a> if you'd like to check it first.</span>
+      </p>
+    </section>
+
+    <!-- ── FAQ ────────────────────────────────────────────────── -->
+    <section id="faq" class="faq wrap">
+      <h2 class="reveal">Questions</h2>
+      <div class="faq-list">
+        <details class="reveal"><summary>Is it really free?</summary><p>Yes. Rigsight is free and open source under the MIT license. No trial, no premium tier, no ads.</p></details>
+        <details class="reveal"><summary>Does it work with AMD and Intel?</summary><p>Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path.</p></details>
+        <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
+        <details class="reveal"><summary>Will it slow my games down?</summary><p>No. The background agent uses around 0.006% of your CPU with the window closed, runs at below-normal priority, and reads only what the tray and widgets need.</p></details>
+        <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and nothing is sent anywhere.</p></details>
+        <details class="reveal"><summary>How much history does it keep?</summary><p>Minute-by-minute detail for 90 days and daily summaries for two years, by default. Both are adjustable in Settings.</p></details>
+        <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>
+      </div>
+    </section>
+
+    <!-- ── Final call ─────────────────────────────────────────── -->
+    <section class="final wrap">
+      <div class="final-card reveal">
+        <img src="img/logo.png" width="72" height="72" alt="" />
+        <h2>Know your rig.</h2>
+        <p class="sub">Free for Windows 10 and 11.</p>
+        <a class="btn btn-primary btn-big" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
+          <span>Download for Windows</span>
+        </a>
+        <p class="meta"><span data-version>Latest version</span><span><a href="https://github.com/b0llu/Rigsight/releases">All releases</a></span></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap foot-inner">
+      <a class="brand" href="#top"><img src="img/logo.png" alt="" width="22" height="22" /><span>Rigsight</span></a>
+      <nav aria-label="Links">
+        <a href="https://github.com/b0llu/Rigsight">GitHub</a>
+        <a href="https://github.com/b0llu/Rigsight/releases">Releases</a>
+        <a href="https://github.com/b0llu/Rigsight/issues">Report a problem</a>
+        <a href="https://github.com/b0llu/Rigsight/blob/main/LICENSE">MIT license</a>
+      </nav>
+      <p class="credits">Hardware readings by LibreHardwareMonitor and PawnIO. Fullscreen overlay through RivaTuner Statistics Server.</p>
+    </div>
+  </footer>
+
+  <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
