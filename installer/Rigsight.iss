@@ -51,6 +51,10 @@ Name: "{autodesktop}\Rigsight"; Filename: "{app}\Rigsight.exe"; Tasks: desktopic
 ; they're still working (a finished-looking bar during a 2-minute download looks stuck).
 Filename: "{app}\Rigsight.exe"; Description: "Open Rigsight"; Flags: postinstall nowait skipifsilent
 
+[UninstallDelete]
+; An in-app update copies the installer here before running it (the agent removes it on its next start).
+Type: filesandordirs; Name: "{app}\update"
+
 [UninstallRun]
 ; Ask the agent to save and exit first (a forced kill would lose the game session in progress).
 Filename: "{app}\Rigsight.Agent.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated; RunOnceId: "QuitAgent"
@@ -111,7 +115,19 @@ begin
   end;
 end;
 
+// Passed by an in-app update ("Restart" in Rigsight): open the app again once the update is in.
+function RelaunchRequested: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/RELAUNCH') = 0 then Result := True;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
 begin
   if CurStep <> ssPostInstall then exit;
   if WizardIsTaskSelected('pawnio') then
@@ -127,6 +143,9 @@ begin
   // so the user never sees a second UAC prompt. After RivaTuner, so the agent can start it.
   RunStep('Starting the Rigsight background agent...', '',
     ExpandConstant('{app}\Rigsight.Agent.exe'), '--register-startup');
+  // Through Explorer, so the app opens with normal (non-admin) rights like any other launch.
+  if RelaunchRequested then
+    Exec(ExpandConstant('{win}\explorer.exe'), AddQuotes(ExpandConstant('{app}\Rigsight.exe')), '', SW_SHOWNORMAL, ewNoWait, Code);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);

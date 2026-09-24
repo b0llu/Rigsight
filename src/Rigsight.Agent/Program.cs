@@ -53,6 +53,16 @@ internal static class Program
             Environment.Exit(ok ? 0 : 1);
         }
 
+        // Started by the agent to check for (and download or install) an update, then exit. See BackgroundUpdater.
+        if (args.Contains("--update"))
+        {
+            try { Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
+            int code;
+            try { code = BackgroundUpdater.RunAsync(args.Contains("--at-startup"), !args.Contains("--no-download")).GetAwaiter().GetResult(); }
+            catch (Exception ex) { Log.Error("update", ex); code = BackgroundUpdater.Failed; }
+            Environment.Exit(code);
+        }
+
         // CPU and motherboard sensors need admin rights. Relaunch elevated unless told not to.
         if (!isAdmin && !args.Contains("--no-elevate") && !Debugger.IsAttached)
         {

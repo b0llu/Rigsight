@@ -14,6 +14,7 @@ using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
+using Rigsight.Core.Updates;
 
 namespace Rigsight.Agent;
 
@@ -132,6 +133,65 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Start();
 
         if (args.Contains("--open")) OpenApp(null);
+        if (_isAdmin) ThreadPool.QueueUserWorkItem(_ => UpdateInstaller.Cleanup());
+        // Updates: first a minute and a half after starting (Windows is still settling at sign-in), then every
+        // six hours; GitHub itself is asked at most once a day.
+        _updateTimer = new System.Threading.Timer(_ => _ = RunUpdaterAsync(), null, TimeSpan.FromSeconds(90), TimeSpan.FromHours(6));
+    }
+
+    // ── Updates ───────────────────────────────────────────────────────────
+
+    private System.Threading.Timer? _updateTimer;
+    private bool _updaterStarted;
+    private int _updaterRunning;
+
+    private async Task RunUpdaterAsync()
+    {
+        if (_stopping || Environment.ProcessPath is not { } exe || Interlocked.Exchange(ref _updaterRunning, 1) == 1) return;
+        try
+        {
+            bool appOpen = _pipe.ClientCount > 0;
+            var args = new List<string> { "--update" };
+            // Installing a waiting update is for the first run after sign-in, and never under an open window.
+            if (!_updaterStarted && _isAdmin && !appOpen) args.Add("--at-startup");
+            if (appOpen) args.Add("--no-download"); // the app shows its own download
+            _updaterStarted = true;
+
+            using var child = Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true });
+            if (child is null) return;
+            await child.WaitForExitAsync();
+            int code = child.ExitCode; // read now: the process object is disposed before the UI thread gets to it
+            if (code is BackgroundUpdater.Downloaded or BackgroundUpdater.Available)
+                _ui.Post(_ => OnUpdateFound(code == BackgroundUpdater.Downloaded), null);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("update", ex);
+        }
+        finally
+        {
+            Volatile.Write(ref _updaterRunning, 0);
+        }
+    }
+
+    /// <summary>
+    /// UI thread: a newer version is out (downloaded or not). An open app is told, so it shows it at once;
+    /// otherwise one notification per version says so.
+    /// </summary>
+    private void OnUpdateFound(bool downloaded)
+    {
+        if (_pipe.ClientCount > 0)
+        {
+            _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = "found" });
+            return;
+        }
+        var version = UpdateStore.ReadCheck()?.Latest?.Version.ToString(3);
+        if (version is null || _settings.LastUpdateNotice == version) return;
+        MutateSettings(s => s.LastUpdateNotice = version);
+        string body = !downloaded ? "A new version is out. Open Rigsight to update."
+            : _settings.AutoUpdate && _isAdmin ? "It installs by itself the next time you start your PC, or open Rigsight to update now."
+            : "It's downloaded. Open Rigsight to finish updating.";
+        _notices.Show(new Notice(NoticeKind.Info, downloaded ? $"Rigsight {version} is ready" : $"Rigsight {version} is out", body));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -629,6 +689,7 @@ internal sealed class AgentContext : ApplicationContext
                 // so a tray "Pause" is never undone by the app sending settings it had before).
                 incoming.StartupConfigured = s.StartupConfigured;
                 incoming.LastRecapDay = s.LastRecapDay;
+                incoming.LastUpdateNotice = s.LastUpdateNotice;
                 incoming.Tracking.PausedUntil = s.Tracking.PausedUntil;
                 foreach (var w in incoming.Widgets)
                 {
@@ -678,6 +739,13 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "restart-elevated":
                 _ui.Post(_ => RestartElevated(), null);
+                break;
+            case "install-update":
+                _ = Task.Run(async () =>
+                {
+                    bool started = _isAdmin && await UpdateInstaller.RunAsync(msg.Arg);
+                    _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = started ? "started" : "failed" });
+                });
                 break;
         }
     }
@@ -814,6 +882,7 @@ internal sealed class AgentContext : ApplicationContext
         SystemEvents.TimeChanged -= OnTimeChanged;
         _quitWait?.Unregister(null);
         _stopping = true;
+        _updateTimer?.Dispose();
         _wake.Set();
         _sampler.Join(5000);
 

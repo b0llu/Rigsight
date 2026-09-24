@@ -16,8 +16,81 @@
         <!-- Sidebar -->
         <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0">
             <DockPanel Margin="14,16,14,16">
-                <!-- Bottom: an agent warning if needed, then a live readout -->
+                <!-- Bottom: an update if there is one, an agent warning if needed, then a live readout -->
                 <StackPanel DockPanel.Dock="Bottom">
+                    <!-- Update: a quiet line, then download progress, then the restart prompt -->
+                    <StackPanel DataContext="{Binding Update}">
+                        <Button Command="{Binding ActionCommand}" ToolTip="{Binding LineTip}" AutomationProperties.Name="{Binding LineTitle}" Cursor="Hand" Focusable="False"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,10"
+                                Visibility="{Binding ShowLine, Converter={StaticResource Vis}}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="10" Padding="12,9" Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <DockPanel>
+                                <TextBlock Text="{Binding LineIcon}" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}"
+                                           Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Version}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                <TextBlock Text="{Binding LineTitle}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Button>
+
+                        <Border CornerRadius="12" Padding="12,10,12,12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                Visibility="{Binding ShowProgress, Converter={StaticResource Vis}}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Progress, StringFormat={}{0:0}%}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}"
+                                               Visibility="{Binding State, Converter={StaticResource EqualsVis}, ConverterParameter=Downloading}" />
+                                    <TextBlock Text="{Binding ProgressTitle}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,8,0,6" Value="{Binding Progress}" Foreground="{DynamicResource GoodBrush}" />
+                                <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource GoodBrush}" BorderThickness="1"
+                                Visibility="{Binding ShowPrompt, Converter={StaticResource Vis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE930;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Update ready" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding PromptText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                                <UniformGrid Columns="2">
+                                    <Button Style="{StaticResource AccentButton}" Content="Restart" Command="{Binding InstallCommand}" Margin="0,0,4,0" />
+                                    <Button Style="{StaticResource GhostButton}" Content="Later" Command="{Binding LaterCommand}" Margin="4,0,0,0" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Didn't work: try again, or get the installer from the website -->
+                        <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
+                                Visibility="{Binding ShowFailed, Converter={StaticResource Vis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Update didn't finish" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding FailedText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                                <Button Style="{StaticResource AccentButton}" Content="Try again" Command="{Binding ActionCommand}" HorizontalAlignment="Stretch" />
+                                <Button Style="{StaticResource GhostButton}" Content="Open download page" Command="{Binding OpenDownloadPageCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
                     <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
                             BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                             Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}">

@@ -95,7 +95,7 @@ public sealed class ProcInfo
 /// <summary>Agent → app.</summary>
 public sealed class AgentMessage
 {
-    /// <summary>hello · tick · procs · settings · navigate · overlay</summary>
+    /// <summary>hello · tick · procs · settings · navigate · overlay · update</summary>
     public string T { get; set; } = "";
 
     // hello
@@ -133,6 +133,9 @@ public sealed class AgentMessage
     // navigate (also allowed on hello)
     public string? Page { get; set; }
     public string? Arg { get; set; }
+
+    /// <summary>update: "started" once the installer is running, "failed" if the agent couldn't start it.</summary>
+    public string? UpdateStatus { get; set; }
 }
 
 /// <summary>App → agent.</summary>
@@ -141,7 +144,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss …</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

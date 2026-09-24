@@ -109,6 +109,15 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>True until the agent reports otherwise, so no admin warning shows while it isn't connected.</summary>
     [ObservableProperty] private bool _agentIsAdmin = true;
     [ObservableProperty] private string? _statusMessage;
+    public bool AutoUpdate
+    {
+        get => S.AutoUpdate;
+        set { Set(s => s.AutoUpdate = value); Update?.OnAutoUpdateChanged(); }
+    }
+
+    /// <summary>Supplied by the shell: the Updates section.</summary>
+    public UpdateViewModel? Update { get; set; }
+
     public string AppVersion { get; } = "v" + (typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
 
     /// <summary>Changes the startup task through the agent (it has the admin rights needed).</summary>

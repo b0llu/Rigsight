@@ -51,6 +51,15 @@ public sealed class RigsightSettings
     /// <summary>The page the app opens on: "home", another page's key, or "custom:&lt;id&gt;".</summary>
     public string StartPage { get; set; } = "home";
 
+    /// <summary>
+    /// New versions download in the background and install the next time Windows starts. Off: Rigsight only
+    /// says when there's a new version.
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
+
+    /// <summary>Last version the agent sent an "update ready" notification for (one each).</summary>
+    public string? LastUpdateNotice { get; set; }
+
     /// <summary>Set once the agent has registered itself to start with Windows (so turning it off sticks).</summary>
     public bool StartupConfigured { get; set; }
 

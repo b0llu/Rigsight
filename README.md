@@ -98,6 +98,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - Dozens of settings: what gets tracked, how long history is kept (3 months, 1 year, 2 years or forever), alert thresholds, units, a black or white app theme (or follow Windows), widget looks, and start with Windows.
 - Pause tracking at any time from the tray.
 - Clear your history with one click.
+- **Updates itself**: new versions download in the background and install the next time you start your PC, or right away with one click on *Restart*. Prefer to decide yourself? Turn automatic updates off and Rigsight just tells you when one is out.
 
 ## Install
 
@@ -116,11 +117,32 @@ It downloads the latest setup from the [Releases](../../releases) page, checks i
 3. Accept the one admin prompt. The installer sets up the background agent to start with Windows (you can turn this off in Settings).
 4. Leave **Install the PawnIO driver** and **Install RivaTuner Statistics Server** ticked if they're offered. PawnIO is needed for CPU and motherboard sensors, RivaTuner for the overlay in exclusive-fullscreen games. Both can take a minute or more to download.
 
+### Updating
+
+Rigsight keeps itself up to date. With **Settings → Updates → Update automatically** on (the default), a new version downloads in the background and installs the next time Windows starts. You can also install it straight away from the app.
+
+**What you see**
+
+| Situation | In the app |
+|---|---|
+| A new version is out, automatic updates on | It downloads by itself (progress in the sidebar), then an **Update ready** card asks **Restart** or **Later**. |
+| A new version is out, automatic updates off | A quiet **Update available** line in the sidebar; click it to download. The agent also shows one notification per version if the window is closed. |
+| You chose *Later* | A **Restart to update** line stays in the sidebar. The *Update ready* card comes back once a day, and with automatic updates the next Windows start installs it without asking. |
+| The download fails or doesn't match | A background download just tries again later. One you started shows **Update didn't finish** with **Try again** and **Open download page** (the website's installer). |
+| The installer ran but this copy is still old | The same card, *"The update didn't install"*. An automatic install is tried **once per version**, so a broken update can't loop at every boot. |
+
+**How it works**
+
+- **Checking.** The agent runs `Rigsight.Agent.exe --update`, a short-lived helper process, 90 seconds after it starts and then every six hours, so the always-running agent never keeps an HTTP stack in memory. The window also checks when it opens. Both share one answer, cached for the day in `%LocalAppData%\Rigsight\updates\latest.json`, so GitHub's [latest-release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release) is asked at most once a day (plus **Check for updates** in Settings). Offline, nothing is shown.
+- **Downloading.** The installer is streamed into `%LocalAppData%\Rigsight\updates`, hashed as it arrives, and kept only if its size and SHA-256 match the `digest` GitHub publishes for the asset. The app and the helper each write their own `.part` file, so they never corrupt each other's download. While the window is open, the helper leaves the download to the app, which shows its progress.
+- **Installing.** *Restart* hands the file to the agent, which already has admin rights, so there's no UAC prompt. The installer runs with `/VERYSILENT /SP- /SUPPRESSMSGBOXES /NORESTART /RELAUNCH`: nothing on screen, your previous choices kept (install folder, shortcuts, PawnIO, RivaTuner), then the agent starts again and `/RELAUNCH` reopens the window through Explorer, unelevated. Until the installer closes it, the window stays up with *Updating to x.y.z… Rigsight closes and reopens by itself in a few seconds*, so it never simply vanishes; if it's still there two minutes later, it reports that the update didn't install. At the first check after sign-in, if an update downloaded earlier is still waiting and the window is closed, the helper installs it the same way, without `/RELAUNCH`. Before starting any installer, `updates\attempt.json` records the version, which is how a failed install is noticed and not retried.
+- **Trust.** Any program running as you can talk to the agent's pipe, so an install request is treated as untrusted. The agent copies the file into `update\` next to itself in Program Files (writable only by administrators), fetches the latest release from GitHub itself, and runs the copy only if it is byte for byte that release's installer. The worst a rogue request can achieve is installing the genuine latest Rigsight. If the agent isn't running as admin, the app starts the installer itself and Windows asks once.
+
 To uninstall, use **Settings → Apps → Rigsight → Uninstall**. This removes the program and its startup task. Your history stays in `%LocalAppData%\Rigsight`; delete that folder too for a clean removal.
 
 ## Privacy
 
-Everything stays on your PC, in `%LocalAppData%\Rigsight`. Rigsight has **no telemetry, no account and no network access**.
+Everything stays on your PC, in `%LocalAppData%\Rigsight`. Rigsight has **no telemetry and no account**. Its only network requests are the update check, at most once a day: an anonymous `GET` of GitHub's public latest-release endpoint (the `User-Agent` is `Rigsight/<version>`), and downloading the installer when there's a new version. Nothing about you or your PC is sent.
 
 It records which app is in front and how hard your hardware is working. It **never** records window titles, keystrokes, screenshots or file contents.
 
@@ -236,6 +258,8 @@ This produces `dist\Rigsight-Setup-<version>.exe`. The installer:
 
 The version number comes from `<Version>` in `Directory.Build.props`.
 
+**Testing an update end to end.** Released builds only ever take updates from GitHub. To try the whole flow against a local server, build two *test* installers with `$env:RigsightTestFeed = 'true'` set (for example 0.5.0 and 0.5.1, changing `<Version>` in between), install the older one, and serve the newer one from a fake "latest release" endpoint (JSON with `tag_name` and an asset carrying `name`, `size`, `browser_download_url` and `digest: "sha256:..."`). Then point Rigsight at it with `setx RIGSIGHT_UPDATE_FEED http://127.0.0.1:8765/latest`; the agent started by Task Scheduler picks it up from your user environment. Debug builds accept the same variable. Afterwards, remove the variable, delete `%LocalAppData%\Rigsight\updates` and reinstall a normal build.
+
 To publish a release:
 ```powershell
 gh release create vX.Y.Z dist\Rigsight-Setup-X.Y.Z.exe --title "Rigsight X.Y.Z" --notes-file notes.md
@@ -254,12 +278,14 @@ src/
     Reports/                report builder + insight engine
     Stability/              crash log reader + plain-language explainer
     Apps/                   app naming and categories (games, browsers, ...)
+    Updates/                latest-release lookup, the shared update folder, verified downloads
   Rigsight.Agent/         background agent (WinForms, no main window)
     Sensors/                LibreHardwareMonitor host, NVIDIA fast path, sensor history
     Tracking/               foreground/idle detection, per-process sampler, sessions
     Widgets/                GDI+ widget renderer and layered windows
     Ui/                     tray icon, menus, notification cards
     Ipc/                    named-pipe server
+    UpdateInstaller.cs      background updater (--update) and verified installs with the agent's admin rights
   Rigsight/               the app window (WPF, Fluent, dark and light themes, MVVM)
     Program.cs              entry point (sets the GC's gen0 budget, then starts the app)
     Views/ ViewModels/ Controls/ Services/ Themes/
@@ -287,7 +313,7 @@ The game is probably in *exclusive* fullscreen, which hides every ordinary windo
 Yes. All hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel GPUs and Intel and AMD CPUs. NVIDIA cards also get an extra fast path (NVML/NVAPI) because NVIDIA's full driver query is unusually expensive. Other cards use the standard route, which is already light.
 
 **Where is my data?**
-In `%LocalAppData%\Rigsight`: `settings.json`, the `rigsight.db` SQLite database, and a small log.
+In `%LocalAppData%\Rigsight`: `settings.json`, the `rigsight.db` SQLite database, a small log, and `updates\` (the day's version check, a downloaded update and the last install attempt; old installers are removed).
 
 ## Credits
 

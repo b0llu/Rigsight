@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Version>0.4.13</Version>
+    <Version>0.5.0</Version>
     <Product>Rigsight</Product>
     <Company>Rigsight</Company>
     <Copyright>Rigsight</Copyright>
@@ -17,5 +17,7 @@
          for the agent and a large part of the app's CPU while it's open. -->
     <PublishReadyToRun>true</PublishReadyToRun>
     <TieredCompilation>false</TieredCompilation>
+    <!-- Test installers only (RigsightTestFeed=true): updates may come from a local test server. See ReleaseFeed. -->
+    <DefineConstants Condition="'$(RigsightTestFeed)' == 'true'">$(DefineConstants);RIGSIGHT_TEST_FEED</DefineConstants>
   </PropertyGroup>
 </Project>

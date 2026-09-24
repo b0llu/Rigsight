@@ -108,7 +108,7 @@
         <div class="stat reveal"><b>~0.01%</b><span>CPU while it records</span></div>
         <div class="stat reveal"><b>Every minute</b><span>kept as history, for as long as you like</span></div>
         <div class="stat reveal"><b>Every sensor</b><span>temps, fans, clocks, power, voltages, drives</span></div>
-        <div class="stat reveal"><b>0 bytes</b><span>sent anywhere. No account, no telemetry.</span></div>
+        <div class="stat reveal"><b>0 bytes</b><span>of your data sent anywhere. No account, no telemetry.</span></div>
       </div>
     </section>
 
@@ -308,7 +308,7 @@
         </div>
         <div>
           <h2>Your data never leaves your PC.</h2>
-          <p class="sub">No account. No telemetry. No network access at all. Everything lives in one folder on your PC, and you can clear it with one click.</p>
+          <p class="sub">No account. No telemetry. The only thing Rigsight ever checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.</p>
           <div class="never">
             <span>Never records:</span>
             <em>window titles</em><em>keystrokes</em><em>screenshots</em><em>file contents</em>
@@ -348,7 +348,8 @@
         <details class="reveal"><summary>Does it work with AMD and Intel?</summary><p>Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path.</p></details>
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
         <details class="reveal"><summary>Will it slow my games down?</summary><p>No. In the background Rigsight uses around 0.006% of your CPU and runs at low priority, so your games always come first.</p></details>
-        <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and nothing is sent anywhere.</p></details>
+        <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and none of it is sent anywhere.</p></details>
+        <details class="reveal"><summary>How do I update it?</summary><p>You don't have to. New versions download quietly in the background and install the next time you start your PC. Want it sooner? Click <b>Restart</b> in the app and you're on the new version in seconds.</p></details>
         <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 25 MB.</p></details>
         <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>
       </div>

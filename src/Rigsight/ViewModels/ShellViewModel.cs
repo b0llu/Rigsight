@@ -33,6 +33,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Widgets = new WidgetsViewModel(Settings, client);
         Overlay = new OverlayViewModel(Settings, client, Live);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
+        Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
+        SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
 
@@ -54,9 +56,22 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // Keep history-based pages fresh while open (the agent writes once a minute).
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _refresh.Tick += (_, _) => _ = RefreshTickAsync();
+        _refresh.Tick += (_, _) =>
+        {
+            _ = RefreshTickAsync();
+            _ = Update.CheckIfDueAsync(); // a new day while the window stayed open
+        };
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
+
+        // Look for an update once the window has settled (at most once a day).
+        var updateCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
+        updateCheck.Tick += (_, _) =>
+        {
+            updateCheck.Stop();
+            _ = Update.CheckIfDueAsync();
+        };
+        updateCheck.Start();
 
         // If the agent isn't running a moment after startup, start it.
         var launchCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
@@ -80,6 +95,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
     public SettingsViewModel SettingsPage { get; }
+    public UpdateViewModel Update { get; }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
     public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];
@@ -375,6 +391,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "navigate":
                 Navigate(msg.Page, msg.Arg);
+                break;
+            case "update":
+                Update.OnAgentMessage(msg);
                 break;
         }
     }
