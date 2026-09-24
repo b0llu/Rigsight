@@ -3,7 +3,8 @@ using Rigsight.Core.Stability;
 
 namespace Rigsight.Core.Reports;
 
-public enum ReportRange { Day, Week, Month }
+/// <summary>A calendar period: one day, a Monday-to-Sunday week, a month, a year, or everything recorded.</summary>
+public enum ReportRange { Day, Week, Month, Year, All }
 
 public sealed record Peak(double Value, DateTime Time, string? App);
 
@@ -157,6 +158,9 @@ public sealed class Report
         ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => "Yesterday",
         ReportRange.Day => From.ToString("dddd, d MMMM"),
         ReportRange.Week => $"Week of {From:d MMM}",
+        ReportRange.Year when From.Year == DateTime.Today.Year => "This year",
+        ReportRange.Year => From.Year.ToString(),
+        ReportRange.All => "All time",
         _ => From.ToString("MMMM yyyy"),
     };
 }

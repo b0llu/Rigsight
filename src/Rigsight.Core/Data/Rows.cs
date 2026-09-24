@@ -15,6 +15,33 @@ public sealed class AppRow
     public long FirstSeen { get; set; }
 }
 
+/// <summary>
+/// One local day of <see cref="SystemMinute"/> rows, added up (system_day): minutes on, active and away time, sums and
+/// counts for the averages, and the day's highs. Long periods (a year) read these instead of every minute.
+/// </summary>
+public sealed class SystemDay
+{
+    public long Day { get; set; }
+    public int Minutes { get; set; }
+    public double ActiveSec { get; set; }
+    public double IdleSec { get; set; }
+    public double CpuTempSum { get; set; }
+    public int CpuTempN { get; set; }
+    public double GpuTempSum { get; set; }
+    public int GpuTempN { get; set; }
+    public double CpuLoadSum { get; set; }
+    public int CpuLoadN { get; set; }
+    public double GpuLoadSum { get; set; }
+    public int GpuLoadN { get; set; }
+    public double? CpuTempMax { get; set; }
+    public double? GpuTempMax { get; set; }
+    public double? GpuHotMax { get; set; }
+    public double? CpuVoltMax { get; set; }
+    public double? GpuVoltMax { get; set; }
+    public double? CpuPowerMax { get; set; }
+    public double? GpuPowerMax { get; set; }
+}
+
 /// <summary>One row per minute the PC was on: system-wide sensor summary and what was in front.</summary>
 public sealed class SystemMinute
 {

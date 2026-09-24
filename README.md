@@ -20,7 +20,7 @@
 
 Rigsight records your PC's metrics: temperatures, loads, clocks, power, fans and voltages, memory, drive space and health, which app was in front and for how long, and every crash Windows logs.
 
-Most hardware monitors only show numbers while you're watching. Rigsight keeps them, minute by minute, so you can look back at any day, week or month:
+Most hardware monitors only show numbers while you're watching. Rigsight keeps them, minute by minute, so you can look back at any day, week, month or year:
 
 - the peak GPU temperature in each game, and when it happened;
 - CPU and GPU temperatures at idle and under load, compared with the week before;
@@ -51,8 +51,9 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 
 ### 📅 History and reports
 - **Home**: today so far (active time, peak temperatures, most-used apps), highlights, and yesterday's totals.
-- **Reports** for any day, week or month (step back, or pick a date from a calendar):
-  - a minute-by-minute timeline of the app in front, with CPU and GPU temperature drawn over it;
+- **One period picker on every page that looks back**: **Day · Week · Month · Year · All time**, with ‹ › to step to the period before or after and a picker for the exact day, month or year. Reports, Apps and Crashes use the same one, so "last month" means the same dates everywhere.
+- **Reports** for any day, week, month or year:
+  - a minute-by-minute timeline of the app in front, with CPU and GPU temperature drawn over it (a week or month shows a bar per day, a year a bar per month);
   - time per app, split into *in use*, *in the background* and *minimized*;
   - peak CPU and GPU temperature, hot spot, voltage and power, with the time and the app in front;
   - your longest sessions (a minute or more; quick switches still count towards app time);
@@ -61,7 +62,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - **Active time, not just time open**: time counts as active only while you're using the app; a fullscreen game counts even when you're not touching the mouse. Time away from the PC is counted separately.
 
 ### 🧩 Apps
-- Per app, for any single day, the last 7 or 30 days, or all time: active, background and minimized time, average and peak CPU/GPU temperature while it was in front, peak memory, average CPU use, sessions and a 14-day chart.
+- Per app, for any day, week, month, year or all time: active, background and minimized time, average and peak CPU/GPU temperature while it was in front, peak memory, average CPU use, sessions and a 14-day chart.
 - Rename apps, change their category (game, browser, work…), or exclude them from tracking.
 
 ### 💥 Crashes
@@ -72,7 +73,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - **A timeline** of problems per day, coloured by severity, with the days a driver or Windows update was installed marked, and **"what changed before"**: a blue screen that started two days after a graphics driver install says so.
 - **Copy report** (a ready-to-paste summary with your CPU, GPU and driver, RAM and Windows version), **Search online**, and **Show dump file** for blue screens.
 - **Mute** an app you don't care about: its crashes leave the totals, timeline, reports and notifications (nothing is deleted).
-- Any single day (pick it from a calendar, or click a day on the timeline), the last 7, 30 or 90 days, or everything (including what Windows logged before Rigsight was installed).
+- Any day (pick it from a calendar, or click a day on the timeline), week, month or year, or everything (including what Windows logged before Rigsight was installed).
 - **Patterns**, such as "3 of 4 shutdowns happened while asleep" or "the graphics driver was involved in 5 crashes".
 - Filter by **Apps & games** or **PC problems**.
 
@@ -205,14 +206,16 @@ With two years of heavy synthetic history (656k minute rows, 295k app-hours, 218
 | Query | Time |
 |---|---|
 | A day, week or month report | 50–240 ms |
-| Apps, all time (300 apps) | ~170 ms (~380 ms with five years) |
-| Crashes, all time, with each crash's context | ~45 ms (~100 ms with five years) |
+| A year's report (and the year before, to compare) | ~60 ms typical, ~200 ms heavy (~260 ms with five years) |
+| Apps, a year / all time (300 apps) | ~75 ms / ~170 ms (~380 ms with five years) |
+| Crashes, a year / all time, with each crash's context | ~40 ms / ~45 ms (~100 ms with five years) |
 | Temperature history for any day | ~8 ms |
 
 What makes that possible:
 
 - **Bounded session lookups**: sessions have no length limit, so "sessions overlapping a range" can't use the start index alone. The agent records the longest session ever saved (`meta.max_session_sec`) and queries bound `start >= from - longest`.
 - **A monthly rollup** (`app_month`), updated in the same transaction as `app_hour`: long ranges sum whole months from the rollup and only the partial months at either end from the hourly rows. Month keys are computed by SQLite itself, so writes, reads and pruning always agree; pruning rebuilds the boundary month from the hours that remain.
+- **A daily rollup** (`system_day`): each local day's minutes added up (minutes on, active and away time, sums and counts for every average, and the day's highs). Each time the agent writes a minute it recomputes that day's row from the day's own minutes (at most 1,440, by the primary key), so the row is always exact, even if a minute is written twice. A year's report reads 365 rows instead of ~325,000 minutes (1.6 s → ~200 ms on the heavy history) and gives the same totals, averages and peaks to the last digit, checked against the minute-by-minute build on 1, 2 and 5 years of generated history. A peak's time and app come from one indexed lookup in that peak's day. The first start of an agent with this table fills it from existing minutes (0.4 s for a typical history, ~3 s for five heavy years), and pruning rebuilds the boundary day like the monthly rollup.
 - **One query for every crash's context** (the app in front, the temperatures in the five minutes before, and the session it ended) instead of three per crash; indexes on `crashes(ts)` and `sessions(app_id, start)`.
 
 ## Building from source

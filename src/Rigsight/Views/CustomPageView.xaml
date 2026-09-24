@@ -381,6 +381,7 @@
                                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                    <Setter Property="Template" Value="{StaticResource AccentButtonTemplate}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

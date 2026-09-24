@@ -15,21 +15,17 @@ public sealed record PeakRow(string Label, string Value, string When, string? Ap
 public sealed partial class ReportsViewModel(ReportService reports) : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay), nameof(PeriodLabel), nameof(IsMonth), nameof(CanGoPrevious), nameof(InsightsTitle))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay), nameof(IsYear), nameof(BarsTitle), nameof(InsightsTitle))]
     private ReportRange _range = ReportRange.Day;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PeriodLabel), nameof(CanGoPrevious))]
-    private DateTime _anchor = DateTime.Today;
+    [ObservableProperty] private DateTime _anchor = DateTime.Today;
 
-    /// <summary>The first day with any history (the date picker starts there).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanGoPrevious))]
-    private DateTime? _firstDay;
+    /// <summary>The first day with any history (the period picker starts there).</summary>
+    [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText), nameof(Peaks), nameof(TopSessions), nameof(HasData),
-        nameof(MaxActive), nameof(CanGoNext), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
+        nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
     [ObservableProperty] private bool _isLoading;
@@ -87,48 +83,22 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public bool IsDay => Range == ReportRange.Day;
     public bool IsMultiDay => !IsDay;
-    public bool IsMonth => Range == ReportRange.Month;
+    /// <summary>A year: bars per month (built from the daily totals; see ReportBuilder.BuildLong).</summary>
+    public bool IsYear => ReportBuilder.IsLong(Range);
+    public string BarsTitle => IsYear ? "Active time per month" : "Active time per day";
 
     /// <summary>The period shown includes now, so it can still change.</summary>
     public bool IncludesNow => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To;
 
-    /// <summary>Which period is shown, in words: "Today", "Last week", "Mon, 21 Sep", "August 2026".</summary>
-    public string PeriodLabel => PeriodText(Range, Anchor);
-
-    public static string PeriodText(ReportRange range, DateTime anchor)
-    {
-        var (from, to) = ReportBuilder.Bounds(range, anchor);
-        var (thisFrom, _) = ReportBuilder.Bounds(range, DateTime.Today);
-        var (lastFrom, _) = ReportBuilder.Bounds(range, ReportBuilder.Previous(range, DateTime.Today));
-        return range switch
-        {
-            ReportRange.Day when from == thisFrom => "Today",
-            ReportRange.Day when from == lastFrom => "Yesterday",
-            ReportRange.Day => from.Year == DateTime.Today.Year ? from.ToString("ddd, d MMM") : from.ToString("d MMM yyyy"),
-            ReportRange.Week when from == thisFrom => "This week",
-            ReportRange.Week when from == lastFrom => "Last week",
-            ReportRange.Week => from.Month == to.AddDays(-1).Month
-                ? $"{from:%d}–{to.AddDays(-1):d MMM}"
-                : $"{from:d MMM} – {to.AddDays(-1):d MMM}",
-            _ when from == thisFrom => "This month",
-            _ when from == lastFrom => "Last month",
-            _ => from.ToString("MMMM yyyy"),
-        };
-    }
-
-    /// <summary>Nothing before the first recorded day to go back to.</summary>
-    public bool CanGoPrevious => FirstDay is not { } first || ReportBuilder.Bounds(Range, Anchor).From > first;
+    /// <summary>A period in words ("Today", "Last week", "August 2026"): see <see cref="Controls.PeriodPicker.Text"/>.</summary>
+    public static string PeriodText(ReportRange range, DateTime anchor) => Controls.PeriodPicker.Text(range, anchor);
 
     public string InsightsTitle => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To ? "What stands out so far" : "What stood out";
     public bool HasData => Report is { HasData: true };
 
     public string Title => Report?.Title ?? "";
 
-    public string Subtitle => Report is null ? "" : Range switch
-    {
-        ReportRange.Day => Report.From.ToString("dddd, d MMMM yyyy"),
-        _ => $"{Report.From:d MMM} – {Report.To.AddDays(-1):d MMM yyyy}",
-    };
+    public string Subtitle => Report is null ? "" : Controls.PeriodPicker.Span(Range, Report.From);
 
     /// <summary>Explains short weeks/months while Rigsight is new.</summary>
     public string? CoverageNote
@@ -136,14 +106,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         get
         {
             if (Report is null || Range == ReportRange.Day || TrackedDays <= 0) return null;
-            int days = (int)(Report.To - Report.From).TotalDays;
+            int days = (int)((Report.To > DateTime.Today ? DateTime.Today.AddDays(1) : Report.To) - Report.From).TotalDays;
             if (TrackedDays >= days) return null;
             var since = FirstDay ?? DateTime.Today.AddDays(-(TrackedDays - 1));
-            return $"History starts on {since:d MMMM}, so this {(Range == ReportRange.Week ? "week" : "month")} has {TrackedDays} day{(TrackedDays == 1 ? "" : "s")} of data.";
+            string period = Range switch { ReportRange.Week => "week", ReportRange.Year => "year", _ => "month" };
+            return $"History starts on {since:d MMMM}, so this {period} has {TrackedDays} day{(TrackedDays == 1 ? "" : "s")} of data.";
         }
     }
-
-    public bool CanGoNext => Report is not null && Report.To <= DateTime.Today;
 
     private static bool UsedActively(AppStat a) => a.ActiveSec >= 30;
 
@@ -166,7 +135,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             var r = Report;
             if (r is null) return [];
             var rows = new List<PeakRow>();
-            string When(Peak p) => IsDay ? p.Time.ToString("h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
+            string When(Peak p) => IsDay ? p.Time.ToString("h:mm tt") : IsYear ? p.Time.ToString("d MMM, h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
             var tempBrush = new TempToBrushConverter();
             Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);
 
@@ -213,19 +182,4 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Anchor = day.Date;
     }
 
-    [RelayCommand]
-    private void SetRange(string range) => Range = Enum.Parse<ReportRange>(range);
-
-    [RelayCommand]
-    private void Previous()
-    {
-        if (CanGoPrevious) Anchor = ReportBuilder.Previous(Range, Anchor);
-    }
-
-    [RelayCommand]
-    private void Next()
-    {
-        var next = ReportBuilder.Next(Range, Anchor);
-        if (ReportBuilder.Bounds(Range, next).From <= DateTime.Today) Anchor = next;
-    }
 }

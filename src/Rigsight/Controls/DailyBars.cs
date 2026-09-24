@@ -53,7 +53,8 @@ public sealed class DailyBars : FrameworkElement
 
         var plot = new Rect(Left, Top, w - Left - Right, h - Top - AxisHeight);
         double maxHours = Math.Max(1, Math.Ceiling(days.Max(d => d.ActiveSec) / 3600));
-        int step = maxHours <= 4 ? 1 : maxHours <= 8 ? 2 : maxHours <= 16 ? 4 : 6;
+        // About four gridlines at a round step: 1–6 hours for days, tens to hundreds for a year's months.
+        double step = new double[] { 1, 2, 4, 6, 10, 20, 25, 50, 100, 200, 250, 500 }.FirstOrDefault(x => maxHours / x <= 5, 1000);
         maxHours = Math.Ceiling(maxHours / step) * step;
 
         var gridPen = new Pen(ChartPaint.Grid, 1) { DashStyle = new DashStyle([3, 4], 0) };
@@ -66,7 +67,10 @@ public sealed class DailyBars : FrameworkElement
 
         double slot = plot.Width / days.Count;
         double barW = Math.Max(3, Math.Min(42, slot * 0.62));
-        int labelEvery = days.Count <= 7 ? 1 : days.Count <= 16 ? 2 : 3;
+        // A year's report has one bar per month.
+        bool monthly = days.Count >= 2 && days[1].Day == days[0].Day.AddMonths(1);
+        var current = monthly ? new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1) : DateTime.Today;
+        int labelEvery = days.Count <= (monthly ? 12 : 7) ? 1 : days.Count <= 16 ? 2 : 3;
 
         for (int i = 0; i < days.Count; i++)
         {
@@ -87,8 +91,9 @@ public sealed class DailyBars : FrameworkElement
             // Count from the right, so today (the last bar) always has a label.
             if ((days.Count - 1 - i) % labelEvery == 0)
             {
-                string label = d.Day == DateTime.Today ? "Today" : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
-                var brush = d.Day == DateTime.Today ? ChartPaint.TextBrush : ChartPaint.Label;
+                string label = monthly ? (days.Count > 12 && d.Day.Month == 1 ? d.Day.ToString("yyyy") : d.Day.ToString("MMM"))
+                    : d.Day == DateTime.Today ? "Today" : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
+                var brush = d.Day == current ? ChartPaint.TextBrush : ChartPaint.Label;
                 ChartPaint.Text(dc, this, label, new Point(cx, h - AxisHeight / 2), 11, brush, ChartPaint.Align.Center);
             }
         }
@@ -98,7 +103,7 @@ public sealed class DailyBars : FrameworkElement
             var d = days[_hover];
             var lines = new List<(string, Brush, bool)>
             {
-                (d.Day.ToString("dddd, d MMM"), ChartPaint.TextBrush, true),
+                (d.Day.ToString(monthly ? "MMMM yyyy" : "dddd, d MMM"), ChartPaint.TextBrush, true),
                 (d.ActiveSec > 0 ? $"{Units.Duration(d.ActiveSec)} active" : "No activity", ChartPaint.Muted, false),
             };
             if (d.TopApp is not null) lines.Add(($"Most used: {d.TopApp}", ChartPaint.Muted, false));

@@ -8,7 +8,7 @@ namespace Rigsight.Controls;
 
 /// <summary>
 /// "‹ Yesterday ›": steps through periods, says which one is shown, and opens a calendar to jump to any day
-/// (or, with <see cref="PickMonth"/>, any month) since tracking started.
+/// (or, with <see cref="PickMonth"/> or <see cref="PickYear"/>, any month or year) since tracking started.
 /// </summary>
 public partial class DatePager : UserControl
 {
@@ -34,6 +34,9 @@ public partial class DatePager : UserControl
     public static readonly DependencyProperty PickMonthProperty =
         DependencyProperty.Register(nameof(PickMonth), typeof(bool), typeof(DatePager), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty PickYearProperty =
+        DependencyProperty.Register(nameof(PickYear), typeof(bool), typeof(DatePager), new PropertyMetadata(false));
+
     public static readonly DependencyProperty CanGoPreviousProperty =
         DependencyProperty.Register(nameof(CanGoPrevious), typeof(bool), typeof(DatePager), new PropertyMetadata(true));
 
@@ -50,6 +53,7 @@ public partial class DatePager : UserControl
     public DateTime Date { get => (DateTime)GetValue(DateProperty); set => SetValue(DateProperty, value); }
     public DateTime? MinDate { get => (DateTime?)GetValue(MinDateProperty); set => SetValue(MinDateProperty, value); }
     public bool PickMonth { get => (bool)GetValue(PickMonthProperty); set => SetValue(PickMonthProperty, value); }
+    public bool PickYear { get => (bool)GetValue(PickYearProperty); set => SetValue(PickYearProperty, value); }
     public bool CanGoPrevious { get => (bool)GetValue(CanGoPreviousProperty); set => SetValue(CanGoPreviousProperty, value); }
     public bool CanGoNext { get => (bool)GetValue(CanGoNextProperty); set => SetValue(CanGoNextProperty, value); }
     public ICommand? PreviousCommand { get => (ICommand?)GetValue(PreviousCommandProperty); set => SetValue(PreviousCommandProperty, value); }
@@ -83,9 +87,15 @@ public partial class DatePager : UserControl
         var today = DateTime.Today;
         _min = MinDate is { } m && m.Date <= today ? m.Date : today;
         var shown = Date.Date < _min ? _min : Date.Date > today ? today : Date.Date;
-        Cal.Visibility = PickMonth ? Visibility.Collapsed : Visibility.Visible;
-        MonthPanel.Visibility = PickMonth ? Visibility.Visible : Visibility.Collapsed;
-        if (PickMonth)
+        bool pickMonth = PickMonth && !PickYear;
+        Cal.Visibility = pickMonth || PickYear ? Visibility.Collapsed : Visibility.Visible;
+        MonthPanel.Visibility = pickMonth ? Visibility.Visible : Visibility.Collapsed;
+        YearPanel.Visibility = PickYear ? Visibility.Visible : Visibility.Collapsed;
+        if (PickYear)
+        {
+            BuildYears();
+        }
+        else if (pickMonth)
         {
             _year = shown.Year;
             BuildMonths();
@@ -146,6 +156,27 @@ public partial class DatePager : UserControl
         }
     }
 
+    private void BuildYears()
+    {
+        YearGrid.Children.Clear();
+        var today = DateTime.Today;
+        for (int year = _min.Year; year <= today.Year; year++)
+        {
+            int y = year;
+            var button = new Button
+            {
+                Content = year.ToString(),
+                Style = (Style)FindResource("GhostButton"),
+                Background = year == Date.Year ? (Brush)FindResource("AccentSoftBrush") : Brushes.Transparent,
+                Margin = new Thickness(2),
+                Padding = new Thickness(0, 4, 0, 4),
+            };
+            // The current year opens on today; an earlier one on its first day.
+            button.Click += (_, _) => Pick(y == today.Year ? today : new DateTime(y, 1, 1));
+            YearGrid.Children.Add(button);
+        }
+    }
+
     private void PreviousYear_Click(object sender, RoutedEventArgs e)
     {
         _year--;
@@ -160,7 +191,7 @@ public partial class DatePager : UserControl
 
     private void Cal_SelectedDatesChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_preparing || PickMonth || Cal.SelectedDate is not { } day) return;
+        if (_preparing || PickMonth || PickYear || Cal.SelectedDate is not { } day) return;
         Pick(day);
     }
 

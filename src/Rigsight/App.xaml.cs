@@ -40,21 +40,30 @@ public partial class App : Application
         _client.Start();
     }
 
+    /// <summary>
+    /// One window per data folder: a copy pointed at other data (RIGSIGHT_DATA_DIR, for testing) runs alongside the
+    /// normal one instead of bringing it to the front.
+    /// </summary>
+    private static string InstanceSuffix =>
+        Environment.GetEnvironmentVariable("RIGSIGHT_DATA_DIR") is { Length: > 0 } dir
+            ? "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(dir.ToLowerInvariant())))[..12]
+            : "";
+
     private bool AcquireSingleInstance()
     {
-        _mutex = new Mutex(true, MutexName, out bool created);
+        _mutex = new Mutex(true, MutexName + InstanceSuffix, out bool created);
         if (!created)
         {
             try
             {
-                using var ev = EventWaitHandle.OpenExisting(ShowEventName);
+                using var ev = EventWaitHandle.OpenExisting(ShowEventName + InstanceSuffix);
                 ev.Set();
             }
             catch { }
             return false;
         }
 
-        _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName + InstanceSuffix);
         var thread = new Thread(() =>
         {
             while (_showEvent.WaitOne())

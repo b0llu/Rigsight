@@ -19,57 +19,27 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
 
-    /// <summary>"day" (one day, <see cref="Day"/>), "7" or "30" days up to today, or "all".</summary>
+    /// <summary>The period shown (see <see cref="Controls.PeriodPicker"/>): this week unless picked otherwise.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote))]
-    private string _range = "7";
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(IncludesToday))]
+    private ReportRange _unit = ReportRange.Week;
 
-    /// <summary>The day shown when <see cref="Range"/> is "day".</summary>
+    /// <summary>Any day in the period shown.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DayLabel), nameof(CanGoNextDay), nameof(CanGoPreviousDay), nameof(RangeNote))]
-    private DateTime _day = DateTime.Today;
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IncludesToday))]
+    private DateTime _anchor = DateTime.Today;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanGoPreviousDay), nameof(RangeNote))]
+    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _firstDay;
 
-    public bool IsDay => Range == "day";
+    public bool IsDay => Unit == ReportRange.Day;
 
-    /// <summary>Every range but an earlier single day includes today, so it can still change.</summary>
-    public bool IncludesToday => !IsDay || Day >= DateTime.Today;
-    public string DayLabel => ReportsViewModel.PeriodText(ReportRange.Day, Day);
-    public bool CanGoNextDay => Day < DateTime.Today;
-    public bool CanGoPreviousDay => FirstDay is not { } f || Day > f;
+    /// <summary>The period shown includes today, so it can still change.</summary>
+    public bool IncludesToday => ReportBuilder.Bounds(Unit, Anchor).To > DateTime.Today;
 
-    /// <summary>Which dates the list covers, and for "All time" when tracking started.</summary>
-    public string RangeNote
-    {
-        get
-        {
-            var today = DateTime.Today;
-            string Span(DateTime from) => from.Year == today.Year ? $"{from:d MMM} – {today:d MMM}" : $"{from:d MMM yyyy} – {today:d MMM yyyy}";
-            return Range switch
-            {
-                "day" => Day.ToString("dddd, d MMMM yyyy"),
-                "30" => Span(today.AddDays(-29)),
-                "all" when FirstDay is { } f => $"{Span(f)} ({(int)(today - f).TotalDays + 1} days)",
-                "all" => "All history",
-                _ => Span(today.AddDays(-6)),
-            };
-        }
-    }
-
-    [RelayCommand]
-    private void PreviousDay()
-    {
-        if (CanGoPreviousDay) Day = Day.AddDays(-1);
-    }
-
-    [RelayCommand]
-    private void NextDay()
-    {
-        if (CanGoNextDay) Day = Day.AddDays(1);
-    }
+    /// <summary>Which dates the list covers ("All time" from when tracking started).</summary>
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
     [ObservableProperty] private string _sort = "Active";
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private double _maxValue = 1;
@@ -143,10 +113,10 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         }
     }
 
-    partial void OnRangeChanged(string value) => _ = LoadAsync();
-    partial void OnDayChanged(DateTime value)
+    partial void OnUnitChanged(ReportRange value) => _ = LoadAsync();
+    partial void OnAnchorChanged(DateTime value)
     {
-        if (IsDay) _ = LoadAsync();
+        if (Unit != ReportRange.All) _ = LoadAsync();
     }
     partial void OnSortChanged(string value) => ApplyView();
     partial void OnSearchChanged(string value) => ApplyView();
@@ -171,8 +141,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public void ShowToday(string exe)
     {
         _pendingSelection = exe;
-        Day = DateTime.Today;
-        Range = "day";
+        Anchor = DateTime.Today;
+        Unit = ReportRange.Day;
         SelectExe(exe);
     }
 
@@ -192,15 +162,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public async Task LoadAsync()
     {
         int id = ++_loadId;
-        var today = DateTime.Today;
-        if (Day > today) Day = today;
-        var (from, to) = Range switch
-        {
-            "day" => (Day.Date, Day.Date.AddDays(1)),
-            "30" => (today.AddDays(-29), today.AddDays(1)),
-            "all" => (today.AddYears(-20), today.AddDays(1)),
-            _ => (today.AddDays(-6), today.AddDays(1)),
-        };
+        var (from, to) = ReportBuilder.Bounds(Unit, Anchor);
         var first = await reports.FirstDayAsync();
         var report = await reports.BuildRangeAsync(from, to);
         if (id != _loadId) return; // a newer range or day was picked meanwhile

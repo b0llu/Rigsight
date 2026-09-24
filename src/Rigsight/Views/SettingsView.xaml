@@ -377,6 +377,7 @@
                                                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
+                                                <Setter Property="Template" Value="{StaticResource AccentButtonTemplate}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Update.IsBusy}" Value="True">
                                                 <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />

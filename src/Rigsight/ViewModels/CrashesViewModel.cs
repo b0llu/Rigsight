@@ -13,29 +13,26 @@ namespace Rigsight.ViewModels;
 
 public sealed partial class CrashesViewModel(ReportService reports, SettingsModel settings) : ObservableObject
 {
-    /// <summary>"day" (one day, <see cref="Day"/>), "7", "30" or "90" days, or "all".</summary>
+    /// <summary>The period shown (see <see cref="PeriodPicker"/>): this month unless picked otherwise.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IsDay), nameof(ShowTimeline), nameof(EmptyText))]
-    private string _range = "30";
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IsDay), nameof(ShowTimeline), nameof(EmptyText), nameof(IncludesToday))]
+    private Core.Reports.ReportRange _unit = Core.Reports.ReportRange.Month;
 
-    /// <summary>The day shown when <see cref="Range"/> is "day".</summary>
+    /// <summary>Any day in the period shown.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(DayLabel), nameof(CanGoNextDay), nameof(CanGoPreviousDay))]
-    private DateTime _day = DateTime.Today;
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IncludesToday))]
+    private DateTime _anchor = DateTime.Today;
 
     /// <summary>First day with anything recorded (tracking, or crashes Windows logged before Rigsight was installed).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(CanGoPreviousDay))]
+    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _since;
 
-    public bool IsDay => Range == "day";
+    public bool IsDay => Unit == Core.Reports.ReportRange.Day;
 
-    /// <summary>Every range but an earlier single day includes today, so new crashes can appear.</summary>
-    public bool IncludesToday => !IsDay || Day >= DateTime.Today;
+    /// <summary>The period shown includes today, so new crashes can appear.</summary>
+    public bool IncludesToday => Bounds.To > DateTime.Today;
     public bool ShowTimeline => !IsDay;
-    public string DayLabel => ReportsViewModel.PeriodText(Core.Reports.ReportRange.Day, Day);
-    public bool CanGoNextDay => Day < DateTime.Today;
-    public bool CanGoPreviousDay => Since is not { } s || Day > s;
 
     /// <summary>List every crash newest first (default), or group repeats of the same crash into one row.</summary>
     [ObservableProperty] private bool _grouped;
@@ -47,22 +44,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         ApplyView();
     }
 
-    partial void OnDayChanged(DateTime value)
+    partial void OnAnchorChanged(DateTime value)
     {
         _limit = PageSize;
-        if (IsDay) _ = LoadAsync();
-    }
-
-    [RelayCommand]
-    private void PreviousDay()
-    {
-        if (CanGoPreviousDay) Day = Day.AddDays(-1);
-    }
-
-    [RelayCommand]
-    private void NextDay()
-    {
-        if (CanGoNextDay) Day = Day.AddDays(1);
+        if (Unit != Core.Reports.ReportRange.All) _ = LoadAsync();
     }
 
     [RelayCommand]
@@ -71,32 +56,20 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// <summary>Shows one day's crashes (clicking a day on the timeline).</summary>
     public void ShowDay(DateTime day)
     {
-        Day = day.Date;
-        if (Range == "day") return;
-        Range = "day";
+        Anchor = day.Date;
+        Unit = Core.Reports.ReportRange.Day;
     }
 
     /// <summary>Which dates are covered. Windows' crash log is read back 90 days when Rigsight is installed,
     /// so "All time" can reach further back than the rest of the app's history.</summary>
-    public string RangeNote
-    {
-        get
-        {
-            var today = DateTime.Today;
-            if (Range == "day") return Day.ToString("dddd, d MMMM yyyy");
-            if (Range == "all")
-                return Since is { } s ? $"{s:d MMM yyyy} – {today:d MMM yyyy} ({(int)(today - s).TotalDays + 1} days)" : "";
-            var from = From;
-            return from.Year == today.Year ? $"{from:d MMM} – {today:d MMM}" : $"{from:d MMM yyyy} – {today:d MMM yyyy}";
-        }
-    }
+    public string RangeNote => PeriodPicker.Span(Unit, Anchor, Since);
 
-    private DateTime From => Range switch
-    {
-        "day" => Day.Date,
-        "all" => Since ?? DateTime.Today,
-        _ => DateTime.Today.AddDays(-((int.TryParse(Range, out var d) ? d : 30) - 1)),
-    };
+    /// <summary>The period's start and end; all time runs from the first recorded problem.</summary>
+    private (DateTime From, DateTime To) Bounds => Unit == Core.Reports.ReportRange.All
+        ? (Since ?? DateTime.Today, DateTime.Today.AddDays(1))
+        : Core.Reports.ReportBuilder.Bounds(Unit, Anchor);
+
+    private DateTime From => Bounds.From;
 
     /// <summary>"All", "Apps" (app and game crashes, freezes) or "Pc" (blue screens, sudden shutdowns, driver resets, freezes).</summary>
     [ObservableProperty] private string _filter = "All";
@@ -168,7 +141,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     partial void OnFilterChanged(string value) { _limit = PageSize; ApplyView(); }
     partial void OnShowMutedChanged(bool value) { _limit = PageSize; ApplyView(); }
-    partial void OnRangeChanged(string value) { _limit = PageSize; _ = LoadAsync(); }
+    partial void OnUnitChanged(Core.Reports.ReportRange value) { _limit = PageSize; _ = LoadAsync(); }
 
     private int _loadId;
 
@@ -177,20 +150,15 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         int id = ++_loadId;
         var since = await reports.FirstCrashDayAsync();
-        if (Day > DateTime.Today) Day = DateTime.Today;
-        var from = Range switch
-        {
-            "day" => Day.Date,
-            "all" => DateTime.Today.AddYears(-20),
-            _ => From,
-        };
-        var to = Range == "day" ? Day.Date.AddDays(1) : DateTime.Now.AddMinutes(1);
+        var all = Unit == Core.Reports.ReportRange.All;
+        var (from, to) = all ? (DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1)) : Core.Reports.ReportBuilder.Bounds(Unit, Anchor);
+        if (to > DateTime.Now) to = DateTime.Now.AddMinutes(1);
         var rows = await reports.CrashesAsync(from, to, includeMuted: true) ?? [];
         if (onlyIfChanged && rows.Select(r => r.Event.Id).SequenceEqual(_all.Select(r => r.Event.Id))) return;
         // Drivers and updates from a week before the oldest problem, to explain what came after.
         var changesFrom = (rows.Count > 0 ? rows.Min(c => c.Time) : from).Date.AddDays(-7);
-        if (Range != "all" && changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
-        var changes = await ReportService.ChangesAsync(changesFrom, DateTime.Now.AddMinutes(1));
+        if (!all && changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
+        var changes = await ReportService.ChangesAsync(changesFrom, to);
         if (id != _loadId) return;
 
         Since = since;
@@ -233,7 +201,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         _matching = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g))];
         ShowPage();
         Crashes = [.. counted.Where(Matches).SelectMany(g => g.Rows).OrderByDescending(r => r.Time)];
-        Days = IsDay ? [] : CrashStrip.BuildDays(From, counted, _changes);
+        Days = IsDay ? [] : CrashStrip.BuildDays(From, Bounds.To, counted, _changes);
         Patterns = BuildPatterns(rows);
         BuildStatus(rows, [.. counted.Where(g => g.IsIncident).SelectMany(g => g.Rows)]);
     }
@@ -252,11 +220,13 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         var app = rows.FirstOrDefault(r => r.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang);
         var lastSerious = serious.FirstOrDefault();
 
-        if (IsDay)
+        if (IsDay || !IncludesToday)
         {
-            // One day: say what happened that day rather than "last blue screen N days ago".
+            // One day, or a period that's over: say what happened in it rather than "stable for N days" (counted to today).
+            string label = PeriodPicker.Text(Unit, Anchor);
+            string when = IsDay ? "on this day" : label.StartsWith("Last ") ? label.ToLowerInvariant() : $"in {label}";
             int worst = rows.Count == 0 ? -1 : rows.Max(r => (int)CrashGroup.SeverityOf(r));
-            StatusTitle = rows.Count == 0 ? "No problems on this day" : $"{rows.Count} problem{(rows.Count == 1 ? "" : "s")} on this day";
+            StatusTitle = rows.Count == 0 ? $"No problems {when}" : $"{rows.Count} problem{(rows.Count == 1 ? "" : "s")} {when}";
             StatusDetail = rows.Count == 0 ? "Nothing crashed, froze or shut down unexpectedly."
                 : string.Join(" · ", rows.GroupBy(r => r.Event.Kind).Select(g => KindCount(g.Key, g.Count()))) + ".";
             (StatusIcon, StatusBrush) = worst switch

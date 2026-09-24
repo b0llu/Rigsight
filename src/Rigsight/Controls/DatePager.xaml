@@ -44,6 +44,11 @@
                         </DockPanel>
                         <UniformGrid x:Name="MonthGrid" Columns="4" Rows="3" />
                     </StackPanel>
+                    <!-- Year ranges pick a year from the years with history. -->
+                    <StackPanel x:Name="YearPanel" Width="264" Visibility="Collapsed">
+                        <TextBlock Text="Pick a year" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="6,6,0,12" />
+                        <UniformGrid x:Name="YearGrid" Columns="4" />
+                    </StackPanel>
                     <DockPanel Margin="4,8,4,0">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Today" Click="Today_Click" />
                         <TextBlock x:Name="SinceText" Style="{StaticResource Muted}" FontSize="11.5" VerticalAlignment="Center" />

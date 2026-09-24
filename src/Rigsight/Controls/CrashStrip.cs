@@ -156,12 +156,13 @@ public sealed class CrashStrip : FrameworkElement
     }
 
     /// <summary>Builds the days from <paramref name="from"/> to today from the problems and changes.</summary>
-    public static List<CrashDay> BuildDays(DateTime from, IEnumerable<CrashGroup> groups, IEnumerable<SystemChange> changes)
+    /// <summary>One entry per day from <paramref name="from"/> until <paramref name="to"/> (exclusive) or today, whichever is first.</summary>
+    public static List<CrashDay> BuildDays(DateTime from, DateTime to, IEnumerable<CrashGroup> groups, IEnumerable<SystemChange> changes)
     {
-        var today = DateTime.Today;
+        var last = to.Date.AddDays(-1) < DateTime.Today ? to.Date.AddDays(-1) : DateTime.Today;
         var list = new List<CrashDay>();
-        for (var d = from.Date; d <= today; d = d.AddDays(1)) list.Add(new CrashDay { Day = d });
-        CrashDay? DayOf(DateTime t) => t.Date < from.Date || t.Date > today ? null : list[(int)(t.Date - from.Date).TotalDays];
+        for (var d = from.Date; d <= last; d = d.AddDays(1)) list.Add(new CrashDay { Day = d });
+        CrashDay? DayOf(DateTime t) => t.Date < from.Date || t.Date > last ? null : list[(int)(t.Date - from.Date).TotalDays];
 
         var rows = groups.SelectMany(g => g.Rows.Select(r => (Row: r, Severity: g.IsIncident ? CrashSeverity.Serious : CrashGroup.SeverityOf(r))));
         foreach (var (r, severity) in rows.OrderBy(x => x.Row.Time))

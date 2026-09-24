@@ -13,6 +13,9 @@ public static class ReportBuilder
         {
             ReportRange.Day => (day, day.AddDays(1)),
             ReportRange.Week => WeekOf(day),
+            ReportRange.Year => (new DateTime(day.Year, 1, 1), new DateTime(day.Year + 1, 1, 1)),
+            // Everything: callers show it from the first recorded day.
+            ReportRange.All => (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1)),
             _ => (new DateTime(day.Year, day.Month, 1), new DateTime(day.Year, day.Month, 1).AddMonths(1)),
         };
 
@@ -28,6 +31,8 @@ public static class ReportBuilder
     {
         ReportRange.Day => anchor.AddDays(-1),
         ReportRange.Week => anchor.AddDays(-7),
+        ReportRange.Year => anchor.AddYears(-1),
+        ReportRange.All => anchor,
         _ => anchor.AddMonths(-1),
     };
 
@@ -35,8 +40,13 @@ public static class ReportBuilder
     {
         ReportRange.Day => anchor.AddDays(1),
         ReportRange.Week => anchor.AddDays(7),
+        ReportRange.Year => anchor.AddYears(1),
+        ReportRange.All => anchor,
         _ => anchor.AddMonths(1),
     };
+
+    /// <summary>A year or all time: built from the daily and monthly totals (see <see cref="BuildLong"/>).</summary>
+    public static bool IsLong(ReportRange range) => range is ReportRange.Year or ReportRange.All;
 
     /// <summary>Sessions shorter than this (a screenshot, a quick alt-tab) still count as usage but aren't listed as sessions.</summary>
     public const double MinSessionSec = 60;
@@ -46,13 +56,19 @@ public static class ReportBuilder
     {
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var (from, to) = Bounds(range, anchor);
-        var report = BuildRaw(db, range, from, to, apps, settings);
+        Report Period(DateTime f, DateTime t) => IsLong(range) ? BuildLong(db, range, f, t, apps, settings) : BuildRaw(db, range, f, t, apps, settings);
+        var report = Period(from, to);
 
-        var (pFrom, pTo) = Bounds(range, Previous(range, anchor));
-        // Compare against the same elapsed portion of the previous period so "today so far" is fair.
-        if (to > DateTime.Now && from <= DateTime.Now)
-            pTo = pFrom + (DateTime.Now - from);
-        var previous = BuildRaw(db, range, pFrom, pTo, apps, settings);
+        Report? previous = null;
+        if (range != ReportRange.All)
+        {
+            var (pFrom, pTo) = Bounds(range, Previous(range, anchor));
+            // Compare against the same elapsed portion of the previous period so "today so far" is fair. Long periods
+            // compare whole days (their totals are per day).
+            if (to > DateTime.Now && from <= DateTime.Now)
+                pTo = IsLong(range) ? pFrom + (DateTime.Today.AddDays(1) - from) : pFrom + (DateTime.Now - from);
+            previous = Period(pFrom, pTo);
+        }
 
         // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
@@ -114,38 +130,7 @@ public static class ReportBuilder
         // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and
         // temperature sums and highs, so days without minutes use them rather than showing "0 active".
         var minuteDays = minutes.Select(m => TimeUtil.FromUnix(m.Ts).Date).ToHashSet();
-        var older = hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date)).ToList();
-        if (older.Count > 0)
-        {
-            double oldActive = older.Sum(h => h.FgSec);
-            report.ActiveSec += oldActive;
-            report.AwaySec += older.Sum(h => h.IdleSec);
-            // Without minutes, "on" is the time someone was at it or away from it, hour by hour.
-            report.OnSec += older.GroupBy(h => h.Ts).Sum(g => Math.Min(3600, g.Sum(h => h.FgSec + h.IdleSec)));
-
-            // Averages: the recent part weighted by its minutes, the older part by its time in front.
-            double? oldCpu = WeightedAvg(older, h => h.CpuTempSum, h => h.CpuTempN);
-            double? oldGpu = WeightedAvg(older, h => h.GpuTempSum, h => h.GpuTempN);
-            double recentSec = minutes.Count * 60;
-            report.CpuTempAvg = Blend(report.CpuTempAvg, recentSec, oldCpu, oldActive);
-            report.GpuTempAvg = Blend(report.GpuTempAvg, recentSec, oldGpu, oldActive);
-
-            Peak? HourPeak(Func<AppHour, double?> sel)
-            {
-                AppHour? best = null;
-                double bestV = double.MinValue;
-                foreach (var h in older)
-                    if (sel(h) is double v && v > bestV) { bestV = v; best = h; }
-                return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), NameOf(best.AppId));
-            }
-            static Peak? Higher(Peak? a, Peak? b) => a is null ? b : b is null ? a : b.Value > a.Value ? b : a;
-            report.CpuTempPeak = Higher(report.CpuTempPeak, HourPeak(h => h.CpuTempMax));
-            report.GpuTempPeak = Higher(report.GpuTempPeak, HourPeak(h => h.GpuTempMax));
-            report.GpuHotPeak = Higher(report.GpuHotPeak, HourPeak(h => h.GpuHotMax));
-            report.CpuVoltPeak = Higher(report.CpuVoltPeak, HourPeak(h => h.CpuVoltMax));
-            report.GpuVoltPeak = Higher(report.GpuVoltPeak, HourPeak(h => h.GpuVoltMax));
-            // Power peaks stay minute-only: they're one-minute averages, and the hourly rows hold instant highs.
-        }
+        AddHourlyFallback(report, [.. hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date))], minutes.Count * 60, NameOf);
 
         // Per-app statistics.
         var stats = AppStats(hours, apps, NameOf, CategoryOf);
@@ -253,6 +238,179 @@ public static class ReportBuilder
             }
         }
 
+        return report;
+    }
+
+    /// <summary>
+    /// Days older than the minute detail (versions before 0.4.13 deleted minutes after 90 days but kept the hourly
+    /// per-app rows for two years): their time in front and away, temperatures and highs come from those rows, so
+    /// they don't show as "0 active". <paramref name="minuteSec"/> is the time the minutes cover (for blending averages).
+    /// </summary>
+    private static void AddHourlyFallback(Report report, List<AppHour> older, double minuteSec, Func<long?, string> NameOf)
+    {
+        if (older.Count == 0) return;
+        double oldActive = older.Sum(h => h.FgSec);
+        report.ActiveSec += oldActive;
+        report.AwaySec += older.Sum(h => h.IdleSec);
+        // Without minutes, "on" is the time someone was at it or away from it, hour by hour.
+        report.OnSec += older.GroupBy(h => h.Ts).Sum(g => Math.Min(3600, g.Sum(h => h.FgSec + h.IdleSec)));
+
+        // Averages: the recent part weighted by its minutes, the older part by its time in front.
+        double? oldCpu = WeightedAvg(older, h => h.CpuTempSum, h => h.CpuTempN);
+        double? oldGpu = WeightedAvg(older, h => h.GpuTempSum, h => h.GpuTempN);
+        report.CpuTempAvg = Blend(report.CpuTempAvg, minuteSec, oldCpu, oldActive);
+        report.GpuTempAvg = Blend(report.GpuTempAvg, minuteSec, oldGpu, oldActive);
+
+        Peak? HourPeak(Func<AppHour, double?> sel)
+        {
+            AppHour? best = null;
+            double bestV = double.MinValue;
+            foreach (var h in older)
+                if (sel(h) is double v && v > bestV) { bestV = v; best = h; }
+            return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), NameOf(best.AppId));
+        }
+        static Peak? Higher(Peak? a, Peak? b) => a is null ? b : b is null ? a : b.Value > a.Value ? b : a;
+        report.CpuTempPeak = Higher(report.CpuTempPeak, HourPeak(h => h.CpuTempMax));
+        report.GpuTempPeak = Higher(report.GpuTempPeak, HourPeak(h => h.GpuTempMax));
+        report.GpuHotPeak = Higher(report.GpuHotPeak, HourPeak(h => h.GpuHotMax));
+        report.CpuVoltPeak = Higher(report.CpuVoltPeak, HourPeak(h => h.CpuVoltMax));
+        report.GpuVoltPeak = Higher(report.GpuVoltPeak, HourPeak(h => h.GpuVoltMax));
+        // Power peaks stay minute-only: they're one-minute averages, and the hourly rows hold instant highs.
+    }
+
+    /// <summary>
+    /// A year (or all time) from the daily totals (system_day), the monthly per-app totals (app_month) and the
+    /// longest sessions: a few hundred rows instead of every minute, hour and session. The totals, averages and
+    /// highs are the same as <see cref="BuildRaw"/> would give (they add up the same minutes); what needs every
+    /// minute (the day's shape, longest stretch, temperatures at like-for-like load) is left out, and the bars are
+    /// per month (<see cref="Report.Days"/> holds one bucket per month).
+    /// </summary>
+    public static Report BuildLong(RigsightDb db, ReportRange range, DateTime from, DateTime to,
+        IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings)
+    {
+        long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
+        var days = db.GetSystemDays(f, t);
+        if (days is null) return BuildRaw(db, range, from, to, apps, settings); // an agent from before the daily totals
+
+        var report = new Report { Range = range, From = from, To = to };
+        string NameOf(long? id)
+        {
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+            return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
+        }
+        AppCategory CategoryOf(long? id)
+        {
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return AppCategory.Other;
+            return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;
+        }
+
+        // System-wide totals and averages: the days added up.
+        int minutes = days.Sum(d => d.Minutes);
+        report.OnSec = minutes * 60.0;
+        report.ActiveSec = days.Sum(d => d.ActiveSec);
+        report.AwaySec = days.Sum(d => d.IdleSec);
+        static double? Ratio(double sum, int n) => n > 0 ? sum / n : null;
+        report.CpuTempAvg = Ratio(days.Sum(d => d.CpuTempSum), days.Sum(d => d.CpuTempN));
+        report.GpuTempAvg = Ratio(days.Sum(d => d.GpuTempSum), days.Sum(d => d.GpuTempN));
+        report.CpuLoadAvg = Ratio(days.Sum(d => d.CpuLoadSum), days.Sum(d => d.CpuLoadN));
+        report.GpuLoadAvg = Ratio(days.Sum(d => d.GpuLoadSum), days.Sum(d => d.GpuLoadN));
+
+        // Highs: the day with the highest value, then the first minute of that day that reached it (and what was in front).
+        Peak? PeakOf(Func<SystemDay, double?> sel, string column)
+        {
+            SystemDay? best = null;
+            double bestV = double.MinValue;
+            foreach (var d in days)
+                if (sel(d) is double v && v > bestV) { bestV = v; best = d; }
+            if (best is null) return null;
+            long next = TimeUtil.ToUnix(TimeUtil.FromUnix(best.Day).Date.AddDays(1));
+            var hit = db.FindMinute(column, bestV, best.Day, next);
+            return new Peak(bestV, TimeUtil.FromUnix(hit?.Ts ?? best.Day), hit?.App is long app ? NameOf(app) : null);
+        }
+        report.CpuTempPeak = PeakOf(d => d.CpuTempMax, "cpu_temp_max");
+        report.GpuTempPeak = PeakOf(d => d.GpuTempMax, "gpu_temp_max");
+        report.GpuHotPeak = PeakOf(d => d.GpuHotMax, "gpu_hot_max");
+        report.CpuVoltPeak = PeakOf(d => d.CpuVoltMax, "cpu_volt_max");
+        report.GpuVoltPeak = PeakOf(d => d.GpuVoltMax, "gpu_volt_max");
+        report.CpuPowerPeak = PeakOf(d => d.CpuPowerMax, "cpu_power");
+        report.GpuPowerPeak = PeakOf(d => d.GpuPowerMax, "gpu_power");
+
+        // Older history without minutes (only ever at the start, where old versions thinned it out).
+        long firstMinuteDay = days.Count > 0 ? days[0].Day : t;
+        var older = firstMinuteDay > f ? db.GetAppHours(f, firstMinuteDay) : [];
+        AddHourlyFallback(report, older, report.OnSec, NameOf);
+
+        // Apps: per-app totals and session counts, summed by the database (as on the Apps page).
+        var totals = db.GetAppTotals(f, t);
+        var stats = AppStats(totals, apps, NameOf, CategoryOf);
+        foreach (var (id, (count, longest)) in db.GetSessionStats(f, t, MinSessionSec))
+            if (stats.TryGetValue(id, out var st)) { st.SessionCount = count; st.LongestSessionSec = longest; }
+        report.GamingSec = stats.Values.Where(a => a.Category == AppCategory.Game).Sum(a => a.ActiveSec);
+        report.Apps = [.. stats.Values.OrderByDescending(s => s.ActiveSec).ThenByDescending(s => s.OpenSec)];
+        foreach (var s in report.Apps.Where(s => s.ActiveSec > 0))
+            report.ActiveByCategory[s.Category] = report.ActiveByCategory.GetValueOrDefault(s.Category) + s.ActiveSec;
+
+        // Only the longest sessions: what the page lists (top 10) and what the insights look at (the longest game).
+        foreach (var s in db.GetLongestSessions(f, t, MinSessionSec, 200))
+        {
+            apps.TryGetValue(s.AppId, out var row);
+            report.Sessions.Add(new SessionInfo
+            {
+                AppId = s.AppId, Name = NameOf(s.AppId), Exe = row?.Exe ?? "?", Path = row?.Path, Category = CategoryOf(s.AppId),
+                Start = TimeUtil.FromUnix(s.Start), End = TimeUtil.FromUnix(s.End), ActiveSec = s.ActiveSec,
+                CpuTempMax = s.CpuTempMax, GpuTempMax = s.GpuTempMax, IsGame = s.IsGame || CategoryOf(s.AppId) == AppCategory.Game,
+            });
+        }
+        report.Crashes = [.. db.GetCrashes(f, t).Where(c => !settings.IsCrashMuted(c.AppExe))];
+        report.HasData = days.Count > 0 || totals.Count > 0;
+
+        // One bar per month.
+        var firstMonth = new DateTime(from.Year, from.Month, 1);
+        if (range == ReportRange.All)
+        {
+            var first = days.Count > 0 ? TimeUtil.FromUnix(days[0].Day) : to;
+            if (older.Count > 0) first = TimeUtil.FromUnix(older.Min(h => h.Ts));
+            if (first < to) firstMonth = new DateTime(first.Year, first.Month, 1);
+        }
+        var buckets = new Dictionary<DateTime, DayBucket>();
+        for (var m = firstMonth; m < to; m = m.AddMonths(1))
+            report.Days.Add(buckets[m] = new DayBucket { Day = m });
+        DayBucket? BucketOf(long unix)
+        {
+            var d = TimeUtil.FromUnix(unix);
+            return buckets.GetValueOrDefault(new DateTime(d.Year, d.Month, 1));
+        }
+        foreach (var g in days.GroupBy(d => BucketOf(d.Day)))
+        {
+            if (g.Key is not { } bucket) continue;
+            bucket.OnSec = g.Sum(d => d.Minutes) * 60.0;
+            bucket.ActiveSec = g.Sum(d => d.ActiveSec);
+            bucket.CpuTempAvg = Ratio(g.Sum(d => d.CpuTempSum), g.Sum(d => d.CpuTempN));
+            bucket.GpuTempAvg = Ratio(g.Sum(d => d.GpuTempSum), g.Sum(d => d.GpuTempN));
+            bucket.CpuTempMax = g.Max(d => d.CpuTempMax);
+            bucket.GpuTempMax = g.Max(d => d.GpuTempMax);
+        }
+        foreach (var g in older.GroupBy(h => BucketOf(h.Ts)))
+        {
+            if (g.Key is not { } bucket) continue;
+            var list = g.ToList();
+            bucket.ActiveSec += list.Sum(h => h.FgSec);
+            bucket.OnSec += list.GroupBy(h => h.Ts).Sum(x => Math.Min(3600, x.Sum(h => h.FgSec + h.IdleSec)));
+            bucket.CpuTempAvg ??= WeightedAvg(list, h => h.CpuTempSum, h => h.CpuTempN);
+            bucket.GpuTempAvg ??= WeightedAvg(list, h => h.GpuTempSum, h => h.GpuTempN);
+            bucket.CpuTempMax = Max(bucket.CpuTempMax, list.Max(h => h.CpuTempMax));
+            bucket.GpuTempMax = Max(bucket.GpuTempMax, list.Max(h => h.GpuTempMax));
+        }
+        foreach (var g in db.GetAppMonths(f, t).GroupBy(x => BucketOf(x.Month)))
+        {
+            if (g.Key is not { } bucket) continue;
+            foreach (var (_, app, sec) in g)
+            {
+                var cat = CategoryOf(app);
+                bucket.ActiveByCategory[cat] = bucket.ActiveByCategory.GetValueOrDefault(cat) + sec;
+            }
+            bucket.TopApp = NameOf(g.MaxBy(x => x.FgSec).AppId);
+        }
         return report;
     }
 

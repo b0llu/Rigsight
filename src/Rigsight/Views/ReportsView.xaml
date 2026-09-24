@@ -26,24 +26,8 @@
         <StackPanel Margin="32,26,32,32">
             <!-- Header -->
             <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Style="{StaticResource SegmentHost}" Margin="0,0,12,0">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" GroupName="Range" Content="Day"
-                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=Day, Mode=OneWay}"
-                                         Command="{Binding SetRangeCommand}" CommandParameter="Day" />
-                            <RadioButton Style="{StaticResource Segment}" GroupName="Range" Content="Week"
-                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=Week, Mode=OneWay}"
-                                         Command="{Binding SetRangeCommand}" CommandParameter="Week" />
-                            <RadioButton Style="{StaticResource Segment}" GroupName="Range" Content="Month"
-                                         IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=Month, Mode=OneWay}"
-                                         Command="{Binding SetRangeCommand}" CommandParameter="Month" />
-                        </StackPanel>
-                    </Border>
-                    <ctl:DatePager Label="{Binding PeriodLabel}" Date="{Binding Anchor}" MinDate="{Binding FirstDay}" PickMonth="{Binding IsMonth}"
-                                   CanGoPrevious="{Binding CanGoPrevious}" CanGoNext="{Binding CanGoNext}"
-                                   PreviousCommand="{Binding PreviousCommand}" NextCommand="{Binding NextCommand}" />
-                </StackPanel>
+                <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False"
+                                  Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" />
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
@@ -118,7 +102,7 @@
                             </StackPanel>
                             <Grid>
                                 <TextBlock Text="Your day, minute by minute" Style="{StaticResource H2}" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="Active time per day" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                             </Grid>
                         </DockPanel>
                         <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" RecordedUntil="{Binding Report.BuiltAt}"

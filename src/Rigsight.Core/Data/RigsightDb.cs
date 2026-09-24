@@ -91,6 +91,19 @@ public sealed class RigsightDb : IDisposable
         Exec($"CREATE TABLE IF NOT EXISTS app_month(month INTEGER NOT NULL, app_id INTEGER NOT NULL, {HourColumnsDdl}, PRIMARY KEY(month, app_id))");
         if (newRollup) Exec($"INSERT INTO app_month SELECT {MonthOf("ts")}, app_id, {HourSums} FROM app_hour GROUP BY 1, 2");
         if (GetMeta(MaxSessionKey) is null) SetMeta(MaxSessionKey, ComputeMaxSessionSec().ToString());
+
+        // The minutes of each local day added up, recomputed from that day's minutes as each one is written, so a
+        // year reads 365 rows instead of every minute. Filled from system_minute the first time (before 0.5.3).
+        bool newDays = !HasTable("system_day");
+        Exec("""
+            CREATE TABLE IF NOT EXISTS system_day(
+                day INTEGER PRIMARY KEY, minutes INTEGER NOT NULL, active_sec REAL NOT NULL, idle_sec REAL NOT NULL,
+                cpu_temp_sum REAL NOT NULL, cpu_temp_n INTEGER NOT NULL, gpu_temp_sum REAL NOT NULL, gpu_temp_n INTEGER NOT NULL,
+                cpu_load_sum REAL NOT NULL, cpu_load_n INTEGER NOT NULL, gpu_load_sum REAL NOT NULL, gpu_load_n INTEGER NOT NULL,
+                cpu_temp_max REAL, gpu_temp_max REAL, gpu_hot_max REAL, cpu_volt_max REAL, gpu_volt_max REAL,
+                cpu_power_max REAL, gpu_power_max REAL)
+            """);
+        if (newDays) Exec($"INSERT INTO system_day SELECT {DayOf("ts")}, {MinuteSums} FROM system_minute GROUP BY 1");
     }
 
     private bool HasTable(string table)
@@ -123,6 +136,17 @@ public sealed class RigsightDb : IDisposable
     /// </summary>
     private static string MonthOf(string unix, string shift = "") =>
         $"CAST(strftime('%s', {unix}, 'unixepoch', 'localtime', 'start of month'{shift}, 'utc') AS INTEGER)";
+
+    /// <summary>The start of the (local) day containing a unix time, computed by SQLite like <see cref="MonthOf"/>.</summary>
+    private static string DayOf(string unix, string shift = "") =>
+        $"CAST(strftime('%s', {unix}, 'unixepoch', 'localtime', 'start of day'{shift}, 'utc') AS INTEGER)";
+
+    // system_minute rows added up into one system_day row (total() is 0 rather than NULL when nothing was read).
+    private const string MinuteSums = """
+        count(*), total(active_sec), total(idle_sec), total(cpu_temp), count(cpu_temp), total(gpu_temp), count(gpu_temp),
+        total(cpu_load), count(cpu_load), total(gpu_load), count(gpu_load), max(cpu_temp_max), max(gpu_temp_max), max(gpu_hot_max),
+        max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power)
+        """;
 
     private bool HasColumn(string table, string column)
     {
@@ -206,6 +230,14 @@ public sealed class RigsightDb : IDisposable
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
             ("$act", m.ActiveSec), ("$idle", m.IdleSec));
         cmd.ExecuteNonQuery();
+
+        // The day's row, recomputed from its minutes (at most 1,440, by the primary key): always exact, even when
+        // a minute is written again.
+        using var day = Cmd($"""
+            INSERT OR REPLACE INTO system_day SELECT {DayOf("$ts")}, {MinuteSums} FROM system_minute
+            WHERE ts >= {DayOf("$ts")} AND ts < {DayOf("$ts", ", '+1 day'")}
+            """, ("$ts", m.Ts));
+        day.ExecuteNonQuery();
     }
 
     /// <summary>Adds per-app deltas into their hour buckets (sums add up, maxima take the larger value).</summary>
@@ -307,6 +339,11 @@ public sealed class RigsightDb : IDisposable
             INSERT INTO app_month SELECT {MonthOf("ts")}, app_id, {HourSums} FROM app_hour
                 WHERE ts >= {MonthOf("$t")} AND ts < {MonthOf("$t", ", '+1 month'")} GROUP BY 1, 2;
             """, ("$t", before))) c2m.ExecuteNonQuery();
+        using (var c1d = Cmd($"""
+            DELETE FROM system_day WHERE day <= {DayOf("$t")};
+            INSERT INTO system_day SELECT {DayOf("ts")}, {MinuteSums} FROM system_minute
+                WHERE ts >= {DayOf("$t")} AND ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1;
+            """, ("$t", before))) c1d.ExecuteNonQuery();
         using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
@@ -314,7 +351,7 @@ public sealed class RigsightDb : IDisposable
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;");
+        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;");
         Exec("VACUUM");
     }
 
@@ -325,6 +362,71 @@ public sealed class RigsightDb : IDisposable
     {
         using var cmd = Cmd("SELECT min(t) FROM (SELECT min(ts) AS t FROM system_minute UNION ALL SELECT min(ts) FROM app_hour)");
         return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    private bool? _hasSystemDay;
+
+    /// <summary>
+    /// The daily totals from <paramref name="from"/> to <paramref name="to"/> (local midnights), or null when the
+    /// database doesn't have them yet (the agent adds the table; the app may read first).
+    /// </summary>
+    public List<SystemDay>? GetSystemDays(long from, long to)
+    {
+        _hasSystemDay ??= HasTable("system_day");
+        if (!_hasSystemDay.Value) return null;
+        using var cmd = Cmd("""
+            SELECT day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n,
+                   gpu_load_sum, gpu_load_n, cpu_temp_max, gpu_temp_max, gpu_hot_max, cpu_volt_max, gpu_volt_max, cpu_power_max, gpu_power_max
+            FROM system_day WHERE day >= $from AND day < $to ORDER BY day
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<SystemDay>();
+        while (r.Read())
+        {
+            list.Add(new SystemDay
+            {
+                Day = r.GetInt64(0), Minutes = r.GetInt32(1), ActiveSec = r.GetDouble(2), IdleSec = r.GetDouble(3),
+                CpuTempSum = r.GetDouble(4), CpuTempN = r.GetInt32(5), GpuTempSum = r.GetDouble(6), GpuTempN = r.GetInt32(7),
+                CpuLoadSum = r.GetDouble(8), CpuLoadN = r.GetInt32(9), GpuLoadSum = r.GetDouble(10), GpuLoadN = r.GetInt32(11),
+                CpuTempMax = D(r, 12), GpuTempMax = D(r, 13), GpuHotMax = D(r, 14), CpuVoltMax = D(r, 15), GpuVoltMax = D(r, 16),
+                CpuPowerMax = D(r, 17), GpuPowerMax = D(r, 18),
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// The first minute in a range where a system_minute column had the given value, and the app in front then:
+    /// where a day's high (from <see cref="GetSystemDays"/>) happened. The range is one day, found by the primary key.
+    /// </summary>
+    public (long Ts, long? App)? FindMinute(string column, double value, long from, long to)
+    {
+        using var cmd = Cmd($"SELECT ts, fg_app FROM system_minute WHERE ts >= $from AND ts < $to AND {column} = $v ORDER BY ts LIMIT 1",
+            ("$from", from), ("$to", to), ("$v", value));
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (r.GetInt64(0), r.IsDBNull(1) ? null : r.GetInt64(1)) : null;
+    }
+
+    /// <summary>Time in front per app per month (app_month) for months starting in the range.</summary>
+    public List<(long Month, long AppId, double FgSec)> GetAppMonths(long from, long to)
+    {
+        using var cmd = Cmd("SELECT month, app_id, fg_sec FROM app_month WHERE month >= $from AND month < $to AND fg_sec > 0",
+            ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<(long, long, double)>();
+        while (r.Read()) list.Add((r.GetInt64(0), r.GetInt64(1), r.GetDouble(2)));
+        return list;
+    }
+
+    /// <summary>The longest sessions overlapping a range (at least <paramref name="minSec"/> in front), longest first.</summary>
+    public List<SessionRow> GetLongestSessions(long from, long to, double minSec, int count)
+    {
+        using var cmd = Cmd("""
+            SELECT id, app_id, start, end, active_sec, cpu_temp_max, gpu_temp_max, is_game
+            FROM sessions WHERE start >= $earliest AND start < $to AND end > $from AND active_sec >= $min
+            ORDER BY active_sec DESC LIMIT $n
+            """, ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1), ("$min", minSec), ("$n", count));
+        return ReadSessions(cmd);
     }
 
     // Whether system_minute has gpu_mem_max yet (added in 0.4.5; the agent adds it, the app may read first).
