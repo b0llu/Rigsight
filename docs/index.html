@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="preload" as="image" href="img/temperatures.webp" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=0.4.13b" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -72,10 +72,9 @@
           <a class="btn btn-ghost" href="#features">See what it does</a>
         </div>
         <p class="meta reveal"><span data-version>Latest version</span><span>Windows 10 &amp; 11</span><span>Free, MIT licensed</span></p>
-        <div class="cli reveal desktop-only" title="Paste into PowerShell: it downloads the latest setup from GitHub, checks it and opens it">
-          <span class="cli-label">or in PowerShell</span>
-          <code>irm https://b0llu.github.io/Rigsight/install.ps1 | iex</code>
-          <button type="button" class="cli-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><span>Copy</span></button>
+        <div class="term-wrap reveal desktop-only">
+          <p class="term-caption">Or install from PowerShell, with no SmartScreen warning</p>
+          <div class="term"><span class="term-badge" aria-hidden="true">&gt;_</span><code><span class="t-cmd">irm</span> <span class="t-url">https://b0llu.github.io/Rigsight/install.ps1</span> <span class="t-op">|</span> <span class="t-cmd">iex</span></code><button type="button" class="term-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command" title="Copy"><svg class="i-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><svg class="i-done" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button></div>
         </div>
         <button class="copy-link mobile-only reveal" type="button" id="copy-link">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg>
@@ -332,10 +331,7 @@
           <h3>One command</h3>
           <p>Open PowerShell and paste this. It downloads the latest setup from GitHub, checks it against GitHub's checksum and opens it. Run it again any time to update.</p>
         </div>
-        <div class="cli cli-big">
-          <code>irm https://b0llu.github.io/Rigsight/install.ps1 | iex</code>
-          <button type="button" class="cli-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><span>Copy</span></button>
-        </div>
+        <div class="term term-big"><span class="term-badge" aria-hidden="true">&gt;_</span><code><span class="t-cmd">irm</span> <span class="t-url">https://b0llu.github.io/Rigsight/install.ps1</span> <span class="t-op">|</span> <span class="t-cmd">iex</span></code><button type="button" class="term-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command" title="Copy"><svg class="i-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><svg class="i-done" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button></div>
       </div>
       <p class="or reveal">or download it</p>
       <ol class="steps">
@@ -394,6 +390,6 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js" defer></script>
+  <script src="app.js?v=0.4.13b" defer></script>
 </body>
 </html>

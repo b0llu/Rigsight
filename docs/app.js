@@ -161,8 +161,8 @@
     btn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(btn.dataset.copy);
-        const label = btn.querySelector("span");
-        if (label) { label.textContent = "Copied"; setTimeout(() => (label.textContent = "Copy"), 1800); }
+        btn.classList.add("done");
+        setTimeout(() => btn.classList.remove("done"), 1800);
         showToast("Copied. Paste it into PowerShell.");
       } catch { /* clipboard blocked */ }
     });

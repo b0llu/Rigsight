@@ -305,13 +305,37 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .smartscreen b { color: var(--text); font-weight: 600; }
 
 /* ── Install command ────────────────────────────────────── */
-.cli { margin-top: 18px; display: inline-flex; align-items: center; gap: 12px; max-width: 100%; padding: 6px 6px 6px 16px;
-  border-radius: 12px; border: 1px solid var(--stroke-2); background: rgba(255,255,255,.03); }
-.cli-label { color: var(--faint); font-size: 13px; white-space: nowrap; }
-.cli code { font: 500 14px/1.4 "Cascadia Code", Consolas, ui-monospace, monospace; color: #e6e6e6; background: none; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cli-copy { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 34px; padding: 0 12px; border-radius: 8px; border: 0; cursor: pointer;
-  background: #fff; color: #000; font: 600 13px Inter, "Segoe UI", sans-serif; transition: background .2s; }
-.cli-copy:hover { background: #e6e6e6; }
+.term-wrap { margin-top: 30px; display: grid; justify-items: center; gap: 10px; }
+.term-caption { color: var(--faint); font-size: 13px; }
+.term {
+  position: relative; display: inline-flex; align-items: center; gap: 12px; max-width: 100%;
+  padding: 7px 7px 7px 7px; border-radius: 14px;
+  background: linear-gradient(#0b0b0b, #0b0b0b) padding-box, linear-gradient(120deg, rgba(86,153,239,.55), rgba(255,255,255,.08) 45%, rgba(66,208,168,.55)) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 18px 50px -24px rgba(86,153,239,.55), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.term-badge {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--brand); color: #04110d; font: 800 13px/1 "Cascadia Code", Consolas, monospace; letter-spacing: -1px;
+}
+.term code {
+  font: 500 14.5px/1.4 "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace; background: none; padding: 0 4px 0 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d4d4d4;
+}
+.t-cmd { color: #7dd3fc; font-weight: 600; }
+.t-url { color: #e5e5e5; }
+.t-op { color: #86efac; padding: 0 2px; }
+.term-copy {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--stroke-2);
+  background: rgba(255,255,255,.04); color: var(--muted); cursor: pointer; transition: background .2s, color .2s, border-color .2s;
+}
+.term-copy:hover { background: rgba(255,255,255,.1); color: var(--text); border-color: #3a3a3a; }
+.term-copy .i-done { display: none; }
+.term-copy.done { color: var(--green); border-color: rgba(66,208,168,.5); }
+.term-copy.done .i-copy { display: none; }
+.term-copy.done .i-done { display: block; }
+.term-big { display: flex; margin-top: 4px; padding: 9px; }
+.term-big code { flex: 1; font-size: 15px; }
 .cli-card { margin: 44px auto 0; max-width: 900px; display: grid; gap: 18px; text-align: left; padding: 28px; border-radius: var(--radius);
   background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--brand) border-box; border: 1px solid transparent; }
 .cli-card h3 { margin-bottom: 8px; }
@@ -422,8 +446,10 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .cli-card { padding: 22px 18px; }
   .lite > div { padding: 22px 18px; }
   .lite b { font-size: 30px; }
-  .cli-big { flex-direction: column; align-items: stretch; padding: 12px; }
-  .cli-big code { white-space: normal; word-break: break-all; font-size: 13.5px; }
+  .term-big { flex-wrap: wrap; }
+  .term-big code { white-space: normal; font-size: 13px; flex-basis: calc(100% - 100px); }
+  .term-big .t-url { word-break: break-all; }
+  .term-big .t-cmd, .term-big .t-op { white-space: nowrap; }
   .privacy-card { grid-template-columns: 1fr; padding: 30px 24px; gap: 24px; }
   .lock { width: 68px; height: 68px; border-radius: 20px; }
   .lock svg { width: 34px; height: 34px; }
