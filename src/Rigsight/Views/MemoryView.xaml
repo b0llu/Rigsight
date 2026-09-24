@@ -21,7 +21,7 @@
                 <ColumnDefinition Width="18" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource Card}">
+            <ctl:SmoothBorder Style="{StaticResource Card}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -46,8 +46,8 @@
                         <TextBlock Text="LAST 10 MINUTES" Style="{StaticResource Caption}" Margin="0,6,0,0" />
                     </StackPanel>
                 </Grid>
-            </Border>
-            <Border Grid.Column="2" Style="{StaticResource Card}">
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="Today's biggest memory users" Style="{StaticResource H2}" Margin="0,0,0,10" />
                     <!-- Rows share the peak/avg column widths, so every bar starts and ends at the same place. -->
@@ -82,11 +82,11 @@
                     <TextBlock Text="Collecting data — check back in a few minutes." Style="{StaticResource Muted}"
                                Visibility="{Binding TodayTop.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
         </Grid>
 
         <!-- Live list -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12">
+        <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5"
@@ -131,6 +131,6 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
-        </Border>
+        </ctl:SmoothBorder>
     </Grid>
 </UserControl>

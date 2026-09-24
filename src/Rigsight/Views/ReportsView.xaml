@@ -37,14 +37,14 @@
                        Visibility="{Binding CoverageNote, Converter={StaticResource Vis}}" />
 
             <!-- Empty state -->
-            <Border Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="Nothing recorded for this period" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
                     <TextBlock Text="No data for this period: the PC was off, or the background agent wasn't running. Pick another period."
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
             <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
                 <!-- Headline numbers -->
@@ -90,7 +90,7 @@
                 </UniformGrid>
 
                 <!-- Timeline / daily bars -->
-                <Border Style="{StaticResource Card}" Margin="0,13,0,0">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
@@ -112,7 +112,7 @@
                                    Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details."
                                    Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
                 <!-- Insights + hot moments -->
                 <Grid Margin="0,18,0,0">
@@ -121,7 +121,7 @@
                         <ColumnDefinition Width="18" />
                         <ColumnDefinition Width="2*" />
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Card}">
+                    <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="{Binding InsightsTitle}" Style="{StaticResource H2}" Margin="0,0,0,8" />
                             <ItemsControl ItemsSource="{Binding Report.Insights}">
@@ -139,8 +139,8 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
-                    </Border>
-                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="Hot moments" Style="{StaticResource H2}" Margin="0,0,0,8" />
                             <ItemsControl ItemsSource="{Binding Peaks}">
@@ -160,11 +160,11 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
-                    </Border>
+                    </ctl:SmoothBorder>
                 </Grid>
 
                 <!-- Apps -->
-                <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowBackgroundApps}"
@@ -259,10 +259,10 @@
                                 Content="{Binding MoreAppsText}" Command="{Binding ShowMoreAppsCommand}"
                                 Visibility="{Binding HasMoreApps, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
                 <!-- Crashes -->
-                <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Crashes.Count, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Crashes.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="Crashes &amp; unexpected shutdowns" Style="{StaticResource H2}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding CrashesShown}" ItemTemplate="{StaticResource CrashTemplate}" />
@@ -270,10 +270,10 @@
                                 Content="{Binding MoreCrashesText}" Command="{Binding ShowMoreCrashesCommand}"
                                 Visibility="{Binding HasMoreCrashes, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
                 <!-- Sessions -->
-                <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TopSessions.Count, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TopSessions.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="Longest sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding TopSessions}">
@@ -308,7 +308,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

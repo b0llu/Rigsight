@@ -91,7 +91,7 @@
             <ItemsControl.Resources>
                 <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
                 <DataTemplate DataType="{x:Type m:HardwareNode}">
-                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
                         <StackPanel>
                             <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,0" Padding="8,6" CornerRadius="10"
@@ -124,7 +124,7 @@
                                 <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" ToolTip="Average since you opened this window" />
                             </Grid>
                         </StackPanel>
-                    </Border>
+                    </ctl:SmoothBorder>
                     <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsExpanded}" Value="False">
                             <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
@@ -135,7 +135,7 @@
 
                 <!-- Card bottom -->
                 <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
-                    <Border Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    <ctl:SmoothBorder Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
                 </DataTemplate>
 

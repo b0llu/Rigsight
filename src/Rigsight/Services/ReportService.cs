@@ -60,22 +60,32 @@ public sealed class ReportService(SettingsModel settings)
         return first is long f ? (int)(DateTime.Today - TimeUtil.FromUnix(f).Date).TotalDays + 1 : 0;
     });
 
-    /// <summary>Active time per day for one app over the last <paramref name="days"/> days.</summary>
-    public Task<List<DayBucket>?> AppDailyAsync(long appId, AppCategory category, int days) => Run(db =>
+    /// <summary>
+    /// One app's active time across a period, in bars that suit it: per hour for a day, per day for a week or month,
+    /// per month for a year or all time (from the monthly totals, so a long period stays cheap).
+    /// </summary>
+    public Task<List<DayBucket>?> AppChartAsync(long appId, AppCategory category, ReportRange unit, DateTime from, DateTime to, DateTime? firstDay) => Run(db =>
     {
-        var from = DateTime.Today.AddDays(-(days - 1));
-        var hours = db.GetAppHours(TimeUtil.ToUnix(from), TimeUtil.ToUnix(DateTime.Today.AddDays(1)))
-            .Where(h => h.AppId == appId).ToList();
-        var list = new List<DayBucket>();
-        for (var d = from; d <= DateTime.Today; d = d.AddDays(1))
+        bool monthly = ReportBuilder.IsLong(unit);
+        if (unit == ReportRange.All) from = firstDay is { } f ? new DateTime(f.Year, f.Month, 1) : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var time = db.GetAppTime(appId, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), monthly);
+
+        DateTime Slot(long ts)
         {
-            var bucket = new DayBucket { Day = d };
-            var sec = hours.Where(h => TimeUtil.FromUnix(h.Ts).Date == d).Sum(h => h.FgSec);
-            bucket.ActiveSec = sec;
-            if (sec > 0) bucket.ActiveByCategory[category] = sec;
-            list.Add(bucket);
+            var t = TimeUtil.FromUnix(ts);
+            return unit == ReportRange.Day ? t.Date.AddHours(t.Hour) : monthly ? new DateTime(t.Year, t.Month, 1) : t.Date;
         }
-        return list;
+        var buckets = new List<DayBucket>();
+        var byTime = new Dictionary<DateTime, DayBucket>();
+        for (var d = from; d < to; d = unit == ReportRange.Day ? d.AddHours(1) : monthly ? d.AddMonths(1) : d.AddDays(1))
+            buckets.Add(byTime[d] = new DayBucket { Day = d });
+        foreach (var (ts, sec) in time)
+            if (byTime.TryGetValue(Slot(ts), out var bucket))
+            {
+                bucket.ActiveSec += sec;
+                bucket.ActiveByCategory[category] = bucket.ActiveSec;
+            }
+        return buckets;
     });
 
     public Task<List<DriveDay>?> DriveHistoryAsync(int days) =>

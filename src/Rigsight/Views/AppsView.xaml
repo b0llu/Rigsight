@@ -34,7 +34,7 @@
         </StackPanel>
 
         <!-- App list -->
-        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12,14">
+        <ctl:SmoothBorder Grid.Row="1" Style="{StaticResource Card}" Padding="12,14">
             <DockPanel>
                 <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search apps…" Margin="4,0,4,10"
                          Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" />
@@ -58,11 +58,19 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Image Source="{Binding Stat.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" />
+                                <!-- The app's icon, or its first letter when it has none (so every row lines up). -->
+                                <Grid Width="28" Height="28" VerticalAlignment="Center">
+                                    <Border CornerRadius="7" Background="{DynamicResource Surface2Brush}"
+                                            Visibility="{Binding Source, ElementName=RowIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                        <TextBlock Text="{Binding Stat.Name, Converter={StaticResource Initial}}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Image x:Name="RowIcon" Source="{Binding Stat.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" />
+                                </Grid>
                                 <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Stat.Name}" Style="{StaticResource Body}" />
-                                    <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,6,0,0" Value="{Binding Bar, Mode=OneWay}"
-                                                 Foreground="{Binding Stat.Category, Converter={StaticResource CategoryBrush}}" />
+                                    <TextBlock Text="{Binding Stat.Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                    <ProgressBar Style="{StaticResource Bar}" Height="3" Margin="0,6,0,0" Value="{Binding Bar, Mode=OneWay}"
+                                                 Foreground="{DynamicResource FaintBrush}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{Binding Metric}" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </Grid>
@@ -70,113 +78,99 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
-        </Border>
+        </ctl:SmoothBorder>
 
         <!-- Detail -->
         <ScrollViewer Grid.Row="1" Grid.Column="2" Style="{StaticResource GutterScroll}">
             <StackPanel>
-                <Border Style="{StaticResource Card}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                     <TextBlock Text="Nothing recorded yet for this period. Use your PC for a bit and come back." Style="{StaticResource Muted}" />
-                </Border>
+                </ctl:SmoothBorder>
 
                 <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource Vis}}">
-                    <Border Style="{StaticResource Card}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Width="64" Height="64" CornerRadius="16" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                                <Image Source="{Binding Selected.Path, Converter={StaticResource ExeIcon}}" Width="44" Height="44" RenderOptions.BitmapScalingMode="HighQuality" />
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="18,0,12,0">
-                                <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
-                                         Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
-                                         ToolTip="Click to rename this app everywhere" />
-                                <TextBlock Text="{Binding Selected.Path, TargetNullValue='', FallbackValue=''}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
-                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding Selected.Path}" />
-                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                    <TextBlock Text="CATEGORY" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <ComboBox Width="170" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Converter={StaticResource CategoryLabel}}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-                            </StackPanel>
-                            <CheckBox Grid.Column="2" Style="{StaticResource Switch}" VerticalAlignment="Top" IsChecked="{Binding SelectedExcluded}"
-                                      ToolTip="Stop recording this app (its existing history stays until you clear it).">
-                                <TextBlock Text="Don't track this app" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
-                            </CheckBox>
-                        </Grid>
-                    </Border>
-
-                    <UniformGrid Columns="4" Margin="-5,13,-5,0">
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="OPEN IN BACKGROUND" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.BackgroundSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="MINIMIZED" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="LONGEST SESSION" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.LongestSessionSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="AVG / PEAK CPU TEMP" Style="{StaticResource Caption}" />
-                                <TextBlock Style="{StaticResource StatValue}">
-                                    <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /><Run Text=" / " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" />
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="AVG / PEAK GPU TEMP" Style="{StaticResource Caption}" />
-                                <TextBlock Style="{StaticResource StatValue}">
-                                    <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" / " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="PEAK MEMORY" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Tile}" Margin="5">
-                            <StackPanel>
-                                <TextBlock Text="AVG CPU USE" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—'}" Style="{StaticResource StatValue}" />
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
-
-                    <Border Style="{StaticResource Card}" Margin="0,13,0,0">
+                    <!-- Overview: who it is, four headline figures, and the finer details in one quiet line. -->
+                    <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="Last 14 days" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                            <ctl:DailyBars Height="170" Days="{Binding SelectedDaily}" />
-                        </StackPanel>
-                    </Border>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                                    <Grid>
+                                        <TextBlock Text="{Binding Selected.Name, Converter={StaticResource Initial}}" FontSize="20" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding Source, ElementName=DetailIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                        <Image x:Name="DetailIcon" Source="{Binding Selected.Path, Converter={StaticResource ExeIcon}}" Width="36" Height="36"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
+                                    <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
+                                             Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
+                                             ToolTip="{Binding Selected.Path, StringFormat='{}Click to rename this app everywhere.&#x0a;{0}', TargetNullValue='Click to rename this app everywhere.'}" />
+                                    <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
+                                        Click="More_Click" ToolTip="Category, tracking and file location" AutomationProperties.Name="More options">
+                                    <TextBlock Text="&#xE712;" />
+                                </Button>
+                            </Grid>
 
-                    <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding SelectedSessions.Count, Converter={StaticResource Vis}}">
+                            <UniformGrid Columns="4" Margin="0,22,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                                </StackPanel>
+                                <StackPanel ToolTip="Open with a visible window while another app was in front">
+                                    <TextBlock Text="IN BACKGROUND" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.BackgroundSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="LONGEST SESSION" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.LongestSessionSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" Style="{StaticResource StatValue}" />
+                                </StackPanel>
+                                <StackPanel ToolTip="Stretches of a minute or more in front">
+                                    <TextBlock Text="SESSIONS" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Selected.SessionCount}" Style="{StaticResource StatValue}" />
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
+                            <WrapPanel>
+                                <WrapPanel.Resources>
+                                    <Style x:Key="Detail" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                        <Setter Property="Margin" Value="0,2,28,2" />
+                                    </Style>
+                                </WrapPanel.Resources>
+                                <TextBlock Style="{StaticResource Detail}">
+                                    <Run Text="CPU" /> <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /><Run Text=" avg · " /><Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text=" peak" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Detail}">
+                                    <Run Text="GPU" /> <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" avg · " /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /><Run Text=" peak" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Detail}">
+                                    <Run Text="Memory" /> <Run Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" /><Run Text=" peak" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Detail}">
+                                    <Run Text="CPU use" /> <Run Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—', Mode=OneWay}" Foreground="{DynamicResource TextBrush}" /><Run Text=" avg" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Detail}">
+                                    <Run Text="Minimized" /> <Run Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                </TextBlock>
+                            </WrapPanel>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                            <ctl:DailyBars Height="170" Days="{Binding SelectedChart}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding SelectedSessions.Count, Converter={StaticResource Vis}}">
                         <StackPanel>
                             <TextBlock Text="Recent sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
                             <ItemsControl ItemsSource="{Binding SelectedSessions}">
@@ -200,7 +194,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
-                    </Border>
+                    </ctl:SmoothBorder>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

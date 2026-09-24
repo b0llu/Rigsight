@@ -1,6 +1,7 @@
 <UserControl x:Class="Rigsight.Views.OverlayView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
              Focusable="True" FocusVisualStyle="{x:Null}">
     <UserControl.Resources>
         <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -17,14 +18,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
+                        <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
                                 CornerRadius="9" Padding="12,6">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="Check" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,7,0"
                                            Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
                                 <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="13" />
                             </StackPanel>
-                        </Border>
+                        </ctl:SmoothBorder>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
@@ -67,7 +68,7 @@
             </Border>
 
             <!-- Shortcut and preview -->
-            <Border Style="{StaticResource Card}">
+            <ctl:SmoothBorder Style="{StaticResource Card}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280" />
@@ -89,13 +90,13 @@
                                     AutomationProperties.Name="Change shortcut" ToolTip="Click, then press the new shortcut">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                        <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
                                                 BorderThickness="1" CornerRadius="9" Padding="14,8" MinWidth="170" Cursor="Hand">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="&#xE765;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" />
                                                 <TextBlock Text="{Binding RecordText}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                             </StackPanel>
-                                        </Border>
+                                        </ctl:SmoothBorder>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
@@ -164,10 +165,10 @@
                         </Grid>
                     </Border>
                 </Grid>
-            </Border>
+            </ctl:SmoothBorder>
 
             <!-- What it shows -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="What it shows" Style="{StaticResource H2}" />
                     <TextBlock Text="Pick the readings you want. Fewer is easier to read at a glance. Game readings appear while a game is running; RivaTuner measures them." Style="{StaticResource Muted}"
@@ -194,10 +195,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
             <!-- The user's own sensors -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right" Text="{Binding SensorsCount}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
@@ -277,10 +278,10 @@
                     <TextBlock Text="That's the most the overlay shows. Remove one to add another." Style="{StaticResource Muted}" FontSize="12"
                                Visibility="{Binding CanAddMoreSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
             <!-- Look -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="Look" Style="{StaticResource H2}" Margin="0,0,0,12" />
                     <StackPanel Orientation="Horizontal" Margin="0,4">
@@ -340,10 +341,10 @@
                                 Value="{Binding ContentPercent}" />
                     </DockPanel>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
             <!-- RivaTuner is ours to drive -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
                                Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
@@ -355,7 +356,7 @@
                                    Text="A game that was already open when RivaTuner started needs a restart. Rigsight itself never hooks into games, so it's safe with anti-cheat." />
                     </StackPanel>
                 </DockPanel>
-            </Border>
+            </ctl:SmoothBorder>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

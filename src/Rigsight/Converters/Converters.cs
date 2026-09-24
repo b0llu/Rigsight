@@ -183,8 +183,19 @@ public sealed class CategoryBrushConverter : IValueConverter
 }
 
 /// <summary>AppCategory → "Games", "Browsing"…</summary>
+/// <summary>An app's first letter, for the placeholder shown when it has no icon.</summary>
+public sealed class InitialConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string { Length: > 0 } s ? char.ToUpperInvariant(s.TrimStart()[0]).ToString() : "?";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 public sealed class CategoryLabelConverter : IValueConverter
 {
+    public static string Label(AppCategory c) => AppCatalog.Label(c);
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is AppCategory c ? AppCatalog.Label(c) : "";
 

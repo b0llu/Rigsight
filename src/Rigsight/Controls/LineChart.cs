@@ -164,7 +164,8 @@ public sealed class LineChart : FrameworkElement
             {
                 double x = plot.Left + plot.Width * hr / hours;
                 if (!_pastDay && plot.Right - x < 48) break; // leave room for "now"
-                DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: true);
+                // The first label starts at the chart's left edge: centred on the corner, it runs under the lowest temperature.
+                DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: hr > 0);
             }
         }
         else
@@ -178,7 +179,7 @@ public sealed class LineChart : FrameworkElement
                 string label = t == 0 ? "now"
                     : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("t", CultureInfo.CurrentCulture)
                     : t < 60 ? $"-{t}s" : $"-{t / 60}m";
-                DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: true);
+                DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: x - plot.Left > 1);
             }
         }
 

@@ -1,11 +1,13 @@
 <Window x:Class="Rigsight.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
         xmlns:views="clr-namespace:Rigsight.Views"
         Title="Rigsight" Icon="Assets/Rigsight.ico"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
+        UseLayoutRounding="True"
         FontFamily="Segoe UI Variable Text, Segoe UI">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -25,10 +27,10 @@
                                 Visibility="{Binding ShowLine, Converter={StaticResource Vis}}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="10" Padding="12,9" Background="{DynamicResource SurfaceBrush}"
+                                    <ctl:SmoothBorder x:Name="Bd" CornerRadius="10" Padding="12,9" Background="{DynamicResource SurfaceBrush}"
                                             BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
                                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                                    </Border>
+                                    </ctl:SmoothBorder>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
@@ -45,7 +47,7 @@
                             </DockPanel>
                         </Button>
 
-                        <Border CornerRadius="12" Padding="12,10,12,12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                        <ctl:SmoothBorder CornerRadius="12" Padding="12,10,12,12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                                 Visibility="{Binding ShowProgress, Converter={StaticResource Vis}}">
                             <StackPanel>
@@ -57,9 +59,9 @@
                                 <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,8,0,6" Value="{Binding Progress}" Foreground="{DynamicResource GoodBrush}" />
                                 <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                             </StackPanel>
-                        </Border>
+                        </ctl:SmoothBorder>
 
-                        <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                        <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource GoodBrush}" BorderThickness="1"
                                 Visibility="{Binding ShowPrompt, Converter={StaticResource Vis}}">
                             <StackPanel>
@@ -73,10 +75,10 @@
                                     <Button Style="{StaticResource GhostButton}" Content="Later" Command="{Binding LaterCommand}" Margin="4,0,0,0" />
                                 </UniformGrid>
                             </StackPanel>
-                        </Border>
+                        </ctl:SmoothBorder>
 
                         <!-- Didn't work: try again, or get the installer from the website -->
-                        <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                        <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                                 Visibility="{Binding ShowFailed, Converter={StaticResource Vis}}">
                             <StackPanel>
@@ -88,10 +90,10 @@
                                 <Button Style="{StaticResource AccentButton}" Content="Try again" Command="{Binding ActionCommand}" HorizontalAlignment="Stretch" />
                                 <Button Style="{StaticResource GhostButton}" Content="Open download page" Command="{Binding OpenDownloadPageCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
                             </StackPanel>
-                        </Border>
+                        </ctl:SmoothBorder>
                     </StackPanel>
 
-                    <Border CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
+                    <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
                             BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                             Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}">
                         <StackPanel>
@@ -115,9 +117,9 @@
                                 </StackPanel>
                             </Button>
                         </StackPanel>
-                    </Border>
+                    </ctl:SmoothBorder>
 
-                    <Border CornerRadius="12" Padding="8,10" Background="{DynamicResource SurfaceBrush}"
+                    <ctl:SmoothBorder CornerRadius="12" Padding="8,10" Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                             Visibility="{Binding IsConnected, Converter={StaticResource Vis}}">
                         <UniformGrid Columns="3">
@@ -140,7 +142,7 @@
                                 <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold" />
                             </StackPanel>
                         </UniformGrid>
-                    </Border>
+                    </ctl:SmoothBorder>
                 </StackPanel>
 
                 <!-- Navigation (scrolls if there are many dashboards on a short screen) -->

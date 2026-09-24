@@ -208,7 +208,7 @@
             </Grid>
 
             <!-- Timeline -->
-            <Border Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding ShowTimeline, Converter={StaticResource Vis}}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding ShowTimeline, Converter={StaticResource Vis}}">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,10">
                         <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
@@ -231,9 +231,9 @@
                     </DockPanel>
                     <ctl:CrashStrip Height="96" Days="{Binding Days}" DayCommand="{Binding OpenDayCommand}" />
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
-            <Border Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding Patterns.Count, Converter={StaticResource Vis}}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding Patterns.Count, Converter={StaticResource Vis}}">
                 <StackPanel>
                     <TextBlock Text="Patterns" Style="{StaticResource H2}" Margin="0,0,0,8" />
                     <ItemsControl ItemsSource="{Binding Patterns}">
@@ -247,9 +247,9 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
-            <Border Style="{StaticResource Card}" Margin="0,13,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,14">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -287,7 +287,7 @@
                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
                     </StackPanel>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

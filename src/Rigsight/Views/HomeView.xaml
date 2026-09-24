@@ -24,7 +24,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Today -->
-                <Border Style="{StaticResource Card}">
+                <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,14">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0"
@@ -108,10 +108,10 @@
 
 
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
                 <!-- Yesterday -->
-                <Border Grid.Column="2" Style="{StaticResource Card}">
+                <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Yesterday" Style="{StaticResource H2}" Margin="0,0,0,14" />
 
@@ -161,11 +161,11 @@
                                        Style="{StaticResource Muted}" TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
             </Grid>
 
             <!-- Insights -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TodayInsights.Count, Converter={StaticResource Vis}}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TodayInsights.Count, Converter={StaticResource Vis}}">
                 <StackPanel>
                     <TextBlock Text="What stands out today" Style="{StaticResource H2}" Margin="0,0,0,10" />
                     <ItemsControl ItemsSource="{Binding TodayInsights}">
@@ -182,7 +182,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

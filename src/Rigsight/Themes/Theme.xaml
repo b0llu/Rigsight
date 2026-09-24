@@ -20,6 +20,7 @@
     <conv:IconConverter x:Key="ExeIcon" />
     <conv:CategoryBrushConverter x:Key="CategoryBrush" />
     <conv:CategoryLabelConverter x:Key="CategoryLabel" />
+    <conv:InitialConverter x:Key="Initial" />
     <conv:ToneBrushConverter x:Key="ToneBrush" />
     <conv:SeverityBrushConverter x:Key="SeverityBrush" />
     <conv:FractionConverter x:Key="Fraction" />

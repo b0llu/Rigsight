@@ -418,6 +418,19 @@ public sealed class RigsightDb : IDisposable
         return list;
     }
 
+    /// <summary>One app's time in front per hour (app_hour) or per month (app_month) in a range, for its chart.</summary>
+    public List<(long Ts, double FgSec)> GetAppTime(long appId, long from, long to, bool monthly)
+    {
+        using var cmd = Cmd(monthly
+            ? "SELECT month, fg_sec FROM app_month WHERE app_id = $a AND month >= $from AND month < $to AND fg_sec > 0"
+            : "SELECT ts, fg_sec FROM app_hour WHERE ts >= $from AND ts < $to AND app_id = $a AND fg_sec > 0",
+            ("$a", appId), ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<(long, double)>();
+        while (r.Read()) list.Add((r.GetInt64(0), r.GetDouble(1)));
+        return list;
+    }
+
     /// <summary>The longest sessions overlapping a range (at least <paramref name="minSec"/> in front), longest first.</summary>
     public List<SessionRow> GetLongestSessions(long from, long to, double minSec, int count)
     {

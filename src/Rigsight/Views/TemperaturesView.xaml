@@ -15,7 +15,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Style="{StaticResource Card}">
+                <ctl:SmoothBorder Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
                             <Border Style="{StaticResource Badge}" Background="{DynamicResource CpuSoftBrush}">
@@ -66,9 +66,9 @@
                             </UniformGrid>
                         </Grid>
                     </DockPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
-                <Border Grid.Column="2" Style="{StaticResource Card}">
+                <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
                             <Border Style="{StaticResource Badge}" Background="{DynamicResource GpuSoftBrush}">
@@ -117,11 +117,11 @@
                             </UniformGrid>
                         </Grid>
                     </DockPanel>
-                </Border>
+                </ctl:SmoothBorder>
             </Grid>
 
             <!-- History -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                         <!-- The day picker sits left of the ranges, so picking "Day" doesn't move them. -->
@@ -165,7 +165,7 @@
                     </ItemsControl>
                     <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}" />
                 </DockPanel>
-            </Border>
+            </ctl:SmoothBorder>
 
             <!-- Fans, motherboard, drives -->
             <Grid Margin="0,18,0,0">
@@ -176,7 +176,7 @@
                     <ColumnDefinition Width="18" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Border Style="{StaticResource Card}">
+                <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Fans" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding Fans}">
@@ -194,8 +194,8 @@
                         <TextBlock Text="No spinning fans reported." Style="{StaticResource Muted}"
                                    Visibility="{Binding Fans.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Style="{StaticResource Card}">
+                </ctl:SmoothBorder>
+                <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Motherboard" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding BoardTemps}">
@@ -212,8 +212,8 @@
                         <TextBlock Text="Tip: rename these on the All sensors page (e.g. “Temperature #5” → “VRM”)."
                                    FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
-                </Border>
-                <Border Grid.Column="4" Style="{StaticResource Card}">
+                </ctl:SmoothBorder>
+                <ctl:SmoothBorder Grid.Column="4" Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Drives" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding Drives}">
@@ -244,7 +244,7 @@
                         <TextBlock Text="SSDs are happiest below about 60°C; hard drives below 50°C." FontSize="11" Foreground="{DynamicResource FaintBrush}"
                                    TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
             </Grid>
         </StackPanel>
     </ScrollViewer>

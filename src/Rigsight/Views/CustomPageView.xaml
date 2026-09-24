@@ -32,7 +32,7 @@
         <!-- ── The frame around every tile ────────────────────────────── -->
         <DataTemplate x:Key="Tile.Frame">
             <Grid>
-            <Border x:Name="Frame" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+            <ctl:SmoothBorder x:Name="Frame" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                     CornerRadius="16" Padding="16,10,12,14" ClipToBounds="True"
                     PreviewMouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove"
                     MouseLeftButtonUp="Tile_MouseUp" LostMouseCapture="Tile_LostCapture">
@@ -47,7 +47,7 @@
                     </DockPanel>
                     <ContentControl x:Name="Body" Content="{Binding}" ContentTemplateSelector="{StaticResource TileContentSelector}" Focusable="False" />
                 </DockPanel>
-            </Border>
+            </ctl:SmoothBorder>
             <!-- Resize handles (edit mode): drag the right edge, bottom edge or corner. Sizes snap to whole cells. -->
             <Border x:Name="RightGrip" Tag="R" Width="12" HorizontalAlignment="Right" Margin="0,18,-6,18" Background="Transparent"
                     Cursor="SizeWE" Visibility="Collapsed" ToolTip="Drag to resize"
@@ -438,7 +438,7 @@
         </DockPanel>
 
         <!-- Add tiles (edit mode) -->
-        <Border DockPanel.Dock="Right" Width="300" Margin="18,0,0,32" Style="{StaticResource Card}" Padding="0"
+        <ctl:SmoothBorder DockPanel.Dock="Right" Width="300" Margin="18,0,0,32" Style="{StaticResource Card}" Padding="0"
                 Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="18,16,18,18">
@@ -507,7 +507,7 @@
                             HorizontalAlignment="Left" Margin="0,10,0,0" />
                 </StackPanel>
             </ScrollViewer>
-        </Border>
+        </ctl:SmoothBorder>
 
         <!-- Tiles -->
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

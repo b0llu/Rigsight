@@ -14,7 +14,7 @@ namespace Rigsight.Controls;
 /// </summary>
 public sealed class DayTimeline : FrameworkElement
 {
-    private const double Left = 40, Right = 8, BandHeight = 26, Gap = 12, AxisHeight = 22;
+    private const double Left = 40, Right = 8, BandHeight = 26, Gap = 12, AxisHeight = 26;
 
     public static readonly DependencyProperty SegmentsProperty = DependencyProperty.Register(
         nameof(Segments), typeof(IReadOnlyList<TimelineSegment>), typeof(DayTimeline), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -105,12 +105,14 @@ public sealed class DayTimeline : FrameworkElement
         DrawLine(temps, t => t.Cpu, ChartPaint.Cpu);
         DrawLine(temps, t => t.Gpu, ChartPaint.Gpu);
 
-        // Hour labels.
+        // Hour labels, the two at the ends kept inside the chart: centred on its corners, midnight would run
+        // under the lowest temperature label.
         for (int hr = 0; hr <= 24; hr += 3)
         {
             double x = Left + plotW * hr / 24;
             string label = hr switch { 0 or 24 => "12 AM", 12 => "12 PM", < 12 => $"{hr} AM", _ => $"{hr - 12} PM" };
-            ChartPaint.Text(dc, this, label, new Point(x, h - AxisHeight / 2), 11, ChartPaint.Label, ChartPaint.Align.Center);
+            var align = hr == 0 ? ChartPaint.Align.Left : hr == 24 ? ChartPaint.Align.Right : ChartPaint.Align.Center;
+            ChartPaint.Text(dc, this, label, new Point(x, h - AxisHeight / 2 + 2), 11, ChartPaint.Label, align);
         }
 
         // Today: a "Now" line, with nothing to say about the time after it.

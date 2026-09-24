@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Reports;
@@ -45,7 +47,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [ObservableProperty] private double _maxValue = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary))]
     private AppStat? _selected;
 
     [ObservableProperty] private AppListRow? _selectedRow;
@@ -55,7 +57,42 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         if (value is not null) Selected = value.Stat;
     }
 
-    [ObservableProperty] private List<DayBucket>? _selectedDaily;
+    /// <summary>The selected app's active time across the period: per hour, per day or per month (see ChartTitle).</summary>
+    [ObservableProperty] private List<DayBucket>? _selectedChart;
+
+    public string ChartTitle => Unit switch
+    {
+        ReportRange.Day => "Active time per hour",
+        ReportRange.Week or ReportRange.Month => "Active time per day",
+        _ => "Active time per month",
+    };
+
+    /// <summary>"Games · 1h 59m this week": what the app is, and how much it was used in the period.</summary>
+    public string Summary
+    {
+        get
+        {
+            if (Selected is null) return "";
+            string period = Controls.PeriodPicker.Text(Unit, Anchor);
+            string when = period switch
+            {
+                "All time" => "in total",
+                _ when period.StartsWith("This ") || period.StartsWith("Last ") || period is "Today" or "Yesterday" => period.ToLowerInvariant(),
+                _ when Unit == ReportRange.Day => $"on {period}",
+                _ => $"in {period}",
+            };
+            return $"{Converters.CategoryLabelConverter.Label(SelectedCategory)} · {Core.Units.Duration(Selected.ActiveSec)} {when}";
+        }
+    }
+
+    /// <summary>Shows the app's .exe in File Explorer (from the "⋯" menu).</summary>
+    [RelayCommand]
+    private void OpenFileLocation()
+    {
+        if (Selected?.Path is not { } path || !File.Exists(path)) return;
+        try { Process.Start("explorer.exe", $"/select,\"{path}\"")?.Dispose(); }
+        catch (Exception ex) { Core.Log.Error("apps", ex); }
+    }
 
     public bool HasSelection => Selected is not null;
 
@@ -94,6 +131,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             if (Selected is null) return;
             var exe = Selected.Exe;
             settings.Update(s => s.AppCategories[exe] = value);
+            OnPropertyChanged(nameof(Summary));
         }
     }
 
@@ -113,7 +151,11 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         }
     }
 
-    partial void OnUnitChanged(ReportRange value) => _ = LoadAsync();
+    partial void OnUnitChanged(ReportRange value)
+    {
+        OnPropertyChanged(nameof(ChartTitle));
+        _ = LoadAsync();
+    }
     partial void OnAnchorChanged(DateTime value)
     {
         if (Unit != ReportRange.All) _ = LoadAsync();
@@ -124,14 +166,14 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     partial void OnSelectedChanged(AppStat? oldValue, AppStat? newValue)
     {
         // The same app re-read by the minute refresh keeps its chart until the new one is ready (no flicker).
-        if (oldValue?.Id != newValue?.Id) { SelectedDaily = null; SelectedSessions = []; }
-        if (newValue is not null) { _ = LoadDailyAsync(newValue); _ = LoadSessionsAsync(newValue); }
+        if (oldValue?.Id != newValue?.Id) { SelectedChart = null; SelectedSessions = []; }
+        if (newValue is not null) { _ = LoadChartAsync(newValue); _ = LoadSessionsAsync(newValue); }
     }
 
-    private async Task LoadDailyAsync(AppStat app)
+    private async Task LoadChartAsync(AppStat app)
     {
-        var days = await reports.AppDailyAsync(app.Id, app.Category, 14);
-        if (Selected == app) SelectedDaily = days;
+        var chart = await reports.AppChartAsync(app.Id, SelectedCategory, Unit, _from, _to, FirstDay);
+        if (Selected == app) SelectedChart = chart;
     }
 
     /// <summary>
@@ -174,7 +216,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         ApplyView();
         if (keep is not null) SelectExe(keep);
         else if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
-        if (Selected is not null) await LoadSessionsAsync(Selected);
+        OnPropertyChanged(nameof(Summary));
+        if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected));
     }
 
     private double Key(AppStat a) => Sort switch

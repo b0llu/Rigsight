@@ -17,7 +17,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource Card}" Margin="9">
+                        <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9">
                             <StackPanel>
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
@@ -47,7 +47,7 @@
                                     <TextBlock Text="{Binding FreeText}" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                 </DockPanel>
                             </StackPanel>
-                        </Border>
+                        </ctl:SmoothBorder>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -60,7 +60,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Physical drives -->
-                <Border Style="{StaticResource Card}">
+                <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Drive health" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding Live.Drives}">
@@ -97,10 +97,10 @@
                         <TextBlock Text="Drive health appears once the agent is running with admin rights." Style="{StaticResource Muted}" TextWrapping="Wrap"
                                    Visibility="{Binding Live.Drives.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
 
                 <!-- Cleanup -->
-                <Border Grid.Column="2" Style="{StaticResource Card}">
+                <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
                             <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding RefreshCleanupCommand}" ToolTip="Check again">
@@ -134,11 +134,11 @@
                         <TextBlock Text="Nothing here is deleted automatically: it shows where the space is, and you decide."
                                    FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                     </StackPanel>
-                </Border>
+                </ctl:SmoothBorder>
             </Grid>
 
             <!-- Scanner -->
-            <Border Style="{StaticResource Card}" Margin="0,18,0,0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,12">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -256,7 +256,7 @@
                         </ItemsControl>
                     </StackPanel>
                 </StackPanel>
-            </Border>
+            </ctl:SmoothBorder>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -62,7 +62,7 @@ The background agent that records all of this uses about **0.01% of your CPU**.
 - **Active time, not just time open**: time counts as active only while you're using the app; a fullscreen game counts even when you're not touching the mouse. Time away from the PC is counted separately.
 
 ### 🧩 Apps
-- Per app, for any day, week, month, year or all time: active, background and minimized time, average and peak CPU/GPU temperature while it was in front, peak memory, average CPU use, sessions and a 14-day chart.
+- Per app, for any day, week, month, year or all time: active, background and minimized time, average and peak CPU/GPU temperature while it was in front, peak memory, average CPU use, sessions, and a chart of its time across the period (per hour for a day, per day for a week or month, per month for a year).
 - Rename apps, change their category (game, browser, work…), or exclude them from tracking.
 
 ### 💥 Crashes
