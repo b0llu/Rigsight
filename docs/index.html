@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="preload" as="image" href="img/temperatures.webp" />
-  <link rel="stylesheet" href="styles.css?v=0.4.13b" />
+  <link rel="stylesheet" href="styles.css?v=0.4.13c" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -57,11 +57,6 @@
     <!-- ── Hero ────────────────────────────────────────────── -->
     <section class="hero">
       <div class="wrap hero-copy">
-        <a class="pill reveal" id="release-pill" href="https://github.com/b0llu/Rigsight/releases/latest">
-          <span class="pill-dot"></span>
-          <span id="release-pill-text">Free and open source for Windows</span>
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M6 3.5 10.5 8 6 12.5l-1-1L8.5 8 5 4.5z"/></svg>
-        </a>
         <h1 class="reveal">Know your <span class="grad">rig.</span></h1>
         <p class="lead reveal">Rigsight records your PC's temperatures, loads, app usage and crashes all day, and keeps them as history. See what happened, not just what's happening.</p>
         <div class="cta-row reveal">
@@ -73,7 +68,7 @@
         </div>
         <p class="meta reveal"><span data-version>Latest version</span><span>Windows 10 &amp; 11</span><span>Free, MIT licensed</span></p>
         <div class="term-wrap reveal desktop-only">
-          <p class="term-caption">Or install from PowerShell, with no SmartScreen warning</p>
+          <p class="term-caption">Or paste this into PowerShell</p>
           <div class="term"><span class="term-badge" aria-hidden="true">&gt;_</span><code><span class="t-cmd">irm</span> <span class="t-url">https://b0llu.github.io/Rigsight/install.ps1</span> <span class="t-op">|</span> <span class="t-cmd">iex</span></code><button type="button" class="term-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command" title="Copy"><svg class="i-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><svg class="i-done" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button></div>
         </div>
         <button class="copy-link mobile-only reveal" type="button" id="copy-link">
@@ -101,7 +96,7 @@
           </div>
 
           <div class="float float-cpu" aria-hidden="true">
-            <span class="fc-dot"></span> Background agent <b>0.006% CPU</b>
+            <span class="fc-dot"></span> In the background <b>0.006% CPU</b>
           </div>
         </div>
       </div>
@@ -296,7 +291,7 @@
         <div class="reveal">
           <p class="eyebrow">Built to be invisible</p>
           <h2>Records all day.<br /><span class="dim">You'll never notice it.</span></h2>
-          <p class="sub">A tiny background agent reads the sensors and writes one small summary a minute. The window only runs while it's open, and fully exits when you close it.</p>
+          <p class="sub">Rigsight records quietly in the background and uses almost nothing. The window only runs while you have it open.</p>
         </div>
         <div class="lite reveal">
           <div><b>~0.01%</b><span>of your CPU, recording in the background</span></div>
@@ -329,7 +324,7 @@
       <div class="cli-card reveal">
         <div>
           <h3>One command</h3>
-          <p>Open PowerShell and paste this. It downloads the latest setup from GitHub, checks it against GitHub's checksum and opens it. Run it again any time to update.</p>
+          <p>Paste this into PowerShell and Rigsight installs itself. Run it again whenever you want the latest version.</p>
         </div>
         <div class="term term-big"><span class="term-badge" aria-hidden="true">&gt;_</span><code><span class="t-cmd">irm</span> <span class="t-url">https://b0llu.github.io/Rigsight/install.ps1</span> <span class="t-op">|</span> <span class="t-cmd">iex</span></code><button type="button" class="term-copy" data-copy="irm https://b0llu.github.io/Rigsight/install.ps1 | iex" aria-label="Copy the PowerShell command" title="Copy"><svg class="i-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg><svg class="i-done" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button></div>
       </div>
@@ -341,7 +336,7 @@
       </ol>
       <p class="smartscreen reveal">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6zm-1 5h2v6h-2zm0 8h2v2h-2z"/></svg>
-        <span>Downloaded in a browser, Windows may say <b>"Windows protected your PC"</b> because the installer isn't code-signed yet: click <b>More info → Run anyway</b>, or use the PowerShell command above, which doesn't trigger it. The full source is on <a href="https://github.com/b0llu/Rigsight">GitHub</a> if you'd like to check it first.</span>
+        <span>If you download the installer and Windows says <b>"Windows protected your PC"</b>, click <b>More info → Run anyway</b>.</span>
       </p>
     </section>
 
@@ -352,7 +347,7 @@
         <details class="reveal"><summary>Is it really free?</summary><p>Yes. Rigsight is free and open source under the MIT license. No trial, no premium tier, no ads.</p></details>
         <details class="reveal"><summary>Does it work with AMD and Intel?</summary><p>Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path.</p></details>
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
-        <details class="reveal"><summary>Will it slow my games down?</summary><p>No. The background agent uses around 0.006% of your CPU with the window closed, runs at below-normal priority, and reads only what the tray and widgets need.</p></details>
+        <details class="reveal"><summary>Will it slow my games down?</summary><p>No. In the background Rigsight uses around 0.006% of your CPU and runs at low priority, so your games always come first.</p></details>
         <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and nothing is sent anywhere.</p></details>
         <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 25 MB.</p></details>
         <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>
@@ -390,6 +385,6 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=0.4.13b" defer></script>
+  <script src="app.js?v=0.4.13c" defer></script>
 </body>
 </html>

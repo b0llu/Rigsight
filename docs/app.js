@@ -24,17 +24,9 @@
       size: exe ? exe.size : 0,
       page: r.html_url,
       date: r.published_at,
-      headline: firstHeadline(r.body || ""),
     };
     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data })); } catch { }
     return data;
-  }
-
-  // The first "### Something" heading of the release notes, without emoji: "Black and white themes".
-  function firstHeadline(body) {
-    const m = body.match(/^###\s+(.+)$/m);
-    if (!m) return "";
-    return m[1].replace(/[\p{Extended_Pictographic}‍️]/gu, "").replace(/\*\*/g, "").trim();
   }
 
   function ago(iso) {
@@ -55,10 +47,6 @@
       el.textContent = `Version ${r.version}${mb}`;
       el.title = `Released ${ago(r.date)}`;
     });
-    const pill = document.getElementById("release-pill");
-    const text = document.getElementById("release-pill-text");
-    pill.href = r.page;
-    text.textContent = r.headline ? `New in ${r.version}: ${r.headline}` : `Version ${r.version} is out`;
   }).catch(() => { /* keep the Releases-page links */ });
 
   // ── Nav background once you scroll ──
