@@ -131,7 +131,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="Rigsight never deletes anything on its own — it shows you where the space is so you decide."
+                        <TextBlock Text="Nothing here is deleted automatically: it shows where the space is, and you decide."
                                    FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                     </StackPanel>
                 </Border>

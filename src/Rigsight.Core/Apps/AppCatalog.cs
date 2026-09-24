@@ -83,6 +83,26 @@ public static class AppCatalog
         return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name);
     }
 
+    // Windows helpers whose exe has no useful description (a screenshot shows up as "Microsoft Windows Operating System").
+    private static readonly Dictionary<string, string> KnownNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["screenclippinghost.exe"] = "Snipping Tool", ["snippingtool.exe"] = "Snipping Tool",
+        ["searchhost.exe"] = "Windows Search", ["startmenuexperiencehost.exe"] = "Start menu",
+        ["shellexperiencehost.exe"] = "Windows taskbar", ["shellhost.exe"] = "Windows taskbar",
+        ["textinputhost.exe"] = "Emoji & clipboard panel", ["lockapp.exe"] = "Lock screen",
+        ["openwith.exe"] = "Open with", ["pickerhost.exe"] = "File picker", ["consent.exe"] = "Admin prompt",
+        ["dwm.exe"] = "Windows display (DWM)", ["svchost.exe"] = "Windows service", ["systemsettings.exe"] = "Settings",
+        ["wallpaper32.exe"] = "Wallpaper Engine", ["wallpaper64.exe"] = "Wallpaper Engine", ["wallpaperservice32.exe"] = "Wallpaper Engine service",
+        ["wallpaperservice64.exe"] = "Wallpaper Engine service",
+    };
+
+    /// <summary>A built-in name for this exe, if it has one.</summary>
+    public static string? KnownName(string exe) => KnownNames.GetValueOrDefault(exe);
+
+    /// <summary>Names that say nothing about the app ("Microsoft® Windows® Operating System" is on hundreds of Windows exes).</summary>
+    public static bool IsGenericName(string name) =>
+        GenericDescriptions.Contains(name) || name.Contains("Operating System", StringComparison.OrdinalIgnoreCase);
+
     // Descriptions shared by many unrelated apps (framework hosts), which say nothing about the app itself.
     private static readonly HashSet<string> GenericDescriptions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -93,16 +113,17 @@ public static class AppCatalog
     /// <summary>Reads the product description from the exe (e.g. "Google Chrome").</summary>
     public static string ResolveName(string exe, string? path)
     {
+        if (KnownName(exe) is { } known) return known;
         if (path is not null)
         {
             try
             {
                 var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
                 var desc = info.FileDescription?.Trim();
-                if (!string.IsNullOrWhiteSpace(desc) && desc.Length <= 48 && !GenericDescriptions.Contains(desc))
+                if (!string.IsNullOrWhiteSpace(desc) && desc.Length <= 48 && !IsGenericName(desc))
                     return desc;
                 var product = info.ProductName?.Trim();
-                if (!string.IsNullOrWhiteSpace(product) && product.Length <= 48 && !GenericDescriptions.Contains(product))
+                if (!string.IsNullOrWhiteSpace(product) && product.Length <= 48 && !IsGenericName(product))
                     return product;
             }
             catch

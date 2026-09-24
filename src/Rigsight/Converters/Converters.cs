@@ -207,6 +207,28 @@ public sealed class ToneBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
+/// <summary>Crash severity → colour (blue screen red, serious orange, app crash amber, power loss while asleep grey).
+/// ConverterParameter "soft" gives the faint background version.</summary>
+public sealed class SeverityBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var brush = (SolidColorBrush)(value switch
+        {
+            Models.CrashSeverity.Critical => Controls.CrashStrip.CriticalBrush,
+            Models.CrashSeverity.Serious => Controls.CrashStrip.SeriousBrush,
+            Models.CrashSeverity.Minor => Controls.CrashStrip.MinorBrush,
+            _ => Controls.CrashStrip.InfoBrush,
+        });
+        if (parameter as string != "soft") return brush;
+        var soft = new SolidColorBrush(brush.Color) { Opacity = 0.14 };
+        soft.Freeze();
+        return soft;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>Converts a temperature in °C to the display unit, formatted with ConverterParameter (default "0").</summary>
 public sealed class TempDisplayConverter : IValueConverter
 {

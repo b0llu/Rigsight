@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -18,8 +19,54 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
 
-    /// <summary>"1" today, "7", "30" days, or "all".</summary>
-    [ObservableProperty] private string _range = "7";
+    /// <summary>"day" (one day, <see cref="Day"/>), "7" or "30" days up to today, or "all".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote))]
+    private string _range = "7";
+
+    /// <summary>The day shown when <see cref="Range"/> is "day".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DayLabel), nameof(CanGoNextDay), nameof(CanGoPreviousDay), nameof(RangeNote))]
+    private DateTime _day = DateTime.Today;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPreviousDay), nameof(RangeNote))]
+    private DateTime? _firstDay;
+
+    public bool IsDay => Range == "day";
+    public string DayLabel => ReportsViewModel.PeriodText(ReportRange.Day, Day);
+    public bool CanGoNextDay => Day < DateTime.Today;
+    public bool CanGoPreviousDay => FirstDay is not { } f || Day > f;
+
+    /// <summary>Which dates the list covers, and for "All time" when tracking started.</summary>
+    public string RangeNote
+    {
+        get
+        {
+            var today = DateTime.Today;
+            string Span(DateTime from) => from.Year == today.Year ? $"{from:d MMM} – {today:d MMM}" : $"{from:d MMM yyyy} – {today:d MMM yyyy}";
+            return Range switch
+            {
+                "day" => Day.ToString("dddd, d MMMM yyyy"),
+                "30" => Span(today.AddDays(-29)),
+                "all" when FirstDay is { } f => $"{Span(f)} ({(int)(today - f).TotalDays + 1} days)",
+                "all" => "All history",
+                _ => Span(today.AddDays(-6)),
+            };
+        }
+    }
+
+    [RelayCommand]
+    private void PreviousDay()
+    {
+        if (CanGoPreviousDay) Day = Day.AddDays(-1);
+    }
+
+    [RelayCommand]
+    private void NextDay()
+    {
+        if (CanGoNextDay) Day = Day.AddDays(1);
+    }
     [ObservableProperty] private string _sort = "Active";
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private double _maxValue = 1;
@@ -86,6 +133,10 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     }
 
     partial void OnRangeChanged(string value) => _ = LoadAsync();
+    partial void OnDayChanged(DateTime value)
+    {
+        if (IsDay) _ = LoadAsync();
+    }
     partial void OnSortChanged(string value) => ApplyView();
     partial void OnSearchChanged(string value) => ApplyView();
 
@@ -112,22 +163,31 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         }
     }
 
+    private int _loadId;
+
     public async Task LoadAsync()
     {
-        var to = DateTime.Today.AddDays(1);
-        var from = Range switch
+        int id = ++_loadId;
+        var today = DateTime.Today;
+        if (Day > today) Day = today;
+        var (from, to) = Range switch
         {
-            "1" => DateTime.Today,
-            "30" => DateTime.Today.AddDays(-29),
-            "all" => DateTime.Today.AddYears(-20),
-            _ => DateTime.Today.AddDays(-6),
+            "day" => (Day.Date, Day.Date.AddDays(1)),
+            "30" => (today.AddDays(-29), today.AddDays(1)),
+            "all" => (today.AddYears(-20), today.AddDays(1)),
+            _ => (today.AddDays(-6), today.AddDays(1)),
         };
-        _report = await reports.BuildRangeAsync(from, to);
+        var first = await reports.FirstDayAsync();
+        var report = await reports.BuildRangeAsync(from, to);
+        if (id != _loadId) return; // a newer range or day was picked meanwhile
+        FirstDay = first;
+        _report = report;
         _all = _report?.Apps.Where(a => a.OpenSec >= 30 || a.MemMax >= 150).ToList() ?? [];
         var keep = _pendingSelection ?? Selected?.Exe;
         ApplyView();
         if (keep is not null) SelectExe(keep);
         else if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
+        OnPropertyChanged(nameof(SelectedSessions));
     }
 
     private double Key(AppStat a) => Sort switch

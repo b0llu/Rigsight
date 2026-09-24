@@ -77,6 +77,7 @@ public sealed partial class LiveData : ObservableObject
     public ObservableCollection<SensorItem> Fans { get; } = [];
     public ObservableCollection<SensorItem> BoardTemps { get; } = [];
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
+    /// <summary>300, 3600, 21600 or 86400 seconds up to now, or 0 for one calendar day (<see cref="ChartDay"/>).</summary>
     public int ChartWindowSeconds
     {
         get => _settings.Current.ChartWindowSeconds;
@@ -84,8 +85,53 @@ public sealed partial class LiveData : ObservableObject
         {
             _settings.Update(s => s.ChartWindowSeconds = value);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsChartDay));
+            ChartRangeChanged?.Invoke();
         }
     }
+
+    public bool IsChartDay => ChartWindowSeconds == 0;
+
+    private DateTime _chartDay = DateTime.Today;
+
+    /// <summary>The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day).</summary>
+    public DateTime ChartDay
+    {
+        get => _chartDay;
+        set
+        {
+            var day = value.Date > DateTime.Today ? DateTime.Today : value.Date;
+            if (!SetProperty(ref _chartDay, day)) return;
+            OnPropertyChanged(nameof(ChartDayLabel));
+            OnPropertyChanged(nameof(CanChartNextDay));
+            OnPropertyChanged(nameof(CanChartPreviousDay));
+            ChartRangeChanged?.Invoke();
+        }
+    }
+
+    /// <summary>First day with minute history (the date picker starts there).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
+    private DateTime? _chartHistoryStart;
+
+    public string ChartDayLabel => ReportsViewModel.PeriodText(Core.Reports.ReportRange.Day, ChartDay);
+    public bool CanChartNextDay => ChartDay < DateTime.Today;
+    public bool CanChartPreviousDay => ChartHistoryStart is not { } f || ChartDay > f;
+
+    [RelayCommand]
+    private void ChartPreviousDay()
+    {
+        if (CanChartPreviousDay) ChartDay = ChartDay.AddDays(-1);
+    }
+
+    [RelayCommand]
+    private void ChartNextDay()
+    {
+        if (CanChartNextDay) ChartDay = ChartDay.AddDays(1);
+    }
+
+    /// <summary>The chart needs different minute history (another day, or back to the last 24 hours).</summary>
+    public event Action? ChartRangeChanged;
 
     public string SystemSummary => string.Join("  ·  ", new[] { CpuName, GpuName }.Where(n => n is not "CPU" and not "GPU"));
 

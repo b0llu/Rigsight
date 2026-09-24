@@ -22,25 +22,31 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <DockPanel Grid.ColumnSpan="3" Margin="0,0,0,18">
-            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="Today"
-                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=1}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="7 days"
-                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=7}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="30 days"
-                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=30}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="All time"
-                                 IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=all}" />
-                </StackPanel>
-            </Border>
-            <StackPanel>
-                <TextBlock Text="Apps" Style="{StaticResource H1}" />
-                <TextBlock Text="How long you use each app, how long it sits in the background, and how hard it pushes your hardware."
-                           Style="{StaticResource Muted}" Margin="0,4,0,0" />
+        <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
+        <StackPanel Grid.ColumnSpan="3" Margin="0,0,0,16">
+            <TextBlock Text="Apps" Style="{StaticResource H1}" />
+            <TextBlock Text="How long you use each app, how long it sits in the background, and how hard it pushes your hardware."
+                       Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
+                <Border Style="{StaticResource SegmentHost}">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="Day"
+                                     IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=day}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="7 days"
+                                     IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=7}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="30 days"
+                                     IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="AppRange" Content="All time"
+                                     IsChecked="{Binding Range, Converter={StaticResource Equals}, ConverterParameter=all}" />
+                    </StackPanel>
+                </Border>
+                <ctl:DatePager Margin="12,0,0,0" Label="{Binding DayLabel}" Date="{Binding Day}" MinDate="{Binding FirstDay}"
+                               CanGoPrevious="{Binding CanGoPreviousDay}" CanGoNext="{Binding CanGoNextDay}"
+                               PreviousCommand="{Binding PreviousDayCommand}" NextCommand="{Binding NextDayCommand}"
+                               Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{StaticResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
-        </DockPanel>
+        </StackPanel>
 
         <!-- App list -->
         <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12,14">
@@ -102,7 +108,7 @@
                             <StackPanel Grid.Column="1" Margin="18,0,12,0">
                                 <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
                                          Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
-                                         ToolTip="Click to rename this app everywhere in Rigsight" />
+                                         ToolTip="Click to rename this app everywhere" />
                                 <TextBlock Text="{Binding Selected.Path, TargetNullValue='', FallbackValue=''}" FontSize="11.5" Foreground="{StaticResource FaintBrush}"
                                            TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding Selected.Path}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
@@ -117,7 +123,7 @@
                                 </StackPanel>
                             </StackPanel>
                             <CheckBox Grid.Column="2" Style="{StaticResource Switch}" VerticalAlignment="Top" IsChecked="{Binding SelectedExcluded}"
-                                      ToolTip="Rigsight will stop recording this app (existing history stays until you clear it).">
+                                      ToolTip="Stop recording this app (its existing history stays until you clear it).">
                                 <TextBlock Text="Don't track this app" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
                             </CheckBox>
                         </Grid>

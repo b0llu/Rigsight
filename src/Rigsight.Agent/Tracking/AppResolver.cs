@@ -1,4 +1,5 @@
 using Rigsight.Agent.Native;
+using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
@@ -16,11 +17,16 @@ internal sealed class AppInfo
 }
 
 /// <summary>Maps exe names to database app records, resolving friendly names and categories once.</summary>
-internal sealed class AppResolver(RigsightDb db)
+internal sealed class AppResolver
 {
-    private readonly Dictionary<string, AppInfo> _byExe =
-        db.LoadApps().ToDictionary(a => a.Exe, a => new AppInfo { Id = a.Id, Exe = a.Exe, Name = a.Name, Path = a.Path, AutoCategory = a.Category },
-            StringComparer.OrdinalIgnoreCase);
+    private readonly RigsightDb db;
+    private readonly Dictionary<string, AppInfo> _byExe = new(StringComparer.OrdinalIgnoreCase);
+
+    public AppResolver(RigsightDb db)
+    {
+        this.db = db;
+        Reload();
+    }
 
     private readonly Dictionary<string, (string Name, string? Path)> _described = new(StringComparer.OrdinalIgnoreCase);
 
@@ -77,6 +83,17 @@ internal sealed class AppResolver(RigsightDb db)
     {
         _byExe.Clear();
         foreach (var a in db.LoadApps())
-            _byExe[a.Exe] = new AppInfo { Id = a.Id, Exe = a.Exe, Name = a.Name, Path = a.Path, AutoCategory = a.Category };
+        {
+            // Names saved by older versions ("Microsoft® Windows® Operating System" for a screenshot) get fixed once.
+            var name = a.Name;
+            if (AppCatalog.KnownName(a.Exe) is { } known && known != name) name = known;
+            else if (AppCatalog.IsGenericName(name)) name = AppCatalog.ResolveName(a.Exe, a.Path);
+            if (name != a.Name)
+            {
+                try { db.UpsertApp(a.Exe, name, a.Path, a.Category); }
+                catch (Exception ex) { Log.Error("apps", ex); }
+            }
+            _byExe[a.Exe] = new AppInfo { Id = a.Id, Exe = a.Exe, Name = name, Path = a.Path, AutoCategory = a.Category };
+        }
     }
 }

@@ -40,14 +40,9 @@
                                          Command="{Binding SetRangeCommand}" CommandParameter="Month" />
                         </StackPanel>
                     </Border>
-                    <Button Style="{StaticResource IconButton}" Width="34" Height="34" Command="{Binding PreviousCommand}" ToolTip="Previous">
-                        <TextBlock Text="&#xE76B;" />
-                    </Button>
-                    <Button Style="{StaticResource GhostButton}" Command="{Binding GoTodayCommand}" Content="Today" Margin="4,0" />
-                    <Button Style="{StaticResource IconButton}" Width="34" Height="34" Command="{Binding NextCommand}" ToolTip="Next"
-                            IsEnabled="{Binding CanGoNext}">
-                        <TextBlock Text="&#xE76C;" />
-                    </Button>
+                    <ctl:DatePager Label="{Binding PeriodLabel}" Date="{Binding Anchor}" MinDate="{Binding FirstDay}" PickMonth="{Binding IsMonth}"
+                                   CanGoPrevious="{Binding CanGoPrevious}" CanGoNext="{Binding CanGoNext}"
+                                   PreviousCommand="{Binding PreviousCommand}" NextCommand="{Binding NextCommand}" />
                 </StackPanel>
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
@@ -62,7 +57,7 @@
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="Nothing recorded for this period" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="Rigsight records while its background agent is running. Pick another period, or check back later."
+                    <TextBlock Text="No data for this period: the PC was off, or the background agent wasn't running. Pick another period."
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
@@ -126,7 +121,7 @@
                                 <TextBlock Text="Active time per day" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                             </Grid>
                         </DockPanel>
-                        <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}"
+                        <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" RecordedUntil="{Binding Report.BuiltAt}"
                                          Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                         <ctl:DailyBars Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                         <TextBlock FontSize="11.5" Foreground="{StaticResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
@@ -144,7 +139,7 @@
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="What stood out" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding InsightsTitle}" Style="{StaticResource H2}" Margin="0,0,0,8" />
                             <ItemsControl ItemsSource="{Binding Report.Insights}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>

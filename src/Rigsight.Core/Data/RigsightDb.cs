@@ -245,9 +245,10 @@ public sealed class RigsightDb : IDisposable
 
     // ── Reader ────────────────────────────────────────────────────────────
 
+    /// <summary>When recording started: the oldest minute or hourly app total (minutes are kept for less time than app totals).</summary>
     public long? FirstDataTime()
     {
-        using var cmd = Cmd("SELECT min(ts) FROM system_minute");
+        using var cmd = Cmd("SELECT min(t) FROM (SELECT min(ts) AS t FROM system_minute UNION ALL SELECT min(ts) FROM app_hour)");
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
@@ -356,6 +357,20 @@ public sealed class RigsightDb : IDisposable
         return r.Read() ? (D(r, 0), D(r, 1)) : (null, null);
     }
 
+    /// <summary>When the oldest minute of history is from (Unix seconds), if any.</summary>
+    public long? FirstMinuteTime()
+    {
+        using var cmd = Cmd("SELECT min(ts) FROM system_minute");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    /// <summary>When the oldest recorded crash happened (Unix seconds), if any.</summary>
+    public long? FirstCrashTime()
+    {
+        using var cmd = Cmd("SELECT min(ts) FROM crashes");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
     public List<CrashEvent> GetCrashes(long from, long to)
     {
         using var cmd = Cmd("""
@@ -385,6 +400,14 @@ public sealed class RigsightDb : IDisposable
             ("$from", ts - minutes * 60L), ("$to", ts));
         using var r = cmd.ExecuteReader();
         return r.Read() ? (D(r, 0), D(r, 1)) : (null, null);
+    }
+
+    /// <summary>The app in front during the last recorded minute at or before <paramref name="ts"/> (within 3 minutes).</summary>
+    public long? FrontAppAt(long ts)
+    {
+        using var cmd = Cmd("SELECT fg_app FROM system_minute WHERE ts <= $ts AND ts > $from AND fg_app IS NOT NULL ORDER BY ts DESC LIMIT 1",
+            ("$ts", ts), ("$from", ts - 180));
+        return cmd.ExecuteScalar() is long id ? id : null;
     }
 
     private static double? D(IDataRecord r, int i) => r.IsDBNull(i) ? null : r.GetDouble(i);

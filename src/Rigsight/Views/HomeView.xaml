@@ -102,7 +102,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="Rigsight is learning your day — your most-used apps will show up here in a few minutes."
+                        <TextBlock Text="Your most-used apps show up here after a few minutes of use."
                                    Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Visibility="{Binding ShowLearning, Converter={StaticResource Vis}}" />
 
@@ -156,8 +156,8 @@
 
                         <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{StaticResource FaintBrush}" HorizontalAlignment="Left" />
-                            <TextBlock Text="Your first daily recap will be ready tomorrow." Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
-                            <TextBlock Text="Rigsight records which apps you use, how long, and how hot they run your hardware. Each morning you'll get a summary of the day before."
+                            <TextBlock Text="No history for yesterday yet." Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
+                            <TextBlock Text="Yesterday's active time, most-used apps and highlights show here once there's a full day of history."
                                        Style="{StaticResource Muted}" TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>

@@ -106,8 +106,14 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         foreach (var e in S.Tracking.ExcludedApps.Order(StringComparer.OrdinalIgnoreCase)) ExcludedApps.Add(e);
     }
 
+    /// <summary>"History goes back to 12 September 2026 (13 days)."</summary>
+    [ObservableProperty] private string? _trackingSince;
+
     public async Task LoadKnownAppsAsync()
     {
+        TrackingSince = await reports.FirstDayAsync() is { } first
+            ? $"History goes back to {first:d MMMM yyyy} ({(int)(DateTime.Today - first).TotalDays + 1} days)."
+            : "Nothing recorded yet.";
         var apps = await reports.KnownAppsAsync() ?? [];
         KnownApps.Clear();
         foreach (var a in apps.Where(a => a.Category != AppCategory.System).OrderBy(a => a.Exe, StringComparer.OrdinalIgnoreCase))

@@ -330,6 +330,8 @@
                             <TextBlock Text="Hourly per-app totals used by weekly and monthly reports." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
+                    <TextBlock Text="{Binding TrackingSince}" Style="{StaticResource Hint}" Margin="0,12,0,0"
+                               Visibility="{Binding TrackingSince, Converter={StaticResource Vis}}" />
                     <WrapPanel Margin="0,10,0,12">
                         <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,8">
                             <StackPanel Orientation="Horizontal">

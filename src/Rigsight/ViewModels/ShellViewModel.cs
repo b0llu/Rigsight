@@ -23,10 +23,11 @@ public sealed partial class ShellViewModel : ObservableObject
         Settings = new SettingsModel(client);
         Reports = new ReportService(Settings);
         Live = new LiveData(Settings);
+        Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Home = new HomeViewModel(Reports, Live);
         ReportsPage = new ReportsViewModel(Reports);
         Apps = new AppsViewModel(Reports, Settings);
-        Crashes = new CrashesViewModel(Reports);
+        Crashes = new CrashesViewModel(Reports, Settings);
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client);
@@ -192,11 +193,23 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
-    /// <summary>The last day of minute history, for the temperature chart's 1-hour to 24-hour windows.</summary>
+    private int _historyLoad;
+
+    /// <summary>
+    /// Minute history for the temperature chart: the last 24 hours (1-hour to 24-hour windows, and today),
+    /// or the whole of an earlier day picked in day mode.
+    /// </summary>
     private async Task LoadTemperatureHistoryAsync()
     {
+        int id = ++_historyLoad;
+        Live.ChartHistoryStart ??= await Reports.FirstMinuteDayAsync();
         long now = Core.Data.TimeUtil.NowUnix();
-        if (await Reports.MinutesAsync(now - 24 * 3600, now + 60) is { } minutes) Live.LoadMinuteHistory(minutes);
+        var day = Live.ChartDay;
+        var (from, to) = Live.IsChartDay && day < DateTime.Today
+            ? (Core.Data.TimeUtil.ToUnix(day), Core.Data.TimeUtil.ToUnix(day.AddDays(1)))
+            : (now - 24 * 3600, now + 60);
+        var minutes = await Reports.MinutesAsync(from, to);
+        if (id == _historyLoad && minutes is not null) Live.LoadMinuteHistory(minutes);
     }
 
     public void Navigate(string? page, string? arg)

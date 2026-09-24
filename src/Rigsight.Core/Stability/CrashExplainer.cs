@@ -110,6 +110,7 @@ public static class CrashExplainer
 
             default:
             {
+                if (WindowsPart(e) is { } part) return part;
                 string module = e.Module ?? "";
                 string moduleLower = module.ToLowerInvariant();
                 ExceptionCodes.TryGetValue(e.Code ?? "", out var ex);
@@ -134,6 +135,25 @@ public static class CrashExplainer
                     string.IsNullOrEmpty(module) ? "Unknown" : module);
             }
         }
+    }
+
+    /// <summary>Windows' own parts crashing mean something different from an app crashing: say what the user saw.</summary>
+    private static CrashExplanation? WindowsPart(CrashEvent e)
+    {
+        string what = ExceptionCodes.TryGetValue(e.Code ?? "", out var ex) ? $" Windows says {ex.Meaning} ({ex.Name})." : "";
+        return e.AppExe.ToLowerInvariant() switch
+        {
+            "dwm.exe" => new("Windows' display crashed",
+                "The part of Windows that draws everything on screen (Desktop Window Manager) crashed and restarted. The screen probably flickered or went black for a moment." + what,
+                "This is almost always the graphics driver: update or clean-reinstall it, and undo any GPU overclock.", "Graphics driver"),
+            "explorer.exe" => new("Taskbar and desktop restarted",
+                "Windows Explorer, which runs the taskbar, desktop and file windows, crashed and restarted." + what,
+                "Often a shell extension from another app (right-click menu add-ons, cloud drives). If it repeats, update or remove recently installed tools.", "Windows Explorer"),
+            "svchost.exe" => new("A Windows service crashed",
+                "One of Windows' background services crashed." + what,
+                "Usually harmless and restarted automatically. Keep Windows updated; if it repeats, run 'sfc /scannow'.", "Windows service"),
+            _ => null,
+        };
     }
 
     private static uint ParseHex(string? s)

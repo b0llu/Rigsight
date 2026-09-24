@@ -58,6 +58,7 @@
     <conv:CategoryBrushConverter x:Key="CategoryBrush" />
     <conv:CategoryLabelConverter x:Key="CategoryLabel" />
     <conv:ToneBrushConverter x:Key="ToneBrush" />
+    <conv:SeverityBrushConverter x:Key="SeverityBrush" />
     <conv:FractionConverter x:Key="Fraction" />
 
     <!-- ── Selectable list rows (Apps page) ───────────────────────────── -->
@@ -261,6 +262,29 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- Small text action ("Details", "Copy report"): quiet until hovered. -->
+    <Style x:Key="ActionButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="9,4">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

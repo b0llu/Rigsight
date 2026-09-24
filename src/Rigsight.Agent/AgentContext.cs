@@ -509,7 +509,7 @@ internal sealed class AgentContext : ApplicationContext
             if (crash is not null)
             {
                 RunOnSampler(ScanCrashes);
-                if (!_settings.Alerts.CrashNotifications) return;
+                if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe)) return;
                 var ex = CrashExplainer.Explain(crash, name);
                 _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly",
                     $"Likely cause: {ex.Culprit}. You played for {Units.Duration(row.ActiveSec)}. Details are on the Crashes page whenever you want them.",

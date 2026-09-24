@@ -124,7 +124,13 @@
             <Border Style="{StaticResource Card}" Margin="0,18,0,0">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                        <!-- The day picker sits left of the ranges, so picking "Day" doesn't move them. -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ctl:DatePager Margin="0,0,10,0" Label="{Binding ChartDayLabel}" Date="{Binding ChartDay}" MinDate="{Binding ChartHistoryStart}"
+                                       CanGoPrevious="{Binding CanChartPreviousDay}" CanGoNext="{Binding CanChartNextDay}"
+                                       PreviousCommand="{Binding ChartPreviousDayCommand}" NextCommand="{Binding ChartNextDayCommand}"
+                                       Visibility="{Binding IsChartDay, Converter={StaticResource Vis}}" />
+                        <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="5 min"
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=300}" />
@@ -134,8 +140,11 @@
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=21600}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="24 hours"
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=86400}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="Day" ToolTip="One day: today, yesterday or any earlier date"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=0}" />
                             </StackPanel>
                         </Border>
+                        </StackPanel>
                         <TextBlock Text="Temperature history" Style="{StaticResource H2}" />
                     </DockPanel>
                     <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding TempSeries}" Margin="0,0,0,12">
@@ -154,7 +163,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" />
+                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}" />
                 </DockPanel>
             </Border>
 

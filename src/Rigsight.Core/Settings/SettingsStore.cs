@@ -89,6 +89,8 @@ public static class SettingsStore
         if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
         o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
 
+        s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
+
         var t = s.Tracking;
         t.SensorIntervalMs = Math.Clamp(t.SensorIntervalMs, 500, 30_000);
         t.ProcessIntervalSeconds = Math.Clamp(t.ProcessIntervalSeconds, 2, 60);
@@ -96,8 +98,8 @@ public static class SettingsStore
         t.KeepDetailedDays = Math.Clamp(t.KeepDetailedDays, 7, 3650);
         t.KeepHistoryDays = Math.Clamp(t.KeepHistoryDays, 30, 3650);
         s.LiveRefreshMs = Math.Clamp(s.LiveRefreshMs, 250, 10_000);
-        // The temperature chart offers 5 minutes, 1 hour, 6 hours and 24 hours.
-        if (s.ChartWindowSeconds is not (300 or 3600 or 21600 or 86400))
+        // The temperature chart offers 5 minutes, 1 hour, 6 hours, 24 hours and today (0: since midnight).
+        if (s.ChartWindowSeconds is not (0 or 300 or 3600 or 21600 or 86400))
             s.ChartWindowSeconds = s.ChartWindowSeconds <= 300 ? 300 : 3600;
 
         foreach (var page in s.CustomPages)

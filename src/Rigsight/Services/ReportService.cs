@@ -34,10 +34,16 @@ public sealed class ReportService(SettingsModel settings)
     public Task<Report?> BuildRangeAsync(DateTime from, DateTime to)
     {
         var s = Snapshot();
-        return Run(db => ReportBuilder.BuildRaw(db, ReportRange.Month, from, to, db.LoadApps().ToDictionary(a => a.Id), s));
+        return Run(db => ReportBuilder.BuildRaw(db, ReportRange.Month, from, to, db.LoadApps().ToDictionary(a => a.Id), s, withMinutes: false));
     }
 
-    /// <summary>Number of distinct days with any recorded activity.</summary>
+    /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
+    public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
+
+    /// <summary>The first day with minute-by-minute history (kept for less time than daily totals).</summary>
+    public Task<DateTime?> FirstMinuteDayAsync() => Run(db => db.FirstMinuteTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
+
+    /// <summary>Number of days since recording started, today included.</summary>
     public Task<int> TrackedDaysAsync() => Run(db =>
     {
         var first = db.FirstDataTime();
@@ -70,23 +76,58 @@ public sealed class ReportService(SettingsModel settings)
 
     public Task<List<AppRow>?> KnownAppsAsync() => Run(db => db.LoadApps());
 
-    /// <summary>Crashes in a range, explained, with the temperatures just before each one.</summary>
-    public Task<List<Models.CrashRow>?> CrashesAsync(DateTime from, DateTime to)
+    /// <summary>
+    /// Crashes in a range, explained, with what was going on just before (temperatures, the app in front, how long it had
+    /// been in use) and, for blue screens, the dump file Windows saved. Muted apps are left out unless asked for.
+    /// </summary>
+    public Task<List<Models.CrashRow>?> CrashesAsync(DateTime from, DateTime to, bool includeMuted = false)
     {
         var s = Snapshot();
         return Run(db =>
         {
-            var apps = db.LoadApps().ToDictionary(a => a.Exe, StringComparer.OrdinalIgnoreCase);
-            return db.GetCrashes(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)).Select(e =>
+            var apps = db.LoadApps();
+            var byExe = apps.ToDictionary(a => a.Exe, StringComparer.OrdinalIgnoreCase);
+            var byId = apps.ToDictionary(a => a.Id);
+            string NameOf(Core.Data.AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name;
+
+            var events = db.GetCrashes(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to))
+                .Where(e => includeMuted || !s.IsCrashMuted(e.AppExe)).ToList();
+
+            // Blue-screen dumps are logged at the next startup: match each to the closest earlier crash with the same code.
+            var dumps = events.Any(e => e.Kind == Core.Stability.CrashKind.SystemCrash)
+                ? Core.Stability.CrashLogReader.ReadDumps(from.AddDays(-1)) : [];
+
+            return events.Select(e =>
             {
                 string? name = null;
+                string? frontApp = null;
+                double? sessionSec = null;
+                bool isGame = false;
                 if (!string.IsNullOrEmpty(e.AppExe))
                 {
+                    byExe.TryGetValue(e.AppExe, out var row);
                     name = s.AppNames.TryGetValue(e.AppExe, out var alias) ? alias
-                        : apps.TryGetValue(e.AppExe, out var row) ? row.Name
-                        : Core.Apps.AppCatalog.FallbackName(e.AppExe);
-                    if (e.AppPath is null && apps.TryGetValue(e.AppExe, out var r2)) e.AppPath = r2.Path;
+                        : Core.Apps.AppCatalog.KnownName(e.AppExe)
+                        ?? row?.Name
+                        ?? (e.AppPath is not null ? Core.Apps.AppCatalog.ResolveName(e.AppExe, e.AppPath) : Core.Apps.AppCatalog.FallbackName(e.AppExe));
+                    if (e.AppPath is null && row is not null) e.AppPath = row.Path;
+                    if (row is not null)
+                    {
+                        isGame = (s.AppCategories.TryGetValue(row.Exe, out var c) ? c : row.Category) == AppCategory.Game;
+                        // The session this crash ended: written when the app closed, so it ends right around the crash.
+                        var session = db.GetSessions(e.Ts - 86400, e.Ts + 600)
+                            .Where(x => x.AppId == row.Id && x.Start <= e.Ts + 60 && x.End >= e.Ts - 600)
+                            .MaxBy(x => x.End);
+                        sessionSec = session?.ActiveSec;
+                    }
                 }
+                if (db.FrontAppAt(e.Ts) is long front && byId.TryGetValue(front, out var frontRow)) frontApp = NameOf(frontRow);
+
+                string? dump = null;
+                if (e.Kind == Core.Stability.CrashKind.SystemCrash && ParseCode(e.Code) is uint code)
+                    dump = dumps.Where(d => d.Code == code && d.Logged >= e.Time.AddMinutes(-5) && d.Logged <= e.Time.AddDays(2))
+                        .OrderBy(d => d.Logged).Select(d => d.Path).FirstOrDefault();
+
                 var (cpu, gpu) = db.PeakTempsBefore(e.Ts, 5);
                 return new Models.CrashRow
                 {
@@ -95,8 +136,30 @@ public sealed class ReportService(SettingsModel settings)
                     AppName = name,
                     CpuBefore = cpu,
                     GpuBefore = gpu,
+                    FrontApp = frontApp,
+                    SessionSec = sessionSec,
+                    IsGame = isGame,
+                    DumpPath = dump,
                 };
             }).ToList();
         });
+
+        static uint? ParseCode(string? code)
+        {
+            if (string.IsNullOrEmpty(code)) return null;
+            var hex = code.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? code[2..] : code;
+            return uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out var v) ? v : null;
+        }
     }
+
+    /// <summary>The first day anything was recorded: tracking, or a crash Windows had logged before Rigsight was installed.</summary>
+    public Task<DateTime?> FirstCrashDayAsync() => Run(db =>
+    {
+        var times = new[] { db.FirstDataTime(), db.FirstCrashTime() }.OfType<long>().ToList();
+        return times.Count == 0 ? (DateTime?)null : TimeUtil.FromUnix(times.Min()).Date;
+    });
+
+    /// <summary>Driver installs and Windows updates in a range (possible causes of crashes that followed).</summary>
+    public static Task<List<Core.Stability.SystemChange>> ChangesAsync(DateTime from, DateTime to) =>
+        Task.Run(() => Core.Stability.ChangeLogReader.Read(from, to));
 }

@@ -29,6 +29,12 @@ public sealed class DayTimeline : FrameworkElement
     public IReadOnlyList<TempPoint>? Temps { get => (IReadOnlyList<TempPoint>?)GetValue(TempsProperty); set => SetValue(TempsProperty, value); }
     public DateTime Day { get => (DateTime)GetValue(DayProperty); set => SetValue(DayProperty, value); }
 
+    /// <summary>When the data was read (history is saved once a minute, so the last minute or so isn't in it yet).</summary>
+    public static readonly DependencyProperty RecordedUntilProperty = DependencyProperty.Register(
+        nameof(RecordedUntil), typeof(DateTime?), typeof(DayTimeline), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTime? RecordedUntil { get => (DateTime?)GetValue(RecordedUntilProperty); set => SetValue(RecordedUntilProperty, value); }
+
     private double _hoverX = -1;
     private static readonly Dictionary<AppCategory, (Brush Solid, Brush Faint)> CategoryBrushes = [];
 
@@ -107,8 +113,19 @@ public sealed class DayTimeline : FrameworkElement
             ChartPaint.Text(dc, this, label, new Point(x, h - AxisHeight / 2), 11, ChartPaint.Label, ChartPaint.Align.Center);
         }
 
-        // Hover: cursor line and details.
-        if (_hoverX >= Left && _hoverX <= Left + plotW)
+        // Today: a "Now" line, with nothing to say about the time after it.
+        var now = DateTime.Now;
+        double nowX = X(now);
+        bool isToday = now.Date == day;
+        if (isToday)
+        {
+            var nowPen = new Pen(ChartPaint.Label, 1) { DashStyle = new DashStyle([2, 3], 0) };
+            dc.DrawLine(nowPen, new Point(Math.Round(nowX) + 0.5, BandHeight + 2), new Point(Math.Round(nowX) + 0.5, plot.Bottom));
+            ChartPaint.Text(dc, this, "Now", new Point(nowX + 4, plot.Top + 7), 10.5, ChartPaint.Label);
+        }
+
+        // Hover: cursor line and details (not beyond now).
+        if (_hoverX >= Left && _hoverX <= Left + plotW && !(isToday && _hoverX > nowX) && day <= now.Date)
         {
             var time = TimeAt(_hoverX);
             dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(_hoverX, 0), new Point(_hoverX, plot.Bottom));
@@ -119,7 +136,8 @@ public sealed class DayTimeline : FrameworkElement
             if (seg?.App is { } app)
                 lines.Add((seg.Away ? $"{app} (away)" : app, BrushesFor(seg.Category).Solid, false));
             else if (point is null)
-                lines.Add(("PC off or asleep", ChartPaint.Muted, false));
+                // The minute in progress (and any since the data was read) simply isn't saved yet.
+                lines.Add((time >= (RecordedUntil ?? now).AddMinutes(-1.5) ? "Not recorded yet" : "PC off or asleep", ChartPaint.Muted, false));
             if (point?.Cpu is double c) lines.Add(($"CPU {Units.TempShort(c)}", ChartPaint.Brush(ChartPaint.Cpu), false));
             if (point?.Gpu is double g) lines.Add(($"GPU {Units.TempShort(g)}", ChartPaint.Brush(ChartPaint.Gpu), false));
             ChartPaint.InfoBox(dc, this, lines, new Point(_hoverX, BandHeight + 4), new Rect(0, 0, w, h));

@@ -82,6 +82,30 @@ public static partial class CrashLogReader
         return [.. events.OrderBy(e => e.Ts)];
     }
 
+    private const string DumpQuery = "*[System[Provider[@Name='Microsoft-Windows-WER-SystemErrorReporting'] and EventID=1001]]";
+
+    /// <summary>
+    /// Blue-screen dump files Windows saved (logged at the next startup): when it was logged, the bugcheck code and the file.
+    /// The files themselves are admin-only, but where they are is in the (readable) System log.
+    /// </summary>
+    public static List<(DateTime Logged, uint Code, string Path)> ReadDumps(DateTime since)
+    {
+        var list = new List<(DateTime, uint, string)>();
+        foreach (var record in Query("System", DumpQuery, since))
+        {
+            using (record)
+            {
+                var code = Prop(record, 0)?.Split(' ')[0]; // "0x00000116 (0x…, …)"
+                var path = Prop(record, 1);
+                if (string.IsNullOrWhiteSpace(path) || code is null) continue;
+                var hex = code.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? code[2..] : code;
+                if (!uint.TryParse(hex, NumberStyles.HexNumber, null, out var value)) continue;
+                list.Add((record.TimeCreated ?? since, value, path.Trim()));
+            }
+        }
+        return list;
+    }
+
     /// <summary>Did <paramref name="exe"/> crash or hang in the last few minutes? Used to soften session summaries.</summary>
     public static CrashEvent? RecentAppCrash(string exe, TimeSpan window)
     {

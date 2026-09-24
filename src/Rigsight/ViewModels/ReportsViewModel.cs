@@ -15,14 +15,21 @@ public sealed record PeakRow(string Label, string Value, string When, string? Ap
 public sealed partial class ReportsViewModel(ReportService reports) : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay), nameof(PeriodLabel), nameof(IsMonth), nameof(CanGoPrevious), nameof(InsightsTitle))]
     private ReportRange _range = ReportRange.Day;
 
-    [ObservableProperty] private DateTime _anchor = DateTime.Today;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PeriodLabel), nameof(CanGoPrevious))]
+    private DateTime _anchor = DateTime.Today;
+
+    /// <summary>The first day with any history (the date picker starts there).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPrevious))]
+    private DateTime? _firstDay;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(Apps), nameof(Peaks), nameof(TopSessions), nameof(HasData),
-        nameof(MaxActive), nameof(CanGoNext), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote))]
+        nameof(MaxActive), nameof(CanGoNext), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
     [ObservableProperty] private bool _isLoading;
@@ -39,6 +46,36 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public bool IsDay => Range == ReportRange.Day;
     public bool IsMultiDay => !IsDay;
+    public bool IsMonth => Range == ReportRange.Month;
+
+    /// <summary>Which period is shown, in words: "Today", "Last week", "Mon, 21 Sep", "August 2026".</summary>
+    public string PeriodLabel => PeriodText(Range, Anchor);
+
+    public static string PeriodText(ReportRange range, DateTime anchor)
+    {
+        var (from, to) = ReportBuilder.Bounds(range, anchor);
+        var (thisFrom, _) = ReportBuilder.Bounds(range, DateTime.Today);
+        var (lastFrom, _) = ReportBuilder.Bounds(range, ReportBuilder.Previous(range, DateTime.Today));
+        return range switch
+        {
+            ReportRange.Day when from == thisFrom => "Today",
+            ReportRange.Day when from == lastFrom => "Yesterday",
+            ReportRange.Day => from.Year == DateTime.Today.Year ? from.ToString("ddd, d MMM") : from.ToString("d MMM yyyy"),
+            ReportRange.Week when from == thisFrom => "This week",
+            ReportRange.Week when from == lastFrom => "Last week",
+            ReportRange.Week => from.Month == to.AddDays(-1).Month
+                ? $"{from:%d}–{to.AddDays(-1):d MMM}"
+                : $"{from:d MMM} – {to.AddDays(-1):d MMM}",
+            _ when from == thisFrom => "This month",
+            _ when from == lastFrom => "Last month",
+            _ => from.ToString("MMMM yyyy"),
+        };
+    }
+
+    /// <summary>Nothing before the first recorded day to go back to.</summary>
+    public bool CanGoPrevious => FirstDay is not { } first || ReportBuilder.Bounds(Range, Anchor).From > first;
+
+    public string InsightsTitle => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To ? "What stands out so far" : "What stood out";
     public bool HasData => Report is { HasData: true };
 
     public string Title => Report?.Title ?? "";
@@ -57,8 +94,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             if (Report is null || Range == ReportRange.Day || TrackedDays <= 0) return null;
             int days = (int)(Report.To - Report.From).TotalDays;
             if (TrackedDays >= days) return null;
-            var since = DateTime.Today.AddDays(-(TrackedDays - 1));
-            return $"Rigsight started tracking on {since:d MMMM}, so this {(Range == ReportRange.Week ? "week" : "month")} only includes {TrackedDays} day{(TrackedDays == 1 ? "" : "s")} so far.";
+            var since = FirstDay ?? DateTime.Today.AddDays(-(TrackedDays - 1));
+            return $"History starts on {since:d MMMM}, so this {(Range == ReportRange.Week ? "week" : "month")} has {TrackedDays} day{(TrackedDays == 1 ? "" : "s")} of data.";
         }
     }
 
@@ -76,7 +113,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public double MaxActive => Math.Max(1, Report?.Apps.FirstOrDefault()?.ActiveSec ?? 1);
 
-    public List<SessionInfo> TopSessions => Report?.Sessions.OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [];
+    // Windows' own parts and Rigsight itself aren't what anyone means by a session.
+    public List<SessionInfo> TopSessions => Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [];
 
     public List<PeakRow> Peaks
     {
@@ -103,13 +141,24 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     partial void OnRangeChanged(ReportRange value) => _ = LoadAsync();
     partial void OnAnchorChanged(DateTime value) => _ = LoadAsync();
 
+    private int _loadId;
+
     public async Task LoadAsync()
     {
+        // Range and date can change together (e.g. "open yesterday"): only the latest load's results are shown.
+        int id = ++_loadId;
         IsLoading = true;
-        TrackedDays = await reports.TrackedDaysAsync();
-        var report = await reports.BuildAsync(Range, Anchor);
+        var range = Range;
+        var anchor = Anchor;
+        var tracked = await reports.TrackedDaysAsync();
+        var first = await reports.FirstDayAsync();
+        var report = await reports.BuildAsync(range, anchor);
+        var crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
+        if (id != _loadId) return;
+        TrackedDays = tracked;
+        FirstDay = first;
         Report = report;
-        Crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
+        Crashes = crashes;
         IsLoading = false;
     }
 
@@ -117,14 +166,16 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         Range = ReportRange.Day;
         Anchor = day.Date;
-        _ = LoadAsync();
     }
 
     [RelayCommand]
     private void SetRange(string range) => Range = Enum.Parse<ReportRange>(range);
 
     [RelayCommand]
-    private void Previous() => Anchor = ReportBuilder.Previous(Range, Anchor);
+    private void Previous()
+    {
+        if (CanGoPrevious) Anchor = ReportBuilder.Previous(Range, Anchor);
+    }
 
     [RelayCommand]
     private void Next()
@@ -132,7 +183,4 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var next = ReportBuilder.Next(Range, Anchor);
         if (ReportBuilder.Bounds(Range, next).From <= DateTime.Today) Anchor = next;
     }
-
-    [RelayCommand]
-    private void GoToday() => Anchor = DateTime.Today;
 }

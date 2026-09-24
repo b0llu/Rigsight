@@ -36,6 +36,12 @@ public sealed class RigsightSettings
     /// <summary>Hardware groups collapsed on the All sensors page (by name).</summary>
     public HashSet<string> CollapsedHardware { get; set; } = [];
 
+    /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
+    public List<string> MutedCrashApps { get; set; } = [];
+
+    public bool IsCrashMuted(string? exe) =>
+        !string.IsNullOrEmpty(exe) && MutedCrashApps.Contains(exe, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Pages the user built from tiles.</summary>
     public List<CustomPageConfig> CustomPages { get; set; } = [];
 

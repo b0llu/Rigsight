@@ -59,7 +59,7 @@
                             <StackPanel>
                                 <TextBlock Text="YOUR DAY" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6" />
                                 <TextBlock Style="{StaticResource F}" Text="• Home: today so far, highlights and yesterday's recap" />
-                                <TextBlock Style="{StaticResource F}" Text="• Reports: day, week and month, with a minute-by-minute timeline" />
+                                <TextBlock Style="{StaticResource F}" Text="• Reports: day, week and month, with a minute-by-minute timeline; click the date to jump to any day" />
                                 <TextBlock Style="{StaticResource F}" Text="• Time per app: in use, in the background, minimized (plus your total time away)" />
                                 <TextBlock Style="{StaticResource F}" Text="• Sessions and automatic game detection" />
                                 <TextBlock Style="{StaticResource F}" Text="• Plain-language insights and comparisons with previous days" />
@@ -86,7 +86,7 @@
                         <Border>
                             <StackPanel>
                                 <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" Foreground="{StaticResource GpuBrush}" Margin="0,0,0,6" />
-                                <TextBlock Style="{StaticResource F}" Text="• Temperatures: CPU, GPU (hot spot, memory), motherboard, drives, fans, with today's lows and highs and up to 24 hours of history" />
+                                <TextBlock Style="{StaticResource F}" Text="• Temperatures: CPU, GPU (hot spot, memory), motherboard, drives, fans, with today's lows and highs, and history for the last 5 minutes to 24 hours or any single day" />
                                 <TextBlock Style="{StaticResource F}" Text="• Memory: RAM use and live per-app memory" />
                                 <TextBlock Style="{StaticResource F}" Text="• Storage: space, weekly growth, health, cleanup ideas, folder map" />
                                 <TextBlock Style="{StaticResource F}" Text="• All sensors: every reading with min/max/avg, search, rename, hide, collapse" />
@@ -163,7 +163,7 @@
                         <DockPanel><TextBlock Text="Minimized" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="All of the app's windows are minimized to the taskbar." /></DockPanel>
                         <DockPanel><TextBlock Text="Away" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="The PC is on but nobody's using it — no input for a while (5 minutes by default, change it in Settings), or the PC is locked." /></DockPanel>
                         <DockPanel><TextBlock Text="Desktop" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Looking at the desktop, taskbar, Start menu or search counts as using your PC, but not as using any app." /></DockPanel>
-                        <DockPanel><TextBlock Text="Sessions" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="A stretch of using one app. Quick switches (like checking Discord mid-game) don't break a session; it ends when you close the app or leave it for a while." /></DockPanel>
+                        <DockPanel><TextBlock Text="Sessions" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="A stretch of using one app. Quick switches (like checking Discord mid-game) don't break a session; it ends when you close the app or leave it for a while. Anything under a minute (a screenshot, a quick alt-tab) still counts as time in the app but isn't listed as a session." /></DockPanel>
                         <DockPanel><TextBlock Text="Games" Style="{StaticResource Term}" /><TextBlock Style="{StaticResource P}" Text="Recognised automatically from Steam, Epic, Riot and other game folders, or when an app runs fullscreen with heavy GPU use. You can change any app's category on the Apps page." /></DockPanel>
                     </StackPanel>
                 </DockPanel>
@@ -211,7 +211,9 @@
                     <StackPanel>
                         <TextBlock Text="Crashes, explained" Style="{StaticResource SectionTitle}" />
                         <TextBlock Style="{StaticResource P}"
-                                   Text="Windows already records every app crash, graphics driver reset, blue screen and sudden shutdown — but buried in Event Viewer in cryptic codes. Rigsight reads those records and translates them: what crashed, the most likely cause (for example the graphics driver, an overlay, the game itself, or unstable hardware settings), and what to try. It also shows how hot your CPU and GPU were just before, and spots patterns across repeated crashes." />
+                                   Text="Windows already records every app crash, graphics driver reset, blue screen and sudden shutdown — but buried in Event Viewer in cryptic codes. Rigsight reads those records and translates them: what crashed, the most likely cause (for example the graphics driver, an overlay, the game itself, or unstable hardware settings), and what to try. It also shows what was going on just before (temperatures, which game and how long into it) and spots patterns across repeated crashes." />
+                        <TextBlock Style="{StaticResource P}" Margin="0,8,0,0"
+                                   Text="The list shows every crash newest first; switch to Grouped and the same crash repeated shows as one row with a count, and several things failing within minutes show as one incident (&#x201C;your PC froze&#x201D;). The timeline marks each day's problems by severity (click a day to see just that day), with blue diamonds on days a driver or Windows update was installed; a problem that started right after one lists it. Each problem can be copied as a ready-to-paste report with your hardware, searched online, or (for blue screens) opened at its dump file. Mute an app to stop counting its crashes: they leave the totals, timeline, reports and notifications, but nothing is deleted." />
                     </StackPanel>
                 </DockPanel>
             </Border>

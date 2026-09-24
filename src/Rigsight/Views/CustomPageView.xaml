@@ -146,7 +146,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <ctl:LineChart Series="{Binding Live.TempSeries}" Version="{Binding Live.Tick}" WindowSeconds="{Binding Live.ChartWindowSeconds}" />
+                <ctl:LineChart Series="{Binding Live.TempSeries}" Version="{Binding Live.Tick}" WindowSeconds="{Binding Live.ChartWindowSeconds}" Day="{Binding Live.ChartDay}" />
             </DockPanel>
         </DataTemplate>
 

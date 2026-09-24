@@ -1,86 +1,406 @@
 using System.Diagnostics;
+using System.Text;
+using System.Windows;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Controls;
 using Rigsight.Core.Stability;
 using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-public sealed partial class CrashesViewModel(ReportService reports) : ObservableObject
+public sealed partial class CrashesViewModel(ReportService reports, SettingsModel settings) : ObservableObject
 {
-    /// <summary>"7", "30" or "90" days.</summary>
-    [ObservableProperty] private string _range = "30";
+    /// <summary>"day" (one day, <see cref="Day"/>), "7", "30" or "90" days, or "all".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IsDay), nameof(ShowTimeline), nameof(EmptyText))]
+    private string _range = "30";
 
-    private List<CrashRow> _all = [];
+    /// <summary>The day shown when <see cref="Range"/> is "day".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(DayLabel), nameof(CanGoNextDay), nameof(CanGoPreviousDay))]
+    private DateTime _day = DateTime.Today;
 
-    /// <summary>"All", "Apps" (app and game crashes, freezes) or "Pc" (blue screens, sudden shutdowns, GPU driver resets).</summary>
+    /// <summary>First day with anything recorded (tracking, or crashes Windows logged before Rigsight was installed).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(CanGoPreviousDay))]
+    private DateTime? _since;
+
+    public bool IsDay => Range == "day";
+    public bool ShowTimeline => !IsDay;
+    public string DayLabel => ReportsViewModel.PeriodText(Core.Reports.ReportRange.Day, Day);
+    public bool CanGoNextDay => Day < DateTime.Today;
+    public bool CanGoPreviousDay => Since is not { } s || Day > s;
+
+    /// <summary>List every crash newest first (default), or group repeats of the same crash into one row.</summary>
+    [ObservableProperty] private bool _grouped;
+
+    partial void OnGroupedChanged(bool value)
+    {
+        Regroup();
+        ApplyView();
+    }
+
+    partial void OnDayChanged(DateTime value)
+    {
+        if (IsDay) _ = LoadAsync();
+    }
+
+    [RelayCommand]
+    private void PreviousDay()
+    {
+        if (CanGoPreviousDay) Day = Day.AddDays(-1);
+    }
+
+    [RelayCommand]
+    private void NextDay()
+    {
+        if (CanGoNextDay) Day = Day.AddDays(1);
+    }
+
+    [RelayCommand]
+    private void OpenDay(DateTime day) => ShowDay(day);
+
+    /// <summary>Shows one day's crashes (clicking a day on the timeline).</summary>
+    public void ShowDay(DateTime day)
+    {
+        Day = day.Date;
+        if (Range == "day") return;
+        Range = "day";
+    }
+
+    /// <summary>Which dates are covered. Windows' crash log is read back 90 days when Rigsight is installed,
+    /// so "All time" can reach further back than the rest of the app's history.</summary>
+    public string RangeNote
+    {
+        get
+        {
+            var today = DateTime.Today;
+            if (Range == "day") return Day.ToString("dddd, d MMMM yyyy");
+            if (Range == "all")
+                return Since is { } s ? $"{s:d MMM yyyy} – {today:d MMM yyyy} ({(int)(today - s).TotalDays + 1} days)" : "";
+            var from = From;
+            return from.Year == today.Year ? $"{from:d MMM} – {today:d MMM}" : $"{from:d MMM yyyy} – {today:d MMM yyyy}";
+        }
+    }
+
+    private DateTime From => Range switch
+    {
+        "day" => Day.Date,
+        "all" => Since ?? DateTime.Today,
+        _ => DateTime.Today.AddDays(-((int.TryParse(Range, out var d) ? d : 30) - 1)),
+    };
+
+    /// <summary>"All", "Apps" (app and game crashes, freezes) or "Pc" (blue screens, sudden shutdowns, driver resets, freezes).</summary>
     [ObservableProperty] private string _filter = "All";
 
+    /// <summary>Show muted apps' crashes (faded) in the list.</summary>
+    [ObservableProperty] private bool _showMuted;
+
+    private List<CrashRow> _all = [];
+    private List<CrashGroup> _groups = [];
+    private List<SystemChange> _changes = [];
+
+    /// <summary>Problems as they're listed: repeats and bursts grouped, newest first.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(Patterns), nameof(EmptyText))]
-    private List<CrashRow> _crashes = [];
+    [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(EmptyText))]
+    private List<CrashGroup> _groupsShown = [];
+
+    /// <summary>Individual crashes (not muted) for the current filter, newest first (dashboard tile).</summary>
+    [ObservableProperty] private List<CrashRow> _crashes = [];
+
+    [ObservableProperty] private List<CrashDay> _days = [];
+    [ObservableProperty] private List<string> _patterns = [];
 
     [ObservableProperty] private int _appCrashCount;
     [ObservableProperty] private int _systemCount;
     [ObservableProperty] private int _driverResetCount;
 
-    public bool HasCrashes => Crashes.Count > 0;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMuted), nameof(MutedToggleText))]
+    private int _mutedCount;
 
-    public string EmptyText => Filter switch
+    public bool HasMuted => MutedCount > 0;
+    public string MutedToggleText => $"Show muted ({MutedCount})";
+
+    [ObservableProperty] private string _statusTitle = "";
+    [ObservableProperty] private string _statusDetail = "";
+    [ObservableProperty] private Brush _statusBrush = Brushes.Transparent;
+    [ObservableProperty] private string _statusIcon = "";
+
+    public bool HasCrashes => GroupsShown.Count > 0;
+
+    public string EmptyText => IsDay ? "No crashes on this day" : Filter switch
     {
         "Apps" => "No app or game crashes in this period",
         "Pc" => "No PC crashes, driver resets or sudden shutdowns in this period",
         _ => "No crashes in this period",
     };
 
-    partial void OnFilterChanged(string value) => ApplyFilter();
-
-    private void ApplyFilter() => Crashes = Filter switch
-    {
-        "Apps" => [.. _all.Where(c => !c.IsSystem)],
-        "Pc" => [.. _all.Where(c => c.IsSystem)],
-        _ => _all,
-    };
-
-    /// <summary>Repeated causes worth pointing out ("3 of 4 shutdowns happened while asleep").</summary>
-    public List<string> Patterns
-    {
-        get
-        {
-            var list = new List<string>();
-            var shutdowns = Crashes.Where(c => c.Event.Kind == CrashKind.UnexpectedShutdown).ToList();
-            int asleep = shutdowns.Count(c => c.Event.DuringSleep);
-            if (asleep >= 2)
-                list.Add($"{asleep} of {shutdowns.Count} unexpected shutdowns happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems.");
-
-            foreach (var g in Crashes.Where(c => c.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang)
-                         .GroupBy(c => c.AppName ?? c.Event.AppExe).Where(g => g.Count() >= 2).OrderByDescending(g => g.Count()).Take(2))
-                list.Add($"{g.Key} crashed {g.Count()} times. Most common cause: {g.GroupBy(c => c.Culprit).MaxBy(x => x.Count())!.Key.ToLowerInvariant()}.");
-
-            int gpuRelated = Crashes.Count(c => c.Culprit.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
-                                                c.Culprit.Contains("AMD", StringComparison.OrdinalIgnoreCase) ||
-                                                c.Event.Kind == CrashKind.GpuDriverReset);
-            if (gpuRelated >= 2)
-                list.Add($"{gpuRelated} problems involved the graphics driver. A clean driver reinstall (and stock GPU clocks) is the first thing to try.");
-
-            int hot = Crashes.Count(c => c.GpuBefore >= 83 || c.CpuBefore >= 88);
-            if (hot >= 1)
-                list.Add($"{hot} crash{(hot == 1 ? "" : "es")} happened while your hardware was running hot. Check airflow and fan curves.");
-            return list;
-        }
-    }
-
+    partial void OnFilterChanged(string value) => ApplyView();
+    partial void OnShowMutedChanged(bool value) => ApplyView();
     partial void OnRangeChanged(string value) => _ = LoadAsync();
+
+    private int _loadId;
 
     public async Task LoadAsync()
     {
-        int days = int.TryParse(Range, out var d) ? d : 30;
-        _all = await reports.CrashesAsync(DateTime.Today.AddDays(-(days - 1)), DateTime.Now.AddMinutes(1)) ?? [];
-        AppCrashCount = _all.Count(c => c.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang);
-        SystemCount = _all.Count(c => c.Event.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown);
-        DriverResetCount = _all.Count(c => c.Event.Kind == CrashKind.GpuDriverReset);
-        ApplyFilter();
+        int id = ++_loadId;
+        var since = await reports.FirstCrashDayAsync();
+        if (Day > DateTime.Today) Day = DateTime.Today;
+        var from = Range switch
+        {
+            "day" => Day.Date,
+            "all" => DateTime.Today.AddYears(-20),
+            _ => From,
+        };
+        var to = Range == "day" ? Day.Date.AddDays(1) : DateTime.Now.AddMinutes(1);
+        var rows = await reports.CrashesAsync(from, to, includeMuted: true) ?? [];
+        // Drivers and updates from a week before the oldest problem, to explain what came after.
+        var changesFrom = (rows.Count > 0 ? rows.Min(c => c.Time) : from).Date.AddDays(-7);
+        if (Range != "all" && changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
+        var changes = await ReportService.ChangesAsync(changesFrom, DateTime.Now.AddMinutes(1));
+        if (id != _loadId) return;
+
+        Since = since;
+        _all = rows;
+        _changes = changes;
+        Regroup();
+        ApplyView();
+    }
+
+    private void Regroup()
+    {
+        _groups = CrashGroup.Build(_all, groupRepeats: Grouped);
+        foreach (var g in _groups) g.ChangesText = ChangesBefore(g);
+    }
+
+    /// <summary>Re-applies mute state, counts, timeline, status and the visible list.</summary>
+    private void ApplyView()
+    {
+        var s = settings.Current;
+        foreach (var g in _groups) g.IsMuted = g.AppExe is { } exe && s.IsCrashMuted(exe);
+        var counted = _groups.Where(g => !g.IsMuted).ToList();
+        var rows = counted.SelectMany(g => g.Rows).OrderByDescending(r => r.Time).ToList();
+
+        MutedCount = _groups.Where(g => g.IsMuted).Sum(g => g.Count);
+        AppCrashCount = rows.Count(c => c.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang);
+        SystemCount = rows.Count(c => c.Event.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown);
+        DriverResetCount = rows.Count(c => c.Event.Kind == CrashKind.GpuDriverReset);
+
+        bool Matches(CrashGroup g) => Filter switch
+        {
+            "Apps" => !g.IsIncident && !g.Latest.IsSystem,
+            "Pc" => g.IsIncident || g.Latest.IsSystem,
+            _ => true,
+        };
+        GroupsShown = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g))];
+        Crashes = [.. counted.Where(Matches).SelectMany(g => g.Rows).OrderByDescending(r => r.Time)];
+        Days = IsDay ? [] : CrashStrip.BuildDays(From, counted, _changes);
+        Patterns = BuildPatterns(rows);
+        BuildStatus(rows, [.. counted.Where(g => g.IsIncident).SelectMany(g => g.Rows)]);
+    }
+
+    // ── Status line ─────────────────────────────────────────────────────
+
+    private void BuildStatus(List<CrashRow> rows, HashSet<CrashRow> inIncidents)
+    {
+        static string Ago(DateTime t)
+        {
+            int days = (int)(DateTime.Today - t.Date).TotalDays;
+            return days switch { 0 => "today", 1 => "yesterday", _ => $"{days} days ago" };
+        }
+        var serious = rows.Where(r => CrashGroup.SeverityOf(r) >= CrashSeverity.Serious || inIncidents.Contains(r)).ToList();
+        var bsod = rows.FirstOrDefault(r => r.Event.Kind == CrashKind.SystemCrash);
+        var app = rows.FirstOrDefault(r => r.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang);
+        var lastSerious = serious.FirstOrDefault();
+
+        if (IsDay)
+        {
+            // One day: say what happened that day rather than "last blue screen N days ago".
+            int worst = rows.Count == 0 ? -1 : rows.Max(r => (int)CrashGroup.SeverityOf(r));
+            StatusTitle = rows.Count == 0 ? "No problems on this day" : $"{rows.Count} problem{(rows.Count == 1 ? "" : "s")} on this day";
+            StatusDetail = rows.Count == 0 ? "Nothing crashed, froze or shut down unexpectedly."
+                : string.Join(" · ", rows.GroupBy(r => r.Event.Kind).Select(g => KindCount(g.Key, g.Count()))) + ".";
+            (StatusIcon, StatusBrush) = worst switch
+            {
+                >= (int)CrashSeverity.Critical => ("", Res("HotBrush")),
+                >= (int)CrashSeverity.Serious => ("", Res("WarmBrush")),
+                >= (int)CrashSeverity.Minor => ("", Res("WarmBrush")),
+                _ => ("", Res("GpuBrush")),
+            };
+            return;
+        }
+        var parts = new List<string>
+        {
+            bsod is null ? "No blue screens in this period" : $"Last blue screen {Ago(bsod.Time)}",
+            app is null ? "no app crashes" : $"last app crash {Ago(app.Time)}",
+        };
+        int asleep = rows.Count(r => r.Event.Kind == CrashKind.UnexpectedShutdown && r.Event.DuringSleep);
+        if (asleep > 0) parts.Add($"{asleep} power loss{(asleep == 1 ? "" : "es")} while asleep (not a fault)");
+        StatusDetail = string.Join(" · ", parts) + ".";
+
+        int daysSince = lastSerious is null ? int.MaxValue : (int)(DateTime.Today - lastSerious.Time.Date).TotalDays;
+        (StatusTitle, StatusIcon, StatusBrush) = daysSince switch
+        {
+            <= 7 when lastSerious!.Event.Kind is CrashKind.SystemCrash =>
+                ($"Blue screen {Ago(lastSerious.Time)}", "", Res("HotBrush")),
+            <= 7 when lastSerious!.Event.Kind is CrashKind.UnexpectedShutdown =>
+                ($"Your PC shut off unexpectedly {Ago(lastSerious.Time)}", "", Res("HotBrush")),
+            <= 7 when inIncidents.Contains(lastSerious!) => ($"Your PC froze {Ago(lastSerious.Time)}", "", Res("WarmBrush")),
+            <= 7 => ($"Graphics trouble {Ago(lastSerious!.Time)}", "", Res("WarmBrush")),
+            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", Res("GpuBrush")),
+            _ => ($"Stable for {daysSince} days", "", Res("GpuBrush")),
+        };
+    }
+
+    private static string KindCount(CrashKind kind, int n) => kind switch
+    {
+        CrashKind.AppCrash => n == 1 ? "1 app crash" : $"{n} app crashes",
+        CrashKind.AppHang => n == 1 ? "1 app froze" : $"{n} apps froze",
+        CrashKind.GpuDriverReset => n == 1 ? "1 graphics driver reset" : $"{n} graphics driver resets",
+        CrashKind.SystemCrash => n == 1 ? "1 blue screen" : $"{n} blue screens",
+        _ => n == 1 ? "1 unexpected shutdown" : $"{n} unexpected shutdowns",
+    };
+
+    private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
+
+    // ── Patterns ────────────────────────────────────────────────────────
+
+    /// <summary>Things that only show across several problems (repeats of one app are shown by the grouping itself).</summary>
+    private static List<string> BuildPatterns(List<CrashRow> rows)
+    {
+        var list = new List<string>();
+        var shutdowns = rows.Where(c => c.Event.Kind == CrashKind.UnexpectedShutdown).ToList();
+        int asleep = shutdowns.Count(c => c.Event.DuringSleep);
+        if (asleep >= 2)
+            list.Add($"{asleep} of {shutdowns.Count} unexpected shutdowns happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems.");
+
+        int gpuRelated = rows.Count(c => c.Culprit.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
+                                         c.Culprit.Contains("AMD", StringComparison.OrdinalIgnoreCase) ||
+                                         c.Culprit.Contains("Graphics", StringComparison.OrdinalIgnoreCase) ||
+                                         c.Event.Kind == CrashKind.GpuDriverReset ||
+                                         c.Event.Code is "0x116" or "0x119" or "0x117");
+        if (gpuRelated >= 2)
+            list.Add($"{gpuRelated} problems involved the graphics driver. A clean driver reinstall (and stock GPU clocks) is the first thing to try.");
+
+        int hot = rows.Count(c => c.GpuBefore >= 83 || c.CpuBefore >= 88);
+        if (hot >= 1)
+            list.Add($"{hot} crash{(hot == 1 ? "" : "es")} happened while your hardware was running hot. Check airflow and fan curves.");
+        return list;
+    }
+
+    // ── What changed before ─────────────────────────────────────────────
+
+    private string? ChangesBefore(CrashGroup g)
+    {
+        // Only where a driver or update could plausibly be the cause: PC-level problems (any driver), and app
+        // crashes inside a graphics driver or DirectX (graphics drivers and Windows updates). A bug in an app's
+        // own code isn't explained by a network driver installed the same week.
+        bool graphics = g.Latest.Culprit is "NVIDIA driver" or "AMD driver" or "Intel graphics driver" or "DirectX" or "Vulkan" or "Graphics driver"
+                        or "GPU driver" or "VIDEO_TDR_FAILURE" or "VIDEO_SCHEDULER_INTERNAL_ERROR";
+        // Graphics problems point at graphics drivers (and Windows updates); other PC-level problems can be any driver.
+        bool pcLevel = (g.IsIncident || g.Severity >= CrashSeverity.Serious) && !graphics;
+        if (!pcLevel && !graphics) return null;
+        if (g.Latest.Event.Kind == CrashKind.UnexpectedShutdown && g.Latest.Event.DuringSleep) return null;
+
+        var first = g.First.Time;
+        // Graphics drivers and Windows updates are the usual suspects; take the nearest two in the week before.
+        var before = _changes.Where(c => c.Time < first && c.Time >= first.AddDays(-7))
+            .Where(c => pcLevel || c.Kind == ChangeKind.WindowsUpdate || c.Title.Contains("graphics", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => c.Title.Contains("graphics", StringComparison.OrdinalIgnoreCase) || c.Kind == ChangeKind.WindowsUpdate)
+            .ThenByDescending(c => c.Time)
+            .Take(2)
+            .OrderBy(c => c.Time)
+            .ToList();
+        if (before.Count == 0) return null;
+        string list = string.Join(", ", before.Select(c => $"{c.Title} ({When(c.Time, first)})"));
+        return g.Count > 1 ? $"In the week before the first time: {list}" : $"In the week before: {list}";
+
+        static string When(DateTime change, DateTime problem)
+        {
+            int days = (int)(problem.Date - change.Date).TotalDays;
+            return days switch { 0 => "same day", 1 => "the day before", _ => $"{days} days before" };
+        }
+    }
+
+    // ── Actions ─────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private static void ToggleExpand(CrashGroup g) => g.IsExpanded = !g.IsExpanded;
+
+    [RelayCommand]
+    private static void ToggleDetails(CrashGroup g) => g.ShowDetails = !g.ShowDetails;
+
+    [RelayCommand]
+    private void ToggleMute(CrashGroup g)
+    {
+        if (g.AppExe is not { } exe) return;
+        bool mute = !g.IsMuted;
+        settings.Update(s =>
+        {
+            s.MutedCrashApps.RemoveAll(e => e.Equals(exe, StringComparison.OrdinalIgnoreCase));
+            if (mute) s.MutedCrashApps.Add(exe);
+        });
+        ApplyView();
+    }
+
+    [RelayCommand]
+    private static void Search(CrashGroup g) => Open("https://www.google.com/search?q=" + Uri.EscapeDataString(g.SearchQuery));
+
+    [RelayCommand]
+    private static void ShowDump(CrashGroup g)
+    {
+        if (g.DumpPath is not { } path) return;
+        try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true }); } catch { }
+    }
+
+    [RelayCommand]
+    private async Task Copy(CrashGroup g)
+    {
+        try
+        {
+            Clipboard.SetText(Report(g));
+            g.Copied = true;
+            await Task.Delay(2000);
+            g.Copied = false;
+        }
+        catch
+        {
+            // The clipboard can be briefly locked by another app; the user can simply click again.
+        }
+    }
+
+    /// <summary>A plain-text summary for forums or support: what, when, why, context, and this PC's hardware.</summary>
+    public static string Report(CrashGroup g)
+    {
+        var sb = new StringBuilder();
+        string kind = g.KindLabel.ToLowerInvariant();
+        sb.AppendLine(g.Title.Contains(kind, StringComparison.OrdinalIgnoreCase) ? $"Problem: {g.Title}" : $"Problem: {g.Title} ({kind})");
+        sb.AppendLine(g.IsIncident
+            ? $"When: {g.First.Time:dddd d MMMM yyyy, h:mm tt} – {g.Latest.Time:h:mm tt}"
+            : g.Count == 1
+            ? $"When: {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}"
+            : $"When: {g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})");
+        sb.AppendLine($"What happened: {g.Reason}");
+        if (g.IsIncident)
+            foreach (var r in g.Rows.OrderBy(r => r.Time))
+                sb.AppendLine($"  {r.Time:h:mm:ss tt}  {(r.Event.Kind == CrashKind.GpuDriverReset ? "Graphics driver" : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
+                              (string.IsNullOrEmpty(r.TechnicalText) || r.Event.Kind == CrashKind.GpuDriverReset ? "" : $" ({r.TechnicalText})"));
+        if (g.ContextText is { } context) sb.AppendLine($"Just before: {context}");
+        if (g.ChangesText is { } changes) sb.AppendLine(changes);
+        if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine($"Technical: {g.TechnicalText}");
+        sb.AppendLine($"Suggested fix: {g.Advice}");
+        sb.AppendLine();
+        sb.Append(PcInfo.Text);
+        return sb.ToString();
+    }
+
+    private static void Open(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     }
 
     [RelayCommand]

@@ -45,26 +45,32 @@ It does all of this while using about **0.01% of your CPU**.
 
 ### 📅 Your day
 - **Home**: today so far, highlights, and a recap of yesterday.
-- **Reports** for the day, week and month:
+- **Reports** for the day, week and month; step back through time or click the date to jump to any day or month since tracking started:
   - a timeline of your day with temperatures drawn over it;
   - time per app, split into *in use*, *in the background* and *minimized*;
   - the hottest moments and the app responsible;
-  - your longest sessions, plus insights like "Cyberpunk ran your GPU 9 °C hotter than anything else".
+  - your longest sessions (a minute or more; quick switches still count towards app time);
+  - insights that only speak up when there's something to say: time against your daily average, your longest stretch without a break, temperatures compared at the same load (idle against idle, gaming against gaming), time at your alert limit, and a GPU hot spot running far above the core (a sign the thermal paste needs redoing).
 - **Discord-style sessions**: Rigsight knows when you're actually using an app and when you're away, and counts a fullscreen game as in use even when you're not touching the mouse.
 
 ### 🧩 Apps
-- Every app you use, with active time, average and peak CPU/GPU temperatures while it was in front, peak memory, sessions and a 14-day chart.
+- Every app you use, for any single day, the last 7 or 30 days, or all time (with the date tracking started), with active time, average and peak CPU/GPU temperatures while it was in front, peak memory, sessions and a 14-day chart.
 - Rename apps, change their category (game, browser, work…), or exclude them from tracking.
 
 ### 💥 Crashes
 - App and game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns, all read from Windows' own records.
 - **Plain-language explanations**: blue screen codes and faulting modules are translated into what probably happened and what to try.
-- Shows how hot your CPU and GPU were just before each crash.
+- Shows what was going on just before each crash: CPU and GPU temperatures, and which game you were in and for how long.
+- **List** (every crash, newest at the top) or **Grouped**: the same crash repeated is one row with a count ("Wallpaper Engine crashed ×36"), and several things failing within minutes is one incident ("Your PC froze: 5 apps stopped responding").
+- **A timeline** of problems per day, coloured by severity, with the days a driver or Windows update was installed marked, and **"what changed before"**: a blue screen that started two days after a graphics driver install says so.
+- **Copy report** (a ready-to-paste summary with your CPU, GPU and driver, RAM and Windows version), **Search online**, and **Show dump file** for blue screens.
+- **Mute** an app you don't care about: its crashes leave the totals, timeline, reports and notifications (nothing is deleted).
+- Any single day (pick it from a calendar, or click a day on the timeline), the last 7, 30 or 90 days, or everything (including what Windows logged before Rigsight was installed).
 - **Patterns**, such as "3 of 4 shutdowns happened while asleep" or "the graphics driver was involved in 5 crashes".
 - Filter by **Apps & games** or **PC problems**.
 
 ### 🌡️ Hardware
-- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, each with today's lowest and highest (tracked all day, even with the window closed), and a history chart from 5 minutes to 24 hours; hover it for the exact time and temperatures.
+- **Temperatures**: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, motherboard and drive temperatures, each with today's lowest and highest (tracked all day, even with the window closed), and a history chart for the last 5 minutes to 24 hours or any single day (today, yesterday, or pick a date); hover it for the exact time and temperatures.
 - **Memory**: RAM use, live per-app memory (like Task Manager's "private working set"), and today's biggest memory users.
 - **Storage**: drive usage and growth, drive health (SSD wear, and a CrystalDiskInfo-style Good/Caution/Bad check with bad-sector counts for hard drives), cleanup suggestions, and a folder scanner with a treemap.
 - **All sensors**: every sensor LibreHardwareMonitor can see, searchable, in collapsible groups, with rename and hide.

@@ -37,11 +37,14 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public bool HasTodayData => Today is { HasData: true };
     public List<AppStat> TodayTopApps => Today?.Apps.Where(a => a.ActiveSec >= 30 && a.Category != AppCategory.System).Take(6).ToList() ?? [];
     public double TodayTopMax => Math.Max(1, TodayTopApps.FirstOrDefault()?.ActiveSec ?? 1);
-    public List<Insight> TodayInsights => Today?.Insights.Skip(1).Take(5).ToList() ?? [];
+    // Home already shows the time totals and the most-used apps, so those lines are left out here.
+    private static readonly HashSet<string> ShownElsewhere = ["screen", "top-app"];
+
+    public List<Insight> TodayInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(5).ToList() ?? [];
 
     public bool YesterdayHasData => Yesterday is { HasData: true };
     public List<AppStat> YesterdayTopApps => Yesterday?.Apps.Where(a => a.ActiveSec >= 60 && a.Category != AppCategory.System).Take(3).ToList() ?? [];
-    public List<Insight> YesterdayInsights => Yesterday?.Insights.Skip(2).Take(3).ToList() ?? [];
+    public List<Insight> YesterdayInsights => Yesterday?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(3).ToList() ?? [];
 
     private DateTime _yesterdayLoadedFor;
 

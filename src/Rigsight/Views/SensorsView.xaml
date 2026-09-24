@@ -119,8 +119,8 @@
                                 <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
                                 <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
                                 <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" ToolTip="Lowest today (tracked all day, even with Rigsight closed)" />
-                                <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" ToolTip="Highest today (tracked all day, even with Rigsight closed)" />
+                                <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" ToolTip="Lowest today, since midnight" />
+                                <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" ToolTip="Highest today, since midnight" />
                                 <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" ToolTip="Average since you opened this window" />
                             </Grid>
                         </StackPanel>

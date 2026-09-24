@@ -1,3 +1,4 @@
+using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 
@@ -37,6 +38,9 @@ public static class ReportBuilder
         _ => anchor.AddMonths(1),
     };
 
+    /// <summary>Sessions shorter than this (a screenshot, a quick alt-tab) still count as usage but aren't listed as sessions.</summary>
+    public const double MinSessionSec = 60;
+
     /// <summary>Builds the report for the period containing <paramref name="anchor"/>, including insights.</summary>
     public static Report Build(RigsightDb db, ReportRange range, DateTime anchor, RigsightSettings settings)
     {
@@ -50,27 +54,30 @@ public static class ReportBuilder
             pTo = pFrom + (DateTime.Now - from);
         var previous = BuildRaw(db, range, pFrom, pTo, apps, settings);
 
-        var baseline = db.AverageTemps(TimeUtil.ToUnix(from.AddDays(-7)), TimeUtil.ToUnix(from));
-        report.Insights = InsightEngine.Generate(report, previous, baseline);
+        // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
+        var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
+        report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts);
         return report;
     }
 
+    /// <param name="withMinutes">False skips the minute-by-minute history (system totals, temperatures, timeline):
+    /// the Apps page only needs the hourly per-app totals, which are far cheaper to read over long ranges.</param>
     public static Report BuildRaw(RigsightDb db, ReportRange range, DateTime from, DateTime to,
-        IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings)
+        IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, bool withMinutes = true)
     {
         var report = new Report { Range = range, From = from, To = to };
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
 
-        var minutes = db.GetMinutes(f, t);
+        var minutes = withMinutes ? db.GetMinutes(f, t) : [];
         var hours = db.GetAppHours(f, t);
         var sessions = db.GetSessions(f, t);
-        report.Crashes = db.GetCrashes(f, t);
+        report.Crashes = [.. db.GetCrashes(f, t).Where(c => !settings.IsCrashMuted(c.AppExe))];
         report.HasData = minutes.Count > 0 || hours.Count > 0;
 
         string NameOf(long? id)
         {
             if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
-            return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : a.Name;
+            return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
         }
         AppCategory CategoryOf(long? id)
         {
@@ -155,6 +162,7 @@ public static class ReportBuilder
         // Sessions.
         foreach (var s in sessions)
         {
+            if (s.ActiveSec < MinSessionSec) continue;
             apps.TryGetValue(s.AppId, out var row);
             report.Sessions.Add(new SessionInfo
             {
@@ -176,6 +184,9 @@ public static class ReportBuilder
                 st.LongestSessionSec = Math.Max(st.LongestSessionSec, s.ActiveSec);
             }
         }
+
+        report.GamingSec = stats.Values.Where(a => a.Category == AppCategory.Game).Sum(a => a.ActiveSec);
+        AddDayShape(report, minutes, settings.Alerts, NameOf);
 
         report.Apps = [.. stats.Values.OrderByDescending(s => s.ActiveSec).ThenByDescending(s => s.OpenSec)];
         foreach (var s in report.Apps.Where(s => s.ActiveSec > 0))
@@ -240,6 +251,65 @@ public static class ReportBuilder
         }
 
         return report;
+    }
+
+    // A minute counts as "at the desk" with at least this much active time, and a break is this many minutes away.
+    private const int ActiveMinuteSec = 20;
+    private const int BreakMinutes = 5;
+    private const int LateNightEndsHour = 5;
+
+    /// <summary>When the day started and ended, the longest stretch without a break, and temperatures at like-for-like load.</summary>
+    private static void AddDayShape(Report report, List<SystemMinute> minutes, AlertSettings alerts, Func<long?, string> nameOf)
+    {
+        // Start, end, and the longest stretch without a break (gaps shorter than a break don't end a stretch).
+        long runStart = 0, runEnd = 0, bestStart = 0, bestEnd = 0;
+        var runApps = new Dictionary<long, int>();
+        long? bestApp = null;
+        foreach (var m in minutes)
+        {
+            if (m.ActiveSec < ActiveMinuteSec) continue;
+            var time = TimeUtil.FromUnix(m.Ts);
+            report.FirstActive ??= time;
+            report.LastActive = time.AddMinutes(1);
+            // Use in the small hours belongs to the night before, not to "when the day started".
+            if (time.Hour < LateNightEndsHour) report.LateUntil = time.AddMinutes(1);
+            else report.DayStart ??= time;
+            if (runEnd == 0 || m.Ts - runEnd >= BreakMinutes * 60)
+            {
+                runStart = m.Ts;
+                runApps.Clear();
+            }
+            runEnd = m.Ts + 60;
+            if (m.FgApp is long app) runApps[app] = runApps.GetValueOrDefault(app) + 1;
+            if (runEnd - runStart > bestEnd - bestStart)
+            {
+                bestStart = runStart;
+                bestEnd = runEnd;
+                bestApp = runApps.Count > 0 ? runApps.MaxBy(x => x.Value).Key : null;
+            }
+        }
+        if (bestEnd > bestStart)
+            report.LongestStretch = new Stretch(TimeUtil.FromUnix(bestStart), TimeUtil.FromUnix(bestEnd), bestApp is null ? null : nameOf(bestApp));
+
+        // Temperatures compared at the same load, so an idle morning isn't "cooler than usual" just because nothing ran.
+        report.IdleTemps = TempsWhere(minutes, m => m.CpuLoad < 15 && m.GpuLoad < 15);
+        report.GpuLoadTemps = TempsWhere(minutes, m => m.GpuLoad >= 80);
+        report.CpuLoadTemps = TempsWhere(minutes, m => m.CpuLoad >= 50);
+
+        // Hot spot vs core under heavy GPU load: a widening gap is the classic sign of dried-out paste or poor contact.
+        var gaps = minutes.Where(m => m.GpuLoad >= 80 && m.GpuHotMax is not null && m.GpuTempMax is not null)
+            .Select(m => m.GpuHotMax!.Value - m.GpuTempMax!.Value).ToList();
+        if (gaps.Count > 0) report.HotSpotGap = new LoadTemps(null, gaps.Average(), gaps.Count);
+
+        report.CpuOverLimitMin = minutes.Count(m => m.CpuTempMax >= alerts.CpuLimit);
+        report.GpuOverLimitMin = minutes.Count(m => m.GpuTempMax >= alerts.GpuLimit);
+    }
+
+    private static LoadTemps? TempsWhere(List<SystemMinute> minutes, Func<SystemMinute, bool> match)
+    {
+        var picked = minutes.Where(match).ToList();
+        if (picked.Count == 0) return null;
+        return new LoadTemps(Avg(picked.Select(m => m.CpuTemp)), Avg(picked.Select(m => m.GpuTemp)), picked.Count);
     }
 
     private static double? Avg(IEnumerable<double?> values)

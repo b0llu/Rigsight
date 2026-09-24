@@ -13,7 +13,8 @@ internal static class ChartGeometry
     /// cheap to draw. Samples after <paramref name="until"/> are left out (another source covers them).
     /// </summary>
     public static (StreamGeometry Line, StreamGeometry Fill)? Build(
-        HistoryBuffer buffer, long from, long to, Rect plot, double min, double max, Func<double, double> transform, long until = long.MaxValue)
+        HistoryBuffer buffer, long from, long to, Rect plot, double min, double max, Func<double, double> transform, long until = long.MaxValue,
+        (long Time, double Value)? joinTo = null)
     {
         if (buffer.Count == 0 || to <= from || max <= min) return null;
 
@@ -65,6 +66,18 @@ internal static class ChartGeometry
             bucketXPos = x;
         }
         Flush();
+        // Continue the line to where the next series starts (the minute history hands over to live readings),
+        // so there's no seam between them; not across a real gap such as the PC being off.
+        long lastTime = long.MinValue;
+        for (int i = Math.Min(buffer.Count, buffer.IndexAtOrAfter(until == long.MaxValue ? long.MaxValue : until + 1)) - 1; i >= 0; i--)
+            if (!double.IsNaN(buffer.ValueAt(i))) { lastTime = buffer.TimeAt(i); break; }
+        bool joined = false;
+        if (joinTo is { } j && run is { Count: > 0 } && !double.IsNaN(j.Value) && j.Time - lastTime <= 150_000)
+        {
+            joined = true;
+            double y = plot.Bottom - (transform(j.Value) - min) / (max - min) * plot.Height;
+            run.Add(new Point(plot.Left + (j.Time - from) / span * plot.Width, Math.Clamp(y, plot.Top, plot.Bottom)));
+        }
         if (run is { Count: > 0 }) points.Add(run);
         if (points.Count == 0) return null;
 
@@ -86,7 +99,14 @@ internal static class ChartGeometry
             {
                 ctx.BeginFigure(new Point(r[0].X, plot.Bottom), true, true);
                 ctx.PolyLineTo(r, false, true);
-                ctx.LineTo(new Point(r[^1].X, plot.Bottom), false, true);
+                // Where it hands over to the next series, overlap it by a pixel: two anti-aliased edges
+                // meeting exactly leave a faint seam.
+                if (joined && r == points[^1])
+                {
+                    ctx.LineTo(new Point(r[^1].X + 1, r[^1].Y), false, true);
+                    ctx.LineTo(new Point(r[^1].X + 1, plot.Bottom), false, true);
+                }
+                else ctx.LineTo(new Point(r[^1].X, plot.Bottom), false, true);
             }
         }
         fill.Freeze();

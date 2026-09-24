@@ -46,6 +46,15 @@ public sealed class LineChart : FrameworkElement
     public IEnumerable<ChartSeries>? Series { get => (IEnumerable<ChartSeries>?)GetValue(SeriesProperty); set => SetValue(SeriesProperty, value); }
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
     public int WindowSeconds { get => (int)GetValue(WindowSecondsProperty); set => SetValue(WindowSecondsProperty, value); }
+
+    /// <summary>With <see cref="WindowSeconds"/> 0: the day shown (today: midnight to now; earlier: the whole day, from minute history).</summary>
+    public static readonly DependencyProperty DayProperty = DependencyProperty.Register(
+        nameof(Day), typeof(DateTime), typeof(LineChart), new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTime Day { get => (DateTime)GetValue(DayProperty); set => SetValue(DayProperty, value); }
+
+    // Set per render: an earlier day draws only minute history (the live buffer only covers the last hour).
+    private bool _pastDay;
     public Brush GridBrush { get => (Brush)GetValue(GridBrushProperty); set => SetValue(GridBrushProperty, value); }
     public Brush LabelBrush { get => (Brush)GetValue(LabelBrushProperty); set => SetValue(LabelBrushProperty, value); }
 
@@ -75,7 +84,8 @@ public sealed class LineChart : FrameworkElement
     /// only: one averaged point a minute, joined by straight lines, would look like real readings there.
     /// </summary>
     private long LiveStart(ChartSeries s) =>
-        WindowSeconds < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
+        _pastDay ? long.MaxValue
+        : WindowSeconds is > 0 and < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -86,8 +96,14 @@ public sealed class LineChart : FrameworkElement
         var series = Series?.ToList() ?? [];
 
         long to = series.Count == 0 ? 0 : series.Max(s => Math.Max(s.Sensor.History.LastTime, s.Minutes.LastTime));
-        long windowMs = WindowSeconds * 1000L;
-        long from = to - windowMs;
+        // WindowSeconds 0 is one calendar day: today from midnight to now, or an earlier day in full.
+        bool dayMode = WindowSeconds == 0;
+        var day = Day == default ? DateTime.Today : Day.Date;
+        _pastDay = dayMode && day < DateTime.Today;
+        long from = dayMode ? new DateTimeOffset(day).ToUnixTimeMilliseconds() : to - WindowSeconds * 1000L;
+        if (_pastDay) to = new DateTimeOffset(day.AddDays(1)).ToUnixTimeMilliseconds();
+        else if (dayMode && to - from < 300_000) to = from + 300_000;
+        int window = (int)((to - from) / 1000);
 
         // Y range across all series (live and minute history), in display units, snapped to multiples of 10.
         double lo = double.MaxValue, hi = double.MinValue;
@@ -105,7 +121,7 @@ public sealed class LineChart : FrameworkElement
 
         if (lo > hi)
         {
-            DrawText(dc, "Collecting data…", new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
+            DrawText(dc, _pastDay ? "No temperatures recorded on this day" : "Collecting data…", new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }
 
@@ -130,23 +146,40 @@ public sealed class LineChart : FrameworkElement
         }
 
         // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
-        int step = WindowSeconds switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, <= 3600 => 900, <= 21600 => 3600, _ => 4 * 3600 };
-        // On a narrow chart (a small dashboard tile), skip labels until each has room ("12:04 PM" ≈ 50 px).
-        while (step < WindowSeconds && plot.Width * step / WindowSeconds < 56) step *= 2;
-        for (int t = 0; t <= WindowSeconds; t += step)
+        if (dayMode)
         {
-            double x = plot.Right - plot.Width * t / WindowSeconds;
-            string label = t == 0 ? "now"
-                : WindowSeconds > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("t", CultureInfo.CurrentCulture)
-                : t < 60 ? $"-{t}s" : $"-{t / 60}m";
-            DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: true);
+            // Whole hours from midnight ("12 AM", "3 AM"…), as many as fit; today ends at "now".
+            double hours = window / 3600.0;
+            int hourStep = new[] { 1, 2, 3, 4, 6 }.FirstOrDefault(s => plot.Width * s / Math.Max(hours, 0.1) >= 64, 6);
+            if (!_pastDay) DrawText(dc, "now", new Point(plot.Right, plot.Bottom + 12), dpi, center: true);
+            for (int hr = 0; hr <= hours; hr += hourStep)
+            {
+                double x = plot.Left + plot.Width * hr / hours;
+                if (!_pastDay && plot.Right - x < 48) break; // leave room for "now"
+                DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: true);
+            }
+        }
+        else
+        {
+            int step = window switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, <= 3600 => 900, <= 21600 => 3600, _ => 4 * 3600 };
+            // On a narrow chart (a small dashboard tile), skip labels until each has room ("12:04 PM" ≈ 50 px).
+            while (step < window && plot.Width * step / window < 56) step *= 2;
+            for (int t = 0; t <= window; t += step)
+            {
+                double x = plot.Right - plot.Width * t / window;
+                string label = t == 0 ? "now"
+                    : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("t", CultureInfo.CurrentCulture)
+                    : t < 60 ? $"-{t}s" : $"-{t / 60}m";
+                DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: true);
+            }
         }
 
         dc.PushClip(new RectangleGeometry(new Rect(plot.Left, plot.Top - 2, plot.Width, plot.Height + 4)));
         foreach (var s in series)
         {
             long liveStart = LiveStart(s);
-            if (from < liveStart) Draw(s, s.Minutes, liveStart);
+            if (from < liveStart)
+                Draw(s, s.Minutes, liveStart, s.Sensor.History.Count > 0 ? (s.Sensor.History.TimeAt(0), s.Sensor.History.ValueAt(0)) : null);
             Draw(s, s.Sensor.History);
         }
         dc.Pop();
@@ -154,9 +187,9 @@ public sealed class LineChart : FrameworkElement
         if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
             DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
 
-        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue)
+        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null)
         {
-            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Units.Temp, until) is not { } g) return;
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Units.Temp, until, joinTo) is not { } g) return;
             dc.DrawGeometry(s.Fill, null, g.Fill);
             dc.DrawGeometry(null, s.LinePen, g.Line);
         }
