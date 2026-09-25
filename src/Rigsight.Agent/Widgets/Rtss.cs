@@ -15,7 +15,11 @@ namespace Rigsight.Agent.Widgets;
 internal static unsafe class Rtss
 {
     private const string MapName = "RTSSSharedMemoryV2";
-    private const string Owner = "Rigsight";
+    /// <summary>The overlay's OSD slot.</summary>
+    public const string Owner = "Rigsight";
+
+    /// <summary>In-game notices (a temperature alert during an exclusive-fullscreen game): a slot of their own, placed apart from the overlay.</summary>
+    public const string NoticeOwner = "Rigsight notice";
     private const uint Signature = 0x52545353; // "RTSS"
 
     // Header layout (RTSSSharedMemory.h): signature, version, app entry size/offset/count,
@@ -63,10 +67,10 @@ internal static unsafe class Rtss
     }
 
     /// <summary>Shows <paramref name="text"/> in games (RTSS's own tags allowed). Returns false if RTSS isn't running.</summary>
-    public static bool Show(string text) => Use(memory => WriteEntry(memory, text));
+    public static bool Show(string text, string owner = Owner) => Use(memory => WriteEntry(memory, text, owner));
 
-    /// <summary>Removes Rigsight's text from games.</summary>
-    public static void Clear() => Use(memory => WriteEntry(memory, null));
+    /// <summary>Removes Rigsight's text (of that slot) from games.</summary>
+    public static void Clear(string owner = Owner) => Use(memory => WriteEntry(memory, null, owner));
 
     /// <summary>Whether RTSS is drawing inside this process (so our own window isn't needed there).</summary>
     public static bool IsHooked(int pid) => pid > 0 && Use(memory =>
@@ -207,8 +211,8 @@ internal static unsafe class Rtss
     private static bool Fits(uint offset, uint count, uint size, uint needed) =>
         size >= needed && offset + (ulong)count * size <= (ulong)_capacity;
 
-    /// <summary>Finds (or claims) Rigsight's OSD slot and writes the text; null frees the slot.</summary>
-    private static bool WriteEntry(byte* memory, string? text)
+    /// <summary>Finds (or claims) the owner's OSD slot and writes the text; null frees the slot.</summary>
+    private static bool WriteEntry(byte* memory, string? text, string ownerName)
     {
         uint version = U(memory, VersionAt);
         uint entrySize = U(memory, OsdEntrySizeAt), offset = U(memory, OsdArrOffsetAt), count = U(memory, OsdArrSizeAt);
@@ -230,10 +234,10 @@ internal static unsafe class Rtss
                     string owner = ReadAnsi(entry + OsdOwnerAt, 256);
                     if (pass == 1 && text is not null && owner.Length == 0)
                     {
-                        WriteAnsi(entry + OsdOwnerAt, Owner, 256);
-                        owner = Owner;
+                        WriteAnsi(entry + OsdOwnerAt, ownerName, 256);
+                        owner = ownerName;
                     }
-                    if (owner != Owner) continue;
+                    if (owner != ownerName) continue;
 
                     if (text is null) NativeMemory.Clear(entry, entrySize);
                     else if (version >= 0x00020007) WriteAnsi(entry + OsdTextExAt, text, OsdTextExSize);

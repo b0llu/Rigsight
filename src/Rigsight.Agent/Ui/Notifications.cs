@@ -3,6 +3,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using Rigsight.Agent.Native;
+using Rigsight.Agent.Widgets;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
@@ -18,7 +19,8 @@ internal sealed record Notice(NoticeKind Kind, string Title, string Body, string
 /// a fullscreen app is in front (so nothing pops up mid-game), stacked in the bottom-right corner.
 /// UI thread only.
 /// </summary>
-internal sealed class NotificationCenter(Func<RigsightSettings> settings, TrayController tray, Action<string?, string?> openApp)
+internal sealed class NotificationCenter(Func<RigsightSettings> settings, TrayController tray, Action<string?, string?> openApp,
+    Func<Notice, InGame> showInGame)
 {
     private readonly Queue<Notice> _held = new();
     private readonly List<ToastForm> _open = [];
@@ -27,10 +29,24 @@ internal sealed class NotificationCenter(Func<RigsightSettings> settings, TrayCo
     public void Show(Notice notice, bool bypassQuiet = false)
     {
         var s = settings().Alerts;
-        if (!bypassQuiet && !notice.Urgent && s.QuietDuringFullscreen && _fullscreen)
+        if (!bypassQuiet && _fullscreen)
         {
-            _held.Enqueue(notice);
-            return;
+            if (!notice.Urgent && s.QuietDuringFullscreen)
+            {
+                _held.Enqueue(notice);
+                return;
+            }
+            // A game in exclusive fullscreen hides every window, cards and Windows notifications alike: the notice
+            // goes into the game through RivaTuner, or, where RivaTuner isn't drawing, waits until the game is left
+            // instead of vanishing unseen. Borderless and windowed games get the card as usual.
+            switch (showInGame(notice))
+            {
+                case InGame.Shown:
+                    return;
+                case InGame.Unreachable:
+                    _held.Enqueue(notice);
+                    return;
+            }
         }
         Display(notice);
     }
@@ -239,10 +255,11 @@ internal static class ToastRenderer
 {
     private const float Width = 404, Pad = 17, IconSize = 42;
 
-    private static readonly Color Bg = Color.FromArgb(250, 22, 27, 40);
+    // Also used for the same notice drawn inside a game by RivaTuner (WidgetRenderer.RtssNoticeText).
+    internal static readonly Color Bg = Color.FromArgb(250, 22, 27, 40);
     private static readonly Color Border = Color.FromArgb(45, 54, 76);
-    private static readonly Color Text = Color.FromArgb(232, 236, 244);
-    private static readonly Color Muted = Color.FromArgb(160, 168, 186);
+    internal static readonly Color Text = Color.FromArgb(232, 236, 244);
+    internal static readonly Color Muted = Color.FromArgb(160, 168, 186);
     private static Bitmap? _logo;
     private static readonly Dictionary<string, Bitmap?> Icons = new(StringComparer.OrdinalIgnoreCase);
 
@@ -255,7 +272,7 @@ internal static class ToastRenderer
         _ => Color.FromArgb(177, 140, 255),
     };
 
-    private static string KindLabel(NoticeKind kind) => kind switch
+    public static string KindLabel(NoticeKind kind) => kind switch
     {
         NoticeKind.Alert => "TEMPERATURE ALERT",
         NoticeKind.Recap => "DAILY RECAP",

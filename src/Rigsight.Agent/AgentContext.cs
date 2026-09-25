@@ -100,7 +100,7 @@ internal sealed class AgentContext : ApplicationContext
         _overlay.CantReachGame += OnOverlayCantReachGame;
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
-        _notices = new NotificationCenter(() => _settings, _tray, OpenApp);
+        _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
 
         _pipe = new PipeServer(BuildHello, OnUiMessage);
         _pipe.Start();

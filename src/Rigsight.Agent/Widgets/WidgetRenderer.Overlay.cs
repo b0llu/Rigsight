@@ -229,6 +229,51 @@ internal static partial class WidgetRenderer
         return header + RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
     }
 
+    /// <summary>
+    /// A notice in RivaTuner's hypertext, made to look like the notification card: the card's dark rounded panel, the
+    /// kind in small coloured capitals, the title in white and the text in grey (wrapped here, since RivaTuner doesn't
+    /// wrap). Pinned bottom right, or top right when <paramref name="top"/>, with the overlay's gap and padding, on a
+    /// layer of its own (L6) so it's placed independently of the overlay (L0). Sized with the overlay.
+    /// </summary>
+    public static string RtssNoticeText(string caption, Color accent, string title, string body, bool top, double scale)
+    {
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
+        static string Hex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
+        int fontHeight = -(int)Math.Round(8 * scale);
+        var (left, topMargin, right, bottom) = RtssMargins(right: true, bottom: !top, scale);
+        var bg = Ui.ToastRenderer.Bg;
+        string pad = RtssLeftSpacer + " ";
+        var text = new System.Text.StringBuilder()
+            .Append($"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}><P{(top ? 2 : 8)}><L6><M={left},{topMargin},{right},{bottom}>")
+            .Append($"<C={bg.A:X2}{Hex(bg)}><B=0,0,R8>\b<C>")
+            .Append(RtssTopSpacer)
+            .Append($"{pad}<S=-62><C={Hex(accent)}>{Clean(caption)}<C><S>\n")
+            .Append($"{pad}<C={Hex(Ui.ToastRenderer.Text)}>{Clean(title)}<C>");
+        foreach (var line in Wrap(Clean(body), NoticeLineLength))
+            text.Append($"\n{pad}<S=-80><C={Hex(Ui.ToastRenderer.Muted)}>{line}<C><S>");
+        return text.ToString();
+    }
+
+    /// <summary>Characters per line of a notice's text in RivaTuner (about the card's width).</summary>
+    private const int NoticeLineLength = 44;
+
+    /// <summary>Splits text into lines of at most <paramref name="max"/> characters, at spaces.</summary>
+    private static IEnumerable<string> Wrap(string text, int max)
+    {
+        var line = new System.Text.StringBuilder();
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length > 0 && line.Length + 1 + word.Length > max)
+            {
+                yield return line.ToString();
+                line.Clear();
+            }
+            if (line.Length > 0) line.Append(' ');
+            line.Append(word);
+        }
+        if (line.Length > 0) yield return line.ToString();
+    }
+
     /// <summary>RTSS draws at this zoom ratio (set by our &lt;FNT&gt; tag): one margin unit is this many screen pixels.</summary>
     private const int RtssZoom = 2;
 

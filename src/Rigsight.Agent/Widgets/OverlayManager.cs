@@ -22,6 +22,7 @@ internal sealed class OverlayManager : IDisposable
     private bool _rtssWritten, _rtssStartTried, _installing;
     private string? _installResult;
     private readonly HashSet<string> _warnedApps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly InGameNotice _notice = new();
 
     public OverlayManager(bool isAdmin)
     {
@@ -218,6 +219,16 @@ internal sealed class OverlayManager : IDisposable
     }
 
     /// <summary>
+    /// A notice while a game may be in front: inside an exclusive-fullscreen game (where no window can show) it's drawn
+    /// by RivaTuner if RivaTuner is drawing in that game, else it can't be seen; anywhere else the usual card shows.
+    /// </summary>
+    public InGame ShowInGame(Ui.Notice notice, int seconds)
+    {
+        if (!IsExclusiveFullscreen()) return InGame.NotNeeded;
+        return Rtss.IsHooked(ForegroundPid()) && _notice.Show(notice, _settings, Visible, seconds) ? InGame.Shown : InGame.Unreachable;
+    }
+
+    /// <summary>
     /// Saves a picture of the overlay for the app's Overlay page: the current readings, the given sensors, and a
     /// sample frame rate (a real one only exists while a game is running).
     /// </summary>
@@ -233,6 +244,7 @@ internal sealed class OverlayManager : IDisposable
     public void Dispose()
     {
         ClearRtss();
+        _notice.Dispose();
         Rtss.Release();
         _hotkey.Dispose();
         _form?.Close();
