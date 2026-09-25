@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Rigsight.Agent.Native;
 
@@ -34,7 +35,7 @@ internal sealed unsafe class ProcessSampler
     private IntPtr _buffer = Marshal.AllocHGlobal(1 << 20);
     private int _bufferSize = 1 << 20;
     private Dictionary<(int Pid, long Created), long> _lastCpu = [];
-    private long _lastSampleTicks;
+    private long _lastSampleTime;
 
     /// <summary>Apps (exe names) whose processes are also listed one by one, for the Memory page.</summary>
     public HashSet<string>? Detail { get; set; }
@@ -53,9 +54,11 @@ internal sealed unsafe class ProcessSampler
         var snapshot = new ProcessSnapshot();
         if (status != 0) return snapshot;
 
-        long now = Environment.TickCount64;
-        double elapsed100ns = (now - _lastSampleTicks) * 10_000.0 * Environment.ProcessorCount;
-        bool haveBaseline = _lastSampleTicks != 0 && elapsed100ns > 0;
+        // By the precise clock: a sample taken right after another (the Memory page asking for its details) is only
+        // milliseconds later, where TickCount's 16 ms steps would make CPU use look several times too high.
+        long now = Stopwatch.GetTimestamp();
+        double elapsed100ns = Stopwatch.GetElapsedTime(_lastSampleTime, now).Ticks * (double)Environment.ProcessorCount;
+        bool haveBaseline = _lastSampleTime != 0 && elapsed100ns > 0;
         var current = new Dictionary<(int, long), long>(_lastCpu.Count);
         var detail = Detail;
 
@@ -73,7 +76,7 @@ internal sealed unsafe class ProcessSampler
 
                 double cpu = 0;
                 if (haveBaseline && _lastCpu.TryGetValue(key, out var before))
-                    cpu = Math.Max(0, (cpuTime - before) / elapsed100ns * 100);
+                    cpu = Math.Clamp((cpuTime - before) / elapsed100ns * 100, 0, 100); // Windows counts CPU time in steps too
 
                 if (!snapshot.Apps.TryGetValue(exe, out var app))
                 {
@@ -81,7 +84,7 @@ internal sealed unsafe class ProcessSampler
                     snapshot.Apps[exe] = app;
                 }
                 app.Count++;
-                app.Cpu += cpu;
+                app.Cpu = Math.Min(100, app.Cpu + cpu);
                 double mem = info->WorkingSetPrivateSize / (1024.0 * 1024.0);
                 app.MemMB += mem;
                 if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem));
@@ -93,7 +96,7 @@ internal sealed unsafe class ProcessSampler
         }
 
         _lastCpu = current;
-        _lastSampleTicks = now;
+        _lastSampleTime = now;
         return snapshot;
     }
 }

@@ -108,7 +108,7 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);
-        if (_settings.Overlay.Enabled) _overlay.EnsureRtssRunning();
+        if (_settings.Overlay.Enabled && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
 
         // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
         // the game session in progress), and let the installer ask for a clean stop ("--quit").
@@ -118,14 +118,16 @@ internal sealed class AgentContext : ApplicationContext
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
         _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit(), null), null, Timeout.Infinite, executeOnlyOnce: true);
 
-        // First run: register to start with Windows (the user can turn this off in Settings).
+        // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
+        // the real startup task alone.
         _startupEnabled = StartupTask.IsEnabled();
-        if (!_settings.StartupConfigured && _isAdmin)
+        bool manageStartup = _isAdmin && !RigsightPaths.IsTestInstance;
+        if (!_settings.StartupConfigured && manageStartup)
         {
             _startupEnabled = StartupTask.Enable();
             MutateSettings(s => s.StartupConfigured = true);
         }
-        else if (_startupEnabled && _isAdmin && !StartupTask.PointsHere())
+        else if (_startupEnabled && manageStartup && !StartupTask.PointsHere())
         {
             // Installed somewhere new (or reinstalled): point the task at this copy.
             _startupEnabled = StartupTask.Enable();
@@ -135,6 +137,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Start();
 
         if (args.Contains("--open")) OpenApp(null);
+        if (RigsightPaths.IsTestInstance) return; // no updates in a test copy
         if (_isAdmin) ThreadPool.QueueUserWorkItem(_ => UpdateInstaller.Cleanup());
         // Updates: first a minute and a half after starting (Windows is still settling at sign-in), then every
         // six hours; GitHub itself is asked at most once a day.
@@ -252,10 +255,8 @@ internal sealed class AgentContext : ApplicationContext
                     CompactMemory();
                 }
 
-                // Activity, every second. A long gap means the PC was asleep: don't count it.
-                double dt = (now - lastActivity) / 1000.0;
+                double dt = ActivityStep(lastActivity, now);
                 lastActivity = now;
-                if (dt > 10) dt = 0;
                 long t0 = Stopwatch.GetTimestamp();
                 var sample = _activity.Sample();
                 _tracker.OnActivity(sample, dt);
@@ -355,6 +356,13 @@ internal sealed class AgentContext : ApplicationContext
         SaveExtremes(force: true);
         _sensors.Close();
         _db.Dispose();
+    }
+
+    /// <summary>Seconds to count since the last activity sample. A long gap means the PC was asleep: don't count it.</summary>
+    internal static double ActivityStep(long lastMs, long nowMs)
+    {
+        double dt = (nowMs - lastMs) / 1000.0;
+        return dt > 10 ? 0 : dt;
     }
 
     /// <summary>Sampler thread: widens today's range of every sensor with this reading.</summary>
@@ -688,20 +696,7 @@ internal sealed class AgentContext : ApplicationContext
             // Through the store, so the app's copy gets the same repairs and limits as a file on disk
             // (case-insensitive app lookups, clamped intervals, a valid shortcut...).
             var incoming = SettingsStore.Deserialize(SettingsStore.Serialize(msg.Settings));
-            MutateSettings(s =>
-            {
-                // Fields the agent owns are kept from the agent's copy (pausing goes through commands,
-                // so a tray "Pause" is never undone by the app sending settings it had before).
-                incoming.StartupConfigured = s.StartupConfigured;
-                incoming.LastRecapDay = s.LastRecapDay;
-                incoming.LastUpdateNotice = s.LastUpdateNotice;
-                incoming.Tracking.PausedUntil = s.Tracking.PausedUntil;
-                foreach (var w in incoming.Widgets)
-                {
-                    var mine = s.Widgets.FirstOrDefault(x => x.Style == w.Style);
-                    if (mine is not null) { w.X = mine.X; w.Y = mine.Y; }
-                }
-            }, replaceWith: incoming);
+            MutateSettings(s => KeepAgentFields(incoming, s), replaceWith: incoming);
             return;
         }
 
@@ -719,7 +714,7 @@ internal sealed class AgentContext : ApplicationContext
             case "clear-history":
                 RunOnSampler(() => _tracker.ClearHistory());
                 break;
-            case "startup-on" or "startup-off":
+            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance:
                 _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
                 _startupEnabled = StartupTask.IsEnabled();
                 _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
@@ -742,10 +737,10 @@ internal sealed class AgentContext : ApplicationContext
             case "overlay-toggle":
                 _ui.Post(_ => _overlay.Toggle(), null);
                 break;
-            case "start-rtss":
+            case "start-rtss" when !RigsightPaths.IsTestInstance:
                 _ui.Post(_ => _overlay.StartRtss(), null);
                 break;
-            case "install-rtss":
+            case "install-rtss" when !RigsightPaths.IsTestInstance:
                 _ui.Post(_ => _overlay.InstallRtss(_ui), null);
                 break;
             case "overlay-status":
@@ -754,13 +749,30 @@ internal sealed class AgentContext : ApplicationContext
             case "restart-elevated":
                 _ui.Post(_ => RestartElevated(), null);
                 break;
-            case "install-update":
+            case "install-update" when !RigsightPaths.IsTestInstance:
                 _ = Task.Run(async () =>
                 {
                     bool started = _isAdmin && await UpdateInstaller.RunAsync(msg.Arg);
                     _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = started ? "started" : "failed" });
                 });
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Settings from the app, before they replace the agent's: fields the agent owns are kept from the agent's copy
+    /// (pausing goes through commands, so a tray "Pause" is never undone by the app sending settings it had before).
+    /// </summary>
+    internal static void KeepAgentFields(RigsightSettings incoming, RigsightSettings current)
+    {
+        incoming.StartupConfigured = current.StartupConfigured;
+        incoming.LastRecapDay = current.LastRecapDay;
+        incoming.LastUpdateNotice = current.LastUpdateNotice;
+        incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
+        foreach (var w in incoming.Widgets)
+        {
+            var mine = current.Widgets.FirstOrDefault(x => x.Style == w.Style);
+            if (mine is not null) { w.X = mine.X; w.Y = mine.Y; }
         }
     }
 
@@ -887,7 +899,7 @@ internal sealed class AgentContext : ApplicationContext
     /// <summary>Starts an elevated copy that takes over, then exits (needs the user to accept UAC).</summary>
     private void RestartElevated()
     {
-        if (_isAdmin || Environment.ProcessPath is not { } exe) return;
+        if (_isAdmin || RigsightPaths.IsTestInstance || Environment.ProcessPath is not { } exe) return;
         try
         {
             Process.Start(new ProcessStartInfo(exe, "--replace") { UseShellExecute = true, Verb = "runas" });

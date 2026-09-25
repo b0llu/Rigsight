@@ -71,9 +71,10 @@
         </DockPanel>
 
         <!-- One flat, virtualized list: only the rows on screen are built, the rest as you scroll.
-             Each card is a header item, its sensor rows, and an end item, drawn so they join up. -->
+             Each card is a header item, its sensor rows, and an end item, drawn so they join up. Rows aren't
+             recycled: a row reused for another kind of item briefly binds the old template to the new item. -->
         <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
-                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
                       VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
             <ItemsControl.Template>
                 <ControlTemplate TargetType="ItemsControl">

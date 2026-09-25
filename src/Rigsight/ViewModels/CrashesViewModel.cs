@@ -108,7 +108,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     }
 
     /// <summary>Individual crashes (not muted) for the current filter, newest first (dashboard tile).</summary>
-    [ObservableProperty] private List<CrashRow> _crashes = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Latest))]
+    private List<CrashRow> _crashes = [];
+
+    /// <summary>The newest of <see cref="Crashes"/>, if any (dashboard tile).</summary>
+    public CrashRow? Latest => Crashes.FirstOrDefault();
 
     [ObservableProperty] private List<CrashDay> _days = [];
     [ObservableProperty] private List<string> _patterns = [];

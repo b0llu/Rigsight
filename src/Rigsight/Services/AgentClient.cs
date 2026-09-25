@@ -11,7 +11,8 @@ namespace Rigsight.Services;
 /// Connects to the background agent's named pipe, keeps reconnecting if it goes away, and raises
 /// messages on the UI thread.
 /// </summary>
-public sealed class AgentClient(Dispatcher dispatcher) : IDisposable
+/// <param name="pipeName">The agent's pipe: <see cref="RigsightPaths.PipeName"/>, or a test's own.</param>
+public sealed class AgentClient(Dispatcher dispatcher, string? pipeName = null) : IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -30,7 +31,7 @@ public sealed class AgentClient(Dispatcher dispatcher) : IDisposable
         {
             try
             {
-                using var pipe = new NamedPipeClientStream(".", RigsightPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                using var pipe = new NamedPipeClientStream(".", pipeName ?? RigsightPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                 await pipe.ConnectAsync(1500, _cts.Token);
                 _pipe = pipe;
                 SetConnected(true);

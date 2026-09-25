@@ -38,8 +38,10 @@ public static class ThemeManager
 
         var app = Application.Current;
         var dictionaries = app.Resources.MergedDictionaries;
-        int index = dictionaries.ToList().FindIndex(d => d.Source?.OriginalString is "Themes/Dark.xaml" or "Themes/Light.xaml");
-        var palette = new ResourceDictionary { Source = new Uri($"Themes/{(light ? "Light" : "Dark")}.xaml", UriKind.Relative) };
+        int index = dictionaries.ToList().FindIndex(d => d.Source?.OriginalString is { } s &&
+            (s.EndsWith("Themes/Dark.xaml", StringComparison.OrdinalIgnoreCase) || s.EndsWith("Themes/Light.xaml", StringComparison.OrdinalIgnoreCase)));
+        // By its full address, so it's found from any application (the tests host the app's windows in their own).
+        var palette = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Rigsight;component/Themes/{(light ? "Light" : "Dark")}.xaml") };
         if (index >= 0) dictionaries[index] = palette;
         else dictionaries.Insert(0, palette);
 

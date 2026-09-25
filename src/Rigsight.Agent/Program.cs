@@ -11,6 +11,11 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // A test copy started elevated (through UAC, which doesn't pass the environment on) is told its data folder
+        // here; the same as RIGSIGHT_DATA_DIR, which anyone can already set. Must come before anything reads RigsightPaths.
+        if (Array.IndexOf(args, "--data-dir") is var d and >= 0 && d + 1 < args.Length)
+            Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", args[d + 1]);
+
         bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
         // Run by the installer before replacing or removing files: ask a running agent to save and exit
@@ -64,7 +69,7 @@ internal static class Program
         }
 
         // CPU and motherboard sensors need admin rights. Relaunch elevated unless told not to.
-        if (!isAdmin && !args.Contains("--no-elevate") && !Debugger.IsAttached)
+        if (!isAdmin && !args.Contains("--no-elevate") && !Debugger.IsAttached && !RigsightPaths.IsTestInstance)
         {
             try
             {
@@ -82,7 +87,7 @@ internal static class Program
         Mutex mutex;
         try
         {
-            mutex = new Mutex(true, @"Local\Rigsight.Agent", out bool created);
+            mutex = new Mutex(true, RigsightPaths.AgentMutex, out bool created);
             if (!created && args.Contains("--replace"))
             {
                 // Taking over from a non-admin copy that is shutting down: wait for it to let go.

@@ -41,7 +41,11 @@ public static partial class ChangeLogReader
         var list = new List<SystemChange>();
         try { ReadDrivers(from, to, list); } catch (Exception ex) { Log.Error("changes", ex); }
         try { ReadUpdates(from, to, list); } catch (Exception ex) { Log.Error("changes", ex); }
+        return Merge(list);
+    }
 
+    internal static List<SystemChange> Merge(List<SystemChange> list)
+    {
         // A driver delivered by Windows Update shows up in both logs: keep the driver entry.
         var drivers = list.Where(c => c.Kind == ChangeKind.Driver).ToList();
         list.RemoveAll(c => c.Kind == ChangeKind.WindowsUpdate && Version().Match(c.Title) is { Success: true } v &&
@@ -101,20 +105,21 @@ public static partial class ChangeLogReader
     }
 
     /// <summary>Defender definitions (several a day), Store apps and the malware scanner aren't worth listing.</summary>
-    private static bool IsRoutine(string title) =>
+    internal static bool IsRoutine(string title) =>
         title.Contains("Security Intelligence Update", StringComparison.OrdinalIgnoreCase) ||
         title.Contains("Malicious Software Removal Tool", StringComparison.OrdinalIgnoreCase) ||
         title.Contains("antimalware platform", StringComparison.OrdinalIgnoreCase) ||
         title.Contains("Windows Security platform", StringComparison.OrdinalIgnoreCase) ||
         StoreApp().IsMatch(title);
 
-    private static string Describe(string title)
+    internal static string Describe(string title)
     {
         var kb = Kb().Match(title);
-        if (title.Contains("Cumulative Update", StringComparison.OrdinalIgnoreCase) || title.Contains("Security Update", StringComparison.OrdinalIgnoreCase))
-            return kb.Success ? $"Windows update {kb.Value}" : "Windows update";
+        // .NET first: its updates are called "Cumulative Update for .NET Framework…" and ".NET 8.0.20 Security Update…".
         if (title.Contains(".NET", StringComparison.OrdinalIgnoreCase))
             return kb.Success ? $".NET update {kb.Value}" : ".NET update";
+        if (title.Contains("Cumulative Update", StringComparison.OrdinalIgnoreCase) || title.Contains("Security Update", StringComparison.OrdinalIgnoreCase))
+            return kb.Success ? $"Windows update {kb.Value}" : "Windows update";
         // Drivers delivered by Windows Update: "NVIDIA - Display - 32.0.15.8097".
         // "LG Electronics Inc. Extension Driver Update (1.1.2026.6241)".
         var driver = DriverUpdate().Match(title);
@@ -124,7 +129,7 @@ public static partial class ChangeLogReader
         return title.Length > 70 ? title[..67] + "…" : title;
     }
 
-    private static string Shorten(string provider) => provider
+    internal static string Shorten(string provider) => provider
         .Replace(" Corporation", "").Replace(" Corp.", "").Replace(", Inc.", "").Replace(" Inc.", "").Replace(" LLC", "")
         .Replace("Advanced Micro Devices", "AMD").Replace("Intel(R)", "Intel").Trim();
 

@@ -34,4 +34,8 @@
     <ProjectReference Include="..\Rigsight.Core\Rigsight.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Rigsight.Tests" />
+  </ItemGroup>
+
 </Project>

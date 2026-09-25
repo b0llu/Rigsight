@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Rigsight.Core.Settings;
 
 /// <summary>
@@ -25,9 +27,12 @@ public sealed class RigsightSettings
     public OverlaySettings Overlay { get; set; } = new();
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
+    /// <remarks>Read into this case-insensitive dictionary (not a new one), so copies from the pipe keep matching any case.</remarks>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, string> AppNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>User overrides for app categories, keyed by exe name.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, AppCategory> AppCategories { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>User-defined sensor names, keyed by sensor identifier.</summary>

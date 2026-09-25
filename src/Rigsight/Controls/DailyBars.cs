@@ -87,7 +87,7 @@ public sealed class DailyBars : FrameworkElement
             var d = days[i];
             double cx = plot.Left + slot * (i + 0.5);
             if (i == _hover)
-                dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(cx - slot / 2 + 2, plot.Top, slot - 4, plot.Height), 6, 6);
+                dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(cx - slot / 2 + 2, plot.Top, Math.Max(0, slot - 4), plot.Height), 6, 6);
 
             double y = plot.Bottom;
             foreach (var (cat, sec) in d.ActiveByCategory.OrderByDescending(kv => kv.Value))

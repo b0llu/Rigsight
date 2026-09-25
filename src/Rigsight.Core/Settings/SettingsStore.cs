@@ -11,12 +11,15 @@ public static class SettingsStore
         Converters = { new JsonStringEnumConverter() },
     };
 
-    public static RigsightSettings Load()
+    public static RigsightSettings Load() => Load(RigsightPaths.SettingsFile);
+
+    /// <summary>Reads the settings file at <paramref name="path"/>: <see cref="RigsightPaths.SettingsFile"/>, or a test's.</summary>
+    public static RigsightSettings Load(string path)
     {
         try
         {
-            if (File.Exists(RigsightPaths.SettingsFile))
-                return Normalize(Deserialize(File.ReadAllText(RigsightPaths.SettingsFile)));
+            if (File.Exists(path))
+                return Normalize(Deserialize(File.ReadAllText(path)));
         }
         catch (Exception ex)
         {
@@ -25,14 +28,16 @@ public static class SettingsStore
         return Normalize(new RigsightSettings());
     }
 
-    public static void Save(RigsightSettings settings)
+    public static void Save(RigsightSettings settings) => Save(settings, RigsightPaths.SettingsFile);
+
+    public static void Save(RigsightSettings settings, string path)
     {
         try
         {
-            Directory.CreateDirectory(RigsightPaths.DataDir);
-            var tmp = RigsightPaths.SettingsFile + ".tmp";
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+            var tmp = path + ".tmp";
             File.WriteAllText(tmp, Serialize(settings));
-            File.Move(tmp, RigsightPaths.SettingsFile, overwrite: true);
+            File.Move(tmp, path, overwrite: true);
         }
         catch (Exception ex)
         {
@@ -50,6 +55,18 @@ public static class SettingsStore
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
     {
+        // A hand edit can leave null where a section or list belongs: that part starts from its defaults, the rest is kept.
+        s.Widgets = s.Widgets is null ? WidgetConfig.Defaults() : [.. s.Widgets.Where(w => w is not null)];
+        s.Tracking ??= new TrackingSettings();
+        s.Tracking.ExcludedApps ??= [];
+        s.Alerts ??= new AlertSettings();
+        s.CustomPages = [.. (s.CustomPages ?? []).Where(p => p is not null)];
+        s.SensorLabels ??= [];
+        s.HiddenSensors ??= [];
+        s.CollapsedHardware ??= [];
+        s.HardwareOrder ??= [];
+        s.StartPage ??= "home";
+
         if (s.SettingsVersion < 2)
         {
             // v2: the slim bar is the default widget.
@@ -67,6 +84,7 @@ public static class SettingsStore
         if (s.SettingsVersion < 4 && s.Overlay is { } overlay)
         {
             // v4: the overlay can show frame rate; turn it on once for existing setups.
+            overlay.Metrics ??= [];
             if (!overlay.Metrics.Contains(OverlayMetric.Fps)) overlay.Metrics.Add(OverlayMetric.Fps);
             if (!overlay.Metrics.Contains(OverlayMetric.OnePercentLow)) overlay.Metrics.Add(OverlayMetric.OnePercentLow);
         }
@@ -77,7 +95,7 @@ public static class SettingsStore
         }
         // v6: separate background and content opacity. The old single value faded both, so both start there
         // (the widgets and overlay look exactly as before).
-        foreach (var w in s.Widgets ?? [])
+        foreach (var w in s.Widgets)
             if (w.Opacity is double old) (w.BackgroundOpacity, w.ContentOpacity, w.Opacity) = (old, old, null);
         if (s.Overlay?.Opacity is double oldOverlay)
             (s.Overlay.BackgroundOpacity, s.Overlay.ContentOpacity, s.Overlay.Opacity) = (oldOverlay, oldOverlay, null);
@@ -104,7 +122,7 @@ public static class SettingsStore
         o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
         if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
         o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
-        o.Sensors = [.. (o.Sensors ?? []).Where(x => !string.IsNullOrWhiteSpace(x.Id)).DistinctBy(x => x.Id).Take(OverlaySettings.MaxSensors)];
+        o.Sensors = [.. (o.Sensors ?? []).Where(x => !string.IsNullOrWhiteSpace(x?.Id)).DistinctBy(x => x.Id).Take(OverlaySettings.MaxSensors)];
         foreach (var x in o.Sensors)
         {
             x.Label = string.IsNullOrWhiteSpace(x.Label) ? null : x.Label.Trim();
@@ -135,7 +153,7 @@ public static class SettingsStore
         {
             if (string.IsNullOrWhiteSpace(page.Id)) page.Id = CustomPageConfig.NewId();
             if (string.IsNullOrWhiteSpace(page.Name)) page.Name = "Dashboard";
-            page.Tiles = [.. page.Tiles.Where(tile => !string.IsNullOrEmpty(tile.Kind)).DistinctBy(tile => tile.Id)];
+            page.Tiles = [.. (page.Tiles ?? []).Where(tile => !string.IsNullOrEmpty(tile?.Kind)).DistinctBy(tile => tile.Id)];
             if (page.Grid < CustomPageConfig.CurrentGrid)
             {
                 // 4 columns → 12, and each row → two half-height rows: same look, finer resizing.
@@ -159,8 +177,16 @@ public static class SettingsStore
         s.CustomPages = [.. s.CustomPages.DistinctBy(p => p.Id)];
 
         // JSON loses the case-insensitive comparers.
-        s.AppNames = new Dictionary<string, string>(s.AppNames, StringComparer.OrdinalIgnoreCase);
-        s.AppCategories = new Dictionary<string, AppCategory>(s.AppCategories, StringComparer.OrdinalIgnoreCase);
+        s.AppNames = CaseInsensitive(s.AppNames);
+        s.AppCategories = CaseInsensitive(s.AppCategories);
         return s;
+    }
+
+    /// <summary>A copy that finds keys in any case. Of keys differing only in case (from a copy that lost its comparer), the last wins.</summary>
+    private static Dictionary<string, T> CaseInsensitive<T>(Dictionary<string, T>? source)
+    {
+        var result = new Dictionary<string, T>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in source ?? []) result[key] = value;
+        return result;
     }
 }

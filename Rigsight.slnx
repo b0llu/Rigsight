@@ -4,4 +4,8 @@
     <Project Path="src/Rigsight.Core/Rigsight.Core.csproj" />
     <Project Path="src/Rigsight/Rigsight.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Rigsight.E2E/Rigsight.E2E.csproj" />
+    <Project Path="tests/Rigsight.Tests/Rigsight.Tests.csproj" />
+  </Folder>
 </Solution>

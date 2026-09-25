@@ -27,13 +27,16 @@ internal sealed class KeyHistory
     private readonly Dictionary<string, Ring> _rings = KeySensors.HistoryKeys.ToDictionary(k => k, _ => new Ring());
     private readonly Lock _lock = new();
 
-    public void Add(long timeMs, SensorHost host)
+    public void Add(long timeMs, SensorHost host) => Add(timeMs, host.Read);
+
+    /// <summary>Adds one reading of every key, as <paramref name="read"/> gives it (null: no reading).</summary>
+    internal void Add(long timeMs, Func<string, double?> read)
     {
         lock (_lock)
         {
             foreach (var (key, ring) in _rings)
             {
-                var v = host.Read(key);
+                var v = read(key);
                 ring.Add(timeMs, v is double d ? (float)Math.Round(d, 1) : null);
             }
         }

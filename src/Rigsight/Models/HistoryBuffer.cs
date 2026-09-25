@@ -29,7 +29,17 @@ public sealed class HistoryBuffer
     public void Add(long timeMs, double value)
     {
         if (Count == 0) _base = timeMs;
-        else if (timeMs - _base > RebaseAfterMs) Rebase(TimeAt(0));
+        else if (timeMs - _base > RebaseAfterMs)
+        {
+            Rebase(TimeAt(0));
+            // Still too far: the oldest sample is itself weeks old (a PC that slept for weeks with the window open).
+            // Start afresh rather than overflow the offsets; no chart looks back that far.
+            if (timeMs - _base > int.MaxValue)
+            {
+                Clear();
+                _base = timeMs;
+            }
+        }
 
         if (Count < _values.Length)
         {

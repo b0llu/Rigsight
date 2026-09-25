@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -66,6 +67,15 @@ public sealed partial class TileViewModel : ObservableObject
     {
         if (Kind == "sensor") Sensor = Live.Resolve(SensorRef);
     }
+
+    // A sensor renamed on All sensors renames its tile. Listened to weakly: the sensor outlives a removed tile.
+    partial void OnSensorChanged(SensorItem? oldValue, SensorItem? newValue)
+    {
+        if (oldValue is not null) PropertyChangedEventManager.RemoveHandler(oldValue, OnSensorRenamed, nameof(SensorItem.DisplayName));
+        if (newValue is not null) PropertyChangedEventManager.AddHandler(newValue, OnSensorRenamed, nameof(SensorItem.DisplayName));
+    }
+
+    private void OnSensorRenamed(object? sender, PropertyChangedEventArgs e) => OnPropertyChanged(nameof(Title));
 
     public string Title => Kind == "sensor"
         ? Definition?.Sensor == SensorRef ? Definition!.Title : Sensor?.DisplayName ?? "Sensor"

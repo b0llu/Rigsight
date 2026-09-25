@@ -13,7 +13,12 @@ internal sealed class AlertMonitor
     /// <summary>Returns alert text when one should be shown now, else null.</summary>
     public string? Check(KeyValues k, string? app, AlertSettings s, long nowMs)
     {
-        if (!s.Enabled) return null;
+        if (!s.Enabled)
+        {
+            // Nothing is watched while off: turned back on, a limit has to be passed for the whole time again.
+            _overSince.Clear();
+            return null;
+        }
 
         var over = new List<string>();
         Track("CPU", k.CpuTemp, s.CpuLimit);

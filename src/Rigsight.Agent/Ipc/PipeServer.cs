@@ -13,7 +13,8 @@ namespace Rigsight.Agent.Ipc;
 /// restricted to the current user, and each client gets its own bounded send queue so a slow
 /// client can never stall the agent.
 /// </summary>
-internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage> onMessage) : IDisposable
+/// <param name="pipeName">The pipe to serve on: <see cref="RigsightPaths.PipeName"/>, or a test's own.</param>
+internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage> onMessage, string? pipeName = null) : IDisposable
 {
     private sealed class Client(NamedPipeServerStream pipe)
     {
@@ -40,7 +41,7 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
             NamedPipeServerStream? pipe = null;
             try
             {
-                pipe = NamedPipeServerStreamAcl.Create(RigsightPaths.PipeName, PipeDirection.InOut, 8,
+                pipe = NamedPipeServerStreamAcl.Create(pipeName ?? RigsightPaths.PipeName, PipeDirection.InOut, 8,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, CreateSecurity());
                 await pipe.WaitForConnectionAsync(_cts.Token);
                 var client = new Client(pipe);

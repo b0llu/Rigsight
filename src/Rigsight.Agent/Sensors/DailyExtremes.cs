@@ -11,17 +11,28 @@ internal sealed class DailyExtremes
 {
     private sealed record Saved(string Day, Dictionary<string, double[]> Values);
 
-    private string _day = Today();
-    private DateTime _nextMidnight = DateTime.Today.AddDays(1);
+    private readonly Func<DateTime> _now;
+    private string _day;
+    private DateTime _nextMidnight;
     private readonly Dictionary<string, double[]> _values = [];
     private readonly HashSet<string> _changed = [];
+
+    public DailyExtremes() : this(() => DateTime.Now) { }
+
+    /// <param name="now">The local time now (tests pass their own clock, to cross midnight).</param>
+    internal DailyExtremes(Func<DateTime> now)
+    {
+        _now = now;
+        _day = Today();
+        _nextMidnight = now().Date.AddDays(1);
+    }
 
     public string Day => _day;
 
     /// <summary>Some range changed since the last save.</summary>
     public bool Dirty { get; set; }
 
-    private static string Today() => DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private string Today() => _now().Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>Call once per round of readings, before <see cref="Observe"/>: starts a new day after midnight.</summary>
     public void BeginTick() => RollDay();
@@ -54,8 +65,9 @@ internal sealed class DailyExtremes
 
     private void RollDay()
     {
-        if (DateTime.Now < _nextMidnight) return;
-        _nextMidnight = DateTime.Today.AddDays(1);
+        var now = _now();
+        if (now < _nextMidnight) return;
+        _nextMidnight = now.Date.AddDays(1);
         string today = Today();
         if (today == _day) return;
         _day = today;
@@ -89,7 +101,7 @@ internal sealed class DailyExtremes
         try
         {
             var saved = JsonSerializer.Deserialize<Saved>(json);
-            if (saved?.Day != Today()) return;
+            if (saved?.Day != Today() || saved.Values is null) return;
             foreach (var (id, mm) in saved.Values)
                 if (mm.Length == 2) Include(id, mm[0], mm[1]);
         }

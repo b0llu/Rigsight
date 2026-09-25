@@ -11,8 +11,11 @@ namespace Rigsight.Agent.Tracking;
 /// Turns raw samples into history: per-minute system summaries, per-hour per-app usage, and
 /// sessions. Everything runs on the agent's sampler thread, and data is written once a minute.
 /// </summary>
-internal sealed class Tracker(RigsightDb db, AppResolver apps)
+internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffset>? clock = null)
 {
+    // The time now. Tests pass their own clock, to replay hours of use (and midnights) in moments.
+    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
+
     /// <summary>
     /// Coming back to an app within this time continues the same session, so alt-tabbing to Discord
     /// mid-match doesn't split one game into many sessions. The other app gets its own session either way.
@@ -55,7 +58,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
     private readonly Dictionary<(long Hour, long App), AppHour> _deltas = [];
     private readonly Dictionary<long, Session> _sessions = [];
     private readonly Dictionary<long, double> _fullscreenHeavySec = [];
-    private TodayState _today = new() { Day = DateTime.Today };
+    private TodayState _today = new() { Day = (clock?.Invoke() ?? DateTimeOffset.Now).LocalDateTime.Date };
     private DateTime _lastPrune = DateTime.MinValue;
 
     private AppInfo? _foreground;
@@ -71,14 +74,25 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     public void Initialize() => LoadToday();
 
-    private bool Paused => _settings.Tracking.IsPaused(TimeUtil.NowUnix());
+    private long NowUnix() => _clock().ToUnixTimeSeconds();
+    private DateTime LocalToday => _clock().LocalDateTime.Date;
+
+    /// <summary>Start of the current local hour (as <see cref="TimeUtil.LocalHourStartUnix"/>, on this tracker's clock).</summary>
+    private long HourStartUnix()
+    {
+        var now = _clock();
+        var local = now.LocalDateTime;
+        return now.ToUnixTimeSeconds() - (local.Minute * 60 + local.Second);
+    }
+
+    private bool Paused => _settings.Tracking.IsPaused(NowUnix());
 
     private bool Excluded(string exe) =>
         _settings.Tracking.ExcludedApps.Any(e => e.Equals(exe, StringComparison.OrdinalIgnoreCase));
 
     private AppHour Delta(long appId)
     {
-        long hour = TimeUtil.LocalHourStartUnix();
+        long hour = HourStartUnix();
         if (!_deltas.TryGetValue((hour, appId), out var h))
         {
             h = new AppHour { Ts = hour, AppId = appId };
@@ -91,7 +105,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     public void OnActivity(ActivitySample s, double dt)
     {
-        long now = TimeUtil.NowUnix();
+        long now = NowUnix();
         RollMinute();
 
         if (Paused)
@@ -270,17 +284,18 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
 
     private void RollMinute()
     {
-        long minute = TimeUtil.NowUnix() / 60 * 60;
+        long minute = NowUnix() / 60 * 60;
         if (_minuteTs == 0) _minuteTs = minute;
         if (minute == _minuteTs) return;
         Flush(closeAllSessions: false);
+        _minute = new MinuteAcc();
         _minuteTs = minute;
     }
 
     /// <summary>Writes the finished minute and hour deltas, closes stale sessions, and rolls the day.</summary>
     public void Flush(bool closeAllSessions)
     {
-        long now = TimeUtil.NowUnix();
+        long now = NowUnix();
         try
         {
             using var tx = db.BeginTransaction();
@@ -318,11 +333,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
                 CloseSession(session);
             }
 
-            if (DateTime.Today != _lastPrune)
+            if (LocalToday != _lastPrune)
             {
-                _lastPrune = DateTime.Today;
+                _lastPrune = LocalToday;
                 if (_settings.Tracking.KeepHistoryDays > 0)
-                    db.Prune(TimeUtil.ToUnix(DateTime.Today.AddDays(-_settings.Tracking.KeepHistoryDays)));
+                    db.Prune(TimeUtil.ToUnix(LocalToday.AddDays(-_settings.Tracking.KeepHistoryDays)));
             }
             tx.Commit();
         }
@@ -331,11 +346,12 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
             Log.Error("tracker", ex);
         }
 
-        _minute = new MinuteAcc();
+        // The minute itself carries on until it ends (see RollMinute): saved early (Windows signing out), it's written
+        // again in full, not with only its last part. App times are added up, so those start again from zero.
         _deltas.Clear();
 
-        if (DateTime.Today != _today.Day)
-            _today = new TodayState { Day = DateTime.Today };
+        if (LocalToday != _today.Day)
+            _today = new TodayState { Day = LocalToday };
     }
 
     /// <summary>Ends a session: saves it (however short) and tells listeners (for the summary notification).</summary>
@@ -359,27 +375,28 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         SessionEnded?.Invoke(row, session.App);
     }
 
-    private static AppCategory CategoryOf(Report r, string? app) =>
-        app is null ? AppCategory.Other : r.Apps.FirstOrDefault(a => a.Name == app)?.Category ?? AppCategory.Other;
-
     private void LoadToday()
     {
         try
         {
             var appRows = db.LoadApps().ToDictionary(a => a.Id);
-            var r = ReportBuilder.BuildRaw(db, ReportRange.Day, DateTime.Today, DateTime.Today.AddDays(1), appRows, _settings);
+            var r = ReportBuilder.BuildRaw(db, ReportRange.Day, LocalToday, LocalToday.AddDays(1), appRows, _settings);
+            // The peaks as OnSensors keeps them: the hottest reading while an app was in use, with that app (from
+            // each app's hourly highs), not the day's hottest minute, which may have had nobody at the PC.
+            var cpu = r.Apps.Where(a => a.CpuTempMax is not null).MaxBy(a => a.CpuTempMax);
+            var gpu = r.Apps.Where(a => a.GpuTempMax is not null).MaxBy(a => a.GpuTempMax);
             _today = new TodayState
             {
-                Day = DateTime.Today,
+                Day = LocalToday,
                 OnSec = r.OnSec,
                 ActiveSec = r.ActiveSec,
                 IdleSec = r.AwaySec,
-                CpuPeak = r.CpuTempPeak?.Value,
-                CpuPeakApp = r.CpuTempPeak?.App,
-                CpuPeakCategory = CategoryOf(r, r.CpuTempPeak?.App),
-                GpuPeak = r.GpuTempPeak?.Value,
-                GpuPeakApp = r.GpuTempPeak?.App,
-                GpuPeakCategory = CategoryOf(r, r.GpuTempPeak?.App),
+                CpuPeak = cpu?.CpuTempMax,
+                CpuPeakApp = cpu?.Name,
+                CpuPeakCategory = cpu?.Category ?? AppCategory.Other,
+                GpuPeak = gpu?.GpuTempMax,
+                GpuPeakApp = gpu?.Name,
+                GpuPeakCategory = gpu?.Category ?? AppCategory.Other,
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;
@@ -425,7 +442,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps)
         _minute = new MinuteAcc();
         _deltas.Clear();
         _sessions.Clear();
-        _today = new TodayState { Day = DateTime.Today };
+        _today = new TodayState { Day = LocalToday };
     }
 
     private static void Acc(double? v, ref double sum, ref int n)

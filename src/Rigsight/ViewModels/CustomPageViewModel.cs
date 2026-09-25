@@ -155,7 +155,9 @@ public sealed partial class CustomPageViewModel : ObservableObject
     public void ResizeTo(int w, int h)
     {
         if (_resized is not { } tile) return;
-        w = Math.Clamp(w, tile.MinW, TileConfig.Columns - tile.X);
+        // A tile from the first grid can sit where its minimum width doesn't fit: then it's as wide as there's room.
+        int maxW = TileConfig.Columns - tile.X;
+        w = Math.Clamp(w, Math.Min(tile.MinW, maxW), maxW);
         h = Math.Clamp(h, tile.MinH, TileConfig.MaxHeight);
         if (w == tile.W && h == tile.H) return;
         tile.W = w;

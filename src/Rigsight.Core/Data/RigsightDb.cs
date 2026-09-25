@@ -16,10 +16,13 @@ public sealed class RigsightDb : IDisposable
 
     private RigsightDb(SqliteConnection conn) => _conn = conn;
 
-    public static RigsightDb OpenWriter()
+    public static RigsightDb OpenWriter() => OpenWriter(RigsightPaths.Database);
+
+    /// <summary>Opens (creating if needed) the database at <paramref name="path"/>: <see cref="RigsightPaths.Database"/>, or a test's.</summary>
+    public static RigsightDb OpenWriter(string path)
     {
-        Directory.CreateDirectory(RigsightPaths.DataDir);
-        var conn = new SqliteConnection($"Data Source={RigsightPaths.Database};Mode=ReadWriteCreate;Pooling=False");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        var conn = new SqliteConnection($"Data Source={path};Mode=ReadWriteCreate;Pooling=False");
         conn.Open();
         var db = new RigsightDb(conn);
         db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
@@ -28,12 +31,14 @@ public sealed class RigsightDb : IDisposable
     }
 
     /// <summary>Opens the database for reading, or returns null if the agent hasn't created it yet.</summary>
-    public static RigsightDb? OpenReader()
+    public static RigsightDb? OpenReader() => OpenReader(RigsightPaths.Database);
+
+    public static RigsightDb? OpenReader(string path)
     {
-        if (!File.Exists(RigsightPaths.Database)) return null;
+        if (!File.Exists(path)) return null;
         try
         {
-            var conn = new SqliteConnection($"Data Source={RigsightPaths.Database};Mode=ReadOnly;Pooling=False");
+            var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly;Pooling=False");
             conn.Open();
             return new RigsightDb(conn);
         }
@@ -284,11 +289,12 @@ public sealed class RigsightDb : IDisposable
             """, ("$app", s.AppId), ("$start", s.Start), ("$end", s.End), ("$act", s.ActiveSec),
             ("$ct", s.CpuTempMax), ("$gt", s.GpuTempMax), ("$game", s.IsGame ? 1 : 0));
         cmd.ExecuteNonQuery();
-        if (s.End - s.Start > MaxSessionSec())
-        {
-            _maxSessionSec = s.End - s.Start;
-            SetMeta(MaxSessionKey, _maxSessionSec.Value.ToString());
-        }
+        long length = s.End - s.Start;
+        if (length > MaxSessionSec()) _maxSessionSec = length;
+        // Raised against the stored value, not the cached one: a rolled-back transaction takes the stored bound back
+        // with it, while the cache keeps the larger value.
+        using var bound = Cmd("UPDATE meta SET value = $v WHERE key = $k AND CAST(value AS INTEGER) < $v", ("$k", MaxSessionKey), ("$v", length));
+        bound.ExecuteNonQuery();
     }
 
     // Sessions have no length limit (one lasts as long as the app is used without a 10-minute break), so
@@ -364,7 +370,10 @@ public sealed class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
-    private bool? _hasSystemDay;
+    private bool? _hasSystemDay, _hasAppMonth;
+
+    // app_month is added by the agent (0.4.13); the app may read an older database first.
+    private bool HasAppMonth() => _hasAppMonth ??= HasTable("app_month");
 
     /// <summary>
     /// The daily totals from <paramref name="from"/> to <paramref name="to"/> (local midnights), or null when the
@@ -422,7 +431,8 @@ public sealed class RigsightDb : IDisposable
     public List<(long Ts, double FgSec)> GetAppTime(long appId, long from, long to, bool monthly)
     {
         using var cmd = Cmd(monthly
-            ? "SELECT month, fg_sec FROM app_month WHERE app_id = $a AND month >= $from AND month < $to AND fg_sec > 0"
+            ? HasAppMonth() ? "SELECT month, fg_sec FROM app_month WHERE app_id = $a AND month >= $from AND month < $to AND fg_sec > 0"
+                : $"SELECT {MonthOf("ts")}, sum(fg_sec) FROM app_hour WHERE ts >= $from AND ts < $to AND app_id = $a GROUP BY 1 HAVING sum(fg_sec) > 0"
             : "SELECT ts, fg_sec FROM app_hour WHERE ts >= $from AND ts < $to AND app_id = $a AND fg_sec > 0",
             ("$a", appId), ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -498,13 +508,12 @@ public sealed class RigsightDb : IDisposable
             r.Read();
             (m1, m2) = (r.GetInt64(0), r.GetInt64(1));
         }
-        if (m1 >= m2) (m1, m2) = (to, to); // no whole month inside: hours only
+        if (m1 >= m2 || !HasAppMonth()) (m1, m2) = (to, to); // no whole month inside (or no monthly totals yet): hours only
 
         using var cmd = Cmd($"""
             SELECT 0, app_id, {HourSums} FROM (
                 SELECT * FROM app_hour WHERE (ts >= $from AND ts < $m1) OR (ts >= $m2 AND ts < $to)
-                UNION ALL
-                SELECT * FROM app_month WHERE month >= $m1 AND month < $m2)
+                {(HasAppMonth() ? "UNION ALL SELECT * FROM app_month WHERE month >= $m1 AND month < $m2" : "")})
             GROUP BY app_id
             """, ("$from", from), ("$to", to), ("$m1", m1), ("$m2", m2));
         return ReadHours(cmd);
@@ -561,13 +570,14 @@ public sealed class RigsightDb : IDisposable
     /// </summary>
     public Dictionary<long, CrashContext> GetCrashContext(long from, long to)
     {
+        // The session may have ended up to 10 minutes before the crash, so it can start that much before the longest-session bound.
         using var cmd = Cmd("""
             SELECT c.id,
               (SELECT max(cpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
               (SELECT max(gpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
               (SELECT fg_app FROM system_minute m WHERE m.ts <= c.ts AND m.ts > c.ts - 180 AND fg_app IS NOT NULL ORDER BY m.ts DESC LIMIT 1),
               (SELECT s.active_sec FROM sessions s WHERE s.app_id = (SELECT a.id FROM apps a WHERE a.exe = c.app_exe)
-                 AND s.start >= c.ts - $maxSession - 1 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1)
+                 AND s.start >= c.ts - $maxSession - 601 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1)
             FROM crashes c WHERE c.ts >= $from AND c.ts < $to
             """, ("$from", from), ("$to", to), ("$maxSession", MaxSessionSec()));
         using var r = cmd.ExecuteReader();

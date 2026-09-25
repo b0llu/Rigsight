@@ -30,6 +30,11 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        if (RigsightPaths.IsTestInstance)
+        {
+            LogBindingErrors();
+            ReportHeapOnRequest();
+        }
 
         _client = new AgentClient(Dispatcher);
         var shell = new ShellViewModel(_client);
@@ -44,10 +49,7 @@ public partial class App : Application
     /// One window per data folder: a copy pointed at other data (RIGSIGHT_DATA_DIR, for testing) runs alongside the
     /// normal one instead of bringing it to the front.
     /// </summary>
-    private static string InstanceSuffix =>
-        Environment.GetEnvironmentVariable("RIGSIGHT_DATA_DIR") is { Length: > 0 } dir
-            ? "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(dir.ToLowerInvariant())))[..12]
-            : "";
+    private static string InstanceSuffix => RigsightPaths.InstanceSuffix;
 
     private bool AcquireSingleInstance()
     {
@@ -74,6 +76,43 @@ public partial class App : Application
         return true;
     }
 
+    /// <summary>A test copy logs every binding WPF can't resolve (normally silent), so the tests can fail on them.</summary>
+    private static void LogBindingErrors()
+    {
+        System.Diagnostics.PresentationTraceSources.Refresh();
+        var source = System.Diagnostics.PresentationTraceSources.DataBindingSource;
+        source.Listeners.Add(new BindingErrorLog());
+        source.Switch.Level = System.Diagnostics.SourceLevels.Warning;
+    }
+
+    /// <summary>
+    /// A test copy, when signalled, collects all garbage and logs the memory still in use ("[heap] N bytes"): the tests'
+    /// leak check compares that after each round of pages, which the collector's own timing would otherwise blur.
+    /// </summary>
+    private void ReportHeapOnRequest()
+    {
+        var signal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Rigsight.App.Heap" + InstanceSuffix);
+        var thread = new Thread(() =>
+        {
+            while (signal.WaitOne())
+                Dispatcher.Invoke(() =>
+                {
+                    GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+                    Log.Write("heap", $"{GC.GetTotalMemory(forceFullCollection: false)} bytes");
+                }, DispatcherPriority.ApplicationIdle);
+        })
+        { IsBackground = true, Name = "HeapReport" };
+        thread.Start();
+    }
+
+    private sealed class BindingErrorLog : System.Diagnostics.TraceListener
+    {
+        public override void Write(string? message) { }
+        public override void WriteLine(string? message) => Log.Write("binding", message ?? "");
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _client?.Dispose();
@@ -87,6 +126,7 @@ public partial class App : Application
     {
         Log.Error("app", e.Exception);
         e.Handled = true;
+        if (RigsightPaths.IsTestInstance) return; // the tests read the log; no dialog to click away
 
         // One dialog at a time, and each distinct error only once per run: an error that repeats
         // (say, on every frame while scrolling) must not bury the screen in dialogs. The log has them all.

@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Security;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace Rigsight.Core;
 
@@ -17,8 +19,22 @@ public static class AgentTask
     /// </summary>
     public static bool PointsTo(string exe)
     {
-        if (Schtasks(out var xml, "/Query", "/TN", RigsightPaths.AgentTaskName, "/XML") != 0) return false;
-        return xml.Contains($"<Command>{SecurityElement.Escape(exe)}</Command>", StringComparison.OrdinalIgnoreCase);
+        return Schtasks(out var xml, "/Query", "/TN", RigsightPaths.AgentTaskName, "/XML") == 0 && XmlPointsTo(xml, exe);
+    }
+
+    /// <summary>Whether the task's XML (as "schtasks /Query /XML" prints it) starts <paramref name="exe"/>.</summary>
+    internal static bool XmlPointsTo(string xml, string exe)
+    {
+        // Read as XML, not text: Windows needn't escape a path the way it was registered (e.g. "O'Brien", ' vs &apos;).
+        try
+        {
+            return XDocument.Parse(xml).Descendants().Any(e => e.Name.LocalName == "Command" &&
+                string.Equals(e.Value.Trim(), exe, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (XmlException)
+        {
+            return xml.Contains($"<Command>{SecurityElement.Escape(exe)}</Command>", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     public static bool Run() => Schtasks(out _, "/Run", "/TN", RigsightPaths.AgentTaskName) == 0;

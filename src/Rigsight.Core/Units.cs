@@ -90,7 +90,7 @@ public static class Units
     /// <summary>"4h 05m", "45m", "30s".</summary>
     public static string Duration(double seconds)
     {
-        if (double.IsNaN(seconds) || seconds < 0) seconds = 0;
+        if (!double.IsFinite(seconds) || seconds < 0) seconds = 0;
         var t = TimeSpan.FromSeconds(seconds);
         if (t.TotalHours >= 1) return $"{(int)t.TotalHours}h {t.Minutes:00}m";
         if (t.TotalMinutes >= 1) return $"{t.Minutes}m";

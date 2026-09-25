@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -60,7 +61,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _refresh.Tick += (_, _) =>
         {
             _ = RefreshTickAsync();
-            _ = Update.CheckIfDueAsync(); // a new day while the window stayed open
+            if (!RigsightPaths.IsTestInstance) _ = Update.CheckIfDueAsync(); // a new day while the window stayed open
         };
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
@@ -72,14 +73,14 @@ public sealed partial class ShellViewModel : ObservableObject
             updateCheck.Stop();
             _ = Update.CheckIfDueAsync();
         };
-        updateCheck.Start();
+        if (!RigsightPaths.IsTestInstance) updateCheck.Start(); // a test copy never looks for updates by itself
 
         // If the agent isn't running a moment after startup, start it.
         var launchCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         launchCheck.Tick += (_, _) =>
         {
             launchCheck.Stop();
-            if (!IsConnected) StartAgent();
+            if (!IsConnected && !RigsightPaths.IsTestInstance) StartAgent(); // the tests start their own agent
         };
         launchCheck.Start();
     }
@@ -123,11 +124,14 @@ public sealed partial class ShellViewModel : ObservableObject
         CurrentPage = page.NavKey;
     }
 
+    /// <summary>Asks before a dashboard is deleted (the tests answer for the user).</summary>
+    internal Func<CustomPageViewModel, bool> ConfirmDelete { get; set; } = page =>
+        MessageBox.Show($"Delete the dashboard \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
+            "Delete dashboard", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+
     private void DeleteCustomPage(CustomPageViewModel page)
     {
-        var answer = MessageBox.Show($"Delete the dashboard \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
-            "Delete dashboard", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer != MessageBoxResult.Yes) return;
+        if (!ConfirmDelete(page)) return;
 
         Settings.Update(s =>
         {
@@ -331,7 +335,6 @@ public sealed partial class ShellViewModel : ObservableObject
         IsConnected = connected;
         AgentStatus = "";
         // The agent may have just created the database (first run): load the page now rather than in a minute.
-        if (connected) Settings.OnConnected();
         if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)
         {
@@ -355,7 +358,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "hello":
                 AgentIsAdmin = msg.IsAdmin;
                 // Without admin the agent can't read CPU temps, fans or voltages: offer the UAC prompt once per launch.
-                if (!msg.IsAdmin && !_elevationRequested)
+                if (!msg.IsAdmin && !_elevationRequested && !RigsightPaths.IsTestInstance)
                 {
                     _elevationRequested = true;
                     _client.SendCommand("restart-elevated");
@@ -363,6 +366,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 SettingsPage.AgentIsAdmin = msg.IsAdmin;
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
+                // A change made while the agent was away goes out now, after the hello: sent as soon as the pipe
+                // connected, the hello's older copy would undo it (and flip the page back) until the agent echoed it.
+                Settings.OnConnected();
                 Live.LoadHello(msg);
                 if (Live.ExpandedApps is { } expanded) _client.SendCommand("procs-detail", expanded); // a restarted agent
                 ApplyOverlayState(msg);

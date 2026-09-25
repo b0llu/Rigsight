@@ -187,7 +187,7 @@ public sealed class CategoryBrushConverter : IValueConverter
 public sealed class InitialConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is string { Length: > 0 } s ? char.ToUpperInvariant(s.TrimStart()[0]).ToString() : "?";
+        value is string s && s.TrimStart() is { Length: > 0 } name ? char.ToUpperInvariant(name[0]).ToString() : "?";
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
@@ -248,7 +248,9 @@ public sealed class SeverityBrushConverter : IValueConverter
 /// </summary>
 public sealed class KindBrushConverter : IValueConverter
 {
-    private static readonly Dictionary<(string Key, bool Soft, int Theme), SolidColorBrush> Cache = [];
+    // For the current theme only: a theme change starts it afresh (keeping every theme's would grow with each change).
+    private static readonly Dictionary<(string Key, bool Soft), SolidColorBrush> Cache = [];
+    private static int _cacheTheme = -1;
 
     public static string ColorKey(object? value) => value switch
     {
@@ -275,7 +277,12 @@ public sealed class KindBrushConverter : IValueConverter
     {
         string key = ColorKey(value);
         bool soft = parameter as string == "soft";
-        var cacheKey = (key, soft, ThemeManager.Version);
+        if (_cacheTheme != ThemeManager.Version)
+        {
+            Cache.Clear();
+            _cacheTheme = ThemeManager.Version;
+        }
+        var cacheKey = (key, soft);
         if (!Cache.TryGetValue(cacheKey, out var brush))
         {
             var color = Application.Current.TryFindResource(key) is Color c ? c : Colors.Gray;

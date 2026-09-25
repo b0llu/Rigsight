@@ -145,8 +145,13 @@ public static partial class CrashLogReader
     private static DateTime? ParseShutdownTime(EventRecord record)
     {
         // Properties: [0] time, [1] date, formatted for the PC's locale and sprinkled with direction marks.
-        var time = Clean(Prop(record, 0));
-        var date = Clean(Prop(record, 1));
+        return ParseShutdownTime(Prop(record, 1), Prop(record, 0));
+    }
+
+    internal static DateTime? ParseShutdownTime(string? rawDate, string? rawTime)
+    {
+        var time = Clean(rawTime);
+        var date = Clean(rawDate);
         if (DateTime.TryParse($"{date} {time}", CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var dt)) return dt;
         foreach (var fmt in new[] { "dd/MM/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss", "d/M/yyyy H:mm:ss", "M/d/yyyy h:mm:ss tt" })
             if (DateTime.TryParseExact($"{date} {time}", fmt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dt)) return dt;

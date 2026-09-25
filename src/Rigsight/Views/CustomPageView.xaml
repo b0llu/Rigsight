@@ -316,8 +316,8 @@
                 </UniformGrid>
                 <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.HasCrashes, Converter={StaticResource Vis}}">
                     <TextBlock Text="LATEST" Style="{StaticResource Caption}" />
-                    <TextBlock Text="{Binding Crashes.Crashes[0].Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                    <TextBlock Text="{Binding Crashes.Crashes[0].TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
+                    <TextBlock Text="{Binding Crashes.Latest.Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding Crashes.Latest.TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
                 </StackPanel>
             </DockPanel>
         </DataTemplate>

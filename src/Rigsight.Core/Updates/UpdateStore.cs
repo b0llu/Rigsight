@@ -67,8 +67,8 @@ public static class UpdateStore
         catch { }
     }
 
-    /// <summary>No data for this long: the download is stuck (it happens with GitHub's download servers now and then).</summary>
-    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(20);
+    /// <summary>No data for this long: the download is stuck (it happens with GitHub's download servers now and then). Tests shorten it.</summary>
+    internal static TimeSpan StallTimeout { get; set; } = TimeSpan.FromSeconds(20);
 
     /// <summary>A stuck download is started again this many times before giving up.</summary>
     private const int StallRetries = 2;

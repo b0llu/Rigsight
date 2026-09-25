@@ -45,6 +45,24 @@ public static class ReportBuilder
         _ => anchor.AddMonths(1),
     };
 
+    /// <summary>
+    /// The period a report is compared with (none for all time). While the period is in progress, only the same
+    /// elapsed portion of the previous one, so "today so far" is fair; long periods compare whole days (their totals
+    /// are per day). The portion never runs past the previous period's end (31 March against February).
+    /// </summary>
+    internal static (DateTime From, DateTime To)? PreviousPeriod(ReportRange range, DateTime anchor, DateTime now)
+    {
+        if (range == ReportRange.All) return null;
+        var (from, to) = Bounds(range, anchor);
+        var (pFrom, pTo) = Bounds(range, Previous(range, anchor));
+        if (to > now && from <= now)
+        {
+            var sameElapsed = pFrom + (IsLong(range) ? now.Date.AddDays(1) - from : now - from);
+            if (sameElapsed < pTo) pTo = sameElapsed;
+        }
+        return (pFrom, pTo);
+    }
+
     /// <summary>A year or all time: built from the daily and monthly totals (see <see cref="BuildLong"/>).</summary>
     public static bool IsLong(ReportRange range) => range is ReportRange.Year or ReportRange.All;
 
@@ -59,16 +77,7 @@ public static class ReportBuilder
         Report Period(DateTime f, DateTime t) => IsLong(range) ? BuildLong(db, range, f, t, apps, settings) : BuildRaw(db, range, f, t, apps, settings);
         var report = Period(from, to);
 
-        Report? previous = null;
-        if (range != ReportRange.All)
-        {
-            var (pFrom, pTo) = Bounds(range, Previous(range, anchor));
-            // Compare against the same elapsed portion of the previous period so "today so far" is fair. Long periods
-            // compare whole days (their totals are per day).
-            if (to > DateTime.Now && from <= DateTime.Now)
-                pTo = IsLong(range) ? pFrom + (DateTime.Today.AddDays(1) - from) : pFrom + (DateTime.Now - from);
-            previous = Period(pFrom, pTo);
-        }
+        Report? previous = PreviousPeriod(range, anchor, DateTime.Now) is { } p ? Period(p.From, p.To) : null;
 
         // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);

@@ -21,6 +21,9 @@ internal sealed class ProcessLabels
     private readonly Dictionary<(int Pid, long Created), string?> _roles = [];
     private readonly Dictionary<string, string> _services = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>A process's command line (null if it can't be read). Tests give their own.</summary>
+    internal Func<int, string?> CommandLine { get; init; } = Win32.ProcessCommandLine;
+
     /// <summary>The app's processes, biggest first. <paramref name="titles"/> is filled on first use.</summary>
     public List<ProcDetail> Describe(string exe, string appName, List<ProcessUsage> processes, ref Dictionary<int, string>? titles)
     {
@@ -30,7 +33,7 @@ internal sealed class ProcessLabels
         var roles = processes.Select(p =>
         {
             if (!_roles.TryGetValue((p.Pid, p.Created), out var role))
-                _roles[(p.Pid, p.Created)] = role = Role(exe, Win32.ProcessCommandLine(p.Pid));
+                _roles[(p.Pid, p.Created)] = role = Role(exe, CommandLine(p.Pid), ServiceName);
             return role;
         }).ToList();
         // In a browser-style app the one process without a role is the one that runs the rest. (A service host
@@ -50,7 +53,8 @@ internal sealed class ProcessLabels
         return result;
     }
 
-    private string? Role(string exe, string? commandLine)
+    /// <summary>What a process of <paramref name="exe"/> does, from its command line (null: nothing says).</summary>
+    internal static string? Role(string exe, string? commandLine, Func<string, string> serviceName)
     {
         if (commandLine is null) return null;
 
@@ -91,7 +95,7 @@ internal sealed class ProcessLabels
         // Service hosts: "svchost.exe -k netsvcs -p -s Schedule"
         if (exe.Equals("svchost.exe", StringComparison.OrdinalIgnoreCase))
         {
-            if (Arg(commandLine, "-s ") is { } service) return ServiceName(service);
+            if (Arg(commandLine, "-s ") is { } service) return serviceName(service);
             if (Arg(commandLine, "-k ") is { } group) return $"Services ({group})";
         }
         return null;
