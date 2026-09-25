@@ -17,12 +17,21 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     [ObservableProperty] private double _cpu;
     [ObservableProperty] private double _memMB;
     [ObservableProperty] private bool _hasWindow;
-    /// <summary>Memory relative to the biggest app (0–100), for the bar.</summary>
-    [ObservableProperty] private double _memShare;
+    /// <summary>Share of all the PC's memory (0–100), for the bar.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MemShareText))]
+    private double _memShare;
+    /// <summary>Showing each of its processes underneath.</summary>
+    [ObservableProperty] private bool _isExpanded;
+    [ObservableProperty] private List<ProcChild> _children = [];
 
-    public ImageSource? Icon => IconCache.Get(Path);
+    // Programs whose icon can't be read (protected ones) get the plain program icon.
+    public ImageSource? Icon => IconCache.Get(Path) ?? IconCache.Program;
+    public bool CanExpand => Count > 1;
+    public string MemShareText => MemShare < 0.1 ? "Under 0.1% of your memory" : $"{MemShare:0.#}% of your memory";
     public string MemText => Units.Megabytes(MemMB);
-    public string CpuText => Cpu < 0.05 ? "0%" : Cpu < 10 ? $"{Cpu:0.0}%" : $"{Cpu:0}%";
+    public string CpuText => FormatCpu(Cpu);
+    public static string FormatCpu(double cpu) => cpu < 0.05 ? "0%" : cpu < 10 ? $"{cpu:0.0}%" : $"{cpu:0}%";
     public string CountText => Count > 1 ? $"{Count} processes" : "1 process";
 
     public void Update(ProcInfo p)
@@ -40,5 +49,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
         OnPropertyChanged(nameof(MemText));
         OnPropertyChanged(nameof(CpuText));
         OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(CanExpand));
+        if (p.Processes is not null && IsExpanded) Children = [.. p.Processes.Select(c => new ProcChild(c))];
     }
 }

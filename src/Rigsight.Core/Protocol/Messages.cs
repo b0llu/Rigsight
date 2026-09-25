@@ -90,6 +90,18 @@ public sealed class ProcInfo
     public double Cpu { get; set; }
     public double MemMB { get; set; }
     public bool HasWindow { get; set; }
+    /// <summary>Each of its processes, biggest first; only for apps the app asked about ("procs-detail").</summary>
+    public List<ProcDetail>? Processes { get; set; }
+}
+
+/// <summary>One process of an app.</summary>
+public sealed class ProcDetail
+{
+    public int Pid { get; set; }
+    /// <summary>What it is: its window's title, or its role ("Tab", "Graphics", a service's name…).</summary>
+    public string Label { get; set; } = "";
+    public double Cpu { get; set; }
+    public double MemMB { get; set; }
 }
 
 /// <summary>Agent → app.</summary>

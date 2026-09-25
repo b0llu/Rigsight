@@ -339,6 +339,21 @@ public sealed partial class LiveData : ObservableObject
         Tick++;
     }
 
+    /// <summary>Asks the agent for each process of these apps (exe names joined by "|", or null for none).</summary>
+    public event Action<string?>? ProcessDetailChanged;
+
+    /// <summary>The apps opened to show their processes, as the agent's "procs-detail" argument.</summary>
+    public string? ExpandedApps => Procs.Any(p => p.IsExpanded) ? string.Join('|', Procs.Where(p => p.IsExpanded).Select(p => p.Exe)) : null;
+
+    [RelayCommand]
+    private void ToggleProcesses(ProcRow row)
+    {
+        if (!row.IsExpanded && !row.CanExpand) return;
+        row.IsExpanded = !row.IsExpanded;
+        row.Children = [];
+        ProcessDetailChanged?.Invoke(ExpandedApps);
+    }
+
     /// <summary>Keep the process list sorted as memory changes, only while the Memory page shows it.</summary>
     public void SetProcessSorting(bool on)
     {
@@ -347,8 +362,19 @@ public sealed partial class LiveData : ObservableObject
         if (on) ProcsView.Refresh();
     }
 
+    /// <summary>Memory Windows holds compressed (the "Memory Compression" process), null until known.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CompressedText))]
+    private double? _compressedMB;
+    public string CompressedText => CompressedMB is double mb ? Units.Megabytes(mb) : "—";
+
     public void ApplyProcs(List<ProcInfo> procs)
     {
+        // Parts of Windows itself (no ".exe": Memory Compression, Registry, System) aren't apps, and today's
+        // totals leave them out too. Memory Compression holds other apps' memory, squeezed: it's shown with the
+        // system's memory instead.
+        CompressedMB = procs.FirstOrDefault(p => p.Exe.Equals("MemCompression", StringComparison.OrdinalIgnoreCase))?.MemMB;
+        procs = [.. procs.Where(p => p.Exe.Contains('.'))];
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in procs)
         {
@@ -376,8 +402,9 @@ public sealed partial class LiveData : ObservableObject
         // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
         var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
-        double top = Procs.Count > 0 ? Procs.Max(p => p.MemMB) : 1;
-        foreach (var p in Procs) p.MemShare = top > 0 ? p.MemMB / top * 100 : 0;
+        // Bars show each app's share of all the memory, like the gauge above them (not relative to the biggest app).
+        double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
+        foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
         if (OnlyWindowedApps) ProcsView.Refresh();
     }
 

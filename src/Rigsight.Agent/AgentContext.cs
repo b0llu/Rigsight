@@ -43,6 +43,8 @@ internal sealed class AgentContext : ApplicationContext
     private readonly AppResolver _apps;
     private readonly Tracker _tracker;
     private readonly ProcessSampler _procSampler = new();
+    private readonly ProcessLabels _procLabels = new();
+    private bool _procsNow; // sampler thread: sample processes on this pass
     private readonly ActivityMonitor _activity = new();
     private readonly AlertMonitor _alerts = new();
     private readonly PipeServer _pipe;
@@ -303,8 +305,9 @@ internal sealed class AgentContext : ApplicationContext
                     nextSensor = now + interval;
                 }
 
-                if (now >= nextProc)
+                if (now >= nextProc || _procsNow)
                 {
+                    _procsNow = false;
                     double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : Math.Min((now - lastProc) / 1000.0, 60);
                     lastProc = now;
                     t0 = Stopwatch.GetTimestamp();
@@ -515,6 +518,7 @@ internal sealed class AgentContext : ApplicationContext
 
     private List<ProcInfo> BuildProcs(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows)
     {
+        Dictionary<int, string>? titles = null;
         return [.. snapshot.Apps.Values
             .OrderByDescending(a => a.MemMB)
             .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe))
@@ -526,6 +530,7 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     Exe = a.Exe, Name = name, Path = path, Count = a.Count,
                     Cpu = Math.Round(a.Cpu, 1), MemMB = Math.Round(a.MemMB, 1), HasWindow = windows.ContainsKey(a.Exe),
+                    Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles) : null,
                 };
             })];
     }
@@ -702,6 +707,15 @@ internal sealed class AgentContext : ApplicationContext
 
         switch (msg.Cmd)
         {
+            case "procs-detail":
+                // The Memory page opened (or closed) apps to see each of their processes: resample now, not in 2 s.
+                var exes = string.IsNullOrEmpty(msg.Arg) ? null : new HashSet<string>(msg.Arg.Split('|'), StringComparer.OrdinalIgnoreCase);
+                RunOnSampler(() =>
+                {
+                    _procSampler.Detail = exes;
+                    _procsNow = true;
+                });
+                break;
             case "clear-history":
                 RunOnSampler(() => _tracker.ClearHistory());
                 break;

@@ -37,6 +37,7 @@ internal sealed class AppResolver
     {
         if (_byExe.TryGetValue(exe, out var app))
         {
+            CheckPath(app, pid);
             if (app.Path is null && pid > 4 && Win32.ProcessPath(pid) is { } p)
             {
                 app.Path = p;
@@ -59,12 +60,31 @@ internal sealed class AppResolver
     /// <summary>Name and path for display only (doesn't create a database record).</summary>
     public (string Name, string? Path) Describe(string exe, int pid)
     {
-        if (_byExe.TryGetValue(exe, out var app)) return (app.Name, app.Path);
+        if (_byExe.TryGetValue(exe, out var app))
+        {
+            CheckPath(app, pid);
+            return (app.Name, app.Path);
+        }
         if (_described.TryGetValue(exe, out var d)) return d;
         var path = pid > 4 ? Win32.ProcessPath(pid) : null;
         d = (AppCatalog.ResolveName(exe, path), path);
         _described[exe] = d;
         return d;
+    }
+
+    private readonly HashSet<string> _pathChecked = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Once a run per app: apps that update themselves into a new folder (Discord's "app-1.0.9258") leave the saved
+    /// path pointing at a folder that's gone, and with it the icon. Takes the running copy's path instead.
+    /// </summary>
+    private void CheckPath(AppInfo app, int pid)
+    {
+        if (app.Path is null || pid <= 4 || !_pathChecked.Add(app.Exe) || File.Exists(app.Path)) return;
+        if (Win32.ProcessPath(pid) is not { } path || path.Equals(app.Path, StringComparison.OrdinalIgnoreCase)) return;
+        app.Path = path;
+        try { db.UpsertApp(app.Exe, app.Name, app.Path, app.AutoCategory); }
+        catch (Exception ex) { Log.Error("apps", ex); }
     }
 
     public void MarkAsGame(AppInfo app)

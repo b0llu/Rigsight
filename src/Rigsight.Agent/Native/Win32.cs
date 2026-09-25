@@ -16,6 +16,7 @@ internal static partial class Win32
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
     [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hwnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
@@ -30,6 +31,7 @@ internal static partial class Win32
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
     [DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int state);
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)] public static extern int SHLoadIndirectString(string source, StringBuilder output, int size, IntPtr reserved);
     public const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;
     [DllImport("shcore.dll")] public static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
@@ -86,6 +88,36 @@ internal static partial class Win32
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
     public const int SystemProcessInformation = 5;
     public const int STATUS_INFO_LENGTH_MISMATCH = unchecked((int)0xC0000004);
+
+    [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr process, int infoClass, IntPtr buffer, int length, out int returnLength);
+    private const int ProcessCommandLineInformation = 60;
+
+    /// <summary>A process's command line (null if it can't be read, e.g. a protected process).</summary>
+    public static string? ProcessCommandLine(int pid)
+    {
+        var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return null;
+        int size = 4096;
+        var buffer = Marshal.AllocHGlobal(size);
+        try
+        {
+            int status = NtQueryInformationProcess(h, ProcessCommandLineInformation, buffer, size, out int needed);
+            if (status == STATUS_INFO_LENGTH_MISMATCH && needed > size && needed < 1 << 20)
+            {
+                Marshal.FreeHGlobal(buffer);
+                buffer = Marshal.AllocHGlobal(size = needed);
+                status = NtQueryInformationProcess(h, ProcessCommandLineInformation, buffer, size, out _);
+            }
+            if (status != 0) return null;
+            var text = Marshal.PtrToStructure<UNICODE_STRING>(buffer);
+            return text.Buffer == IntPtr.Zero ? null : Marshal.PtrToStringUni(text.Buffer, text.Length / 2);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+            CloseHandle(h);
+        }
+    }
 
     public static string? ProcessPath(int pid)
     {

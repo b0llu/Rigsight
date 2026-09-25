@@ -27,7 +27,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Grid Width="150" Height="150">
+                    <Grid Width="160" Height="160" VerticalAlignment="Center">
                         <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="12" Brush="{DynamicResource PurpleBrush}" />
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="34" FontWeight="SemiBold"
@@ -35,16 +35,21 @@
                             <TextBlock Text="IN USE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Grid>
-                    <StackPanel Grid.Column="1" Margin="22,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="System memory" Style="{StaticResource H2}" />
-                        <TextBlock Text="{Binding Live.RamText}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
-                        <TextBlock Style="{StaticResource Muted}">
+                    <!-- The card is as tall as today's list beside it: the chart takes the height that's left. -->
+                    <DockPanel Grid.Column="1" Margin="22,0,0,0">
+                        <TextBlock DockPanel.Dock="Top" Text="System memory" Style="{StaticResource H2}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding Live.RamText}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}">
                             <Run Text="Available:" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
                         </TextBlock>
-                        <ctl:Sparkline Height="44" Margin="0,14,0,0" Source="{Binding Live.RamLoad.History}" Version="{Binding Live.RamLoad.Version}"
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}"
+                                   ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Shown as Memory Compression in Task Manager.">
+                            <Run Text="Compressed:" /> <Run Text="{Binding Live.CompressedText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                        </TextBlock>
+                        <TextBlock DockPanel.Dock="Bottom" Text="LAST 10 MINUTES" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+                        <ctl:Sparkline MinHeight="44" Margin="0,14,0,0" Source="{Binding Live.RamLoad.History}" Version="{Binding Live.RamLoad.Version}"
                                        Stroke="{DynamicResource PurpleBrush}" Minimum="0" Maximum="100" WindowSeconds="600" />
-                        <TextBlock Text="LAST 10 MINUTES" Style="{StaticResource Caption}" Margin="0,6,0,0" />
-                    </StackPanel>
+                    </DockPanel>
                 </Grid>
             </ctl:SmoothBorder>
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
@@ -100,33 +105,70 @@
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="70" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="APP" Style="{StaticResource Caption}" Margin="42,0,0,0" />
+                    <TextBlock Text="APP" Style="{StaticResource Caption}" Margin="62,0,0,0" />
                     <TextBlock Grid.Column="2" Text="MEMORY" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="3" Text="CPU" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                 </Grid>
+                <!-- An app with more than one process opens (click) to list each of them underneath. -->
                 <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,0,8,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="70" />
-                                </Grid.ColumnDefinitions>
-                                <DockPanel>
-                                    <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
-                                    <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                                        <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                        <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    </StackPanel>
-                                </DockPanel>
-                                <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" VerticalAlignment="Center" Margin="8,0"
-                                             Value="{Binding MemShare, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}" />
-                                <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
-                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="3" Text="{Binding CpuText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                            </Grid>
+                            <StackPanel Margin="0,0,8,0">
+                                <Grid Background="Transparent" MouseLeftButtonUp="App_Click">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="70" />
+                                    </Grid.ColumnDefinitions>
+                                    <DockPanel>
+                                        <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Width="20" Foreground="{DynamicResource MutedBrush}"
+                                                   VerticalAlignment="Center" Visibility="Hidden" />
+                                        <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
+                                        <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
+                                            <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" VerticalAlignment="Center" Margin="8,0" Maximum="100"
+                                                 Value="{Binding MemShare, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}"
+                                                 ToolTip="{Binding MemShareText}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding CpuText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                                <ItemsControl x:Name="Children" ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="Collapsed">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="2*" />
+                                                    <ColumnDefinition Width="90" />
+                                                    <ColumnDefinition Width="70" />
+                                                </Grid.ColumnDefinitions>
+                                                <!-- Spans the bar's column too: window titles can be long. -->
+                                                <TextBlock Grid.ColumnSpan="2" Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
+                                                    <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                                </TextBlock>
+                                                <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{Binding CpuText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding CanExpand}" Value="True">
+                                    <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                    <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
+                                    <Setter TargetName="Children" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

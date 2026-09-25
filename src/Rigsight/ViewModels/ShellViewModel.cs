@@ -23,6 +23,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Settings = new SettingsModel(client);
         Reports = new ReportService(Settings);
         Live = new LiveData(Settings);
+        Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Home = new HomeViewModel(Reports, Live);
         ReportsPage = new ReportsViewModel(Reports);
@@ -363,6 +364,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
                 Live.LoadHello(msg);
+                if (Live.ExpandedApps is { } expanded) _client.SendCommand("procs-detail", expanded); // a restarted agent
                 ApplyOverlayState(msg);
                 if (msg.Page is not null || msg.Arg is not null) Navigate(msg.Page, msg.Arg);
                 break;

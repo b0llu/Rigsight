@@ -13,7 +13,11 @@ internal sealed class AppUsage
     public double Cpu { get; set; }
     /// <summary>Private working set in MB (Task Manager's "Memory" column).</summary>
     public double MemMB { get; set; }
+    /// <summary>Each process on its own, only for the apps asked for (<see cref="ProcessSampler.Detail"/>).</summary>
+    public List<ProcessUsage>? Processes { get; set; }
 }
+
+internal readonly record struct ProcessUsage(int Pid, long Created, double Cpu, double MemMB);
 
 internal sealed class ProcessSnapshot
 {
@@ -31,6 +35,9 @@ internal sealed unsafe class ProcessSampler
     private int _bufferSize = 1 << 20;
     private Dictionary<(int Pid, long Created), long> _lastCpu = [];
     private long _lastSampleTicks;
+
+    /// <summary>Apps (exe names) whose processes are also listed one by one, for the Memory page.</summary>
+    public HashSet<string>? Detail { get; set; }
 
     public ProcessSnapshot Sample()
     {
@@ -50,6 +57,7 @@ internal sealed unsafe class ProcessSampler
         double elapsed100ns = (now - _lastSampleTicks) * 10_000.0 * Environment.ProcessorCount;
         bool haveBaseline = _lastSampleTicks != 0 && elapsed100ns > 0;
         var current = new Dictionary<(int, long), long>(_lastCpu.Count);
+        var detail = Detail;
 
         byte* p = (byte*)_buffer;
         while (true)
@@ -74,7 +82,9 @@ internal sealed unsafe class ProcessSampler
                 }
                 app.Count++;
                 app.Cpu += cpu;
-                app.MemMB += info->WorkingSetPrivateSize / (1024.0 * 1024.0);
+                double mem = info->WorkingSetPrivateSize / (1024.0 * 1024.0);
+                app.MemMB += mem;
+                if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem));
                 snapshot.PidToExe[pid] = exe;
             }
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -10,6 +11,41 @@ namespace Rigsight.Services;
 public static class IconCache
 {
     private static readonly Dictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Windows' plain program icon, for processes without an icon of their own.</summary>
+    public static ImageSource? Program => _program ??= StockIcon(SiidApplication);
+    private static ImageSource? _program;
+
+    private const uint SiidApplication = 2, ShgsiIcon = 0x100, ShgsiLargeIcon = 0;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct SHSTOCKICONINFO
+    {
+        public uint cbSize;
+        public IntPtr hIcon;
+        public int iSysImageIndex;
+        public int iIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szPath;
+    }
+
+    [DllImport("shell32.dll")] private static extern int SHGetStockIconInfo(uint siid, uint flags, ref SHSTOCKICONINFO info);
+    [DllImport("user32.dll")] private static extern bool DestroyIcon(IntPtr icon);
+
+    private static ImageSource? StockIcon(uint siid)
+    {
+        var info = new SHSTOCKICONINFO { cbSize = (uint)Marshal.SizeOf<SHSTOCKICONINFO>() };
+        if (SHGetStockIconInfo(siid, ShgsiIcon | ShgsiLargeIcon, ref info) != 0 || info.hIcon == IntPtr.Zero) return null;
+        try
+        {
+            var source = Imaging.CreateBitmapSourceFromHIcon(info.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally
+        {
+            DestroyIcon(info.hIcon);
+        }
+    }
 
     public static ImageSource? Get(string? exePath)
     {
