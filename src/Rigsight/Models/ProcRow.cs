@@ -17,13 +17,24 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     [ObservableProperty] private double _cpu;
     [ObservableProperty] private double _memMB;
     [ObservableProperty] private bool _hasWindow;
-    /// <summary>Share of all the PC's memory (0–100), for the bar.</summary>
+    /// <summary>Share of all the PC's memory (0–100), for the bar's tooltip.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MemShareText))]
     private double _memShare;
+    /// <summary>The bar (0–100): memory next to the biggest app in the list, which fills it.</summary>
+    [ObservableProperty] private double _bar;
     /// <summary>Showing each of its processes underneath.</summary>
-    [ObservableProperty] private bool _isExpanded;
-    [ObservableProperty] private List<ProcChild> _children = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowChildren), nameof(IsLoading))]
+    private bool _isExpanded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowChildren), nameof(IsLoading))]
+    private List<ProcChild> _children = [];
+
+    // The list opens once the agent has sent the processes (a spinner in the chevron's place until then), not as an
+    // empty gap before.
+    public bool ShowChildren => IsExpanded && Children.Count > 0;
+    public bool IsLoading => IsExpanded && Children.Count == 0;
 
     // Programs whose icon can't be read (protected ones) get the plain program icon.
     public ImageSource? Icon => IconCache.Get(Path) ?? IconCache.Program;

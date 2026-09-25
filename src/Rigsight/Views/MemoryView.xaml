@@ -161,8 +161,18 @@
                                         <ColumnDefinition Width="70" />
                                     </Grid.ColumnDefinitions>
                                     <DockPanel>
-                                        <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Width="20" Foreground="{DynamicResource MutedBrush}"
-                                                   VerticalAlignment="Center" Visibility="Hidden" />
+                                        <Grid Width="20" VerticalAlignment="Center">
+                                            <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource MutedBrush}"
+                                                       HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Hidden" />
+                                            <!-- Turns while the processes are on their way -->
+                                            <Path x:Name="Spinner" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
+                                                  Data="M 5,0.75 A 4.25,4.25 0 1 1 0.75,5" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.5"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                                <Path.RenderTransform>
+                                                    <RotateTransform />
+                                                </Path.RenderTransform>
+                                            </Path>
+                                        </Grid>
                                         <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
                                         <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
@@ -170,13 +180,13 @@
                                         </StackPanel>
                                     </DockPanel>
                                     <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" VerticalAlignment="Center" Margin="8,0" Maximum="100"
-                                                 Value="{Binding MemShare, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}"
+                                                 Value="{Binding Bar, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}"
                                                  ToolTip="{Binding MemShareText}" />
                                     <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="3" Text="{Binding CpuText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
-                                <ItemsControl x:Name="Children" ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="Collapsed">
+                                <ItemsControl ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Grid Margin="0,3">
@@ -205,7 +215,21 @@
                                 <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                                     <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
                                     <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
-                                    <Setter TargetName="Children" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                    <Setter TargetName="Chevron" Property="Visibility" Value="Hidden" />
+                                    <Setter TargetName="Spinner" Property="Visibility" Value="Visible" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="Spin">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Spinner" Storyboard.TargetProperty="RenderTransform.Angle"
+                                                                 From="0" To="360" Duration="0:0:0.8" RepeatBehavior="Forever" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="Spin" />
+                                    </DataTrigger.ExitActions>
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>

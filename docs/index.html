@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="preload" as="image" href="img/temperatures.webp" />
-  <link rel="stylesheet" href="styles.css?v=0.4.13c" />
+  <link rel="stylesheet" href="styles.css?v=0.5.11" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -80,7 +80,7 @@
       <div class="wrap hero-visual reveal">
         <div class="stage" id="stage">
           <figure class="window">
-            <img src="img/temperatures.webp" width="1440" height="932" alt="Rigsight's Temperatures page: CPU and GPU gauges, load, power, clocks and a six-hour temperature history chart" />
+            <img src="img/temperatures.webp" width="1440" height="932" alt="Rigsight's Temperatures page: CPU and GPU gauges, load, power, clocks and the last 24 hours of temperatures, with a long gaming session" />
           </figure>
 
           <div class="float float-overlay" aria-hidden="true">
@@ -162,10 +162,10 @@
           <ul class="checks">
             <li>Active time vs. time the PC was just on</li>
             <li>Highlights that only speak up when something stands out</li>
-            <li>Idle vs. idle and load vs. load comparisons with last week</li>
+            <li>Temperatures compared with your usual, idle with idle and load with load</li>
           </ul>
         </div>
-        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/reports.webp" width="1440" height="932" alt="Reports page with a minute-by-minute timeline of apps and temperatures" /></figure>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/reports.webp" width="1440" height="932" alt="A day's report: active time, a minute-by-minute timeline of apps and temperatures, what stood out and the hottest moments" /></figure>
       </article>
 
       <article class="feature wrap">
@@ -179,7 +179,7 @@
             <li>Rename apps, set categories, or never track one</li>
           </ul>
         </div>
-        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/apps.webp" width="1440" height="932" alt="Apps page listing apps by time used, with per-app temperatures" /></figure>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/apps.webp" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
       </article>
 
       <article class="feature wrap flip">
@@ -195,6 +195,19 @@
         </div>
         <figure class="shot reveal" data-zoom><img loading="lazy" src="img/crashes.webp" width="1440" height="932" alt="Crashes page with a severity timeline and plain-language explanations" /></figure>
       </article>
+
+      <article class="feature wrap">
+        <div class="f-copy reveal">
+          <span class="tag tag-purple">Memory</span>
+          <h2>What's filling your RAM.</h2>
+          <p>How much memory is in use, free and compressed, and which apps are using it right now. Open an app to see each of its processes: every browser tab, every Windows service.</p>
+          <ul class="checks">
+            <li>The heaviest apps stand out at a glance</li>
+            <li>Today's biggest memory users, with their peaks</li>
+          </ul>
+        </div>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/memory.webp" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
+      </article>
     </section>
 
     <!-- ── Overlay ────────────────────────────────────────────── -->
@@ -206,7 +219,7 @@
           <p>Press <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>O</kbd> in any game. FPS, 1% lows, frame time, CPU and GPU temperature, load, clock and power, VRAM, RAM, and up to 10 of your own sensors.</p>
           <ul class="checks">
             <li>Works in exclusive fullscreen, through RivaTuner (installed for you)</li>
-            <li>Fade the panel and the numbers separately, down to just the numbers</li>
+            <li>Colour or grayscale; fade the panel and the numbers separately</li>
             <li>Never takes focus; clicks pass straight through</li>
             <li>Rigsight never hooks into games, so it's safe with anti-cheat</li>
           </ul>
@@ -241,9 +254,9 @@
           <p>How full each drive is and how fast it's filling. SSD wear, SMART health and bad sectors, and a treemap of what's taking the space.</p>
         </div>
         <div class="card reveal">
-          <div class="c-icon" style="--c: var(--purple)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7h18v10H3zm2 2v6h2V9zm4 0v6h2V9zm4 0v6h2V9zm4 0v6h2V9zM5 18h2v2H5zm4 0h2v2H9zm4 0h2v2h-2zm4 0h2v2h-2zM5 4h2v2H5zm4 0h2v2H9zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg></div>
-          <h3>Memory</h3>
-          <p>RAM in use right now, app by app, and the day's biggest memory users with their peaks.</p>
+          <div class="c-icon" style="--c: var(--purple)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 0 1 7.4 5H17v2h6V5h-2v2.3A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8m8 8a8 8 0 0 1-15.4 3H7v-2H1v6h2v-2.3A10 10 0 0 0 22 12z"/></svg></div>
+          <h3>Updates itself</h3>
+          <p>New versions download quietly and install the next time you start your PC. Nothing to remember.</p>
         </div>
         <div class="card reveal">
           <div class="c-icon" style="--c: var(--green)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v5h-8zm2 2v1h4V5zM3 13h8v8H3zm2 2v4h4v-4zm8-5h8v11h-8zm2 2v7h4v-7z"/></svg></div>
@@ -258,12 +271,12 @@
         <div class="card reveal">
           <div class="c-icon" style="--c: var(--red)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 3.2 1 5.2 2 6.5V17H3v-1.5C4 14.2 5 12.2 5 9a7 7 0 0 1 7-7m-2 17h4a2 2 0 0 1-4 0"/></svg></div>
           <h3>Calm notifications</h3>
-          <p>A daily recap, game session summaries and temperature alerts. Anything non-urgent waits until you leave your game.</p>
+          <p>A daily recap, game session summaries and temperature alerts. Alerts reach you even in fullscreen games; anything else waits until you leave.</p>
         </div>
         <div class="card reveal">
           <div class="c-icon" style="--c: var(--cyan)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3m0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10"/></svg></div>
           <h3>Every sensor</h3>
-          <p>Every sensor your hardware exposes (over 200 on a typical gaming PC), searchable, grouped and renamable. NVIDIA, AMD and Intel.</p>
+          <p>Every sensor your hardware exposes (over 200 on a typical gaming PC), searchable, renamable and grouped in the order you choose. NVIDIA, AMD and Intel.</p>
         </div>
       </div>
     </section>
@@ -386,6 +399,6 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=0.4.13c" defer></script>
+  <script src="app.js?v=0.5.11" defer></script>
 </body>
 </html>

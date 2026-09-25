@@ -145,7 +145,11 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private List<ProcRow> _topMemory = [];
     public ICollectionView ProcsView { get; }
     [ObservableProperty] private bool _onlyWindowedApps;
-    partial void OnOnlyWindowedAppsChanged(bool value) => ProcsView.Refresh();
+    partial void OnOnlyWindowedAppsChanged(bool value)
+    {
+        ProcsView.Refresh();
+        UpdateBars();
+    }
 
     // ── Sensors page filters ──────────────────────────────────────────────
     [ObservableProperty] private string _searchText = "";
@@ -416,10 +420,20 @@ public sealed partial class LiveData : ObservableObject
         // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
         var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
-        // Bars show each app's share of all the memory, like the gauge above them (not relative to the biggest app).
         double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
         foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
         if (OnlyWindowedApps) ProcsView.Refresh();
+        UpdateBars();
+    }
+
+    /// <summary>
+    /// Bars compare the apps with each other: the biggest one shown fills its bar and the rest are measured against
+    /// it. (Next to all the memory every bar would be a sliver, since no one app comes close to filling it.)
+    /// </summary>
+    private void UpdateBars()
+    {
+        double biggest = Procs.Where(p => !OnlyWindowedApps || p.HasWindow).Select(p => p.MemMB).DefaultIfEmpty(0).Max();
+        foreach (var p in Procs) p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
     }
 
     private int _ticksSinceBuild;
