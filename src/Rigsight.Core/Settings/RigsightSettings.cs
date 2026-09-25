@@ -39,6 +39,9 @@ public sealed class RigsightSettings
     /// <summary>Hardware groups collapsed on the All sensors page (by name).</summary>
     public HashSet<string> CollapsedHardware { get; set; } = [];
 
+    /// <summary>The order the user dragged the All sensors groups into (by name); groups not listed follow in their usual order.</summary>
+    public List<string> HardwareOrder { get; set; } = [];
+
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
 

@@ -477,14 +477,51 @@ public sealed partial class LiveData : ObservableObject
     private void RebuildRows()
     {
         var rows = new List<object>(_flat.Count + Hardware.Count * 2);
-        foreach (var node in Hardware.Where(n => n.HasVisibleSensors))
+        foreach (var node in OrderedHardware().Where(n => n.HasVisibleSensors))
         {
             rows.Add(node);
-            if (node.IsExpanded) rows.AddRange(node.Sensors.Where(s => s.IsShown));
+            if (node.IsExpanded && !IsReordering) rows.AddRange(node.Sensors.Where(s => s.IsShown));
             rows.Add(node.End);
         }
         SensorRows = rows;
     }
+
+    // ── Reordering the groups (drag a header) ──
+
+    /// <summary>While a group is being dragged: every group shows just its header, so the whole list fits.</summary>
+    [ObservableProperty] private bool _isReordering;
+
+    partial void OnIsReorderingChanged(bool value) => RebuildRows();
+
+    /// <summary>The groups in the order the user chose; ones not placed yet keep their usual order after them.</summary>
+    private List<HardwareNode> OrderedHardware()
+    {
+        var order = _settings.Current.HardwareOrder;
+        return [.. Hardware.Select((node, i) => (node, key: order.IndexOf(node.Name) is int k and >= 0 ? k : order.Count + i))
+            .OrderBy(x => x.key).Select(x => x.node)];
+    }
+
+    /// <summary>Moves a group to where another one is (after it when coming from above, before it when from below).</summary>
+    public void MoveHardware(HardwareNode node, HardwareNode target)
+    {
+        if (node == target) return;
+        var list = OrderedHardware();
+        int from = list.IndexOf(node), to = list.IndexOf(target);
+        if (from < 0 || to < 0) return;
+        list.RemoveAt(from);
+        list.Insert(to, node);
+        _settings.Update(s => s.HardwareOrder = [.. list.Select(n => n.Name)]);
+        RebuildRows();
+    }
+
+    /// <summary>The group a row of the All sensors list belongs to.</summary>
+    public HardwareNode? GroupOf(object? row) => row switch
+    {
+        HardwareNode node => node,
+        SensorGroupEnd end => end.Owner,
+        SensorItem item => Hardware.FirstOrDefault(n => n.Sensors.Contains(item)),
+        _ => null,
+    };
 
     [RelayCommand]
     private void ToggleExpanded(HardwareNode? node)

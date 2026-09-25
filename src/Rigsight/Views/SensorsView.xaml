@@ -72,7 +72,7 @@
 
         <!-- One flat, virtualized list: only the rows on screen are built, the rest as you scroll.
              Each card is a header item, its sensor rows, and an end item, drawn so they join up. -->
-        <ItemsControl ItemsSource="{Binding SensorRows}"
+        <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                       VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
             <ItemsControl.Template>
@@ -91,21 +91,22 @@
             <ItemsControl.Resources>
                 <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
                 <DataTemplate DataType="{x:Type m:HardwareNode}">
-                    <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
                         <StackPanel>
-                            <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,0" Padding="8,6" CornerRadius="10"
-                                    MouseLeftButtonUp="Header_Click" ToolTip="Click to collapse or expand">
+                            <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="10"
+                                    MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
+                                    ToolTip="Click to collapse or expand. Drag to change the order.">
                                 <DockPanel>
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,0,4" />
+                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
                                     <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
                                         <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                     </Border>
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" />
                                 </DockPanel>
                             </Border>
-                            <Grid x:Name="Columns" Margin="0,14,0,4">
+                            <Grid x:Name="Columns" Margin="0,20,0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="64" />
                                     <ColumnDefinition Width="*" MinWidth="160" />
@@ -130,13 +131,26 @@
                             <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
                             <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding IsBeingMoved}" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                        </DataTrigger>
+                        <!-- While a group is being dragged, every group is just its header. -->
+                        <DataTrigger Binding="{Binding DataContext.IsReordering, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                            <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                            <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>
 
                 <!-- Card bottom -->
                 <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
-                    <ctl:SmoothBorder Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    <ctl:SmoothBorder x:Name="Card" Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                             BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Owner.IsBeingMoved}" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
                 </DataTemplate>
 
                 <!-- One sensor -->
