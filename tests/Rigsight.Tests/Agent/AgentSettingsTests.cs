@@ -157,13 +157,11 @@ public class UpdaterContractTests
         Assert.Equal(4, BackgroundUpdater.Available);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(@"C:\no\such\Rigsight-setup.exe")]
-    public async Task No_installer_file_means_nothing_runs(string? path)
+    [Fact]
+    public async Task No_downloaded_installer_means_nothing_runs()
     {
-        Assert.False(await UpdateInstaller.RunAsync(path));
-        Assert.False(await UpdateInstaller.RunAsync(path)); // and it's ready for the next request
+        // Only the update store's own download is ever installed; with none there, nothing is looked up or run.
+        Assert.False(await UpdateInstaller.RunAsync());
+        Assert.False(await UpdateInstaller.RunAsync()); // and it's ready for the next request
     }
 }

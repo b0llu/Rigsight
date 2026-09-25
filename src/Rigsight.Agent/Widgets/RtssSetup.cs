@@ -67,6 +67,27 @@ internal static class RtssSetup
         return null;
     }
 
+    /// <summary>
+    /// Whether <paramref name="exe"/> is somewhere only administrators can change (Program Files), so the elevated agent
+    /// may start it with its own rights. Found anywhere else, it's started with the user's rights instead: whoever can
+    /// write there could otherwise swap in any program and have it run as admin.
+    /// </summary>
+    public static bool InTrustedFolder(string exe) => InTrustedFolder(exe, Environment.GetFolderPath);
+
+    internal static bool InTrustedFolder(string exe, Func<Environment.SpecialFolder, string> folder)
+    {
+        string full;
+        try { full = Path.GetFullPath(exe); }
+        catch { return false; }
+        foreach (var pf in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+        {
+            var root = folder(pf);
+            if (!string.IsNullOrEmpty(root) && full.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether RivaTuner is there, even if its program can't be located (it's running).</summary>
     public static bool IsInstalled() => Find() is not null || Windows.Running();
 
@@ -131,7 +152,8 @@ internal static class RtssSetup
     private static IEnumerable<(string?, string?, string?, string?)> InstalledPrograms()
     {
         var list = new List<(string?, string?, string?, string?)>();
-        foreach (var (hive, view) in new[] { (RegistryHive.LocalMachine, RegistryView.Registry32), (RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.CurrentUser, RegistryView.Default) })
+        // Only the machine-wide lists, which only administrators can write: the per-user one could name any program.
+        foreach (var (hive, view) in new[] { (RegistryHive.LocalMachine, RegistryView.Registry32), (RegistryHive.LocalMachine, RegistryView.Registry64) })
         {
             try
             {

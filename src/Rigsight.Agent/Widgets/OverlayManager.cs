@@ -167,8 +167,17 @@ internal sealed class OverlayManager : IDisposable
         _rtssStartTried = true;
         try
         {
-            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe)! })?.Dispose();
-            Log.Write("overlay", "Started RivaTuner");
+            if (RtssSetup.InTrustedFolder(exe))
+            {
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe)! })?.Dispose();
+                Log.Write("overlay", "Started RivaTuner");
+            }
+            else
+            {
+                // Outside Program Files: through Explorer, with the user's rights (Windows asks if RivaTuner wants admin).
+                Process.Start("explorer.exe", $"\"{exe}\"")?.Dispose();
+                Log.Write("overlay", $"Started RivaTuner from {exe} with the user's rights (not in Program Files)");
+            }
         }
         catch (Exception ex)
         {

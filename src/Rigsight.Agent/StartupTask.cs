@@ -58,7 +58,9 @@ internal static class StartupTask
             </Task>
             """;
 
-        var file = Path.Combine(Path.GetTempPath(), "Rigsight-agent-task.xml");
+        // Next to the agent (Program Files), not in the temp folder: there any program could swap the file between
+        // writing it and Windows reading it, and have its own command run as admin at every sign-in.
+        var file = Path.Combine(AppContext.BaseDirectory, "Rigsight-agent-task.xml");
         try
         {
             File.WriteAllText(file, xml, Encoding.Unicode);

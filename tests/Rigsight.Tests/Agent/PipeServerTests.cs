@@ -102,6 +102,45 @@ public sealed class PipeServerTests : IDisposable
 
     public void Dispose() => _server.Dispose();
 
+    [Fact]
+    public void A_message_over_1_MB_closes_only_that_connection()
+    {
+        using var bad = Connect();
+        bad.Read();
+        using var good = Connect();
+        good.Read();
+        try { bad.WriteLine(new string('x', (1 << 20) + 5000)); } catch (IOException) { } // the agent may hang up mid-write
+        Assert.True(bad.IsClosed());
+        Assert.True(Wait.For(() => _server.ClientCount == 1));
+        // The agent carries on for everyone else.
+        good.Send(new UiMessage { T = "cmd", Cmd = "after" });
+        Assert.True(Wait.For(() => _received.Any(m => m.Cmd == "after")));
+    }
+
+    [Fact]
+    public void Messages_arrive_whole_however_the_bytes_are_split()
+    {
+        using var c = Connect();
+        c.Read();
+        var one = ProtocolJson.Serialize(new UiMessage { T = "cmd", Cmd = "one", Arg = new string('a', 10_000) });
+        var two = ProtocolJson.Serialize(new UiMessage { T = "cmd", Cmd = "two" });
+        var three = ProtocolJson.Serialize(new UiMessage { T = "cmd", Cmd = "three" });
+        // Two messages in one write, then one in pieces, with Windows line endings.
+        var bytes = Encoding.UTF8.GetBytes(one + "\n" + two + "\r\n" + three + "\n");
+        int cut = bytes.Length - 20;
+        c.Pipe.Write(bytes, 0, 7_000);
+        c.Pipe.Flush();
+        Thread.Sleep(50);
+        c.Pipe.Write(bytes, 7_000, cut - 7_000);
+        c.Pipe.Flush();
+        Thread.Sleep(50);
+        c.Pipe.Write(bytes, cut, bytes.Length - cut);
+        c.Pipe.Flush();
+        Assert.True(Wait.For(() => _received.Count(m => m.Cmd is "one" or "two" or "three") == 3));
+        Assert.Equal(["one", "two", "three"], _received.Where(m => m.Cmd is "one" or "two" or "three").Select(m => m.Cmd!));
+        Assert.Equal(10_000, _received.Single(m => m.Cmd == "one").Arg!.Length);
+    }
+
     private RawClient Connect() => RawClient.Connect(_name);
 
     private static AgentMessage Tick(int n, string? padding = null) => new() { T = "tick", Time = n, Arg = padding };

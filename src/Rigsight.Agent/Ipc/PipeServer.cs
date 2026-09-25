@@ -90,17 +90,27 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
         {
             Enqueue(client, buildHello());
             using var reader = new StreamReader(client.Pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
+            var line = new StringBuilder();
+            var buffer = new char[4096];
             while (!_cts.IsCancellationRequested && client.Pipe.IsConnected)
             {
-                var line = await reader.ReadLineAsync(_cts.Token);
-                if (line is null) break;
-                try
+                int read = await reader.ReadAsync(buffer, _cts.Token);
+                if (read == 0) break;
+                int start = 0;
+                for (int i = 0; i < read; i++)
                 {
-                    if (ProtocolJson.Deserialize<UiMessage>(line) is { } msg) onMessage(msg);
+                    if (buffer[i] != '\n') continue;
+                    line.Append(buffer, start, i - start);
+                    Handle(line.ToString().TrimEnd('\r'));
+                    line.Clear();
+                    start = i + 1;
                 }
-                catch (Exception ex)
+                line.Append(buffer, start, read - start);
+                // Settings, the largest message, are a few KB: anything this big isn't the app, and must not fill memory.
+                if (line.Length > MaxMessageChars)
                 {
-                    Log.Error("pipe", ex);
+                    Log.Write("pipe", "A message over 1 MB: closing that connection");
+                    break;
                 }
             }
         }
@@ -114,6 +124,21 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
             client.Outbox.Writer.TryComplete();
             try { client.Pipe.Dispose(); } catch { }
             await writer;
+        }
+    }
+
+    private const int MaxMessageChars = 1 << 20;
+
+    private void Handle(string line)
+    {
+        if (line.Length == 0) return;
+        try
+        {
+            if (ProtocolJson.Deserialize<UiMessage>(line) is { } msg) onMessage(msg);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("pipe", ex);
         }
     }
 

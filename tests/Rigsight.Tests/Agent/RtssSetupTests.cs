@@ -65,6 +65,22 @@ public sealed class RtssFindTests
     public void The_usual_folder_is_found_without_any_registry() =>
         Assert.Equal(Rtss, RtssSetup.Find(Pc(files: [Rtss])));
 
+    private static string Folders(Environment.SpecialFolder f) =>
+        f == Environment.SpecialFolder.ProgramFilesX86 ? @"C:\Program Files (x86)" : @"C:\Program Files";
+
+    [Theory]
+    [InlineData(@"C:\Program Files (x86)\RivaTuner Statistics Server\RTSS.exe", true)]
+    [InlineData(@"C:\Program Files\RivaTuner Statistics Server\RTSS.exe", true)]
+    [InlineData(@"c:\program files (x86)\RivaTuner Statistics Server\RTSS.exe", true)]
+    [InlineData(@"D:\Tools\RTSS\RTSS.exe", false)]
+    [InlineData(@"C:\Users\me\AppData\Local\RTSS\RTSS.exe", false)]
+    [InlineData(@"C:\Program Files Evil\RTSS.exe", false)]                           // only a look-alike name
+    [InlineData(@"C:\Program Files\..\Users\me\RTSS.exe", false)]                // climbs back out
+    [InlineData(@"RTSS.exe", false)]
+    [InlineData(@"C:\Program Files", false)]
+    public void RivaTuner_is_started_with_admin_rights_only_from_program_files(string exe, bool trusted) =>
+        Assert.Equal(trusted, RtssSetup.InTrustedFolder(exe, Folders));
+
     [Fact]
     public void This_pcs_rivatuner_matches_what_windows_says() =>
         Assert.Equal(RtssSetup.Find() is not null, RtssSetup.IsInstalled() && (RtssSetup.Find() is not null || Process.GetProcessesByName("RTSS").Length > 0));

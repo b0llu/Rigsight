@@ -17,17 +17,22 @@ internal static class UpdateInstaller
     private static string Folder => Path.Combine(AppContext.BaseDirectory, "update");
     private static int _running;
 
-    /// <summary>Whether the installer was started.</summary>
-    public static async Task<bool> RunAsync(string? downloaded, string arguments = ReleaseFeed.SetupArguments)
+    /// <summary>
+    /// Installs the latest release from the download the app or the background updater made (in the update store; the
+    /// agent never takes a path from the pipe, where any program could name any file). Whether the installer was started.
+    /// </summary>
+    public static async Task<bool> RunAsync(string arguments = ReleaseFeed.SetupArguments)
     {
         if (Interlocked.Exchange(ref _running, 1) == 1) return false;
         try
         {
-            if (string.IsNullOrEmpty(downloaded) || !File.Exists(downloaded)) return false;
+            if (!Directory.Exists(UpdateStore.Folder) || !Directory.EnumerateFiles(UpdateStore.Folder, "Rigsight-Setup-*.exe").Any()) return false;
             var release = await ReleaseFeed.GetLatestAsync();
             if (!ReleaseFeed.IsNewer(release)) return false;
+            string downloaded = UpdateStore.SetupPath(release!);
+            if (!File.Exists(downloaded)) return false;
 
-            Directory.CreateDirectory(Folder);
+            CreateAdminOnlyFolder(Folder);
             string setup = Path.Combine(Folder, release!.AssetName);
             File.Copy(downloaded, setup, overwrite: true);
             if (!await ReleaseFeed.MatchesAsync(setup, release))
@@ -53,6 +58,23 @@ internal static class UpdateInstaller
         {
             Volatile.Write(ref _running, 0);
         }
+    }
+
+    /// <summary>
+    /// The folder the installer is checked and run from, readable and writable by administrators only: the copy is made
+    /// before it's checked, and nobody else should be able to read it, or change it between the check and the run.
+    /// </summary>
+    private static void CreateAdminOnlyFolder(string path)
+    {
+        var security = new System.Security.AccessControl.DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var sid in new[] { System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, System.Security.Principal.WellKnownSidType.LocalSystemSid })
+            security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(new System.Security.Principal.SecurityIdentifier(sid, null),
+                System.Security.AccessControl.FileSystemRights.FullControl,
+                System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+        var dir = Directory.CreateDirectory(path);
+        dir.SetAccessControl(security);
     }
 
     /// <summary>After an update: the installer that ran is no longer needed.</summary>
@@ -125,7 +147,7 @@ internal static class BackgroundUpdater
             // was already tried and didn't take is left to the app, which offers "Try again" and the download page.
             // The window is checked again right before: opened in the meantime, it's left alone (the app offers the update).
             if (atStartup && settings.AutoUpdate && ReleaseFeed.Normalize(attempt?.Version ?? new Version()) != ready.Version
-                && !AppIsOpen() && await UpdateInstaller.RunAsync(UpdateStore.SetupPath(ready), ReleaseFeed.BackgroundArguments))
+                && !AppIsOpen() && await UpdateInstaller.RunAsync(ReleaseFeed.BackgroundArguments))
                 return Installing;
             return Downloaded;
         }

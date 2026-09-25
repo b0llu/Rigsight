@@ -752,7 +752,8 @@ internal sealed class AgentContext : ApplicationContext
             case "install-update" when !RigsightPaths.IsTestInstance:
                 _ = Task.Run(async () =>
                 {
-                    bool started = _isAdmin && await UpdateInstaller.RunAsync(msg.Arg);
+                    // Its own download of the latest release, not the path in the message (see UpdateInstaller).
+                    bool started = _isAdmin && await UpdateInstaller.RunAsync();
                     _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = started ? "started" : "failed" });
                 });
                 break;
