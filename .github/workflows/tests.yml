@@ -12,16 +12,18 @@ jobs:
   test:
     runs-on: windows-latest
     timeout-minutes: 30
-    env:
-      # The tests' data folders (and the pages' screenshots) go under the temp folder: keep it where it can be uploaded.
-      TMP: ${{ runner.temp }}
-      TEMP: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      # The tests' data folders (and the pages' screenshots) go under the temp folder: keep it where it can be uploaded.
+      - name: Temp folder
+        run: |
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
 
       # A time zone with clock changes, so the daylight-saving tests run (the runner's UTC has none).
       - name: Time zone
