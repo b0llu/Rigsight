@@ -68,6 +68,7 @@ public static class Units
             SensorKind.Temperature => $"{Temp(v):0}°",
             SensorKind.Clock when v >= 1000 => $"{v / 1000:0.00}",
             SensorKind.Voltage => $"{v:0.00}",
+            SensorKind.Data when v < 100 => $"{v:0.0}", // "↓ 9.6 ↑ 10.2" GB, not "↓ 10 ↑ 10"
             _ => $"{v:0}",
         };
     }

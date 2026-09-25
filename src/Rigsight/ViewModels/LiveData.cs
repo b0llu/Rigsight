@@ -234,6 +234,8 @@ public sealed partial class LiveData : ObservableObject
         RamLoad = K(KeySensors.RamLoad);
         RamUsed = K(KeySensors.RamUsed);
         RamAvailable = K(KeySensors.RamAvailable);
+        VirtualLoad = _flat.FirstOrDefault(s => s.HardwareType == "Memory" && s.Kind == SensorKind.Load
+                                                && s.HardwareName.Contains("Virtual", StringComparison.OrdinalIgnoreCase));
 
         CpuName = Hardware.FirstOrDefault(h => h.Type == "Cpu")?.Name ?? "CPU";
         GpuName = (Hardware.FirstOrDefault(h => h.Type is "GpuNvidia" or "GpuAmd") ?? Hardware.FirstOrDefault(h => h.IsGpu))?.Name ?? "GPU";
@@ -362,18 +364,30 @@ public sealed partial class LiveData : ObservableObject
         if (on) ProcsView.Refresh();
     }
 
-    /// <summary>Memory Windows holds compressed (the "Memory Compression" process), null until known.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CompressedText))]
-    private double? _compressedMB;
-    public string CompressedText => CompressedMB is double mb ? Units.Megabytes(mb) : "—";
+    /// <summary>
+    /// Memory Windows holds compressed (the "Memory Compression" process), as a sensor of its own so it gets a
+    /// tile with a chart like the real ones. It's read with the process list, every couple of seconds.
+    /// </summary>
+    public SensorItem Compressed { get; } = new(new SensorMeta { Id = "/rigsight/compressed", Name = "Compressed", Kind = SensorKind.Data }, "Memory", "Memory");
+
+    /// <summary>Virtual memory in use (Windows' commit charge against its limit), if the PC reports it.</summary>
+    [ObservableProperty] private SensorItem? _virtualLoad;
+
+    /// <summary>How the memory is split, as star widths for the bar under the memory card.</summary>
+    [ObservableProperty] private System.Windows.GridLength _memAppsWidth = new(0, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private System.Windows.GridLength _memCompressedWidth = new(0, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private System.Windows.GridLength _memFreeWidth = new(1, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private string _memAppsText = "—";
 
     public void ApplyProcs(List<ProcInfo> procs)
     {
         // Parts of Windows itself (no ".exe": Memory Compression, Registry, System) aren't apps, and today's
         // totals leave them out too. Memory Compression holds other apps' memory, squeezed: it's shown with the
         // system's memory instead.
-        CompressedMB = procs.FirstOrDefault(p => p.Exe.Equals("MemCompression", StringComparison.OrdinalIgnoreCase))?.MemMB;
+        // (Its process is "Memory Compression"; Task Manager's Details tab calls it MemCompression.)
+        var compressed = procs.FirstOrDefault(p => p.Exe is "Memory Compression" or "MemCompression");
+        Compressed.Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), compressed is null ? null : (float)(compressed.MemMB / 1024));
+        UpdateMemorySplit();
         procs = [.. procs.Where(p => p.Exe.Contains('.'))];
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in procs)
@@ -410,6 +424,17 @@ public sealed partial class LiveData : ObservableObject
 
     private int _ticksSinceBuild;
 
+    /// <summary>Apps (in use, less what's compressed), compressed, available.</summary>
+    private void UpdateMemorySplit()
+    {
+        if (RamUsed?.Value is not double used || RamAvailable?.Value is not double available) return;
+        double compressed = Math.Min(Compressed.Value ?? 0, used);
+        MemAppsWidth = new(used - compressed, System.Windows.GridUnitType.Star);
+        MemCompressedWidth = new(compressed, System.Windows.GridUnitType.Star);
+        MemFreeWidth = new(available, System.Windows.GridUnitType.Star);
+        MemAppsText = $"{used - compressed:0.0} GB";
+    }
+
     private void UpdateDerived()
     {
         // A few readings in (by then today's ranges have arrived too), drop fan headers that haven't spun
@@ -427,6 +452,7 @@ public sealed partial class LiveData : ObservableObject
             RamText = $"{used:0.0} GB of {total:0.0} GB";
             RamTotalText = $"{total:0} GB";
         }
+        UpdateMemorySplit();
 
         if (GpuVramUsed?.Value is double vUsed && GpuVramTotal?.Value is double vTotal && vTotal > 0)
             GpuVramText = $"{vUsed / 1024:0.0} / {vTotal / 1024:0.0} GB";

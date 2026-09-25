@@ -17,6 +17,6 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
     public async Task RefreshAsync()
     {
         var today = await reports.BuildRangeAsync(DateTime.Today, DateTime.Today.AddDays(1));
-        TodayTop = today?.Apps.Where(a => a.MemMax is not null).OrderByDescending(a => a.MemMax).Take(8).ToList() ?? [];
+        TodayTop = today?.Apps.Where(a => a.MemMax is not null).OrderByDescending(a => a.MemMax).Take(10).ToList() ?? [];
     }
 }

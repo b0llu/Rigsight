@@ -21,36 +21,75 @@
                 <ColumnDefinition Width="18" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
+            <!-- Laid out like the CPU and GPU cards on the Temperatures page. -->
             <ctl:SmoothBorder Style="{StaticResource Card}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid Width="160" Height="160" VerticalAlignment="Center">
-                        <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="12" Brush="{DynamicResource PurpleBrush}" />
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="34" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
-                            <TextBlock Text="IN USE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                        </StackPanel>
-                    </Grid>
-                    <!-- The card is as tall as today's list beside it: the chart takes the height that's left. -->
-                    <DockPanel Grid.Column="1" Margin="22,0,0,0">
-                        <TextBlock DockPanel.Dock="Top" Text="System memory" Style="{StaticResource H2}" />
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding Live.RamText}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}">
-                            <Run Text="Available:" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
-                        </TextBlock>
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}"
-                                   ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Shown as Memory Compression in Task Manager.">
-                            <Run Text="Compressed:" /> <Run Text="{Binding Live.CompressedText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
-                        </TextBlock>
-                        <TextBlock DockPanel.Dock="Bottom" Text="LAST 10 MINUTES" Style="{StaticResource Caption}" Margin="0,6,0,0" />
-                        <ctl:Sparkline MinHeight="44" Margin="0,14,0,0" Source="{Binding Live.RamLoad.History}" Version="{Binding Live.RamLoad.Version}"
-                                       Stroke="{DynamicResource PurpleBrush}" Minimum="0" Maximum="100" WindowSeconds="600" />
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                        <Border Style="{StaticResource Badge}" Background="{DynamicResource PurpleSoftBrush}">
+                            <TextBlock Text="RAM" Style="{StaticResource BadgeText}" Foreground="{DynamicResource PurpleBrush}" />
+                        </Border>
+                        <TextBlock Text="{Binding Live.RamTotalText, StringFormat='{}{0} of memory'}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                     </DockPanel>
-                </Grid>
+
+                    <!-- How it's split: apps, compressed, free. -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0">
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding Live.RamText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="BREAKDOWN" Style="{StaticResource Caption}" />
+                        </DockPanel>
+                        <Border Height="8" CornerRadius="4" Background="{DynamicResource Surface2Brush}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{Binding Live.MemAppsWidth}" />
+                                    <ColumnDefinition Width="{Binding Live.MemCompressedWidth}" />
+                                    <ColumnDefinition Width="{Binding Live.MemFreeWidth}" />
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{DynamicResource PurpleBrush}" CornerRadius="4,0,0,4" />
+                                <Border Grid.Column="1" Background="{DynamicResource PurpleBrush}" Opacity="0.45" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,16,0">
+                                <Run Text="Apps" /> <Run Text="{Binding Live.MemAppsText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                            </TextBlock>
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" Opacity="0.45" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,16,0"
+                                       ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression.">
+                                <Run Text="Compressed" /> <Run Text="{Binding Live.Compressed.FormattedValue, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                            </TextBlock>
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource Surface2Brush}" Stroke="{DynamicResource FaintBrush}" StrokeThickness="1" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0">
+                                <Run Text="Free" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="190" Height="190" VerticalAlignment="Center">
+                            <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="13" Brush="{DynamicResource PurpleBrush}" />
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource PurpleBrush}" />
+                                <TextBlock Text="IN USE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Live.RamLoad.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}"
+                                           HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Grid>
+                        <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                            <ctl:MetricTile Label="IN USE" Sensor="{Binding Live.RamUsed}" Accent="{DynamicResource PurpleBrush}" />
+                            <ctl:MetricTile Label="FREE" Sensor="{Binding Live.RamAvailable}" Accent="{DynamicResource PurpleBrush}" />
+                            <ctl:MetricTile Label="COMPRESSED" Sensor="{Binding Live.Compressed}" Accent="{DynamicResource PurpleBrush}"
+                                            ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression." />
+                            <ctl:MetricTile Label="VIRTUAL MEMORY" Sensor="{Binding Live.VirtualLoad}" Accent="{DynamicResource PurpleBrush}" SparkMinimum="0" SparkMaximum="100"
+                                            ToolTip="How much of Windows' memory limit (your RAM plus the page file) is promised to apps." />
+                        </UniformGrid>
+                    </Grid>
+                </DockPanel>
             </ctl:SmoothBorder>
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                 <StackPanel>
