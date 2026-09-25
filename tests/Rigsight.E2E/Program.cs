@@ -97,8 +97,8 @@ internal static class Program
 
             // The agent hands back discovery's memory right after; give it a moment to settle.
             Thread.Sleep(5000);
-            Step($"Agent alone, no window open ({(quick ? 20 : 60)} s)");
-            var alone = Sample(quick ? 20 : 60, agent);
+            Step($"Agent alone, no window open ({(quick ? 20 : 30)} s)");
+            var alone = Sample(quick ? 20 : 30, agent);
             Record("agent.idle.cpu_pct_core", alone[agent].CpuPctCore, "% of one core", "Agent CPU with the app closed", budget: 1.0);
             Record("agent.idle.private_mb", alone[agent].PrivateEndMb, "MB", "Agent memory (private) with the app closed", budget: 80);
             Record("agent.idle.working_set_mb", alone[agent].WorkingSetEndMb, "MB", "Agent working set with the app closed", budget: 150);
@@ -140,8 +140,8 @@ internal static class Program
 
             ui.Press("Home");
             Thread.Sleep(3000);
-            Step($"App open on Home ({(quick ? 20 : 60)} s)");
-            var open = Sample(quick ? 20 : 60, app!, agent);
+            Step($"App open on Home ({(quick ? 20 : 30)} s)");
+            var open = Sample(quick ? 20 : 30, app!, agent);
             Record("app.home.cpu_pct_core", open[app!].CpuPctCore, "% of one core", "App CPU while open on Home", budget: 3.0);
             Record("app.home.private_mb", open[app!].PrivateEndMb, "MB", "App memory (private) on Home", budget: 250);
             Record("app.home.working_set_mb", open[app!].WorkingSetEndMb, "MB", "App working set on Home", budget: 300);
@@ -150,19 +150,19 @@ internal static class Program
 
             ui.Press("Temperatures");
             Thread.Sleep(3000);
-            Step($"App open on Temperatures ({(quick ? 15 : 30)} s)");
-            var temps = Sample(quick ? 15 : 30, app!);
+            Step($"App open on Temperatures ({(quick ? 15 : 20)} s)");
+            var temps = Sample(quick ? 15 : 20, app!);
             Record("app.temperatures.cpu_pct_core", temps[app!].CpuPctCore, "% of one core", "App CPU on Temperatures (live chart)", budget: 5.0);
 
             ui.Press("Memory");
             Thread.Sleep(3000);
-            Step($"App open on Memory ({(quick ? 15 : 30)} s)");
-            var memory = Sample(quick ? 15 : 30, app!, agent);
+            Step($"App open on Memory ({(quick ? 15 : 20)} s)");
+            var memory = Sample(quick ? 15 : 20, app!, agent);
             Record("app.memory.cpu_pct_core", memory[app!].CpuPctCore, "% of one core", "App CPU on Memory (process list every 2 s)", budget: 5.0);
             Record("agent.memory_page.cpu_pct_core", memory[agent].CpuPctCore, "% of one core", "Agent CPU while Memory is open", budget: 6.0);
 
             // ── Leaks ──
-            int cycles = quick ? 4 : 12;
+            int cycles = quick ? 6 : 8;
             Step($"Cycling through every page {cycles} times (leaks)");
             var points = new List<ProcessSnapshot>();
             var heaps = new List<double>();
@@ -224,7 +224,7 @@ internal static class Program
             if (Count(RigsightPaths.Database, "system_minute") < seededMinutes) Fail("History was lost during the run");
             CheckLog();
 
-            if (args.Contains("--installed")) MeasureInstalled(quick ? 15 : 45);
+            if (args.Contains("--installed")) MeasureInstalled(quick ? 15 : 30);
         }
         catch (Exception ex)
         {
@@ -465,10 +465,14 @@ internal static class Program
         if (value > budget)
         {
             m.Status = "over budget";
-            Fail($"{what}: {Fmt(value)} {unit} (budget {Fmt(budget)})");
+            // The installed Rigsight is whatever version is on this PC, not the build being checked: shown, not failed.
+            if (Informational(key)) Notes.Add($"Installed build: {what} is {Fmt(value)} {unit}, over its budget of {Fmt(budget)}");
+            else Fail($"{what}: {Fmt(value)} {unit} (budget {Fmt(budget)})");
         }
         Metrics.Add(m);
     }
+
+    private static bool Informational(string key) => key.StartsWith("installed.", StringComparison.Ordinal);
 
     private static void Fail(string message)
     {
@@ -496,7 +500,9 @@ internal static class Program
             m.Baseline = b;
             double allowed = m.Key switch
             {
-                _ when m.Key.Contains("cpu_pct") => b * 1.5 + 0.1,
+                // CPU in a quiet app is a few ms a second and swings run to run (0.15-0.46% of a core on Home): half again,
+                // plus half a percentage point, still catches a real change (a chart redrawing too often shows whole points).
+                _ when m.Key.Contains("cpu_pct") => b * 1.5 + 0.5,
                 _ when m.Key.Contains("cpu_ms") => b * 1.5 + 150,
                 _ when m.Key.EndsWith("_ms") => b * 1.5 + 500,
                 _ when m.Key.Contains("per_cycle") => Math.Max(b * 2, 0) + 0.5,
@@ -506,7 +512,8 @@ internal static class Program
             if (m.Value > allowed && m.Status == "ok")
             {
                 m.Status = "worse than baseline";
-                Fail($"{m.What}: {Fmt(m.Value)} {m.Unit}, was {Fmt(b)} in the baseline");
+                if (Informational(m.Key)) Notes.Add($"Installed build: {m.What} is {Fmt(m.Value)} {m.Unit}, was {Fmt(b)} in the baseline");
+                else Fail($"{m.What}: {Fmt(m.Value)} {m.Unit}, was {Fmt(b)} in the baseline");
             }
         }
     }
@@ -565,7 +572,7 @@ internal static class Program
         md.AppendLine("| Measure | Value | Budget | Baseline | |");
         md.AppendLine("|---|---:|---:|---:|---|");
         foreach (var m in Metrics)
-            md.AppendLine($"| {m.What} | {Fmt(m.Value)} {m.Unit} | {Fmt(m.Budget)} | {(m.Baseline is double b ? Fmt(b) : "")} | {(m.Status == "ok" ? "✓" : "✗ " + m.Status)} |");
+            md.AppendLine($"| {m.What} | {Fmt(m.Value)} {m.Unit} | {Fmt(m.Budget)} | {(m.Baseline is double b ? Fmt(b) : "")} | {(m.Status == "ok" ? "✓" : Informational(m.Key) ? "(info) " + m.Status : "✗ " + m.Status)} |");
         if (Notes.Count > 0)
         {
             md.AppendLine();

@@ -188,7 +188,7 @@ internal sealed class OverlayManager : IDisposable
     /// <summary>Installs RivaTuner with winget (the agent already has admin rights), then starts it.</summary>
     public void InstallRtss(SynchronizationContext ui)
     {
-        if (_installing || Rtss.FindExe() is not null) return;
+        if (_installing || RtssSetup.IsInstalled()) return;
         _installing = true;
         _installResult = null;
         StateChanged?.Invoke();
@@ -197,16 +197,13 @@ internal sealed class OverlayManager : IDisposable
             bool ok = false;
             try
             {
-                using var p = Process.Start(new ProcessStartInfo("winget",
-                    "install --id Guru3D.RTSS -e --silent --accept-package-agreements --accept-source-agreements")
-                { CreateNoWindow = true, UseShellExecute = false });
-                ok = p is not null && p.WaitForExit(TimeSpan.FromMinutes(5)) && Rtss.FindExe() is not null;
+                // As long as it makes progress (see RtssSetup.Install); a question from its installer comes to the front.
+                ok = RtssSetup.Install() is RtssInstallResult.Installed or RtssInstallResult.AlreadyInstalled;
             }
             catch (Exception ex)
             {
                 Log.Error("overlay", ex);
             }
-            Log.Write("overlay", ok ? "Installed RivaTuner" : "Couldn't install RivaTuner");
             ui.Post(_ =>
             {
                 _installing = false;

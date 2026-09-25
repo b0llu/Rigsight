@@ -34,30 +34,8 @@ internal static unsafe class Rtss
 
     private static bool _loggedError;
 
-    /// <summary>RTSS.exe if RivaTuner is installed, else null.</summary>
-    public static string? FindExe()
-    {
-        try
-        {
-            foreach (var view in new[] { RegistryView.Registry32, RegistryView.Registry64 })
-            {
-                using var root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
-                using var key = root.OpenSubKey(@"SOFTWARE\Unwinder\RTSS");
-                if (key?.GetValue("InstallDir") is string dir && File.Exists(Path.Combine(dir, "RTSS.exe")))
-                    return Path.Combine(dir, "RTSS.exe");
-            }
-        }
-        catch
-        {
-            // Fall back to the usual places.
-        }
-        foreach (var pf in new[] { Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.ProgramFiles })
-        {
-            var exe = Path.Combine(Environment.GetFolderPath(pf), "RivaTuner Statistics Server", "RTSS.exe");
-            if (File.Exists(exe)) return exe;
-        }
-        return null;
-    }
+    /// <summary>RTSS.exe if RivaTuner is installed, else null (see <see cref="RtssSetup.Find()"/>).</summary>
+    public static string? FindExe() => RtssSetup.Find();
 
     public static bool IsRunning()
     {

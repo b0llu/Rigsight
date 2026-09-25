@@ -32,6 +32,8 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
+; A log of every run in %TEMP% ("Setup Log <date> #<n>.txt"): what each step did, for when something goes wrong.
+SetupLogging=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
@@ -70,15 +72,53 @@ begin
   Result := FileExists(ExpandConstant('{commonpf64}\PawnIO\PawnIOLib.dll'));
 end;
 
-// RTSS.exe must actually be there: RivaTuner's uninstaller leaves its registry key behind, so the key
-// alone would hide the option after an uninstall.
+// The folder of a file given the way the installed-programs list gives it (maybe quoted, maybe ",0" after it).
+function FolderOf(Value: String): String;
+var
+  I: Integer;
+begin
+  Value := Trim(Value);
+  I := Pos(',', Value);
+  if I > 0 then Value := Copy(Value, 1, I - 1);
+  StringChangeEx(Value, '"', '', True);
+  Result := ExtractFileDir(Value);
+end;
+
+// RivaTuner in the installed-programs list (however it got there: on its own, with MSI Afterburner, another folder).
+function RtssListed(RootKey: Integer): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+  Key, Name, Value: String;
+begin
+  Result := False;
+  Key := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';
+  if not RegGetSubkeyNames(RootKey, Key, Names) then exit;
+  for I := 0 to GetArrayLength(Names) - 1 do
+    if RegQueryStringValue(RootKey, Key + '\' + Names[I], 'DisplayName', Name) and (Pos('RIVATUNER STATISTICS SERVER', Uppercase(Name)) > 0) then
+    begin
+      if RegQueryStringValue(RootKey, Key + '\' + Names[I], 'InstallLocation', Value) and FileExists(AddBackslash(Trim(Value)) + 'RTSS.exe') then Result := True
+      else if RegQueryStringValue(RootKey, Key + '\' + Names[I], 'UninstallString', Value) and FileExists(AddBackslash(FolderOf(Value)) + 'RTSS.exe') then Result := True
+      else if RegQueryStringValue(RootKey, Key + '\' + Names[I], 'DisplayIcon', Value) and FileExists(AddBackslash(FolderOf(Value)) + 'RTSS.exe') then Result := True;
+      if Result then exit;
+    end;
+end;
+
+// Whether RivaTuner is installed, so its option isn't offered. RTSS.exe must actually be there: RivaTuner's
+// uninstaller leaves its registry key behind. The agent checks again (and more) before installing anything.
 function RtssInstalled: Boolean;
 var
-  Dir: String;
+  Value: String;
 begin
-  Result := FileExists(ExpandConstant('{commonpf32}\RivaTuner Statistics Server\RTSS.exe'));
-  if not Result and RegQueryStringValue(HKLM32, 'SOFTWARE\Unwinder\RTSS', 'InstallDir', Dir) then
-    Result := FileExists(AddBackslash(Dir) + 'RTSS.exe');
+  Result := FileExists(ExpandConstant('{commonpf32}\RivaTuner Statistics Server\RTSS.exe')) or
+    FileExists(ExpandConstant('{commonpf64}\RivaTuner Statistics Server\RTSS.exe'));
+  if not Result and RegQueryStringValue(HKLM32, 'SOFTWARE\Unwinder\RTSS', 'InstallDir', Value) then
+    Result := FileExists(AddBackslash(Value) + 'RTSS.exe');
+  if not Result and RegQueryStringValue(HKLM32, 'SOFTWARE\Unwinder\RTSS', 'InstallPath', Value) then
+    Result := FileExists(Value);
+  if not Result and RegQueryStringValue(HKLM64, 'SOFTWARE\Unwinder\RTSS', 'InstallDir', Value) then
+    Result := FileExists(AddBackslash(Value) + 'RTSS.exe');
+  if not Result then Result := RtssListed(HKLM32) or RtssListed(HKLM64);
 end;
 
 procedure StopRigsight;
@@ -94,13 +134,15 @@ begin
 end;
 
 var
-  RtssFailed: Boolean;
+  // How installing RivaTuner went: 0 fine, 1 failed, 2 stopped responding (ended), 3 no winget (see the agent's --install-rtss).
+  RtssCode: Integer;
 
-// One post-install step: a clear heading and a moving bar while it runs (these can take minutes).
-procedure RunStep(const Title, Detail, FileName, Params: String);
+// One post-install step: a clear heading and a moving bar while it runs (these can take minutes). Returns the exit code.
+function RunStep(const Title, Detail, FileName, Params: String): Integer;
 var
   Code: Integer;
 begin
+  Result := -1;
   WizardForm.StatusLabel.Caption := Title;
   WizardForm.FilenameLabel.Caption := Detail;
   WizardForm.ProgressGauge.Style := npbstMarquee;
@@ -109,7 +151,10 @@ begin
     if not Exec(FileName, Params, '', SW_HIDE, ewWaitUntilTerminated, Code) then
       Log(Format('Could not run %s: %s', [FileName, SysErrorMessage(Code)]))
     else
+    begin
       Log(Format('%s %s exited with %d', [FileName, Params, Code]));
+      Result := Code;
+    end;
   finally
     WizardForm.ProgressGauge.Style := npbstNormal;
   end;
@@ -131,17 +176,16 @@ var
 begin
   if CurStep <> ssPostInstall then exit;
   if WizardIsTaskSelected('pawnio') then
-    RunStep('Installing the PawnIO sensor driver...', 'Downloading and installing with winget. This can take a minute or two; setup is still working.',
+    Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading and installing with winget. This can take a minute or two; setup is still working.',
       ExpandConstant('{cmd}'), '/c winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements');
+  // Through the agent, which checks again that it isn't installed already, waits as long as the install makes
+  // progress, brings a question from RivaTuner's installer to the front, and ends it only if it stops doing anything.
   if WizardIsTaskSelected('rtss') then
-  begin
-    RunStep('Installing RivaTuner Statistics Server...', 'Downloading and installing with winget. This can take a few minutes; setup is still working.',
-      ExpandConstant('{cmd}'), '/c winget install --id Guru3D.RTSS -e --silent --accept-package-agreements --accept-source-agreements');
-    RtssFailed := not RtssInstalled;
-  end;
+    RtssCode := RunStep('Installing RivaTuner Statistics Server...', 'Downloading and installing with winget. On a slow connection this can take a while; setup is still working.',
+      ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-rtss');
   // Setup already has admin rights: use them to register "start with Windows" and start the agent,
   // so the user never sees a second UAC prompt. After RivaTuner, so the agent can start it.
-  RunStep('Starting the Rigsight background agent...', '',
+  Code := RunStep('Starting the Rigsight background agent...', '',
     ExpandConstant('{app}\Rigsight.Agent.exe'), '--register-startup');
   // Through Explorer, so the app opens with normal (non-admin) rights like any other launch.
   if RelaunchRequested then
@@ -149,11 +193,18 @@ begin
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
+var
+  Msg: String;
 begin
-  if (CurPageID = wpFinished) and RtssFailed then
-    WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 +
-      'RivaTuner Statistics Server couldn''t be installed automatically, so the overlay won''t show inside exclusive-fullscreen games yet. ' +
-      'You can install it later from the Overlay page in Rigsight.';
+  if (CurPageID <> wpFinished) or (RtssCode = 0) then exit;
+  if RtssCode = 2 then
+    Msg := 'RivaTuner''s installer stopped responding, so setup ended it.'
+  else if RtssCode = 3 then
+    Msg := 'RivaTuner Statistics Server needs winget (App Installer, from the Microsoft Store) to be installed automatically.'
+  else
+    Msg := 'RivaTuner Statistics Server couldn''t be installed automatically.';
+  WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + Msg +
+    ' The overlay won''t show inside exclusive-fullscreen games until it is: you can install it later from the Overlay page in Rigsight.';
 end;
 
 // Updating over a running copy: stop it so its files can be replaced.

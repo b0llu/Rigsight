@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Principal;
 using Rigsight.Core;
+using Rigsight.Agent.Widgets;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent;
@@ -36,6 +37,29 @@ internal static class Program
                 Log.Error("agent", ex);
             }
             return;
+        }
+
+        // Run by the installer (already elevated) when "Install RivaTuner" is ticked: see RtssSetup.Install.
+        // Exit code: 0 installed (or already there), 1 failed, 2 stopped responding and ended, 3 no winget.
+        if (args.Contains("--install-rtss"))
+        {
+            int code;
+            try
+            {
+                code = RtssSetup.Install() switch
+                {
+                    RtssInstallResult.Installed or RtssInstallResult.AlreadyInstalled => 0,
+                    RtssInstallResult.Stuck => 2,
+                    RtssInstallResult.NoWinget => 3,
+                    _ => 1,
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Error("install", ex);
+                code = 1;
+            }
+            Environment.Exit(code);
         }
 
         // Run by the installer (already elevated): register "start with Windows" and start the agent

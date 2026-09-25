@@ -12,7 +12,7 @@ namespace Rigsight.Tests.Data;
 public sealed class LocalTimeTests
 {
     [Fact]
-    public void SQLite_and_dotnet_agree_on_local_time_for_any_instant()
+    public void SQLite_and_dotnet_agree_on_local_time_for_any_instant_rigsight_can_record()
     {
         using var t = new TestDb();
         using var conn = t.Raw(readOnly: true);
@@ -20,7 +20,9 @@ public sealed class LocalTimeTests
         cmd.CommandText = "SELECT strftime('%Y-%m-%d %H:%M:%S', $t, 'unixepoch', 'localtime')";
         var p = cmd.Parameters.Add("$t", Microsoft.Data.Sqlite.SqliteType.Integer);
         var rnd = new Random(11);
-        long from = U(2005, 1, 1), to = U(2035, 1, 1);
+        // From Rigsight's first release on. (SQLite applies today's clock-change rules to every year, so before a
+        // zone's rules last changed, e.g. US dates before 2007, it's an hour out; Rigsight has no history from then.)
+        long from = U(2025, 1, 1), to = U(2035, 1, 1);
         for (int i = 0; i < 3000; i++)
         {
             long ts = from + (long)(rnd.NextDouble() * (to - from));

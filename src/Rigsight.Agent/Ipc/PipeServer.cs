@@ -26,6 +26,9 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
     private readonly CancellationTokenSource _cts = new();
     private readonly List<Client> _clients = [];
     private readonly Lock _lock = new();
+    // The instance waiting for the next app, closed straight away by Dispose (cancelling the wait alone leaves it
+    // open for a moment, when an app could still connect to an agent that's shutting down).
+    private NamedPipeServerStream? _listening;
 
     public int ClientCount
     {
@@ -43,12 +46,20 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
             {
                 pipe = NamedPipeServerStreamAcl.Create(pipeName ?? RigsightPaths.PipeName, PipeDirection.InOut, 8,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, CreateSecurity());
+                Volatile.Write(ref _listening, pipe);
+                if (_cts.IsCancellationRequested) throw new OperationCanceledException();
                 await pipe.WaitForConnectionAsync(_cts.Token);
+                Volatile.Write(ref _listening, null);
                 var client = new Client(pipe);
-                lock (_lock) _clients.Add(client);
+                lock (_lock)
+                {
+                    // Connected just as Dispose ran (it has already closed the others): close this one too.
+                    if (_cts.IsCancellationRequested) throw new OperationCanceledException();
+                    _clients.Add(client);
+                }
                 _ = Task.Run(() => RunClient(client));
             }
-            catch (OperationCanceledException)
+            catch (Exception) when (_cts.IsCancellationRequested)
             {
                 pipe?.Dispose();
                 return;
@@ -143,6 +154,7 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
     public void Dispose()
     {
         _cts.Cancel();
+        try { Volatile.Read(ref _listening)?.Dispose(); } catch { }
         lock (_lock)
         {
             foreach (var c in _clients)
