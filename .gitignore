@@ -486,3 +486,5 @@ dist/
 
 # Test runs (tools/test.ps1, dotnet test)
 TestResults/
+# The end-to-end test project (the "*.e2e" rule above would hide it)
+!/tests/Rigsight.E2E/
