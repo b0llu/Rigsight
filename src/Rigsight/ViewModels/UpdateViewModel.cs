@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -189,7 +190,7 @@ public sealed partial class UpdateViewModel : ObservableObject
             else
             {
                 // Only Settings says so: nothing is wrong with the copy you have.
-                _checkError = "Couldn't reach GitHub. Check your internet connection and try again.";
+                _checkError = "Couldn't check for updates. Check your internet connection and try again.";
                 RefreshTexts();
             }
             return;
@@ -284,15 +285,27 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         State = UpdateState.Downloading;
         Progress = 0;
-        ProgressText = "Starting…";
-        var progress = new Progress<long>(done =>
+        ProgressText = "Connecting…";
+        var speed = new SpeedMeter();
+        long received = 0;
+        void Show(long done)
         {
             Progress = release.Size > 0 ? done * 100.0 / release.Size : 0;
-            ProgressText = $"{done / 1048576.0:0} of {release.Size / 1048576.0:0} MB";
+            double mb = done / 1048576.0;
+            ProgressText = $"{mb.ToString(mb < 10 ? "0.0" : "0")} of {release.Size / 1048576.0:0} MB{speed.Text(done)}";
+        }
+        var progress = new Progress<long>(done =>
+        {
+            received = done;
+            Show(done);
         });
+        // While no data arrives the speed falls towards zero instead of showing the last one.
+        var idle = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        idle.Tick += (_, _) => { if (received > 0) Show(received); };
+        idle.Start();
         try
         {
-            // Off the UI thread: the app stays fully usable, and progress is reported about once per percent.
+            // Off the UI thread: the app stays fully usable. A download that gets stuck starts again by itself (twice at most).
             await Task.Run(() => UpdateStore.DownloadAsync(release, progress));
             AskOrWait();
         }
@@ -301,7 +314,17 @@ public sealed partial class UpdateViewModel : ObservableObject
             Log.Write("update", $"Download failed: {ex.Message}");
             // A background download that fails just goes back to offering it; one the user asked for says why.
             if (automatic) State = UpdateState.Available;
-            else Fail(ex is InvalidDataException ? "The download was damaged." : "The download stopped. Check your internet connection.");
+            else Fail(ex switch
+            {
+                InvalidDataException => "The download was damaged.",
+                TimeoutException => "The download got stuck. Check your internet connection.",
+                HttpRequestException { StatusCode: null } => "Couldn't connect. Check your internet connection.",
+                _ => "The download stopped. Check your internet connection.",
+            });
+        }
+        finally
+        {
+            idle.Stop();
         }
     }
 
@@ -385,6 +408,25 @@ public sealed partial class UpdateViewModel : ObservableObject
             if (State == UpdateState.Installing) Fail("The update didn't install.");
         };
         watchdog.Start();
+    }
+
+    /// <summary>Download speed over the last few seconds, as " · 4.1 MB/s" (nothing until there's a second of data).</summary>
+    private sealed class SpeedMeter
+    {
+        private readonly Queue<(long Ms, long Bytes)> _samples = new();
+
+        public string Text(long bytes)
+        {
+            long now = Environment.TickCount64;
+            // Started again after getting stuck: measure afresh.
+            if (_samples.Count > 0 && bytes < _samples.Last().Bytes) _samples.Clear();
+            _samples.Enqueue((now, bytes));
+            while (_samples.Count > 2 && now - _samples.Peek().Ms > 3000) _samples.Dequeue();
+            var (ms, from) = _samples.Peek();
+            if (now - ms < 1000) return "";
+            double perSec = (bytes - from) * 1000.0 / (now - ms);
+            return perSec >= 1048576 ? $" · {perSec / 1048576:0.0} MB/s" : $" · {perSec / 1024:0} KB/s";
+        }
     }
 
     private void Fail(string reason)

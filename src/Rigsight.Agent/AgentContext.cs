@@ -720,7 +720,7 @@ internal sealed class AgentContext : ApplicationContext
                 _ui.Post(_ => Quit(), null);
                 break;
             case "render-previews":
-                _ui.Post(_ => RenderPreviews(_settings), null);
+                RenderPreviews(_settings);
                 break;
             case "preview-notification":
                 _ui.Post(_ => PreviewNotification(msg.Arg), null);
@@ -812,13 +812,23 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Broadcast(new AgentMessage { T = "settings", Settings = updated });
     }
 
-    /// <summary>UI thread: writes widget preview images and tells the app they're ready.</summary>
-    private void RenderPreviews(RigsightSettings settings)
+    /// <summary>
+    /// Writes widget and overlay preview images and tells the app they're ready. The overlay's sensors are read
+    /// on the sampler thread for these settings (so one just added shows straight away), then drawn on the UI thread.
+    /// </summary>
+    private void RenderPreviews(RigsightSettings settings) =>
+        RunOnSampler(() =>
+        {
+            var sensors = OverlaySensors(settings);
+            _ui.Post(_ => DrawPreviews(settings, sensors), null);
+        });
+
+    private void DrawPreviews(RigsightSettings settings, List<OverlaySensorReading> sensors)
     {
         _widgets.RenderPreviews(settings);
         try
         {
-            _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"));
+            _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"), sensors);
         }
         catch (Exception ex)
         {

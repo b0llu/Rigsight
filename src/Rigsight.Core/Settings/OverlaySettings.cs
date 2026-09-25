@@ -49,6 +49,9 @@ public sealed class OverlaySettings
 
     public double Scale { get; set; } = 1.0;
 
+    /// <summary>Everything in white and grey: no coloured labels or temperatures, so it never draws the eye.</summary>
+    public bool Grayscale { get; set; }
+
     public List<OverlayMetric> Metrics { get; set; } = DefaultMetrics();
 
     /// <summary>Any of the PC's sensors, shown as extra rows under the readings above (at most <see cref="MaxSensors"/>).</summary>

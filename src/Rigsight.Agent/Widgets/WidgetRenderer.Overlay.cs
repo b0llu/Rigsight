@@ -105,6 +105,14 @@ internal static partial class WidgetRenderer
             other.Add(new(DateTime.Now.ToString("t", CultureInfo.CurrentCulture), "", p.Muted, "88:88"));
         if (other.Count > 0) rows.Add(new("", p.Muted, other));
 
+        // Grayscale: labels grey, readings white (temperatures too); what's already grey stays grey.
+        if (o.Grayscale)
+            rows = [.. rows.Select(r => r with
+            {
+                LabelColor = p.Muted,
+                Cells = [.. r.Cells.Select(c => c.Color == p.Muted ? c : c with { Color = p.Text })],
+            })];
+
         return rows;
 
         // Value and unit apart, sized to the usual widest value so the overlay doesn't jitter.

@@ -311,6 +311,17 @@
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Text="COLORS" Style="{StaticResource OptionLabel}" />
+                        <Border Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" Content="Color" GroupName="colors"
+                                             IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="Grayscale" GroupName="colors"
+                                             IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
                         <TextBlock Text="SIZE" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">

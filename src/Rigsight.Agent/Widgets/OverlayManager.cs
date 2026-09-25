@@ -217,10 +217,16 @@ internal sealed class OverlayManager : IDisposable
         });
     }
 
-    /// <summary>Saves a picture of the overlay (with current readings) for the app's Overlay page.</summary>
-    public void RenderPreview(string dir)
+    /// <summary>
+    /// Saves a picture of the overlay for the app's Overlay page: the current readings, the given sensors, and a
+    /// sample frame rate (a real one only exists while a game is running).
+    /// </summary>
+    public void RenderPreview(string dir, List<OverlaySensorReading> sensors)
     {
-        using var bmp = WidgetRenderer.RenderOverlay(_settings, _data, 2f);
+        var data = _data?.Copy() ?? new WidgetData();
+        data.Sensors = sensors;
+        data.Frame ??= new FrameStats(144, 6.9, 118);
+        using var bmp = WidgetRenderer.RenderOverlay(_settings, data, 2f);
         bmp.Save(Path.Combine(dir, "Overlay.png"), System.Drawing.Imaging.ImageFormat.Png);
     }
 

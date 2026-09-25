@@ -21,6 +21,8 @@ internal sealed class WidgetData
     /// <summary>The overlay's chosen sensors, in order: label, kind and current value.</summary>
     public List<OverlaySensorReading> Sensors = [];
     public TodayInfo Today = new();
+
+    public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }
 
 internal sealed record OverlaySensorReading(string Label, SensorKind Kind, double? Value);
