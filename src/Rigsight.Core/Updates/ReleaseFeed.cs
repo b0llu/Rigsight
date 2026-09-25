@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -38,10 +40,75 @@ public static class ReleaseFeed
 
     public static HttpClient CreateClient(TimeSpan timeout)
     {
-        var http = new HttpClient(new SocketsHttpHandler { AutomaticDecompression = System.Net.DecompressionMethods.All }) { Timeout = timeout };
+        var handler = new SocketsHttpHandler { AutomaticDecompression = DecompressionMethods.All, ConnectCallback = ConnectAsync };
+        var http = new HttpClient(handler) { Timeout = timeout };
         http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Rigsight", Current.ToString(3)));
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return http;
+    }
+
+    /// <summary>How long to wait for one of a server's addresses before also trying the next.</summary>
+    private static readonly TimeSpan NextAddressDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Connects to the first of the server's addresses that answers, like browsers do. Windows tries them one at a
+    /// time and waits 21 s on one that can't be reached (some networks can't reach one of GitHub's download servers),
+    /// so here the next address is also tried if the previous one hasn't answered within <see cref="NextAddressDelay"/>.
+    /// </summary>
+    private static async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext context, CancellationToken ct)
+    {
+        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, ct);
+        if (addresses.Length == 0) throw new SocketException((int)SocketError.HostNotFound);
+        int port = context.DnsEndPoint.Port;
+
+        using var race = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pending = new List<Task<Socket>>();
+        Exception? error = null;
+        int next = 0;
+        try
+        {
+            while (true)
+            {
+                if (next < addresses.Length) pending.Add(TryConnectAsync(addresses[next++], port, race.Token));
+                if (pending.Count == 0) throw error ?? new SocketException((int)SocketError.HostUnreachable);
+
+                // Wait for a connection, a failure (then the next address starts at once), or the delay.
+                var wait = next < addresses.Length ? Task.Delay(NextAddressDelay, race.Token) : Task.Delay(Timeout.Infinite, race.Token);
+                var done = await Task.WhenAny([.. pending, wait]);
+                if (done == wait)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    continue;
+                }
+                var attempt = (Task<Socket>)done;
+                pending.Remove(attempt);
+                if (attempt.IsCompletedSuccessfully) return new NetworkStream(attempt.Result, ownsSocket: true);
+                error = attempt.Exception?.InnerException ?? error;
+                ct.ThrowIfCancellationRequested();
+            }
+        }
+        finally
+        {
+            // Stop the others; any that connected meanwhile is closed.
+            race.Cancel();
+            foreach (var other in pending)
+                _ = other.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+        }
+    }
+
+    private static async Task<Socket> TryConnectAsync(IPAddress address, int port, CancellationToken ct)
+    {
+        var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(address, port), ct);
+            return socket;
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
     }
 
     /// <summary>The latest release, or null if it has no installer with a checksum. Throws when GitHub can't be reached.</summary>
