@@ -389,44 +389,55 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .mobile-only.mobile-only { display: inline-flex; }
   .desktop-only { display: none; }
   .nav-inner { height: 60px; }
-  /* Phones: three rows of smaller cards, the copy centred over the veil, the Download button on the first screen. */
+  /* Phones: all five rows fill the screen top to bottom (small cards, so plenty of them show), and the veil is a
+     narrower band behind the copy, so the app stays visible above and below it. */
   .hero { padding: 24px 0; }
-  .marquee { grid-template-rows: repeat(3, 1fr); --gap: 10px; --fade: 6%; transform: perspective(900px) rotateX(7deg) scale(1.12); }
-  .row:nth-child(n+4) { display: none; }
-  .row { display: grid; align-items: center; }
-  .lane { height: min(100%, 132px); }
-  .track img { border-radius: 8px; }
-  .veil { background: radial-gradient(ellipse 60% 52% at 50% 50%, #000 0%, rgba(0,0,0,.97) 45%, rgba(0,0,0,.7) 74%, transparent 100%), linear-gradient(180deg, rgba(0,0,0,.5) 0%, transparent 12%, transparent 88%, #000 100%); }
+  .marquee { --gap: 8px; --fade: 4%; transform: perspective(900px) rotateX(6deg) scale(1.1); }
+  .track img { border-radius: 8px; opacity: .62; }
+  .veil { background: radial-gradient(ellipse 110% 44% at 50% 52%, #000 0%, rgba(0,0,0,.95) 62%, rgba(0,0,0,.6) 84%, transparent 100%), linear-gradient(180deg, rgba(0,0,0,.35) 0%, transparent 10%, transparent 90%, #000 100%); }
   .hero-logo { width: 52px; height: 52px; border-radius: 13px; }
   .hero h1 { margin-top: 16px; }
   .lead { margin-top: 14px; }
   .cta-row { margin-top: 24px; width: 100%; flex-direction: column; }
   .cta-row .btn { width: 100%; }
-  .meta { font-size: 13px; }
+  /* The version, Windows and licence line wraps without a stray leading dot. */
+  .meta { font-size: 13px; gap: 4px 14px; }
+  .meta > span + span::before { content: none; }
+  .copy-link { font-size: 13px; padding: 9px 12px; }
+
+  /* Whole-window screenshots: the app's sidebar is cut off and the page shown twice as large; swipe for the rest. */
+  .shot.win { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .shot.win::-webkit-scrollbar { display: none; }
+  .shot.win img { width: 200%; max-width: none; margin-left: -29%; }
+  .shot:hover { transform: none; }
   .strip-grid { grid-template-columns: 1fr 1fr; }
   .stat b { font-size: 21px; }
   .stat span { font-size: 13px; }
-  .idea { padding-top: 90px; }
+  .idea { padding-top: 72px; }
   .compare { grid-template-columns: 1fr; }
   .cmp { padding: 24px; }
-  .features { padding-top: 90px; gap: 90px; }
+  .features { padding-top: 72px; gap: 72px; }
   .f-copy > p { font-size: 16px; }
-  .overlay-sec { margin-top: 110px; padding: 80px 0; }
-  .more, .themes, .light, .privacy, .install, .faq { padding-top: 110px; }
-  .cards, .steps { grid-template-columns: 1fr; }
+  .overlay-sec { margin-top: 80px; padding: 64px 0; }
+  .more, .themes, .light, .privacy, .install, .faq { padding-top: 84px; }
+  .cards, .steps { grid-template-columns: 1fr; gap: 12px; margin-top: 36px; }
+  /* Cards and install steps: the icon or number beside the title instead of above it, so they take half the height. */
+  .card, .steps li { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; padding: 20px; }
+  .card > .c-icon, .steps li > .n { grid-row: span 2; align-self: start; }
+  .card h3, .steps h3 { margin: 0 0 4px; }
+  .card p, .steps p { grid-column: 2; }
   .cli-card { padding: 22px 18px; }
   .lite > div { padding: 22px 18px; }
   .lite b { font-size: 30px; }
   .term-big { flex-wrap: wrap; }
   .term-big code { white-space: normal; font-size: 13px; flex-basis: calc(100% - 100px); }
-  .term-big .t-url { word-break: break-all; }
   .term-big .t-cmd, .term-big .t-op { white-space: nowrap; }
   .privacy-card { grid-template-columns: 1fr; padding: 30px 24px; gap: 24px; }
   .lock { width: 68px; height: 68px; border-radius: 20px; }
   .lock svg { width: 34px; height: 34px; }
   .meters { padding: 24px; }
   .m-head { flex-direction: column; gap: 2px; }
-  .final { padding: 110px 0 80px; }
+  .final { padding: 84px 0 64px; }
   .final-card { padding: 56px 20px; }
   .final-card .btn { width: 100%; }
 }
