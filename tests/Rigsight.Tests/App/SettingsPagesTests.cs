@@ -28,7 +28,6 @@ public sealed class SettingsPageTests
             (nameof(vm.Theme), "light", s => s.Theme, "light"),
             (nameof(vm.LiveRefreshMs), 2500, s => s.LiveRefreshMs, 2500),
             (nameof(vm.StartPage), "memory", s => s.StartPage, "memory"),
-            (nameof(vm.TrackingEnabled), false, s => s.Tracking.Enabled, false),
             (nameof(vm.SensorIntervalMs), 4000, s => s.Tracking.SensorIntervalMs, 4000),
             (nameof(vm.ProcessIntervalSeconds), 10, s => s.Tracking.ProcessIntervalSeconds, 10),
             (nameof(vm.IdleMinutes), 15, s => s.Tracking.IdleMinutes, 15),
@@ -138,9 +137,6 @@ public sealed class SettingsPageTests
             link.Settings.Update(s => s.Tracking.PausedUntil = TimeUtil.NowUnix() - 60);
             Assert.False(vm.IsPaused);
             Assert.Null(vm.PauseText);
-            // Tracking switched off altogether isn't "paused".
-            link.Settings.Update(s => { s.Tracking.PausedUntil = -1; s.Tracking.Enabled = false; });
-            Assert.False(vm.IsPaused);
         });
     }
 
@@ -226,13 +222,10 @@ public sealed class SettingsPageTests
         var vm = Page(link);
         Ui.Run(() => vm.PauseCommand.Execute("30"));
         Assert.Equal("30", link.Sent("pause").Arg);
-        Assert.Equal("Tracking paused for 30 minutes.", Ui.Run(() => vm.StatusMessage));
         Ui.Run(() => vm.PauseCommand.Execute("-1"));
         Assert.Equal("-1", link.Sent("pause", 2).Arg);
-        Assert.Equal("Tracking paused.", Ui.Run(() => vm.StatusMessage));
         Ui.Run(() => vm.ResumeCommand.Execute(null));
         link.Sent("resume");
-        Assert.Equal("Tracking resumed.", Ui.Run(() => vm.StatusMessage));
         Ui.Run(() => vm.PreviewCommand.Execute("alert"));
         Assert.Equal("alert", link.Sent("preview-notification").Arg);
     }

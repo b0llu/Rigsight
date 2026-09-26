@@ -54,10 +54,10 @@ public class TrackerDayTests
     }
 
     [Fact]
-    public void Tracking_turned_off_records_nothing()
+    public void Paused_tracking_records_no_apps_either()
     {
         var settings = new RigsightSettings();
-        settings.Tracking.Enabled = false;
+        settings.Tracking.PausedUntil = -1;
         using var rig = new TrackerRig(settings: settings);
         rig.Running.Add("big.exe");
         rig.Windows["big.exe"] = new(true, false);

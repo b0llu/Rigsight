@@ -99,6 +99,9 @@ public static class SettingsStore
             if (w.Opacity is double old) (w.BackgroundOpacity, w.ContentOpacity, w.Opacity) = (old, old, null);
         if (s.Overlay?.Opacity is double oldOverlay)
             (s.Overlay.BackgroundOpacity, s.Overlay.ContentOpacity, s.Overlay.Opacity) = (oldOverlay, oldOverlay, null);
+        // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
+        if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
+        s.Tracking.Enabled = null;
         s.SettingsVersion = CurrentVersion;
 
         if (s.Theme is not ("dark" or "light" or "system")) s.Theme = "dark";

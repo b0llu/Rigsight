@@ -39,7 +39,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     }
 
     // ── Tracking ──────────────────────────────────────────────────────────
-    public bool TrackingEnabled { get => S.Tracking.Enabled; set => Set(s => s.Tracking.Enabled = value); }
     public int SensorIntervalMs { get => S.Tracking.SensorIntervalMs; set => Set(s => s.Tracking.SensorIntervalMs = value); }
     public int ProcessIntervalSeconds { get => S.Tracking.ProcessIntervalSeconds; set => Set(s => s.Tracking.ProcessIntervalSeconds = value); }
     public int IdleMinutes { get => S.Tracking.IdleMinutes; set => Set(s => s.Tracking.IdleMinutes = value); }
@@ -70,7 +69,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         }
     }
 
-    public bool IsPaused => S.Tracking.IsPaused(TimeUtil.NowUnix()) && S.Tracking.Enabled;
+    public bool IsPaused => S.Tracking.IsPaused(TimeUtil.NowUnix());
     public string? PauseText => S.Tracking.PausedUntil switch
     {
         -1 => "Tracking is paused until you resume it.",
@@ -175,19 +174,12 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         Refresh();
     }
 
+    // The Pause row itself shows the result once the agent sends the new settings.
     [RelayCommand]
-    private void Pause(string minutes)
-    {
-        client.SendCommand("pause", minutes);
-        StatusMessage = minutes == "-1" ? "Tracking paused." : $"Tracking paused for {minutes} minutes.";
-    }
+    private void Pause(string minutes) => client.SendCommand("pause", minutes);
 
     [RelayCommand]
-    private void Resume()
-    {
-        client.SendCommand("resume");
-        StatusMessage = "Tracking resumed.";
-    }
+    private void Resume() => client.SendCommand("resume");
 
     [RelayCommand]
     private static void OpenDataFolder()

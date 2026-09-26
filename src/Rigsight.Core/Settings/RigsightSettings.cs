@@ -82,7 +82,9 @@ public sealed class RigsightSettings
 
 public sealed class TrackingSettings
 {
-    public bool Enabled { get; set; } = true;
+    /// <summary>Before 0.5.18: a separate "record" switch. Off is read once as paused until resumed, never written.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Enabled { get; set; }
 
     /// <summary>Unix seconds until which tracking is paused; 0 = not paused, -1 = until resumed.</summary>
     public long PausedUntil { get; set; }
@@ -108,7 +110,7 @@ public sealed class TrackingSettings
     /// <summary>Apps (exe names) that are never recorded.</summary>
     public List<string> ExcludedApps { get; set; } = [];
 
-    public bool IsPaused(long nowUnix) => !Enabled || PausedUntil == -1 || PausedUntil > nowUnix;
+    public bool IsPaused(long nowUnix) => PausedUntil == -1 || PausedUntil > nowUnix;
 }
 
 public sealed class AlertSettings

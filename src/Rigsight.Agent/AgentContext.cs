@@ -92,6 +92,7 @@ internal sealed class AgentContext : ApplicationContext
 
         _settings = SettingsStore.Load();
         Units.Fahrenheit = _settings.UseFahrenheit;
+        DarkMenuRenderer.Theme = _settings.Theme;
 
         _db = RigsightDb.OpenWriter();
         _apps = new AppResolver(_db);
@@ -251,6 +252,9 @@ internal sealed class AgentContext : ApplicationContext
 
                 long now = clock.ElapsedMilliseconds;
                 var settings = _settings;
+                // A timed pause that has run out is cleared, so the tray menu and Settings show tracking again.
+                if (settings.Tracking.PausedUntil > 0 && settings.Tracking.PausedUntil <= TimeUtil.NowUnix())
+                    MutateSettings(s => { if (s.Tracking.PausedUntil > 0 && s.Tracking.PausedUntil <= TimeUtil.NowUnix()) s.Tracking.PausedUntil = 0; });
                 bool live = _pipe.ClientCount > 0;
                 if (wasLive && !live) compactAt = now + 15_000;
                 if (live) compactAt = long.MaxValue;
@@ -861,6 +865,7 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         Units.Fahrenheit = updated.UseFahrenheit;
+        DarkMenuRenderer.Theme = updated.Theme;
         RunOnSampler(() => _tracker.SetSettings(updated));
         _ui.Post(_ =>
         {

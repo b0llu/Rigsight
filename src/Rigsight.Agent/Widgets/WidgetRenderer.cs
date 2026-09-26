@@ -53,7 +53,7 @@ internal static partial class WidgetRenderer
     private static bool _windowsLight;
     private static long _windowsLightChecked;
 
-    private static bool WindowsUsesLight()
+    internal static bool WindowsUsesLight()
     {
         long now = Environment.TickCount64;
         if (now - _windowsLightChecked < 3000) return _windowsLight;

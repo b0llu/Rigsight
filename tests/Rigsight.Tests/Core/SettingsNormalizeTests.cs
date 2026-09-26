@@ -388,11 +388,27 @@ public sealed class SettingsNormalizeTests
     public void Pause_states()
     {
         Assert.False(new TrackingSettings().IsPaused(1000));
-        Assert.True(new TrackingSettings { Enabled = false }.IsPaused(1000));
         Assert.True(new TrackingSettings { PausedUntil = -1 }.IsPaused(1000));
         Assert.True(new TrackingSettings { PausedUntil = 1001 }.IsPaused(1000));
         Assert.False(new TrackingSettings { PausedUntil = 1000 }.IsPaused(1000));
         Assert.False(new TrackingSettings { PausedUntil = 999 }.IsPaused(1000));
         Assert.False(new TrackingSettings { PausedUntil = -2 }.IsPaused(1000));
+    }
+
+    [Theory]
+    [InlineData("""{ "Tracking": { "Enabled": false } }""", -1)]
+    [InlineData("""{ "Tracking": { "Enabled": false, "PausedUntil": 1900000000 } }""", -1)]
+    [InlineData("""{ "Tracking": { "Enabled": true, "PausedUntil": 1900000000 } }""", 1900000000)]
+    [InlineData("""{ "Tracking": { "Enabled": true } }""", 0)]
+    public void The_old_record_switch_turned_off_is_paused_until_resumed(string json, long pausedUntil)
+    {
+        var s = SettingsStore.Deserialize(json);
+        Assert.Equal(pausedUntil, s.Tracking.PausedUntil);
+        Assert.Null(s.Tracking.Enabled);
+        // Never written again, so resuming is for good.
+        using (var doc = System.Text.Json.JsonDocument.Parse(SettingsStore.Serialize(s)))
+            Assert.False(doc.RootElement.GetProperty("Tracking").TryGetProperty("Enabled", out _));
+        s.Tracking.PausedUntil = 0;
+        Assert.False(SettingsStore.Deserialize(SettingsStore.Serialize(s)).Tracking.IsPaused(1000));
     }
 }

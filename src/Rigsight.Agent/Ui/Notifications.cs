@@ -255,21 +255,36 @@ internal static class ToastRenderer
 {
     private const float Width = 404, Pad = 17, IconSize = 42;
 
-    // Also used for the same notice drawn inside a game by RivaTuner (WidgetRenderer.RtssNoticeText).
-    internal static readonly Color Bg = Color.FromArgb(250, 22, 27, 40);
-    private static readonly Color Border = Color.FromArgb(45, 54, 76);
-    internal static readonly Color Text = Color.FromArgb(232, 236, 244);
-    internal static readonly Color Muted = Color.FromArgb(160, 168, 186);
+    // The app's colours, dark or light as the Theme setting says (the same choice as the menus). The dark ones are also
+    // used for the notice drawn inside a game by RivaTuner (WidgetRenderer.RtssNoticeText), which is always dark.
+    internal static readonly Color Bg = Color.FromArgb(250, 22, 22, 22);
+    private static readonly Color Border = Color.FromArgb(46, 46, 46);
+    internal static readonly Color Text = Color.FromArgb(255, 255, 255);
+    internal static readonly Color Muted = Color.FromArgb(163, 163, 163);
+    private static readonly Color CloseHover = Color.FromArgb(36, 36, 36);
+
+    private static readonly Color LightBg = Color.FromArgb(250, 255, 255, 255);
+    private static readonly Color LightBorder = Color.FromArgb(211, 211, 211);
+    private static readonly Color LightText = Color.FromArgb(0, 0, 0);
+    private static readonly Color LightMuted = Color.FromArgb(85, 85, 85);
+    private static readonly Color LightCloseHover = Color.FromArgb(230, 230, 230);
+
     private static Bitmap? _logo;
     internal static readonly Widgets.RecentIcons Icons = new();
 
-    public static Color Accent(NoticeKind kind) => kind switch
+    /// <summary>Each kind's colour: the bright one on dark, a deeper one that reads on white.</summary>
+    public static Color Accent(NoticeKind kind, bool light = false) => (kind, light) switch
     {
-        NoticeKind.Alert => Color.FromArgb(248, 113, 113),
-        NoticeKind.Recap => Color.FromArgb(91, 140, 255),
-        NoticeKind.Session => Color.FromArgb(61, 220, 151),
-        NoticeKind.Crash => Color.FromArgb(251, 191, 36),
-        _ => Color.FromArgb(177, 140, 255),
+        (NoticeKind.Alert, false) => Color.FromArgb(248, 113, 113),
+        (NoticeKind.Recap, false) => Color.FromArgb(91, 140, 255),
+        (NoticeKind.Session, false) => Color.FromArgb(61, 220, 151),
+        (NoticeKind.Crash, false) => Color.FromArgb(251, 191, 36),
+        (_, false) => Color.FromArgb(177, 140, 255),
+        (NoticeKind.Alert, true) => Color.FromArgb(220, 38, 38),
+        (NoticeKind.Recap, true) => Color.FromArgb(37, 99, 235),
+        (NoticeKind.Session, true) => Color.FromArgb(5, 150, 105),
+        (NoticeKind.Crash, true) => Color.FromArgb(217, 119, 6),
+        (_, true) => Color.FromArgb(124, 58, 237),
     };
 
     public static string KindLabel(NoticeKind kind) => kind switch
@@ -282,7 +297,10 @@ internal static class ToastRenderer
         _ => "UPDATE",
     };
 
-    public static Bitmap Render(Notice n, float scale, bool hover, out RectangleF closeRect)
+    public static Bitmap Render(Notice n, float scale, bool hover, out RectangleF closeRect) =>
+        Render(n, scale, hover, DarkMenuRenderer.Light, out closeRect);
+
+    internal static Bitmap Render(Notice n, float scale, bool hover, bool light, out RectangleF closeRect)
     {
         using var titleFont = new Font("Segoe UI Semibold", 16f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var bodyFont = new Font("Segoe UI", 14f, FontStyle.Regular, GraphicsUnit.Pixel);
@@ -303,12 +321,12 @@ internal static class ToastRenderer
         g.Clear(Color.Transparent);
         g.ScaleTransform(scale, scale);
 
-        var accent = Accent(n.Kind);
+        var accent = Accent(n.Kind, light);
         var card = new RectangleF(0.5f, 0.5f, Width - 1, height - 1);
         using (var path = RoundRect(card, 14))
         {
-            using var bg = new SolidBrush(Bg);
-            using var border = new Pen(Border, 1);
+            using var bg = new SolidBrush(light ? LightBg : Bg);
+            using var border = new Pen(light ? LightBorder : Border, 1);
             g.FillPath(bg, path);
             g.SetClip(path);
             using (var bar = new SolidBrush(accent)) g.FillRectangle(bar, 0, 0, 4, height);
@@ -321,8 +339,8 @@ internal static class ToastRenderer
         if (icon is not null) g.DrawImage(icon, iconRect);
 
         using var capBrush = new SolidBrush(accent);
-        using var titleBrush = new SolidBrush(Text);
-        using var bodyBrush = new SolidBrush(Muted);
+        using var titleBrush = new SolidBrush(light ? LightText : Text);
+        using var bodyBrush = new SolidBrush(light ? LightMuted : Muted);
         g.DrawString(KindLabel(n.Kind), capFont, capBrush, textX, Pad - 2, StringFormat.GenericTypographic);
 
         using var trim = (StringFormat)StringFormat.GenericTypographic.Clone();
@@ -334,9 +352,9 @@ internal static class ToastRenderer
         var close = new RectangleF(Width - 30, 10, 20, 20);
         if (hover)
         {
-            using var cb = new SolidBrush(Color.FromArgb(40, 48, 68));
+            using var cb = new SolidBrush(light ? LightCloseHover : CloseHover);
             g.FillEllipse(cb, close);
-            using var cp = new Pen(Text, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            using var cp = new Pen(light ? LightText : Text, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
             float i = 6.5f;
             g.DrawLine(cp, close.Left + i, close.Top + i, close.Right - i, close.Bottom - i);
             g.DrawLine(cp, close.Right - i, close.Top + i, close.Left + i, close.Bottom - i);

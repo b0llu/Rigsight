@@ -46,6 +46,22 @@ public class NotificationTests
     }
 
     [Fact]
+    public void Cards_are_black_or_white_with_the_app_theme()
+    {
+        var n = new Notice(NoticeKind.Recap, "Yesterday", "You were on for 6h 12m.");
+        using var dark = ToastRenderer.Render(n, 1, false, light: false, out _);
+        using var light = ToastRenderer.Render(n, 1, false, light: true, out _);
+        // Well inside the card, right of the icon and below the text: plain background.
+        var d = dark.GetPixel(dark.Width - 40, dark.Height - 12);
+        var l = light.GetPixel(light.Width - 40, light.Height - 12);
+        Assert.True(d.R == d.G && d.G == d.B && d.R < 30, $"dark card {d}"); // neutral, not the old navy
+        Assert.True(l.R == l.G && l.G == l.B && l.R > 245, $"light card {l}");
+        // Each kind's colour stays its own on white too.
+        var kinds = Enum.GetValues<NoticeKind>();
+        Assert.Equal(5, kinds.Select(k => ToastRenderer.Accent(k, light: true)).Distinct().Count());
+    }
+
+    [Fact]
     public void The_close_button_shows_on_hover()
     {
         var n = new Notice(NoticeKind.Session, "Dota 2 session", "Played for 2h 14m.");
@@ -61,7 +77,7 @@ public class NotificationTests
         Assert.Equal(kinds.Length, kinds.Select(ToastRenderer.KindLabel).Distinct().Count());
         Assert.All(kinds, k => Assert.Equal(ToastRenderer.KindLabel(k).ToUpperInvariant(), ToastRenderer.KindLabel(k)));
         Assert.Equal("TEMPERATURE ALERT", ToastRenderer.KindLabel(NoticeKind.Alert));
-        Assert.Equal(5, kinds.Select(ToastRenderer.Accent).Distinct().Count()); // overlay and update share one
+        Assert.Equal(5, kinds.Select(k => ToastRenderer.Accent(k)).Distinct().Count()); // overlay and update share one
     }
 
     [Fact]
