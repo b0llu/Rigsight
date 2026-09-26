@@ -138,6 +138,7 @@ var
   RtssCode: Integer;
 
 // One post-install step: a clear heading and a moving bar while it runs (these can take minutes). Returns the exit code.
+// Detail is a single line in the wizard: keep it under about 70 characters or it gets cut off.
 function RunStep(const Title, Detail, FileName, Params: String): Integer;
 var
   Code: Integer;
@@ -176,12 +177,12 @@ var
 begin
   if CurStep <> ssPostInstall then exit;
   if WizardIsTaskSelected('pawnio') then
-    Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading and installing with winget. This can take a minute or two; setup is still working.',
+    Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading with winget. This can take a minute or two.',
       ExpandConstant('{cmd}'), '/c winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements');
   // Through the agent, which checks again that it isn't installed already, waits as long as the install makes
   // progress, brings a question from RivaTuner's installer to the front, and ends it only if it stops doing anything.
   if WizardIsTaskSelected('rtss') then
-    RtssCode := RunStep('Installing RivaTuner Statistics Server...', 'Downloading and installing with winget. On a slow connection this can take a while; setup is still working.',
+    RtssCode := RunStep('Installing RivaTuner Statistics Server...', 'Downloading with winget. This can take a few minutes.',
       ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-rtss');
   // Setup already has admin rights: use them to register "start with Windows" and start the agent,
   // so the user never sees a second UAC prompt. After RivaTuner, so the agent can start it.
