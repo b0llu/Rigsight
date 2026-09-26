@@ -29,4 +29,13 @@ public static class AgentLauncher
             return false;
         }
     }
+
+    /// <summary>Whether an agent process of this install exists (it may be running without answering).</summary>
+    public static bool IsRunning()
+    {
+        var name = Path.GetFileNameWithoutExtension(RigsightPaths.AgentExe);
+        var procs = Process.GetProcessesByName(name);
+        foreach (var p in procs) p.Dispose();
+        return procs.Length > 0;
+    }
 }

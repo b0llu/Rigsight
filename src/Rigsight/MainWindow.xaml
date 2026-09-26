@@ -202,8 +202,16 @@
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=widgets}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7FC;" Content="Overlay"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=overlay}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}" />
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" AutomationProperties.Name="Settings"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
+                        <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
+                        <DockPanel>
+                            <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
+                                     ToolTip="Something in Settings needs a look"
+                                     Visibility="{Binding SettingsNeedAttention, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="Settings" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </RadioButton>
                 </StackPanel>
                 </ScrollViewer>
             </DockPanel>

@@ -32,6 +32,7 @@ public sealed class SettingsPageTests
             (nameof(vm.ProcessIntervalSeconds), 10, s => s.Tracking.ProcessIntervalSeconds, 10),
             (nameof(vm.IdleMinutes), 15, s => s.Tracking.IdleMinutes, 15),
             (nameof(vm.FullscreenCountsAsActive), false, s => s.Tracking.FullscreenCountsAsActive, false),
+            (nameof(vm.YieldToHardwareApps), true, s => s.YieldToHardwareApps, true),
             (nameof(vm.AlertsEnabled), true, s => s.Alerts.Enabled, true),
             (nameof(vm.CpuLimit), 72.6, s => s.Alerts.CpuLimit, 73.0),
             (nameof(vm.GpuLimit), 80.4, s => s.Alerts.GpuLimit, 80.0),
@@ -141,6 +142,49 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
+    public void The_sensors_notice_stays_until_it_is_dealt_with()
+    {
+        using var link = new AgentLink();
+        var vm = Page(link);
+        var icue = new Rigsight.Core.Protocol.SkippedSensors { Part = "Fan hubs", Because = ["iCUE"] };
+        Ui.Run(() =>
+        {
+            Assert.False(vm.SensorsNeedAttention);
+            Assert.Null(vm.AttentionSection);
+
+            vm.SensorStatus = new() { Paused = [icue], SafeMode = true };
+            Assert.True(vm.SensorsNeedAttention);
+            Assert.Equal("sensors", vm.AttentionSection);
+            Assert.True(vm.ShowPausedGotIt);
+
+            // "Got it": the program is seen, the problem still isn't.
+            vm.AcknowledgePausedCommand.Execute(null);
+            Assert.False(vm.ShowPausedGotIt);
+            Assert.True(vm.SensorsNeedAttention);
+
+            // "Try again": the problem is dealt with, and everything is read again.
+            vm.RetrySensorsCommand.Execute(null);
+            Assert.False(vm.SensorsNeedAttention);
+            Assert.Null(vm.AttentionSection);
+        });
+        link.Sent("sensors-retry");
+        Ui.Run(() =>
+        {
+            // The problem went away; if it comes back, it's news again. The program isn't.
+            vm.SensorStatus = new() { Paused = [icue] };
+            Assert.False(vm.SensorsNeedAttention);
+            vm.SensorStatus = new() { Paused = [icue], SafeMode = true };
+            Assert.True(vm.SensorsNeedAttention);
+
+            // Changing the switch also acknowledges a new program's notice.
+            vm.SensorStatus = new() { Paused = [new() { Part = "Motherboard", Because = ["Gigabyte Control Center"] }] };
+            Assert.True(vm.ShowPausedGotIt);
+            vm.YieldToHardwareApps = !vm.YieldToHardwareApps;
+            Assert.False(vm.ShowPausedGotIt);
+        });
+    }
+
+    [Fact]
     public void Excluded_apps_are_added_once_and_removed()
     {
         using var link = new AgentLink();
@@ -226,6 +270,8 @@ public sealed class SettingsPageTests
         Assert.Equal("-1", link.Sent("pause", 2).Arg);
         Ui.Run(() => vm.ResumeCommand.Execute(null));
         link.Sent("resume");
+        Ui.Run(() => vm.RetrySensorsCommand.Execute(null));
+        link.Sent("sensors-retry");
         Ui.Run(() => vm.PreviewCommand.Execute("alert"));
         Assert.Equal("alert", link.Sent("preview-notification").Arg);
     }

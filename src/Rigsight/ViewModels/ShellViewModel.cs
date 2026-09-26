@@ -40,6 +40,7 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
+        SettingsPage.GetHardware = () => [.. Live.Hardware.Select(h => (h.Type, h.Name))];
 
         // Open on the page the user picked (if it still exists).
         var start = Settings.Current.StartPage;
@@ -53,6 +54,7 @@ public sealed partial class ShellViewModel : ObservableObject
             Widgets.Refresh();
             Overlay.Refresh();
             SettingsPage.Refresh();
+            UpdateSettingsAttention();
         };
         client.MessageReceived += OnMessage;
         client.ConnectionChanged += OnConnectionChanged;
@@ -185,6 +187,14 @@ public sealed partial class ShellViewModel : ObservableObject
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         _ = RefreshCurrentPageAsync();
     }
+
+    /// <summary>
+    /// A dot on Settings in the sidebar while something there still needs the user. Opening Settings doesn't clear it:
+    /// dealing with the notice does (see <see cref="SettingsViewModel.SensorsNeedAttention"/>).
+    /// </summary>
+    [ObservableProperty] private bool _settingsNeedAttention;
+
+    private void UpdateSettingsAttention() => SettingsNeedAttention = SettingsPage.SensorsNeedAttention;
 
     public async Task RefreshCurrentPageAsync()
     {
@@ -336,10 +346,18 @@ public sealed partial class ShellViewModel : ObservableObject
         _startTimeout.Tick += (_, _) =>
         {
             _startTimeout.Stop();
-            if (!IsConnected) AgentStatus = "The agent didn't start. Try again, and accept the admin prompt.";
+            if (!IsConnected) AgentStatus = NotStartedText(AgentLauncher.IsRunning());
         };
         _startTimeout.Start();
     }
+
+    /// <summary>
+    /// Why the agent isn't there after a start: running but silent (stuck, usually on hardware; clicking again won't help,
+    /// a restart will), or not running at all (the admin prompt was declined, or something stopped it from starting).
+    /// </summary>
+    internal static string NotStartedText(bool processRunning) => processRunning
+        ? "The agent is running but not answering. Restart your PC, then open Rigsight again."
+        : "The agent didn't start. Try again and accept the admin prompt. If it still won't, restart your PC.";
 
     private void OnConnectionChanged(bool connected)
     {
@@ -376,6 +394,12 @@ public sealed partial class ShellViewModel : ObservableObject
                     _client.SendCommand("restart-elevated");
                 }
                 SettingsPage.AgentIsAdmin = msg.IsAdmin;
+                // The first hello comes before the hardware scan; the one with the hardware says what was left out.
+                if (msg.Hardware is not null)
+                {
+                    SettingsPage.SensorStatus = msg.SensorStatus;
+                    UpdateSettingsAttention();
+                }
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
                 // A change made while the agent was away goes out now, after the hello: sent as soon as the pipe

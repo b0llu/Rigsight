@@ -50,7 +50,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 6;
+    private const int CurrentVersion = 7;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -99,6 +99,10 @@ public static class SettingsStore
             if (w.Opacity is double old) (w.BackgroundOpacity, w.ContentOpacity, w.Opacity) = (old, old, null);
         if (s.Overlay?.Opacity is double oldOverlay)
             (s.Overlay.BackgroundOpacity, s.Overlay.ContentOpacity, s.Overlay.Opacity) = (oldOverlay, oldOverlay, null);
+        // v7: stepping aside for RGB and fan apps. Settings from an earlier version belong to a PC where Rigsight already
+        // works, so the first-start check is considered done and the switch stays off. (A new install has no file:
+        // SettingsVersion 0, and its agent does the check before the first hardware scan.)
+        if (s.SettingsVersion is > 0 and < 7) s.HardwareAppsChecked = true;
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;

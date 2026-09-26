@@ -80,6 +80,27 @@ public sealed class DriveHealthInfo
     public long? UncorrectableSectors { get; set; }
 }
 
+/// <summary>Sensors the agent isn't reading right now, and why (hello). Nothing skipped: no parts, no safe mode.</summary>
+public sealed class SensorStatus
+{
+    /// <summary>What's paused for another program: e.g. { "Motherboard", ["Gigabyte Control Center"] }.</summary>
+    public List<SkippedSensors> Paused { get; set; } = [];
+
+    /// <summary>The last hardware scan didn't finish (the PC hung or had to be restarted), so the risky parts were skipped.</summary>
+    public bool SafeMode { get; set; }
+
+    /// <summary>Windows' kernel memory kept growing while the hardware was read, so reading those parts was stopped.</summary>
+    public bool StoppedForMemory { get; set; }
+}
+
+/// <summary>One kind of hardware that isn't being read, and the programs it was left to.</summary>
+public sealed class SkippedSensors
+{
+    /// <summary>Motherboard · Fan hubs · Power supply</summary>
+    public string Part { get; set; } = "";
+    public List<string> Because { get; set; } = [];
+}
+
 /// <summary>One app's live resource use (all of its processes combined).</summary>
 public sealed class ProcInfo
 {
@@ -121,6 +142,8 @@ public sealed class AgentMessage
     public List<KeySensors.PreferredGpu>? PreferredGpus { get; set; }
     public List<SeriesHistory>? History { get; set; }
     public List<DriveHealthInfo>? Drives { get; set; }
+    /// <summary>Sensors left out on purpose (another program controls that hardware, or the last scan didn't finish).</summary>
+    public SensorStatus? SensorStatus { get; set; }
 
     // hello / settings
     public RigsightSettings? Settings { get; set; }

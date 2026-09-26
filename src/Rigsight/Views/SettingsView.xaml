@@ -22,7 +22,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,40" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0"
@@ -138,6 +138,62 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+
+            <!-- Sensors: outlined, with a dot by its title, while something here needs a look; Settings opens with it centred. -->
+            <StackPanel ctl:Attention.Section="sensors">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="SENSORS" Style="{StaticResource Section}" />
+                <!-- Same top and bottom margins as the section title, so the dot sits on its line. -->
+                <Ellipse Width="7" Height="7" Margin="8,26,0,8" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
+                         Visibility="{Binding SensorsNeedAttention, Converter={StaticResource Vis}}" />
+            </StackPanel>
+            <ctl:SmoothBorder Padding="20,8">
+                <ctl:SmoothBorder.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SensorsNeedAttention}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource WarmBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ctl:SmoothBorder.Style>
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding YieldToHardwareApps}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Step aside for RGB and fan apps" Style="{StaticResource Title}" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,16,0"
+                                       Text="While iCUE, Gigabyte Control Center, Armoury Crate or a similar app is running, the hardware it controls isn't read, so the two never talk to it at once." />
+                        </StackPanel>
+                    </CheckBox>
+                    <!-- What's being left out right now: information, outside the switch so clicking it doesn't flip it. "Got it"
+                         acknowledges it (so does changing the switch); until then Settings is pointed at. -->
+                    <DockPanel Margin="0,0,0,10" Visibility="{Binding SensorPausedText, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Got it" Command="{Binding AcknowledgePausedCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Got it, sensors left out for other apps"
+                                Visibility="{Binding ShowPausedGotIt, Converter={StaticResource Vis}}" />
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" Foreground="{DynamicResource MutedBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Text="{Binding SensorPausedText}" Style="{StaticResource Hint}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}" />
+                    </DockPanel>
+                    <!-- A separate matter from the switch above: the last hardware check went wrong, so the risky parts are
+                         skipped whatever the switch says. "Try again" clears only this. -->
+                    <Border Visibility="{Binding SensorSkippedText, Converter={StaticResource Vis}}" Margin="0,4,0,12" Padding="14,12"
+                            CornerRadius="10" Background="{DynamicResource WarmSoftBrush}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Try again" Command="{Binding RetrySensorsCommand}"
+                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Try reading all sensors again" />
+                            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource WarmBrush}"
+                                       VerticalAlignment="Top" Margin="0,2,12,0" />
+                            <StackPanel>
+                                <TextBlock Text="Some sensors are off after a problem" Style="{StaticResource Title}" />
+                                <TextBlock Text="{Binding SensorSkippedText}" Style="{StaticResource Hint}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Privacy -->
             <TextBlock Text="PRIVACY" Style="{StaticResource Section}" />
@@ -377,6 +433,17 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="0,4,16,0" Foreground="{DynamicResource WarmBrush}"
                                        Text="It's running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar."
                                        Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Copy" Command="{Binding CopyProblemReportCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Copy a problem report" />
+                        <StackPanel>
+                            <TextBlock Text="Problem report" Style="{StaticResource Title}" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                       Text="Your Rigsight version, hardware and recent log, to paste wherever you ask for help. Nothing is sent." />
+                            <TextBlock Text="{Binding ReportStatus}" Style="{StaticResource Hint}" Margin="0,4,0,0" Foreground="{DynamicResource GoodBrush}"
+                                       Visibility="{Binding ReportStatus, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </DockPanel>
                     <StackPanel Margin="0,10">

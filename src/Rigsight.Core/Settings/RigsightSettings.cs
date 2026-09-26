@@ -65,6 +65,23 @@ public sealed class RigsightSettings
     /// </summary>
     public bool AutoUpdate { get; set; } = true;
 
+    /// <summary>
+    /// While an RGB or fan-control app (iCUE, Gigabyte Control Center, Armoury Crate…) is running, don't read the
+    /// hardware it controls (motherboard sensor chip, fan hubs, power supply), so the two never talk to it at once.
+    /// Off unless a fresh install finds one of those apps running when it first starts (see <see cref="HardwareAppsChecked"/>):
+    /// a PC where Rigsight already works keeps reading everything.
+    /// </summary>
+    public bool YieldToHardwareApps { get; set; }
+
+    /// <summary>
+    /// The first start has looked for RGB and fan-control apps (turning <see cref="YieldToHardwareApps"/> on if it found
+    /// one). Set for settings from before 0.6.0, so an update never turns it on by itself.
+    /// </summary>
+    public bool HardwareAppsChecked { get; set; }
+
+    /// <summary>The sensor notice (what's left out and why) last seen in Settings, so the sidebar only points at a new one.</summary>
+    public string? SensorNoticeSeen { get; set; }
+
     /// <summary>Last version the agent sent an "update ready" notification for (one each).</summary>
     public string? LastUpdateNotice { get; set; }
 

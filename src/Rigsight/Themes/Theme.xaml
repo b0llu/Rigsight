@@ -185,10 +185,11 @@
                         <Grid>
                             <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0"
                                     HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" Visibility="Hidden" />
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" TextElement.FontSize="14" />
-                            </StackPanel>
+                            <!-- The label fills the row, so an item can put something at its right edge (Settings' attention dot). -->
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
+                            </DockPanel>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>

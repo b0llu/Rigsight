@@ -31,7 +31,18 @@ internal sealed class AgentContext : ApplicationContext
     private readonly Lock _settingsLock = new();
     private volatile RigsightSettings _settings;
 
-    private readonly SensorHost _sensors = new();
+    // Replaced (on the sampler thread) when the hardware is scanned again: another program started or quit (see
+    // HardwareApps), or the user asked to read everything again. Read it once into a local where it's used twice.
+    private volatile SensorHost _sensors = new();
+    private volatile SensorStatus _sensorStatus = new();
+    // The last hardware scan never finished: skip the risky parts until the user asks to read them again.
+    private bool _safeMode;
+    // Kernel memory ran away during a scan this run: the same.
+    private bool _stoppedForMemory;
+    // Sampler thread: when the programs we step aside for were last seen, for leaving them the hardware a little longer.
+    private SensorParts _yieldedParts;
+    private int _absentChecks;
+    private static string ScanMarker => Path.Combine(RigsightPaths.DataDir, "sensors-scan.pending");
     private readonly KeyHistory _history = new();
     private readonly DailyExtremes _extremes = new();
     private readonly DriveTempHistory _driveHistory = new();
@@ -93,6 +104,18 @@ internal sealed class AgentContext : ApplicationContext
         _settings = SettingsStore.Load();
         Units.Fahrenheit = _settings.UseFahrenheit;
         DarkMenuRenderer.Theme = _settings.Theme;
+        // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
+        // step aside for it from the very first scan (that first scan is when two programs colliding does the most harm).
+        if (!_settings.HardwareAppsChecked)
+        {
+            var apps = HardwareApps.Running();
+            _settings.HardwareAppsChecked = true;
+            if (apps.Count > 0) _settings.YieldToHardwareApps = true;
+            SettingsStore.Save(_settings);
+            Log.Write("sensors", apps.Count > 0
+                ? $"First start: {string.Join(", ", apps.Select(a => a.Name))} running, so Rigsight steps aside for RGB and fan apps"
+                : "First start: no RGB or fan apps running");
+        }
 
         _db = RigsightDb.OpenWriter();
         _apps = new AppResolver(_db);
@@ -216,18 +239,9 @@ internal sealed class AgentContext : ApplicationContext
         _lastToday = _tracker.Today();
         if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
 
-        var discovery = Stopwatch.StartNew();
-        try
-        {
-            _sensors.Open();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("sensors", ex);
-        }
-        Log.Write("agent", $"Sensors ready in {discovery.Elapsed.TotalSeconds:0.0} s ({_sensors.SensorCount} sensors)");
-        _sensorsReady = true;
-        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+        _safeMode = ScanGuard.LastScanUnfinished(ScanMarker);
+        if (_safeMode) Log.Write("sensors", "The last hardware scan didn't finish: skipping the motherboard, fan hubs and power supply");
+        OpenSensors();
 
         // Hardware discovery allocates a lot of short-lived data; hand it back once so the
         // always-running agent settles at its real (small) footprint.
@@ -238,7 +252,8 @@ internal sealed class AgentContext : ApplicationContext
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
-        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000;
+        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000,
+            nextHardwareApps = 30_000;
         // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
         // last window closes, hand that back too.
         bool wasLive = false;
@@ -342,6 +357,12 @@ internal sealed class AgentContext : ApplicationContext
                     SaveExtremes();
                 }
 
+                if (now >= nextHardwareApps)
+                {
+                    nextHardwareApps = now + 30_000;
+                    CheckHardwareApps();
+                }
+
                 if (now >= nextCrashScan)
                 {
                     nextCrashScan = now + 10 * 60_000;
@@ -368,6 +389,97 @@ internal sealed class AgentContext : ApplicationContext
         SaveExtremes(force: true);
         _sensors.Close();
         _db.Dispose();
+    }
+
+    /// <summary>
+    /// Sampler thread: scans the hardware (again), leaving alone what an RGB or fan-control program is driving right now
+    /// (see <see cref="HardwareApps"/>) and, after a scan that never finished or ran Windows' kernel memory up, the risky
+    /// parts altogether (see <see cref="ScanGuard"/>). Nothing reads sensors meanwhile: this runs on the sampler thread.
+    /// </summary>
+    private void OpenSensors()
+    {
+        var apps = _settings.YieldToHardwareApps ? HardwareApps.Running() : [];
+        _yieldedParts = HardwareApps.PartsFor(apps);
+        _absentChecks = 0;
+        bool safe = _safeMode || _stoppedForMemory;
+        var skip = _yieldedParts | (safe ? SensorParts.Risky : SensorParts.None);
+
+        _sensorsReady = false;
+        _sensors.Close();
+        var host = new SensorHost(skip);
+        var scan = Stopwatch.StartNew();
+        using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
+        {
+            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("Rigsight stopped reading some sensors",
+                "Windows' memory kept growing while it read the motherboard and fan hubs. Restart your PC if it stays slow.", warning: true), null);
+            try
+            {
+                host.Open();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("sensors", ex);
+            }
+            if (guard.Tripped) _stoppedForMemory = true;
+        }
+        if (_stoppedForMemory && !safe)
+        {
+            // It ran away with the risky parts in: read everything else without them.
+            host.Close();
+            OpenSensors();
+            return;
+        }
+
+        _sensors = host;
+        _sensorStatus = BuildSensorStatus(apps);
+        var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
+        string left = skip == SensorParts.None ? ""
+            : $", leaving out {string.Join(", ", parts).ToLowerInvariant()}" + (apps.Count > 0 ? $" (for {string.Join(", ", apps.Select(a => a.Name))})" : "") + (safe ? " (safe mode)" : "");
+        Log.Write("agent", $"Sensors ready in {scan.Elapsed.TotalSeconds:0.0} s ({host.SensorCount} sensors{left})");
+        _sensorsReady = true;
+        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+    }
+
+    /// <summary>
+    /// Sampler thread, every half minute: scans again when an RGB or fan-control program has started (at once, so the two
+    /// don't share the hardware) or has been gone for a whole minute (so a program restarting doesn't flip it back and forth).
+    /// </summary>
+    private void CheckHardwareApps()
+    {
+        var wanted = _settings.YieldToHardwareApps ? HardwareApps.PartsFor(HardwareApps.Running()) : SensorParts.None;
+        if ((wanted & ~_yieldedParts) != SensorParts.None)
+        {
+            OpenSensors();
+        }
+        else if (wanted != _yieldedParts)
+        {
+            if (++_absentChecks >= 2) OpenSensors();
+        }
+        else
+        {
+            _absentChecks = 0;
+        }
+    }
+
+    private SensorStatus BuildSensorStatus(List<HardwareApps.Known> apps)
+    {
+        var status = new SensorStatus { SafeMode = _safeMode, StoppedForMemory = _stoppedForMemory };
+        foreach (var part in new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply })
+        {
+            var by = apps.Where(a => a.Parts.HasFlag(part)).Select(a => a.Name).ToList();
+            if (by.Count > 0) status.Paused.Add(new SkippedSensors { Part = HardwareApps.PartName(part), Because = by });
+        }
+        return status;
+    }
+
+    /// <summary>Sampler thread: the user asked to read everything again after a safe-mode start or a memory stop.</summary>
+    private void RetryAllSensors()
+    {
+        Log.Write("sensors", "Reading everything again (asked from Settings)");
+        ScanGuard.Forget(ScanMarker);
+        _safeMode = false;
+        _stoppedForMemory = false;
+        OpenSensors();
     }
 
     /// <summary>Seconds to count since the last activity sample. A long gap means the PC was asleep: don't count it.</summary>
@@ -714,11 +826,13 @@ internal sealed class AgentContext : ApplicationContext
         };
         if (_sensorsReady)
         {
-            hello.Hardware = _sensors.Schema;
-            hello.Keys = _sensors.Keys;
-            hello.PreferredGpus = _sensors.PreferredGpus;
+            var sensors = _sensors;
+            hello.Hardware = sensors.Schema;
+            hello.Keys = sensors.Keys;
+            hello.PreferredGpus = sensors.PreferredGpus;
             hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
-            hello.Drives = _sensors.DriveHealth;
+            hello.Drives = sensors.DriveHealth;
+            hello.SensorStatus = _sensorStatus;
             _sendAllExtremes = true;
         }
         _pendingPage = _pendingArg = null;
@@ -760,6 +874,9 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "resume":
                 _ui.Post(_ => Resume(), null);
+                break;
+            case "sensors-retry":
+                RunOnSampler(RetryAllSensors);
                 break;
             case "quit":
                 _ui.Post(_ => Quit(), null);
@@ -806,6 +923,7 @@ internal sealed class AgentContext : ApplicationContext
         incoming.LastRecapDay = current.LastRecapDay;
         incoming.RecappedDay = current.RecappedDay;
         incoming.LastUpdateNotice = current.LastUpdateNotice;
+        incoming.HardwareAppsChecked = current.HardwareAppsChecked;
         incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
         foreach (var w in incoming.Widgets)
         {
@@ -855,11 +973,13 @@ internal sealed class AgentContext : ApplicationContext
     private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith)
     {
         RigsightSettings updated;
+        bool yieldChanged;
         lock (_settingsLock)
         {
             var current = _settings;
             updated = replaceWith ?? current.Clone();
             change(replaceWith is null ? updated : current);
+            yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             _settings = updated;
             SettingsStore.Save(updated);
         }
@@ -867,6 +987,12 @@ internal sealed class AgentContext : ApplicationContext
         Units.Fahrenheit = updated.UseFahrenheit;
         DarkMenuRenderer.Theme = updated.Theme;
         RunOnSampler(() => _tracker.SetSettings(updated));
+        // Stepping aside turned on or off: scan again now, with or without the parts those programs control.
+        if (yieldChanged)
+        {
+            Log.Write("sensors", $"Stepping aside for RGB and fan apps turned {(updated.YieldToHardwareApps ? "on" : "off")}");
+            RunOnSampler(OpenSensors);
+        }
         _ui.Post(_ =>
         {
             _widgets.Apply(updated);

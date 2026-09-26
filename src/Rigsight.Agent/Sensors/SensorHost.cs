@@ -22,17 +22,27 @@ internal sealed class SensorHost
         Static,
     }
 
-    private readonly Computer _computer = new()
+    private readonly Computer _computer;
+
+    /// <param name="skip">Hardware not to touch at all: not even detected (see <see cref="HardwareApps"/> and <see cref="ScanGuard"/>).</param>
+    public SensorHost(SensorParts skip = SensorParts.None)
     {
-        IsCpuEnabled = true,
-        IsGpuEnabled = true,
-        IsMotherboardEnabled = true,
-        IsMemoryEnabled = true,
-        IsStorageEnabled = true,
-        IsControllerEnabled = true,
-        IsPsuEnabled = true,
-        IsBatteryEnabled = true,
-    };
+        Skipped = skip;
+        _computer = new Computer
+        {
+            IsCpuEnabled = true,
+            IsGpuEnabled = true,
+            IsMotherboardEnabled = !skip.HasFlag(SensorParts.Motherboard),
+            IsMemoryEnabled = true,
+            IsStorageEnabled = true,
+            IsControllerEnabled = !skip.HasFlag(SensorParts.FanHubs),
+            IsPsuEnabled = !skip.HasFlag(SensorParts.PowerSupply),
+            IsBatteryEnabled = true,
+        };
+    }
+
+    /// <summary>The hardware this host leaves alone.</summary>
+    public SensorParts Skipped { get; }
 
     private readonly List<(IHardware Hw, Tier Tier)> _hardware = [];
     private readonly List<ISensor> _sensors = [];
