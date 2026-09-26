@@ -49,11 +49,38 @@
     });
   }).catch(() => { /* keep the Releases-page links */ });
 
-  // ── Nav background once you scroll ──
+  // ── The top bar stays out of the way over the hero and slides in once you scroll ──
   const nav = document.getElementById("nav");
-  const onScroll = () => nav.classList.toggle("scrolled", scrollY > 8);
+  const onScroll = () => nav.classList.toggle("scrolled", scrollY > 80);
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+
+  // ── The hero's rows of screenshots only move while the hero is on screen and the tab is visible ──
+  const hero = document.getElementById("hero");
+  let heroOn = true;
+  const heroMotion = () => hero.classList.toggle("paused", !heroOn || document.hidden);
+  new IntersectionObserver(([e]) => { heroOn = e.isIntersecting; heroMotion(); }, { threshold: 0.02 }).observe(hero);
+  document.addEventListener("visibilitychange", heroMotion);
+
+  // ── The overlay clip (real footage): loaded only when shown, plays while on screen, poster with reduced motion ──
+  const clips = [...document.querySelectorAll("video[data-src]")].filter(v => v.getClientRects().length);
+  if (!reduceMotion && clips.length) {
+    const seen = new IntersectionObserver(entries => {
+      for (const { target: v, isIntersecting } of entries) {
+        v.dataset.on = isIntersecting ? "1" : "";
+        if (isIntersecting && !document.hidden) v.play().catch(() => { /* blocked: the poster stays */ });
+        else if (!v.paused) v.pause();
+      }
+    }, { threshold: 0.05 });
+    for (const v of clips) {
+      v.muted = true;
+      const webm = document.createElement("source"); webm.src = `${v.dataset.src}.webm`; webm.type = "video/webm";
+      const mp4 = document.createElement("source"); mp4.src = `${v.dataset.src}.mp4`; mp4.type = "video/mp4";
+      v.append(webm, mp4);   // adding sources is enough: the browser fetches when play() asks for it
+      seen.observe(v);
+    }
+    document.addEventListener("visibilitychange", () => clips.forEach(v => { document.hidden ? v.pause() : v.dataset.on && v.play().catch(() => { }); }));
+  }
 
   // ── Reveal on scroll ──
   const io = new IntersectionObserver(entries => {
@@ -68,42 +95,6 @@
   // The hero is on screen from the start: show it straight away rather than waiting for a scroll.
   document.querySelectorAll(".hero .reveal").forEach(el => requestAnimationFrame(() => el.classList.add("in")));
   document.querySelectorAll(".reveal:not(.hero .reveal)").forEach(el => io.observe(el));
-
-  // ── Hero window: tilted at first, flattens as you scroll ──
-  const stage = document.getElementById("stage");
-  const win = stage && stage.querySelector(".window");
-  if (win && !reduceMotion) {
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const top = stage.getBoundingClientRect().top;
-      const t = Math.min(1, Math.max(0, 1 - (top - innerHeight * 0.15) / (innerHeight * 0.6)));
-      win.style.setProperty("--tilt", `${(14 * (1 - t)).toFixed(2)}deg`);
-      win.style.setProperty("--sc", (0.96 + 0.04 * t).toFixed(4));
-    };
-    addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
-    update();
-  }
-
-  // ── The mock overlay's readings drift like live ones ──
-  const ranges = {
-    fps: [138, 158, 0], low: [109, 126, 0], cpu: [58, 67, 1], gpu: [68, 76, 1],
-    cpul: [31, 46, 0], gpul: [94, 99, 0], cpuw: [80, 96, 0], gpuw: [298, 331, 0], pump: [2110, 2170, 0],
-  };
-  const state = {};
-  for (const [k, [lo, hi]] of Object.entries(ranges)) state[k] = (lo + hi) / 2;
-  function tick() {
-    for (const [k, [lo, hi, isTemp]] of Object.entries(ranges)) {
-      const span = hi - lo;
-      state[k] = Math.min(hi, Math.max(lo, state[k] + (Math.random() - 0.5) * span * 0.35));
-      const v = Math.round(state[k]);
-      document.querySelectorAll(`[data-tick="${k}"]`).forEach(el => {
-        el.textContent = isTemp ? `${v}°` : String(v);
-        if (isTemp) el.classList.toggle("hot", v >= (k === "gpu" ? 74 : 65));
-      });
-    }
-  }
-  if (!reduceMotion) setInterval(tick, 1000);
 
   // ── Dark / light comparison slider ──
   const cmp = document.getElementById("compare");

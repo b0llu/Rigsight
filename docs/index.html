@@ -24,12 +24,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="preload" as="image" href="img/temperatures.webp" />
-  <link rel="stylesheet" href="styles.css?v=0.5.11" />
+  <link rel="stylesheet" href="styles.css?v=0.5.18d" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
-  <div class="bg-grid" aria-hidden="true"></div>
 
   <!-- ── Navigation ─────────────────────────────────────────── -->
   <header class="nav" id="nav">
@@ -55,10 +53,21 @@
 
   <main id="top">
     <!-- ── Hero ────────────────────────────────────────────── -->
-    <section class="hero">
+    <section class="hero" id="hero">
+      <!-- Real screenshots of the app (whole cards and panels), drifting past behind the copy. Decorative. -->
+      <div class="marquee" aria-hidden="true">
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="eager" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="eager" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="eager" decoding="async" /></div><div class="track"><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="eager" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="eager" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="eager" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="eager" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="eager" decoding="async" /><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="eager" decoding="async" /></div><div class="track"><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="eager" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="eager" decoding="async" /><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="eager" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-chrome.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-month.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-drives.webp" width="1212" height="298" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-chrome.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-month.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-drives.webp" width="1212" height="298" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="lazy" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-year.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="lazy" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="lazy" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/reports-year.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="lazy" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="lazy" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="lazy" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /></div></div></div>
+      </div>
+      <div class="veil" aria-hidden="true"></div>
+
       <div class="wrap hero-copy">
-        <h1 class="reveal">Know your <span class="grad">rig.</span></h1>
-        <p class="lead reveal">Rigsight records your PC's temperatures, loads, app usage and crashes all day, and keeps them as history. See what happened, not just what's happening.</p>
+        <img class="hero-logo reveal" src="img/logo.png" width="64" height="64" alt="" />
+        <h1 class="reveal">Rigsight</h1>
+        <p class="lead reveal">Know your rig. Your PC's temperatures, app time and crashes, recorded all day and kept as history.</p>
         <div class="cta-row reveal">
           <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
@@ -75,30 +84,6 @@
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m0 16h-9V7h9z"/></svg>
           <span>On your phone? Copy the link for your PC</span>
         </button>
-      </div>
-
-      <div class="wrap hero-visual reveal">
-        <div class="stage" id="stage">
-          <figure class="window">
-            <img src="img/temperatures.webp" width="1440" height="932" alt="Rigsight's Temperatures page: CPU and GPU gauges, load, power, clocks and the last 24 hours of temperatures, with a long gaming session" />
-          </figure>
-
-          <div class="float float-overlay" aria-hidden="true">
-            <div class="ov-row"><span class="ov-k">FPS</span><b data-tick="fps">144</b><span class="ov-u">1% low</span><b data-tick="low">118</b></div>
-            <div class="ov-row"><span class="ov-k cpu">CPU</span><b class="warm" data-tick="cpu">62°</b><b data-tick="cpul">38</b><span class="ov-u">%</span></div>
-            <div class="ov-row"><span class="ov-k gpu">GPU</span><b class="warm" data-tick="gpu">71°</b><b data-tick="gpul">97</b><span class="ov-u">%</span></div>
-          </div>
-
-          <div class="float float-peak" aria-hidden="true">
-            <span class="fp-label">GPU peak today</span>
-            <span class="fp-value">74°</span>
-            <span class="fp-sub">8:14 PM · in Cyberpunk 2077</span>
-          </div>
-
-          <div class="float float-cpu" aria-hidden="true">
-            <span class="fc-dot"></span> In the background <b>0.006% CPU</b>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -224,22 +209,10 @@
             <li>Rigsight never hooks into games, so it's safe with anti-cheat</li>
           </ul>
         </div>
-        <div class="game reveal" aria-hidden="true">
-          <div class="game-scene">
-            <div class="sun"></div>
-            <div class="mountain m1"></div>
-            <div class="mountain m2"></div>
-            <div class="road"></div>
-          </div>
-          <div class="game-ov">
-            <div class="ov-row"><span class="ov-k">FPS</span><b data-tick="fps">144</b><span class="ov-u">1% low</span><b data-tick="low">118</b></div>
-            <div class="ov-row"><span class="ov-k cpu">CPU</span><b class="warm" data-tick="cpu">62°</b><b data-tick="cpul">38</b><span class="ov-u">%</span><b data-tick="cpuw">88</b><span class="ov-u">W</span></div>
-            <div class="ov-row"><span class="ov-k gpu">GPU</span><b class="warm" data-tick="gpu">71°</b><b data-tick="gpul">97</b><span class="ov-u">%</span><b data-tick="gpuw">312</b><span class="ov-u">W</span></div>
-            <div class="ov-row"><span class="ov-k ram">RAM</span><b>9.6</b><span class="ov-u">/ 16 GB</span></div>
-            <div class="ov-row"><span class="ov-k">PUMP</span><b data-tick="pump">2140</b><span class="ov-u">RPM</span></div>
-          </div>
-          <div class="game-hint"><kbd>Alt</kbd><kbd>Shift</kbd><kbd>O</kbd></div>
-        </div>
+        <figure class="game reveal">
+          <div class="game-clip"><video muted loop playsinline preload="none" poster="media/overlay.webp" data-src="media/overlay" width="270" height="140" aria-label="The Rigsight overlay: CPU load, GPU temperature, load and video memory, RAM, and the app in front with the time spent on it"></video></div>
+          <figcaption>The overlay, as it sits in the corner of your screen. <span class="game-hint"><kbd>Alt</kbd><kbd>Shift</kbd><kbd>O</kbd></span></figcaption>
+        </figure>
       </div>
     </section>
 
@@ -399,6 +372,6 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=0.5.11" defer></script>
+  <script src="app.js?v=0.5.18d" defer></script>
 </body>
 </html>

@@ -61,14 +61,6 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
     radial-gradient(40% 36% at 72% 38%, rgba(66, 208, 168, .15), transparent 70%);
   filter: blur(10px);
 }
-.bg-grid {
-  position: absolute; inset: 0 0 auto; height: 1100px; z-index: -1; pointer-events: none;
-  background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(70% 60% at 50% 20%, #000 20%, transparent 75%);
-  -webkit-mask-image: radial-gradient(70% 60% at 50% 20%, #000 20%, transparent 75%);
-}
-
 /* ── Buttons ────────────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -87,12 +79,16 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .btn-big { height: 58px; padding: 0 34px; font-size: 17px; }
 
 /* ── Nav ────────────────────────────────────────────────── */
+/* Fixed, and hidden over the hero: it slides in once you scroll (app.js toggles .scrolled). */
 .nav {
-  position: sticky; top: 0; z-index: 50;
-  transition: background .3s, border-color .3s, backdrop-filter .3s;
-  border-bottom: 1px solid transparent;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(0,0,0,.72); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px);
+  border-bottom: 1px solid var(--stroke);
+  transform: translateY(-100%); opacity: 0; visibility: hidden;
+  transition: transform .45s var(--ease), opacity .35s, visibility 0s .45s;
 }
-.nav.scrolled { background: rgba(0,0,0,.72); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); border-color: var(--stroke); }
+.nav.scrolled { transform: none; opacity: 1; visibility: visible; transition: transform .45s var(--ease), opacity .35s, visibility 0s; }
+[id] { scroll-margin-top: 80px; }
 .nav-inner { height: 68px; display: flex; align-items: center; gap: 24px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; text-decoration: none; }
 .brand img { border-radius: 7px; }
@@ -104,19 +100,45 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .icon-link:hover { color: var(--text); }
 
 /* ── Hero ───────────────────────────────────────────────── */
-.hero { padding: 56px 0 40px; }
-.hero-copy { text-align: center; display: flex; flex-direction: column; align-items: center; }
-.pill {
-  display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px 7px 12px; border-radius: 999px;
-  border: 1px solid var(--stroke-2); background: rgba(255,255,255,.035); color: var(--muted);
-  font-size: 14px; text-decoration: none; transition: border-color .2s, color .2s;
+/* Exactly one screen tall. Five rows of real app screenshots drift past in alternating directions behind everything;
+   a soft black veil sits behind the centre copy so it always reads. The rows scroll away with the hero. */
+.hero {
+  position: relative; isolation: isolate; overflow: hidden; background: #000;
+  height: 100vh; height: 100svh; display: grid; place-items: center; padding: 64px 0;
 }
-.pill:hover { border-color: #444; color: var(--text); }
-.pill-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(66,208,168,.18); animation: pulse 2.4s infinite; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(66,208,168,0); } }
-.hero h1 { margin-top: 28px; font-size: clamp(56px, 11vw, 124px); font-weight: 800; letter-spacing: -0.055em; line-height: .95; }
-.lead { margin-top: 26px; max-width: 660px; color: var(--muted); font-size: clamp(17px, 2.1vw, 21px); line-height: 1.55; }
-.cta-row { margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.marquee {
+  position: absolute; inset: 0; z-index: 0; display: grid; grid-template-rows: repeat(5, 1fr); gap: var(--gap); padding: var(--gap) 0;
+  --gap: clamp(10px, 1.2vw, 16px); --fade: 10%;
+  transform: perspective(1400px) rotateX(9deg) scale(1.14); transform-origin: 50% 50%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+}
+.row { overflow: hidden; min-height: 0; }
+.lane { display: flex; height: 100%; width: max-content; will-change: transform; animation: slide var(--dur, 80s) linear infinite; }
+.row:nth-child(1) .lane { --dur: 72s; }
+.row:nth-child(2) .lane { --dur: 88s; animation-direction: reverse; }
+.row:nth-child(3) .lane { --dur: 64s; }
+.row:nth-child(4) .lane { --dur: 96s; animation-direction: reverse; }
+.row:nth-child(5) .lane { --dur: 78s; }
+/* The lane holds the same track twice; moving it by exactly one track loops without a seam. */
+@keyframes slide { to { transform: translateX(-50%); } }
+.track { display: flex; gap: var(--gap); height: 100%; padding-right: var(--gap); flex: none; }
+.track img {
+  display: block; height: 100%; width: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,.1);
+  background: #0a0a0a; opacity: .58; box-shadow: 0 20px 60px -20px rgba(0,0,0,.9);
+}
+.hero.paused .lane { animation-play-state: paused; }
+.veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 58% at 50% 50%, #000 0%, rgba(0,0,0,.97) 40%, rgba(0,0,0,.72) 68%, rgba(0,0,0,.25) 88%, transparent 100%),
+    linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 14%, transparent 86%, #000 100%);
+}
+.hero-copy { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.hero-logo { border-radius: 16px; box-shadow: 0 16px 50px -12px rgba(86,153,239,.6); }
+.hero h1 { margin-top: 22px; font-size: clamp(56px, 9vw, 108px); font-weight: 800; letter-spacing: -0.055em; line-height: .95; }
+.lead { margin-top: 20px; max-width: 560px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.5; text-wrap: balance; }
+.cta-row { margin-top: 32px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 .meta { margin-top: 18px; color: var(--faint); font-size: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; }
 .meta > span { white-space: nowrap; }
 .meta > span + span::before { content: "·"; margin: 0 10px; opacity: .6; }
@@ -125,52 +147,23 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
   margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px;
   background: transparent; border: 1px dashed var(--stroke-2); color: var(--muted); font: 500 14px Inter, sans-serif; cursor: pointer;
 }
-
-.hero-visual { margin-top: 64px; perspective: 2000px; }
-.stage { position: relative; }
-.window {
-  margin: 0; border-radius: 16px; overflow: hidden; background: #000;
-  border: 1px solid #262626;
-  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 50px 120px -30px rgba(86,153,239,.45), 0 30px 80px -40px rgba(66,208,168,.5);
-  transform: rotateX(var(--tilt, 14deg)) scale(var(--sc, .96));
-  transform-origin: 50% 0;
-  transition: transform .15s linear;
+/* Short windows: tighter type and spacing so the whole centre block fits on the first screen. */
+@media (max-height: 820px) and (min-width: 641px) {
+  .hero { padding: 48px 0; }
+  .hero-logo { width: 52px; height: 52px; border-radius: 13px; }
+  .hero h1 { margin-top: 16px; font-size: clamp(52px, 8vw, 88px); }
+  .lead { margin-top: 14px; font-size: 17px; }
+  .cta-row { margin-top: 24px; }
+  .meta { margin-top: 14px; }
+  .term-wrap { margin-top: 22px; }
 }
-.stage::after {
-  content: ""; position: absolute; inset: auto 8% -60px; height: 140px; z-index: -1;
-  background: var(--brand); filter: blur(90px); opacity: .35;
+@media (max-height: 680px) and (min-width: 641px) {
+  .hero h1 { font-size: clamp(44px, 7vw, 72px); }
+  .term-wrap { display: none; }
 }
-
-.float {
-  position: absolute; z-index: 3; border-radius: 14px;
-  background: rgba(10,10,10,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255,255,255,.09);
-  box-shadow: 0 20px 50px -15px rgba(0,0,0,.9);
-  animation: bob 6s ease-in-out infinite;
-}
-@keyframes bob { 50% { transform: translateY(-10px); } }
-.float-overlay { left: -28px; top: 18%; padding: 12px 16px; animation-delay: -1s; }
-.float-peak { right: -26px; top: 40%; padding: 16px 20px; display: grid; gap: 2px; animation-delay: -3s; }
-.float-cpu { left: 14%; bottom: -22px; padding: 11px 16px; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 10px; animation-delay: -4.5s; }
-.float-cpu b { color: var(--text); font-weight: 600; }
-.fc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
-.fp-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 600; }
-.fp-value { font-size: 40px; font-weight: 700; color: var(--amber); letter-spacing: -0.03em; line-height: 1.1; }
-.fp-sub { font-size: 13px; color: var(--muted); }
-
-/* Overlay readout (hero float and the game scene) */
-.ov-row { display: flex; align-items: baseline; gap: 7px; font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.55; }
-.ov-row b { font-weight: 700; font-size: 17px; min-width: 2.2ch; }
-.ov-k { font-size: 11px; font-weight: 800; letter-spacing: .06em; color: #e6e6e6; width: 38px; }
-.ov-k.cpu { color: var(--cpu); }
-.ov-k.gpu { color: var(--gpu); }
-.ov-k.ram { color: var(--purple); }
-.ov-u { font-size: 11px; color: #9a9a9a; }
-.warm { color: var(--gpu); }
-.warm.hot { color: var(--amber); }
 
 /* ── Strip ──────────────────────────────────────────────── */
-.strip { margin-top: 110px; border-block: 1px solid var(--stroke); background: linear-gradient(180deg, rgba(255,255,255,.02), transparent); }
+.strip { margin-top: 0; border-block: 1px solid var(--stroke); background: linear-gradient(180deg, rgba(255,255,255,.02), transparent); }
 .strip-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
 .stat { padding: 34px 24px; display: grid; gap: 6px; border-left: 1px solid var(--stroke); }
 .stat:first-child { border-left: 0; padding-left: 0; }
@@ -223,24 +216,11 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 /* ── Overlay section ────────────────────────────────────── */
 .overlay-sec { margin-top: 170px; padding: 110px 0; background: radial-gradient(60% 80% at 80% 50%, rgba(251,191,36,.08), transparent 70%); border-block: 1px solid var(--stroke); }
 .overlay-grid { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: center; }
-.game { position: relative; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden; border: 1px solid #2a2a2a; box-shadow: 0 50px 120px -40px rgba(251,191,36,.3); }
-.game-scene { position: absolute; inset: 0; background: linear-gradient(180deg, #1c1033 0%, #4b1d4f 42%, #d9573a 64%, #1a0f20 64.2%, #0b0710 100%); }
-.sun { position: absolute; left: 50%; top: 30%; width: 34%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%;
-  background: repeating-linear-gradient(180deg, #ffcf5a 0 9%, transparent 9% 12%), linear-gradient(#ffd66b, #ff5f6d);
-  -webkit-mask: linear-gradient(#000 0 0); background-blend-mode: normal; box-shadow: 0 0 120px 30px rgba(255,120,80,.35);
-  clip-path: inset(0 0 38% 0); }
-.mountain { position: absolute; bottom: 36%; width: 70%; height: 30%; background: #140a1f; clip-path: polygon(0 100%, 22% 40%, 38% 70%, 58% 10%, 78% 60%, 100% 100%); }
-.m1 { left: -12%; opacity: .95; }
-.m2 { right: -18%; height: 22%; background: #200f2c; clip-path: polygon(0 100%, 30% 30%, 50% 60%, 70% 20%, 100% 100%); }
-.road { position: absolute; left: 0; right: 0; bottom: 0; height: 36%;
-  background:
-    linear-gradient(90deg, transparent 49.4%, rgba(255,207,90,.8) 49.4% 50.6%, transparent 50.6%) 0 0 / 100% 40px,
-    repeating-linear-gradient(90deg, rgba(255,90,160,.35) 0 1px, transparent 1px 8.33%),
-    repeating-linear-gradient(0deg, rgba(255,90,160,.35) 0 1px, transparent 1px 22px);
-  transform: perspective(300px) rotateX(55deg); transform-origin: 50% 0; animation: drive 1.2s linear infinite; }
-@keyframes drive { to { background-position: 0 40px, 0 0, 0 22px; } }
-.game-ov { position: absolute; top: 18px; left: 18px; padding: 12px 16px; border-radius: 10px; background: rgba(0,0,0,.72); }
-.game-hint { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 6px; opacity: .85; }
+.game { margin: 0; display: grid; justify-items: center; gap: 18px; }
+.game-clip { width: min(100%, 420px); border-radius: 14px; overflow: hidden; border: 1px solid #2a2a2a; background: #000; box-shadow: 0 40px 100px -40px rgba(251,191,36,.35), 0 0 0 1px rgba(255,255,255,.04); }
+.game-clip video { display: block; width: 100%; height: auto; }
+.game figcaption { color: var(--faint); font-size: 14px; text-align: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; }
+.game-hint { display: inline-flex; gap: 5px; }
 
 /* ── More ───────────────────────────────────────────────── */
 .more { padding: 150px 0 0; text-align: center; }
@@ -319,7 +299,7 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
   background: var(--brand); color: #04110d; font: 800 13px/1 "Cascadia Code", Consolas, monospace; letter-spacing: -1px;
 }
 .term code {
-  font: 500 14.5px/1.4 "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace; background: none; padding: 0 4px 0 0;
+  font: 500 14.5px/1.4 "Cascadia Code", Consolas, ui-monospace, Menlo, monospace; background: none; padding: 0 4px 0 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d4d4d4;
 }
 .t-cmd { color: #7dd3fc; font-weight: 600; }
@@ -387,8 +367,7 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 .hero .reveal:nth-child(3) { transition-delay: .12s; }
 .hero .reveal:nth-child(4) { transition-delay: .18s; }
 .hero .reveal:nth-child(5) { transition-delay: .24s; }
-.hero-visual.reveal { transition-delay: .3s; }
-.hero-visual.reveal:not(.in) { transform: translateY(48px); }
+.hero .reveal:nth-child(6) { transition-delay: .3s; }
 
 /* ── Tablet ─────────────────────────────────────────────── */
 @media (max-width: 980px) {
@@ -402,8 +381,6 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .stat:nth-child(-n+2) { border-top: 0; }
   .stat:nth-child(even) { padding-left: 24px; border-left: 1px solid var(--stroke); }
   .cards { grid-template-columns: 1fr 1fr; }
-  .float-overlay { left: -8px; }
-  .float-peak { right: -8px; }
 }
 
 /* ── Phone ──────────────────────────────────────────────── */
@@ -412,24 +389,20 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .mobile-only.mobile-only { display: inline-flex; }
   .desktop-only { display: none; }
   .nav-inner { height: 60px; }
-  .hero { padding: 36px 0 20px; }
-  .hero h1 { margin-top: 22px; }
-  .lead { margin-top: 20px; }
-  .cta-row { margin-top: 28px; width: 100%; flex-direction: column; }
+  /* Phones: three rows of smaller cards, the copy centred over the veil, the Download button on the first screen. */
+  .hero { padding: 24px 0; }
+  .marquee { grid-template-rows: repeat(3, 1fr); --gap: 10px; --fade: 6%; transform: perspective(900px) rotateX(7deg) scale(1.12); }
+  .row:nth-child(n+4) { display: none; }
+  .row { display: grid; align-items: center; }
+  .lane { height: min(100%, 132px); }
+  .track img { border-radius: 8px; }
+  .veil { background: radial-gradient(ellipse 60% 52% at 50% 50%, #000 0%, rgba(0,0,0,.97) 45%, rgba(0,0,0,.7) 74%, transparent 100%), linear-gradient(180deg, rgba(0,0,0,.5) 0%, transparent 12%, transparent 88%, #000 100%); }
+  .hero-logo { width: 52px; height: 52px; border-radius: 13px; }
+  .hero h1 { margin-top: 16px; }
+  .lead { margin-top: 14px; }
+  .cta-row { margin-top: 24px; width: 100%; flex-direction: column; }
   .cta-row .btn { width: 100%; }
   .meta { font-size: 13px; }
-  .hero-visual { margin-top: 44px; }
-  .window { border-radius: 10px; transform: none !important; }
-  /* On a phone, show the left two thirds of the window (gauges) larger instead of the whole thing tiny. */
-  .window img { width: 150%; max-width: none; }
-  .float-overlay { left: 8px; top: auto; bottom: 18px; padding: 9px 12px; }
-  .float-overlay .ov-row b { font-size: 14px; }
-  .float-peak { right: 8px; top: 34px; padding: 9px 12px; }
-  .fp-value { font-size: 24px; }
-  .fp-label { font-size: 10px; }
-  .fp-sub { font-size: 11.5px; }
-  .float-cpu { display: none; }
-  .strip { margin-top: 70px; }
   .strip-grid { grid-template-columns: 1fr 1fr; }
   .stat b { font-size: 21px; }
   .stat span { font-size: 13px; }
@@ -439,8 +412,6 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .features { padding-top: 90px; gap: 90px; }
   .f-copy > p { font-size: 16px; }
   .overlay-sec { margin-top: 110px; padding: 80px 0; }
-  .game-ov { top: 10px; left: 10px; padding: 8px 10px; transform: scale(.82); transform-origin: 0 0; }
-  .game-hint { display: none; }
   .more, .themes, .light, .privacy, .install, .faq { padding-top: 110px; }
   .cards, .steps { grid-template-columns: 1fr; }
   .cli-card { padding: 22px 18px; }
@@ -463,5 +434,6 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .reveal { opacity: 1; transform: none; }
+  .lane { animation: none; }
   html { scroll-behavior: auto; }
 }
