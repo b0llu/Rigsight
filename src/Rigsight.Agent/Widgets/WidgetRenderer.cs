@@ -75,7 +75,7 @@ internal static partial class WidgetRenderer
         return t < 45 ? Color.FromArgb(56, 189, 248) : t < 70 ? Color.FromArgb(52, 211, 153) : t < 85 ? Color.FromArgb(251, 191, 36) : Color.FromArgb(248, 113, 113);
     }
 
-    private static readonly Dictionary<string, Bitmap?> IconCache = new(StringComparer.OrdinalIgnoreCase);
+    internal static readonly RecentIcons IconCache = new();
 
     /// <summary>Base size of each style in device-independent pixels.</summary>
     private static SizeF BaseSize(WidgetStyle style, WidgetData? d, Graphics measure) => style switch
@@ -458,21 +458,16 @@ internal static partial class WidgetRenderer
         return path;
     }
 
-    private static Bitmap? IconFor(string? path)
+    private static Bitmap? IconFor(string? path) => path is null ? null : IconCache.Get(path, p =>
     {
-        if (path is null) return null;
-        if (IconCache.TryGetValue(path, out var cached)) return cached;
-        Bitmap? bmp = null;
         try
         {
-            using var icon = Icon.ExtractIcon(path, 0, 64) ?? Icon.ExtractAssociatedIcon(path);
-            bmp = icon?.ToBitmap();
+            using var icon = Icon.ExtractIcon(p, 0, 64) ?? Icon.ExtractAssociatedIcon(p);
+            return icon?.ToBitmap();
         }
         catch
         {
-            // No icon available.
+            return null; // no icon available
         }
-        IconCache[path] = bmp;
-        return bmp;
-    }
+    });
 }

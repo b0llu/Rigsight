@@ -10,7 +10,7 @@ namespace Rigsight.Tests.Core;
 /// The update folder of this test run (never the real one), downloads from a local server, and the test feed variable.
 /// One at a time: they share the folder, the stall timeout and the environment.
 /// </summary>
-[Collection("Core statics")]
+[Collection("UI")] // changes process-wide statics: see UiCollection
 public sealed class UpdateStoreTests : IDisposable
 {
     private readonly TimeSpan _stall = UpdateStore.StallTimeout;

@@ -16,6 +16,8 @@ public static class ReportBuilder
             ReportRange.Year => (new DateTime(day.Year, 1, 1), new DateTime(day.Year + 1, 1, 1)),
             // Everything: callers show it from the first recorded day.
             ReportRange.All => (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1)),
+            // A custom range has its own start and end (see BuildCustom); on its own, its first day.
+            ReportRange.Custom => (day, day.AddDays(1)),
             _ => (new DateTime(day.Year, day.Month, 1), new DateTime(day.Year, day.Month, 1).AddMonths(1)),
         };
 
@@ -68,6 +70,86 @@ public static class ReportBuilder
 
     /// <summary>Sessions shorter than this (a screenshot, a quick alt-tab) still count as usage but aren't listed as sessions.</summary>
     public const double MinSessionSec = 60;
+
+    /// <summary>Custom ranges are whole hours: history per app is kept by the hour.</summary>
+    public static DateTime HourStart(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, 0, 0, t.Kind);
+
+    /// <summary>The hour a moment falls in, rounded up (1:00 for 12:27, 1:00 for 1:00).</summary>
+    public static DateTime HourEnd(DateTime t) => HourStart(t) == t ? t : HourStart(t).AddHours(1);
+
+    /// <summary>Custom ranges up to this long read like a day: minute by minute, not in daily bars.</summary>
+    public static readonly TimeSpan DayLikeLimit = TimeSpan.FromHours(48);
+
+    /// <summary>Custom ranges longer than this are built from the monthly totals, like a year.</summary>
+    public static readonly TimeSpan LongLimit = TimeSpan.FromDays(92);
+
+    /// <summary>A day, or a custom range of up to two days: shown minute by minute.</summary>
+    public static bool IsDayLike(ReportRange range, DateTime from, DateTime to) =>
+        range == ReportRange.Day || (range == ReportRange.Custom && to - from <= DayLikeLimit);
+
+    /// <summary>A year, all time, or a custom range of more than three months: bars per month.</summary>
+    public static bool IsLong(ReportRange range, DateTime from, DateTime to) =>
+        IsLong(range) || (range == ReportRange.Custom && to - from > LongLimit);
+
+    /// <summary>
+    /// A custom range (whole hours, see <see cref="HourStart"/>), with insights: compared with the same length of time
+    /// just before it (only as much of it as has passed, while it's still going on).
+    /// </summary>
+    public static Report BuildCustom(RigsightDb db, DateTime from, DateTime to, RigsightSettings settings)
+    {
+        (from, to) = (HourStart(from), HourEnd(to));
+        if (to <= from) to = from.AddHours(1);
+        var apps = db.LoadApps().ToDictionary(a => a.Id);
+        Report Period(DateTime f, DateTime t) => IsLong(ReportRange.Custom, f, t)
+            ? BuildLong(db, ReportRange.Custom, f, t, apps, settings) : BuildRaw(db, ReportRange.Custom, f, t, apps, settings);
+        var report = Period(from, to);
+
+        var now = DateTime.Now;
+        var (pFrom, pTo) = (from - (to - from), from);
+        if (from <= now && now < to) pTo = pFrom + (now - from);
+        var previous = Period(pFrom, pTo);
+
+        var usual = BuildRaw(db, ReportRange.Week, from.Date.AddDays(-7), from.Date, apps, settings);
+        report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts);
+        return report;
+    }
+
+    /// <summary>
+    /// "Your day": all use of <paramref name="day"/> from 5 AM until 5 AM the next morning (use in the small hours belongs
+    /// to the night before, as in the "ran late" insight), from its first minute of use to its last. Null without any use.
+    /// </summary>
+    public static (DateTime From, DateTime To)? YourDay(RigsightDb db, DateTime day)
+    {
+        day = day.Date;
+        var minutes = db.GetMinutes(TimeUtil.ToUnix(day.AddHours(LateNightEndsHour)), TimeUtil.ToUnix(day.AddDays(1).AddHours(LateNightEndsHour)));
+        var active = minutes.Where(m => m.ActiveSec >= ActiveMinuteSec).ToList();
+        if (active.Count == 0) return null;
+        return (TimeUtil.FromUnix(active[0].Ts), TimeUtil.FromUnix(active[^1].Ts).AddMinutes(1));
+    }
+
+    /// <summary>
+    /// How a report is asked for (the recap notification's link, Home's "Full report"): "yyyy-MM-dd" for a day, or
+    /// "yyyy-MM-ddTHH:mm/yyyy-MM-ddTHH:mm" for a range (a day that ran past midnight).
+    /// </summary>
+    public static string LinkFor(Report report) => report.Range == ReportRange.Custom
+        ? $"{report.From.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture)}/{report.To.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture)}"
+        : report.From.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Reads a link made by <see cref="LinkFor"/>: a day, a range, or neither ("yesterday" is a day too).</summary>
+    public static (DateTime? Day, (DateTime From, DateTime To)? Range) ReadLink(string? link, DateTime today)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        if (link == "yesterday") return (today.Date.AddDays(-1), null);
+        if (link?.Split('/') is [var a, var b]
+            && DateTime.TryParseExact(a, "yyyy-MM-ddTHH:mm", culture, System.Globalization.DateTimeStyles.None, out var from)
+            && DateTime.TryParseExact(b, "yyyy-MM-ddTHH:mm", culture, System.Globalization.DateTimeStyles.None, out var to) && to > from)
+            return (null, (from, to));
+        if (DateTime.TryParseExact(link, "yyyy-MM-dd", culture, System.Globalization.DateTimeStyles.None, out var day)) return (day, null);
+        return (null, null);
+    }
+
+    /// <summary>Whether a day's use (see <see cref="YourDay"/>) ran past midnight into the next day.</summary>
+    public static bool RanPastMidnight((DateTime From, DateTime To) yourDay, DateTime day) => yourDay.To > day.Date.AddDays(1);
 
     /// <summary>Builds the report for the period containing <paramref name="anchor"/>, including insights.</summary>
     public static Report Build(RigsightDb db, ReportRange range, DateTime anchor, RigsightSettings settings)
@@ -527,8 +609,9 @@ public static class ReportBuilder
             var time = TimeUtil.FromUnix(m.Ts);
             report.FirstActive ??= time;
             report.LastActive = time.AddMinutes(1);
-            // Use in the small hours belongs to the night before, not to "when the day started".
-            if (time.Hour < LateNightEndsHour) report.LateUntil = time.AddMinutes(1);
+            // Use in the small hours belongs to the night before, not to "when the day started" (except in a custom
+            // range, which starts when it's asked to: its small hours are the end of its own day).
+            if (time.Hour < LateNightEndsHour && report.Range != ReportRange.Custom) report.LateUntil = time.AddMinutes(1);
             else report.DayStart ??= time;
             if (runEnd == 0 || m.Ts - runEnd >= BreakMinutes * 60)
             {

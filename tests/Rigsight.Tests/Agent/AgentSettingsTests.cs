@@ -25,6 +25,7 @@ public class AgentSettingsTests
         var s = App();
         s.StartupConfigured = true;
         s.LastRecapDay = "2026-06-10";
+        s.RecappedDay = "2026-06-09";
         s.LastUpdateNotice = "0.5.12";
         s.Tracking.PausedUntil = -1;
         foreach (var w in s.Widgets) (w.X, w.Y) = (100 + (int)w.Style * 10, 200 + (int)w.Style * 10);
@@ -39,6 +40,7 @@ public class AgentSettingsTests
         var merged = Merge(app, Agents());
         Assert.True(merged.StartupConfigured);
         Assert.Equal("2026-06-10", merged.LastRecapDay);
+        Assert.Equal("2026-06-09", merged.RecappedDay); // the app can't make a recap come twice, or never
         Assert.Equal("0.5.12", merged.LastUpdateNotice);
         Assert.Equal(-1, merged.Tracking.PausedUntil);
     }
@@ -157,6 +159,12 @@ public class UpdaterContractTests
         Assert.Equal(4, BackgroundUpdater.Available);
     }
 
+}
+
+/// <summary>The update installer reads the update store's folder, which the update tests change (see UiCollection).</summary>
+[Collection("UI")]
+public sealed class UpdateInstallerTests
+{
     [Fact]
     public async Task No_downloaded_installer_means_nothing_runs()
     {

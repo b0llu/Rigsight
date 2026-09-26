@@ -71,22 +71,32 @@
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <!-- Several GPUs (a processor's graphics and a card, or two cards): switch between them. -->
+                            <StackPanel Orientation="Horizontal" Margin="-6,0,8,0" ToolTip="{Binding GpuPositionText}"
+                                        Visibility="{Binding HasSeveralGpus, Converter={StaticResource Vis}}">
+                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding PreviousGpuCommand}" AutomationProperties.Name="Previous GPU">
+                                    <TextBlock Text="&#xE76B;" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding NextGpuCommand}" AutomationProperties.Name="Next GPU">
+                                    <TextBlock Text="&#xE76C;" />
+                                </Button>
+                            </StackPanel>
                             <Border Style="{StaticResource Badge}" Background="{DynamicResource GpuSoftBrush}">
                                 <TextBlock Text="GPU" Style="{StaticResource BadgeText}" Foreground="{DynamicResource GpuBrush}" />
                             </Border>
-                            <TextBlock Text="{Binding GpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                            <TextBlock Text="{Binding SelectedGpu.Name, FallbackValue=GPU}" Style="{StaticResource H2}" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
                         </DockPanel>
 
-                        <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding GpuVramLoad, Converter={StaticResource Vis}}">
+                        <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding SelectedGpu.HasVram, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                             <DockPanel Margin="0,0,0,8">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding GpuVramText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.VramText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                 <TextBlock Text="VIDEO MEMORY" Style="{StaticResource Caption}" />
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{DynamicResource GpuBrush}"
-                                         Value="{Binding GpuVramLoad.Value, Mode=OneWay, TargetNullValue=0, FallbackValue=0}" />
+                                         Value="{Binding SelectedGpu.VramPercent, Mode=OneWay, FallbackValue=0}" />
                             <DockPanel Margin="0,12,0,0">
                                 <TextBlock DockPanel.Dock="Right" FontSize="12" Foreground="{DynamicResource MutedBrush}">
-                                    <Run Text="{Binding GpuFan.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text="{Binding GpuClock.FormattedValue, Mode=OneWay, StringFormat='   ·   core {0}'}" />
+                                    <Run Text="{Binding SelectedGpu.Fan.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text="{Binding SelectedGpu.Clock.FormattedValue, Mode=OneWay, StringFormat='   ·   core {0}'}" />
                                 </TextBlock>
                                 <TextBlock Text="FAN · CLOCK" Style="{StaticResource Caption}" />
                             </DockPanel>
@@ -98,22 +108,22 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid Width="190" Height="190" VerticalAlignment="Center">
-                                <ctl:ArcGauge Value="{Binding GpuTemp.Value}" Maximum="100" Thickness="13"
-                                              Brush="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                <ctl:ArcGauge Value="{Binding SelectedGpu.Temp.Value}" Maximum="100" Thickness="13"
+                                              Brush="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding GpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
-                                               Foreground="{Binding GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                    <TextBlock Text="{Binding SelectedGpu.Temp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               Foreground="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                     <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding GpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
-                                <ctl:MetricTile Label="LOAD" Sensor="{Binding GpuLoad}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
-                                <ctl:MetricTile Label="POWER" Sensor="{Binding GpuPower}" Accent="{DynamicResource GpuBrush}" />
-                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding GpuHotSpot}" Accent="{DynamicResource GpuBrush}"
-                                                ValueBrush="{Binding GpuHotSpot.Value, Converter={StaticResource TempBrush}, ConverterParameter='50,80,95'}" />
-                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding GpuMemJunction}" Accent="{DynamicResource GpuBrush}"
-                                                ValueBrush="{Binding GpuMemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
+                                <ctl:MetricTile Label="LOAD" Sensor="{Binding SelectedGpu.Load}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="POWER" Sensor="{Binding SelectedGpu.Power}" Accent="{DynamicResource GpuBrush}" />
+                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding SelectedGpu.HotSpot}" Accent="{DynamicResource GpuBrush}"
+                                                ValueBrush="{Binding SelectedGpu.HotSpot.Value, Converter={StaticResource TempBrush}, ConverterParameter='50,80,95'}" />
+                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding SelectedGpu.MemJunction}" Accent="{DynamicResource GpuBrush}"
+                                                ValueBrush="{Binding SelectedGpu.MemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
                             </UniformGrid>
                         </Grid>
                     </DockPanel>

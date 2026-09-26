@@ -30,6 +30,28 @@ public sealed class ReportService(SettingsModel settings)
         return Run(db => ReportBuilder.Build(db, range, anchor, s));
     }
 
+    /// <summary>A custom range's report (whole hours; see <see cref="ReportBuilder.BuildCustom"/>).</summary>
+    public Task<Report?> BuildCustomAsync(DateTime from, DateTime to)
+    {
+        var s = Snapshot();
+        return Run(db => ReportBuilder.BuildCustom(db, from, to, s));
+    }
+
+    /// <summary>A day's use from 5 AM to 5 AM, first to last minute (see <see cref="ReportBuilder.YourDay"/>).</summary>
+    public Task<(DateTime From, DateTime To)?> YourDayAsync(DateTime day) => Run(db => ReportBuilder.YourDay(db, day));
+
+    /// <summary>
+    /// A day's report as Home's Yesterday card and the recap mean it: when that day's use ran past midnight, the whole of
+    /// it (whole hours, e.g. 8 AM to 1 AM, see <see cref="ReportBuilder.YourDay"/>); otherwise the day itself.
+    /// </summary>
+    public Task<Report?> YourDayReportAsync(DateTime day)
+    {
+        var s = Snapshot();
+        return Run(db => ReportBuilder.YourDay(db, day) is { } span && ReportBuilder.RanPastMidnight(span, day)
+            ? ReportBuilder.BuildCustom(db, span.From, span.To, s)
+            : ReportBuilder.Build(db, ReportRange.Day, day, s));
+    }
+
     /// <summary>Per-app totals and session counts for a range (Apps page, Memory page, CSV export), summed by the database.</summary>
     public Task<Report?> BuildRangeAsync(DateTime from, DateTime to)
     {
@@ -66,18 +88,20 @@ public sealed class ReportService(SettingsModel settings)
     /// </summary>
     public Task<List<DayBucket>?> AppChartAsync(long appId, AppCategory category, ReportRange unit, DateTime from, DateTime to, DateTime? firstDay) => Run(db =>
     {
-        bool monthly = ReportBuilder.IsLong(unit);
+        bool monthly = ReportBuilder.IsLong(unit, from, to);
+        bool hourly = ReportBuilder.IsDayLike(unit, from, to);
         if (unit == ReportRange.All) from = firstDay is { } f ? new DateTime(f.Year, f.Month, 1) : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         var time = db.GetAppTime(appId, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), monthly);
 
         DateTime Slot(long ts)
         {
             var t = TimeUtil.FromUnix(ts);
-            return unit == ReportRange.Day ? t.Date.AddHours(t.Hour) : monthly ? new DateTime(t.Year, t.Month, 1) : t.Date;
+            return hourly ? t.Date.AddHours(t.Hour) : monthly ? new DateTime(t.Year, t.Month, 1) : t.Date;
         }
         var buckets = new List<DayBucket>();
         var byTime = new Dictionary<DateTime, DayBucket>();
-        for (var d = from; d < to; d = unit == ReportRange.Day ? d.AddHours(1) : monthly ? d.AddMonths(1) : d.AddDays(1))
+        var first = hourly ? ReportBuilder.HourStart(from) : monthly ? new DateTime(from.Year, from.Month, 1) : from.Date;
+        for (var d = first; d < to; d = hourly ? d.AddHours(1) : monthly ? d.AddMonths(1) : d.AddDays(1))
             buckets.Add(byTime[d] = new DayBucket { Day = d });
         foreach (var (ts, sec) in time)
             if (byTime.TryGetValue(Slot(ts), out var bucket))

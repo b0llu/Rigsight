@@ -53,13 +53,16 @@ public class ProcessSamplerTests
         // Keep a core busy between the samples, so this process has some CPU use to show.
         var sw = Stopwatch.StartNew();
         double x = 0;
-        while (sw.ElapsedMilliseconds < 300) x += Math.Sqrt(sw.ElapsedTicks);
+        while (sw.ElapsedMilliseconds < 1000) x += Math.Sqrt(sw.ElapsedTicks);
         var snapshot = sampler.Sample();
         GC.KeepAlive(x);
         var me = snapshot.Apps[Me];
         Assert.True(me.MemMB > 5, $"{me.MemMB} MB");
         Assert.True(me.Cpu > 0, "no CPU use measured for a busy process");
-        Assert.InRange(snapshot.Apps.Values.Sum(a => a.Cpu), 0, 101);
+        // Windows counts CPU time in 15.6 ms steps, so each busy process can read up to a step high: on a 4-core PC
+        // over a second that's 0.4% each (seen: 101.3% in total on GitHub's 4-core machines over a shorter window).
+        double stepPct = 15.625 / (1000.0 * Environment.ProcessorCount) * 100;
+        Assert.InRange(snapshot.Apps.Values.Sum(a => a.Cpu), 0, 100 + 10 * stepPct);
     }
 
     [Fact]

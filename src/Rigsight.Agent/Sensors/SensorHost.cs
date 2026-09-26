@@ -89,9 +89,9 @@ internal sealed class SensorHost
 
         var candidates = new List<KeySensors.Candidate>();
         int index = 0;
-        foreach (var hwMeta in Schema)
-            foreach (var s in hwMeta.Sensors)
-                candidates.Add(new KeySensors.Candidate(index++, hwMeta.Type, hwMeta.Name, s.Name, s.Kind));
+        for (int hw = 0; hw < Schema.Count; hw++)
+            foreach (var s in Schema[hw].Sensors)
+                candidates.Add(new KeySensors.Candidate(index++, Schema[hw].Type, Schema[hw].Name, s.Name, s.Kind, hw));
         Keys = KeySensors.Pick(candidates);
         Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
         _indexById = [];

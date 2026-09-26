@@ -49,6 +49,10 @@ public partial class DatePager : UserControl
     public static readonly DependencyProperty NextCommandProperty =
         DependencyProperty.Register(nameof(NextCommand), typeof(ICommand), typeof(DatePager));
 
+    /// <summary>Run when the label is clicked, instead of opening the calendar (a custom range has its own editor).</summary>
+    public static readonly DependencyProperty LabelCommandProperty =
+        DependencyProperty.Register(nameof(LabelCommand), typeof(ICommand), typeof(DatePager));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public DateTime Date { get => (DateTime)GetValue(DateProperty); set => SetValue(DateProperty, value); }
     public DateTime? MinDate { get => (DateTime?)GetValue(MinDateProperty); set => SetValue(MinDateProperty, value); }
@@ -58,6 +62,7 @@ public partial class DatePager : UserControl
     public bool CanGoNext { get => (bool)GetValue(CanGoNextProperty); set => SetValue(CanGoNextProperty, value); }
     public ICommand? PreviousCommand { get => (ICommand?)GetValue(PreviousCommandProperty); set => SetValue(PreviousCommandProperty, value); }
     public ICommand? NextCommand { get => (ICommand?)GetValue(NextCommandProperty); set => SetValue(NextCommandProperty, value); }
+    public ICommand? LabelCommand { get => (ICommand?)GetValue(LabelCommandProperty); set => SetValue(LabelCommandProperty, value); }
 
     // Set while the calendar is being prepared, so its own change events aren't taken as the user's pick.
     private bool _preparing;
@@ -84,6 +89,11 @@ public partial class DatePager : UserControl
 
     private void Label_Click(object sender, RoutedEventArgs e)
     {
+        if (LabelCommand is { } command)
+        {
+            command.Execute(null);
+            return;
+        }
         var today = DateTime.Today;
         _min = MinDate is { } m && m.Date <= today ? m.Date : today;
         var shown = Date.Date < _min ? _min : Date.Date > today ? today : Date.Date;

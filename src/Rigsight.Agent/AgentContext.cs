@@ -46,6 +46,9 @@ internal sealed class AgentContext : ApplicationContext
     private readonly ProcessLabels _procLabels = new();
     private bool _procsNow; // sampler thread: sample processes on this pass
     private readonly ActivityMonitor _activity = new();
+    // The PC was just turned on or woke from sleep: the recap is due once the user is here (sampler thread reads it).
+    private volatile bool _justTurnedOn = DailyRecap.JustSignedIn();
+    private bool _presentNow;
     private readonly AlertMonitor _alerts = new();
     private readonly PipeServer _pipe;
     private readonly TrayController _tray;
@@ -115,6 +118,8 @@ internal sealed class AgentContext : ApplicationContext
         SystemEvents.SessionEnding += OnSessionEnding;
         // A time zone change (e.g. travelling) must move "today" too; .NET caches the zone otherwise.
         SystemEvents.TimeChanged += OnTimeChanged;
+        // Waking from sleep is turning the PC on again, for the daily recap.
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
         _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit(), null), null, Timeout.Infinite, executeOnlyOnce: true);
 
@@ -196,7 +201,8 @@ internal sealed class AgentContext : ApplicationContext
         string body = !downloaded ? "Click to update."
             : _settings.AutoUpdate && _isAdmin ? "It installs by itself the next time you start your PC, or click to update now."
             : "It's downloaded. Click to finish updating.";
-        _notices.Show(new Notice(NoticeKind.Update, downloaded ? $"Version {version} is ready" : $"Version {version} is out", body));
+        // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
+        _notices.Show(new Notice(NoticeKind.Update, downloaded ? $"Version {version} is ready" : $"Version {version} is out", body, Page: "update"));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -259,6 +265,8 @@ internal sealed class AgentContext : ApplicationContext
                 lastActivity = now;
                 long t0 = Stopwatch.GetTimestamp();
                 var sample = _activity.Sample();
+                _presentNow = !sample.Locked && (sample.IdleMs < settings.Tracking.IdleMinutes * 60_000L
+                                                 || sample.Fullscreen && settings.Tracking.FullscreenCountsAsActive);
                 _tracker.OnActivity(sample, dt);
                 Measure("activity", t0);
 
@@ -560,15 +568,34 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume) _justTurnedOn = true;
+    }
+
+    /// <summary>
+    /// Sampler thread, each minute: once the PC was just turned on (or woke) and the user is here, the recap of the last
+    /// day it was used, unless that day's was shown already (see <see cref="DailyRecap"/>).
+    /// </summary>
     private void MaybeShowDailyRecap()
     {
+        if (!_justTurnedOn || !_presentNow) return;
+        _justTurnedOn = false;
         var settings = _settings;
-        string today = DateTime.Today.ToString("yyyy-MM-dd");
-        if (settings.LastRecapDay == today) return;
-        MutateSettings(s => s.LastRecapDay = today);
-        if (!settings.Alerts.DailyRecap || settings.LastRecapDay is null) return; // skip on the very first run
+        var today = DateTime.Today;
+        var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(today)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
+        if (DailyRecap.DayToRecap(today, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
+        MutateSettings(s =>
+        {
+            s.RecappedDay = DailyRecap.Key(day);
+            s.LastRecapDay = DailyRecap.Key(today);
+        });
+        if (!settings.Alerts.DailyRecap) return;
 
-        var report = ReportBuilder.Build(_db, ReportRange.Day, DateTime.Today.AddDays(-1), settings);
+        // The day as it was lived: when it ran past midnight, all of it (see ReportBuilder.YourDay).
+        var report = ReportBuilder.YourDay(_db, day) is { } span && ReportBuilder.RanPastMidnight(span, day)
+            ? ReportBuilder.BuildCustom(_db, span.From, span.To, settings)
+            : ReportBuilder.Build(_db, ReportRange.Day, day, settings);
         if (!report.HasData || report.ActiveSec < 300) return;
 
         var parts = new List<string> { $"Active {Units.Duration(report.ActiveSec)}" };
@@ -578,7 +605,7 @@ internal sealed class AgentContext : ApplicationContext
         if (report.GpuTempPeak is { } gpu) parts.Add($"GPU peak {Units.TempShort(gpu.Value)}");
 
         string text = string.Join("  ·  ", parts) + ". Click for the full recap.";
-        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, "Yesterday on your PC", text, Page: "reports", Arg: "yesterday")), null);
+        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: ReportBuilder.LinkFor(report))), null);
     }
 
     private void OnSessionEnded(SessionRow row, AppInfo app)
@@ -593,21 +620,28 @@ internal sealed class AgentContext : ApplicationContext
         // skipped entirely unless crash notifications are on — nobody needs a scoreboard right then.
         _ = Task.Run(async () =>
         {
-            await Task.Delay(12_000);
-            var crash = CrashLogReader.RecentAppCrash(app.Exe, TimeSpan.FromMinutes(3));
-            if (crash is not null)
+            try
             {
-                RunOnSampler(ScanCrashes);
-                if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe)) return;
-                var ex = CrashExplainer.Explain(crash, name);
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly",
-                    $"Likely cause: {ex.Culprit}. You played for {Units.Duration(row.ActiveSec)}. Details are on the Crashes page whenever you want them.",
-                    app.Path, "crashes")), null);
-                return;
+                await Task.Delay(12_000);
+                var crash = CrashLogReader.RecentAppCrash(app.Exe, TimeSpan.FromMinutes(3));
+                if (crash is not null)
+                {
+                    RunOnSampler(ScanCrashes);
+                    if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe)) return;
+                    var ex = CrashExplainer.Explain(crash, name);
+                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly",
+                        $"Likely cause: {ex.Culprit}. You played for {Units.Duration(row.ActiveSec)}. Details are on the Crashes page whenever you want them.",
+                        app.Path, "crashes")), null);
+                    return;
+                }
+                if (!summaryWanted) return;
+                string text = $"Played for {Units.Duration(row.ActiveSec)}. Peak CPU {Units.TempShort(row.CpuTempMax)}, GPU {Units.TempShort(row.GpuTempMax)}. Click for the full breakdown.";
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "apps", app.Exe)), null);
             }
-            if (!summaryWanted) return;
-            string text = $"Played for {Units.Duration(row.ActiveSec)}. Peak CPU {Units.TempShort(row.CpuTempMax)}, GPU {Units.TempShort(row.GpuTempMax)}. Click for the full breakdown.";
-            _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "apps", app.Exe)), null);
+            catch (Exception ex)
+            {
+                Log.Error("session", ex); // a background task's error would otherwise vanish with it
+            }
         });
     }
 
@@ -768,6 +802,7 @@ internal sealed class AgentContext : ApplicationContext
     {
         incoming.StartupConfigured = current.StartupConfigured;
         incoming.LastRecapDay = current.LastRecapDay;
+        incoming.RecappedDay = current.RecappedDay;
         incoming.LastUpdateNotice = current.LastUpdateNotice;
         incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
         foreach (var w in incoming.Widgets)
@@ -917,6 +952,7 @@ internal sealed class AgentContext : ApplicationContext
         if (_stopping) return;
         SystemEvents.SessionEnding -= OnSessionEnding;
         SystemEvents.TimeChanged -= OnTimeChanged;
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _quitWait?.Unregister(null);
         _stopping = true;
         _updateTimer?.Dispose();

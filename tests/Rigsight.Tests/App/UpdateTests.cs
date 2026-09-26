@@ -215,6 +215,61 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void A_downloaded_update_shows_the_moment_the_app_opens_without_going_online()
+    {
+        var first = Make();
+        Act(first);
+        Act(first); // found and downloaded (as the agent's updater would while the app was closed)
+        int feed = _server.FeedRequests;
+        var opened = Make();
+        Kit.Wait(() => opened.ShowKnownAsync());
+        Ui.Run(() =>
+        {
+            Assert.Equal(UpdateState.Waiting, opened.State); // already asked today: the quiet line
+            Assert.True(opened.ShowLine);
+            Assert.Equal("Restart to update", opened.LineTitle);
+        });
+        Assert.Equal(feed, _server.FeedRequests);
+    }
+
+    [Fact]
+    public void The_new_version_notification_asks_to_restart_even_after_later()
+    {
+        var first = Make();
+        Act(first);
+        Act(first);
+        Ui.Run(() => first.LaterCommand.Execute(null));
+        var opened = Make();
+        Kit.Wait(() => opened.ShowKnownAsync(asked: true));
+        Ui.Run(() =>
+        {
+            Assert.Equal(UpdateState.Ready, opened.State);
+            Assert.True(opened.ShowPrompt);
+        });
+    }
+
+    [Fact]
+    public void The_new_version_notification_downloads_one_not_downloaded_yet()
+    {
+        var first = Make();
+        Act(first); // found, not downloaded (automatic updates off)
+        Assert.Equal(0, _server.SetupRequests);
+        var opened = Make();
+        Kit.Wait(() => opened.ShowKnownAsync(asked: true));
+        Assert.Equal(1, _server.SetupRequests);
+        Assert.Equal(UpdateState.Ready, Ui.Run(() => opened.State));
+    }
+
+    [Fact]
+    public void Nothing_known_shows_nothing()
+    {
+        var opened = Make();
+        Kit.Wait(() => opened.ShowKnownAsync());
+        Ui.Run(() => Assert.Equal(UpdateState.None, opened.State));
+        Assert.Equal(0, _server.FeedRequests);
+    }
+
+    [Fact]
     public void The_restart_question_comes_once_a_day()
     {
         var first = Make();

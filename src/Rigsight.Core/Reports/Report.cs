@@ -4,7 +4,8 @@ using Rigsight.Core.Stability;
 namespace Rigsight.Core.Reports;
 
 /// <summary>A calendar period: one day, a Monday-to-Sunday week, a month, a year, or everything recorded.</summary>
-public enum ReportRange { Day, Week, Month, Year, All }
+/// <summary>The kinds of period a report covers. Custom: any whole hours, from one date and time to another.</summary>
+public enum ReportRange { Day, Week, Month, Year, All, Custom }
 
 public sealed record Peak(double Value, DateTime Time, string? App);
 
@@ -152,8 +153,21 @@ public sealed class Report
     public List<CrashEvent> Crashes { get; set; } = [];
     public List<Insight> Insights { get; set; } = [];
 
+    /// <summary>"Thu 25 Sep, 8 AM – Fri 26 Sep, 1 AM"; the day once when it's the same day ("Thu 25 Sep, 8 AM – 11 PM").</summary>
+    public static string CustomTitle(DateTime from, DateTime to)
+    {
+        static string Hour(DateTime t) => t.ToString(t.Minute == 0 ? "h tt" : "h:mm tt");
+        string Day(DateTime t) => t.ToString(t.Year == DateTime.Today.Year ? "ddd d MMM" : "ddd d MMM yyyy");
+        // Ending at midnight belongs to the day it ends (Thu 8 AM – 12 AM), not the next.
+        var lastDay = to.TimeOfDay == TimeSpan.Zero && to > from ? to.AddDays(-1).Date : to.Date;
+        return from.Date == lastDay
+            ? $"{Day(from)}, {Hour(from)} – {Hour(to)}"
+            : $"{Day(from)}, {Hour(from)} – {Day(to)}, {Hour(to)}";
+    }
+
     public string Title => Range switch
     {
+        ReportRange.Custom => CustomTitle(From, To),
         ReportRange.Day when From.Date == DateTime.Today => "Today",
         ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => "Yesterday",
         ReportRange.Day => From.ToString("dddd, d MMMM"),

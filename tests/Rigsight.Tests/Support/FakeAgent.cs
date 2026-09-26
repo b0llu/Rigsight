@@ -18,10 +18,11 @@ public sealed class FakeAgent : IDisposable
     public ConcurrentQueue<UiMessage> Received { get; } = new();
     public Func<AgentMessage> Hello { get; set; }
 
-    public FakeAgent(RigsightSettings? settings = null)
+    public FakeAgent(RigsightSettings? settings = null, bool integratedGpu = false)
     {
         Settings = settings ?? SeedData.QuietSettings();
-        Hello = () => Fixtures.Hello(Settings);
+        IntegratedGpu = integratedGpu; // before listening: the first app to connect gets the right hello
+        Hello = () => IntegratedGpu ? Fixtures.HelloWithIntegratedGpu(Settings) : Fixtures.Hello(Settings);
         _pipe = new PipeServer(() => Hello(), msg =>
         {
             Received.Enqueue(msg);
@@ -37,12 +38,15 @@ public sealed class FakeAgent : IDisposable
 
     public RigsightSettings Settings { get; private set; }
 
+    /// <summary>The captured PC with a processor's integrated graphics too (see <see cref="Fixtures.HelloWithIntegratedGpu"/>).</summary>
+    public bool IntegratedGpu { get; set; }
+
     public int ClientCount => _pipe.ClientCount;
 
     public void Broadcast(AgentMessage message) => _pipe.Broadcast(message);
 
     /// <summary>A live tick from the captured PC, its values nudged so every tick differs.</summary>
-    public void Tick(int n = 0) => Broadcast(Fixtures.Tick(n));
+    public void Tick(int n = 0) => Broadcast(IntegratedGpu ? Fixtures.TickWithIntegratedGpu(n) : Fixtures.Tick(n));
 
     public void Procs(int apps = 60, string? detailFor = null) => Broadcast(new AgentMessage { T = "procs", Procs = Fixtures.Procs(apps, detailFor) });
 
@@ -70,6 +74,54 @@ public static class Fixtures
     }
 
     public static int SensorCount => Hello().Hardware!.Sum(h => h.Sensors.Count);
+
+    /// <summary>A processor's graphics, as LibreHardwareMonitor lists a Ryzen's: added before the card.</summary>
+    public const string IntegratedGpuName = "AMD Radeon(TM) Graphics";
+
+    private static readonly (SensorKind Kind, string Name, string Id, float Value)[] IntegratedGpuSensors =
+    [
+        (SensorKind.Temperature, "GPU Core", "/gpu-amd/0/temperature/0", 44f),
+        (SensorKind.Temperature, "GPU Memory", "/gpu-amd/0/temperature/1", 54f),
+        (SensorKind.Load, "GPU Core", "/gpu-amd/0/load/0", 7f),
+        (SensorKind.Power, "GPU Package", "/gpu-amd/0/power/0", 12.5f),
+        (SensorKind.Clock, "GPU Core", "/gpu-amd/0/clock/0", 600f),
+        (SensorKind.SmallData, "D3D Dedicated Memory Used", "/gpu-amd/0/smalldata/0", 512f),
+        (SensorKind.SmallData, "D3D Dedicated Memory Total", "/gpu-amd/0/smalldata/1", 2048f),
+    ];
+
+    /// <summary>Where the integrated GPU goes in the hardware list: just before the card.</summary>
+    private static int IntegratedGpuAt(AgentMessage hello) => hello.Hardware!.FindIndex(h => h.Type.StartsWith("Gpu", StringComparison.Ordinal));
+
+    /// <summary>
+    /// The captured PC with integrated graphics listed before its RTX card (as on a Ryzen with a card, where only the
+    /// integrated graphics used to show), with the key sensors worked out as the agent does.
+    /// </summary>
+    public static AgentMessage HelloWithIntegratedGpu(RigsightSettings? settings = null)
+    {
+        var hello = Hello(settings);
+        var igpu = new HardwareMeta { Name = IntegratedGpuName, Type = "GpuAmd" };
+        foreach (var (kind, name, id, _) in IntegratedGpuSensors) igpu.Sensors.Add(new SensorMeta { Id = id, Name = name, Kind = kind });
+        hello.Hardware!.Insert(IntegratedGpuAt(hello), igpu);
+        var candidates = new List<KeySensors.Candidate>();
+        int index = 0;
+        for (int hw = 0; hw < hello.Hardware.Count; hw++)
+            foreach (var meta in hello.Hardware[hw].Sensors)
+                candidates.Add(new KeySensors.Candidate(index++, hello.Hardware[hw].Type, hello.Hardware[hw].Name, meta.Name, meta.Kind, hw));
+        hello.Keys = KeySensors.Pick(candidates);
+        return hello;
+    }
+
+    /// <summary>A tick for <see cref="HelloWithIntegratedGpu"/>: the integrated GPU's readings in their place.</summary>
+    public static AgentMessage TickWithIntegratedGpu(int n = 0)
+    {
+        var tick = Tick(n);
+        var plain = Hello();
+        int offset = plain.Hardware!.Take(IntegratedGpuAt(plain)).Sum(h => h.Sensors.Count);
+        var values = tick.Values!.ToList();
+        values.InsertRange(offset, IntegratedGpuSensors.Select(x => (float?)(x.Value + n % 3)));
+        tick.Values = [.. values];
+        return tick;
+    }
 
     public static AgentMessage Tick(int n = 0)
     {

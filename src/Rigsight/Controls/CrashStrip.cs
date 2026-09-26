@@ -155,11 +155,14 @@ public sealed class CrashStrip : FrameworkElement
         }
     }
 
-    /// <summary>Builds the days from <paramref name="from"/> to today from the problems and changes.</summary>
-    /// <summary>One entry per day from <paramref name="from"/> until <paramref name="to"/> (exclusive) or today, whichever is first.</summary>
+    /// <summary>
+    /// One entry per day from <paramref name="from"/> until <paramref name="to"/> (exclusive) or today, whichever is first,
+    /// from the problems and changes. A custom range ending partway through a day (8 AM) includes that day.
+    /// </summary>
     public static List<CrashDay> BuildDays(DateTime from, DateTime to, IEnumerable<CrashGroup> groups, IEnumerable<SystemChange> changes)
     {
-        var last = to.Date.AddDays(-1) < DateTime.Today ? to.Date.AddDays(-1) : DateTime.Today;
+        var lastOfRange = to.AddTicks(-1).Date;
+        var last = lastOfRange < DateTime.Today ? lastOfRange : DateTime.Today;
         var list = new List<CrashDay>();
         for (var d = from.Date; d <= last; d = d.AddDays(1)) list.Add(new CrashDay { Day = d });
         CrashDay? DayOf(DateTime t) => t.Date < from.Date || t.Date > last ? null : list[(int)(t.Date - from.Date).TotalDays];

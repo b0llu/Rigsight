@@ -72,6 +72,45 @@ public sealed class LogTests
     }
 
     [Fact]
+    public void A_line_isnt_lost_while_the_other_program_is_writing()
+    {
+        // The agent and the app share one log: while one of them has it open to write, the other's line must still land.
+        var file = NewLog();
+        Log.WriteTo(file, "app", "first");
+        using (var other = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+        {
+            other.Write("[agent line]\r\n"u8);
+            other.Flush();
+            Log.WriteTo(file, "app", "while the agent writes");
+        }
+        var text = File.ReadAllText(file);
+        Assert.Contains("[app] while the agent writes", text);
+        Assert.Contains("[agent line]", text);
+    }
+
+    [Fact]
+    public void Two_programs_writing_at_once_keep_every_line()
+    {
+        // Another process appending as fast as it can (the way Log does: append-only), while this one logs.
+        var file = NewLog();
+        Log.WriteTo(file, "app", "start");
+        var script = $"$f = New-Object IO.FileStream('{file}', [IO.FileMode]::Append, [Security.AccessControl.FileSystemRights]::AppendData, [IO.FileShare]'ReadWrite, Delete', 4096, [IO.FileOptions]::None); " +
+                     "$b = [Text.Encoding]::UTF8.GetBytes(\"[agent] busy`r`n\"); " +
+                     "for ($i = 0; $i -lt 30000; $i++) { $f.Write($b, 0, $b.Length); $f.Flush() }; $f.Close()";
+        using var other = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell.exe", ["-NoProfile", "-Command", script]) { UseShellExecute = false, CreateNoWindow = true })!;
+        // Only once the other one is writing (PowerShell takes a moment to start), so the two really overlap.
+        Assert.True(SpinWait.SpinUntil(() => new FileInfo(file).Length > 2000, 30_000), "the other writer never started");
+        for (int i = 0; i < 300; i++) Log.WriteTo(file, "app", $"line {i}");
+        bool overlapped = !other.HasExited;
+        other.WaitForExit(60_000);
+        Assert.Equal(0, other.ExitCode);
+        Assert.True(overlapped, "the other writer finished first: nothing was tested");
+        var lines = File.ReadAllLines(file);
+        Assert.Equal(300, lines.Count(l => l.Contains("[app] line ")));
+        Assert.Equal(30000, lines.Count(l => l == "[agent] busy"));
+    }
+
+    [Fact]
     public void The_folder_is_created_when_missing()
     {
         var file = Path.Combine(TestEnvironment.NewFolder("log"), "a", "b", "rigsight.log");

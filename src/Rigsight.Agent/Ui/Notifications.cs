@@ -261,7 +261,7 @@ internal static class ToastRenderer
     internal static readonly Color Text = Color.FromArgb(232, 236, 244);
     internal static readonly Color Muted = Color.FromArgb(160, 168, 186);
     private static Bitmap? _logo;
-    private static readonly Dictionary<string, Bitmap?> Icons = new(StringComparer.OrdinalIgnoreCase);
+    internal static readonly Widgets.RecentIcons Icons = new();
 
     public static Color Accent(NoticeKind kind) => kind switch
     {
@@ -349,16 +349,15 @@ internal static class ToastRenderer
     {
         if (path is not null)
         {
-            if (!Icons.TryGetValue(path, out var cached))
+            var cached = Icons.Get(path, p =>
             {
                 try
                 {
-                    using var icon = Icon.ExtractIcon(path, 0, 64);
-                    cached = icon?.ToBitmap();
+                    using var icon = Icon.ExtractIcon(p, 0, 64);
+                    return icon?.ToBitmap();
                 }
-                catch { cached = null; }
-                Icons[path] = cached;
-            }
+                catch { return null; }
+            });
             if (cached is not null) return cached;
         }
         if (_logo is null)

@@ -590,6 +590,36 @@ public sealed class CrashesPageTests
         });
     }
 
+    [Theory]
+    [InlineData(19, true)]
+    [InlineData(24 * 10, false)]
+    public void A_custom_range_lists_only_its_own_crashes(int hours, bool listed)
+    {
+        var vm = Loaded(ReportRange.Month);
+        var from = DateTime.Today.AddDays(-12).AddHours(8);
+        var to = from.AddHours(hours);
+        Ui.Run(() =>
+        {
+            vm.CustomFrom = from;
+            vm.CustomTo = to;
+            vm.Unit = ReportRange.Custom;
+        });
+        Kit.Wait(() => vm.LoadAsync()); // the latest load wins
+        Ui.Run(() =>
+        {
+            Assert.Equal(listed, vm.IsDay);
+            Assert.Equal(!listed, vm.ShowTimeline);
+            Assert.All(vm.Crashes, c => Assert.True(c.Time >= from && c.Time < to, $"{c.Time} is outside the range"));
+            Assert.Equal(Controls.PeriodPicker.Duration(to - from), vm.RangeNote);
+            Assert.Equal("No crashes in this period", vm.EmptyText);
+            Assert.False(vm.IncludesToday);
+            if (!listed) Assert.Equal(11, vm.Days.Count); // 8 AM on day one into day eleven
+        });
+        // Stepping the anchor (as for a day or week) doesn't reload a custom range.
+        Ui.Run(() => vm.Anchor = DateTime.Today.AddDays(-40));
+        Ui.Run(() => Assert.Equal(Controls.PeriodPicker.Duration(to - from), vm.RangeNote));
+    }
+
     [Fact]
     public void This_months_timeline_has_a_day_for_each_day_so_far()
     {

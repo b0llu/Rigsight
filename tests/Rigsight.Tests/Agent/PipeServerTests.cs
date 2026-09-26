@@ -367,13 +367,16 @@ public sealed class PipeServerTests : IDisposable
     {
         int n = 0;
         string name = Wait.PipeName();
-        using var server = new PipeServer(() => Interlocked.Increment(ref n) == 1 ? throw new InvalidOperationException("no hello") : new AgentMessage { T = "hello" }, _ => { }, name);
+        string why = $"no hello {Guid.NewGuid():N}";
+        using var server = new PipeServer(() => Interlocked.Increment(ref n) == 1 ? throw new InvalidOperationException(why) : new AgentMessage { T = "hello" }, _ => { }, name);
         server.Start();
         using (var first = RawClient.Connect(name))
             Assert.True(first.IsClosed());
         Assert.True(Wait.For(() => server.ClientCount == 0));
         using var second = RawClient.Connect(name);
         Assert.Equal("hello", second.Read().T);
+        // And it's in the log, not lost.
+        Assert.True(Wait.For(() => File.Exists(Rigsight.Core.RigsightPaths.LogFile) && File.ReadAllText(Rigsight.Core.RigsightPaths.LogFile).Contains(why)));
     }
 
     [Fact]

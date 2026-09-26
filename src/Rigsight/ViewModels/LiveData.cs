@@ -67,6 +67,29 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private SensorItem? _gpuVramTotal;
     [ObservableProperty] private string _gpuVramText = "";
 
+    /// <summary>Every graphics processor, the main one first (the one the GPU readings above, and history, are of).</summary>
+    public ObservableCollection<GpuView> Gpus { get; } = [];
+
+    /// <summary>The GPU the Temperatures page shows (its arrows switch between them).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GpuPositionText))]
+    private GpuView? _selectedGpu;
+
+    public bool HasSeveralGpus => Gpus.Count > 1;
+    public string GpuPositionText => SelectedGpu is null ? "" : $"GPU {Gpus.IndexOf(SelectedGpu) + 1} of {Gpus.Count}";
+
+    [RelayCommand]
+    private void NextGpu() => MoveGpu(1);
+
+    [RelayCommand]
+    private void PreviousGpu() => MoveGpu(-1);
+
+    private void MoveGpu(int step)
+    {
+        if (Gpus.Count < 2 || SelectedGpu is null) return;
+        SelectedGpu = Gpus[(Gpus.IndexOf(SelectedGpu) + step + Gpus.Count) % Gpus.Count];
+    }
+
     [ObservableProperty] private SensorItem? _ramLoad;
     [ObservableProperty] private SensorItem? _ramUsed;
     [ObservableProperty] private SensorItem? _ramAvailable;
@@ -193,6 +216,8 @@ public sealed partial class LiveData : ObservableObject
     {
         _ticksSinceBuild = 0;
         _flat.Clear();
+        var selectedGpu = SelectedGpu is { } was ? (was.Name, Gpus.Where(g => g.Name == was.Name).ToList().IndexOf(was)) : default;
+        Gpus.Clear();
         Hardware.Clear();
         CpuThreads.Clear();
         Drives.Clear();
@@ -242,7 +267,18 @@ public sealed partial class LiveData : ObservableObject
                                                 && s.HardwareName.Contains("Virtual", StringComparison.OrdinalIgnoreCase));
 
         CpuName = Hardware.FirstOrDefault(h => h.Type == "Cpu")?.Name ?? "CPU";
-        GpuName = (Hardware.FirstOrDefault(h => h.Type is "GpuNvidia" or "GpuAmd") ?? Hardware.FirstOrDefault(h => h.IsGpu))?.Name ?? "GPU";
+        // Each GPU found the way the agent finds its main one (the same code), so the first is the one it records.
+        var candidates = new List<KeySensors.Candidate>();
+        int flatIndex = 0;
+        for (int hw = 0; hw < hello.Hardware!.Count; hw++)
+            foreach (var meta in hello.Hardware[hw].Sensors)
+                candidates.Add(new KeySensors.Candidate(flatIndex++, hello.Hardware[hw].Type, hello.Hardware[hw].Name, meta.Name, meta.Kind, hw));
+        foreach (var gpu in KeySensors.Gpus(candidates))
+            Gpus.Add(new GpuView(gpu.Name, gpu.Integrated, key => gpu.Keys.TryGetValue(key, out int i) && i < _flat.Count ? _flat[i] : null));
+        // The same GPU as before a rebuild (by name, and which of several alike), else the main one.
+        SelectedGpu = selectedGpu.Name is { } keepName ? Gpus.Where(g => g.Name == keepName).ElementAtOrDefault(selectedGpu.Item2) ?? Gpus.FirstOrDefault() : Gpus.FirstOrDefault();
+        OnPropertyChanged(nameof(HasSeveralGpus));
+        GpuName = Gpus.FirstOrDefault()?.Name ?? "GPU";
         OnPropertyChanged(nameof(SystemSummary));
 
         var cpu = Hardware.FirstOrDefault(h => h.Type == "Cpu");
@@ -472,6 +508,7 @@ public sealed partial class LiveData : ObservableObject
             GpuVramText = $"{vUsed / 1024:0.0} / {vTotal / 1024:0.0} GB";
         else if (GpuVramLoad?.Value is double vLoad)
             GpuVramText = $"{vLoad:0}%";
+        foreach (var gpu in Gpus) gpu.Refresh();
     }
 
     /// <summary>Re-applies names, hidden flags and units after settings changed.</summary>

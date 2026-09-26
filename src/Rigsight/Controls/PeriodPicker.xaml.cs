@@ -1,14 +1,16 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Reports;
 
 namespace Rigsight.Controls;
 
 /// <summary>
-/// The period a page looks at: a day, a Monday-to-Sunday week, a month, a year, or all time. The arrows step to the
-/// period before or after, and the label opens the matching picker (a calendar for a day or week, a month grid, a
-/// year list). Reports, Apps and Crashes all use it, so a period means the same thing everywhere.
+/// The period a page looks at: a day, a Monday-to-Sunday week, a month, a year, all time, or a custom range (from a
+/// date and hour to another). The arrows step to the period before or after (a custom range by its own length), and the
+/// label opens the matching picker (a calendar for a day or week, a month grid, a year list, the range editor).
+/// Reports, Apps and Crashes all use it, so a period means the same thing everywhere.
 /// </summary>
 public partial class PeriodPicker : UserControl
 {
@@ -17,6 +19,11 @@ public partial class PeriodPicker : UserControl
         InitializeComponent();
         Pager.PreviousCommand = new RelayCommand(() => Step(-1));
         Pager.NextCommand = new RelayCommand(() => Step(1));
+        // Under the pager's right edge, like its calendar: the picker sits at the right of page headers.
+        RangePopup.CustomPopupPlacementCallback = (popup, target, _) =>
+            [new CustomPopupPlacement(new Point(target.Width - popup.Width + 8, target.Height + 6), PopupPrimaryAxis.Horizontal)];
+        foreach (var box in new[] { FromHour, ToHour })
+            for (int h = 0; h < 24; h++) box.Items.Add(new ComboBoxItem { Content = HourText(h), Tag = h });
         Loaded += (_, _) => Refresh();
     }
 
@@ -37,10 +44,35 @@ public partial class PeriodPicker : UserControl
     public static readonly DependencyProperty AllowAllProperty =
         DependencyProperty.Register(nameof(AllowAll), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(true, (d, _) => ((PeriodPicker)d).Refresh()));
 
+    /// <summary>Start of a custom range (whole hours).</summary>
+    public static readonly DependencyProperty CustomFromProperty =
+        DependencyProperty.Register(nameof(CustomFrom), typeof(DateTime), typeof(PeriodPicker),
+            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+
+    /// <summary>End of a custom range (whole hours; not included).</summary>
+    public static readonly DependencyProperty CustomToProperty =
+        DependencyProperty.Register(nameof(CustomTo), typeof(DateTime), typeof(PeriodPicker),
+            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+
+    public DateTime CustomFrom { get => (DateTime)GetValue(CustomFromProperty); set => SetValue(CustomFromProperty, value); }
+    public DateTime CustomTo { get => (DateTime)GetValue(CustomToProperty); set => SetValue(CustomToProperty, value); }
+
     public ReportRange Unit { get => (ReportRange)GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
     public DateTime Anchor { get => (DateTime)GetValue(AnchorProperty); set => SetValue(AnchorProperty, value); }
     public DateTime? MinDate { get => (DateTime?)GetValue(MinDateProperty); set => SetValue(MinDateProperty, value); }
     public bool AllowAll { get => (bool)GetValue(AllowAllProperty); set => SetValue(AllowAllProperty, value); }
+
+    /// <summary>A period's start and end: a custom range's own, or the unit's around <paramref name="anchor"/>.</summary>
+    public static (DateTime From, DateTime To) Bounds(ReportRange unit, DateTime anchor, DateTime customFrom, DateTime customTo) =>
+        unit == ReportRange.Custom && customTo > customFrom ? (customFrom, customTo) : ReportBuilder.Bounds(unit, anchor);
+
+    /// <summary>The period in words, custom ranges included ("Thu 25 Sep, 8 AM – Fri 26 Sep, 1 AM").</summary>
+    public static string Text(ReportRange unit, DateTime anchor, DateTime customFrom, DateTime customTo) =>
+        unit == ReportRange.Custom ? (customTo > customFrom ? Report.CustomTitle(customFrom, customTo) : "Custom") : Text(unit, anchor);
+
+    /// <summary>The dates a period covers; for a custom range (its dates already on the picker) how long it is.</summary>
+    public static string Span(ReportRange unit, DateTime anchor, DateTime? firstDay, DateTime customFrom, DateTime customTo) =>
+        unit == ReportRange.Custom ? (customTo > customFrom ? Duration(customTo - customFrom) : "") : Span(unit, anchor, firstDay);
 
     /// <summary>The period in words: "Today", "Last week", "August 2026", "2025", "All time".</summary>
     public static string Text(ReportRange unit, DateTime anchor)
@@ -80,6 +112,15 @@ public partial class PeriodPicker : UserControl
         return unit == ReportRange.All && firstDay is not null ? $"{text} ({(int)(today - from).TotalDays + 1} days)" : text;
     }
 
+    /// <summary>A length of time in words: "17 hours", "3 days and 4 hours".</summary>
+    public static string Duration(TimeSpan span)
+    {
+        int days = (int)span.TotalDays, hours = span.Hours;
+        string Plural(int n, string unit) => $"{n} {unit}{(n == 1 ? "" : "s")}";
+        return days == 0 ? Plural(Math.Max(1, (int)Math.Round(span.TotalHours)), "hour")
+            : hours == 0 ? Plural(days, "day") : $"{Plural(days, "day")} and {Plural(hours, "hour")}";
+    }
+
     private bool _refreshing;
 
     private void Refresh()
@@ -93,6 +134,15 @@ public partial class PeriodPicker : UserControl
                 button.IsChecked = (string)button.Tag == Unit.ToString();
 
             Pager.Visibility = Unit == ReportRange.All ? Visibility.Collapsed : Visibility.Visible;
+            if (Unit == ReportRange.Custom)
+            {
+                Pager.Label = CustomTo > CustomFrom ? Core.Reports.Report.CustomTitle(CustomFrom, CustomTo) : "Pick a range";
+                Pager.LabelCommand = new RelayCommand(OpenRangeEditor);
+                Pager.CanGoPrevious = CustomTo > CustomFrom && (MinDate is not { } min || CustomFrom > min);
+                Pager.CanGoNext = CustomTo > CustomFrom && CustomTo < DateTime.Now;
+                return;
+            }
+            Pager.LabelCommand = null;
             Pager.Label = Text(Unit, Anchor);
             Pager.PickMonth = Unit == ReportRange.Month;
             Pager.PickYear = Unit == ReportRange.Year;
@@ -110,11 +160,79 @@ public partial class PeriodPicker : UserControl
     {
         if (_refreshing || sender is not RadioButton { Tag: string tag }) return;
         var unit = Enum.Parse<ReportRange>(tag);
-        if (unit != Unit) SetCurrentValue(UnitProperty, unit);
+        if (unit == Unit) return;
+        if (unit == ReportRange.Custom)
+        {
+            // Starts as the period that was shown (all time: since the first day), then the editor opens to change it.
+            var (from, to) = Unit == ReportRange.All
+                ? (MinDate ?? DateTime.Today, DateTime.Today.AddDays(1))
+                : ReportBuilder.Bounds(Unit, Anchor);
+            if (to > ReportBuilder.HourEnd(DateTime.Now)) to = ReportBuilder.HourEnd(DateTime.Now);
+            SetCurrentValue(CustomFromProperty, from);
+            SetCurrentValue(CustomToProperty, to);
+            SetCurrentValue(UnitProperty, unit);
+            OpenRangeEditor();
+            return;
+        }
+        SetCurrentValue(UnitProperty, unit);
     }
+
+    public static string HourText(int hour) => hour switch { 0 => "12 AM", 12 => "12 PM", < 12 => $"{hour} AM", _ => $"{hour - 12} PM" };
+
+    private void OpenRangeEditor()
+    {
+        var (from, to) = CustomTo > CustomFrom ? (CustomFrom, CustomTo) : (DateTime.Today, DateTime.Today.AddDays(1));
+        FromDate.DisplayDateStart = ToDate.DisplayDateStart = MinDate;
+        FromDate.DisplayDateEnd = ToDate.DisplayDateEnd = DateTime.Today.AddDays(1);
+        FromDate.SelectedDate = from.Date;
+        FromHour.SelectedIndex = from.Hour;
+        ToDate.SelectedDate = to.Date;
+        ToHour.SelectedIndex = to.Hour;
+        RangeError.Visibility = Visibility.Collapsed;
+        RangePopup.IsOpen = true;
+    }
+
+    /// <summary>The range typed into the editor, or why it can't be shown.</summary>
+    public static (DateTime From, DateTime To, string? Error) ReadRange(DateTime? fromDate, int fromHour, DateTime? toDate, int toHour, DateTime now)
+    {
+        if (fromDate is not { } fd || toDate is not { } td || fromHour < 0 || toHour < 0) return (default, default, "Pick a date and hour for both ends.");
+        var from = fd.Date.AddHours(fromHour);
+        var to = td.Date.AddHours(toHour);
+        if (to <= from) return (from, to, "The end has to be after the start.");
+        if (from >= now) return (from, to, "That's still to come.");
+        return (from, to, null);
+    }
+
+    private void RangeApply_Click(object sender, RoutedEventArgs e)
+    {
+        var (from, to, error) = ReadRange(FromDate.SelectedDate, FromHour.SelectedIndex, ToDate.SelectedDate, ToHour.SelectedIndex, DateTime.Now);
+        if (error is not null)
+        {
+            RangeError.Text = error;
+            RangeError.Visibility = Visibility.Visible;
+            return;
+        }
+        RangePopup.IsOpen = false;
+        SetCurrentValue(CustomFromProperty, from);
+        SetCurrentValue(CustomToProperty, to);
+    }
+
+    private void RangeCancel_Click(object sender, RoutedEventArgs e) => RangePopup.IsOpen = false;
 
     private void Step(int direction)
     {
+        if (Unit == ReportRange.Custom)
+        {
+            // A custom range steps by its own length (three hours back, the two days before…).
+            var length = CustomTo - CustomFrom;
+            if (length <= TimeSpan.Zero) return;
+            var (start, end) = (CustomFrom + direction * length, CustomTo + direction * length);
+            if (direction > 0 && start >= DateTime.Now) return;
+            if (direction < 0 && MinDate is { } min && end <= min) return;
+            SetCurrentValue(CustomFromProperty, start);
+            SetCurrentValue(CustomToProperty, end);
+            return;
+        }
         var next = direction < 0 ? ReportBuilder.Previous(Unit, Anchor) : ReportBuilder.Next(Unit, Anchor);
         var (from, _) = ReportBuilder.Bounds(Unit, next);
         if (direction > 0 && from > DateTime.Today) return;

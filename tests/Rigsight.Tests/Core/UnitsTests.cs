@@ -2,7 +2,7 @@ using Rigsight.Core;
 
 namespace Rigsight.Tests.Core;
 
-[Collection("Core statics")]
+[Collection("UI")] // changes process-wide statics: see UiCollection
 public sealed class UnitsTests : IDisposable
 {
     private readonly bool _fahrenheit = Units.Fahrenheit;

@@ -94,13 +94,14 @@ public sealed class AppHost : IDisposable
     }
 
     /// <summary>Starts a new fake agent (after the old one "crashed") and waits for the app to reconnect to it.</summary>
-    public void RestartAgent(Action? whileDown = null)
+    /// <param name="integratedGpu">The new agent's PC also has a processor's integrated graphics (two GPUs).</param>
+    public void RestartAgent(Action? whileDown = null, bool integratedGpu = false)
     {
         var settings = Agent.Settings;
         Agent.Dispose();
         Assert.True(Ui.WaitFor(() => !Shell.IsConnected, 10_000), "The app didn't notice the agent went away");
         whileDown?.Invoke();
-        Agent = new FakeAgent(settings);
+        Agent = new FakeAgent(settings, integratedGpu);
         Assert.True(Ui.WaitFor(() => Shell.IsConnected, 15_000), "The app didn't reconnect");
     }
 

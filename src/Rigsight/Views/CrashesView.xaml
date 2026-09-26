@@ -163,7 +163,7 @@
                 </StackPanel>
             </DockPanel>
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
-                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding Since}" />
+                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding Since}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 

@@ -2,10 +2,6 @@ using System.Globalization;
 
 namespace Rigsight.Tests.Core;
 
-/// <summary>Tests that change process-wide statics (Units.Fahrenheit, environment variables) run one at a time.</summary>
-[CollectionDefinition("Core statics", DisableParallelization = true)]
-public sealed class CoreStaticsCollection;
-
 /// <summary>Runs a block under another culture (formatting follows the current culture), then puts the old one back.</summary>
 internal sealed class CultureScope : IDisposable
 {

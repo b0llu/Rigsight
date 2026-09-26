@@ -25,6 +25,8 @@
 param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+# From the repository, wherever it's started from: dotnet reads global.json (the test runner) from the current folder.
+Set-Location $root
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $results = Join-Path $root "TestResults\$stamp"
 New-Item -ItemType Directory -Force $results | Out-Null
@@ -84,25 +86,8 @@ Wait-Job $job | Out-Null
 if ($job.State -ne 'Completed') { $err = ($job.ChildJobs[0].JobStateInfo.Reason | Out-String); Remove-Job $job -Force; Failed "release build: $err" }
 Remove-Job $job
 
-$version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props'))).Project.PropertyGroup.Version
-foreach ($exe in 'Rigsight.exe', 'Rigsight.Agent.exe') {
-    $v = (Get-Item (Join-Path $publish $exe)).VersionInfo.ProductVersion
-    if (-not $v.StartsWith($version)) { Failed "$exe is version $v, Directory.Build.props says $version" }
-}
-Write-Host "  version $version in both programs"
-
-# Only Debug builds and test installers may read RIGSIGHT_UPDATE_FEED (the elevated agent must only ever trust GitHub).
-# .NET keeps string literals as UTF-16, so look for that; and prove the search works on a Debug build, which has it.
-function Count-Utf16($file, $text) {
-    $bytes = [IO.File]::ReadAllBytes($file)
-    $needle = [Text.Encoding]::Unicode.GetBytes($text)
-    $hex = [BitConverter]::ToString($bytes).Replace('-', '')
-    ([regex]::Matches($hex, [BitConverter]::ToString($needle).Replace('-', ''))).Count
-}
-$debugCore = Join-Path $root 'bin\Debug\Rigsight.Core.dll'
-if ((Count-Utf16 $debugCore 'RIGSIGHT_UPDATE_FEED') -lt 1) { Failed "the update-feed check can't find the name even in a Debug build: the check is broken" }
-if ((Count-Utf16 (Join-Path $publish 'Rigsight.Core.dll') 'RIGSIGHT_UPDATE_FEED') -gt 0) { Failed 'the Release build reads RIGSIGHT_UPDATE_FEED (built with RigsightTestFeed?)' }
-Write-Host '  the Release build only trusts GitHub for updates'
+try { & (Join-Path $PSScriptRoot 'check-release.ps1') -Publish $publish }
+catch { Failed "release checks: $($_.Exception.Message)" }
 
 if ($SkipEndToEnd -or $e2eMode -eq 'none') {
     if ($e2eMode -eq 'none' -and -not $SkipEndToEnd) { Write-Host "`n  (no end-to-end run: the programs didn't change)" -ForegroundColor DarkGray }

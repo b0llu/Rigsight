@@ -16,9 +16,19 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>"Learning your day" only once history has loaded and really has no apps yet.</summary>
     public bool ShowLearning => Loaded && TodayTopApps.Count == 0;
 
+    /// <summary>Yesterday as you lived it: when it ran past midnight, the whole of it (see ReportService.YourDayReportAsync).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(YesterdayTopApps), nameof(YesterdayHasData), nameof(YesterdayInsights))]
+    [NotifyPropertyChangedFor(nameof(YesterdayTopApps), nameof(YesterdayHasData), nameof(YesterdayInsights), nameof(YesterdayNote), nameof(YesterdayLink))]
     private Report? _yesterday;
+
+    /// <summary>"8 AM – 1 AM, past midnight" when yesterday ran late (null otherwise).</summary>
+    public string? YesterdayNote => Yesterday is { Range: ReportRange.Custom } y
+        ? $"{Hour(y.From)} – {Hour(y.To)}, past midnight" : null;
+
+    /// <summary>What "Full report" opens: yesterday's day, or its whole span when it ran past midnight.</summary>
+    public string YesterdayLink => Yesterday is { } y ? ReportBuilder.LinkFor(y) : "yesterday";
+
+    private static string Hour(DateTime t) => t.ToString(t.Minute == 0 ? "h tt" : "h:mm tt");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLearning))]
@@ -55,7 +65,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         Today = await reports.BuildAsync(ReportRange.Day, DateTime.Today);
         if (_yesterdayLoadedFor != DateTime.Today)
         {
-            Yesterday = await reports.BuildAsync(ReportRange.Day, DateTime.Today.AddDays(-1));
+            Yesterday = await reports.YourDayReportAsync(DateTime.Today.AddDays(-1));
             _yesterdayLoadedFor = DateTime.Today;
         }
         Loaded = true;

@@ -118,6 +118,11 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
         {
             // Client went away.
         }
+        catch (Exception ex)
+        {
+            // Anything else (building the hello, say) drops this app, but is logged rather than lost with the task.
+            Log.Error("pipe", ex);
+        }
         finally
         {
             lock (_lock) _clients.Remove(client);

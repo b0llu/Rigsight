@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              x:Name="Root">
-    <!-- [Day · Week · Month · Year · All time]  ‹ This month ▾ ›   The same on every page that looks back in time. -->
+    <!-- [Day · Week · Month · Year · All time · Custom]  ‹ This month ▾ ›   The same on every page that looks back in time. -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <Border Style="{StaticResource SegmentHost}">
             <StackPanel x:Name="UnitButtons" Orientation="Horizontal">
@@ -12,9 +12,38 @@
                 <RadioButton Style="{StaticResource Segment}" Content="Month" Tag="Month" Checked="Unit_Checked" />
                 <RadioButton Style="{StaticResource Segment}" Content="Year" Tag="Year" Checked="Unit_Checked" />
                 <RadioButton x:Name="AllButton" Style="{StaticResource Segment}" Content="All time" Tag="All" Checked="Unit_Checked" />
+                <RadioButton Style="{StaticResource Segment}" Content="Custom" Tag="Custom" Checked="Unit_Checked" />
             </StackPanel>
         </Border>
         <ctl:DatePager x:Name="Pager" Margin="12,0,0,0"
                        Date="{Binding Anchor, ElementName=Root, Mode=TwoWay}" MinDate="{Binding MinDate, ElementName=Root}" />
+
+        <!-- Custom: from a date and hour to another (whole hours: history per app is kept by the hour). -->
+        <Popup x:Name="RangePopup" PlacementTarget="{Binding ElementName=Pager}" Placement="Custom"
+               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+            <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                              CornerRadius="12" Padding="16" Margin="0,0,8,8">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                </Border.Effect>
+                <StackPanel Width="300">
+                    <TextBlock Text="FROM" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                    <DockPanel>
+                        <ComboBox x:Name="FromHour" DockPanel.Dock="Right" Width="104" Margin="8,0,0,0" AutomationProperties.Name="From hour" />
+                        <DatePicker x:Name="FromDate" FirstDayOfWeek="Monday" SelectedDateFormat="Long" AutomationProperties.Name="From date" />
+                    </DockPanel>
+                    <TextBlock Text="TO" Style="{StaticResource Caption}" Margin="0,14,0,6" />
+                    <DockPanel>
+                        <ComboBox x:Name="ToHour" DockPanel.Dock="Right" Width="104" Margin="8,0,0,0" AutomationProperties.Name="To hour" />
+                        <DatePicker x:Name="ToDate" FirstDayOfWeek="Monday" SelectedDateFormat="Long" AutomationProperties.Name="To date" />
+                    </DockPanel>
+                    <TextBlock x:Name="RangeError" Foreground="{DynamicResource HotBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button Style="{StaticResource GhostButton}" Content="Cancel" Click="RangeCancel_Click" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource AccentButton}" Content="Show" Click="RangeApply_Click" AutomationProperties.Name="Show range" />
+                    </StackPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </Popup>
     </StackPanel>
 </UserControl>

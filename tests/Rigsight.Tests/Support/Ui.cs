@@ -142,6 +142,10 @@ public static class Ui
     }
 }
 
-/// <summary>Tests that use the shared UI thread run one at a time (binding errors are collected globally).</summary>
+/// <summary>
+/// Tests that use the shared UI thread, or change something the whole process shares (Units.Fahrenheit, environment
+/// variables, the update store's folder), run here, one at a time: binding errors are collected globally, and a switch
+/// flipped by one test must not show up in another running meanwhile.
+/// </summary>
 [CollectionDefinition("UI", DisableParallelization = true)]
 public sealed class UiCollection;

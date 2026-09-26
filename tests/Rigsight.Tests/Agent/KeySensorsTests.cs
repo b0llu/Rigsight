@@ -12,10 +12,13 @@ public class KeySensorsTests
     private static List<Candidate> CandidatesOf(IEnumerable<HardwareMeta> hardware)
     {
         var list = new List<Candidate>();
-        int index = 0;
+        int index = 0, device = 0;
         foreach (var hw in hardware)
+        {
             foreach (var s in hw.Sensors)
-                list.Add(new Candidate(index++, hw.Type, hw.Name, s.Name, s.Kind));
+                list.Add(new Candidate(index++, hw.Type, hw.Name, s.Name, s.Kind, device));
+            device++;
+        }
         return list;
     }
 
@@ -33,6 +36,16 @@ public class KeySensorsTests
         }
 
         public Dictionary<string, int> Pick() => KeySensors.Pick(CandidatesOf(Hardware));
+
+        public List<Gpu> Gpus() => KeySensors.Gpus(CandidatesOf(Hardware));
+
+        /// <summary>The device the sensor picked for a key belongs to ("#2 AMD Radeon(TM) Graphics").</summary>
+        public string? DeviceOf(string key)
+        {
+            if (!Pick().TryGetValue(key, out int i)) return null;
+            var all = Hardware.SelectMany((h, n) => h.Sensors.Select(_ => $"#{n} {h.Name}")).ToList();
+            return all[i];
+        }
 
         /// <summary>The name of the sensor picked for a key (null: none).</summary>
         public string? Named(string key)
@@ -240,4 +253,104 @@ public class KeySensorsTests
             .Add("GpuAmd", "RX B", (SensorKind.Temperature, "GPU Core"));
         Assert.Equal(0, pc.Pick()[GpuTemp]);
     }
+
+    // ── Several graphics processors ──
+
+    private static readonly (SensorKind, string)[] NvidiaCard =
+        [(SensorKind.Temperature, "GPU Core"), (SensorKind.Temperature, "GPU Hot Spot"), (SensorKind.Load, "GPU Core"), (SensorKind.Power, "GPU Package"),
+         (SensorKind.Clock, "GPU Core"), (SensorKind.Fan, "GPU Fan"), (SensorKind.Load, "GPU Memory"), (SensorKind.SmallData, "GPU Memory Used"), (SensorKind.SmallData, "GPU Memory Total")];
+
+    private static readonly (SensorKind, string)[] AmdGpu =
+        [(SensorKind.Temperature, "GPU Core"), (SensorKind.Temperature, "GPU Memory"), (SensorKind.Load, "GPU Core"), (SensorKind.Power, "GPU Package"),
+         (SensorKind.Clock, "GPU Core"), (SensorKind.Fan, "GPU Fan"), (SensorKind.SmallData, "D3D Dedicated Memory Used"), (SensorKind.SmallData, "D3D Dedicated Memory Total")];
+
+    private static readonly (SensorKind, string)[] IntelGpu =
+        [(SensorKind.Temperature, "GPU Core"), (SensorKind.Load, "D3D 3D"), (SensorKind.Power, "GPU Power"), (SensorKind.SmallData, "D3D Dedicated Memory Used")];
+
+    [Fact]
+    public void A_card_wins_over_the_processors_amd_graphics_listed_before_it()
+    {
+        // The user's PC: a Ryzen with graphics (listed first) and a dedicated card.
+        var pc = new Pc()
+            .Add("Cpu", "AMD Ryzen 7 7700X", (SensorKind.Temperature, "Core (Tctl/Tdie)"))
+            .Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu)
+            .Add("GpuNvidia", "NVIDIA GeForce RTX 4070", NvidiaCard);
+        Assert.All(new[] { GpuTemp, GpuLoad, GpuPower, GpuClock, GpuFan, GpuVramUsed, GpuVramTotal }, key => Assert.Equal("#2 NVIDIA GeForce RTX 4070", pc.DeviceOf(key)));
+        Assert.Equal(["NVIDIA GeForce RTX 4070", "AMD Radeon(TM) Graphics"], pc.Gpus().Select(g => g.Name));
+        Assert.True(pc.Gpus()[1].Integrated);
+    }
+
+    [Theory]
+    [InlineData("GpuIntel", "Intel(R) UHD Graphics 770", "GpuAmd", "AMD Radeon RX 7800 XT")]
+    [InlineData("GpuAmd", "AMD Radeon(TM) 780M Graphics", "GpuAmd", "AMD Radeon RX 7600S")]
+    [InlineData("GpuAmd", "AMD Radeon(TM) Vega 8 Graphics", "GpuNvidia", "NVIDIA GeForce GTX 1650")]
+    [InlineData("GpuIntel", "Intel(R) Iris(R) Xe Graphics", "GpuIntel", "Intel(R) Arc(TM) A770 Graphics")]
+    [InlineData("GpuAmd", "AMD Radeon 890M Graphics", "GpuAmd", "AMD Radeon Pro W7600")]
+    public void The_dedicated_card_is_the_main_gpu_whichever_is_listed_first(string igpuType, string igpu, string cardType, string card)
+    {
+        var sensors = (string type) => type switch { "GpuNvidia" => NvidiaCard, "GpuAmd" => AmdGpu, _ => IntelGpu };
+        var pc = new Pc().Add(igpuType, igpu, sensors(igpuType)).Add(cardType, card, sensors(cardType));
+        Assert.Equal($"#1 {card}", pc.DeviceOf(GpuTemp));
+        Assert.Equal([card, igpu], pc.Gpus().Select(g => g.Name));
+        Assert.Equal([false, true], pc.Gpus().Select(g => g.Integrated));
+    }
+
+    [Fact]
+    public void Two_identical_cards_are_two_gpus_in_the_order_theyre_listed()
+    {
+        var pc = new Pc()
+            .Add("GpuNvidia", "NVIDIA GeForce RTX 3090", NvidiaCard)
+            .Add("GpuNvidia", "NVIDIA GeForce RTX 3090", NvidiaCard);
+        var gpus = pc.Gpus();
+        Assert.Equal(2, gpus.Count);
+        Assert.Equal("#0 NVIDIA GeForce RTX 3090", pc.DeviceOf(GpuTemp));
+        Assert.NotEqual(gpus[0].Keys[GpuTemp], gpus[1].Keys[GpuTemp]);
+        Assert.Equal(gpus[1].Keys[GpuTemp], gpus[0].Keys[GpuTemp] + NvidiaCard.Length);
+    }
+
+    [Fact]
+    public void Only_integrated_graphics_are_still_the_gpu()
+    {
+        var pc = new Pc().Add("Cpu", "AMD Ryzen 5 5600G", (SensorKind.Temperature, "Core (Tctl/Tdie)")).Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu);
+        Assert.Equal("#1 AMD Radeon(TM) Graphics", pc.DeviceOf(GpuTemp));
+        Assert.Single(pc.Gpus());
+    }
+
+    [Fact]
+    public void Each_gpu_has_its_own_readings()
+    {
+        var pc = new Pc().Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu).Add("GpuNvidia", "NVIDIA GeForce RTX 4070", NvidiaCard);
+        var (card, igpu) = (pc.Gpus()[0], pc.Gpus()[1]);
+        Assert.Contains(GpuHotSpot, card.Keys.Keys);
+        Assert.DoesNotContain(GpuHotSpot, igpu.Keys.Keys);           // integrated graphics have no hot spot sensor
+        Assert.Contains(GpuMemJunction, igpu.Keys.Keys);             // "GPU Memory" temperature
+        Assert.True(igpu.Keys.Values.All(i => i < AmdGpu.Length));  // all its own sensors
+        Assert.True(card.Keys.Values.All(i => i >= AmdGpu.Length));
+    }
+
+    [Fact]
+    public void The_captured_pc_has_one_gpu()
+    {
+        var gpus = KeySensors.Gpus(CandidatesOf(Fixtures.Hello().Hardware!));
+        Assert.Equal("NVIDIA GeForce RTX 3080 Ti", Assert.Single(gpus).Name);
+    }
+
+    [Theory]
+    [InlineData("GpuAmd", "AMD Radeon(TM) Graphics", true)]
+    [InlineData("GpuAmd", "AMD Radeon(TM) 780M Graphics", true)]
+    [InlineData("GpuAmd", "AMD Radeon 890M Graphics", true)]
+    [InlineData("GpuAmd", "AMD Radeon(TM) Vega 8 Graphics", true)]
+    [InlineData("GpuAmd", "Radeon Vega 11", true)]
+    [InlineData("GpuAmd", "AMD Radeon RX 7900 XTX", false)]
+    [InlineData("GpuAmd", "AMD Radeon RX Vega 64", false)]
+    [InlineData("GpuAmd", "AMD Radeon Pro W7900", false)]
+    [InlineData("GpuAmd", "AMD Radeon VII", false)]
+    [InlineData("GpuIntel", "Intel(R) UHD Graphics 630", true)]
+    [InlineData("GpuIntel", "Intel(R) Iris(R) Xe Graphics", true)]
+    [InlineData("GpuIntel", "Intel(R) Arc(TM) A770 Graphics", false)]
+    [InlineData("GpuIntel", "Intel(R) Arc(TM) B580 Graphics", false)]
+    [InlineData("GpuNvidia", "NVIDIA GeForce RTX 4090", false)]
+    [InlineData("GpuNvidia", "NVIDIA GeForce MX450", false)]
+    public void Integrated_graphics_are_told_from_cards_by_name(string type, string name, bool integrated) =>
+        Assert.Equal(integrated, KeySensors.LooksIntegrated(type, name));
 }

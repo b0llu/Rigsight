@@ -113,7 +113,11 @@
                 <!-- Yesterday -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Yesterday" Style="{StaticResource H2}" Margin="0,0,0,14" />
+                        <DockPanel Margin="0,0,0,14">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding YesterdayNote}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"
+                                       Visibility="{Binding YesterdayNote, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="Yesterday" Style="{StaticResource H2}" />
+                        </DockPanel>
 
                         <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding Yesterday.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"

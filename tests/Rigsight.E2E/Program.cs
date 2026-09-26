@@ -241,7 +241,7 @@ internal static class Program
         }
 
         CompareWithBaseline(baselineFile);
-        WriteReport(output, bin, quick);
+        WriteReport(output, bin, quick, admin);
         if (args.Contains("--update-baseline"))
         {
             if (Failures.Count > 0) Console.WriteLine("\nBaseline NOT updated: the run has failures.");
@@ -552,14 +552,15 @@ internal static class Program
 
     // ── Report ────────────────────────────────────────────────────────────
 
-    private static void WriteReport(string output, string bin, bool quick)
+    private static void WriteReport(string output, string bin, bool quick, bool admin)
     {
         var md = new StringBuilder();
         md.AppendLine($"# Rigsight end-to-end check — {(Failures.Count == 0 ? "PASSED" : "FAILED")}");
         md.AppendLine();
         md.AppendLine($"Build `{bin}` (v{FileVersionInfo.GetVersionInfo(Path.Combine(bin, RigsightPaths.AppExe)).ProductVersion}), " +
                       $"{DateTime.Now:yyyy-MM-dd HH:mm}, {Environment.MachineName}, {Environment.ProcessorCount} logical processors{(quick ? ", quick run" : "")}.");
-        md.AppendLine("The agent ran as a test copy without admin rights (fewer sensors than an installed one).");
+        md.AppendLine(admin ? "The agent ran as a test copy with admin rights (every sensor, like an installed one)."
+            : "The agent ran as a test copy without admin rights (fewer sensors than an installed one).");
         md.AppendLine();
         if (Failures.Count > 0)
         {

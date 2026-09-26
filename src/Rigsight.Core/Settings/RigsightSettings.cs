@@ -74,6 +74,9 @@ public sealed class RigsightSettings
     /// <summary>Last day (yyyy-MM-dd) the agent showed the daily recap notification.</summary>
     public string? LastRecapDay { get; set; }
 
+    /// <summary>The last day (yyyy-MM-dd) whose recap was shown: each day's comes once, the next time the PC is turned on.</summary>
+    public string? RecappedDay { get; set; }
+
     public RigsightSettings Clone() => SettingsStore.Deserialize(SettingsStore.Serialize(this));
 }
 

@@ -112,6 +112,18 @@ public class DrawingCostTests(ITestOutputHelper output)
         Assert.True(ms < 2, $"{ms:0.00} ms");
     }
 
+    /// <summary>
+    /// Private memory outside the managed heap (where GDI+ keeps bitmaps, brushes and fonts), after a full collection. The
+    /// managed heap's own size follows whatever the whole test run did before, so leaving it out keeps other tests out.
+    /// </summary>
+    private static long NativeMemory()
+    {
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        return Process.GetCurrentProcess().PrivateMemorySize64 - GC.GetGCMemoryInfo().TotalCommittedBytes;
+    }
+
     [Fact]
     public void Drawing_every_second_for_a_long_time_leaks_no_handles()
     {
@@ -133,18 +145,13 @@ public class DrawingCostTests(ITestOutputHelper output)
         }
         // GDI+ settles at its working size in the first few hundred rounds (measured: +35 MB, then flat): start after that.
         for (int i = 0; i < 400; i++) Round(i);
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
         uint gdi = GuiResources.Gdi, user = GuiResources.User;
-        long privateBytes = Process.GetCurrentProcess().PrivateMemorySize64;
+        long privateBytes = NativeMemory();
 
         for (int i = 0; i < 600; i++) Round(i);
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
         uint gdiAfter = GuiResources.Gdi, userAfter = GuiResources.User;
-        long privateAfter = Process.GetCurrentProcess().PrivateMemorySize64;
-        output.WriteLine($"GDI {gdi} → {gdiAfter}, USER {user} → {userAfter}, private {privateBytes / 1048576} → {privateAfter / 1048576} MB");
+        long privateAfter = NativeMemory();
+        output.WriteLine($"GDI {gdi} → {gdiAfter}, USER {user} → {userAfter}, native private {privateBytes / 1048576} → {privateAfter / 1048576} MB");
 
         // 600 rounds is ten minutes of every widget, the overlay and a card: nothing may pile up.
         Assert.True(gdiAfter <= gdi + 2, $"GDI objects {gdi} → {gdiAfter} after 600 rounds");

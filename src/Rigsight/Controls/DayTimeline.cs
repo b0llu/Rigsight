@@ -9,8 +9,9 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Controls;
 
 /// <summary>
-/// A 24-hour strip showing which app was in front (colored by category), with the CPU and GPU
-/// temperature curves drawn underneath. Hover to see exactly what was happening at any minute.
+/// A strip showing which app was in front (colored by category), with the CPU and GPU temperature curves drawn
+/// underneath: a day (24 hours from midnight), or any span up to two days (<see cref="End"/>), such as an evening
+/// that ran past midnight. Hover to see exactly what was happening at any minute.
 /// </summary>
 public sealed class DayTimeline : FrameworkElement
 {
@@ -28,6 +29,17 @@ public sealed class DayTimeline : FrameworkElement
     public IReadOnlyList<TimelineSegment>? Segments { get => (IReadOnlyList<TimelineSegment>?)GetValue(SegmentsProperty); set => SetValue(SegmentsProperty, value); }
     public IReadOnlyList<TempPoint>? Temps { get => (IReadOnlyList<TempPoint>?)GetValue(TempsProperty); set => SetValue(TempsProperty, value); }
     public DateTime Day { get => (DateTime)GetValue(DayProperty); set => SetValue(DayProperty, value); }
+
+    /// <summary>Where the strip ends: null for a whole day (24 hours from <see cref="Day"/>'s midnight), else it runs from
+    /// <see cref="Day"/> itself (a date and time) to here.</summary>
+    public static readonly DependencyProperty EndProperty = DependencyProperty.Register(
+        nameof(End), typeof(DateTime?), typeof(DayTimeline), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTime? End { get => (DateTime?)GetValue(EndProperty); set => SetValue(EndProperty, value); }
+
+    /// <summary>The span shown: a whole day, or <see cref="Day"/> to <see cref="End"/>.</summary>
+    private (DateTime Start, DateTime End) Span() =>
+        End is { } end && end > Day ? (Day, end) : (Day.Date, Day.Date.AddDays(1));
 
     /// <summary>When the data was read (history is saved once a minute, so the last minute or so isn't in it yet).</summary>
     public static readonly DependencyProperty RecordedUntilProperty = DependencyProperty.Register(
@@ -66,10 +78,11 @@ public sealed class DayTimeline : FrameworkElement
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));
         if (w < Left + Right + 50 || h < BandHeight + Gap + AxisHeight + 30) return;
 
-        var day = Day.Date;
+        var (start, end) = Span();
+        double hours = (end - start).TotalHours;
         double plotW = w - Left - Right;
-        double X(DateTime t) => Left + (t - day).TotalHours / 24 * plotW;
-        DateTime TimeAt(double x) => day.AddHours((x - Left) / plotW * 24);
+        double X(DateTime t) => Left + (t - start).TotalHours / hours * plotW;
+        DateTime TimeAt(double x) => start.AddHours((x - Left) / plotW * hours);
 
         // Activity band.
         var band = new Rect(Left, 0, plotW, BandHeight);
@@ -107,18 +120,23 @@ public sealed class DayTimeline : FrameworkElement
 
         // Hour labels, the two at the ends kept inside the chart: centred on its corners, midnight would run
         // under the lowest temperature label.
-        for (int hr = 0; hr <= 24; hr += 3)
+        // Every 3 hours of the clock (every 6 over a longer span), plus the two ends.
+        int step = hours > 30 ? 6 : 3;
+        static string HourLabel(DateTime t) => t.Hour switch { 0 => "12 AM", 12 => "12 PM", < 12 => $"{t.Hour} AM", _ => $"{t.Hour - 12} PM" };
+        var ticks = new List<DateTime> { start };
+        for (var t = start.Date.AddHours(Math.Ceiling(start.TimeOfDay.TotalHours / step) * step); t < end; t = t.AddHours(step))
+            if (t > start && (t - start).TotalHours >= step / 2.0 && (end - t).TotalHours >= step / 2.0) ticks.Add(t);
+        ticks.Add(end);
+        foreach (var t in ticks)
         {
-            double x = Left + plotW * hr / 24;
-            string label = hr switch { 0 or 24 => "12 AM", 12 => "12 PM", < 12 => $"{hr} AM", _ => $"{hr - 12} PM" };
-            var align = hr == 0 ? ChartPaint.Align.Left : hr == 24 ? ChartPaint.Align.Right : ChartPaint.Align.Center;
-            ChartPaint.Text(dc, this, label, new Point(x, h - AxisHeight / 2 + 2), 11, ChartPaint.Label, align);
+            var align = t == start ? ChartPaint.Align.Left : t == end ? ChartPaint.Align.Right : ChartPaint.Align.Center;
+            ChartPaint.Text(dc, this, HourLabel(t), new Point(X(t), h - AxisHeight / 2 + 2), 11, ChartPaint.Label, align);
         }
 
         // Today: a "Now" line, with nothing to say about the time after it.
         var now = DateTime.Now;
         double nowX = X(now);
-        bool isToday = now.Date == day;
+        bool isToday = start <= now && now < end;
         if (isToday)
         {
             var nowPen = new Pen(ChartPaint.Label, 1) { DashStyle = new DashStyle([2, 3], 0) };
@@ -127,7 +145,7 @@ public sealed class DayTimeline : FrameworkElement
         }
 
         // Hover: cursor line and details (not beyond now).
-        if (_hoverX >= Left && _hoverX <= Left + plotW && !(isToday && _hoverX > nowX) && day <= now.Date)
+        if (_hoverX >= Left && _hoverX <= Left + plotW && !(isToday && _hoverX > nowX) && start <= now)
         {
             var time = TimeAt(_hoverX);
             dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(_hoverX, 0), new Point(_hoverX, plot.Bottom));

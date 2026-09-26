@@ -20,11 +20,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     [ObservableProperty] private DateTime _anchor = DateTime.Today;
 
+    /// <summary>A custom range's start and end (whole hours), when <see cref="Range"/> is Custom.</summary>
+    [ObservableProperty] private DateTime _customFrom;
+    [ObservableProperty] private DateTime _customTo;
+
     /// <summary>The first day with any history (the period picker starts there).</summary>
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText), nameof(Peaks), nameof(TopSessions), nameof(HasData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText), nameof(Peaks), nameof(TopSessions), nameof(HasData),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -81,11 +85,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         OnPropertyChanged(nameof(MoreAppsText));
     }
 
-    public bool IsDay => Range == ReportRange.Day;
+    /// <summary>A day, or a custom range of up to two days: minute by minute (the timeline), not daily bars.</summary>
+    public bool IsDay => Range == ReportRange.Day || (Range == ReportRange.Custom && CustomTo - CustomFrom <= ReportBuilder.DayLikeLimit);
     public bool IsMultiDay => !IsDay;
     /// <summary>A year: bars per month (built from the daily totals; see ReportBuilder.BuildLong).</summary>
-    public bool IsYear => ReportBuilder.IsLong(Range);
+    public bool IsYear => ReportBuilder.IsLong(Range, CustomFrom, CustomTo);
     public string BarsTitle => IsYear ? "Active time per month" : "Active time per day";
+
+    /// <summary>A custom range's timeline ends with it; a day's is the whole day (null).</summary>
+    public DateTime? TimelineEnd => Report is { Range: ReportRange.Custom } r ? r.To : null;
 
     /// <summary>The period shown includes now, so it can still change.</summary>
     public bool IncludesNow => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To;
@@ -98,14 +106,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public string Title => Report?.Title ?? "";
 
-    public string Subtitle => Report is null ? "" : Controls.PeriodPicker.Span(Range, Report.From);
+    public string Subtitle => Report is null ? "" : Range == ReportRange.Custom
+        ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Range, Report.From);
 
     /// <summary>Explains short weeks/months while Rigsight is new.</summary>
     public string? CoverageNote
     {
         get
         {
-            if (Report is null || Range == ReportRange.Day || TrackedDays <= 0) return null;
+            if (Report is null || Range is ReportRange.Day or ReportRange.Custom || TrackedDays <= 0) return null;
             int days = (int)((Report.To > DateTime.Today ? DateTime.Today.AddDays(1) : Report.To) - Report.From).TotalDays;
             if (TrackedDays >= days) return null;
             var since = FirstDay ?? DateTime.Today.AddDays(-(TrackedDays - 1));
@@ -135,7 +144,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             var r = Report;
             if (r is null) return [];
             var rows = new List<PeakRow>();
-            string When(Peak p) => IsDay ? p.Time.ToString("h:mm tt") : IsYear ? p.Time.ToString("d MMM, h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
+            bool oneDay = IsDay && Report.From.Date == Report.To.AddTicks(-1).Date;
+            string When(Peak p) => oneDay ? p.Time.ToString("h:mm tt") : IsDay ? p.Time.ToString("ddd h:mm tt") : IsYear ? p.Time.ToString("d MMM, h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
             var tempBrush = new TempToBrushConverter();
             Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);
 
@@ -152,6 +162,26 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     partial void OnRangeChanged(ReportRange value) => _ = LoadAsync();
     partial void OnAnchorChanged(DateTime value) => _ = LoadAsync();
+    partial void OnCustomFromChanged(DateTime value) => CustomChanged();
+    partial void OnCustomToChanged(DateTime value) => CustomChanged();
+
+    // Both ends usually change together: one load for the pair.
+    private bool _customPending;
+
+    private void CustomChanged()
+    {
+        OnPropertyChanged(nameof(IsDay));
+        OnPropertyChanged(nameof(IsMultiDay));
+        OnPropertyChanged(nameof(IsYear));
+        OnPropertyChanged(nameof(BarsTitle));
+        if (Range != ReportRange.Custom || _customPending) return;
+        _customPending = true;
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() =>
+        {
+            _customPending = false;
+            _ = LoadAsync();
+        });
+    }
 
     private int _loadId;
 
@@ -162,9 +192,11 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         IsLoading = true;
         var range = Range;
         var anchor = Anchor;
+        var (customFrom, customTo) = (CustomFrom, CustomTo);
         var tracked = await reports.TrackedDaysAsync();
         var first = await reports.FirstDayAsync();
-        var report = await reports.BuildAsync(range, anchor);
+        var report = range != ReportRange.Custom ? await reports.BuildAsync(range, anchor)
+            : customTo > customFrom ? await reports.BuildCustomAsync(customFrom, customTo) : null;
         var crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
         if (id != _loadId) return;
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
@@ -180,6 +212,14 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         Range = ReportRange.Day;
         Anchor = day.Date;
+    }
+
+    /// <summary>A custom range (e.g. a day that ran past midnight, from the recap): whole hours around it.</summary>
+    public void ShowRange(DateTime from, DateTime to)
+    {
+        CustomFrom = ReportBuilder.HourStart(from);
+        CustomTo = ReportBuilder.HourEnd(to);
+        Range = ReportRange.Custom; // loads (or the ends changing does, when it was a custom range already)
     }
 
 }

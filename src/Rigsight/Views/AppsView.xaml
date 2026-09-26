@@ -28,7 +28,7 @@
             <TextBlock Text="How long you use each app, how long it sits in the background, and how hard it pushes your hardware."
                        Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
-                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" />
+                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
         </StackPanel>

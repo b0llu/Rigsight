@@ -170,6 +170,21 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     private async Task CheckNowAsync() => await CheckAsync(force: true, quiet: false);
 
+    /// <summary>
+    /// What's already known, at once and without going online: a newer version the agent (or an earlier run) found, and
+    /// whether its installer is downloaded. At startup, so a waiting update shows from the first moment; and from the
+    /// agent's "new version" notification (<paramref name="asked"/>), which was clicked to update: the restart question
+    /// comes even if "Later" was chosen today, and one not downloaded yet starts downloading.
+    /// </summary>
+    public async Task ShowKnownAsync(bool asked = false)
+    {
+        if (IsBusy || State == UpdateState.Failed) return;
+        await ApplyAsync(UpdateStore.ReadCheck()?.Latest, autoDownload: asked);
+        if (!asked) return;
+        if (State == UpdateState.Available) await DownloadAsync(automatic: false); // asked for, even with automatic updates off
+        if (State == UpdateState.Waiting) State = UpdateState.Ready;
+    }
+
     private async Task CheckAsync(bool force, bool quiet)
     {
         IsChecking = true;

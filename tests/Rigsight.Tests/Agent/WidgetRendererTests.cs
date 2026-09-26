@@ -52,25 +52,6 @@ public class WidgetRendererTests
                 }
     }
 
-    [Theory]
-    [InlineData(WidgetStyle.Compact)]
-    [InlineData(WidgetStyle.Pill)]
-    [InlineData(WidgetStyle.Graph)]
-    public void Readings_in_Fahrenheit_draw_too(WidgetStyle style)
-    {
-        bool before = Units.Fahrenheit;
-        try
-        {
-            Units.Fahrenheit = true;
-            using var bmp = WidgetRenderer.Render(new WidgetConfig { Style = style }, Extreme(), 1, false, out _);
-            Assert.True(Coverage(bmp) > 0.5);
-        }
-        finally
-        {
-            Units.Fahrenheit = before;
-        }
-    }
-
     [Fact]
     public void Without_a_background_the_widget_is_still_there_to_drag()
     {
@@ -213,5 +194,29 @@ public class WidgetRendererTests
             : new ActivityInfo();
         using var bmp = WidgetRenderer.Render(new WidgetConfig { Style = WidgetStyle.NowPlaying }, data, 1, false, out _);
         Assert.Equal(310, bmp.Width);
+    }
+}
+
+/// <summary>Drawn in °F: switches the process-wide unit, so it runs with the other tests that do (see UiCollection).</summary>
+[Collection("UI")]
+public sealed class WidgetFahrenheitTests
+{
+    [Theory]
+    [InlineData(WidgetStyle.Compact)]
+    [InlineData(WidgetStyle.Pill)]
+    [InlineData(WidgetStyle.Graph)]
+    public void Readings_in_Fahrenheit_draw_too(WidgetStyle style)
+    {
+        bool before = Units.Fahrenheit;
+        try
+        {
+            Units.Fahrenheit = true;
+            using var bmp = WidgetRenderer.Render(new WidgetConfig { Style = style }, Extreme(), 1, false, out _);
+            Assert.True(WidgetSamples.Coverage(bmp) > 0.5);
+        }
+        finally
+        {
+            Units.Fahrenheit = before;
+        }
     }
 }

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
+using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
 
@@ -66,7 +67,8 @@ public sealed partial class ShellViewModel : ObservableObject
         _refresh.Start();
         _ = RefreshCurrentPageAsync();
 
-        // Look for an update once the window has settled (at most once a day).
+        // An update already found or downloaded shows at once; GitHub is asked once the window has settled (at most once a day).
+        _ = Update.ShowKnownAsync();
         var updateCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
         updateCheck.Tick += (_, _) =>
         {
@@ -286,10 +288,20 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (!string.IsNullOrEmpty(page))
         {
-            if (page == "reports" && arg == "yesterday")
+            // A recap or Home's "Full report": that day's report, or the whole of a day that ran past midnight.
+            if (page == "reports" && ReportBuilder.ReadLink(arg, DateTime.Today) is var link && (link.Day is not null || link.Range is not null))
             {
                 CurrentPage = "reports";
-                ReportsPage.ShowDay(DateTime.Today.AddDays(-1));
+                if (link.Range is { } range) ReportsPage.ShowRange(range.From, range.To);
+                else ReportsPage.ShowDay(link.Day!.Value);
+                ActivateRequested?.Invoke();
+                return;
+            }
+            if (page == "update")
+            {
+                // The "new version" notification: the sidebar asks to restart (or shows the download) straight away.
+                _ = Update.ShowKnownAsync(asked: true);
+                ActivateRequested?.Invoke();
                 return;
             }
             if (page == "apps" && arg is not null) Apps.ShowToday(arg);

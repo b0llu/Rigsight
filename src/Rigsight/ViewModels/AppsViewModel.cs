@@ -35,13 +35,24 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _firstDay;
 
-    public bool IsDay => Unit == ReportRange.Day;
+    /// <summary>A custom range's start and end (whole hours), when <see cref="Unit"/> is Custom.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(IncludesToday), nameof(ChartTitle))]
+    private DateTime _customFrom;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(IncludesToday), nameof(ChartTitle))]
+    private DateTime _customTo;
+
+    private (DateTime From, DateTime To) Period => Controls.PeriodPicker.Bounds(Unit, Anchor, CustomFrom, CustomTo);
+
+    public bool IsDay => ReportBuilder.IsDayLike(Unit, Period.From, Period.To);
 
     /// <summary>The period shown includes today, so it can still change.</summary>
-    public bool IncludesToday => ReportBuilder.Bounds(Unit, Anchor).To > DateTime.Today;
+    public bool IncludesToday => Period.To > DateTime.Today;
 
     /// <summary>Which dates the list covers ("All time" from when tracking started).</summary>
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay, CustomFrom, CustomTo);
     [ObservableProperty] private string _sort = "Active";
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private double _maxValue = 1;
@@ -60,12 +71,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     /// <summary>The selected app's active time across the period: per hour, per day or per month (see ChartTitle).</summary>
     [ObservableProperty] private List<DayBucket>? _selectedChart;
 
-    public string ChartTitle => Unit switch
-    {
-        ReportRange.Day => "Active time per hour",
-        ReportRange.Week or ReportRange.Month => "Active time per day",
-        _ => "Active time per month",
-    };
+    public string ChartTitle => IsDay ? "Active time per hour"
+        : ReportBuilder.IsLong(Unit, Period.From, Period.To) ? "Active time per month" : "Active time per day";
 
     /// <summary>"Games · 1h 59m this week": what the app is, and how much it was used in the period.</summary>
     public string Summary
@@ -73,7 +80,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         get
         {
             if (Selected is null) return "";
-            string period = Controls.PeriodPicker.Text(Unit, Anchor);
+            string period = Controls.PeriodPicker.Text(Unit, Anchor, CustomFrom, CustomTo);
             string when = period switch
             {
                 "All time" => "in total",
@@ -158,7 +165,24 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     }
     partial void OnAnchorChanged(DateTime value)
     {
-        if (Unit != ReportRange.All) _ = LoadAsync();
+        if (Unit is not (ReportRange.All or ReportRange.Custom)) _ = LoadAsync();
+    }
+
+    partial void OnCustomFromChanged(DateTime value) => CustomChanged();
+    partial void OnCustomToChanged(DateTime value) => CustomChanged();
+
+    // Both ends usually change together: one load for the pair.
+    private bool _customPending;
+
+    private void CustomChanged()
+    {
+        if (Unit != ReportRange.Custom || _customPending) return;
+        _customPending = true;
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() =>
+        {
+            _customPending = false;
+            _ = LoadAsync();
+        });
     }
     partial void OnSortChanged(string value) => ApplyView();
     partial void OnSearchChanged(string value) => ApplyView();
@@ -204,7 +228,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public async Task LoadAsync()
     {
         int id = ++_loadId;
-        var (from, to) = ReportBuilder.Bounds(Unit, Anchor);
+        var (from, to) = Period;
         var first = await reports.FirstDayAsync();
         var report = await reports.BuildRangeAsync(from, to);
         if (id != _loadId) return; // a newer range or day was picked meanwhile
@@ -215,7 +239,14 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         var keep = _pendingSelection ?? Selected?.Exe;
         ApplyView();
         if (keep is not null) SelectExe(keep);
-        else if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
+        // The app picked before isn't in this period: the top one instead (or none), never the old period's figures.
+        if (Selected is not null && !Apps.Any(r => r.Stat.Id == Selected.Id))
+        {
+            _pendingSelection = null;
+            SelectedRow = null;
+            Selected = null;
+        }
+        if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
         OnPropertyChanged(nameof(Summary));
         if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected));
     }

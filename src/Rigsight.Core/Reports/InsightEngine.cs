@@ -32,7 +32,7 @@ public static class InsightEngine
         var list = new List<Insight>();
         if (!r.HasData) return list;
 
-        bool isDay = r.Range == ReportRange.Day;
+        bool isDay = ReportBuilder.IsDayLike(r.Range, r.From, r.To);
         bool inProgress = r.From <= DateTime.Now && DateTime.Now < r.To;
         bool enoughUse = r.ActiveSec >= MinUseForInsights;
         int usualDays = usual?.DaysWithData ?? 0;
@@ -222,6 +222,7 @@ public static class InsightEngine
                 ReportRange.Day => inProgress ? "yesterday by this time" : "the day before",
                 ReportRange.Week => inProgress ? "last week by this point" : "the week before",
                 ReportRange.Year => inProgress ? "last year by this point" : "the year before",
+                ReportRange.Custom => "the same length of time just before",
                 _ => inProgress ? "last month by this point" : "the month before",
             };
             return $"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than {than}.";
@@ -240,11 +241,12 @@ public static class InsightEngine
     }
 
     private static string When(Report r, DateTime time, bool at = true) =>
-        (at ? "at " : "") + (r.Range == ReportRange.Day ? time.ToString("h:mm tt") : time.ToString("ddd d MMM, h:mm tt"));
+        (at ? "at " : "") + (r.Range == ReportRange.Day || (r.Range == ReportRange.Custom && r.From.Date == r.To.AddTicks(-1).Date)
+            ? time.ToString("h:mm tt") : time.ToString("ddd d MMM, h:mm tt"));
 
     private static string PeriodWord(Report r) => r.Range switch
     {
-        ReportRange.Day => "day", ReportRange.Week => "week", ReportRange.Year => "year", ReportRange.All => "stretch", _ => "month",
+        ReportRange.Day => "day", ReportRange.Week => "week", ReportRange.Year => "year", ReportRange.All or ReportRange.Custom => "stretch", _ => "month",
     };
 
     private static string Minutes(int minutes) => minutes >= 60 ? Units.Duration(minutes * 60) : $"{minutes} minute{(minutes == 1 ? "" : "s")}";

@@ -13,6 +13,7 @@ using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 using Rigsight.Models;
 using Rigsight.Services;
+using Rigsight.Tests.Data;
 using Rigsight.Tests.Support;
 using Rigsight.ViewModels;
 
@@ -543,6 +544,35 @@ public sealed class ControlTests
         Ui.AssertNoProblems($"day timeline, {shape}");
     }
 
+    [Fact]
+    public void Day_timeline_over_a_range_past_midnight()
+    {
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var from = DateTime.Today.AddDays(-2).AddHours(8);
+            var to = from.AddHours(19); // 3 AM
+            var segments = Enumerable.Range(0, 19 * 6).Select(i => new TimelineSegment
+            {
+                Start = from.AddMinutes(i * 10), End = from.AddMinutes(i * 10 + 10), AppId = i % 4, App = $"App {i % 4}", Category = (AppCategory)(i % 9),
+            }).ToList();
+            var temps = Enumerable.Range(0, 19 * 60).Select(m => new TempPoint(from.AddMinutes(m), 40 + m % 30, 50)).ToList();
+            var t = new DayTimeline { Day = from, End = to, Segments = segments, Temps = temps, RecordedUntil = DateTime.Now };
+            Assert.True(Draw.Inked(Draw.Render(t, 1000, 200)) > 0);
+            foreach (var x in new[] { 10.0, 500, 990 })
+            {
+                Draw.Set(t, "_hoverX", x);
+                t.InvalidateVisual();
+                Draw.Again(t);
+            }
+            // A range still going on.
+            t.Day = DateTime.Today.AddDays(-1);
+            t.End = ReportBuilder.HourEnd(DateTime.Now);
+            Assert.True(Draw.Inked(Draw.Render(t, 1000, 200)) > 0);
+        });
+        Ui.AssertNoProblems("day timeline over a range");
+    }
+
     // ── Crash strip ──────────────────────────────────────────────────────
 
     [Theory]
@@ -916,6 +946,164 @@ public sealed class ControlTests
             Assert.Equal(1, radios.Count(r => r.IsChecked == true));
             var reports = Picker(ReportRange.Day, DateTime.Today, all: false);
             Assert.Equal(Visibility.Collapsed, reports.AllButton.Visibility);
+        });
+    }
+
+    // ── Custom ranges ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Custom_ranges_are_read_from_dates_and_hours()
+    {
+        var now = new DateTime(2026, 6, 12, 14, 30, 0);
+        var day = new DateTime(2026, 6, 10);
+        Assert.Equal((day.AddHours(8), day.AddDays(1).AddHours(1), (string?)null), PeriodPicker.ReadRange(day, 8, day.AddDays(1), 1, now));
+        Assert.Equal("Pick a date and hour for both ends.", PeriodPicker.ReadRange(null, 8, day, 9, now).Error);
+        Assert.Equal("Pick a date and hour for both ends.", PeriodPicker.ReadRange(day, -1, day, 9, now).Error);
+        Assert.Equal("Pick a date and hour for both ends.", PeriodPicker.ReadRange(day, 8, day, -1, now).Error);
+        Assert.Equal("The end has to be after the start.", PeriodPicker.ReadRange(day, 9, day, 9, now).Error);
+        Assert.Equal("The end has to be after the start.", PeriodPicker.ReadRange(day.AddDays(1), 1, day, 23, now).Error);
+        Assert.Equal("That's still to come.", PeriodPicker.ReadRange(now.Date, 15, now.Date, 18, now).Error);
+        Assert.Null(PeriodPicker.ReadRange(now.Date, 14, now.Date.AddDays(1), 0, now).Error); // the hour now, into the future: fine
+    }
+
+    [Theory]
+    [InlineData(0.2, "1 hour")]
+    [InlineData(1, "1 hour")]
+    [InlineData(17, "17 hours")]
+    [InlineData(24, "1 day")]
+    [InlineData(48, "2 days")]
+    [InlineData(25, "1 day and 1 hour")]
+    [InlineData(76, "3 days and 4 hours")]
+    public void Custom_range_lengths_in_words(double hours, string text) =>
+        Assert.Equal(text, PeriodPicker.Duration(TimeSpan.FromHours(hours)));
+
+    [Theory]
+    [InlineData(0, "12 AM")]
+    [InlineData(1, "1 AM")]
+    [InlineData(11, "11 AM")]
+    [InlineData(12, "12 PM")]
+    [InlineData(23, "11 PM")]
+    public void Hours_in_the_range_editor(int hour, string text) => Assert.Equal(text, PeriodPicker.HourText(hour));
+
+    [Fact]
+    public void Custom_bounds_words_and_spans()
+    {
+        using var c = Make.Culture();
+        var (from, to) = (new DateTime(2020, 3, 4, 8, 0, 0), new DateTime(2020, 3, 5, 1, 0, 0));
+        Assert.Equal((from, to), PeriodPicker.Bounds(ReportRange.Custom, DateTime.Today, from, to));
+        Assert.Equal("Wed 4 Mar 2020, 8 AM – Thu 5 Mar 2020, 1 AM", PeriodPicker.Text(ReportRange.Custom, DateTime.Today, from, to));
+        Assert.Equal("17 hours", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, null, from, to)); // the dates are on the picker
+        Assert.Equal("", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, null, default, default));
+        // Not picked yet: the day around the anchor, and "Custom".
+        Assert.Equal(ReportBuilder.Bounds(ReportRange.Custom, from), PeriodPicker.Bounds(ReportRange.Custom, from, default, default));
+        Assert.Equal("Custom", PeriodPicker.Text(ReportRange.Custom, from, default, default));
+        // Other units ignore the custom ends.
+        Assert.Equal(ReportBuilder.Bounds(ReportRange.Week, from), PeriodPicker.Bounds(ReportRange.Week, from, from, to));
+        Assert.Equal(PeriodPicker.Text(ReportRange.Week, from), PeriodPicker.Text(ReportRange.Week, from, from, to));
+    }
+
+    // Asked to open: a popup only really opens in a window on screen.
+    private static bool EditorOpen(PeriodPicker p) => p.RangePopup.ReadLocalValue(Popup.IsOpenProperty) is true;
+
+    [Fact]
+    public void Picking_custom_starts_from_the_period_shown_and_opens_the_editor()
+    {
+        Ui.Run(() =>
+        {
+            var week = DateTime.Today.AddDays(-14);
+            var p = Picker(ReportRange.Week, week);
+            var radios = p.UnitButtons.Children.OfType<RadioButton>().ToList();
+            radios.Single(r => (string)r.Tag == "Custom").IsChecked = true;
+            Assert.Equal(ReportRange.Custom, p.Unit);
+            Assert.Equal(ReportBuilder.Bounds(ReportRange.Week, week), (p.CustomFrom, p.CustomTo));
+            Assert.True(EditorOpen(p));
+            Assert.Equal(p.CustomFrom.Date, p.FromDate.SelectedDate);
+            Assert.Equal(0, p.FromHour.SelectedIndex);
+            Assert.Equal(p.CustomTo.Date, p.ToDate.SelectedDate);
+            Assert.Equal(Report.CustomTitle(p.CustomFrom, p.CustomTo), p.Pager.Label);
+            Assert.NotNull(p.Pager.LabelCommand);
+            Assert.Equal(1, radios.Count(r => r.IsChecked == true));
+            p.RangePopup.IsOpen = false;
+
+            // Today: up to the end of this hour, not midnight to come.
+            var today = Picker(ReportRange.Day, DateTime.Today);
+            today.UnitButtons.Children.OfType<RadioButton>().Single(r => (string)r.Tag == "Custom").IsChecked = true;
+            Assert.Equal((DateTime.Today, ReportBuilder.HourEnd(DateTime.Now)), (today.CustomFrom, today.CustomTo));
+            today.RangePopup.IsOpen = false;
+
+            // Back to a unit: the calendar label again.
+            radios.Single(r => (string)r.Tag == "Day").IsChecked = true;
+            Assert.Equal(ReportRange.Day, p.Unit);
+            Assert.Null(p.Pager.LabelCommand);
+        });
+    }
+
+    [Fact]
+    public void The_range_editor_shows_what_is_wrong_and_applies_whole_hours()
+    {
+        Ui.Run(() =>
+        {
+            var day = DateTime.Today.AddDays(-5);
+            var p = Picker(ReportRange.Custom, DateTime.Today);
+            (p.CustomFrom, p.CustomTo) = (day.AddHours(8), day.AddHours(20));
+            p.Pager.LabelCommand!.Execute(null);
+            Assert.True(EditorOpen(p));
+            Assert.Equal(8, p.FromHour.SelectedIndex);
+            Assert.Equal(20, p.ToHour.SelectedIndex);
+
+            void Apply() => typeof(PeriodPicker).GetMethod("RangeApply_Click", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(p, [null, null]);
+            p.ToHour.SelectedIndex = 6;
+            Apply();
+            Assert.True(EditorOpen(p));
+            Assert.Equal(Visibility.Visible, p.RangeError.Visibility);
+            Assert.Equal("The end has to be after the start.", p.RangeError.Text);
+            Assert.Equal(day.AddHours(20), p.CustomTo); // nothing changed
+
+            p.ToDate.SelectedDate = day.AddDays(1);
+            p.ToHour.SelectedIndex = 3;
+            Apply();
+            Assert.False(EditorOpen(p));
+            Assert.Equal((day.AddHours(8), day.AddDays(1).AddHours(3)), (p.CustomFrom, p.CustomTo));
+
+            // Opening again clears the old error.
+            p.Pager.LabelCommand!.Execute(null);
+            Assert.Equal(Visibility.Collapsed, p.RangeError.Visibility);
+            p.RangePopup.IsOpen = false;
+        });
+    }
+
+    [Fact]
+    public void A_custom_range_steps_by_its_own_length()
+    {
+        Ui.Run(() =>
+        {
+            var day = DateTime.Today.AddDays(-3);
+            var p = Picker(ReportRange.Custom, DateTime.Today, min: day.AddHours(2));
+            (p.CustomFrom, p.CustomTo) = (day.AddHours(8), day.AddHours(14));
+            Assert.True(p.Pager.CanGoNext);
+            p.Pager.NextCommand!.Execute(null);
+            Assert.Equal((day.AddHours(14), day.AddHours(20)), (p.CustomFrom, p.CustomTo));
+            p.Pager.PreviousCommand!.Execute(null);
+            p.Pager.PreviousCommand.Execute(null);
+            Assert.Equal((day.AddHours(2), day.AddHours(8)), (p.CustomFrom, p.CustomTo));
+            p.Pager.PreviousCommand.Execute(null); // would end before the first day: stays
+            Assert.Equal((day.AddHours(2), day.AddHours(8)), (p.CustomFrom, p.CustomTo));
+            Assert.Equal(ReportRange.Custom, p.Unit);
+
+            // Up to now: nothing after it.
+            (p.CustomFrom, p.CustomTo) = (ReportBuilder.HourStart(DateTime.Now), ReportBuilder.HourEnd(DateTime.Now.AddMinutes(1)));
+            Assert.False(p.Pager.CanGoNext);
+            var before = (p.CustomFrom, p.CustomTo);
+            p.Pager.NextCommand.Execute(null);
+            Assert.Equal(before, (p.CustomFrom, p.CustomTo));
+
+            // Not picked yet: nowhere to step.
+            var empty = Picker(ReportRange.Custom, DateTime.Today);
+            Assert.Equal("Pick a range", empty.Pager.Label);
+            Assert.False(empty.Pager.CanGoPrevious);
+            Assert.False(empty.Pager.CanGoNext);
+            empty.Pager.PreviousCommand!.Execute(null);
+            Assert.Equal(default, empty.CustomFrom);
         });
     }
 

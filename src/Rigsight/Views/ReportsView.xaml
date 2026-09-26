@@ -27,7 +27,8 @@
             <!-- Header -->
             <DockPanel>
                 <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False"
-                                  Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" />
+                                  Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                  CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
@@ -105,7 +106,7 @@
                                 <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                             </Grid>
                         </DockPanel>
-                        <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" RecordedUntil="{Binding Report.BuiltAt}"
+                        <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
                                          Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                         <ctl:DailyBars Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                         <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"

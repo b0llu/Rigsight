@@ -642,6 +642,16 @@ public sealed class RigsightDb : IDisposable
         return r.Read() ? (D(r, 0), D(r, 1)) : (null, null);
     }
 
+    /// <summary>
+    /// The last day before <paramref name="before"/> (a local midnight) with at least <paramref name="minActiveSec"/> of
+    /// use: its local midnight (Unix seconds), if any.
+    /// </summary>
+    public long? LastUsedDayBefore(long before, double minActiveSec = 300)
+    {
+        using var cmd = Cmd("SELECT max(day) FROM system_day WHERE day < $before AND active_sec >= $min", ("$before", before), ("$min", minActiveSec));
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
     /// <summary>When the oldest minute of history is from (Unix seconds), if any.</summary>
     public long? FirstMinuteTime()
     {

@@ -87,6 +87,21 @@ public sealed class ShellTests : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void A_recap_of_an_older_day_opens_that_days_report()
+    {
+        var day = DateTime.Today.AddDays(-3);
+        int activated = CountActivations(() => Ui.Run(() => Shell.Navigate("reports", day.ToString("yyyy-MM-dd"))));
+        Assert.Equal(1, activated);
+        Assert.True(Ui.WaitFor(() => Shell.ReportsPage.Report?.From == day && !Shell.ReportsPage.IsLoading, 15_000));
+        Ui.Run(() =>
+        {
+            Assert.Equal("reports", Shell.CurrentPage);
+            Assert.Equal(ReportRange.Day, Shell.ReportsPage.Range);
+        });
+        Ui.Run(() => Shell.CurrentPage = "home");
+    }
+
+    [Fact]
     public void The_agent_can_open_yesterdays_report()
     {
         CountActivations(() => Ui.Run(() => Shell.Navigate("reports", "yesterday")));
@@ -96,6 +111,25 @@ public sealed class ShellTests : IClassFixture<AppHost>
             Assert.Equal("reports", Shell.CurrentPage);
             Assert.Equal(ReportRange.Day, Shell.ReportsPage.Range);
         });
+        Ui.Run(() => Shell.CurrentPage = "home");
+    }
+
+    [Fact]
+    public void A_recap_of_a_day_past_midnight_opens_its_whole_range()
+    {
+        var (from, to) = (DateTime.Today.AddDays(-2).AddHours(8), DateTime.Today.AddDays(-1).AddHours(3));
+        var link = ReportBuilder.LinkFor(new Report { Range = ReportRange.Custom, From = from, To = to });
+        int activated = CountActivations(() => Ui.Run(() => Shell.Navigate("reports", link)));
+        Assert.Equal(1, activated);
+        Assert.True(Ui.WaitFor(() => Shell.ReportsPage.Report is { Range: ReportRange.Custom } r && r.From == from && !Shell.ReportsPage.IsLoading, 15_000));
+        Ui.Run(() =>
+        {
+            Assert.Equal("reports", Shell.CurrentPage);
+            Assert.Equal(to, Shell.ReportsPage.Report!.To);
+        });
+        // A day link after it: back to a day.
+        Ui.Run(() => Shell.Navigate("reports", "yesterday"));
+        Assert.True(Ui.WaitFor(() => Shell.ReportsPage.Report is { Range: ReportRange.Day } && !Shell.ReportsPage.IsLoading, 15_000));
         Ui.Run(() => Shell.CurrentPage = "home");
     }
 

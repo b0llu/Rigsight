@@ -1,4 +1,5 @@
 using System.Windows;
+using Rigsight.Core.Reports;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
 
@@ -78,6 +79,40 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
             Ui.Pump(200);
             Ui.AssertNoProblems($"{page} with live data");
         }
+    }
+
+    [Fact]
+    public void Custom_ranges_render_on_every_page_that_offers_them()
+    {
+        Ui.TakeProblems();
+        var from = DateTime.Today.AddDays(-2).AddHours(8);
+        foreach (var (page, to) in new[] { ("reports", from.AddHours(19)), ("reports", from.AddDays(40)), ("apps", from.AddHours(19)),
+                     ("apps", from.AddDays(120)), ("crashes", from.AddHours(19)), ("crashes", from.AddDays(20)) })
+        {
+            host.Show(page, 200);
+            // The range set as the editor would set it. (The editor itself is tested on its own: popping it up here
+            // wakes whatever accessibility tools run on the PC, which then hold on to parts of the window for a while
+            // and upset the memory tests that follow.)
+            Ui.Run(() =>
+            {
+                var picker = Visuals.Descendants<Controls.PeriodPicker>(host.Window.PageHost).Single();
+                picker.Unit = ReportRange.Custom;
+                picker.CustomFrom = from;
+                picker.CustomTo = to;
+                Assert.Equal(Report.CustomTitle(from, to), picker.Pager.Label);
+            });
+            Ui.Pump(600);
+            host.ScrollThrough();
+            Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, $"custom-{page}-{(to - from).TotalHours:0}h.png")));
+            Ui.AssertNoProblems($"{page} over {(to - from).TotalHours:0} hours");
+        }
+        Ui.Run(() =>
+        {
+            host.Shell.ReportsPage.ShowDay(DateTime.Today);
+            host.Shell.Apps.Unit = ReportRange.Week;
+            host.Shell.Crashes.Unit = ReportRange.Month;
+        });
+        Ui.Pump(300);
     }
 
     [Fact]

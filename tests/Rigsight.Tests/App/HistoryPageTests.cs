@@ -1,3 +1,4 @@
+using Rigsight.Controls;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -78,8 +79,56 @@ public sealed class HistoryPageTests
         Kit.Wait(() => home.RefreshAsync());
         foreach (var p in new[] { nameof(HomeViewModel.Today), nameof(HomeViewModel.TodayTopApps), nameof(HomeViewModel.TodayInsights),
                      nameof(HomeViewModel.HasTodayData), nameof(HomeViewModel.ShowLearning), nameof(HomeViewModel.Yesterday),
-                     nameof(HomeViewModel.YesterdayTopApps), nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
+                     nameof(HomeViewModel.YesterdayTopApps), nameof(HomeViewModel.YesterdayNote), nameof(HomeViewModel.YesterdayLink),
+                     nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
             Assert.Contains(p, changed);
+    }
+
+    [Fact]
+    public void Home_yesterday_is_the_whole_day_as_lived()
+    {
+        var (_, reports, live) = Setup();
+        var home = Ui.Run(() => new HomeViewModel(reports, live));
+        Kit.Wait(() => home.RefreshAsync());
+        var yesterday = DateTime.Today.AddDays(-1);
+        (DateTime From, DateTime To)? span = null;
+        Kit.Wait(async () => { span = await reports.YourDayAsync(yesterday); });
+        Ui.Run(() =>
+        {
+            var y = home.Yesterday!;
+            if (span is { } s && ReportBuilder.RanPastMidnight(s, yesterday))
+            {
+                // Past midnight: first to last hour of it, with a note, and "Full report" opens the same range.
+                Assert.Equal(ReportRange.Custom, y.Range);
+                Assert.Equal((ReportBuilder.HourStart(s.From), ReportBuilder.HourEnd(s.To)), (y.From, y.To));
+                Assert.EndsWith(", past midnight", home.YesterdayNote);
+                Assert.Equal((null, (y.From, y.To)), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
+            }
+            else
+            {
+                // An ordinary day: midnight to midnight, no note.
+                Assert.Equal(ReportRange.Day, y.Range);
+                Assert.Equal(yesterday, y.From);
+                Assert.Null(home.YesterdayNote);
+                Assert.Equal((yesterday, null), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
+            }
+        });
+    }
+
+    [Fact]
+    public void A_yesterday_past_midnight_has_a_note_and_a_range_link()
+    {
+        var (_, reports, live) = Setup();
+        var home = Ui.Run(() => new HomeViewModel(reports, live));
+        var yesterday = DateTime.Today.AddDays(-1);
+        Ui.Run(() => home.Yesterday = new Report { Range = ReportRange.Custom, From = yesterday.AddHours(8), To = DateTime.Today.AddHours(1) });
+        Ui.Run(() =>
+        {
+            Assert.Equal("8 AM – 1 AM, past midnight", home.YesterdayNote);
+            Assert.Equal((null, (yesterday.AddHours(8), DateTime.Today.AddHours(1))), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
+        });
+        Ui.Run(() => home.Yesterday = null);
+        Ui.Run(() => Assert.Equal("yesterday", home.YesterdayLink));
     }
 
     // ── Reports ──────────────────────────────────────────────────────────
@@ -178,6 +227,77 @@ public sealed class HistoryPageTests
                 _ => "This year",
             });
         });
+    }
+
+    [Fact]
+    public void Reports_of_a_custom_range_past_midnight()
+    {
+        var vm = Reports(out _);
+        var from = DateTime.Today.AddDays(-2).AddHours(8).AddMinutes(4);
+        var to = DateTime.Today.AddDays(-1).AddHours(1).AddMinutes(27);
+        Ui.Run(() => vm.ShowRange(from, to));
+        var (start, end) = (DateTime.Today.AddDays(-2).AddHours(8), DateTime.Today.AddDays(-1).AddHours(2));
+        Settle(vm, () => vm.Report is { Range: ReportRange.Custom } r && r.From == start);
+        Ui.Run(() =>
+        {
+            Assert.Equal(ReportRange.Custom, vm.Range);
+            Assert.Equal((start, end), (vm.CustomFrom, vm.CustomTo));
+            Assert.Equal(end, vm.Report!.To);
+            Assert.Equal(end, vm.TimelineEnd);
+            Assert.True(vm.IsDay);
+            Assert.False(vm.IsMultiDay);
+            Assert.False(vm.IsYear);
+            Assert.Equal("18 hours", vm.Subtitle);
+            Assert.Equal(Report.CustomTitle(start, end), vm.Title);
+            Assert.False(vm.IncludesNow);
+            Assert.Null(vm.CoverageNote);
+            Assert.All(vm.Report.Timeline, s => Assert.True(s.Start >= start && s.End <= end));
+            Assert.DoesNotContain(vm.Report.Insights, i => i.Text.Contains("The night before ran late"));
+        });
+
+        // Back to a day: the whole day again.
+        Ui.Run(() => vm.ShowDay(DateTime.Today.AddDays(-1)));
+        Settle(vm, () => vm.Report is { Range: ReportRange.Day });
+        Ui.Run(() =>
+        {
+            Assert.Null(vm.TimelineEnd);
+            Assert.Equal("Yesterday", vm.Title);
+        });
+    }
+
+    [Theory]
+    [InlineData(5, false, "Active time per day")]
+    [InlineData(120, true, "Active time per month")]
+    public void Reports_of_long_custom_ranges(int days, bool isYear, string barsTitle)
+    {
+        var vm = Reports(out _);
+        var (from, to) = (DateTime.Today.AddDays(-days), DateTime.Today);
+        Ui.Run(() => vm.ShowRange(from, to));
+        Settle(vm, () => vm.Report is { Range: ReportRange.Custom } r && r.From == from);
+        Ui.Run(() =>
+        {
+            Assert.False(vm.IsDay);
+            Assert.True(vm.IsMultiDay);
+            Assert.Equal(isYear, vm.IsYear);
+            Assert.Equal(barsTitle, vm.BarsTitle);
+            Assert.Equal($"{days} days", vm.Subtitle);
+            Assert.True(vm.HasData);
+        });
+    }
+
+    [Fact]
+    public void Changing_both_ends_of_a_range_loads_once_with_both()
+    {
+        var vm = Reports(out _);
+        var day = DateTime.Today.AddDays(-3);
+        Ui.Run(() =>
+        {
+            vm.Range = ReportRange.Custom;
+            vm.CustomFrom = day.AddHours(9);
+            vm.CustomTo = day.AddHours(21);
+        });
+        Settle(vm, () => vm.Report is { Range: ReportRange.Custom } r && r.From == day.AddHours(9));
+        Ui.Run(() => Assert.Equal(day.AddHours(21), vm.Report!.To));
     }
 
     [Fact]
@@ -432,6 +552,33 @@ public sealed class HistoryPageTests
         Ui.Run(() => Assert.Equal("steam.exe", vm.Selected?.Exe));
     }
 
+    [Fact]
+    public void Apps_a_period_without_the_selected_app_doesnt_keep_the_old_periods_numbers()
+    {
+        var (vm, _) = Apps();
+        Assert.NotNull(Ui.Run(() => vm.Selected));
+        // A week long before any history: no apps, so nothing selected (not the old week's app and figures).
+        Ui.Run(() => vm.Anchor = DateTime.Today.AddYears(-1));
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() =>
+        {
+            Assert.Empty(vm.Apps);
+            Assert.Null(vm.Selected);
+            Assert.False(vm.HasSelection);
+        });
+    }
+
+    [Fact]
+    public void Apps_an_app_picked_by_hand_isnt_replaced_by_one_asked_for_earlier()
+    {
+        var (vm, _) = Apps();
+        Ui.Run(() => vm.SelectExe("not-there.exe")); // e.g. from a notification, for an app with no time in this week
+        var picked = Ui.Run(() => vm.Apps[1]);
+        Ui.Run(() => vm.SelectedRow = picked);
+        Kit.Wait(() => vm.LoadAsync()); // the minute refresh
+        Ui.Run(() => Assert.Equal(picked.Stat.Exe, vm.Selected?.Exe));
+    }
+
     [Theory]
     [InlineData(ReportRange.Day, "Active time per hour", 24)]
     [InlineData(ReportRange.Week, "Active time per day", 7)]
@@ -445,6 +592,42 @@ public sealed class HistoryPageTests
         {
             Assert.Equal(title, vm.ChartTitle);
             Assert.True(vm.SelectedChart!.Sum(b => b.ActiveSec) > 0);
+        });
+    }
+
+    [Theory]
+    [InlineData(19, "Active time per hour", 19)]
+    [InlineData(24 * 5, "Active time per day", 6)] // 8 AM on day one to 8 AM on day six
+    public void Apps_chart_over_a_custom_range(int hours, string title, int bars)
+    {
+        var (vm, _) = Apps();
+        var (_, reports, _) = Setup();
+        // From the start of a day with use (the generated history leaves some days empty), ending before today.
+        int oldest = hours > 48 ? 8 : 4;
+        (DateTime From, DateTime To)? used = null;
+        for (int i = oldest; i >= oldest - 2 && used is null; i--)
+        {
+            var day = DateTime.Today.AddDays(-i);
+            Kit.Wait(async () => { used = await reports.YourDayAsync(day); });
+        }
+        Assert.SkipWhen(used is null, "no use in the generated history on those days");
+        var from = ReportBuilder.HourStart(used!.Value.From);
+        Ui.Run(() =>
+        {
+            vm.CustomFrom = from;
+            vm.CustomTo = from.AddHours(hours);
+            vm.Unit = ReportRange.Custom;
+        });
+        Loaded(vm, () => vm.SelectedChart?.Count == bars);
+        Ui.Run(() =>
+        {
+            Assert.Equal(title, vm.ChartTitle);
+            Assert.Equal(hours <= 48, vm.IsDay);
+            Assert.False(vm.IncludesToday);
+            Assert.Equal(PeriodPicker.Duration(TimeSpan.FromHours(hours)), vm.RangeNote);
+            Assert.EndsWith($" in {Report.CustomTitle(from, from.AddHours(hours))}", vm.Summary);
+            // The first bar is the range's first hour (or day), not midnight before it.
+            Assert.Equal(hours <= 48 ? from : from.Date, vm.SelectedChart![0].Day);
         });
     }
 
