@@ -1073,6 +1073,69 @@ public sealed class ControlTests
     }
 
     [Fact]
+    public void The_editors_end_can_never_be_put_before_its_start()
+    {
+        Ui.Run(() =>
+        {
+            var day = DateTime.Today.AddDays(-10);
+            var p = Picker(ReportRange.Custom, DateTime.Today, min: DateTime.Today.AddDays(-400));
+            (p.CustomFrom, p.CustomTo) = (day.AddHours(8), day.AddHours(20));
+            p.Pager.LabelCommand!.Execute(null);
+            bool Enabled(ComboBox box, int hour) => ((ComboBoxItem)box.Items[hour]).IsEnabled;
+
+            // The end's calendar starts at the start's day; on that day only later hours can be picked.
+            Assert.Equal(day, p.ToDate.DisplayDateStart);
+            Assert.False(Enabled(p.ToHour, 8));
+            Assert.True(Enabled(p.ToHour, 9));
+            Assert.True(Enabled(p.ToHour, 23));
+
+            // Another day for the end: every hour.
+            p.ToDate.SelectedDate = day.AddDays(2);
+            Assert.True(Enabled(p.ToHour, 0));
+
+            // The start moved past the end: the end follows, an hour after it.
+            p.FromDate.SelectedDate = day.AddDays(5);
+            Assert.Equal(day.AddDays(5), p.ToDate.SelectedDate);
+            Assert.Equal(9, p.ToHour.SelectedIndex);
+            Assert.Equal(day.AddDays(5), p.ToDate.DisplayDateStart);
+
+            // A start at 11 PM: the end is the next midnight.
+            p.FromHour.SelectedIndex = 23;
+            Assert.Equal(day.AddDays(6), p.ToDate.SelectedDate);
+            Assert.Equal(0, p.ToHour.SelectedIndex);
+
+            // Nothing from later than now to start from today.
+            p.FromDate.SelectedDate = DateTime.Today;
+            Assert.True(p.FromHour.SelectedIndex <= DateTime.Now.Hour);
+            if (DateTime.Now.Hour < 23) Assert.False(Enabled(p.FromHour, DateTime.Now.Hour + 1));
+            Assert.True(Enabled(p.FromHour, DateTime.Now.Hour));
+            Assert.Equal(DateTime.Today, p.FromDate.DisplayDateEnd);
+            p.RangePopup.IsOpen = false;
+        });
+    }
+
+    [Fact]
+    public void Reopening_the_editor_on_an_older_range_takes_its_dates()
+    {
+        Ui.Run(() =>
+        {
+            // A later range first narrows the calendars; an earlier one opened after must still show its own dates.
+            var p = Picker(ReportRange.Custom, DateTime.Today, min: DateTime.Today.AddDays(-400));
+            (p.CustomFrom, p.CustomTo) = (DateTime.Today.AddDays(-2).AddHours(8), DateTime.Today.AddDays(-2).AddHours(20));
+            p.Pager.LabelCommand!.Execute(null);
+            p.RangePopup.IsOpen = false;
+            var old = DateTime.Today.AddDays(-300);
+            (p.CustomFrom, p.CustomTo) = (old.AddHours(3), old.AddDays(1).AddHours(4));
+            p.Pager.LabelCommand.Execute(null);
+            Assert.Equal(old, p.FromDate.SelectedDate);
+            Assert.Equal(3, p.FromHour.SelectedIndex);
+            Assert.Equal(old.AddDays(1), p.ToDate.SelectedDate);
+            Assert.Equal(4, p.ToHour.SelectedIndex);
+            p.RangePopup.IsOpen = false;
+        });
+    }
+
+    [Fact]
     public void A_custom_range_steps_by_its_own_length()
     {
         Ui.Run(() =>

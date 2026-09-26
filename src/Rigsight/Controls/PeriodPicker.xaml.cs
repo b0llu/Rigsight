@@ -24,6 +24,10 @@ public partial class PeriodPicker : UserControl
             [new CustomPopupPlacement(new Point(target.Width - popup.Width + 8, target.Height + 6), PopupPrimaryAxis.Horizontal)];
         foreach (var box in new[] { FromHour, ToHour })
             for (int h = 0; h < 24; h++) box.Items.Add(new ComboBoxItem { Content = HourText(h), Tag = h });
+        // The end follows the start: never before it, and moved along when the start passes it.
+        FromDate.SelectedDateChanged += (_, _) => KeepInOrder();
+        FromHour.SelectionChanged += (_, _) => KeepInOrder();
+        ToDate.SelectedDateChanged += (_, _) => KeepInOrder();
         Loaded += (_, _) => Refresh();
     }
 
@@ -182,14 +186,64 @@ public partial class PeriodPicker : UserControl
     private void OpenRangeEditor()
     {
         var (from, to) = CustomTo > CustomFrom ? (CustomFrom, CustomTo) : (DateTime.Today, DateTime.Today.AddDays(1));
-        FromDate.DisplayDateStart = ToDate.DisplayDateStart = MinDate;
-        FromDate.DisplayDateEnd = ToDate.DisplayDateEnd = DateTime.Today.AddDays(1);
+        _ordering = true;
+        // Wide open while the dates are set (a date outside a calendar's range isn't taken), then narrowed.
+        FromDate.DisplayDateStart = ToDate.DisplayDateStart = null;
+        FromDate.DisplayDateEnd = ToDate.DisplayDateEnd = null;
         FromDate.SelectedDate = from.Date;
         FromHour.SelectedIndex = from.Hour;
         ToDate.SelectedDate = to.Date;
         ToHour.SelectedIndex = to.Hour;
+        _ordering = false;
+        KeepInOrder();
+        FromDate.DisplayDateStart = MinDate is { } min && min <= from.Date ? min : from.Date;
+        FromDate.DisplayDateEnd = DateTime.Today;
         RangeError.Visibility = Visibility.Collapsed;
         RangePopup.IsOpen = true;
+    }
+
+    private bool _ordering;
+
+    /// <summary>
+    /// Keeps the editor's end after its start: the end's calendar starts at the start's day, its hours on that day
+    /// only after the start's hour, and an end the start has passed moves to an hour after it. The start's hours today
+    /// stop at the current hour (nothing to show after it).
+    /// </summary>
+    private void KeepInOrder()
+    {
+        if (_ordering) return;
+        _ordering = true;
+        try
+        {
+            var now = DateTime.Now;
+            bool startToday = FromDate.SelectedDate?.Date == now.Date;
+            for (int h = 0; h < 24; h++) ((ComboBoxItem)FromHour.Items[h]).IsEnabled = !startToday || h <= now.Hour;
+            if (startToday && FromHour.SelectedIndex > now.Hour) FromHour.SelectedIndex = now.Hour;
+
+            if (FromDate.SelectedDate is not { } fromDay || FromHour.SelectedIndex < 0)
+            {
+                ToDate.DisplayDateStart = MinDate;
+                ToDate.DisplayDateEnd = DateTime.Today.AddDays(1);
+                return;
+            }
+            var from = fromDay.Date.AddHours(FromHour.SelectedIndex);
+            var earliest = from.AddHours(1);
+            if (ToDate.SelectedDate is not { } toDay || toDay.Date.AddHours(Math.Max(0, ToHour.SelectedIndex)) < earliest)
+            {
+                // Passed by the start (or not picked): an hour after the start.
+                ToDate.SelectedDate = toDay = earliest.Date;
+                ToHour.SelectedIndex = earliest.Hour;
+            }
+            ToDate.DisplayDateStart = earliest.Date;
+            ToDate.DisplayDateEnd = DateTime.Today.AddDays(1) > toDay.Date ? DateTime.Today.AddDays(1) : toDay.Date;
+            bool sameDay = toDay.Date == earliest.Date;
+            for (int h = 0; h < 24; h++) ((ComboBoxItem)ToHour.Items[h]).IsEnabled = !sameDay || h >= earliest.Hour;
+            if (sameDay && ToHour.SelectedIndex < earliest.Hour) ToHour.SelectedIndex = earliest.Hour;
+        }
+        finally
+        {
+            _ordering = false;
+        }
     }
 
     /// <summary>The range typed into the editor, or why it can't be shown.</summary>

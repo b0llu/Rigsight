@@ -38,12 +38,18 @@ public static class KeySensors
     /// <summary>A graphics processor and its key sensors (<see cref="GpuKeys"/> to indexes into the flat sensor list).</summary>
     public sealed record Gpu(string Name, string Type, bool Integrated, Dictionary<string, int> Keys);
 
+    /// <summary>
+    /// A graphics adapter as Windows lists it for games (high-performance first): its name and the hardware type of its
+    /// maker ("GpuNvidia", "GpuAmd", "GpuIntel"; "" for another).
+    /// </summary>
+    public sealed record PreferredGpu(string Name, string Type);
+
     /// <summary>The keys every graphics processor has its own of.</summary>
     public static readonly string[] GpuKeys =
         [GpuTemp, GpuHotSpot, GpuMemJunction, GpuLoad, GpuPower, GpuClock, GpuFan, GpuVoltage, GpuVramLoad, GpuVramUsed, GpuVramTotal];
 
     /// <summary>Maps key names to indexes into the flat sensor list. The GPU keys are the main graphics card's (see <see cref="Gpus"/>).</summary>
-    public static Dictionary<string, int> Pick(IReadOnlyList<Candidate> all)
+    public static Dictionary<string, int> Pick(IReadOnlyList<Candidate> all, IReadOnlyList<PreferredGpu>? preferred = null)
     {
         var keys = new Dictionary<string, int>();
         bool IsCpu(Candidate c) => c.HardwareType == "Cpu";
@@ -64,7 +70,7 @@ public static class KeySensors
         Add(keys, all, CpuClock, IsCpu, SensorKind.Clock, "Cores (Average)", "Core #1", "CPU Core #1");
         Add(keys, all, CpuVoltage, IsCpu, SensorKind.Voltage, "Core (SVI2 TFN)", "Core (SVI3 TFN)", "CPU Core", "Core #1 VID", "Core VID");
 
-        if (Gpus(all).FirstOrDefault() is { } gpu)
+        if (Gpus(all, preferred).FirstOrDefault() is { } gpu)
             foreach (var (key, index) in gpu.Keys) keys[key] = index;
 
         Add(keys, all, RamLoad, IsRam, SensorKind.Load, "Memory");
@@ -74,11 +80,14 @@ public static class KeySensors
     }
 
     /// <summary>
-    /// Every graphics processor with its key sensors, the main one first: a dedicated card before integrated graphics
-    /// (a laptop's, or a desktop processor's, which is often listed first and would otherwise hide the card), then
-    /// NVIDIA, AMD, Intel; identical cards (SLI, CrossFire) in the order they're listed.
+    /// Every graphics processor with its key sensors, the main one first. The order is Windows' own when
+    /// <paramref name="preferred"/> is given (the adapters as Windows offers them to games, high-performance first, see
+    /// the agent's GpuPreference): the GPU it gives games is the main one, whatever its maker. GPUs it doesn't name, or
+    /// all of them without it: a dedicated card before integrated graphics (a laptop's, or a desktop processor's, which is
+    /// often listed first and would otherwise hide the card), then NVIDIA, AMD, Intel; identical cards (SLI, CrossFire)
+    /// in the order they're listed.
     /// </summary>
-    public static List<Gpu> Gpus(IReadOnlyList<Candidate> all)
+    public static List<Gpu> Gpus(IReadOnlyList<Candidate> all, IReadOnlyList<PreferredGpu>? preferred = null)
     {
         var found = all
             .Where(c => c.HardwareType is "GpuNvidia" or "GpuAmd" or "GpuIntel")
@@ -103,20 +112,49 @@ public static class KeySensors
                 if (sensors.FirstOrDefault(c => c.Kind == SensorKind.Fan) is { Name: not null } fan) keys[GpuFan] = fan.Index;
                 return (Gpu: new Gpu(first.HardwareName, first.HardwareType, LooksIntegrated(first.HardwareType, first.HardwareName), keys), Order: order);
             });
-        return [.. found.OrderByDescending(g => Rank(g.Gpu)).ThenBy(g => g.Order).Select(g => g.Gpu)];
+        var gpus = found.ToList();
+        var place = WindowsOrder(gpus.Select(g => g.Gpu).ToList(), preferred ?? []);
+        return [.. gpus.OrderBy(g => place[g.Order]).ThenByDescending(g => Rank(g.Gpu)).ThenBy(g => g.Order).Select(g => g.Gpu)];
     }
+
+    /// <summary>
+    /// Where each GPU comes in Windows' list (int.MaxValue: not in it). An adapter is matched by name (ignoring ®, ™,
+    /// "(R)", "(TM)", case and spacing), else by maker when that maker has just one GPU left; each GPU once, so two
+    /// identical cards match two adapters in turn.
+    /// </summary>
+    private static int[] WindowsOrder(List<Gpu> gpus, IReadOnlyList<PreferredGpu> preferred)
+    {
+        var place = Enumerable.Repeat(int.MaxValue, gpus.Count).ToArray();
+        for (int p = 0; p < preferred.Count; p++)
+        {
+            var want = preferred[p];
+            string name = Plain(want.Name);
+            int match = Enumerable.Range(0, gpus.Count).FirstOrDefault(i => place[i] == int.MaxValue && Plain(gpus[i].Name) == name, -1);
+            if (match < 0)
+            {
+                var sameMaker = Enumerable.Range(0, gpus.Count).Where(i => place[i] == int.MaxValue && gpus[i].Type == want.Type && want.Type != "").ToList();
+                if (sameMaker.Count == 1) match = sameMaker[0];
+            }
+            if (match >= 0) place[match] = p;
+        }
+        return place;
+    }
+
+    private static string Plain(string name) =>
+        Regex.Replace(Regex.Replace(name, @"\((R|TM|C)\)|[®™©]", "", RegexOptions.IgnoreCase), @"\s+", " ").Trim().ToLowerInvariant();
 
     private static int Rank(Gpu g) => (g.Integrated ? 0 : 10) + g.Type switch { "GpuNvidia" => 3, "GpuAmd" => 2, _ => 1 };
 
     /// <summary>
-    /// Integrated graphics, by name: Intel's (all but Arc cards), and AMD's inside Ryzen processors ("AMD Radeon(TM)
-    /// Graphics", "Radeon 780M Graphics", "Radeon Vega 8 Graphics"). Cards are "Radeon RX ...", "Radeon Pro ...", "Arc ...".
+    /// Integrated graphics, by name: Intel's, except Arc cards ("Arc A770", "Arc B580", "Arc Pro"; the "Intel Arc
+    /// Graphics" inside Core Ultra processors is integrated), and AMD's inside Ryzen processors ("AMD Radeon(TM)
+    /// Graphics", "Radeon 780M Graphics", "Radeon 680M", "Radeon Vega 8 Graphics"). Cards are "Radeon RX ...", "Radeon Pro ...".
     /// </summary>
     public static bool LooksIntegrated(string type, string name) => type switch
     {
-        "GpuIntel" => !name.Contains("Arc", StringComparison.OrdinalIgnoreCase),
+        "GpuIntel" => !Regex.IsMatch(name, @"\bArc\s*(\(TM\)|\u2122)?\s*(Pro\b|[AB]\d{3})", RegexOptions.IgnoreCase),
         "GpuAmd" => !Regex.IsMatch(name, @"\b(RX|Pro|FirePro|VII)\b", RegexOptions.IgnoreCase)
-            && Regex.IsMatch(name, @"Radeon\s*(\(TM\)|\u2122)?\s*(\d{3,4}M\s+|Vega\s*\d*\s+)?Graphics|Vega\s*\d+", RegexOptions.IgnoreCase),
+            && Regex.IsMatch(name, @"Radeon\s*(\(TM\)|\u2122)?\s*(\d{3,4}M\b|(Vega\s*\d*\s+)?Graphics)|Vega\s*\d+", RegexOptions.IgnoreCase),
         _ => false,
     };
 

@@ -79,56 +79,21 @@ public sealed class HistoryPageTests
         Kit.Wait(() => home.RefreshAsync());
         foreach (var p in new[] { nameof(HomeViewModel.Today), nameof(HomeViewModel.TodayTopApps), nameof(HomeViewModel.TodayInsights),
                      nameof(HomeViewModel.HasTodayData), nameof(HomeViewModel.ShowLearning), nameof(HomeViewModel.Yesterday),
-                     nameof(HomeViewModel.YesterdayTopApps), nameof(HomeViewModel.YesterdayNote), nameof(HomeViewModel.YesterdayLink),
-                     nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
+                     nameof(HomeViewModel.YesterdayTopApps), nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
             Assert.Contains(p, changed);
     }
 
     [Fact]
-    public void Home_yesterday_is_the_whole_day_as_lived()
+    public void Home_yesterday_is_the_calendar_day()
     {
         var (_, reports, live) = Setup();
         var home = Ui.Run(() => new HomeViewModel(reports, live));
         Kit.Wait(() => home.RefreshAsync());
-        var yesterday = DateTime.Today.AddDays(-1);
-        (DateTime From, DateTime To)? span = null;
-        Kit.Wait(async () => { span = await reports.YourDayAsync(yesterday); });
         Ui.Run(() =>
         {
-            var y = home.Yesterday!;
-            if (span is { } s && ReportBuilder.RanPastMidnight(s, yesterday))
-            {
-                // Past midnight: first to last hour of it, with a note, and "Full report" opens the same range.
-                Assert.Equal(ReportRange.Custom, y.Range);
-                Assert.Equal((ReportBuilder.HourStart(s.From), ReportBuilder.HourEnd(s.To)), (y.From, y.To));
-                Assert.EndsWith(", past midnight", home.YesterdayNote);
-                Assert.Equal((null, (y.From, y.To)), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
-            }
-            else
-            {
-                // An ordinary day: midnight to midnight, no note.
-                Assert.Equal(ReportRange.Day, y.Range);
-                Assert.Equal(yesterday, y.From);
-                Assert.Null(home.YesterdayNote);
-                Assert.Equal((yesterday, null), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
-            }
+            Assert.Equal(ReportRange.Day, home.Yesterday!.Range);
+            Assert.Equal((DateTime.Today.AddDays(-1), DateTime.Today), (home.Yesterday.From, home.Yesterday.To));
         });
-    }
-
-    [Fact]
-    public void A_yesterday_past_midnight_has_a_note_and_a_range_link()
-    {
-        var (_, reports, live) = Setup();
-        var home = Ui.Run(() => new HomeViewModel(reports, live));
-        var yesterday = DateTime.Today.AddDays(-1);
-        Ui.Run(() => home.Yesterday = new Report { Range = ReportRange.Custom, From = yesterday.AddHours(8), To = DateTime.Today.AddHours(1) });
-        Ui.Run(() =>
-        {
-            Assert.Equal("8 AM – 1 AM, past midnight", home.YesterdayNote);
-            Assert.Equal((null, (yesterday.AddHours(8), DateTime.Today.AddHours(1))), ReportBuilder.ReadLink(home.YesterdayLink, DateTime.Today));
-        });
-        Ui.Run(() => home.Yesterday = null);
-        Ui.Run(() => Assert.Equal("yesterday", home.YesterdayLink));
     }
 
     // ── Reports ──────────────────────────────────────────────────────────
@@ -141,6 +106,14 @@ public sealed class HistoryPageTests
         Kit.Wait(() => vm.LoadAsync());
         return vm;
     }
+
+    /// <summary>Picks a custom range, as the range editor does.</summary>
+    private static void Custom(ReportsViewModel vm, DateTime from, DateTime to) => Ui.Run(() =>
+    {
+        vm.CustomFrom = from;
+        vm.CustomTo = to;
+        vm.Range = ReportRange.Custom;
+    });
 
     private static void Settle(ReportsViewModel vm, Func<bool> done) =>
         Assert.True(Ui.WaitFor(() => !vm.IsLoading && done(), 15_000), "the report didn't load");
@@ -233,10 +206,8 @@ public sealed class HistoryPageTests
     public void Reports_of_a_custom_range_past_midnight()
     {
         var vm = Reports(out _);
-        var from = DateTime.Today.AddDays(-2).AddHours(8).AddMinutes(4);
-        var to = DateTime.Today.AddDays(-1).AddHours(1).AddMinutes(27);
-        Ui.Run(() => vm.ShowRange(from, to));
         var (start, end) = (DateTime.Today.AddDays(-2).AddHours(8), DateTime.Today.AddDays(-1).AddHours(2));
+        Custom(vm, start, end);
         Settle(vm, () => vm.Report is { Range: ReportRange.Custom } r && r.From == start);
         Ui.Run(() =>
         {
@@ -272,7 +243,7 @@ public sealed class HistoryPageTests
     {
         var vm = Reports(out _);
         var (from, to) = (DateTime.Today.AddDays(-days), DateTime.Today);
-        Ui.Run(() => vm.ShowRange(from, to));
+        Custom(vm, from, to);
         Settle(vm, () => vm.Report is { Range: ReportRange.Custom } r && r.From == from);
         Ui.Run(() =>
         {
@@ -604,14 +575,14 @@ public sealed class HistoryPageTests
         var (_, reports, _) = Setup();
         // From the start of a day with use (the generated history leaves some days empty), ending before today.
         int oldest = hours > 48 ? 8 : 4;
-        (DateTime From, DateTime To)? used = null;
+        DateTime? used = null;
         for (int i = oldest; i >= oldest - 2 && used is null; i--)
         {
             var day = DateTime.Today.AddDays(-i);
-            Kit.Wait(async () => { used = await reports.YourDayAsync(day); });
+            Kit.Wait(async () => { used = (await reports.BuildAsync(ReportRange.Day, day))?.DayStart; });
         }
         Assert.SkipWhen(used is null, "no use in the generated history on those days");
-        var from = ReportBuilder.HourStart(used!.Value.From);
+        var from = ReportBuilder.HourStart(used!.Value);
         Ui.Run(() =>
         {
             vm.CustomFrom = from;

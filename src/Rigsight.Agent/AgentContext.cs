@@ -583,20 +583,17 @@ internal sealed class AgentContext : ApplicationContext
         _justTurnedOn = false;
         var settings = _settings;
         var today = DateTime.Today;
-        var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(today)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
-        if (DailyRecap.DayToRecap(today, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
+        var over = DailyRecap.OverBefore(DateTime.Now);
+        var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(over)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
+        if (DailyRecap.DayToRecap(over, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
+        // Built before the day is marked as recapped: if building fails, the next turn-on tries again.
+        var report = settings.Alerts.DailyRecap ? ReportBuilder.Build(_db, ReportRange.Day, day, settings) : null;
         MutateSettings(s =>
         {
             s.RecappedDay = DailyRecap.Key(day);
             s.LastRecapDay = DailyRecap.Key(today);
         });
-        if (!settings.Alerts.DailyRecap) return;
-
-        // The day as it was lived: when it ran past midnight, all of it (see ReportBuilder.YourDay).
-        var report = ReportBuilder.YourDay(_db, day) is { } span && ReportBuilder.RanPastMidnight(span, day)
-            ? ReportBuilder.BuildCustom(_db, span.From, span.To, settings)
-            : ReportBuilder.Build(_db, ReportRange.Day, day, settings);
-        if (!report.HasData || report.ActiveSec < 300) return;
+        if (report is null || !report.HasData || report.ActiveSec < 300) return;
 
         var parts = new List<string> { $"Active {Units.Duration(report.ActiveSec)}" };
         var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
@@ -605,7 +602,7 @@ internal sealed class AgentContext : ApplicationContext
         if (report.GpuTempPeak is { } gpu) parts.Add($"GPU peak {Units.TempShort(gpu.Value)}");
 
         string text = string.Join("  ·  ", parts) + ". Click for the full recap.";
-        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: ReportBuilder.LinkFor(report))), null);
+        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: DailyRecap.Key(day))), null);
     }
 
     private void OnSessionEnded(SessionRow row, AppInfo app)
@@ -715,6 +712,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             hello.Hardware = _sensors.Schema;
             hello.Keys = _sensors.Keys;
+            hello.PreferredGpus = _sensors.PreferredGpus;
             hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
             hello.Drives = _sensors.DriveHealth;
             _sendAllExtremes = true;

@@ -111,6 +111,22 @@ public sealed class LogTests
     }
 
     [Fact]
+    public void Only_the_program_that_rotates_moves_a_full_log_aside()
+    {
+        // The app (not rotating) adds to a full log; the agent moves it to .old and starts a new one.
+        var file = NewLog();
+        File.WriteAllText(file, new string('x', 1_000_100));
+        Log.WriteTo(file, "app", "still here", rotate: false);
+        Assert.False(File.Exists(file + ".old"));
+        Assert.EndsWith("[app] still here" + Environment.NewLine, File.ReadAllText(file));
+        Log.WriteTo(file, "agent", "fresh start");
+        Assert.True(File.Exists(file + ".old"));
+        Assert.EndsWith("[app] still here" + Environment.NewLine, File.ReadAllText(file + ".old"));
+        Assert.EndsWith("[agent] fresh start" + Environment.NewLine, File.ReadAllText(file));
+        Assert.False(Log.Rotates); // the tests (like the app) never rotate the shared log
+    }
+
+    [Fact]
     public void The_folder_is_created_when_missing()
     {
         var file = Path.Combine(TestEnvironment.NewFolder("log"), "a", "b", "rigsight.log");

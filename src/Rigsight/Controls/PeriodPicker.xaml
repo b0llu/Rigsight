@@ -26,7 +26,7 @@
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                 </Border.Effect>
-                <StackPanel Width="300">
+                <StackPanel Width="400">
                     <TextBlock Text="FROM" Style="{StaticResource Caption}" Margin="0,0,0,6" />
                     <DockPanel>
                         <ComboBox x:Name="FromHour" DockPanel.Dock="Right" Width="104" Margin="8,0,0,0" AutomationProperties.Name="From hour" />

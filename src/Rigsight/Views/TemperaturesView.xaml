@@ -71,8 +71,8 @@
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                            <!-- Several GPUs (a processor's graphics and a card, or two cards): switch between them. -->
-                            <StackPanel Orientation="Horizontal" Margin="-6,0,8,0" ToolTip="{Binding GpuPositionText}"
+                            <!-- Several GPUs (a processor's graphics and a card, or two cards): switch between them, at the row's right end. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,-6,0" VerticalAlignment="Center" ToolTip="{Binding GpuPositionText}"
                                         Visibility="{Binding HasSeveralGpus, Converter={StaticResource Vis}}">
                                 <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding PreviousGpuCommand}" AutomationProperties.Name="Previous GPU">
                                     <TextBlock Text="&#xE76B;" />

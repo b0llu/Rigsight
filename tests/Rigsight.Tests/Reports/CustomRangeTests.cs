@@ -7,10 +7,10 @@ using static Rigsight.Tests.Data.Make;
 namespace Rigsight.Tests.Reports;
 
 /// <summary>
-/// "Your day" (use from 5 AM to 5 AM, so a night that runs past midnight stays with the day it started) and the custom
-/// ranges it opens: whole hours, compared with the same length just before, linked from Home and the recap.
+/// Custom ranges (from a date and hour to another): whole hours, their titles, and what they're compared with (the same
+/// hours a day earlier up to two days, else the same length just before).
 /// </summary>
-public sealed class YourDayTests
+public sealed class CustomRangeTests
 {
     // A Wednesday well in the past, away from daylight-saving changes.
     private static readonly DateTime Wed = new(2026, 6, 10);
@@ -31,78 +31,6 @@ public sealed class YourDayTests
     {
         var t = new TestDb();
         return (t, t.Db.UpsertApp("game.exe", "Game", null, AppCategory.Game));
-    }
-
-    [Fact]
-    public void A_day_without_use_has_no_span()
-    {
-        var (t, _) = Db();
-        using (t) Assert.Null(ReportBuilder.YourDay(t.Db, Wed));
-    }
-
-    [Fact]
-    public void A_day_ending_before_midnight_runs_from_its_first_to_its_last_minute()
-    {
-        var (t, app) = Db();
-        using (t)
-        {
-            Use(t, app, Wed.AddHours(9).AddMinutes(4), Wed.AddHours(18).AddMinutes(30));
-            var span = ReportBuilder.YourDay(t.Db, Wed)!.Value;
-            Assert.Equal(Wed.AddHours(9).AddMinutes(4), span.From);
-            Assert.Equal(Wed.AddHours(18).AddMinutes(30), span.To);
-            Assert.False(ReportBuilder.RanPastMidnight(span, Wed));
-        }
-    }
-
-    [Fact]
-    public void Gaming_until_3_AM_belongs_to_the_day_it_started()
-    {
-        var (t, app) = Db();
-        using (t)
-        {
-            Use(t, app, Wed.AddHours(8), Wed.AddHours(12));
-            Use(t, app, Wed.AddHours(17), Wed.AddDays(1).AddHours(3));
-            var span = ReportBuilder.YourDay(t.Db, Wed)!.Value;
-            Assert.Equal(Wed.AddHours(8), span.From);
-            Assert.Equal(Wed.AddDays(1).AddHours(3), span.To);
-            Assert.True(ReportBuilder.RanPastMidnight(span, Wed));
-        }
-    }
-
-    [Fact]
-    public void Use_before_5_AM_is_the_night_before_and_after_5_AM_the_next_day()
-    {
-        var (t, app) = Db();
-        using (t)
-        {
-            Use(t, app, Wed.AddHours(1), Wed.AddHours(2));         // Tuesday night's
-            Use(t, app, Wed.AddHours(10), Wed.AddHours(11));
-            Use(t, app, Wed.AddDays(1).AddHours(6), Wed.AddDays(1).AddHours(7)); // Thursday's
-            var span = ReportBuilder.YourDay(t.Db, Wed)!.Value;
-            Assert.Equal((Wed.AddHours(10), Wed.AddHours(11)), span);
-            Assert.Equal((Wed.AddHours(1), Wed.AddHours(2)), ReportBuilder.YourDay(t.Db, Wed.AddDays(-1)));
-        }
-    }
-
-    [Fact]
-    public void The_PC_left_on_but_idle_overnight_is_not_part_of_your_day()
-    {
-        var (t, app) = Db();
-        using (t)
-        {
-            Use(t, app, Wed.AddHours(9), Wed.AddHours(22));
-            Use(t, app, Wed.AddHours(22), Wed.AddDays(1).AddHours(4), active: 0); // a download overnight
-            var span = ReportBuilder.YourDay(t.Db, Wed)!.Value;
-            Assert.Equal(Wed.AddHours(22), span.To);
-            Assert.False(ReportBuilder.RanPastMidnight(span, Wed));
-        }
-    }
-
-    [Fact]
-    public void Ending_exactly_at_midnight_did_not_run_past_it()
-    {
-        Assert.False(ReportBuilder.RanPastMidnight((Wed.AddHours(8), Wed.AddDays(1)), Wed));
-        Assert.True(ReportBuilder.RanPastMidnight((Wed.AddHours(8), Wed.AddDays(1).AddMinutes(1)), Wed));
     }
 
     [Fact]
@@ -138,7 +66,7 @@ public sealed class YourDayTests
     }
 
     [Fact]
-    public void A_late_night_inside_a_custom_range_is_part_of_the_day_not_the_night_before()
+    public void A_late_night_inside_a_custom_range_is_part_of_the_range_not_the_night_before()
     {
         using var _ = Culture();
         var (t, app) = Db();
@@ -149,22 +77,54 @@ public sealed class YourDayTests
             var r = ReportBuilder.BuildCustom(t.Db, Wed.AddHours(8), Wed.AddDays(1).AddHours(1), Settings());
             Assert.Null(r.LateUntil);
             Assert.Equal(Wed.AddHours(8).AddMinutes(4), r.DayStart);
-            Assert.Equal("Your day ran from 8:04 AM to 12:27 AM.", Assert.Single(r.Insights, i => i.Key == "span").Text);
+            Assert.Equal("You were on from Wed 8:04 AM to Thu 12:27 AM.", Assert.Single(r.Insights, i => i.Key == "span").Text);
         }
     }
 
     [Fact]
-    public void A_custom_range_is_compared_with_the_same_length_just_before()
+    public void An_evening_is_compared_with_the_evening_before()
     {
         using var _ = Culture();
         var (t, app) = Db();
         using (t)
         {
-            // Six hours from 6 PM, against the six hours before (noon to 6 PM): three hours then, six now.
-            Use(t, app, Wed.AddHours(12), Wed.AddHours(15));
+            // 6 PM to midnight: three hours of it the evening before, six now. The afternoon just before doesn't count.
+            Use(t, app, Wed.AddHours(12), Wed.AddHours(18));
+            Use(t, app, Wed.AddHours(-6), Wed.AddHours(-3));
             Use(t, app, Wed.AddHours(18), Wed.AddDays(1));
             var r = ReportBuilder.BuildCustom(t.Db, Wed.AddHours(18), Wed.AddDays(1), Settings());
-            Assert.Contains(r.Insights, i => i.Text.Contains("the same length of time just before"));
+            Assert.Contains(r.Insights, i => i.Text == "That's 3h 00m more screen time than the same hours the day before.");
+        }
+    }
+
+    [Fact]
+    public void A_range_longer_than_a_day_is_compared_with_the_same_hours_two_days_before()
+    {
+        using var _ = Culture();
+        var (t, app) = Db();
+        using (t)
+        {
+            // 8 AM to 2 PM the next day (30 hours): the same hours two days earlier, which don't overlap it.
+            Use(t, app, Wed.AddDays(-2).AddHours(9), Wed.AddDays(-2).AddHours(10));
+            Use(t, app, Wed.AddHours(9), Wed.AddHours(14));
+            var r = ReportBuilder.BuildCustom(t.Db, Wed.AddHours(8), Wed.AddDays(1).AddHours(14), Settings());
+            Assert.Contains(r.Insights, i => i.Text == "That's 4h 00m more screen time than the same hours two days before.");
+            Assert.Equal("You were on from Wed 9:00 AM to Wed 2:00 PM.", Assert.Single(r.Insights, i => i.Key == "span").Text);
+        }
+    }
+
+    [Fact]
+    public void A_range_of_several_days_is_compared_with_the_same_length_just_before()
+    {
+        using var _ = Culture();
+        var (t, app) = Db();
+        using (t)
+        {
+            // Four days, against the four days before them.
+            Use(t, app, Wed.AddDays(-3).AddHours(9), Wed.AddDays(-3).AddHours(10));
+            Use(t, app, Wed.AddHours(9), Wed.AddHours(12));
+            var r = ReportBuilder.BuildCustom(t.Db, Wed, Wed.AddDays(4), Settings());
+            Assert.Contains(r.Insights, i => i.Text == "That's 2h 00m more screen time than the same length of time just before.");
         }
     }
 
@@ -205,29 +165,20 @@ public sealed class YourDayTests
     }
 
     [Fact]
-    public void Links_go_back_to_the_same_day_or_range()
+    public void A_range_across_years_names_the_year_on_both_ends()
     {
-        var day = new Report { Range = ReportRange.Day, From = Wed, To = Wed.AddDays(1) };
-        Assert.Equal("2026-06-10", ReportBuilder.LinkFor(day));
-        Assert.Equal((Wed, null), ReportBuilder.ReadLink(ReportBuilder.LinkFor(day), DateTime.Today));
-
-        var range = new Report { Range = ReportRange.Custom, From = Wed.AddHours(8), To = Wed.AddDays(1).AddHours(1) };
-        Assert.Equal("2026-06-10T08:00/2026-06-11T01:00", ReportBuilder.LinkFor(range));
-        Assert.Equal((null, (Wed.AddHours(8), Wed.AddDays(1).AddHours(1))), ReportBuilder.ReadLink(ReportBuilder.LinkFor(range), DateTime.Today));
+        // Only the start's year would read as if the end came first ("Thu 25 Sep 2025 – Thu 17 Sep").
+        using var c = Culture();
+        var thisYear = DateTime.Today.Year;
+        var (from, to) = (new DateTime(thisYear - 1, 9, 25), new DateTime(thisYear, 9, 17, 11, 0, 0));
+        Assert.Equal($"{from:ddd} 25 Sep {thisYear - 1}, 12 AM – {to:ddd} 17 Sep {thisYear}, 11 AM", Report.CustomTitle(from, to));
+        // A single earlier year: once, as the day is named once.
+        var (a, b) = (new DateTime(2020, 3, 4, 8, 0, 0), new DateTime(2020, 3, 4, 17, 0, 0));
+        Assert.Equal("Wed 4 Mar 2020, 8 AM – 5 PM", Report.CustomTitle(a, b));
+        // Both this year: no years.
+        var today = DateTime.Today;
+        Assert.DoesNotContain(thisYear.ToString(), Report.CustomTitle(today.AddHours(1), today.AddHours(2)));
     }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("tomorrow")]
-    [InlineData("2026-13-40")]
-    [InlineData("2026-06-10T08:00/2026-06-10T07:00")] // backwards
-    [InlineData("2026-06-10T08:00/")]
-    [InlineData("2026-06-10T08:00/2026-06-11T01:00/x")]
-    public void A_bad_link_opens_nothing(string? link) => Assert.Equal((null, null), ReportBuilder.ReadLink(link, Wed));
-
-    [Fact]
-    public void Yesterday_is_the_day_before_today() => Assert.Equal((Wed.AddDays(-1), null), ReportBuilder.ReadLink("yesterday", Wed.AddHours(15)));
 
     [Theory]
     [InlineData(8, 0, 25, 0, "Wed 10 Jun 2026, 8 AM – Thu 11 Jun 2026, 1 AM")]

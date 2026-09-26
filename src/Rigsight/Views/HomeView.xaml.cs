@@ -11,6 +11,6 @@ public partial class HomeView : UserControl
     private void OpenYesterday_Click(object sender, RoutedEventArgs e)
     {
         if (Window.GetWindow(this)?.DataContext is ShellViewModel shell)
-            shell.Navigate("reports", shell.Home.YesterdayLink);
+            shell.Navigate("reports", "yesterday");
     }
 }

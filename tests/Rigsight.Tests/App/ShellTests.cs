@@ -115,25 +115,6 @@ public sealed class ShellTests : IClassFixture<AppHost>
     }
 
     [Fact]
-    public void A_recap_of_a_day_past_midnight_opens_its_whole_range()
-    {
-        var (from, to) = (DateTime.Today.AddDays(-2).AddHours(8), DateTime.Today.AddDays(-1).AddHours(3));
-        var link = ReportBuilder.LinkFor(new Report { Range = ReportRange.Custom, From = from, To = to });
-        int activated = CountActivations(() => Ui.Run(() => Shell.Navigate("reports", link)));
-        Assert.Equal(1, activated);
-        Assert.True(Ui.WaitFor(() => Shell.ReportsPage.Report is { Range: ReportRange.Custom } r && r.From == from && !Shell.ReportsPage.IsLoading, 15_000));
-        Ui.Run(() =>
-        {
-            Assert.Equal("reports", Shell.CurrentPage);
-            Assert.Equal(to, Shell.ReportsPage.Report!.To);
-        });
-        // A day link after it: back to a day.
-        Ui.Run(() => Shell.Navigate("reports", "yesterday"));
-        Assert.True(Ui.WaitFor(() => Shell.ReportsPage.Report is { Range: ReportRange.Day } && !Shell.ReportsPage.IsLoading, 15_000));
-        Ui.Run(() => Shell.CurrentPage = "home");
-    }
-
-    [Fact]
     public void Navigating_nowhere_just_brings_the_window_forward()
     {
         Ui.Run(() => Shell.CurrentPage = "sensors");

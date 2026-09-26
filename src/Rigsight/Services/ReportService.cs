@@ -37,21 +37,6 @@ public sealed class ReportService(SettingsModel settings)
         return Run(db => ReportBuilder.BuildCustom(db, from, to, s));
     }
 
-    /// <summary>A day's use from 5 AM to 5 AM, first to last minute (see <see cref="ReportBuilder.YourDay"/>).</summary>
-    public Task<(DateTime From, DateTime To)?> YourDayAsync(DateTime day) => Run(db => ReportBuilder.YourDay(db, day));
-
-    /// <summary>
-    /// A day's report as Home's Yesterday card and the recap mean it: when that day's use ran past midnight, the whole of
-    /// it (whole hours, e.g. 8 AM to 1 AM, see <see cref="ReportBuilder.YourDay"/>); otherwise the day itself.
-    /// </summary>
-    public Task<Report?> YourDayReportAsync(DateTime day)
-    {
-        var s = Snapshot();
-        return Run(db => ReportBuilder.YourDay(db, day) is { } span && ReportBuilder.RanPastMidnight(span, day)
-            ? ReportBuilder.BuildCustom(db, span.From, span.To, s)
-            : ReportBuilder.Build(db, ReportRange.Day, day, s));
-    }
-
     /// <summary>Per-app totals and session counts for a range (Apps page, Memory page, CSV export), summed by the database.</summary>
     public Task<Report?> BuildRangeAsync(DateTime from, DateTime to)
     {

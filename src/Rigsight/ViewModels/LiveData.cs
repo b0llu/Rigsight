@@ -273,7 +273,7 @@ public sealed partial class LiveData : ObservableObject
         for (int hw = 0; hw < hello.Hardware!.Count; hw++)
             foreach (var meta in hello.Hardware[hw].Sensors)
                 candidates.Add(new KeySensors.Candidate(flatIndex++, hello.Hardware[hw].Type, hello.Hardware[hw].Name, meta.Name, meta.Kind, hw));
-        foreach (var gpu in KeySensors.Gpus(candidates))
+        foreach (var gpu in KeySensors.Gpus(candidates, hello.PreferredGpus))
             Gpus.Add(new GpuView(gpu.Name, gpu.Integrated, key => gpu.Keys.TryGetValue(key, out int i) && i < _flat.Count ? _flat[i] : null));
         // The same GPU as before a rebuild (by name, and which of several alike), else the main one.
         SelectedGpu = selectedGpu.Name is { } keepName ? Gpus.Where(g => g.Name == keepName).ElementAtOrDefault(selectedGpu.Item2) ?? Gpus.FirstOrDefault() : Gpus.FirstOrDefault();

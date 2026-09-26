@@ -222,6 +222,7 @@ public static class InsightEngine
                 ReportRange.Day => inProgress ? "yesterday by this time" : "the day before",
                 ReportRange.Week => inProgress ? "last week by this point" : "the week before",
                 ReportRange.Year => inProgress ? "last year by this point" : "the year before",
+                ReportRange.Custom when ReportBuilder.IsDayLike(r.Range, r.From, r.To) => (int)Math.Round((r.From - previous.From).TotalDays) == 1 ? "the same hours the day before" : "the same hours two days before",
                 ReportRange.Custom => "the same length of time just before",
                 _ => inProgress ? "last month by this point" : "the month before",
             };
@@ -234,6 +235,14 @@ public static class InsightEngine
     {
         string? late = r.LateUntil is { } l ? $"The night before ran late: you were on until {l:h:mm tt}." : null;
         if (r.DayStart is not { } start) return late;
+        if (r.Range == ReportRange.Custom)
+        {
+            // A stretch of hours, not a day; the weekdays when it covers more than one.
+            string fmt = r.From.Date == r.To.AddTicks(-1).Date ? "h:mm tt" : "ddd h:mm tt";
+            return inProgress
+                ? $"You've been on since {start.ToString(fmt)}."
+                : $"You were on from {start.ToString(fmt)} to {(r.LastActive ?? start).ToString(fmt)}.";
+        }
         string day = inProgress
             ? $"Your day started at {start:h:mm tt}."
             : $"Your day ran from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}.";

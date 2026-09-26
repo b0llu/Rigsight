@@ -595,9 +595,14 @@ public sealed class CrashesPageTests
     [InlineData(24 * 10, false)]
     public void A_custom_range_lists_only_its_own_crashes(int hours, bool listed)
     {
-        var vm = Loaded(ReportRange.Month);
-        var from = DateTime.Today.AddDays(-12).AddHours(8);
+        // Around a real crash of the generated history (old enough that the range ends before today).
+        var all = Loaded();
+        var crash = Ui.Run(() => all.Crashes.FirstOrDefault(c => c.Time < DateTime.Today.AddDays(-12)));
+        Assert.SkipWhen(crash is null, "no crash old enough in the generated history");
+        var from = ReportBuilder.HourStart(crash!.Time).AddHours(-2);
         var to = from.AddHours(hours);
+        var inRange = Ui.Run(() => all.Crashes.Count(c => c.Time >= from && c.Time < to));
+        var vm = Loaded(ReportRange.Month);
         Ui.Run(() =>
         {
             vm.CustomFrom = from;
@@ -610,10 +615,12 @@ public sealed class CrashesPageTests
             Assert.Equal(listed, vm.IsDay);
             Assert.Equal(!listed, vm.ShowTimeline);
             Assert.All(vm.Crashes, c => Assert.True(c.Time >= from && c.Time < to, $"{c.Time} is outside the range"));
+            Assert.Contains(vm.Crashes, c => c.Time == crash.Time);
+            Assert.Equal(inRange, vm.Crashes.Count);
             Assert.Equal(Controls.PeriodPicker.Duration(to - from), vm.RangeNote);
             Assert.Equal("No crashes in this period", vm.EmptyText);
             Assert.False(vm.IncludesToday);
-            if (!listed) Assert.Equal(11, vm.Days.Count); // 8 AM on day one into day eleven
+            if (!listed) Assert.Equal((to.AddTicks(-1).Date - from.Date).Days + 1, vm.Days.Count); // the part-days at both ends too
         });
         // Stepping the anchor (as for a day or week) doesn't reload a custom range.
         Ui.Run(() => vm.Anchor = DateTime.Today.AddDays(-40));

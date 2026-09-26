@@ -58,6 +58,9 @@ internal sealed class SensorHost
 
     public List<HardwareMeta> Schema { get; } = [];
     public Dictionary<string, int> Keys { get; private set; } = [];
+
+    /// <summary>The graphics adapters as Windows offers them to games, high-performance first (see <see cref="GpuPreference"/>).</summary>
+    public List<KeySensors.PreferredGpu> PreferredGpus { get; private set; } = [];
     public int SensorCount => _sensors.Count;
 
     /// <summary>Each sensor's identifier, in the same order as <see cref="ReadAll"/>.</summary>
@@ -92,7 +95,9 @@ internal sealed class SensorHost
         for (int hw = 0; hw < Schema.Count; hw++)
             foreach (var s in Schema[hw].Sensors)
                 candidates.Add(new KeySensors.Candidate(index++, Schema[hw].Type, Schema[hw].Name, s.Name, s.Kind, hw));
-        Keys = KeySensors.Pick(candidates);
+        PreferredGpus = GpuPreference.Read();
+        if (PreferredGpus.Count > 0) Log.Write("sensors", $"GPUs as Windows offers them to games: {string.Join(", ", PreferredGpus.Select(g => g.Name))}");
+        Keys = KeySensors.Pick(candidates, PreferredGpus);
         Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
         _indexById = [];
         for (int i = 0; i < Ids.Length; i++) _indexById.TryAdd(Ids[i], i);

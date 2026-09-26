@@ -35,9 +35,18 @@ public class KeySensorsTests
             return this;
         }
 
-        public Dictionary<string, int> Pick() => KeySensors.Pick(CandidatesOf(Hardware));
+        /// <summary>The adapters as Windows would list them for games (none: ranked by name).</summary>
+        public List<PreferredGpu> Windows { get; } = [];
 
-        public List<Gpu> Gpus() => KeySensors.Gpus(CandidatesOf(Hardware));
+        public Pc Prefers(string type, string name)
+        {
+            Windows.Add(new PreferredGpu(name, type));
+            return this;
+        }
+
+        public Dictionary<string, int> Pick() => KeySensors.Pick(CandidatesOf(Hardware), Windows);
+
+        public List<Gpu> Gpus() => KeySensors.Gpus(CandidatesOf(Hardware), Windows);
 
         /// <summary>The device the sensor picked for a key belongs to ("#2 AMD Radeon(TM) Graphics").</summary>
         public string? DeviceOf(string key)
@@ -349,8 +358,107 @@ public class KeySensorsTests
     [InlineData("GpuIntel", "Intel(R) Iris(R) Xe Graphics", true)]
     [InlineData("GpuIntel", "Intel(R) Arc(TM) A770 Graphics", false)]
     [InlineData("GpuIntel", "Intel(R) Arc(TM) B580 Graphics", false)]
+    [InlineData("GpuIntel", "Intel(R) Arc(TM) Pro A60 Graphics", false)]
+    [InlineData("GpuIntel", "Intel(R) Arc(TM) Graphics", true)]    // inside Core Ultra processors
+    [InlineData("GpuIntel", "Intel(R) Arc(TM) 140V GPU", true)]    // Lunar Lake's
+    [InlineData("GpuAmd", "AMD Radeon 680M", true)]
+    [InlineData("GpuAmd", "AMD Radeon(TM) 610M", true)]
     [InlineData("GpuNvidia", "NVIDIA GeForce RTX 4090", false)]
     [InlineData("GpuNvidia", "NVIDIA GeForce MX450", false)]
     public void Integrated_graphics_are_told_from_cards_by_name(string type, string name, bool integrated) =>
         Assert.Equal(integrated, KeySensors.LooksIntegrated(type, name));
+
+    // ── Windows' choice ─────────────────────────────────────────────────
+
+    [Fact]
+    public void The_gpu_windows_gives_games_is_the_main_one_whatever_its_maker()
+    {
+        // Two cards: by name NVIDIA would win, but Windows is set to give games the AMD card.
+        var pc = new Pc().Add("GpuNvidia", "NVIDIA GeForce RTX 3060", NvidiaCard).Add("GpuAmd", "AMD Radeon RX 7900 XTX", AmdGpu)
+            .Prefers("GpuAmd", "AMD Radeon RX 7900 XTX").Prefers("GpuNvidia", "NVIDIA GeForce RTX 3060");
+        Assert.Equal(["AMD Radeon RX 7900 XTX", "NVIDIA GeForce RTX 3060"], pc.Gpus().Select(g => g.Name));
+        Assert.Equal("#1 AMD Radeon RX 7900 XTX", pc.DeviceOf(GpuTemp));
+    }
+
+    [Fact]
+    public void Windows_can_even_put_integrated_graphics_first()
+    {
+        // Set to power saving for everything: Windows' first is the main GPU, as games will run there.
+        var pc = new Pc().Add("GpuIntel", "Intel(R) Iris(R) Xe Graphics", IntelGpu).Add("GpuNvidia", "NVIDIA GeForce RTX 4060 Laptop GPU", NvidiaCard)
+            .Prefers("GpuIntel", "Intel(R) Iris(R) Xe Graphics").Prefers("GpuNvidia", "NVIDIA GeForce RTX 4060 Laptop GPU");
+        Assert.Equal("Intel(R) Iris(R) Xe Graphics", pc.Gpus()[0].Name);
+        Assert.True(pc.Gpus()[0].Integrated); // still named for what it is
+    }
+
+    [Fact]
+    public void Names_match_without_trademark_signs_case_or_spacing()
+    {
+        var pc = new Pc().Add("GpuNvidia", "NVIDIA GeForce RTX 3060", NvidiaCard).Add("GpuAmd", "AMD Radeon(TM) RX 7900 XTX", AmdGpu)
+            .Prefers("GpuAmd", "amd radeon™  rx 7900 xtx");
+        Assert.Equal("AMD Radeon(TM) RX 7900 XTX", pc.Gpus()[0].Name);
+    }
+
+    [Fact]
+    public void An_adapter_named_differently_matches_the_only_gpu_of_its_maker()
+    {
+        var pc = new Pc().Add("GpuNvidia", "NVIDIA GeForce RTX 3060", NvidiaCard).Add("GpuAmd", "AMD Radeon RX 7900 XTX", AmdGpu)
+            .Prefers("GpuAmd", "Radeon RX 7900 XTX (driver name)");
+        Assert.Equal("AMD Radeon RX 7900 XTX", pc.Gpus()[0].Name);
+    }
+
+    [Fact]
+    public void Two_gpus_of_the_same_maker_need_the_name_to_match()
+    {
+        // Two AMD GPUs and a name that fits neither: no guessing which, the names decide (card before integrated).
+        var pc = new Pc().Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu).Add("GpuAmd", "AMD Radeon RX 7800 XT", AmdGpu)
+            .Prefers("GpuAmd", "Some other AMD name");
+        Assert.Equal(["AMD Radeon RX 7800 XT", "AMD Radeon(TM) Graphics"], pc.Gpus().Select(g => g.Name));
+    }
+
+    [Fact]
+    public void Identical_cards_take_windows_places_in_turn()
+    {
+        var pc = new Pc().Add("GpuNvidia", "NVIDIA GeForce RTX 3090", NvidiaCard).Add("GpuNvidia", "NVIDIA GeForce RTX 3090", NvidiaCard)
+            .Prefers("GpuNvidia", "NVIDIA GeForce RTX 3090").Prefers("GpuNvidia", "NVIDIA GeForce RTX 3090");
+        Assert.Equal(2, pc.Gpus().Count);
+        Assert.Equal("#0 NVIDIA GeForce RTX 3090", pc.DeviceOf(GpuTemp));
+    }
+
+    [Fact]
+    public void Gpus_windows_doesnt_list_come_after_by_name()
+    {
+        // Windows names only the card (the processor's graphics off in the BIOS, say, but still seen by the sensors).
+        var pc = new Pc().Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu).Add("GpuIntel", "Intel(R) Arc(TM) A770 Graphics", IntelGpu)
+            .Add("GpuNvidia", "NVIDIA GeForce RTX 4070", NvidiaCard).Prefers("GpuIntel", "Intel(R) Arc(TM) A770 Graphics");
+        Assert.Equal(["Intel(R) Arc(TM) A770 Graphics", "NVIDIA GeForce RTX 4070", "AMD Radeon(TM) Graphics"], pc.Gpus().Select(g => g.Name));
+    }
+
+    [Fact]
+    public void Adapters_without_sensors_change_nothing()
+    {
+        // A remote-desktop or virtual adapter first in Windows' list: no GPU of that name or maker here.
+        var pc = new Pc().Add("GpuAmd", "AMD Radeon(TM) Graphics", AmdGpu).Add("GpuNvidia", "NVIDIA GeForce RTX 4070", NvidiaCard)
+            .Prefers("", "Parsec Virtual Display Adapter");
+        Assert.Equal("NVIDIA GeForce RTX 4070", pc.Gpus()[0].Name);
+    }
+
+    [Fact]
+    public void Windows_lists_this_pcs_adapters_high_performance_first()
+    {
+        // On the PC running the tests: every adapter it has, none a software one, each named, the first a real GPU.
+        var list = Rigsight.Agent.Sensors.GpuPreference.Read();
+        Assert.SkipWhen(list.Count == 0, "no graphics adapter Windows can rank (a VM?)");
+        Assert.All(list, a => Assert.False(string.IsNullOrWhiteSpace(a.Name)));
+        Assert.DoesNotContain(list, a => a.Name.Contains("Basic Render", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEqual("", list[0].Type);
+        Assert.Equal(list.Count, Rigsight.Agent.Sensors.GpuPreference.Read().Count); // asked again: the same
+    }
+
+    [Theory]
+    [InlineData(0x10DEu, "GpuNvidia")]
+    [InlineData(0x1002u, "GpuAmd")]
+    [InlineData(0x8086u, "GpuIntel")]
+    [InlineData(0x1414u, "")] // Microsoft's software adapter
+    public void Adapters_makers_by_vendor_id(uint vendor, string type) =>
+        Assert.Equal(type, Rigsight.Agent.Sensors.GpuPreference.Maker(vendor));
 }

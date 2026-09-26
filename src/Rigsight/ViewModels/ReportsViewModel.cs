@@ -213,13 +213,4 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Range = ReportRange.Day;
         Anchor = day.Date;
     }
-
-    /// <summary>A custom range (e.g. a day that ran past midnight, from the recap): whole hours around it.</summary>
-    public void ShowRange(DateTime from, DateTime to)
-    {
-        CustomFrom = ReportBuilder.HourStart(from);
-        CustomTo = ReportBuilder.HourEnd(to);
-        Range = ReportRange.Custom; // loads (or the ends changing does, when it was a custom range already)
-    }
-
 }

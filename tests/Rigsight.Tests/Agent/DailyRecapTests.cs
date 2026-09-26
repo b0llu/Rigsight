@@ -7,7 +7,8 @@ namespace Rigsight.Tests.Agent;
 
 /// <summary>
 /// The daily recap: when the PC is turned on (or wakes), the last day it was used, if that day's recap wasn't shown
-/// yet. Not at midnight in a late session, and not "yesterday" when yesterday the PC stayed off.
+/// yet and the day is over (5 AM the next morning). Not at midnight in a late session, and not "yesterday" when
+/// yesterday the PC stayed off.
 /// </summary>
 public sealed class DailyRecapTests
 {
@@ -59,10 +60,29 @@ public sealed class DailyRecapTests
     }
 
     [Fact]
+    [Trait("Category", "Machine")] // run within ten minutes of signing in (right after a restart), it rightly fails
     public void Signing_in_is_told_from_the_agent_restarting()
     {
         // This test runs long after Windows (and Explorer) started: not a fresh sign-in.
         Assert.False(DailyRecap.JustSignedIn());
+    }
+
+    [Theory]
+    [InlineData(0, 10, 25)]  // 12:10 AM: yesterday isn't over, days before it are
+    [InlineData(4, 59, 25)]
+    [InlineData(5, 0, 26)]   // from 5 AM yesterday is over
+    [InlineData(23, 30, 26)]
+    public void A_day_is_over_at_5_AM_the_next_morning(int hour, int minute, int overBefore) =>
+        Assert.Equal(D(overBefore), DailyRecap.OverBefore(Sat.AddHours(hour).AddMinutes(minute)));
+
+    [Fact]
+    public void Waking_the_pc_after_midnight_doesnt_recap_the_evening_still_going_on()
+    {
+        // Lid closed at 11:50 PM on Friday, opened at 12:10 AM: Friday isn't over. At 9 AM it is.
+        Assert.Null(DailyRecap.DayToRecap(DailyRecap.OverBefore(Sat.AddMinutes(10)), lastUsedDay: D(25), recapped: D(24)));
+        Assert.Equal(D(25), DailyRecap.DayToRecap(DailyRecap.OverBefore(Sat.AddHours(9)), lastUsedDay: D(25), recapped: D(24)));
+        // A day before that, not recapped yet, can come at 12:10 AM: it's long over.
+        Assert.Equal(D(23), DailyRecap.DayToRecap(DailyRecap.OverBefore(Sat.AddMinutes(10)), lastUsedDay: D(23), recapped: D(22)));
     }
 
     [Fact]

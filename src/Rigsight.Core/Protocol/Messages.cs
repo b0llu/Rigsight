@@ -117,6 +117,8 @@ public sealed class AgentMessage
     public bool? StartupEnabled { get; set; }
     public List<HardwareMeta>? Hardware { get; set; }
     public Dictionary<string, int>? Keys { get; set; }
+    /// <summary>The graphics adapters as Windows offers them to games (the main GPU first); null from agents before 0.5.17.</summary>
+    public List<KeySensors.PreferredGpu>? PreferredGpus { get; set; }
     public List<SeriesHistory>? History { get; set; }
     public List<DriveHealthInfo>? Drives { get; set; }
 

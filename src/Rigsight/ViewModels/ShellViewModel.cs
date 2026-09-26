@@ -288,12 +288,12 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (!string.IsNullOrEmpty(page))
         {
-            // A recap or Home's "Full report": that day's report, or the whole of a day that ran past midnight.
-            if (page == "reports" && ReportBuilder.ReadLink(arg, DateTime.Today) is var link && (link.Day is not null || link.Range is not null))
+            // A recap: that day's report ("yesterday", or its date when it's from longer ago).
+            if (page == "reports" && (arg == "yesterday" ? DateTime.Today.AddDays(-1)
+                : DateTime.TryParseExact(arg, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : (DateTime?)null) is { } day)
             {
                 CurrentPage = "reports";
-                if (link.Range is { } range) ReportsPage.ShowRange(range.From, range.To);
-                else ReportsPage.ShowDay(link.Day!.Value);
+                ReportsPage.ShowDay(day);
                 ActivateRequested?.Invoke();
                 return;
             }

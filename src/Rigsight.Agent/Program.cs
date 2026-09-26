@@ -16,6 +16,7 @@ internal static class Program
         // here; the same as RIGSIGHT_DATA_DIR, which anyone can already set. Must come before anything reads RigsightPaths.
         if (Array.IndexOf(args, "--data-dir") is var d and >= 0 && d + 1 < args.Length)
             Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", args[d + 1]);
+        Log.Rotates = true; // the agent keeps the shared log to size (see Log.Rotates)
 
         bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
