@@ -87,7 +87,8 @@ internal sealed class ActivityMonitor
         return true;
     }
 
-    private static bool IsFullscreen(IntPtr hwnd)
+    /// <summary>The window covers its whole monitor (exclusive fullscreen, or a borderless or "fullscreen" window); not the desktop.</summary>
+    internal static bool IsFullscreen(IntPtr hwnd)
     {
         if (hwnd == Win32.GetShellWindow() || hwnd == Win32.GetDesktopWindow()) return false;
         if (ShellClasses.Contains(Win32.ClassName(hwnd))) return false;

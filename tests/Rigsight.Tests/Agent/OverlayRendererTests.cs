@@ -193,12 +193,34 @@ public partial class OverlayRendererTests
     [Theory]
     [InlineData(1.0, "BE")]
     [InlineData(0.5, "5F")]
-    [InlineData(0.0, "00")]
+    [InlineData(0.01, "02")]
     public void The_panel_takes_the_background_opacity(double opacity, string alpha)
     {
         var o = AllMetrics();
         o.BackgroundOpacity = opacity;
         Assert.Contains($"<C={alpha}080A0E><B=0,0,R8>\b<C>", Rtss(o, Full()));
+    }
+
+    [Fact]
+    public void No_panel_at_all_at_zero_background_opacity()
+    {
+        // RivaTuner reads alpha 00 as "no alpha": the panel would be drawn solid, the opposite of 0%.
+        var o = AllMetrics();
+        o.BackgroundOpacity = 0;
+        string text = Rtss(o, Full());
+        Assert.DoesNotContain("<B=", text);
+        Assert.DoesNotContain("<C=00", text);
+        Assert.Contains("<C=5B8CFF>CPU<C>", text); // the readings are still there
+    }
+
+    [Fact]
+    public void Readings_never_get_alpha_00_either()
+    {
+        var o = AllMetrics();
+        o.ContentOpacity = 0;
+        string text = Rtss(o, Full());
+        Assert.DoesNotContain("<C=00", text);
+        Assert.Contains("<C=015B8CFF>CPU<C>", text);
     }
 
     [Fact]

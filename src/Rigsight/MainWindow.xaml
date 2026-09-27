@@ -139,7 +139,10 @@
                             </StackPanel>
                             <StackPanel>
                                 <TextBlock Text="RAM" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource PurpleBrush}" />
-                                <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold" />
+                                <!-- Coloured like CPU and GPU (green, amber from 75 % in use, red from 90 %), and a faint dash
+                                     until the first reading; plain white stood out as bolder than the tinted two. -->
+                                <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{Binding Live.RamLoad.Value, Converter={StaticResource TempBrush}, ConverterParameter='0,75,90'}" />
                             </StackPanel>
                         </UniformGrid>
                     </ctl:SmoothBorder>

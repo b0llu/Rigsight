@@ -105,9 +105,9 @@ internal sealed class OverlayManager : IDisposable
     }
 
     /// <summary>
-    /// One overlay at a time: RivaTuner inside an exclusive-fullscreen game in front (where no window can
-    /// appear), our own window everywhere else (desktop, windowed and borderless games, or the fullscreen
-    /// game once it's minimised). Checked on every update, so switching follows Alt+Tab within a second.
+    /// One overlay at a time: RivaTuner inside a game in front (see <see cref="InGameRtssReaches"/>),
+    /// our own window everywhere else (desktop, apps, or the game once it's minimised).
+    /// Checked on every update, so switching follows Alt+Tab within a second.
     /// </summary>
     private void Refresh()
     {
@@ -115,7 +115,7 @@ internal sealed class OverlayManager : IDisposable
             _data.Frame = _settings.Metrics.Any(m => m is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow)
                 ? Rtss.ReadFrameStats(ForegroundPid()) : null;
 
-        if (IsExclusiveFullscreen())
+        if (InGameRtssReaches())
         {
             _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data));
             if (_form is { Visible: true }) _form.Hide();
@@ -133,6 +133,19 @@ internal sealed class OverlayManager : IDisposable
         if (!_rtssWritten) return;
         Rtss.Clear();
         _rtssWritten = false;
+    }
+
+    /// <summary>
+    /// The overlay belongs inside the app in front, drawn by RivaTuner: always in exclusive fullscreen (no window
+    /// can appear there), and in any game RivaTuner is in, windowed, borderless or "fullscreen" (anything that fills
+    /// the screen, or an app in the Games category). A window on top of a game makes Windows compose every frame:
+    /// later on screen, and G-Sync/FreeSync stop. Everything else (desktop, apps) gets our own window.
+    /// </summary>
+    private bool InGameRtssReaches()
+    {
+        if (IsExclusiveFullscreen()) return true;
+        if (!Rtss.IsHooked(ForegroundPid())) return false;
+        return _data?.Activity.Category == AppCategory.Game || Tracking.ActivityMonitor.IsFullscreen(Win32.GetForegroundWindow());
     }
 
     /// <summary>A Direct3D game is running in exclusive fullscreen in front (not borderless, not minimised).</summary>
@@ -225,13 +238,15 @@ internal sealed class OverlayManager : IDisposable
     }
 
     /// <summary>
-    /// A notice while a game may be in front: inside an exclusive-fullscreen game (where no window can show) it's drawn
-    /// by RivaTuner if RivaTuner is drawing in that game, else it can't be seen; anywhere else the usual card shows.
+    /// A notice while a game may be in front: inside a game RivaTuner is in, it's drawn by RivaTuner (no
+    /// window on top of the game); in exclusive fullscreen without RivaTuner it can't be seen; anywhere else the usual card shows.
     /// </summary>
     public InGame ShowInGame(Ui.Notice notice, int seconds)
     {
-        if (!IsExclusiveFullscreen()) return InGame.NotNeeded;
-        return Rtss.IsHooked(ForegroundPid()) && _notice.Show(notice, _settings, Visible, seconds) ? InGame.Shown : InGame.Unreachable;
+        if (!InGameRtssReaches()) return InGame.NotNeeded;
+        if (Rtss.IsHooked(ForegroundPid()) && _notice.Show(notice, _settings, Visible, seconds)) return InGame.Shown;
+        // A borderless game can still show the usual card; exclusive fullscreen can't show anything.
+        return IsExclusiveFullscreen() ? InGame.Unreachable : InGame.NotNeeded;
     }
 
     /// <summary>

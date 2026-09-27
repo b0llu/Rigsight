@@ -362,7 +362,7 @@
                     <StackPanel>
                         <TextBlock Text="Rigsight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="In exclusive-fullscreen games the overlay is drawn by RivaTuner Statistics Server; everywhere else (the desktop, windowed and borderless games) Rigsight draws it itself. Either way it uses the readings, corner, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
+                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) Rigsight draws it itself. Either way it uses the readings, corner, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"
                                    Text="A game that was already open when RivaTuner started needs a restart. Rigsight itself never hooks into games, so it's safe with anti-cheat." />
                     </StackPanel>

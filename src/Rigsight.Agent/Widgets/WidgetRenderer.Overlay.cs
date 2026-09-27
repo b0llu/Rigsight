@@ -170,7 +170,8 @@ internal static partial class WidgetRenderer
         var rows = OverlayRows(o, data ?? new WidgetData());
         if (rows.Count == 0) return "";
         // The readings at the content opacity and the panel at the background opacity, as in our own window.
-        int textAlpha = (int)Math.Round(255 * o.ContentOpacity);
+        // RivaTuner reads a colour with alpha 00 as one without alpha, i.e. solid: the least it gets is 01 (invisible).
+        int textAlpha = Math.Max(1, (int)Math.Round(255 * o.ContentOpacity));
         string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
         static string Clean(string text) => text.Replace("<", "").Replace(">", "");
 
@@ -184,27 +185,26 @@ internal static partial class WidgetRenderer
             var parts = new List<string>();
             if (row.Label.Length > 0)
                 parts.Add(o.Layout == OverlayLayout.Line
-                    ? $"<S=-80><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S> "
-                    : $"<A={labelColumn}><S=-80><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S><A>");
+                    ? $"<S=-73><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S> "
+                    : $"<A={labelColumn}><S=-73><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S><A>");
             for (int i = 0; i < row.Cells.Count; i++)
             {
                 var cell = row.Cells[i];
                 string value = Clean(cell.Value);
-                // Numbers are right-aligned to their usual width, so they don't jump around (62° → 100°).
-                // RTSS sizes the panel from these widths, so a value wider than its slot ("5:38 PM") must widen
-                // the slot, or it runs past the panel (and off-screen in right-hand corners). The unlabelled
-                // last row starts at the left edge, as in the window.
-                // A sensor row has one value: it starts at the column (left edges line up), as in the window.
+                // As in the window, each value starts at the left of a slot as wide as its usual width, with its unit
+                // right after it, so the columns line up and don't jump around (62° → 100°). RTSS sizes the panel
+                // from these widths, so a value wider than its slot ("5:38 PM") must widen the slot, or it runs past
+                // the panel (and off-screen in right-hand corners). The unlabelled last row starts at the left edge,
+                // as in the window. A sensor row has one value: it starts at the column, as in the window.
                 bool align = cell.Template.Length > 0 && !(row.Label.Length == 0 && i == 0) && !row.Sensor;
-                string cellText = align
-                    ? $"<A=-{Math.Max(cell.Template.Length, value.Length)}><C={Hex(cell.Color)}>{value}<C><A>"
-                    : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>";
-                if (cell.Unit.Length > 0)
-                {
-                    string unit = (char.IsLetterOrDigit(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
-                    cellText += $"<S=-72><C={Hex(OverlayPalette.Muted)}>{unit}<C><S>";
-                }
-                parts.Add(cellText);
+                string unit = cell.Unit.Length == 0 ? ""
+                    : (char.IsLetterOrDigit(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
+                string unitText = unit.Length > 0 ? $"<S=-72><C={Hex(OverlayPalette.Muted)}>{unit}<C><S>" : "";
+                // Units are drawn at 72%: about 0.6 of a full-size symbol per letter (measured in DesktopOverlayHost).
+                int slot = Math.Max(cell.Template.Length, value.Length) + (int)Math.Ceiling(unit.Length * 0.6);
+                parts.Add(align
+                    ? $"<A={slot}><C={Hex(cell.Color)}>{value}<C>{unitText}<A>"
+                    : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>{unitText}");
             }
             return RtssLeftSpacer + string.Join("  ", parts);
         }
@@ -224,7 +224,8 @@ internal static partial class WidgetRenderer
         string header =
             $"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}>" +   // our font instead of RivaTuner's default
             $"<P{corner}><L0><M={left},{top},{rightM},{bottomM}>" +    // our corner, gap and padding (see RtssMargins)
-            $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>";                   // rounded translucent panel behind the text
+            // Rounded translucent panel behind the text; none at all at 0% (alpha 00 would draw it solid, see above).
+            (alpha > 0 ? $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>" : "");
         var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
         return header + RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
     }
