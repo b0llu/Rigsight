@@ -5,20 +5,22 @@ namespace Rigsight.Agent.Ui;
 
 /// <summary>
 /// Styling for WinForms context menus (tray and widget menus) in the app's own colours: black and white, following the
-/// Theme setting (dark, light, or Windows' app mode for "system"). The colours are read on every paint, so an open or
+/// Theme setting (dark, grey, light, or Windows' app mode for "system"). The colours are read on every paint, so an open or
 /// already-built menu follows a theme change.
 /// </summary>
 internal sealed class DarkMenuRenderer() : ToolStripProfessionalRenderer(new MenuColors())
 {
-    /// <summary>The app's Theme setting ("dark", "light" or "system"), kept up to date by the agent.</summary>
+    /// <summary>The app's Theme setting ("dark", "grey", "light" or "system"), kept up to date by the agent.</summary>
     public static string Theme { get; set; } = "dark";
 
     internal static bool Light => Theme == "light" || Theme == "system" && WidgetRenderer.WindowsUsesLight();
 
-    // As in the app's Dark.xaml and Light.xaml: the raised surface, hover, stroke, text and faint text.
-    internal static Color Bg => Light ? Color.FromArgb(255, 255, 255) : Color.FromArgb(22, 22, 22);
-    private static Color Hover => Light ? Color.FromArgb(230, 230, 230) : Color.FromArgb(36, 36, 36);
-    private static Color Border => Light ? Color.FromArgb(211, 211, 211) : Color.FromArgb(46, 46, 46);
+    private static bool Grey => Theme == "grey";
+
+    // As in the app's Dark.xaml, Grey.xaml and Light.xaml: the raised surface, hover, stroke, text and faint text.
+    internal static Color Bg => Light ? Color.FromArgb(255, 255, 255) : Grey ? Color.FromArgb(48, 48, 48) : Color.FromArgb(22, 22, 22);
+    private static Color Hover => Light ? Color.FromArgb(230, 230, 230) : Grey ? Color.FromArgb(59, 59, 59) : Color.FromArgb(36, 36, 36);
+    private static Color Border => Light ? Color.FromArgb(211, 211, 211) : Grey ? Color.FromArgb(72, 72, 72) : Color.FromArgb(46, 46, 46);
     internal static Color TextColor => Light ? Color.FromArgb(0, 0, 0) : Color.FromArgb(255, 255, 255);
     private static Color DisabledText => Light ? Color.FromArgb(140, 140, 140) : Color.FromArgb(107, 107, 107);
 

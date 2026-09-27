@@ -92,12 +92,12 @@ public sealed class WhatsNewTests
     [Fact]
     public void An_update_with_nothing_to_tell_shows_nothing()
     {
-        var (card, settings) = Make(seen: "0.7.0", current: new Version(0, 7, 1)); // no entry for 0.7.1
+        var (card, settings) = Make(seen: "0.7.1", current: new Version(0, 7, 2)); // no entry for 0.7.2
         Ui.Run(() =>
         {
             card.CheckOnStart();
             Assert.False(card.IsOpen);
-            Assert.Equal("0.7.1", settings.Current.WhatsNewSeen);
+            Assert.Equal("0.7.2", settings.Current.WhatsNewSeen);
         });
     }
 

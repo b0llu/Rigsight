@@ -111,7 +111,7 @@ public static class SettingsStore
         s.Tracking.Enabled = null;
         s.SettingsVersion = CurrentVersion;
 
-        if (s.Theme is not ("dark" or "light" or "system")) s.Theme = "dark";
+        if (s.Theme is not ("dark" or "grey" or "light" or "system")) s.Theme = "dark";
 
         foreach (var style in Enum.GetValues<WidgetStyle>())
             if (s.Widgets.All(w => w.Style != style))

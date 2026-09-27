@@ -6,17 +6,20 @@ using Rigsight.Controls;
 namespace Rigsight.Services;
 
 /// <summary>
-/// Dark or light: swaps the palette dictionary (Themes/Dark.xaml or Light.xaml), switches the Fluent
+/// Dark, grey or light: swaps the palette dictionary (Themes/Dark.xaml, Grey.xaml or Light.xaml), switches the Fluent
 /// controls to match, and reloads the colors the custom-drawn charts use.
 /// </summary>
 public static class ThemeManager
 {
-    public const string Dark = "dark", Light = "light", System = "system";
+    public const string Dark = "dark", Grey = "grey", Light = "light", System = "system";
 
     private static string _mode = Dark;
+    private static string? _palette;
     private static bool _listening;
 
     public static bool IsLight { get; private set; }
+
+    public static bool IsGrey => _palette == "Grey";
 
     /// <summary>Goes up on every change, so anything that caches colors knows to make them again.</summary>
     public static int Version { get; private set; }
@@ -24,24 +27,26 @@ public static class ThemeManager
     /// <summary>Raised after the theme changed (not on the first apply).</summary>
     public static event Action? Changed;
 
-    /// <param name="mode">"dark", "light" or "system" (follow Windows' app mode).</param>
+    /// <param name="mode">"dark", "grey", "light" or "system" (follow Windows' app mode).</param>
     public static void Apply(string? mode)
     {
-        _mode = mode is Light or System ? mode : Dark;
+        _mode = mode is Grey or Light or System ? mode : Dark;
         if (_mode == System && !_listening)
         {
             _listening = true;
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         }
         bool light = _mode == Light || (_mode == System && WindowsUsesLight());
-        if (Version > 0 && light == IsLight) return;
+        string name = light ? "Light" : _mode == Grey ? "Grey" : "Dark";
+        if (name == _palette) return;
 
         var app = Application.Current;
         var dictionaries = app.Resources.MergedDictionaries;
         int index = dictionaries.ToList().FindIndex(d => d.Source?.OriginalString is { } s &&
-            (s.EndsWith("Themes/Dark.xaml", StringComparison.OrdinalIgnoreCase) || s.EndsWith("Themes/Light.xaml", StringComparison.OrdinalIgnoreCase)));
+            (s.EndsWith("Themes/Dark.xaml", StringComparison.OrdinalIgnoreCase) || s.EndsWith("Themes/Grey.xaml", StringComparison.OrdinalIgnoreCase) ||
+             s.EndsWith("Themes/Light.xaml", StringComparison.OrdinalIgnoreCase)));
         // By its full address, so it's found from any application (the tests host the app's windows in their own).
-        var palette = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Rigsight;component/Themes/{(light ? "Light" : "Dark")}.xaml") };
+        var palette = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Rigsight;component/Themes/{name}.xaml") };
         if (index >= 0) dictionaries[index] = palette;
         else dictionaries.Insert(0, palette);
 
@@ -56,6 +61,7 @@ public static class ThemeManager
 
         bool first = Version == 0;
         IsLight = light;
+        _palette = name;
         Version++;
         ChartPaint.Load();
         foreach (Window w in app.Windows) ApplyTitleBar(w);

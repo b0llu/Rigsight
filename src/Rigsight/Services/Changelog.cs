@@ -29,6 +29,11 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.7.1", 9, 27,
+            added:
+            [
+                "A Grey theme: dark grey instead of pure black, easier on the eyes on some OLED screens (Settings → Theme).",
+            ]),
         V("0.7.0", 9, 27,
             added:
             [

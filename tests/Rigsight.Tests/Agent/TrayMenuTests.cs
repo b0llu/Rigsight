@@ -95,6 +95,9 @@ public class TrayMenuTests
             DarkMenuRenderer.Theme = "dark";
             Assert.Equal(System.Drawing.Color.FromArgb(22, 22, 22), DarkMenuRenderer.Bg);
             Assert.Equal(System.Drawing.Color.FromArgb(255, 255, 255), DarkMenuRenderer.TextColor);
+            DarkMenuRenderer.Theme = "grey";
+            Assert.Equal(System.Drawing.Color.FromArgb(48, 48, 48), DarkMenuRenderer.Bg);
+            Assert.False(DarkMenuRenderer.Light);
             DarkMenuRenderer.Theme = "light";
             Assert.Equal(System.Drawing.Color.FromArgb(255, 255, 255), DarkMenuRenderer.Bg);
             Assert.Equal(System.Drawing.Color.FromArgb(0, 0, 0), DarkMenuRenderer.TextColor);

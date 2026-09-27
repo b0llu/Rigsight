@@ -48,6 +48,8 @@
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=dark}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Grey"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=grey}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=light}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"

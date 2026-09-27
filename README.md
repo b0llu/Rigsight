@@ -31,7 +31,7 @@ It records quietly in the background using about **0.01% of your CPU**, and ever
 - **🧱 Your own dashboards.** Build pages from tiles and arrange them however you like.
 - **🖥️ On your desktop.** Six widgets, a tray icon with a health dot, and calm notifications: a daily recap, game summaries and temperature alerts.
 - **💾 Storage and memory.** Drive space and health, cleanup suggestions, and which apps use your memory.
-- **⚫ Black or white.** A pure black or pure white app, or let it follow Windows.
+- **⚫ Black, grey or white.** A pure black, dark grey or pure white app, or let it follow Windows.
 
 ## Install
 

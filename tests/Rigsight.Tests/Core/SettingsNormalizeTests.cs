@@ -41,6 +41,7 @@ public sealed class SettingsNormalizeTests
 
     [Theory]
     [InlineData("dark", "dark")]
+    [InlineData("grey", "grey")]
     [InlineData("light", "light")]
     [InlineData("system", "system")]
     [InlineData("blue", "dark")]

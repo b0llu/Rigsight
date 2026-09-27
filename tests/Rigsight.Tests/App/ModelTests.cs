@@ -525,11 +525,22 @@ public sealed class ServiceTests
                     Assert.Equal(darkBg, (Color)Application.Current.FindResource("BgColor"));
                     Assert.Equal(ThemeMode.Dark, Application.Current.ThemeMode);
 
+                    // Grey is a dark theme with its own palette in place of the black one.
+                    ThemeManager.Apply(ThemeManager.Grey);
+                    Assert.False(ThemeManager.IsLight);
+                    Assert.Equal((version + 3, 3), (ThemeManager.Version, changed));
+                    Assert.NotEqual(darkBg, (Color)Application.Current.FindResource("BgColor"));
+                    Assert.Equal(ThemeMode.Dark, Application.Current.ThemeMode);
+                    Assert.Single(Application.Current.Resources.MergedDictionaries, d => d.Source?.OriginalString.EndsWith("Themes/Grey.xaml") == true);
+                    Assert.DoesNotContain(Application.Current.Resources.MergedDictionaries, d => d.Source?.OriginalString.EndsWith("Themes/Dark.xaml") == true);
+                    ThemeManager.Apply(ThemeManager.Dark);
+                    Assert.Equal(darkBg, (Color)Application.Current.FindResource("BgColor"));
+
                     // Anything unknown is dark.
                     ThemeManager.Apply("purple");
                     ThemeManager.Apply(null);
                     Assert.False(ThemeManager.IsLight);
-                    Assert.Equal(2, changed);
+                    Assert.Equal(4, changed);
                 }
                 finally
                 {
@@ -574,7 +585,7 @@ public sealed class ServiceTests
         ];
         try
         {
-            foreach (var theme in new[] { ThemeManager.Dark, ThemeManager.Light })
+            foreach (var theme in new[] { ThemeManager.Dark, ThemeManager.Grey, ThemeManager.Light })
             {
                 Ui.Run(() => ThemeManager.Apply(theme));
                 var missing = Ui.Run(() => keys.Where(k => Application.Current.TryFindResource(k) is null).ToList());

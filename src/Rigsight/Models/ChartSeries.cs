@@ -34,7 +34,7 @@ public sealed class ChartSeries
         _brush = new SolidColorBrush(_color);
         _brush.Freeze();
         _linePen = Frozen(new Pen(_brush, 2) { LineJoin = PenLineJoin.Round });
-        _fill = Rigsight.Controls.ChartGeometry.FadeFill(_color, Services.ThemeManager.IsLight ? 0.05 : 0.10);
+        _fill = Rigsight.Controls.ChartGeometry.FadeFill(_color, Services.ThemeManager.IsLight ? 0.05 : Services.ThemeManager.IsGrey ? 0.07 : 0.10);
     }
 
     public Color Color { get { EnsureColors(); return _color; } }
