@@ -63,6 +63,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly AlertMonitor _alerts = new();
     private readonly PipeServer _pipe;
     private readonly TrayController _tray;
+    private readonly TrayReadings _trayReadings;
     private readonly WidgetManager _widgets;
     private readonly OverlayManager _overlay;
     private readonly NotificationCenter _notices;
@@ -127,6 +128,11 @@ internal sealed class AgentContext : ApplicationContext
         _overlay = new OverlayManager(isAdmin);
         _overlay.StateChanged += OnOverlayStateChanged;
         _overlay.CantReachGame += OnOverlayCantReachGame;
+        _trayReadings = new TrayReadings(open: () => OpenApp(null),
+            remove: id => MutateSettings(s => s.TraySensors.Remove(id)),
+            removeAll: () => MutateSettings(s => s.TraySensors.Clear()),
+            setCombined: on => MutateSettings(s => s.TrayCombined = on),
+            openPage: () => OpenApp("taskbar"));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
@@ -265,6 +271,14 @@ internal sealed class AgentContext : ApplicationContext
             {
                 while (_samplerWork.TryDequeue(out var work)) work();
 
+                // The RAM sticks, found in the background since the sensors opened: into the list, and tell the app.
+                if (_sensors.TakeMemory())
+                {
+                    Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
+                    CompactMemory();
+                    if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                }
+
                 long now = clock.ElapsedMilliseconds;
                 var settings = _settings;
                 // A timed pause that has run out is cleared, so the tray menu and Settings show tracking again.
@@ -293,7 +307,8 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     t0 = Stopwatch.GetTimestamp();
                     // Sensors on the overlay stay live in games (the app is usually closed then).
-                    _sensors.Watch(_overlayVisible ? [.. _settings.Overlay.Sensors.Select(s => s.Id)] : []);
+                    // And those in the taskbar, which are always on show.
+                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors]);
                     _sensors.Update(everything: live, now);
                     Measure("sensors", t0);
                     t0 = Stopwatch.GetTimestamp();
@@ -438,6 +453,21 @@ internal sealed class AgentContext : ApplicationContext
         Log.Write("agent", $"Sensors ready in {scan.Elapsed.TotalSeconds:0.0} s ({host.SensorCount} sensors{left})");
         _sensorsReady = true;
         if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+
+        // The RAM sticks take seconds to find (the memory bus is probed): readings are already going out, so find them
+        // meanwhile, under the same guard as the scan above. The sampler adds them when they're ready (TakeMemory).
+        host.OpenMemoryInBackground(() =>
+        {
+            var took = Stopwatch.StartNew();
+            using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
+            {
+                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("Rigsight stopped reading some sensors",
+                    "Windows' memory kept growing while it read the RAM sticks. Restart your PC if it stays slow.", warning: true), null);
+                host.OpenMemory();
+                if (guard.Tripped) _stoppedForMemory = true;
+            }
+            Log.Write("sensors", $"RAM sticks found in {took.Elapsed.TotalSeconds:0.0} s");
+        });
     }
 
     /// <summary>
@@ -600,9 +630,23 @@ internal sealed class AgentContext : ApplicationContext
         return list;
     }
 
+    /// <summary>The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own.</summary>
+    private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
+    {
+        var list = new List<TrayReading>(settings.TraySensors.Count);
+        foreach (var id in settings.TraySensors)
+        {
+            list.Add(_sensors.ReadSensor(id) is { } r
+                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value)
+                : new TrayReading(id, _sensorsReady ? "Not found on this PC" : "Starting…", SensorKind.Factor, null));
+        }
+        return list;
+    }
+
     private void PublishToUi(KeyValues k, bool fullscreen, string? alert)
     {
         var settings = _settings;
+        var trayReadings = TrayReadingsFor(settings);
         var activity = _tracker.Activity;
         bool drawsHistory = settings.Widgets.Any(w => w.Enabled && w.Style is WidgetStyle.Compact or WidgetStyle.Graph);
         var data = new WidgetData
@@ -639,6 +683,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
+            _trayReadings.Update(trayReadings, settings.TrayCombined);
             _widgets.Update(data, otherFullscreen);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
@@ -1089,7 +1134,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _tray.Dispose })
+        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _trayReadings.Dispose, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }

@@ -444,6 +444,32 @@ public class SensorHostTests
     }
 
     [Fact]
+    public void Ram_usage_is_there_from_the_start_as_the_library_names_it()
+    {
+        // The library's own Total/Virtual Memory, made before the (slow) memory group: same names, identifiers and
+        // sensors, so the RAM usage seen in the first second is the one that continues once the sticks are found.
+        var early = EarlyMemory.Create();
+        Assert.Equal(["Virtual Memory", "Total Memory"], early.Select(h => h.Name));
+        Assert.Equal(["/vram", "/ram"], early.Select(h => h.Identifier.ToString()));
+        Assert.All(early, h => Assert.Equal(LibreHardwareMonitor.Hardware.HardwareType.Memory, h.HardwareType));
+        foreach (var hw in early) hw.Update();
+        var total = early[1];
+        var load = total.Sensors.Single(s => s.SensorType == LibreHardwareMonitor.Hardware.SensorType.Load);
+        Assert.Equal("/ram/load/0", load.Identifier.ToString());
+        Assert.InRange(load.Value!.Value, 1, 100);
+        Assert.Contains(total.Sensors, s => s.Name == "Memory Used" && s.Value > 0);
+        Assert.Contains(total.Sensors, s => s.Name == "Memory Available" && s.Value > 0);
+    }
+
+    [Fact]
+    public void The_ram_sticks_join_only_once_found()
+    {
+        var host = new SensorHost();
+        Assert.False(host.TakeMemory()); // nothing opened in the background yet
+        host.Close();
+    }
+
+    [Fact]
     public void Watching_unknown_sensors_is_harmless()
     {
         var host = new SensorHost();

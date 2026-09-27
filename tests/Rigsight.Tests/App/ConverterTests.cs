@@ -423,6 +423,31 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void Taskbar_readings_show_as_the_taskbar_does()
+    {
+        var text = new TrayTextConverter();
+        Assert.Equal("62", text.Convert([SensorKind.Temperature, (double?)61.6], typeof(string), null, CultureInfo.InvariantCulture));
+        Assert.Equal("1.2k", text.Convert([SensorKind.Fan, (double?)1245], typeof(string), null, CultureInfo.InvariantCulture));
+        Assert.Equal("–", text.Convert([SensorKind.Load, null!], typeof(string), null, CultureInfo.InvariantCulture));
+        Assert.Equal("–", text.Convert([DependencyProperty.UnsetValue, DependencyProperty.UnsetValue], typeof(string), null, CultureInfo.InvariantCulture));
+        Assert.Empty(text.ConvertBack("62", [typeof(SensorKind)], null, CultureInfo.InvariantCulture));
+
+        Ui.Run(() =>
+        {
+            var brush = new TrayBrushConverter();
+            object Of(params object[] v) => brush.Convert(v, typeof(Brush), null, CultureInfo.InvariantCulture);
+            // Temperatures in their colour; anything else in the taskbar's text colour (white on dark, black on light).
+            Assert.Same(new TempToBrushConverter().Convert(88.0, typeof(Brush), null, CultureInfo.InvariantCulture), Of(SensorKind.Temperature, 88.0));
+            Assert.Same(Brushes.White, Of(SensorKind.Load, 40.0, false));
+            Assert.Same(Brushes.Black, Of(SensorKind.Load, 40.0, true));
+            Assert.Same(Application.Current.TryFindResource("TextBrush"), Of(SensorKind.Load, 40.0));
+            Assert.Same(TempToBrushConverter.None, Of(SensorKind.Load, null!, true)); // no reading: faint
+            Assert.Same(TempToBrushConverter.None, Of(DependencyProperty.UnsetValue));
+            Assert.Empty(brush.ConvertBack(Brushes.White, [typeof(SensorKind)], null, CultureInfo.InvariantCulture));
+        });
+    }
+
+    [Fact]
     public void Every_converter_the_theme_declares_is_tested_here()
     {
         Type[] tested =
@@ -431,6 +456,7 @@ public sealed class ConverterTests
             typeof(DurationConverter), typeof(TempShortConverter), typeof(MegabytesConverter), typeof(BytesConverter), typeof(IconConverter),
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
+            typeof(TrayTextConverter), typeof(TrayBrushConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

@@ -111,9 +111,15 @@ public class ProcessSamplerTests
         // Every 2 seconds while the app is open (every 5 s otherwise), on the always-running agent.
         var sampler = new ProcessSampler();
         sampler.Sample();
-        var sw = Stopwatch.StartNew();
-        for (int i = 0; i < 20; i++) sampler.Sample();
-        double ms = sw.Elapsed.TotalMilliseconds / 20;
+        // The fastest of a few rounds: the whole suite runs in parallel in this process, and a forced collection in
+        // another test (MemoryLeakTests) pauses every thread, which only ever makes a round slower.
+        double ms = double.MaxValue;
+        for (int round = 0; round < 5; round++)
+        {
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < 10; i++) sampler.Sample();
+            ms = Math.Min(ms, sw.Elapsed.TotalMilliseconds / 10);
+        }
         Assert.True(ms < 8, $"{ms:0.0} ms per sample"); // measured 2.5 ms with 270 processes
     }
 }

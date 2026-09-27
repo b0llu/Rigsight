@@ -33,7 +33,8 @@ internal sealed class SensorHost
             IsCpuEnabled = true,
             IsGpuEnabled = true,
             IsMotherboardEnabled = !skip.HasFlag(SensorParts.Motherboard),
-            IsMemoryEnabled = true,
+            // Opened later, in the background (see OpenMemory): finding the RAM sticks takes seconds.
+            IsMemoryEnabled = false,
             IsStorageEnabled = true,
             IsControllerEnabled = !skip.HasFlag(SensorParts.FanHubs),
             IsPsuEnabled = !skip.HasFlag(SensorParts.PowerSupply),
@@ -66,7 +67,7 @@ internal sealed class SensorHost
     private bool _watchesFastGpu;
     private long _lastWatchedSlowMs;
 
-    public List<HardwareMeta> Schema { get; } = [];
+    public List<HardwareMeta> Schema { get; private set; } = [];
     public Dictionary<string, int> Keys { get; private set; } = [];
 
     /// <summary>The graphics adapters as Windows offers them to games, high-performance first (see <see cref="GpuPreference"/>).</summary>
@@ -79,19 +80,21 @@ internal sealed class SensorHost
     /// <summary>Whether each sensor (same order) is a temperature, where 0 means "no reading".</summary>
     public bool[] IsTemperature { get; private set; } = [];
 
+    // RAM usage until the memory group is open (see EarlyMemory), and whether that has happened.
+    private readonly List<IHardware> _earlyMemory = [];
+    private Task? _memoryTask;
+    private volatile bool _memoryOpened;
+    private bool _memoryMerged;
+
+    /// <summary>
+    /// Opens everything but the RAM sticks (about a second): CPU, GPU, RAM usage, motherboard, drives. The sticks
+    /// follow from <see cref="OpenMemory"/>, and join the list at the next <see cref="TakeMemory"/>.
+    /// </summary>
     public void Open()
     {
         _computer.Open();
-        foreach (var hw in _computer.Hardware)
-            Collect(hw);
-
-        // Read everything before listing sensors: some chips (e.g. motherboard fan headers) only
-        // expose a sensor once it has produced a first reading.
-        foreach (var (hw, _) in _hardware) SafeUpdate(hw);
-        foreach (var (hw, _) in _hardware) SafeUpdate(hw);
-
-        foreach (var hw in _computer.Hardware)
-            Describe(hw, parent: null);
+        _earlyMemory.AddRange(EarlyMemory.Create());
+        Build(readFirst: [.. Tops()]);
 
         var nvidia = _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia).ToList();
         if (nvidia.Count == 1 && NvidiaFastPath.TryCreate(nvidia[0]) is { } fast)
@@ -99,25 +102,110 @@ internal sealed class SensorHost
             _fastGpu = fast;
             _fastGpuHardware = nvidia[0];
         }
+        DriveHealth = ReadDriveHealth();
+    }
+
+    /// <summary>
+    /// Opens the memory group: the RAM sticks (their temperatures and details) and the library's own RAM usage. Slow
+    /// (it probes the memory bus), so the agent runs it on a thread of its own while the sampler keeps reading; the
+    /// library does the same when its first try finds no sticks. Takes effect at the sampler's next <see cref="TakeMemory"/>.
+    /// </summary>
+    public void OpenMemory()
+    {
+        try
+        {
+            _computer.IsMemoryEnabled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("sensors", ex);
+        }
+        _memoryOpened = true;
+    }
+
+    /// <summary>Runs <paramref name="open"/> (which calls <see cref="OpenMemory"/>) in the background; <see cref="Close"/> waits for it.</summary>
+    public void OpenMemoryInBackground(Action open) => _memoryTask = Task.Run(open);
+
+    /// <summary>
+    /// Sampler thread: once the memory group is open, puts it in the list in place of the early RAM usage. True when
+    /// the list changed (the app needs to hear about it).
+    /// </summary>
+    public bool TakeMemory()
+    {
+        if (!_memoryOpened || _memoryMerged) return false;
+        _memoryMerged = true;
+        var added = _computer.Hardware.Where(h => h.HardwareType == HardwareType.Memory).ToList();
+        _earlyMemory.Clear(); // they only ask Windows: nothing to close
+        Build(readFirst: added);
+        _watchedKey = ""; // the overlay's sensors are found again in the new list
+        return true;
+    }
+
+    /// <summary>
+    /// The top-level hardware in the order the library lists it when everything opens at once (board, CPU, memory,
+    /// GPUs, the rest), so the memory group opening last doesn't move it to the end of All sensors.
+    /// </summary>
+    private IEnumerable<IHardware> Tops() =>
+        _computer.Hardware.Concat(_earlyMemory).Select((hw, i) => (hw, i)).OrderBy(x => x.hw.HardwareType switch
+        {
+            HardwareType.Motherboard => 0,
+            HardwareType.Cpu => 1,
+            HardwareType.Memory => 2,
+            HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel => 3,
+            _ => 4,
+        }).ThenBy(x => x.i).Select(x => x.hw);
+
+    /// <summary>
+    /// (Re)lists every sensor. <paramref name="readFirst"/> is read twice beforehand: some chips (e.g. motherboard fan
+    /// headers) only expose a sensor once it has produced a reading. Everything the app's connection thread reads
+    /// (Schema, Keys) is replaced whole, never changed in place.
+    /// </summary>
+    private void Build(List<IHardware> readFirst)
+    {
+        var tops = Tops().ToList();
+        _hardware.Clear();
+        foreach (var hw in tops) Collect(hw);
+        var fresh = new HashSet<IHardware>();
+        foreach (var hw in readFirst) AddWithSubs(hw, fresh);
+        foreach (var (hw, _) in _hardware.Where(h => fresh.Contains(h.Hw))) SafeUpdate(hw);
+        foreach (var (hw, _) in _hardware.Where(h => fresh.Contains(h.Hw))) SafeUpdate(hw);
+
+        _sensors.Clear();
+        _sensorHardware.Clear();
+        var schema = new List<HardwareMeta>();
+        foreach (var hw in tops)
+            Describe(hw, parent: null, schema);
 
         var candidates = new List<KeySensors.Candidate>();
         int index = 0;
-        for (int hw = 0; hw < Schema.Count; hw++)
-            foreach (var s in Schema[hw].Sensors)
-                candidates.Add(new KeySensors.Candidate(index++, Schema[hw].Type, Schema[hw].Name, s.Name, s.Kind, hw));
-        PreferredGpus = GpuPreference.Read();
-        if (PreferredGpus.Count > 0) Log.Write("sensors", $"GPUs as Windows offers them to games: {string.Join(", ", PreferredGpus.Select(g => g.Name))}");
-        Keys = KeySensors.Pick(candidates, PreferredGpus);
-        Ids = UniqueIds([.. _sensors.Select(s => s.Identifier.ToString())], [.. _sensors.Select(s => s.Name)]);
+        for (int hw = 0; hw < schema.Count; hw++)
+            foreach (var s in schema[hw].Sensors)
+                candidates.Add(new KeySensors.Candidate(index++, schema[hw].Type, schema[hw].Name, s.Name, s.Kind, hw));
+        if (PreferredGpus.Count == 0)
+        {
+            PreferredGpus = GpuPreference.Read();
+            if (PreferredGpus.Count > 0) Log.Write("sensors", $"GPUs as Windows offers them to games: {string.Join(", ", PreferredGpus.Select(g => g.Name))}");
+        }
+        var ids = UniqueIds([.. _sensors.Select(s => s.Identifier.ToString())], [.. _sensors.Select(s => s.Name)]);
         int flat = 0;
-        foreach (var hw in Schema)
+        foreach (var hw in schema)
             foreach (var meta in hw.Sensors)
-                meta.Id = Ids[flat++];
-        _indexById = [];
-        for (int i = 0; i < Ids.Length; i++) _indexById.TryAdd(Ids[i], i);
+                meta.Id = ids[flat++];
+        var indexById = new Dictionary<string, int>();
+        for (int i = 0; i < ids.Length; i++) indexById.TryAdd(ids[i], i);
+
+        Keys = KeySensors.Pick(candidates, PreferredGpus);
+        Ids = ids;
+        _indexById = indexById;
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
         _fresh = new bool[_sensors.Count];
-        DriveHealth = ReadDriveHealth();
+        Schema = schema;
+
+        static void AddWithSubs(IHardware hw, HashSet<IHardware> set)
+        {
+            set.Add(hw);
+            foreach (var sub in hw.SubHardware) AddWithSubs(sub, set);
+        }
     }
 
     /// <summary>Whether sensor <paramref name="index"/> was read by the last <see cref="Update"/> (not an old value).</summary>
@@ -139,7 +227,7 @@ internal sealed class SensorHost
             Collect(sub);
     }
 
-    private void Describe(IHardware hw, IHardware? parent)
+    private void Describe(IHardware hw, IHardware? parent, List<HardwareMeta> schema)
     {
         var sensors = hw.Sensors.Where(s => s.SensorType != SensorType.Timing).OrderBy(s => SortKey(s.SensorType)).ThenBy(s => s.Index).ToList();
         if (sensors.Count > 0)
@@ -160,11 +248,11 @@ internal sealed class SensorHost
                 _sensors.Add(s);
                 _sensorHardware.Add(hw);
             }
-            Schema.Add(meta);
+            schema.Add(meta);
         }
 
         foreach (var sub in hw.SubHardware)
-            Describe(sub, hw);
+            Describe(sub, hw, schema);
     }
 
     /// <summary>
@@ -379,6 +467,8 @@ internal sealed class SensorHost
 
     public void Close()
     {
+        // The memory group may still be opening: let it finish, or closing would pull the library out from under it.
+        try { _memoryTask?.Wait(TimeSpan.FromSeconds(30)); } catch { }
         try { _computer.Close(); } catch { }
     }
 }

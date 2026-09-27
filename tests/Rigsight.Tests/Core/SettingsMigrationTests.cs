@@ -17,6 +17,22 @@ public sealed class SettingsMigrationTests
         """;
 
     [Theory]
+    [InlineData(1)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void An_update_from_before_whats_new_shows_what_came_after_0_6_3(int version) =>
+        Assert.Equal("0.6.3", Load($$"""{ "SettingsVersion": {{version}} }""").WhatsNewSeen);
+
+    [Fact]
+    public void A_new_install_has_seen_nothing_and_a_seen_version_is_kept()
+    {
+        Assert.Null(Load("{}").WhatsNewSeen);                                               // no file yet: a new install
+        Assert.Null(Load("""{ "SettingsVersion": 8 }""").WhatsNewSeen);
+        Assert.Equal("0.6.4", Load("""{ "SettingsVersion": 8, "WhatsNewSeen": "0.6.4" }""").WhatsNewSeen);
+        Assert.Equal("0.6.1", Load("""{ "SettingsVersion": 7, "WhatsNewSeen": "0.6.1" }""").WhatsNewSeen);
+    }
+
+    [Theory]
     [InlineData(-1)]
     [InlineData(0)]
     [InlineData(1)]
@@ -163,7 +179,7 @@ public sealed class SettingsMigrationTests
     [InlineData(7)]
     [InlineData(1000)]
     public void Every_version_ends_up_current(int version) =>
-        Assert.Equal(7, Load($$"""{ "SettingsVersion": {{version}} }""").SettingsVersion);
+        Assert.Equal(8, Load($$"""{ "SettingsVersion": {{version}} }""").SettingsVersion);
 
     [Theory]
     [InlineData(0)]

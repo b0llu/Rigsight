@@ -27,6 +27,18 @@ public partial class MainWindow : Window
         ShowPage(vm.CurrentPage);
 
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
+        // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.
+        ContentRendered += (_, _) => _vm.WhatsNew.CheckOnStart();
+        // Listened to weakly: the card outlives any one window (the tests host several).
+        PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.WhatsNew.IsOpen)
+            {
+                _vm.WhatsNew.CloseCommand.Execute(null);
+                e.Handled = true;
+            }
+        };
         ThemeManager.Changed += RebuildPages;
         // Closing ends the app, except where another window takes over (the tests host several in turn).
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;
@@ -43,6 +55,15 @@ public partial class MainWindow : Window
         PageHost.Content = null;
         ShowPage(_vm.CurrentPage);
     }
+
+    /// <summary>The What's new card fades in when it opens.</summary>
+    private void OnWhatsNewOpened(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_vm.WhatsNew.IsOpen)
+            WhatsNewLayer.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+    }
+
+    private void WhatsNewBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.WhatsNew.CloseCommand.Execute(null);
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -65,6 +86,7 @@ public partial class MainWindow : Window
                 "sensors" => new SensorsView { DataContext = _vm.Live },
                 "widgets" => new WidgetsView { DataContext = _vm.Widgets },
                 "overlay" => new OverlayView { DataContext = _vm.Overlay },
+                "taskbar" => new TaskbarView { DataContext = _vm.Taskbar },
                 "settings" => new SettingsView { DataContext = _vm.SettingsPage },
                 _ when _vm.FindCustomPage(page) is { } custom => new CustomPageView { DataContext = custom },
                 _ => new HomeView { DataContext = _vm.Home },

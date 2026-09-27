@@ -8,6 +8,8 @@
 
     <!-- ── Converters ──────────────────────────────────────────────────── -->
     <conv:TempToBrushConverter x:Key="TempBrush" />
+    <conv:TrayTextConverter x:Key="TrayText" />
+    <conv:TrayBrushConverter x:Key="TrayBrush" />
     <conv:EqualsConverter x:Key="Equals" />
     <conv:EqualsToVisibilityConverter x:Key="EqualsVis" />
     <conv:VisibilityConverter x:Key="Vis" />

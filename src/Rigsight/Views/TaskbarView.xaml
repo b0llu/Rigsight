@@ -1,0 +1,342 @@
+<UserControl x:Class="Rigsight.Views.TaskbarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <UserControl.Resources>
+        <!-- Windows 11's taskbar, dark or light as the user has it, for the preview. -->
+        <SolidColorBrush x:Key="BarDark" Color="#1C1C1C" />
+        <SolidColorBrush x:Key="BarLight" Color="#EEEEEE" />
+
+        <!-- One reading as its taskbar icon shows it (twice the real size): the short number, coloured like the real one. -->
+        <DataTemplate x:Key="IconNumber">
+            <Viewbox StretchDirection="DownOnly" MaxWidth="30" MaxHeight="{Binding Tag, RelativeSource={RelativeSource AncestorType=Grid}}">
+                <TextBlock FontFamily="Segoe UI" FontWeight="Bold" FontSize="22" LineHeight="22" LineStackingStrategy="BlockLineHeight">
+                    <TextBlock.Text>
+                        <MultiBinding Converter="{StaticResource TrayText}">
+                            <Binding Path="Sensor.Kind" />
+                            <Binding Path="Sensor.Value" />
+                        </MultiBinding>
+                    </TextBlock.Text>
+                    <TextBlock.Foreground>
+                        <MultiBinding Converter="{StaticResource TrayBrush}">
+                            <Binding Path="Sensor.Kind" />
+                            <Binding Path="Sensor.Value" />
+                            <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                        </MultiBinding>
+                    </TextBlock.Foreground>
+                </TextBlock>
+            </Viewbox>
+        </DataTemplate>
+
+        <!-- The kind of reading, as on All sensors: sensors of one chip often share a name ("GPU Core"). -->
+        <DataTemplate x:Key="KindBadge">
+            <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
+                    VerticalAlignment="Center" Padding="6,2" Width="44">
+                <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"
+                           Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
+            </Border>
+        </DataTemplate>
+
+        <!-- A way to show the readings, as a card to pick: a small picture of it, its name and one line. -->
+        <Style x:Key="ModeCard" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="12" Padding="16,14" BorderThickness="1.5"
+                                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}">
+                            <ContentPresenter />
+                        </ctl:SmoothBorder>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A common reading, added with one click. -->
+        <Style x:Key="QuickChip" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="9" Padding="10,6,12,6" Background="{DynamicResource Surface2Brush}"
+                                          BorderBrush="Transparent" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="10" Margin="0,0,7,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource MutedBrush}" />
+                                <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource TextBrush}" />
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Text on the preview's taskbar: white on dark, black on light. -->
+        <Style x:Key="BarText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E6FFFFFF" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.TaskbarLight, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                    <Setter Property="Foreground" Value="#E6000000" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="BarApp" TargetType="Border">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Margin" Value="5,0" />
+            <Setter Property="Background" Value="#2EFFFFFF" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.TaskbarLight, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                    <Setter Property="Background" Value="#1F000000" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32" MaxWidth="900" HorizontalAlignment="Left">
+            <TextBlock Text="Taskbar" Style="{StaticResource H1}" />
+            <TextBlock Text="Readings next to the clock, always in view. Hover over one to see what it is; right-click it to remove it."
+                       Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
+
+            <!-- Preview: the corner of the taskbar, as it will look -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0">
+                <StackPanel>
+                    <Border CornerRadius="12,12,0,0" Height="76" Padding="22,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource BarDark}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TaskbarLight}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BarLight}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <DockPanel>
+                            <!-- The clock and the usual system icons -->
+                            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="18,0,0,0">
+                                <TextBlock Text="12:30" Style="{StaticResource BarText}" FontSize="13" HorizontalAlignment="Right" />
+                                <TextBlock Text="27-09-2026" Style="{StaticResource BarText}" FontSize="12" HorizontalAlignment="Right" Opacity="0.85" />
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Opacity="0.8">
+                                <TextBlock Text="&#xE701;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Style="{StaticResource BarText}" Margin="12,0,0,0" />
+                                <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Style="{StaticResource BarText}" Margin="12,0,0,0" />
+                            </StackPanel>
+                            <!-- The readings: an icon each, or all in one -->
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Sensors}" VerticalAlignment="Center" Focusable="False"
+                                          Visibility="{Binding Separate, Converter={StaticResource Vis}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Width="32" Height="32" Margin="6,0,0,0" Tag="30" ToolTip="{Binding Name}"
+                                              Visibility="{Binding Found, Converter={StaticResource Vis}}">
+                                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource IconNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding CombinedPreview}" Width="32" Height="32" Margin="6,0,0,0" Focusable="False"
+                                          VerticalAlignment="Center" Visibility="{Binding Combined, Converter={StaticResource Vis}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="1" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Tag="15">
+                                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource IconNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                                       Style="{StaticResource BarText}" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0.8" />
+                            <!-- The middle of the taskbar, hinted: apps pinned there -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Style="{StaticResource BarApp}" />
+                                <Border Style="{StaticResource BarApp}" />
+                                <Border Style="{StaticResource BarApp}" />
+                                <Border Style="{StaticResource BarApp}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- Under the preview: what to do if the icons don't show up -->
+                    <DockPanel Margin="22,14,22,16">
+                        <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,10,0" />
+                        <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                   Text="Windows may tuck new icons behind the arrow next to the clock. Drag them out once and they stay in view." />
+                    </DockPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <!-- How: an icon each, or all in one -->
+            <TextBlock Text="STYLE" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <UniformGrid Columns="2" Margin="-6,0">
+                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Right" CornerRadius="7" Background="{StaticResource BarDark}" Padding="9,6" VerticalAlignment="Center" Margin="12,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="62" FontWeight="Bold" FontSize="13" Foreground="#34D399" Margin="0,0,8,0" />
+                                <TextBlock Text="71" FontWeight="Bold" FontSize="13" Foreground="#FBBF24" Margin="0,0,8,0" />
+                                <TextBlock Text="45" FontWeight="Bold" FontSize="13" Foreground="White" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="An icon each" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="Every reading on its own. Easiest to read at a glance." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Combined}" Margin="6,0" AutomationProperties.Name="All in one">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Right" CornerRadius="7" Background="{StaticResource BarDark}" Padding="10,3" VerticalAlignment="Center" Margin="12,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="62" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#34D399" />
+                                <TextBlock Text="45" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="All in one" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="One icon, two readings at a time, taking turns. Saves space." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                </RadioButton>
+            </UniformGrid>
+            <TextBlock Text="{Binding CombinedNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding CombinedNote, Converter={StaticResource Vis}}" />
+
+            <!-- What: the readings, in order -->
+            <DockPanel Margin="4,26,0,10">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Bottom" />
+                <TextBlock Text="READINGS" Style="{StaticResource Caption}" />
+            </DockPanel>
+            <ctl:SmoothBorder Style="{StaticResource Card}">
+                <StackPanel>
+                    <!-- Nothing yet -->
+                    <StackPanel HorizontalAlignment="Center" Margin="0,10,0,18" Visibility="{Binding HasSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <TextBlock Text="&#xE75B;" Style="{StaticResource Icon}" FontSize="26" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="Nothing in the taskbar yet" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,10,0,2" />
+                        <TextBlock Text="Pick a common one below, or search all your sensors." Style="{StaticResource Muted}" FontSize="12.5" HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding Sensors}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,0,0,6">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                                    Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE70E;" />
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                                    Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE70D;" />
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" ToolTip="Remove from the taskbar" AutomationProperties.Name="Remove"
+                                                    Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="&#xE711;" />
+                                            </Button>
+                                        </StackPanel>
+                                        <!-- The live reading -->
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="13.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />
+                                        <ContentPresenter DockPanel.Dock="Left" Content="{Binding Sensor}" ContentTemplate="{StaticResource KindBadge}" Margin="0,0,12,0"
+                                                          Visibility="{Binding Found, Converter={StaticResource Vis}}" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Adding: the usual ones in one click, or any sensor by search -->
+                    <StackPanel Margin="0,10,0,0" Visibility="{Binding HasQuickPicks, Converter={StaticResource Vis}}">
+                        <TextBlock Text="Quick add" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding QuickPicks}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource QuickChip}" Content="{Binding Label}" AutomationProperties.Name="{Binding Label, StringFormat=Add {0}}"
+                                            Command="{Binding DataContext.AddQuickCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <TextBlock Text="Any sensor" Style="{StaticResource Muted}" FontSize="12" Margin="0,8,0,8" />
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Add" Margin="10,0,0,0" MinWidth="72"
+                                Command="{Binding AddSensorCommand}" />
+                        <Grid>
+                            <ComboBox x:Name="Picker" ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
+                                      TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360"
+                                      AutomationProperties.Name="Search all sensors">
+                                <ComboBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel />
+                                    </ItemsPanelTemplate>
+                                </ComboBox.ItemsPanel>
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel>
+                                            <ContentPresenter DockPanel.Dock="Left" Content="{Binding}" ContentTemplate="{StaticResource KindBadge}" Margin="0,0,10,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="13" />
+                                                <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <!-- The search box's hint, while it's empty -->
+                            <TextBlock Text="Search all sensors…" IsHitTestVisible="False" Foreground="{DynamicResource FaintBrush}" FontSize="13"
+                                       VerticalAlignment="Center" Margin="11,0,30,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=Picker}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </DockPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

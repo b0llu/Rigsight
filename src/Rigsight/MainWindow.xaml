@@ -9,6 +9,102 @@
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         UseLayoutRounding="True"
         FontFamily="Segoe UI Variable Text, Segoe UI">
+    <Window.Resources>
+        <!-- What's new (see the layer at the end of the window). -->
+        <DataTemplate x:Key="WhatsNewCard">
+                    <ctl:SmoothBorder Width="540" MaxHeight="760" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                                      AutomationProperties.Name="What's new">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="28,22,16,8">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="Close" AutomationProperties.Name="Close">
+                                    <TextBlock Text="&#xE711;" />
+                                </Button>
+                                <TextBlock Text="{Binding Heading}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="28,0,12,0" Padding="0,0,16,0">
+                                <ItemsControl ItemsSource="{Binding Shown}" Focusable="False" Margin="0,0,0,24">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- One version: a line above it (not above the first), then its number, date and groups. -->
+                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,4" Margin="0,8,0,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                                                <Setter Property="BorderThickness" Value="0" />
+                                                                <Setter Property="Padding" Value="0,6,0,4" />
+                                                                <Setter Property="Margin" Value="0" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding DateText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Short}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
+                                                    </DockPanel>
+                                                    <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Margin="0,14,0,0">
+                                                                    <!-- The group as a small coloured badge: new in blue, better in green, fixed in amber. -->
+                                                                    <Border CornerRadius="5" Padding="7,2" HorizontalAlignment="Left" Margin="0,0,0,2">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding Kind}" Value="new">
+                                                                                        <Setter Property="Background" Value="{DynamicResource CpuSoftBrush}" />
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Kind}" Value="better">
+                                                                                        <Setter Property="Background" Value="{DynamicResource GpuSoftBrush}" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <TextBlock Text="{Binding Title}" FontSize="10" FontWeight="Bold">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding Kind}" Value="new">
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                                                                                        </DataTrigger>
+                                                                                        <DataTrigger Binding="{Binding Kind}" Value="better">
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource GpuBrush}" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                    </Border>
+                                                                    <ItemsControl ItemsSource="{Binding Items}" Focusable="False">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <DockPanel Margin="0,8,0,0">
+                                                                                    <Ellipse DockPanel.Dock="Left" Width="4" Height="4" Margin="2,8,12,0" VerticalAlignment="Top"
+                                                                                             Fill="{DynamicResource FaintBrush}" />
+                                                                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="13.5" LineHeight="20"
+                                                                                               Foreground="{DynamicResource MutedBrush}" />
+                                                                                </DockPanel>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </ctl:SmoothBorder>
+        </DataTemplate>
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="232" />
@@ -205,6 +301,8 @@
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=widgets}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7FC;" Content="Overlay"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=overlay}" />
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE75B;" Content="Taskbar"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=taskbar}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" AutomationProperties.Name="Settings"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
                         <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
@@ -222,5 +320,25 @@
 
         <!-- Pages (created on first visit, then kept) -->
         <ContentControl x:Name="PageHost" Grid.Column="1" Focusable="False" />
+
+        <!-- What's new: once after an update, over the whole window. Closed with the x, Esc or a click outside; every update is in Settings. -->
+        <!-- It fades in from code (MainWindow.xaml.cs): a style-triggered animation here kept closed pages in memory. -->
+        <Grid x:Name="WhatsNewLayer" Grid.ColumnSpan="2" DataContext="{Binding WhatsNew}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+            <Border Background="#99000000" MouseLeftButtonDown="WhatsNewBackdrop_MouseDown" />
+            <!-- The card itself exists only while open: kept in the window while closed, its list held on to closed pages
+                 after a theme change (a WPF quirk; MemoryLeakTests caught it). -->
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate" Value="{StaticResource WhatsNewCard}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
     </Grid>
 </Window>

@@ -50,7 +50,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 7;
+    private const int CurrentVersion = 8;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -103,6 +103,9 @@ public static class SettingsStore
         // works, so the first-start check is considered done and the switch stays off. (A new install has no file:
         // SettingsVersion 0, and its agent does the check before the first hardware scan.)
         if (s.SettingsVersion is > 0 and < 7) s.HardwareAppsChecked = true;
+        // v8: "What's new" after an update. Settings from an earlier version mean an update from 0.6.3 or before: it
+        // shows what came after that (a new install has no file, and sees nothing).
+        if (s.SettingsVersion is > 0 and < 8) s.WhatsNewSeen ??= "0.6.3";
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;
@@ -136,6 +139,7 @@ public static class SettingsStore
             if (x.Label is { Length: > OverlaySettings.MaxLabelLength }) x.Label = x.Label[..OverlaySettings.MaxLabelLength];
         }
 
+        s.TraySensors = [.. (s.TraySensors ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         var t = s.Tracking;

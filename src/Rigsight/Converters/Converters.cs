@@ -56,6 +56,35 @@ public sealed class TempToBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
+/// <summary>A reading as the taskbar shows it ("62", "1.2k"): bind the sensor's Kind, then its Value.</summary>
+public sealed class TrayTextConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values is [SensorKind kind, var value, ..] ? Units.TrayText(kind, value as double?) : "–";
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
+}
+
+/// <summary>
+/// A taskbar reading's colour: a temperature's (as everywhere), otherwise the taskbar's text colour. Kind, Value, and
+/// optionally whether the taskbar is light (else the app's text colour).
+/// </summary>
+public sealed class TrayBrushConverter : IMultiValueConverter
+{
+    private static readonly TempToBrushConverter Temp = new();
+
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values is not [SensorKind kind, var value, ..]) return TempToBrushConverter.None;
+        if (kind == SensorKind.Temperature) return Temp.Convert(value, targetType, null, culture);
+        if (value is not double) return TempToBrushConverter.None;
+        return values is [_, _, bool light, ..] ? light ? Brushes.Black : Brushes.White
+            : Application.Current.TryFindResource("TextBrush") ?? Brushes.White;
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
+}
+
 /// <summary>True when the bound value's string form equals ConverterParameter. Used for radio-button groups.</summary>
 public sealed class EqualsConverter : IValueConverter
 {

@@ -47,6 +47,15 @@ public sealed class RigsightSettings
     /// <summary>The order the user dragged the All sensors groups into (by name); groups not listed follow in their usual order.</summary>
     public List<string> HardwareOrder { get; set; } = [];
 
+    /// <summary>Sensors shown as numbers in the taskbar's notification area, in this order (by sensor id).</summary>
+    public List<string> TraySensors { get; set; } = [];
+
+    /// <summary>
+    /// All <see cref="TraySensors"/> in one icon (two at a time, stacked, taking turns; hover lists them all) instead of
+    /// an icon each.
+    /// </summary>
+    public bool TrayCombined { get; set; }
+
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
 
@@ -81,6 +90,12 @@ public sealed class RigsightSettings
 
     /// <summary>The sensor notice (what's left out and why) last seen in Settings, so the sidebar only points at a new one.</summary>
     public string? SensorNoticeSeen { get; set; }
+
+    /// <summary>
+    /// The newest version whose "What's new" has been shown ("0.6.4"). Empty on a new install, where nothing is new: the
+    /// app then sets it without showing anything.
+    /// </summary>
+    public string? WhatsNewSeen { get; set; }
 
     /// <summary>Last version the agent sent an "update ready" notification for (one each).</summary>
     public string? LastUpdateNotice { get; set; }

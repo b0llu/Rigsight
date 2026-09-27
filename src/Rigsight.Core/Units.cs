@@ -75,6 +75,29 @@ public static class Units
 
     public static string TempShort(double? celsius) => Short(SensorKind.Temperature, celsius);
 
+    /// <summary>
+    /// A reading as short as it can be and still say the number: at most about three characters, since a tray icon is
+    /// 16 px square at normal scaling. Units are left out (the tooltip has them): 62 (°), 45 (%), 1.2k (RPM), 4.4 (GHz).
+    /// </summary>
+    public static string TrayText(SensorKind kind, double? value)
+    {
+        if (value is not double v || !double.IsFinite(v)) return "–";
+        string Whole(double x) => Math.Round(x).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        string OneDecimal(double x) => x.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        string Short(double x) => Math.Abs(x) < 10 ? OneDecimal(x) : Whole(x);
+        return kind switch
+        {
+            SensorKind.Temperature => Whole(Temp(v)),
+            SensorKind.Load or SensorKind.Control or SensorKind.Level or SensorKind.Humidity or SensorKind.Power => Whole(v),
+            SensorKind.Fan or SensorKind.Flow => v >= 1000 ? OneDecimal(v / 1000) + "k" : Whole(v),
+            SensorKind.Clock => v >= 1000 ? OneDecimal(v / 1000) : Whole(v),    // MHz; GHz from 1000
+            SensorKind.Voltage => v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+            SensorKind.SmallData => Short(v >= 1024 ? v / 1024 : v),             // MB; GB from 1024
+            SensorKind.Throughput => Short(v / (1024 * 1024)),                   // bytes/s as MB/s
+            _ => Short(v),
+        };
+    }
+
     public static string TypeLabel(SensorKind kind) => kind switch
     {
         SensorKind.Temperature => "TEMP",

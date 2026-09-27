@@ -35,6 +35,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Storage = new StorageViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client);
         Overlay = new OverlayViewModel(Settings, client, Live);
+        Taskbar = new TaskbarViewModel(Settings, Live);
+        WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
@@ -100,6 +102,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public StorageViewModel Storage { get; }
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
+    public TaskbarViewModel Taskbar { get; }
+    public WhatsNewViewModel WhatsNew { get; }
     public SettingsViewModel SettingsPage { get; }
     public UpdateViewModel Update { get; }
 
