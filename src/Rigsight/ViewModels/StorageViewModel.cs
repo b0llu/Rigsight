@@ -83,41 +83,46 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         }
     }
 
+    /// <summary>What goes in "Space you could free" (tests swap it: the real one walks the user's own folders).</summary>
+    internal Func<List<CleanupItem>> FindCleanup { get; set; } = FindCleanupItems;
+
     private async Task LoadCleanupAsync()
     {
         CleanupLoading = true;
-        var items = await Task.Run(() =>
-        {
-            var list = new List<CleanupItem>();
-            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-
-            void Add(string title, string description, string path, Func<FileInfo, bool>? filter = null)
-            {
-                long size = StorageScanner.FolderSize(path, filter);
-                if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
-            }
-
-            Add("Temporary files", "Leftovers from installers and apps. Safe to delete anything not currently in use.", Path.GetTempPath());
-            Add("Windows temporary files", "System temp folder.", Path.Combine(windows, "Temp"));
-            Add("Old downloads", "Files in Downloads you haven't touched in 90+ days.", downloads,
-                f => f.LastWriteTime < DateTime.Now.AddDays(-90) && f.LastAccessTime < DateTime.Now.AddDays(-90));
-            Add("Windows Update cache", "Already-installed update files. Disk Cleanup can remove these.", Path.Combine(windows, "SoftwareDistribution", "Download"));
-            Add("NVIDIA shader cache", "Rebuilt automatically by games; can be cleared if it gets large.", Path.Combine(local, "NVIDIA", "DXCache"));
-            Add("DirectX shader cache", "Rebuilt automatically; Disk Cleanup can clear it.", Path.Combine(local, "D3DSCache"));
-            Add("AMD shader cache", "Rebuilt automatically by games.", Path.Combine(local, "AMD", "DxCache"));
-            Add("Crash dumps", "Memory dumps from crashed apps.", Path.Combine(local, "CrashDumps"));
-            Add("Previous Windows installation", "Left after a Windows upgrade. Remove it with Disk Cleanup.", Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
-
-            var (binSize, binItems) = StorageScanner.RecycleBin();
-            if (binSize > 0)
-                list.Add(new CleanupItem("Recycle Bin", $"{binItems:N0} deleted item{(binItems == 1 ? "" : "s")}.", binSize, null, true));
-            return list.OrderByDescending(i => i.Size).ToList();
-        });
+        var items = await Task.Run(FindCleanup);
         Cleanup.Clear();
         foreach (var i in items) Cleanup.Add(i);
         CleanupLoading = false;
+    }
+
+    private static List<CleanupItem> FindCleanupItems()
+    {
+        var list = new List<CleanupItem>();
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+        void Add(string title, string description, string path, Func<FileInfo, bool>? filter = null)
+        {
+            long size = StorageScanner.FolderSize(path, filter);
+            if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
+        }
+
+        Add("Temporary files", "Leftovers from installers and apps. Safe to delete anything not currently in use.", Path.GetTempPath());
+        Add("Windows temporary files", "System temp folder.", Path.Combine(windows, "Temp"));
+        Add("Old downloads", "Files in Downloads you haven't touched in 90+ days.", downloads,
+            f => f.LastWriteTime < DateTime.Now.AddDays(-90) && f.LastAccessTime < DateTime.Now.AddDays(-90));
+        Add("Windows Update cache", "Already-installed update files. Disk Cleanup can remove these.", Path.Combine(windows, "SoftwareDistribution", "Download"));
+        Add("NVIDIA shader cache", "Rebuilt automatically by games; can be cleared if it gets large.", Path.Combine(local, "NVIDIA", "DXCache"));
+        Add("DirectX shader cache", "Rebuilt automatically; Disk Cleanup can clear it.", Path.Combine(local, "D3DSCache"));
+        Add("AMD shader cache", "Rebuilt automatically by games.", Path.Combine(local, "AMD", "DxCache"));
+        Add("Crash dumps", "Memory dumps from crashed apps.", Path.Combine(local, "CrashDumps"));
+        Add("Previous Windows installation", "Left after a Windows upgrade. Remove it with Disk Cleanup.", Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
+
+        var (binSize, binItems) = StorageScanner.RecycleBin();
+        if (binSize > 0)
+            list.Add(new CleanupItem("Recycle Bin", $"{binItems:N0} deleted item{(binItems == 1 ? "" : "s")}.", binSize, null, true));
+        return list.OrderByDescending(i => i.Size).ToList();
     }
 
     [RelayCommand]
@@ -196,6 +201,28 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         Reveal(item.Path);
     }
 
+    /// <summary>
+    /// The page's Refresh button (after deleting something, say): the drives, the cleanup list and, if a drive or folder
+    /// was scanned, that scan again, back in the folder that was open.
+    /// </summary>
     [RelayCommand]
-    private Task RefreshCleanup() => LoadCleanupAsync();
+    private async Task RefreshAll()
+    {
+        var again = Result is { } r && !IsScanning ? (Root: r.Root.Path, Folder: Current?.Path) : default;
+        await Task.WhenAll(LoadVolumesAsync(), LoadCleanupAsync());
+        if (again.Root is null) return;
+        await Scan(again.Root);
+        if (again.Folder is not null && Find(Result?.Root, again.Folder) is { } folder) Open(folder);
+    }
+
+    /// <summary>The folder at <paramref name="path"/> in a scan, if it's still there.</summary>
+    internal static FolderNode? Find(FolderNode? node, string path)
+    {
+        if (node is null) return null;
+        if (!node.IsBucket && string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase)) return node;
+        foreach (var child in node.Children)
+            if (!child.IsBucket && path.StartsWith(child.Path, StringComparison.OrdinalIgnoreCase) && Find(child, path) is { } found)
+                return found;
+        return null;
+    }
 }

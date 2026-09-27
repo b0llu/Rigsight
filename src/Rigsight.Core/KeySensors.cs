@@ -114,7 +114,9 @@ public static class KeySensors
             });
         var gpus = found.ToList();
         var place = WindowsOrder(gpus.Select(g => g.Gpu).ToList(), preferred ?? []);
-        return [.. gpus.OrderBy(g => place[g.Order]).ThenByDescending(g => Rank(g.Gpu)).ThenBy(g => g.Order).Select(g => g.Gpu)];
+        // A graphics card always comes before integrated graphics (even when Windows lists those first, or a card's name
+        // doesn't match Windows' list); among cards, and among integrated ones, Windows' order for games decides.
+        return [.. gpus.OrderBy(g => g.Gpu.Integrated).ThenBy(g => place[g.Order]).ThenByDescending(g => Rank(g.Gpu)).ThenBy(g => g.Order).Select(g => g.Gpu)];
     }
 
     /// <summary>

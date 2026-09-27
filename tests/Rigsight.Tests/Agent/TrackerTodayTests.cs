@@ -74,6 +74,32 @@ public class TrackerTodayTests
     }
 
     [Fact]
+    public void A_peak_during_a_one_second_handoff_goes_to_the_app_of_that_minute()
+    {
+        // Seen for real: an app restarting, Windows' display manager held the foreground for a second just as the CPU
+        // peaked. The tile said "while in Windows display (DWM)", the insight (the minute's app) said Rigsight.
+        using var rig = new TrackerRig { SensorEvery = 1 }; // read every second, as the agent does
+        rig.Keys = new KeyValues { CpuTemp = 60, GpuTemp = 50 };
+        rig.Use("rigsight.exe", 20);
+        rig.Keys = new KeyValues { CpuTemp = 78, GpuTemp = 70 };
+        rig.Use("dwm.exe", 1);
+        rig.Keys = new KeyValues { CpuTemp = 61, GpuTemp = 50 };
+        rig.Use("rigsight.exe", 20);
+        Assert.Equal(78, rig.Tracker.Today().CpuPeak);
+        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp); // the minute so far is mostly Rigsight
+        Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
+
+        rig.Use("rigsight.exe", 120); // the minute is written
+        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
+        Assert.Equal(rig.AppId("rigsight.exe"), rig.Minutes().Single(m => m.CpuTempMax == 78).FgApp); // what the insight names
+
+        rig.Restart(); // rebuilt from the database: the same app
+        Assert.Equal(78, rig.Tracker.Today().CpuPeak);
+        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
+        Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
+    }
+
+    [Fact]
     public void An_equal_reading_later_doesnt_take_the_peak()
     {
         using var rig = new TrackerRig();

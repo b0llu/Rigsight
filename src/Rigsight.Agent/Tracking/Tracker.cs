@@ -26,7 +26,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         public double Seconds, Active, Idle;
         public readonly Dictionary<long, double> Foreground = [];
+        public readonly Dictionary<long, AppInfo> Apps = [];
         public int N;
+
+        /// <summary>The app in front for most of the minute so far (what the minute's row records as its app).</summary>
+        public AppInfo? Leader => Foreground.Count > 0 ? Apps[Foreground.MaxBy(kv => kv.Value).Key] : null;
         public double CpuTempSum, GpuTempSum, CpuLoadSum, GpuLoadSum, CpuPowerSum, GpuPowerSum, RamSum;
         public int CpuTempN, GpuTempN, CpuLoadN, GpuLoadN, CpuPowerN, GpuPowerN, RamN;
         public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
@@ -48,6 +52,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public double OnSec, ActiveSec, IdleSec;
         public readonly Dictionary<long, double> AppSec = [];
         public double? CpuPeak, GpuPeak;
+        /// <summary>The minute of each peak: its app is the one in front for most of that minute, as in the reports.</summary>
+        public long CpuPeakMinute = -1, GpuPeakMinute = -1;
         public string? CpuPeakApp, GpuPeakApp;
         public AppCategory CpuPeakCategory, GpuPeakCategory;
     }
@@ -142,6 +148,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             {
                 h.FgSec += dt;
                 _minute.Foreground[app.Id] = _minute.Foreground.GetValueOrDefault(app.Id) + dt;
+                _minute.Apps[app.Id] = app;
                 _today.AppSec[app.Id] = _today.AppSec.GetValueOrDefault(app.Id) + dt;
 
                 if (!_sessions.TryGetValue(app.Id, out var session))
@@ -238,10 +245,31 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             session.GpuMax = Max(session.GpuMax, k.GpuTemp);
         }
 
-        string name = AppResolver.DisplayName(app, _settings);
-        var category = AppResolver.Category(app, _settings);
-        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak)) { _today.CpuPeak = c; _today.CpuPeakApp = name; _today.CpuPeakCategory = category; }
-        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak)) { _today.GpuPeak = g; _today.GpuPeakApp = name; _today.GpuPeakCategory = category; }
+        // A peak is put down to the app in front for most of its minute (as the reports and insights do), not whatever
+        // held the foreground that second: a one-second handoff (Windows' display manager while an app starts, say)
+        // isn't where the user was. Settled when the minute is written (see SettlePeakApps).
+        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak))
+        {
+            _today.CpuPeak = c;
+            _today.CpuPeakMinute = _minuteTs;
+            (_today.CpuPeakApp, _today.CpuPeakCategory) = NameOf(m.Leader ?? app);
+        }
+        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak))
+        {
+            _today.GpuPeak = g;
+            _today.GpuPeakMinute = _minuteTs;
+            (_today.GpuPeakApp, _today.GpuPeakCategory) = NameOf(m.Leader ?? app);
+        }
+    }
+
+    private (string Name, AppCategory Category) NameOf(AppInfo app) => (AppResolver.DisplayName(app, _settings), AppResolver.Category(app, _settings));
+
+    /// <summary>The minute is done: a peak in it now belongs to the app in front for most of it.</summary>
+    private void SettlePeakApps(MinuteAcc m)
+    {
+        if (m.Leader is not { } leader) return;
+        if (_today.CpuPeakMinute == _minuteTs) (_today.CpuPeakApp, _today.CpuPeakCategory) = NameOf(leader);
+        if (_today.GpuPeakMinute == _minuteTs) (_today.GpuPeakApp, _today.GpuPeakCategory) = NameOf(leader);
     }
 
     public void OnProcesses(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows, double dt)
@@ -302,6 +330,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             var m = _minute;
             if (m.Seconds >= 1)
             {
+                SettlePeakApps(m);
                 db.WriteMinute(new SystemMinute
                 {
                     Ts = _minuteTs,
@@ -385,6 +414,12 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             // each app's hourly highs), not the day's hottest minute, which may have had nobody at the PC.
             var cpu = r.Apps.Where(a => a.CpuTempMax is not null).MaxBy(a => a.CpuTempMax);
             var gpu = r.Apps.Where(a => a.GpuTempMax is not null).MaxBy(a => a.GpuTempMax);
+            // Named after the app in front for most of the peak's minute, as while running (see OnSensors).
+            long from = TimeUtil.ToUnix(LocalToday), to = TimeUtil.ToUnix(LocalToday.AddDays(1));
+            AppStat? MinuteApp(string column, double? value, AppStat? fallback) =>
+                value is double v && db.FindMinute(column, v, from, to) is { App: long id } ? r.Apps.FirstOrDefault(a => a.Id == id) ?? fallback : fallback;
+            var cpuApp = MinuteApp("cpu_temp_max", cpu?.CpuTempMax, cpu);
+            var gpuApp = MinuteApp("gpu_temp_max", gpu?.GpuTempMax, gpu);
             _today = new TodayState
             {
                 Day = LocalToday,
@@ -392,11 +427,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 ActiveSec = r.ActiveSec,
                 IdleSec = r.AwaySec,
                 CpuPeak = cpu?.CpuTempMax,
-                CpuPeakApp = cpu?.Name,
-                CpuPeakCategory = cpu?.Category ?? AppCategory.Other,
+                CpuPeakApp = cpuApp?.Name,
+                CpuPeakCategory = cpuApp?.Category ?? AppCategory.Other,
                 GpuPeak = gpu?.GpuTempMax,
-                GpuPeakApp = gpu?.Name,
-                GpuPeakCategory = gpu?.Category ?? AppCategory.Other,
+                GpuPeakApp = gpuApp?.Name,
+                GpuPeakCategory = gpuApp?.Category ?? AppCategory.Other,
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;

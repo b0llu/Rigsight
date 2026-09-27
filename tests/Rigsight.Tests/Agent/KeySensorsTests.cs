@@ -381,13 +381,24 @@ public class KeySensorsTests
     }
 
     [Fact]
-    public void Windows_can_even_put_integrated_graphics_first()
+    public void A_card_comes_before_integrated_graphics_even_when_windows_lists_them_first()
     {
-        // Set to power saving for everything: Windows' first is the main GPU, as games will run there.
+        // Set to power saving for everything, Windows lists the processor's graphics first; the card still leads.
         var pc = new Pc().Add("GpuIntel", "Intel(R) Iris(R) Xe Graphics", IntelGpu).Add("GpuNvidia", "NVIDIA GeForce RTX 4060 Laptop GPU", NvidiaCard)
             .Prefers("GpuIntel", "Intel(R) Iris(R) Xe Graphics").Prefers("GpuNvidia", "NVIDIA GeForce RTX 4060 Laptop GPU");
-        Assert.Equal("Intel(R) Iris(R) Xe Graphics", pc.Gpus()[0].Name);
-        Assert.True(pc.Gpus()[0].Integrated); // still named for what it is
+        Assert.Equal(["NVIDIA GeForce RTX 4060 Laptop GPU", "Intel(R) Iris(R) Xe Graphics"], pc.Gpus().Select(g => g.Name));
+        Assert.Equal("#1 NVIDIA GeForce RTX 4060 Laptop GPU", pc.DeviceOf(GpuTemp));
+    }
+
+    [Fact]
+    public void A_card_windows_list_doesnt_name_still_comes_before_integrated_graphics()
+    {
+        // Reported: a card whose name matched nothing in Windows' list came after the (matched) integrated graphics.
+        var pc = new Pc().Add("GpuIntel", "Intel(R) UHD Graphics 770", IntelGpu).Add("GpuNvidia", "NVIDIA GeForce RTX 4070", NvidiaCard)
+            .Add("GpuNvidia", "NVIDIA GeForce RTX 3060", NvidiaCard)
+            .Prefers("GpuIntel", "Intel(R) UHD Graphics 770").Prefers("GpuNvidia", "Some NVIDIA name");
+        Assert.False(pc.Gpus()[0].Integrated);
+        Assert.True(pc.Gpus()[^1].Integrated);
     }
 
     [Fact]

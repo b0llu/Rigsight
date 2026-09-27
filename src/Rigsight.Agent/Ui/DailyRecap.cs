@@ -45,16 +45,18 @@ internal static class DailyRecap
     /// <summary>
     /// Whether the user signed in just now (the PC was turned on): their desktop (Explorer) started within
     /// <see cref="JustStartedWithin"/>. Not the time since Windows started, which Windows' fast startup carries over a
-    /// shutdown.
+    /// shutdown. The desktop is the session's oldest Explorer: opening a folder can start another one for a moment
+    /// (Rigsight's own "Open" buttons do), and that isn't a sign-in.
     /// </summary>
     public static bool JustSignedIn()
     {
         var session = Process.GetCurrentProcess().SessionId;
+        var starts = new List<DateTime>();
         foreach (var p in Process.GetProcessesByName("explorer"))
         {
             try
             {
-                if (p.SessionId == session && DateTime.Now - p.StartTime < JustStartedWithin) return true;
+                if (p.SessionId == session) starts.Add(p.StartTime);
             }
             catch
             {
@@ -65,8 +67,12 @@ internal static class DailyRecap
                 p.Dispose();
             }
         }
-        return false;
+        return JustSignedIn(starts, DateTime.Now);
     }
+
+    /// <summary>The session's Explorers started at <paramref name="starts"/>: the oldest (the desktop) started just now.</summary>
+    internal static bool JustSignedIn(IReadOnlyCollection<DateTime> starts, DateTime now) =>
+        starts.Count > 0 && now - starts.Min() < JustStartedWithin;
 
     private static DateTime? Day(string? text) =>
         DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;

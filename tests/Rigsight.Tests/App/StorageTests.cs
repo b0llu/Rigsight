@@ -93,6 +93,58 @@ public sealed class StorageTests
     }
 
     [Fact]
+    public void Refresh_after_deleting_a_file_drops_it_and_stays_in_the_open_folder()
+    {
+        var root = Tree();
+        File.WriteAllBytes(Path.Combine(root, "b", "c", "keep.bin"), new byte[700]);
+        var vm = Page();
+        int cleanupRuns = 0;
+        Ui.Run(() => vm.FindCleanup = () => { cleanupRuns++; return [new CleanupItem("Temp", "", 1, null, false)]; });
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
+        string b = Path.Combine(root, "b");
+        Ui.Run(() =>
+        {
+            Assert.Equal("big.bin", vm.Result!.LargestFiles[0].Name);
+            vm.Open(vm.Result.Root.Children.Single(n => n.Name == "b"));
+        });
+
+        // The biggest file, found on the page and deleted in Explorer.
+        File.Delete(Path.Combine(root, "b", "c", "big.bin"));
+        Kit.Wait(() => vm.RefreshAllCommand.ExecuteAsync(null));
+        Ui.Run(() =>
+        {
+            Assert.DoesNotContain(vm.Result!.LargestFiles, f => f.Name == "big.bin");
+            Assert.Equal(3900, vm.Result.Root.Size);
+            Assert.Equal(b, vm.Current!.Path);                 // still in the folder that was open
+            Assert.Equal(700, vm.Current.Size);
+            Assert.Equal(2, vm.Breadcrumbs.Count);             // root > b
+            Assert.NotEmpty(vm.Volumes);                        // the drives were read again
+            Assert.Equal("Temp", Assert.Single(vm.Cleanup).Title);
+        });
+        Assert.Equal(1, cleanupRuns);
+
+        // A folder deleted altogether: back at the top of the scan.
+        Directory.Delete(b, recursive: true);
+        Kit.Wait(() => vm.RefreshAllCommand.ExecuteAsync(null));
+        Ui.Run(() => Assert.Same(vm.Result!.Root, vm.Current));
+    }
+
+    [Fact]
+    public void Refresh_without_a_scan_only_reads_the_drives_and_cleanup()
+    {
+        var vm = Page();
+        Ui.Run(() => vm.FindCleanup = () => []);
+        Kit.Wait(() => vm.RefreshAllCommand.ExecuteAsync(null));
+        Ui.Run(() =>
+        {
+            Assert.Null(vm.Result);
+            Assert.False(vm.IsScanning);
+            Assert.NotEmpty(vm.Volumes);
+            Assert.Empty(vm.Cleanup);
+        });
+    }
+
+    [Fact]
     public void A_folder_with_many_subfolders_groups_the_smallest()
     {
         var root = TestEnvironment.NewFolder("many");

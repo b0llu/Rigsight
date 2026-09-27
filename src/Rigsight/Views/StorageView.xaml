@@ -4,9 +4,21 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32">
-            <TextBlock Text="Storage" Style="{StaticResource H1}" />
-            <TextBlock Text="How full your drives are, how fast they're filling up, and what's taking the space."
-                       Style="{StaticResource Muted}" Margin="0,4,0,18" />
+            <DockPanel Margin="0,0,0,18">
+                <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
+                <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
+                        AutomationProperties.Name="Refresh" ToolTip="Check the drives, the cleanup list and the scan again">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                        <TextBlock Text="Refresh" />
+                    </StackPanel>
+                </Button>
+                <StackPanel>
+                    <TextBlock Text="Storage" Style="{StaticResource H1}" />
+                    <TextBlock Text="How full your drives are, how fast they're filling up, and what's taking the space."
+                               Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
 
             <!-- Volumes -->
             <ItemsControl ItemsSource="{Binding Volumes}" Margin="-9,0">
@@ -102,12 +114,7 @@
                 <!-- Cleanup -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,10">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding RefreshCleanupCommand}" ToolTip="Check again">
-                                <TextBlock Text="&#xE72C;" />
-                            </Button>
-                            <TextBlock Text="Space you could free" Style="{StaticResource H2}" />
-                        </DockPanel>
+                        <TextBlock Text="Space you could free" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <TextBlock Text="Looking for temporary files and caches…" Style="{StaticResource Muted}"
                                    Visibility="{Binding CleanupLoading, Converter={StaticResource Vis}}" />
                         <ItemsControl ItemsSource="{Binding Cleanup}">

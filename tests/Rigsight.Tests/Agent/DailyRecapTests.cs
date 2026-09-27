@@ -67,6 +67,18 @@ public sealed class DailyRecapTests
         Assert.False(DailyRecap.JustSignedIn());
     }
 
+    [Fact]
+    public void Opening_a_folder_isnt_a_sign_in()
+    {
+        // Explorer starts another copy of itself for a moment to open a folder (as the Storage page's "Open" does):
+        // it was taken for the desktop starting, i.e. a fresh sign-in. The desktop is the oldest Explorer.
+        var now = Sat.AddHours(12);
+        Assert.False(DailyRecap.JustSignedIn([now.AddHours(-4), now.AddMinutes(-1)], now));
+        Assert.True(DailyRecap.JustSignedIn([now.AddMinutes(-2)], now));             // the desktop itself, just started
+        Assert.True(DailyRecap.JustSignedIn([now.AddMinutes(-1), now.AddMinutes(-3)], now));
+        Assert.False(DailyRecap.JustSignedIn([], now));                              // no desktop at all
+    }
+
     [Theory]
     [InlineData(0, 10, 25)]  // 12:10 AM: yesterday isn't over, days before it are
     [InlineData(4, 59, 25)]
