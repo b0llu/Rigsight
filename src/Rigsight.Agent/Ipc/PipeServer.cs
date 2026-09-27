@@ -51,12 +51,6 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
                 await pipe.WaitForConnectionAsync(_cts.Token);
                 Volatile.Write(ref _listening, null);
                 var client = new Client(pipe);
-                lock (_lock)
-                {
-                    // Connected just as Dispose ran (it has already closed the others): close this one too.
-                    if (_cts.IsCancellationRequested) throw new OperationCanceledException();
-                    _clients.Add(client);
-                }
                 _ = Task.Run(() => RunClient(client));
             }
             catch (Exception) when (_cts.IsCancellationRequested)
@@ -88,7 +82,14 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
         var writer = Task.Run(() => WriteLoop(client));
         try
         {
+            // The hello goes first: only then does the app join the broadcasts, so no tick can get ahead of it.
             Enqueue(client, buildHello());
+            lock (_lock)
+            {
+                // Connected just as Dispose ran (it has already closed the others): close this one too.
+                if (_cts.IsCancellationRequested) throw new OperationCanceledException();
+                _clients.Add(client);
+            }
             using var reader = new StreamReader(client.Pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
             var line = new StringBuilder();
             var buffer = new char[4096];

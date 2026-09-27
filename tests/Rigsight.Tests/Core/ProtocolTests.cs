@@ -242,7 +242,8 @@ public sealed class ProtocolTests
         Assert.Equal(3, hello.Drives!.Count);
         Assert.All(hello.Hardware, h => Assert.False(string.IsNullOrEmpty(h.Type)));
         Assert.All(hello.Hardware.SelectMany(h => h.Sensors), x => Assert.False(string.IsNullOrEmpty(x.Id)));
-        // Identifiers are nearly unique: this NVIDIA driver reports "GPU Bus" and "GPU Memory" under the same one.
+        // Captured before 0.6.1: the library gave "GPU Bus" and "GPU Memory" the same identifier, which the agent now
+        // splits (SensorHost.UniqueIds, SensorIdTests).
         var shared = hello.Hardware.SelectMany(h => h.Sensors).GroupBy(x => x.Id).Where(g => g.Count() > 1).Select(g => g.Key);
         Assert.Equal(["/gpu-nvidia/0/load/3"], shared);
         Assert.All(hello.History, h => Assert.Equal(h.Times.Length, h.Values.Length));

@@ -19,11 +19,21 @@ public sealed class TileGrid : Panel
     public static readonly DependencyProperty GapProperty = DependencyProperty.Register(nameof(Gap), typeof(double), typeof(TileGrid),
         new FrameworkPropertyMetadata(16.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    /// <summary>While editing: outline every cell (and one spare row below the tiles), so empty spots show as places to drop.</summary>
+    public static readonly DependencyProperty ShowCellsProperty = DependencyProperty.Register(nameof(ShowCells), typeof(bool), typeof(TileGrid),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty CellBrushProperty = DependencyProperty.Register(nameof(CellBrush), typeof(Brush), typeof(TileGrid),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public bool ShowCells { get => (bool)GetValue(ShowCellsProperty); set => SetValue(ShowCellsProperty, value); }
+    public Brush? CellBrush { get => (Brush?)GetValue(CellBrushProperty); set => SetValue(CellBrushProperty, value); }
+
     public int Columns { get => (int)GetValue(ColumnsProperty); set => SetValue(ColumnsProperty, value); }
     public double RowHeight { get => (double)GetValue(RowHeightProperty); set => SetValue(RowHeightProperty, value); }
     public double Gap { get => (double)GetValue(GapProperty); set => SetValue(GapProperty, value); }
 
     private Dictionary<UIElement, Rect> _last = [];
+    private int _rows;
     private double _lastWidth = -1;
 
     public double CellWidth { get; private set; }
@@ -64,6 +74,8 @@ public sealed class TileGrid : Panel
             if (!t.IsDragging) rows = Math.Max(rows, t.Y + t.H);
         }
         // The dragged tile doesn't count (it floats); its placeholder does, so the page grows as you drag down.
+        if (ShowCells && rows > 0) rows++;
+        _rows = rows;
         return new Size(width, rows == 0 ? 0 : rows * (RowHeight + Gap) - Gap);
     }
 
@@ -106,6 +118,17 @@ public sealed class TileGrid : Panel
         }
         _last = next;
         return finalSize;
+    }
+
+    protected override void OnRender(DrawingContext dc)
+    {
+        base.OnRender(dc);
+        if (!ShowCells || CellBrush is null || _rows == 0) return;
+        var pen = new Pen(CellBrush, 1) { DashStyle = new DashStyle([3, 3], 0) };
+        pen.Freeze();
+        for (int row = 0; row < _rows; row++)
+            for (int col = 0; col < Columns; col++)
+                dc.DrawRoundedRectangle(null, pen, new Rect(col * (CellWidth + Gap) + 0.5, row * (RowHeight + Gap) + 0.5, CellWidth - 1, RowHeight - 1), 6, 6);
     }
 
     private static readonly IEasingFunction Ease = new CubicEase { EasingMode = EasingMode.EaseOut };

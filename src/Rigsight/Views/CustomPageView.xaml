@@ -521,7 +521,7 @@
                 <ItemsControl x:Name="TileList" ItemsSource="{Binding Tiles}" ItemTemplateSelector="{StaticResource TileFrameSelector}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <ctl:TileGrid Loaded="Grid_Loaded" />
+                            <ctl:TileGrid Loaded="Grid_Loaded" ShowCells="{Binding IsEditing}" CellBrush="{DynamicResource StrokeBrush}" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>

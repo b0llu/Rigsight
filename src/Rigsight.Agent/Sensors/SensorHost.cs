@@ -108,7 +108,11 @@ internal sealed class SensorHost
         PreferredGpus = GpuPreference.Read();
         if (PreferredGpus.Count > 0) Log.Write("sensors", $"GPUs as Windows offers them to games: {string.Join(", ", PreferredGpus.Select(g => g.Name))}");
         Keys = KeySensors.Pick(candidates, PreferredGpus);
-        Ids = [.. _sensors.Select(s => s.Identifier.ToString())];
+        Ids = UniqueIds([.. _sensors.Select(s => s.Identifier.ToString())], [.. _sensors.Select(s => s.Name)]);
+        int flat = 0;
+        foreach (var hw in Schema)
+            foreach (var meta in hw.Sensors)
+                meta.Id = Ids[flat++];
         _indexById = [];
         for (int i = 0; i < Ids.Length; i++) _indexById.TryAdd(Ids[i], i);
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
@@ -161,6 +165,29 @@ internal sealed class SensorHost
 
         foreach (var sub in hw.SubHardware)
             Describe(sub, hw);
+    }
+
+    /// <summary>
+    /// The library sometimes gives two sensors the same identifier (on NVIDIA cards "GPU Bus" and
+    /// "GPU Memory" are both load/3), and names, hiding, tiles and today's range are all kept by id.
+    /// Every sensor sharing an id gets its name added, so none of them inherits a name or range that
+    /// may have belonged to the other one; ids that don't clash stay as they are.
+    /// </summary>
+    internal static string[] UniqueIds(IReadOnlyList<string> ids, IReadOnlyList<string> names)
+    {
+        var clashing = ids.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+        var taken = new HashSet<string>(ids.Where(id => !clashing.Contains(id)));
+        var result = new string[ids.Count];
+        for (int i = 0; i < ids.Count; i++)
+        {
+            if (!clashing.Contains(ids[i])) { result[i] = ids[i]; continue; }
+            var slug = new string([.. names[i].ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-')]).Trim('-');
+            if (slug.Length == 0) slug = "sensor";
+            string unique = $"{ids[i]}/{slug}";
+            for (int n = 2; !taken.Add(unique); n++) unique = $"{ids[i]}/{slug}-{n}";
+            result[i] = unique;
+        }
+        return result;
     }
 
     private static int SortKey(SensorType t) => t switch

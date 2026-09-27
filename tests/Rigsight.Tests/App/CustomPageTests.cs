@@ -186,7 +186,7 @@ public sealed class CustomPageTests
     }
 
     [Fact]
-    public void Removing_a_tile_lets_the_rest_float_up()
+    public void Removing_a_tile_leaves_its_space_empty()
     {
         var d = Make();
         Ui.Run(() =>
@@ -197,7 +197,8 @@ public sealed class CustomPageTests
             var chart = d.Page.Tiles[0];
             chart.RemoveCommand.Execute(null);
             Assert.DoesNotContain(chart, d.Page.Tiles);
-            Assert.All(d.Page.Tiles, t => Assert.Equal(0, t.Y));
+            Assert.All(d.Page.Tiles, t => Assert.Equal(4, t.Y)); // the others stay put
+            Assert.All(d.Saved!.Tiles, t => Assert.Equal(4, t.Y));
             Assert.Equal(2, d.Saved!.Tiles.Count);
             AssertTidy(d.Page.Tiles);
             foreach (var t in d.Page.Tiles.ToList()) d.Page.Remove(t);
@@ -353,16 +354,54 @@ public sealed class CustomPageTests
     }
 
     [Fact]
-    public void A_dragged_tile_floats_up_into_room_above_it()
+    public void A_dragged_tile_stays_where_it_is_dropped_leaving_a_gap()
     {
         var d = Make();
         Ui.Run(() =>
         {
-            d.Page.AddTileCommand.Execute(Kind("cpu-gauge"));
-            var t = d.Page.Tiles[0];
-            d.Page.BeginDrag(t);
+            d.Page.AddTileCommand.Execute(Kind("cpu-gauge")); // 0,0 3×4
+            d.Page.AddTileCommand.Execute(Kind("gpu-gauge")); // 3,0 3×4
+            var cpu = d.Page.Tiles[0];
+            var gpu = d.Page.Tiles[1];
+            d.Page.BeginDrag(cpu);
             d.Page.DragTo(0, 10);
-            Assert.Equal(0, t.Y);
+            Assert.Equal((0, 10), (cpu.X, cpu.Y));
+            d.Page.EndDrag();
+            Assert.Equal(10, d.Saved!.Tiles.Single(t => t.Kind == "cpu-gauge").Y);
+            Assert.Equal((3, 0), (gpu.X, gpu.Y));
+
+            // A blank spot under a tile: move the GPU gauge down a row; nothing floats up into the space above.
+            d.Page.BeginDrag(gpu);
+            d.Page.DragTo(3, 1);
+            d.Page.EndDrag();
+            Assert.Equal((3, 1), (gpu.X, gpu.Y));
+            Assert.Equal((0, 10), (cpu.X, cpu.Y));
+
+            // A new tile fills the first gap.
+            d.Page.AddTileCommand.Execute(Kind("fans"));
+            Assert.Equal((0, 0), (d.Page.Tiles[^1].X, d.Page.Tiles[^1].Y));
+            AssertTidy(d.Page.Tiles);
+        });
+    }
+
+    [Fact]
+    public void A_tile_dropped_onto_others_pushes_them_down_just_enough()
+    {
+        var d = Make();
+        Ui.Run(() =>
+        {
+            d.Page.AddTileCommand.Execute(Kind("cpu-gauge"));  // 0,0 3×4
+            d.Page.AddTileCommand.Execute(Kind("gpu-gauge"));  // 3,0 3×4
+            d.Page.AddTileCommand.Execute(Kind("temp-chart")); // 0,4 12 wide
+            var (cpu, gpu, chart) = (d.Page.Tiles[0], d.Page.Tiles[1], d.Page.Tiles[2]);
+            d.Page.BeginDrag(cpu);
+            d.Page.DragTo(3, 2); // half over the GPU gauge
+            Assert.Equal((3, 6), (gpu.X, gpu.Y));        // below the dragged tile
+            Assert.Equal(10, chart.Y);                   // and the chart below that
+            AssertTidy(d.Page.Tiles);
+            d.Page.DragTo(0, 0);                         // back where it was: everything returns
+            Assert.Equal((3, 0), (gpu.X, gpu.Y));
+            Assert.Equal(4, chart.Y);
             d.Page.EndDrag();
         });
     }
@@ -588,7 +627,7 @@ public sealed class CustomPageTests
     // ── Layout rules on their own ────────────────────────────────────────
 
     [Fact]
-    public void Flow_untangles_overlapping_tiles_keeping_their_order_and_columns()
+    public void Flow_untangles_overlapping_tiles_keeping_their_rows_and_columns()
     {
         var d = Make();
         Ui.Run(() =>
@@ -600,9 +639,9 @@ public sealed class CustomPageTests
                 new(new TileConfig { Kind = "fans", X = 10, Y = 0, W = 6, H = 2 }, d.Page), // past the right edge
             };
             TileLayout.Flow(tiles, pinned: null);
-            Assert.Equal((6, 0), (tiles[2].X, tiles[2].Y));
-            Assert.Equal((0, 0), (tiles[0].X, tiles[0].Y));
-            Assert.Equal((2, 4), (tiles[1].X, tiles[1].Y));
+            Assert.Equal((6, 0), (tiles[2].X, tiles[2].Y)); // pulled inside the grid, not moved up or down
+            Assert.Equal((0, 5), (tiles[0].X, tiles[0].Y)); // stays in its row, gap above and all
+            Assert.Equal((2, 9), (tiles[1].X, tiles[1].Y)); // moved below the one it overlapped
             AssertTidy(tiles);
         });
     }

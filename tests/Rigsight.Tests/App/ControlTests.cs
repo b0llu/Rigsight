@@ -770,6 +770,30 @@ public sealed class ControlTests
     }
 
     [Fact]
+    public void Tile_grid_outlines_its_cells_while_editing_with_a_spare_row()
+    {
+        Ui.Run(() =>
+        {
+            var (grid, _) = Grid((0, 0, 3, 4));
+            int bare = Draw.Inked(Draw.Render(grid, 1224, 600));
+            Assert.Equal(4 * 72 - 16, grid.DesiredSize.Height, 6);
+
+            grid.CellBrush = Brushes.White;
+            grid.ShowCells = true;
+            int editing = Draw.Inked(Draw.Render(grid, 1224, 600));
+            Assert.Equal(5 * 72 - 16, grid.DesiredSize.Height, 6); // one row to drop into below the tiles
+            Assert.True(editing > bare, "the empty cells are outlined");
+
+            // An empty page has no grid to draw.
+            var (empty, _) = Grid();
+            empty.CellBrush = Brushes.White;
+            empty.ShowCells = true;
+            Draw.Render(empty, 1224, 600);
+            Assert.Equal(0, empty.DesiredSize.Height);
+        });
+    }
+
+    [Fact]
     public void Tile_grid_converts_between_pixels_and_cells()
     {
         Ui.Run(() =>
