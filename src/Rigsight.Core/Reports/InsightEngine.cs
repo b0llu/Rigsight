@@ -49,8 +49,10 @@ public static class InsightEngine
             var ex = CrashExplainer.Explain(latest, name);
             string more = r.Crashes.Count > 1 ? $" ({r.Crashes.Count} crashes in total — see the Crashes page)" : "";
             string when = isDay ? $"{latest.Time:h:mm tt}" : $"{latest.Time:ddd d MMM, h:mm tt}";
-            list.Add(new Insight(IconWarn, $"{ex.Title} at {when}: {ex.Culprit.ToLowerInvariant()}.{more}{CrashPattern(r)}", InsightTone.Warn, "crash", 95,
-                CrashDetail(r)));
+            // The cause after the title where there is one to add ("NVIDIA driver", a bugcheck name), as written: no
+            // lowercasing of names, nothing that only repeats the title.
+            string cause = ex.Cause is null ? "" : $": {ex.Cause}";
+            list.Add(new Insight(IconWarn, $"{ex.Title} at {when}{cause}.{more}{CrashPattern(r)}", InsightTone.Warn, "crash", 95, CrashDetail(r)));
         }
 
         if (r.CpuOverLimitMin > 0)

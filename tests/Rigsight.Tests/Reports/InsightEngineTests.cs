@@ -112,7 +112,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Apps.Add(App("Dota 2", AppCategory.Game, 3600, "dota2.exe"));
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.AppHang, AppExe = "DOTA2.exe" });
         var crash = Assert.Single(Gen(r), i => i.Key == "crash");
-        Assert.Equal("Dota 2 stopped responding at 3:04 PM: not responding.", crash.Text);
+        Assert.Equal("Dota 2 stopped responding at 3:04 PM.", crash.Text);
         Assert.Equal((InsightTone.Warn, 95), (crash.Tone, crash.Priority));
     }
 
@@ -123,19 +123,49 @@ public sealed class InsightEngineTests : IDisposable
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.SystemCrash, Code = "0x00000124" });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-1)), Kind = CrashKind.GpuDriverReset });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-2)), Kind = CrashKind.UnexpectedShutdown });
-        Assert.Equal("Windows crashed (blue screen) at Wed 12 Mar, 3:04 PM: whea_uncorrectable_error. (3 crashes in total — see the Crashes page)",
+        Assert.Equal("Windows crashed (blue screen) at Wed 12 Mar, 3:04 PM: WHEA_UNCORRECTABLE_ERROR. (3 crashes in total — see the Crashes page)",
             Line(Gen(r), "crash"));
     }
 
     [Theory]
-    [InlineData(CrashKind.GpuDriverReset, "", "Graphics driver reset at 3:04 PM: gpu driver.")]
-    [InlineData(CrashKind.UnexpectedShutdown, "", "PC shut off unexpectedly at 3:04 PM: power / hard freeze.")]
-    [InlineData(CrashKind.AppHang, "unknown.exe", "unknown stopped responding at 3:04 PM: not responding.")]
-    public void Each_kind_of_crash_reads_naturally(CrashKind kind, string exe, string text)
+    [InlineData(CrashKind.GpuDriverReset, "", null, null, "Graphics driver reset at 3:04 PM.")]
+    [InlineData(CrashKind.UnexpectedShutdown, "", null, null, "PC shut off unexpectedly at 3:04 PM: a power cut or a hard freeze.")]
+    [InlineData(CrashKind.AppHang, "unknown.exe", null, null, "unknown stopped responding at 3:04 PM.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "nvwgf2umx.dll", "c0000005", "game crashed at 3:04 PM: NVIDIA driver.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "game.exe", "c0000005", "game crashed at 3:04 PM: its own code.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "SomeMod.dll", null, "game crashed at 3:04 PM: SomeMod.dll.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "", null, "game crashed at 3:04 PM.")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x00000124", "Windows crashed (blue screen) at 3:04 PM: WHEA_UNCORRECTABLE_ERROR.")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x0000ABCD", "Windows crashed (blue screen) at 3:04 PM: 0x0000ABCD.")]
+    public void Each_kind_of_crash_reads_naturally_and_names_a_cause_only_where_it_adds_one(CrashKind kind, string exe, string? module, string? code, string text)
     {
         var r = Past();
-        r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = kind, AppExe = exe });
+        r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = kind, AppExe = exe, Module = module, Code = code });
         Assert.Equal(text, Line(Gen(r), "crash"));
+    }
+
+    [Fact]
+    public void No_crash_sentence_repeats_its_title_or_lowercases_a_name()
+    {
+        // Every kind the explainer knows, with and without a module and a code: the sentence is the title, the time, and
+        // a cause only when it isn't already in the title, written as the explainer wrote it.
+        foreach (var kind in Enum.GetValues<CrashKind>())
+            foreach (var module in new[] { null, "", "nvlddmkm.sys", "d3d11.dll", "gameoverlayrenderer64.dll", "unityplayer.dll", "coreclr.dll", "game.exe", "ntdll.dll", "weird.dll" })
+                foreach (var code in new[] { null, "c0000005", "0x00000124", "0x0000ABCD" })
+                {
+                    var e = new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = kind, AppExe = "game.exe", Module = module, Code = code };
+                    var ex = CrashExplainer.Explain(e, "Game");
+                    var r = Past();
+                    r.Apps.Add(App("Game", AppCategory.Game, 3600, "game.exe"));
+                    r.Crashes.Add(e);
+                    string line = Line(Gen(r), "crash");
+                    if (ex.Cause is null) Assert.Equal($"{ex.Title} at 3:04 PM.", line);
+                    else
+                    {
+                        Assert.Equal($"{ex.Title} at 3:04 PM: {ex.Cause}.", line);
+                        Assert.DoesNotContain(ex.Cause, ex.Title, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
     }
 
     [Theory]
@@ -732,6 +762,16 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     // ── Crashes, with what came before them ──
+
+    [Fact]
+    public void A_crash_whose_title_names_the_culprit_doesnt_say_it_twice()
+    {
+        var r = Past();
+        r.Crashes.Add(new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown, DuringSleep = true });
+        Assert.Equal("PC lost power while asleep at 3:04 PM.", Line(Gen(r), "crash"));
+        r.Crashes[0] = new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown };
+        Assert.Equal("PC shut off unexpectedly at 3:04 PM: a power cut or a hard freeze.", Line(Gen(r), "crash"));
+    }
 
     [Fact]
     public void A_crash_after_heat_says_so()

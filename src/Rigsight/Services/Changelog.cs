@@ -29,6 +29,11 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.10.1", 9, 28,
+            fixedBugs:
+            [
+                "Crash highlights no longer repeat themselves (\"stopped responding: not responding\") or lowercase names like NVIDIA or DirectX.",
+            ]),
         V("0.10.0", 9, 28,
             added:
             [

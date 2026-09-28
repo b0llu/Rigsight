@@ -213,7 +213,7 @@ public sealed class MigrationTests
         {
             // 0.5.3 on has the daily totals, but not by load band (0.10.0): those read as nothing, not as an error.
             Assert.NotEmpty(days!);
-            Assert.All(days, d => Assert.Equal((0, 0, 0), (d.IdleCpuN, d.LoadGpuN, d.CpuClockN)));
+            Assert.All(days!, d => Assert.Equal((0, 0, 0), (d.IdleCpuN, d.LoadGpuN, d.CpuClockN)));
             Assert.Empty(db.GetFans());
             Assert.Empty(db.GetFanMinutes(U(2024, 12, 1), U(2025, 3, 1)));
         }

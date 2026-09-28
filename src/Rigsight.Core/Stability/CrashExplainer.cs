@@ -1,7 +1,12 @@
 namespace Rigsight.Core.Stability;
 
-/// <summary>A crash described in plain language.</summary>
-public sealed record CrashExplanation(string Title, string Reason, string Advice, string Culprit);
+/// <summary>
+/// A crash described in plain language. <see cref="Culprit"/> is the short label the Crashes page shows in its own
+/// column ("NVIDIA driver", "Not responding"); <see cref="Cause"/> is that label only when it adds to the title, for a
+/// sentence like "Game crashed at 3:04 PM: NVIDIA driver" (null where it would only repeat the title: "stopped
+/// responding: not responding").
+/// </summary>
+public sealed record CrashExplanation(string Title, string Reason, string Advice, string Culprit, string? Cause = null);
 
 /// <summary>
 /// Turns the cryptic parts of a crash record (module names, exception and bugcheck codes) into
@@ -80,21 +85,21 @@ public static class CrashExplainer
                 return new($"{app} stopped responding",
                     $"{app} froze and was closed.",
                     "If it keeps happening, update the app and your drivers. Running low on memory or overheating can cause freezes too.",
-                    "Not responding");
+                    "Not responding"); // no cause: the title says it all
 
             case CrashKind.GpuDriverReset:
                 return new("Graphics driver reset",
                     "The GPU took too long to respond, so Windows reset the graphics driver. The screen may have gone black for a moment.",
                     "Usually a driver problem, an unstable GPU overclock, or overheating. Update the driver and check GPU temperatures around this time.",
-                    "GPU driver");
+                    "GPU driver"); // no cause: "graphics driver reset: GPU driver" says nothing new
 
             case CrashKind.SystemCrash:
             {
                 uint code = ParseHex(e.Code);
                 if (Bugchecks.TryGetValue(code, out var b))
-                    return new("Windows crashed (blue screen)", $"{b.Reason} ({b.Name}, {e.Code})", b.Advice, b.Name);
+                    return new("Windows crashed (blue screen)", $"{b.Reason} ({b.Name}, {e.Code})", b.Advice, b.Name, b.Name);
                 return new("Windows crashed (blue screen)", $"Windows stopped with error {e.Code}.",
-                    "Search the code online together with your recently installed drivers or software.", e.Code ?? "Bugcheck");
+                    "Search the code online together with your recently installed drivers or software.", e.Code ?? "Bugcheck", e.Code);
             }
 
             case CrashKind.UnexpectedShutdown:
@@ -102,11 +107,11 @@ public static class CrashExplainer
                     ? new("PC lost power while asleep",
                         "The PC was asleep (or waking up) when it went down, and no crash report was saved.",
                         "Common if power is switched off at the wall while the PC sleeps. Otherwise try updating the BIOS and chipset drivers, or turning off hybrid sleep.",
-                        "Power while asleep")
+                        "Power while asleep") // no cause: the title says it
                     : new("PC shut off unexpectedly",
                         "The PC turned off without shutting down, and no crash report was saved — a power cut, a held power button, or a hard freeze.",
                         "If it happened while gaming, check the temperatures just before, and consider the power supply.",
-                        "Power / hard freeze");
+                        "Power / hard freeze", "a power cut or a hard freeze");
 
             default:
             {
@@ -118,21 +123,21 @@ public static class CrashExplainer
 
                 foreach (var m in Modules)
                     if (moduleLower.StartsWith(m.Prefix, StringComparison.Ordinal))
-                        return new($"{app} crashed", m.Reason.Replace("{app}", app) + what, m.Advice, m.Culprit);
+                        return new($"{app} crashed", m.Reason.Replace("{app}", app) + what, m.Advice, m.Culprit, m.Culprit);
 
                 bool ownCode = !string.IsNullOrEmpty(module) && string.Equals(module, e.AppExe, StringComparison.OrdinalIgnoreCase);
                 if (ownCode)
                     return new($"{app} crashed", $"{app} crashed in its own code.{what}",
-                        "Usually a bug in the app or game. Update it, verify the game files, and remove mods if you use them.", "The app itself");
+                        "Usually a bug in the app or game. Update it, verify the game files, and remove mods if you use them.", "The app itself", "its own code");
 
                 if (moduleLower is "ntdll.dll" or "kernelbase.dll" or "ucrtbase.dll" or "kernel32.dll")
                     return new($"{app} crashed", $"{app} hit an error it couldn't recover from.{what}",
-                        "Usually a bug in the app. Update it; if it only happens in one game, verify its files and disable overlays.", "The app itself");
+                        "Usually a bug in the app. Update it; if it only happens in one game, verify its files and disable overlays.", "The app itself", "its own code");
 
                 return new($"{app} crashed",
                     string.IsNullOrEmpty(module) ? $"{app} crashed.{what}" : $"{app} crashed inside {module}.{what}",
                     "Update the app and your drivers. If a specific add-on or overlay is named, try disabling it.",
-                    string.IsNullOrEmpty(module) ? "Unknown" : module);
+                    string.IsNullOrEmpty(module) ? "Unknown" : module, string.IsNullOrEmpty(module) ? null : module);
             }
         }
     }

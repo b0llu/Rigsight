@@ -1064,6 +1064,20 @@ internal sealed class AgentContext : ApplicationContext
     // ── Settings ──────────────────────────────────────────────────────────
 
     /// <summary>
+    /// A line in the log for a change to what's shown or tracked (the taskbar readings, the overlay's sensors, the
+    /// widgets on, the apps left out), saying where it came from: a list that vanished can be traced.
+    /// </summary>
+    private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
+    {
+        void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
+        Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
+        if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
+        Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
+        Note("widgets on", before.Widgets.Count(w => w.Enabled), after.Widgets.Count(w => w.Enabled));
+        Note("apps left out of tracking", before.Tracking.ExcludedApps.Count, after.Tracking.ExcludedApps.Count);
+    }
+
+    /// <summary>
     /// The agent is the only writer of settings.json. Every change goes through here: copy, change,
     /// save, apply locally, and tell the app.
     /// </summary>
@@ -1080,6 +1094,7 @@ internal sealed class AgentContext : ApplicationContext
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             trayChanged = updated.TrayStyle != current.TrayStyle || !updated.TraySensors.SequenceEqual(current.TraySensors);
+            LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
         }
