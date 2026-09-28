@@ -43,38 +43,59 @@ internal static unsafe class GpuPreference
         var seen = new HashSet<(uint, uint, uint, uint)>();
         try
         {
-            if (CreateDXGIFactory1(IidFactory6, out var factory) < 0 || factory == 0) return list;
-            try
-            {
-                var enumerate = (delegate* unmanaged[Stdcall]<nint, uint, int, Guid*, nint*, int>)Method(factory, EnumAdapterByGpuPreference);
-                var iid = IidAdapter1;
-                for (uint i = 0; i < 16; i++)
-                {
-                    nint adapter;
-                    int hr = enumerate(factory, i, HighPerformance, &iid, &adapter);
-                    if (hr == NotFound || hr < 0 || adapter == 0) break;
-                    try
-                    {
-                        var desc = Describe(adapter);
-                        if (desc is { } d && (d.Flags & SoftwareAdapter) == 0 && !string.IsNullOrWhiteSpace(d.Description) && seen.Add((d.VendorId, d.DeviceId, d.SubSysId, d.Revision)))
-                            list.Add(new KeySensors.PreferredGpu(d.Description.Trim(), Maker(d.VendorId)));
-                    }
-                    finally
-                    {
-                        Free(adapter);
-                    }
-                }
-            }
-            finally
-            {
-                Free(factory);
-            }
+            foreach (var d in Adapters())
+                if (!string.IsNullOrWhiteSpace(d.Description) && seen.Add((d.VendorId, d.DeviceId, d.SubSysId, d.Revision)))
+                    list.Add(new KeySensors.PreferredGpu(d.Description.Trim(), Maker(d.VendorId)));
         }
         catch (Exception ex)
         {
             // No DXGI, or too old for the preference: the GPUs are ranked by name instead.
             Log.Write("sensors", $"Windows' GPU preference unavailable: {ex.Message}");
             list.Clear();
+        }
+        return list;
+    }
+
+    /// <summary>The adapter ID (LUID) of the main GPU, the first Windows offers to games; null when Windows can't say.</summary>
+    public static long? MainAdapterLuid()
+    {
+        try
+        {
+            return Adapters().Select(d => (long?)d.AdapterLuid).FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The hardware adapters, high-performance first (software ones left out).</summary>
+    private static List<AdapterDesc1> Adapters()
+    {
+        var list = new List<AdapterDesc1>();
+        if (CreateDXGIFactory1(IidFactory6, out var factory) < 0 || factory == 0) return list;
+        try
+        {
+            var enumerate = (delegate* unmanaged[Stdcall]<nint, uint, int, Guid*, nint*, int>)Method(factory, EnumAdapterByGpuPreference);
+            var iid = IidAdapter1;
+            for (uint i = 0; i < 16; i++)
+            {
+                nint adapter;
+                int hr = enumerate(factory, i, HighPerformance, &iid, &adapter);
+                if (hr == NotFound || hr < 0 || adapter == 0) break;
+                try
+                {
+                    if (Describe(adapter) is { } d && (d.Flags & SoftwareAdapter) == 0) list.Add(d);
+                }
+                finally
+                {
+                    Free(adapter);
+                }
+            }
+        }
+        finally
+        {
+            Free(factory);
         }
         return list;
     }

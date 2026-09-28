@@ -20,7 +20,7 @@ internal sealed class DarkMenuRenderer() : ToolStripProfessionalRenderer(new Men
     // As in the app's Dark.xaml, Grey.xaml and Light.xaml: the raised surface, hover, stroke, text and faint text.
     internal static Color Bg => Light ? Color.FromArgb(255, 255, 255) : Grey ? Color.FromArgb(48, 48, 48) : Color.FromArgb(22, 22, 22);
     private static Color Hover => Light ? Color.FromArgb(230, 230, 230) : Grey ? Color.FromArgb(59, 59, 59) : Color.FromArgb(36, 36, 36);
-    private static Color Border => Light ? Color.FromArgb(211, 211, 211) : Grey ? Color.FromArgb(72, 72, 72) : Color.FromArgb(46, 46, 46);
+    internal static Color Border => Light ? Color.FromArgb(211, 211, 211) : Grey ? Color.FromArgb(72, 72, 72) : Color.FromArgb(46, 46, 46);
     internal static Color TextColor => Light ? Color.FromArgb(0, 0, 0) : Color.FromArgb(255, 255, 255);
     private static Color DisabledText => Light ? Color.FromArgb(140, 140, 140) : Color.FromArgb(107, 107, 107);
 

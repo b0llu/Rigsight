@@ -54,8 +54,10 @@ internal sealed class AgentContext : ApplicationContext
     private readonly AppResolver _apps;
     private readonly Tracker _tracker;
     private readonly ProcessSampler _procSampler = new();
+    private readonly GpuSampler _gpuSampler = new();
     private readonly ProcessLabels _procLabels = new();
     private bool _procsNow; // sampler thread: sample processes on this pass
+    private bool _sensorsNow; // sampler thread: read the sensors (and redraw the taskbar readings) on this pass
     private readonly ActivityMonitor _activity = new();
     // The PC was just turned on or woke from sleep: the recap is due once the user is here (sampler thread reads it).
     private volatile bool _justTurnedOn = DailyRecap.JustSignedIn();
@@ -64,6 +66,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly PipeServer _pipe;
     private readonly TrayController _tray;
     private readonly TrayReadings _trayReadings;
+    private readonly TaskbarStrip _taskbarStrip;
     private readonly WidgetManager _widgets;
     private readonly OverlayManager _overlay;
     private readonly NotificationCenter _notices;
@@ -129,9 +132,12 @@ internal sealed class AgentContext : ApplicationContext
         _overlay.StateChanged += OnOverlayStateChanged;
         _overlay.CantReachGame += OnOverlayCantReachGame;
         _trayReadings = new TrayReadings(open: () => OpenApp(null),
-            remove: id => MutateSettings(s => s.TraySensors.Remove(id)),
-            removeAll: () => MutateSettings(s => s.TraySensors.Clear()),
-            setCombined: on => MutateSettings(s => s.TrayCombined = on),
+            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
+            setGrouped: on => MutateSettings(s => s.TrayStyle = on ? TrayStyle.Grouped : TrayStyle.Icons),
+            openPage: () => OpenApp("taskbar"));
+        _taskbarStrip = new TaskbarStrip(open: () => OpenApp(null),
+            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
+            setStyle: style => MutateSettings(s => s.TrayStyle = style),
             openPage: () => OpenApp("taskbar"));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
@@ -303,8 +309,9 @@ internal sealed class AgentContext : ApplicationContext
                 _tracker.OnActivity(sample, dt);
                 Measure("activity", t0);
 
-                if (now >= nextSensor)
+                if (now >= nextSensor || _sensorsNow)
                 {
+                    _sensorsNow = false;
                     t0 = Stopwatch.GetTimestamp();
                     // Sensors on the overlay stay live in games (the app is usually closed then).
                     // And those in the taskbar, which are always on show.
@@ -355,6 +362,7 @@ internal sealed class AgentContext : ApplicationContext
                     lastProc = now;
                     t0 = Stopwatch.GetTimestamp();
                     var snapshot = _procSampler.Sample();
+                    snapshot.Gpu = _gpuSampler.Sample(snapshot);
                     Measure("processes", t0);
                     t0 = Stopwatch.GetTimestamp();
                     _activity.UpdateProcessMap(snapshot.PidToExe);
@@ -403,6 +411,7 @@ internal sealed class AgentContext : ApplicationContext
         _tracker.Flush(closeAllSessions: true);
         SaveExtremes(force: true);
         _sensors.Close();
+        _gpuSampler.Dispose();
         _db.Dispose();
     }
 
@@ -670,8 +679,9 @@ internal sealed class AgentContext : ApplicationContext
         foreach (var id in settings.TraySensors)
         {
             list.Add(_sensors.ReadSensor(id) is { } r
-                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value)
-                : new TrayReading(id, _sensorsReady ? "Not found on this PC" : "Starting…", SensorKind.Factor, null));
+                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
+                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)))
+                : new TrayReading(id, _sensorsReady ? "Not found on this PC" : "Starting…", SensorKind.Factor, null, TrayPart.Other, ""));
         }
         return list;
     }
@@ -723,7 +733,10 @@ internal sealed class AgentContext : ApplicationContext
         {
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
-            _trayReadings.Update(trayReadings, settings.TrayCombined);
+            // In the taskbar where it can be (Windows 11), else as icons.
+            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings);
+            if (settings.TrayStyle != TrayStyle.Strip) _taskbarStrip.Hide();
+            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped);
             _widgets.Update(data, gameInFront ? Win32.MonitorFromWindow(Win32.GetForegroundWindow(), 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
@@ -1058,13 +1071,14 @@ internal sealed class AgentContext : ApplicationContext
     private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith)
     {
         RigsightSettings updated;
-        bool yieldChanged;
+        bool yieldChanged, trayChanged;
         lock (_settingsLock)
         {
             var current = _settings;
             updated = replaceWith ?? current.Clone();
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
+            trayChanged = updated.TrayStyle != current.TrayStyle || !updated.TraySensors.SequenceEqual(current.TraySensors);
             _settings = updated;
             SettingsStore.Save(updated);
         }
@@ -1072,6 +1086,8 @@ internal sealed class AgentContext : ApplicationContext
         Units.Fahrenheit = updated.UseFahrenheit;
         DarkMenuRenderer.Theme = updated.Theme;
         RunOnSampler(() => _tracker.SetSettings(updated));
+        // A reading added to or removed from the taskbar, or another way of showing them: there now, not at the next read.
+        if (trayChanged) RunOnSampler(() => _sensorsNow = true);
         // Stepping aside turned on or off: scan again now, with or without the parts those programs control.
         if (yieldChanged)
         {
@@ -1179,7 +1195,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _trayReadings.Dispose, _tray.Dispose })
+        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _trayReadings.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }

@@ -170,7 +170,7 @@ public class TrackerDayTests
         Assert.Equal(50, today.CpuPeak);
         Assert.Equal(45, today.GpuPeak);
         Assert.Equal("Chrome", today.TopApp);
-        Assert.Equal("Chrome", today.CpuPeakApp);
+        Assert.True(today.CpuPeakTime >= FakeClock.At(0, 0, 0, day: 11).ToUnixTimeSeconds()); // the new day's own
         rig.Tracker.Flush(closeAllSessions: true);
         Assert.Equal(2, rig.Db.GetSystemDays(0, long.MaxValue)!.Count);
         rig.AssertInvariants();

@@ -98,6 +98,12 @@ public static class AppCatalog
         // Anti-cheat launchers sit in the game's folder; named after the game they'd look like a second copy of it.
         ["start_protected_game.exe"] = "Easy Anti-Cheat", ["easyanticheat.exe"] = "Easy Anti-Cheat",
         ["easyanticheat_eos_setup.exe"] = "Easy Anti-Cheat setup",
+        // Work Windows and launchers do in the background, which a temperature high can be put down to.
+        ["msmpeng.exe"] = "Microsoft Defender", ["mpdefendercoreservice.exe"] = "Microsoft Defender",
+        ["tiworker.exe"] = "Windows Update", ["trustedinstaller.exe"] = "Windows Update", ["mousocoreworker.exe"] = "Windows Update",
+        ["searchindexer.exe"] = "Windows Search indexing", ["compattelrunner.exe"] = "Windows compatibility check",
+        ["wmiprvse.exe"] = "Windows management (WMI)", ["audiodg.exe"] = "Windows audio",
+        ["fossilize_replay.exe"] = "Steam shader pre-caching",
     };
 
     /// <summary>A built-in name for this exe, if it has one.</summary>

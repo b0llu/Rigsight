@@ -59,8 +59,11 @@ public sealed class TempToBrushConverter : IValueConverter
 /// <summary>A reading as the taskbar shows it ("62", "1.2k"): bind the sensor's Kind, then its Value.</summary>
 public sealed class TrayTextConverter : IMultiValueConverter
 {
+    /// <summary>Kind and Value; with the parameter "strip", as the taskbar strip shows it (with a short unit).</summary>
     public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
-        values is [SensorKind kind, var value, ..] ? Units.TrayText(kind, value as double?) : "–";
+        values is [SensorKind kind, var value, ..]
+            ? parameter as string == "strip" ? Units.StripText(kind, value as double?) : Units.TrayText(kind, value as double?)
+            : "–";
 
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
 }

@@ -57,15 +57,17 @@ public sealed class TodayInfo
     public string? TopApp { get; set; }
     public double TopAppSec { get; set; }
     public double? CpuPeak { get; set; }
+    /// <summary>When the peak was (unix seconds).</summary>
+    public long? CpuPeakTime { get; set; }
+    /// <summary>The app working the CPU hardest just before the peak; null when no app clearly was.</summary>
     public string? CpuPeakApp { get; set; }
-    public AppCategory CpuPeakCategory { get; set; }
     public double? GpuPeak { get; set; }
+    public long? GpuPeakTime { get; set; }
     public string? GpuPeakApp { get; set; }
-    public AppCategory GpuPeakCategory { get; set; }
 
-    /// <summary>"while playing Dota 2", "while browsing in Chrome"… (null before the first reading).</summary>
-    [JsonIgnore] public string? CpuPeakWhile => CpuPeakApp is null ? null : ActivityWords.While(CpuPeakApp, CpuPeakCategory);
-    [JsonIgnore] public string? GpuPeakWhile => GpuPeakApp is null ? null : ActivityWords.While(GpuPeakApp, GpuPeakCategory);
+    /// <summary>"Rematch was busiest", or the time when no app clearly was (null before the first reading).</summary>
+    [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime);
+    [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime);
 }
 
 /// <summary>A drive's SMART health, as judged the way CrystalDiskInfo does (hard drives have no wear "Life").</summary>

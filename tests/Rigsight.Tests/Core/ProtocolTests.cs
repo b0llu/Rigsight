@@ -1,4 +1,5 @@
 using Rigsight.Core;
+using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 using Rigsight.Tests.Support;
@@ -29,8 +30,8 @@ public sealed class ProtocolTests
         },
         Today = new TodayInfo
         {
-            OnSec = 1, ActiveSec = 2, IdleSec = 3, TopApp = "Chrome", TopAppSec = 4, CpuPeak = 88.5, CpuPeakApp = "Dota 2",
-            CpuPeakCategory = AppCategory.Game, GpuPeak = 70, GpuPeakApp = "Chrome", GpuPeakCategory = AppCategory.Browser,
+            OnSec = 1, ActiveSec = 2, IdleSec = 3, TopApp = "Chrome", TopAppSec = 4, CpuPeak = 88.5, CpuPeakTime = 1_790_000_000,
+            CpuPeakApp = "Dota 2", GpuPeak = 70, GpuPeakTime = null, GpuPeakApp = null,
         },
         Extremes = new() { ["/cpu"] = [30, 90], ["/nan"] = [double.NaN, double.PositiveInfinity] },
         ExtremesDay = "2026-09-25",
@@ -118,7 +119,6 @@ public sealed class ProtocolTests
         var json = ProtocolJson.Serialize(Full());
         Assert.Contains("\"Kind\":\"Temperature\"", json);
         Assert.Contains("\"Category\":\"Game\"", json);
-        Assert.Contains("\"CpuPeakCategory\":\"Game\"", json);
         Assert.Contains("\"Corner\":\"TopLeft\"", json);
     }
 
@@ -201,27 +201,29 @@ public sealed class ProtocolTests
         Assert.Equal(AppCategory.Media, got.AppCategories["BLENDER.EXE"]);
     }
 
-    [Theory]
-    [InlineData("Dota 2", AppCategory.Game, "while playing Dota 2")]
-    [InlineData("Chrome", AppCategory.Browser, "while browsing in Chrome")]
-    [InlineData("Spotify", AppCategory.Media, "while Spotify was playing")]
-    [InlineData("Discord", AppCategory.Communication, "while on Discord")]
-    [InlineData("VS Code", AppCategory.Development, "while working in VS Code")]
-    [InlineData("Steam", AppCategory.Launcher, "while in Steam")]
-    [InlineData("Unknown", AppCategory.Other, "while using Unknown")]
-    public void Today_says_what_you_were_doing_at_the_peak(string app, AppCategory category, string expected)
+    [Fact]
+    public void Today_names_the_app_that_did_the_work_at_the_peak()
     {
-        var today = new TodayInfo { CpuPeakApp = app, CpuPeakCategory = category, GpuPeakApp = app, GpuPeakCategory = category };
-        Assert.Equal(expected, today.CpuPeakWhile);
-        Assert.Equal(expected, today.GpuPeakWhile);
+        var today = new TodayInfo { CpuPeak = 88, CpuPeakApp = "Dota 2", CpuPeakTime = 1_790_000_000, GpuPeak = 70, GpuPeakApp = "ELDEN RING™: Nightreign" };
+        Assert.Equal("Dota 2 was busiest", today.CpuPeakLine);
+        Assert.Equal("ELDEN RING™: Nightreign was busiest", today.GpuPeakLine);
     }
 
     [Fact]
-    public void Before_the_first_reading_there_is_no_peak_phrase()
+    public void With_no_app_clearly_busiest_today_says_when_the_peak_was()
     {
-        var today = new TodayInfo { CpuPeak = 50, CpuPeakCategory = AppCategory.Game };
-        Assert.Null(today.CpuPeakWhile);
-        Assert.Null(today.GpuPeakWhile);
+        long at = TimeUtil.ToUnix(new DateTime(2026, 6, 10, 15, 12, 30));
+        var today = new TodayInfo { CpuPeak = 80, CpuPeakTime = at, GpuPeak = 60 };
+        Assert.Equal("At 3:12 PM", today.CpuPeakLine);
+        Assert.Equal("", today.GpuPeakLine); // an agent that didn't say when
+    }
+
+    [Fact]
+    public void Before_the_first_reading_there_is_no_peak_line()
+    {
+        var today = new TodayInfo { CpuPeakApp = "Dota 2", CpuPeakTime = 1_790_000_000 };
+        Assert.Null(today.CpuPeakLine);
+        Assert.Null(today.GpuPeakLine);
     }
 
     // ---- The hello captured from a real agent ----

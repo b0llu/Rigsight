@@ -330,9 +330,13 @@ internal static class Program
         return !h.IsInvalid && QueryFullProcessImageName(h, 0, text, ref size) ? text.ToString() : null;
     }
 
-    /// <summary>Starts the agent elevated (the Windows prompt), telling it its data folder: UAC doesn't pass the environment on.</summary>
+    /// <summary>
+    /// Starts the agent elevated, telling it its data folder (UAC doesn't pass the environment on): through the admin
+    /// helper when tools\test.ps1 -Admin has one running (no prompt), else with the Windows prompt.
+    /// </summary>
     private static Process StartElevated(string agentExe, string data, string bin)
     {
+        if (StartThroughHelper(agentExe, data) is { } helped) return helped;
         try
         {
             var start = new ProcessStartInfo(agentExe, $"--data-dir \"{data}\"") { UseShellExecute = true, Verb = "runas", WorkingDirectory = bin };
@@ -343,6 +347,36 @@ internal static class Program
         {
             throw new Exception("The Windows admin prompt was declined");
         }
+    }
+
+    /// <summary>
+    /// The agent started by tools\admin-helper.ps1 (already an administrator, so no prompt), when it's running: a
+    /// request file, answered with the new process's ID. Null when there's no helper (or it refused).
+    /// </summary>
+    private static Process? StartThroughHelper(string agentExe, string data)
+    {
+        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RigsightTestAdmin");
+        var alive = new FileInfo(Path.Combine(dir, "alive"));
+        if (!alive.Exists || DateTime.Now - alive.LastWriteTime > TimeSpan.FromSeconds(10)) return null;
+
+        string id = Guid.NewGuid().ToString("N");
+        string request = Path.Combine(dir, $"request-{id}.json"), response = Path.Combine(dir, $"response-{id}.txt");
+        string partial = Path.Combine(dir, $"writing-{id}");
+        File.WriteAllText(partial, System.Text.Json.JsonSerializer.Serialize(new { Exe = agentExe, Data = data }));
+        File.Move(partial, request); // whole, never half-written
+        var wait = Stopwatch.StartNew();
+        while (!File.Exists(response) && wait.Elapsed < TimeSpan.FromSeconds(15)) Thread.Sleep(100);
+        if (!File.Exists(response))
+        {
+            File.Delete(request); // not answered: nothing may start it later, beside the one the prompt starts
+            return null;
+        }
+        Thread.Sleep(100);
+        string answer = File.ReadAllText(response).Trim();
+        File.Delete(response);
+        if (!int.TryParse(answer, out int pid)) throw new Exception($"The admin helper refused: {answer}");
+        Console.WriteLine("  (started through the admin helper: no Windows prompt)");
+        return Process.GetProcessById(pid);
     }
 
     /// <summary>A command to the test agent over its pipe, like the app sends.</summary>

@@ -5,7 +5,7 @@ using Rigsight.ViewModels;
 
 namespace Rigsight.Tests.App;
 
-/// <summary>The Taskbar page: which readings go next to the clock, in what order, an icon each or all in one.</summary>
+/// <summary>The Taskbar page: which readings go next to the clock, in what order, and how: a strip, an icon each, or an icon per part.</summary>
 [Collection("UI")]
 public sealed class TaskbarPageTests
 {
@@ -16,16 +16,17 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
-    public void Starts_empty_and_in_separate_icons()
+    public void Starts_empty_and_in_the_strip()
     {
         var (page, _, _) = Make();
         Ui.Run(() =>
         {
             Assert.False(page.HasSensors);
-            Assert.True(page.Separate);
-            Assert.False(page.Combined);
-            Assert.Empty(page.CombinedPreview);
-            Assert.Equal("", page.CombinedNote);
+            Assert.True(page.InStrip);
+            Assert.False(page.Separate || page.Grouped);
+            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowStrip);
+            Assert.Empty(page.PreviewIcons);
+            Assert.Empty(page.PreviewStrip);
             Assert.NotEmpty(page.AllSensors);
             Assert.False(page.AddSensorCommand.CanExecute(null)); // nothing picked
         });
@@ -62,26 +63,64 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
-    public void All_in_one_previews_two_and_says_they_take_turns()
+    public void Grouped_the_preview_has_an_icon_per_part_marked_with_its_colour()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            foreach (var s in live.AllSensors.Take(3))
-            {
-                page.SensorToAdd = s;
-                page.AddSensorCommand.Execute(null);
-            }
-            page.Combined = true;
-            Assert.True(settings.Current.TrayCombined);
-            Assert.False(page.Separate);
-            Assert.Equal(2, page.CombinedPreview.Count);
-            Assert.Contains("taking turns", page.CombinedNote);
-            Assert.Contains("all 3", page.CombinedNote);
+            foreach (var label in new[] { "CPU load", "GPU temperature", "RAM in use", "CPU temperature", "GPU load" })
+                page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
             page.Separate = true;
-            Assert.False(settings.Current.TrayCombined);
-            Assert.Equal("", page.CombinedNote);
+            Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyle);
+            Assert.True(page.ShowIcons);
+            Assert.Equal(["CPU", "GPU", "RAM", "CPU", "GPU"], page.PreviewIcons.Select(i => i.Label)); // an icon each, as listed
+
+            page.Grouped = true;
+            Assert.Equal(TrayStyle.Grouped, settings.Current.TrayStyle);
+            Assert.False(page.Separate || page.InStrip);
+            var icons = page.PreviewIcons;
+            Assert.Equal(["CPU", "GPU", "RAM"], icons.Select(i => i.Label));
+            Assert.Equal([live.CpuTemp!.Id, live.CpuLoad!.Id], icons[0].Rows.Select(r => r.Id)); // the temperature on top
+            Assert.Equal([live.GpuTemp!.Id, live.GpuLoad!.Id], icons[1].Rows.Select(r => r.Id));
+            Assert.Equal((15.0, 30.0), (icons[0].NumberHeight, icons[2].NumberHeight));
+            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Cpu, page.TaskbarLight), icons[0].Mark);
+            Assert.StartsWith(live.CpuTemp.HardwareName, icons[0].Tooltip);
+            Assert.Equal(TrayPart.Gpu, page.Sensors.Single(r => r.Id == live.GpuLoad.Id).Part);
+
+            page.Separate = true;
+            Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyle);
+            Assert.Equal(5, page.PreviewIcons.Count);
         });
+    }
+
+    [Fact]
+    public void The_strip_preview_has_each_part_once_with_all_its_readings_and_its_name()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            foreach (var label in new[] { "GPU load", "CPU temperature", "RAM in use", "GPU temperature", "CPU load", "GPU power" })
+                page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
+            Assert.True(page.InStrip);
+            var parts = page.PreviewStrip;
+            Assert.Equal(["GPU", "CPU", "RAM"], parts.Select(p => p.Name));
+            Assert.Equal([live.GpuTemp!.Id, live.GpuLoad!.Id, live.GpuPower!.Id], parts[0].Rows.Select(r => r.Id)); // temperature, load, the rest
+            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight), parts[0].NameBrush);
+            Assert.StartsWith(live.GpuTemp.HardwareName, parts[0].Tooltip);
+            Assert.Equal(TaskbarViewModel.StripSupported ? "" : "The strip needs Windows 11, so here the readings show as an icon each.", page.StripNote);
+
+            page.Grouped = true; // and back to the strip from the page
+            page.InStrip = true;
+            Assert.Equal(TrayStyle.Strip, settings.Current.TrayStyle);
+        });
+    }
+
+    [Fact]
+    public void The_preview_writes_readings_as_the_strip_does()
+    {
+        var convert = new Converters.TrayTextConverter();
+        Assert.Equal("62°", convert.Convert([SensorKind.Temperature, (double?)61.6], typeof(string), "strip", System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("62", convert.Convert([SensorKind.Temperature, (double?)61.6], typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -112,7 +151,8 @@ public sealed class TaskbarPageTests
             var row = Assert.Single(page.Sensors);
             Assert.False(row.Found);
             Assert.Equal("Not found on this PC right now", row.Hardware);
-            Assert.Empty(page.CombinedPreview); // nothing to draw for it
+            Assert.Empty(page.PreviewIcons); // nothing to draw for it
+            Assert.Equal(TrayPart.Other, row.Part);
         });
     }
 

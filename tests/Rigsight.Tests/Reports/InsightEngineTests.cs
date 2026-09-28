@@ -160,7 +160,7 @@ public sealed class InsightEngineTests : IDisposable
     [InlineData(75, InsightTone.Warn)]
     [InlineData(87.9, InsightTone.Warn)]
     [InlineData(88, InsightTone.Hot)]
-    public void A_high_cpu_peak_is_mentioned_with_what_was_running(double value, InsightTone? tone)
+    public void A_high_cpu_peak_is_mentioned_with_the_app_doing_the_work(double value, InsightTone? tone)
     {
         var r = Past();
         r.Apps.Add(App("Dota 2", AppCategory.Game, 3600));
@@ -168,7 +168,7 @@ public sealed class InsightEngineTests : IDisposable
         var list = Gen(r);
         if (tone is null) { None(list, "peak"); return; }
         var peak = Assert.Single(list, i => i.Key == "peak");
-        Assert.Equal($"CPU peaked at {value:0}° at 3:04 PM while playing Dota 2.", peak.Text);
+        Assert.Equal($"CPU peaked at {value:0}° at 3:04 PM, with Dota 2 working it hardest.", peak.Text);
         Assert.Equal((tone.Value, 85), (peak.Tone, peak.Priority));
     }
 
@@ -184,7 +184,7 @@ public sealed class InsightEngineTests : IDisposable
         r.GpuHotPeak = new Peak(95.4, At1504, "Chrome");
         var list = Gen(r);
         if (tone is null) { None(list, "peak"); return; }
-        Assert.Equal($"GPU peaked at {value:0}° (hot spot 95°) at Wed 12 Mar, 3:04 PM while browsing in Chrome.", Line(list, "peak"));
+        Assert.Equal($"GPU peaked at {value:0}° (hot spot 95°) at Wed 12 Mar, 3:04 PM, with Chrome working it hardest.", Line(list, "peak"));
     }
 
     [Fact]
@@ -192,25 +192,9 @@ public sealed class InsightEngineTests : IDisposable
     {
         var r = Past();
         r.CpuTempPeak = new Peak(80, At1504, null);
-        r.GpuTempPeak = new Peak(80, At1504, "Some Tool"); // not in the apps list: an app of no known kind
+        r.GpuTempPeak = new Peak(80, At1504, "Some Tool"); // not in the apps list: working in the background
         var peaks = Gen(r).Where(i => i.Key == "peak").Select(i => i.Text);
-        Assert.Equal(["CPU peaked at 80° at 3:04 PM.", "GPU peaked at 80° at 3:04 PM while using Some Tool."], peaks);
-    }
-
-    [Theory]
-    [InlineData(AppCategory.Media, "while Spotify was playing")]
-    [InlineData(AppCategory.Communication, "while on Spotify")]
-    [InlineData(AppCategory.Development, "while working in Spotify")]
-    [InlineData(AppCategory.Productivity, "while working in Spotify")]
-    [InlineData(AppCategory.Launcher, "while in Spotify")]
-    [InlineData(AppCategory.System, "while in Spotify")]
-    [InlineData(AppCategory.Other, "while using Spotify")]
-    public void The_activity_words_fit_the_kind_of_app(AppCategory category, string words)
-    {
-        var r = Past();
-        r.Apps.Add(App("Spotify", category, 3600));
-        r.CpuTempPeak = new Peak(80, At1504, "Spotify");
-        Assert.Equal($"CPU peaked at 80° at 3:04 PM {words}.", Line(Gen(r), "peak"));
+        Assert.Equal(["CPU peaked at 80° at 3:04 PM.", "GPU peaked at 80° at 3:04 PM, with Some Tool working it hardest."], peaks);
     }
 
     [Fact]

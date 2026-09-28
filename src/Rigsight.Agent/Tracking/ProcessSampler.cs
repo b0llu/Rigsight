@@ -24,6 +24,10 @@ internal sealed class ProcessSnapshot
 {
     public Dictionary<string, AppUsage> Apps { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<int, string> PidToExe { get; } = [];
+    /// <summary>Each process by ID and start time (an ID can be reused by a later process).</summary>
+    public List<(int Pid, long Created)> Processes { get; } = [];
+    /// <summary>Share of the main GPU each app kept busy, 0–100, by exe (see <see cref="GpuSampler"/>); empty when unknown.</summary>
+    public Dictionary<string, double> Gpu { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -89,6 +93,7 @@ internal sealed unsafe class ProcessSampler
                 app.MemMB += mem;
                 if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem));
                 snapshot.PidToExe[pid] = exe;
+                snapshot.Processes.Add(key);
             }
 
             if (info->NextEntryOffset == 0) break;

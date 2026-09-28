@@ -12,8 +12,10 @@
 #   -Quick              shorter end-to-end measures
 #   -SkipEndToEnd       unit and UI tests only
 #   -UpdateBaseline     accept this run's end-to-end measures as the new baseline (only if it passed)
-#   -Admin              the test copy's agent runs with admin rights, reading every sensor like an installed one
-#                       (one Windows prompt to accept); measured against its own baseline
+#   -Admin              the test copy's agent runs with admin rights, reading every sensor like an installed one;
+#                       measured against its own baseline. One Windows prompt, at the start, for tools\admin-helper.ps1,
+#                       which then starts the test agent with admin rights for every run until one passes (or 2 hours
+#                       go by without a run): a run after a failure asks nothing
 #   -Installed          also measure the installed Rigsight as it runs: its agent (read-only), and its app opened
 #                       for about half a minute and closed again
 #   -InstalledBuild     also run the end-to-end check on the installed program files (0.5.13 or later)
@@ -42,6 +44,28 @@ function Failed($message) {
     Write-Host "`nFAILED: $message" -ForegroundColor Red
     Write-Host "Results: $results"
     exit 1
+}
+
+# -Admin: the admin helper, asked for once (a Windows prompt now, while you're here) and kept for the runs that follow
+# until one passes.
+$adminDir = Join-Path $env:LOCALAPPDATA 'RigsightTestAdmin'
+function HelperAlive {
+    $alive = Join-Path $adminDir 'alive'
+    (Test-Path $alive) -and ((Get-Date) - (Get-Item $alive).LastWriteTime).TotalSeconds -lt 10
+}
+if ($Admin -and -not $SkipEndToEnd) {
+    if (HelperAlive) { Write-Host '  Admin helper already running: no Windows prompt this time.' -ForegroundColor DarkGray }
+    else {
+        Write-Host '  A Windows admin prompt now, once: accept it and no run after this asks again until one passes.' -ForegroundColor Yellow
+        try {
+            Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+                "`"$(Join-Path $PSScriptRoot 'admin-helper.ps1')`"", '-Root', "`"$root`"", '-Temp', "`"$([IO.Path]::GetTempPath().TrimEnd('\'))`""
+        }
+        catch { Failed 'the Windows admin prompt was declined' }
+        $wait = [Diagnostics.Stopwatch]::StartNew()
+        while (-not (HelperAlive) -and $wait.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 300 }
+        if (-not (HelperAlive)) { Failed 'the admin helper did not start' }
+    }
 }
 
 Stage 'Build'
@@ -113,4 +137,6 @@ else {
 }
 
 Remove-Item $publish -Recurse -Force -ErrorAction SilentlyContinue
+# Passed: the admin helper's job is done.
+if ($Admin -and (HelperAlive)) { Set-Content (Join-Path $adminDir 'stop') 'passed' }
 Write-Host "`nALL PASSED ($level) in $([math]::Round(((Get-Date) - $started).TotalMinutes, 1)) min. Results: $results" -ForegroundColor Green

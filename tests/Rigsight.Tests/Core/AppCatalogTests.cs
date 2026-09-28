@@ -154,6 +154,10 @@ public sealed class AppCatalogTests
     [InlineData("SystemSettings.exe", "Settings")]
     [InlineData("wallpaper64.exe", "Wallpaper Engine")]
     [InlineData("wallpaperservice32.exe", "Wallpaper Engine service")]
+    [InlineData("MsMpEng.exe", "Microsoft Defender")]
+    [InlineData("TiWorker.exe", "Windows Update")]
+    [InlineData("SearchIndexer.exe", "Windows Search indexing")]
+    [InlineData("fossilize_replay.exe", "Steam shader pre-caching")]
     public void Windows_helpers_have_readable_names(string exe, string expected)
     {
         Assert.Equal(expected, AppCatalog.KnownName(exe));
@@ -282,22 +286,4 @@ public sealed class AppCatalogTests
     [InlineData(AppCategory.Other, "Other")]
     [InlineData((AppCategory)99, "Other")]
     public void Labels(AppCategory category, string expected) => Assert.Equal(expected, AppCatalog.Label(category));
-
-    [Theory]
-    [InlineData(AppCategory.Game, "while playing Hades")]
-    [InlineData(AppCategory.Browser, "while browsing in Hades")]
-    [InlineData(AppCategory.Media, "while Hades was playing")]
-    [InlineData(AppCategory.Communication, "while on Hades")]
-    [InlineData(AppCategory.Development, "while working in Hades")]
-    [InlineData(AppCategory.Productivity, "while working in Hades")]
-    [InlineData(AppCategory.Launcher, "while in Hades")]
-    [InlineData(AppCategory.System, "while in Hades")]
-    [InlineData(AppCategory.Other, "while using Hades")]
-    [InlineData((AppCategory)99, "while using Hades")]
-    public void Activity_words_fit_the_kind_of_app(AppCategory category, string expected) =>
-        Assert.Equal(expected, ActivityWords.While("Hades", category));
-
-    [Fact]
-    public void Activity_words_keep_the_app_name_as_is() =>
-        Assert.Equal("while playing ELDEN RING™: Nightreign", ActivityWords.While("ELDEN RING™: Nightreign", AppCategory.Game));
 }

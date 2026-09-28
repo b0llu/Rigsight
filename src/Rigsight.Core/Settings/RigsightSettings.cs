@@ -50,11 +50,8 @@ public sealed class RigsightSettings
     /// <summary>Sensors shown as numbers in the taskbar's notification area, in this order (by sensor id).</summary>
     public List<string> TraySensors { get; set; } = [];
 
-    /// <summary>
-    /// All <see cref="TraySensors"/> in one icon (two at a time, stacked, taking turns; hover lists them all) instead of
-    /// an icon each.
-    /// </summary>
-    public bool TrayCombined { get; set; }
+    /// <summary>How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons.</summary>
+    public TrayStyle TrayStyle { get; set; }
 
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
@@ -177,6 +174,13 @@ public sealed class AlertSettings
     /// <summary>Seconds a notification card stays on screen.</summary>
     public int CardSeconds { get; set; } = 8;
 }
+
+/// <summary>
+/// How the taskbar readings show. <see cref="Strip"/>: a strip inside the taskbar, next to the clock, each part's
+/// readings over its name (Windows 11; elsewhere the icons). <see cref="Icons"/>: an icon each in the notification area.
+/// <see cref="Grouped"/>: an icon per part, up to two readings stacked (see <see cref="TrayParts"/>).
+/// </summary>
+public enum TrayStyle { Strip, Icons, Grouped }
 
 public enum NotificationStyle
 {

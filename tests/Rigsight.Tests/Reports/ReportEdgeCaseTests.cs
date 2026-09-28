@@ -52,7 +52,7 @@ public sealed class ReportEdgeCaseTests
         using var t = new TestDb();
         long app = t.Db.UpsertApp("game.exe", "Game", null, AppCategory.Game);
         long ts = U(TimeUtil.LocalMinuteStart(DateTime.Now.AddMinutes(-5)));
-        t.Db.WriteMinute(Minute(ts, cpu: 60, app: app, cpuPower: 50));
+        t.Db.WriteMinute(Minute(ts, cpu: 60, app: app, cpuPower: 50, cpuApp: app));
         t.Db.AddAppHour(Hour(U(TimeUtil.LocalHourStart(L(ts))), app, fg: 60));
         var r = Build(t, range, DateTime.Now);
         Assert.True(r.HasData);
@@ -135,7 +135,7 @@ public sealed class ReportEdgeCaseTests
         t.Exec("INSERT INTO apps(id, exe, name, path, category, first_seen) VALUES(1, 'noname.exe', '', NULL, 'Other', 0)");
         long ts = U(2025, 4, 2, 10);
         t.Db.WriteMinute(Minute(ts, app: 1));
-        t.Db.WriteMinute(Minute(ts + 60, app: 99, cpuMax: 99)); // an id with no apps row
+        t.Db.WriteMinute(Minute(ts + 60, app: 99, cpuMax: 99, cpuApp: 99)); // an id with no apps row
         t.Db.AddAppHour(Hour(ts, 1, fg: 60));
         t.Db.AddAppHour(Hour(ts, 99, fg: 60));
         t.Db.InsertSession(Session(99, ts, ts + 120));
@@ -167,6 +167,40 @@ public sealed class ReportEdgeCaseTests
         Assert.Null(r.LongestStretch);
     }
 
+    [Fact]
+    public void Highs_name_the_app_doing_the_work_not_the_one_in_front()
+    {
+        // Chrome in front while a game left running heated everything up; the voltage high names nobody (it comes at
+        // light loads, when the chip boosts).
+        using var t = new TestDb();
+        long chrome = t.Db.UpsertApp("chrome.exe", "Chrome", null, AppCategory.Browser);
+        long game = t.Db.UpsertApp("game.exe", "Game", null, AppCategory.Game);
+        long ts = U(2025, 4, 2, 10);
+        t.Db.WriteMinute(Minute(ts, app: chrome, cpuMax: 90, gpuMax: 80, hot: 92, cpuPower: 120, gpuPower: 300, cpuVolt: 1.4, cpuApp: game, gpuApp: game));
+        t.Db.WriteMinute(Minute(ts + 60, app: chrome, cpuMax: 60, gpuMax: 50, cpuApp: null, gpuApp: null));
+        t.Db.AddAppHour(Hour(ts, chrome, fg: 120));
+        foreach (var range in Enum.GetValues<ReportRange>())
+        {
+            var r = Build(t, range, L(ts));
+            Assert.Equal(["Game", "Game", "Game", "Game", "Game"],
+                new[] { r.CpuTempPeak, r.GpuTempPeak, r.GpuHotPeak, r.CpuPowerPeak, r.GpuPowerPeak }.Select(p => p!.App));
+            Assert.Null(r.CpuVoltPeak!.App);
+        }
+    }
+
+    [Fact]
+    public void Highs_from_before_the_work_was_kept_name_no_app()
+    {
+        // Minutes from older versions only know the app in front: that's no guide to what made the heat.
+        using var t = new TestDb();
+        long chrome = t.Db.UpsertApp("chrome.exe", "Chrome", null, AppCategory.Browser);
+        long ts = U(2025, 4, 2, 10);
+        t.Db.WriteMinute(Minute(ts, app: chrome, cpuMax: 90));
+        t.Db.AddAppHour(Hour(ts, chrome, fg: 60));
+        foreach (var range in Enum.GetValues<ReportRange>())
+            Assert.Null(Build(t, range, L(ts)).CpuTempPeak!.App);
+    }
+
     // ── Settings ──
 
     private static TestDb TwoApps(out long ts)
@@ -175,7 +209,7 @@ public sealed class ReportEdgeCaseTests
         t.Db.UpsertApp("chrome.exe", "Google Chrome", @"C:\chrome.exe", AppCategory.Browser);
         t.Db.UpsertApp("searchhost.exe", "Microsoft Windows Operating System", null, AppCategory.System);
         ts = U(2025, 4, 2, 10);
-        for (int i = 0; i < 30; i++) t.Db.WriteMinute(Minute(ts + i * 60, app: i < 20 ? 1 : 2, cpuMax: i == 5 ? 95 : 60));
+        for (int i = 0; i < 30; i++) t.Db.WriteMinute(Minute(ts + i * 60, app: i < 20 ? 1 : 2, cpuMax: i == 5 ? 95 : 60, cpuApp: i < 20 ? 1 : 2));
         t.Db.AddAppHour(Hour(ts, 1, fg: 1200));
         t.Db.AddAppHour(Hour(ts, 2, fg: 600));
         t.Db.InsertSession(Session(1, ts, ts + 1200));

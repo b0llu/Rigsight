@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
+using Rigsight.Core.Settings;
 using Rigsight.Models;
 using Rigsight.Services;
 
@@ -9,7 +12,7 @@ namespace Rigsight.ViewModels;
 /// <summary>A common reading offered with one click ("CPU temperature").</summary>
 public sealed record TaskbarQuickPick(string Label, SensorItem Sensor);
 
-/// <summary>A sensor in the taskbar: what it is, and its live reading for the preview.</summary>
+/// <summary>A sensor in the taskbar: what it is, the part it's about (its colour mark), and its live reading for the preview.</summary>
 public sealed class TaskbarSensorRow(string id, string name, string hardware, SensorItem? sensor)
 {
     public string Id { get; } = id;
@@ -17,11 +20,47 @@ public sealed class TaskbarSensorRow(string id, string name, string hardware, Se
     public string Hardware { get; } = sensor is null ? "Not found on this PC right now" : hardware;
     public SensorItem? Sensor { get; } = sensor;
     public bool Found => Sensor is not null;
+    public TrayPart Part { get; } = TrayParts.PartOf(sensor?.HardwareType);
+    public string PartLabel => TrayParts.Label(Part);
+
+    /// <summary>The word under it on the strip (after its part's first, see <see cref="TrayParts.ShortLabel"/>).</summary>
+    public string Short => Sensor is null ? "" : TrayParts.ShortLabel(Sensor.Kind, Sensor.Name, Part, Sensor.CustomLabel);
+
+    /// <summary>The part's colour, as the taskbar icon marks it.</summary>
+    public Brush Mark => TaskbarViewModel.MarkBrush(Part, light: false);
+}
+
+/// <summary>A part on the taskbar strip, in the preview: its readings side by side, its name under them in its colour.</summary>
+public sealed record TaskbarStripPart(IReadOnlyList<TaskbarSensorRow> Rows, Brush NameBrush, string Name)
+{
+    /// <summary>Each reading with the word under it: the part's name under the first, its own under the rest.</summary>
+    public IReadOnlyList<TaskbarStripReading> Readings =>
+        [.. TrayParts.StripLabels([.. Rows.Select(r => r.Short)], Name).Select((label, i) => new TaskbarStripReading(Rows[i], label, i == 0, NameBrush))];
+
+    public string Tooltip => string.Join('\n', Rows.Select(r => r.Name).Prepend(Rows[0].Hardware));
+}
+
+/// <summary>A reading on the strip, in the preview: its number and the word under it (bold for the part's name).</summary>
+public sealed record TaskbarStripReading(TaskbarSensorRow Row, string Label, bool First, Brush LabelBrush)
+{
+    public double LabelOpacity => First ? 1 : 0.8;
+    public System.Windows.FontWeight LabelWeight => First ? System.Windows.FontWeights.Bold : System.Windows.FontWeights.Normal;
+}
+
+/// <summary>One taskbar icon in the preview: its readings (one, or two stacked), its part's colour mark and name.</summary>
+public sealed record TaskbarPreviewIcon(IReadOnlyList<TaskbarSensorRow> Rows, Brush Mark, string Label)
+{
+    /// <summary>What hovering the real icon says: the hardware, then each reading.</summary>
+    public string Tooltip => string.Join('\n', Rows.Select(r => r.Name).Prepend(Rows[0].Hardware));
+
+    /// <summary>How tall each number may be in the preview (twice the real size): the whole icon, or half each.</summary>
+    public double NumberHeight => Rows.Count == 1 ? 30 : 15;
 }
 
 /// <summary>
-/// The Taskbar page: readings shown next to the clock, an icon each or all in one (the agent draws them, see its
-/// TrayReadings). As many as the user likes, in their order.
+/// The Taskbar page: readings shown next to the clock, an icon each or grouped by part, each icon marked with its
+/// part's colour (the agent draws them, see its TrayReadings; both group them with <see cref="TrayParts"/>). As many
+/// as the user likes, in their order.
 /// </summary>
 public sealed partial class TaskbarViewModel : ObservableObject
 {
@@ -39,8 +78,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
 
     private void OnSettingsChanged()
     {
-        OnPropertyChanged(nameof(Combined));
-        OnPropertyChanged(nameof(Separate));
+        OnStyleChanged();
         LoadSensors();
     }
 
@@ -94,33 +132,81 @@ public sealed partial class TaskbarViewModel : ObservableObject
         LoadSensors();
     }
 
-    /// <summary>All readings in one icon (two at a time, taking turns) instead of an icon each.</summary>
-    public bool Combined
+    /// <summary>A strip in the taskbar, an icon each, or an icon per part (see <see cref="TrayStyle"/>).</summary>
+    public TrayStyle Style
     {
-        get => _settings.Current.TrayCombined;
+        get => _settings.Current.TrayStyle;
         set
         {
-            if (value == Combined) return;
-            _settings.Update(s => s.TrayCombined = value);
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Separate));
-            OnPropertyChanged(nameof(CombinedNote));
+            if (value == Style) return;
+            _settings.Update(s => s.TrayStyle = value);
+            OnStyleChanged();
         }
     }
 
-    public bool Separate
+    private void OnStyleChanged()
     {
-        get => !Combined;
-        set => Combined = !value;
+        OnPropertyChanged(nameof(Style));
+        OnPropertyChanged(nameof(InStrip));
+        OnPropertyChanged(nameof(Separate));
+        OnPropertyChanged(nameof(Grouped));
+        OnPropertyChanged(nameof(ShowStrip));
+        OnPropertyChanged(nameof(ShowIcons));
+        OnPropertyChanged(nameof(PreviewIcons));
+        OnPropertyChanged(nameof(StripNote));
     }
 
-    /// <summary>What the combined icon shows first (the preview): up to two readings, stacked.</summary>
-    public IReadOnlyList<TaskbarSensorRow> CombinedPreview => [.. Sensors.Where(r => r.Found).Take(2)];
+    // The three ways, for the style cards (radio buttons).
+    public bool InStrip { get => Style == TrayStyle.Strip; set { if (value) Style = TrayStyle.Strip; } }
+    public bool Separate { get => Style == TrayStyle.Icons; set { if (value) Style = TrayStyle.Icons; } }
+    public bool Grouped { get => Style == TrayStyle.Grouped; set { if (value) Style = TrayStyle.Grouped; } }
 
-    /// <summary>With more than two readings the combined icon takes turns; the rest are on hover.</summary>
-    public string CombinedNote => Combined && Sensors.Count > 2
-        ? $"Shows two at a time, taking turns every 3 seconds. Point at it to see all {Sensors.Count}."
-        : "";
+    /// <summary>The strip needs Windows 11's taskbar; on Windows 10 the readings show as icons.</summary>
+    public static bool StripSupported => Environment.OSVersion.Version.Build >= 22000;
+
+    /// <summary>Whether the preview shows the strip (else the icons, as they'll be).</summary>
+    public bool ShowStrip => InStrip && StripSupported;
+    public bool ShowIcons => !ShowStrip;
+
+    /// <summary>Under the styles, when the strip was picked on Windows 10.</summary>
+    public string StripNote => InStrip && !StripSupported ? "The strip needs Windows 11, so here the readings show as an icon each." : "";
+
+    /// <summary>The parts on the strip, as the agent lays them out (all of a part's readings, the temperature first).</summary>
+    public IReadOnlyList<TaskbarStripPart> PreviewStrip
+    {
+        get
+        {
+            var found = Sensors.Where(r => r.Found).ToList();
+            var parts = TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind), int.MaxValue);
+            var names = TrayParts.Names([.. parts.Select(p => p[0].Part)]);
+            return [.. parts.Select((rows, i) => new TaskbarStripPart(rows, MarkBrush(rows[0].Part, TaskbarLight), names[i]))];
+        }
+    }
+
+    /// <summary>The icons as the taskbar will show them, grouped as the agent groups them (readings not found left out).</summary>
+    public IReadOnlyList<TaskbarPreviewIcon> PreviewIcons
+    {
+        get
+        {
+            var found = Sensors.Where(r => r.Found).ToList();
+            var icons = Style == TrayStyle.Grouped
+                ? TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind))
+                : [.. found.Select(r => new List<TaskbarSensorRow> { r })];
+            return [.. icons.Select(rows => new TaskbarPreviewIcon(rows, MarkBrush(rows[0].Part, TaskbarLight), rows[0].PartLabel))];
+        }
+    }
+
+    private static readonly Dictionary<(TrayPart, bool), Brush> Marks = [];
+
+    /// <summary>A part's colour mark as a brush (deeper on a light taskbar, as the real icon has it).</summary>
+    public static Brush MarkBrush(TrayPart part, bool light)
+    {
+        if (Marks.TryGetValue((part, light), out var brush)) return brush;
+        var (r, g, b) = TrayParts.Color(part, light);
+        brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return Marks[(part, light)] = brush;
+    }
 
     private bool CanAddSensor() => SensorToAdd is not null && Sensors.All(r => r.Id != SensorToAdd.Id);
 
@@ -182,8 +268,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(QuickPicks));
         OnPropertyChanged(nameof(HasQuickPicks));
-        OnPropertyChanged(nameof(CombinedPreview));
-        OnPropertyChanged(nameof(CombinedNote));
+        OnPropertyChanged(nameof(PreviewIcons));
+        OnPropertyChanged(nameof(PreviewStrip));
         OnPropertyChanged(nameof(AllSensors));
         AddSensorCommand.NotifyCanExecuteChanged();
     }

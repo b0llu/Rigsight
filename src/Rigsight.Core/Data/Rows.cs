@@ -61,6 +61,12 @@ public sealed class SystemMinute
     public double? RamUsed { get; set; }
     /// <summary>App that was in front for most of the minute.</summary>
     public long? FgApp { get; set; }
+    /// <summary>
+    /// The app working the CPU (GPU) hardest in the minute before the minute's hottest CPU (GPU) reading: what its highs
+    /// are put down to. Null when no app clearly was, and in minutes from before 0.8.1.
+    /// </summary>
+    public long? CpuApp { get; set; }
+    public long? GpuApp { get; set; }
     public int ActiveSec { get; set; }
     public int IdleSec { get; set; }
 }

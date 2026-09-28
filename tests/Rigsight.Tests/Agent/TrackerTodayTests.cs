@@ -1,4 +1,6 @@
 using Rigsight.Agent.Sensors;
+using Rigsight.Agent.Tracking;
+using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Tests.Agent;
@@ -52,33 +54,111 @@ public class TrackerTodayTests
     }
 
     [Fact]
-    public void Peaks_name_the_app_in_front_and_its_category()
+    public void Peaks_name_the_app_doing_the_work_not_the_one_in_front()
     {
+        // The game left running in the background made the heat; the browser in front did nothing much.
         using var rig = new TrackerRig(null, null, null, EldenRing);
-        rig.Keys = new KeyValues { CpuTemp = 60, GpuTemp = 50 };
-        rig.Use("code.exe", 120);
-        rig.Keys = new KeyValues { CpuTemp = 88, GpuTemp = 64 };
-        rig.Use("eldenring.exe", 120);
-        rig.Keys = new KeyValues { CpuTemp = 70, GpuTemp = 79 };
+        rig.Usage["eldenring.exe"] = (30, 4000);
+        rig.GpuUsage["eldenring.exe"] = 92;
+        rig.Usage["chrome.exe"] = (2, 800);
+        rig.GpuUsage["chrome.exe"] = 3;
+        rig.Running.Add("eldenring.exe");
+        rig.Use("chrome.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 84, GpuTemp = 79, GpuLoad = 97 };
         rig.Use("chrome.exe", 120);
-        rig.Keys = new KeyValues { CpuTemp = 40, GpuTemp = 40 };
-        rig.Use("code.exe", 120);
         var t = rig.Tracker.Today();
-        Assert.Equal(88, t.CpuPeak);
-        Assert.Equal("Elden Ring", t.CpuPeakApp);
-        Assert.Equal(AppCategory.Game, t.CpuPeakCategory);
-        Assert.Equal(79, t.GpuPeak);
-        Assert.Equal("Chrome", t.GpuPeakApp);
-        Assert.Equal(AppCategory.Browser, t.GpuPeakCategory);
-        Assert.Equal("while playing Elden Ring", t.CpuPeakWhile);
+        Assert.Equal((84, "Elden Ring"), (t.CpuPeak, t.CpuPeakApp));
+        Assert.Equal((79, "Elden Ring"), (t.GpuPeak, t.GpuPeakApp));
+        Assert.Equal("Elden Ring was busiest", t.CpuPeakLine);
+
+        // The minutes keep it too (for the reports and insights), apart from the app in front.
+        var minute = rig.Minutes().First(m => m.CpuTempMax == 84);
+        Assert.Equal((rig.AppId("eldenring.exe"), rig.AppId("eldenring.exe"), rig.AppId("chrome.exe")), (minute.CpuApp, minute.GpuApp, minute.FgApp));
     }
 
     [Fact]
-    public void A_peak_during_a_one_second_handoff_goes_to_the_app_of_that_minute()
+    public void Each_peak_names_the_app_working_that_part()
+    {
+        // A render hammering the CPU while a video plays on the GPU.
+        using var rig = new TrackerRig();
+        rig.Usage["blender.exe"] = (70, 3000);
+        rig.Usage["vlc.exe"] = (2, 300);
+        rig.GpuUsage["vlc.exe"] = 35;
+        rig.GpuUsage["blender.exe"] = 4;
+        rig.Running.Add("blender.exe");
+        rig.Use("vlc.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 90, GpuTemp = 55, GpuLoad = 40 };
+        rig.Use("vlc.exe", 60);
+        Assert.Equal(("Blender", "Vlc"), (rig.Tracker.Today().CpuPeakApp, rig.Tracker.Today().GpuPeakApp));
+    }
+
+    [Fact]
+    public void No_app_is_named_when_none_clearly_did_the_work()
+    {
+        using var rig = new TrackerRig();
+        rig.Usage["code.exe"] = (12, 500);
+        rig.Usage["chrome.exe"] = (10, 800);  // about as busy: either could have made the heat
+        rig.Running.Add("chrome.exe");
+        rig.Use("code.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 80 };
+        rig.Use("code.exe", 60);
+        var t = rig.Tracker.Today();
+        Assert.Equal(80, t.CpuPeak);
+        Assert.Null(t.CpuPeakApp);
+        Assert.Equal($"At {TimeUtil.FromUnix(t.CpuPeakTime!.Value):h:mm tt}", t.CpuPeakLine);
+        Assert.Null(t.GpuPeakLine); // no GPU reading at all
+    }
+
+    [Fact]
+    public void A_light_load_names_no_app()
+    {
+        using var rig = new TrackerRig();
+        rig.Usage["code.exe"] = (Tracker.MinCpuShare - 1, 500);
+        rig.Use("code.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 45 };
+        rig.Use("code.exe", 60);
+        Assert.Null(rig.Tracker.Today().CpuPeakApp);
+    }
+
+    [Fact]
+    public void Gpu_work_that_cant_be_put_down_to_an_app_names_none()
+    {
+        // A game with anti-cheat can't be read: the GPU is flat out, and all that can be seen is Windows drawing the desktop.
+        using var rig = new TrackerRig();
+        rig.GpuUsage["dwm.exe"] = 12;
+        rig.Use("dwm.exe", 30);
+        rig.Keys = new KeyValues { GpuTemp = 80, GpuLoad = 98 };
+        rig.Use("dwm.exe", 60);
+        Assert.Equal(80, rig.Tracker.Today().GpuPeak);
+        Assert.Null(rig.Tracker.Today().GpuPeakApp);
+    }
+
+    [Fact]
+    public void Apps_left_out_of_tracking_are_never_named()
+    {
+        var settings = new RigsightSettings();
+        settings.Tracking.ExcludedApps.Add("secret.exe");
+        using var rig = new TrackerRig(settings: settings);
+        rig.Usage["secret.exe"] = (60, 500);
+        rig.Usage["code.exe"] = (6, 500);
+        rig.Running.Add("secret.exe");
+        rig.Use("code.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 88 };
+        rig.Use("code.exe", 60);
+        Assert.Null(rig.Tracker.Today().CpuPeakApp); // not the next busiest either: that one didn't make the heat
+        Assert.False(rig.HasApp("secret.exe"));
+    }
+
+    [Fact]
+    public void A_one_second_handoff_doesnt_move_the_peak()
     {
         // Seen for real: an app restarting, Windows' display manager held the foreground for a second just as the CPU
-        // peaked. The tile said "while in Windows display (DWM)", the insight (the minute's app) said Rigsight.
+        // peaked, and the peak was put down to it. What was doing the work is what counts.
         using var rig = new TrackerRig { SensorEvery = 1 }; // read every second, as the agent does
+        rig.Usage["rigsight.exe"] = (20, 300);
+        rig.GpuUsage["rigsight.exe"] = 30;
+        rig.Usage["dwm.exe"] = (1, 100);
+        rig.Use("rigsight.exe", 20);
         rig.Keys = new KeyValues { CpuTemp = 60, GpuTemp = 50 };
         rig.Use("rigsight.exe", 20);
         rig.Keys = new KeyValues { CpuTemp = 78, GpuTemp = 70 };
@@ -86,26 +166,28 @@ public class TrackerTodayTests
         rig.Keys = new KeyValues { CpuTemp = 61, GpuTemp = 50 };
         rig.Use("rigsight.exe", 20);
         Assert.Equal(78, rig.Tracker.Today().CpuPeak);
-        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp); // the minute so far is mostly Rigsight
+        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
         Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
 
         rig.Use("rigsight.exe", 120); // the minute is written
-        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
-        Assert.Equal(rig.AppId("rigsight.exe"), rig.Minutes().Single(m => m.CpuTempMax == 78).FgApp); // what the insight names
+        Assert.Equal(rig.AppId("rigsight.exe"), rig.Minutes().Single(m => m.CpuTempMax == 78).CpuApp); // what the insight names
 
         rig.Restart(); // rebuilt from the database: the same app
         Assert.Equal(78, rig.Tracker.Today().CpuPeak);
         Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
         Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
+        Assert.Equal(rig.Tracker.Today().CpuPeakTime, rig.Minutes().Single(m => m.CpuTempMax == 78).Ts); // to the minute
     }
 
     [Fact]
     public void An_equal_reading_later_doesnt_take_the_peak()
     {
         using var rig = new TrackerRig();
+        rig.Use("code.exe", 30);
         rig.Keys = new KeyValues { CpuTemp = 80 };
         rig.Use("code.exe", 60);
-        rig.Use("chrome.exe", 60);
+        rig.Running.Remove("code.exe");
+        rig.Use("chrome.exe", 120);
         Assert.Equal("Code", rig.Tracker.Today().CpuPeakApp);
     }
 
@@ -116,12 +198,12 @@ public class TrackerTodayTests
         settings.AppNames["code.exe"] = "My Editor";
         settings.AppCategories["code.exe"] = AppCategory.Game;
         using var rig = new TrackerRig(settings: settings);
+        rig.Use("CODE.EXE", 30);
         rig.Keys = new KeyValues { CpuTemp = 75 };
-        rig.Use("CODE.EXE", 300);
+        rig.Use("CODE.EXE", 270);
         var t = rig.Tracker.Today();
         Assert.Equal("My Editor", t.TopApp);
         Assert.Equal("My Editor", t.CpuPeakApp);
-        Assert.Equal(AppCategory.Game, t.CpuPeakCategory);
         Assert.Equal("My Editor", rig.Tracker.Activity.Name);
         Assert.Equal(AppCategory.Game, rig.Tracker.Activity.Category);
         // The saved record keeps its own name: renaming is the user's view of it.
@@ -164,7 +246,6 @@ public class TrackerTodayTests
         Assert.Equal(before.TopAppSec, after.TopAppSec);
         Assert.Equal(before.CpuPeak, after.CpuPeak);
         Assert.Equal(before.CpuPeakApp, after.CpuPeakApp);
-        Assert.Equal(before.CpuPeakCategory, after.CpuPeakCategory);
         Assert.Equal(before.GpuPeak, after.GpuPeak);
         Assert.Equal(before.GpuPeakApp, after.GpuPeakApp);
 

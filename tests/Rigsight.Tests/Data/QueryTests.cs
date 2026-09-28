@@ -92,18 +92,20 @@ public sealed class QueryTests
     }
 
     [Fact]
-    public void Find_minute_gives_the_first_minute_with_the_value_in_the_range_and_its_app()
+    public void Find_minute_gives_the_first_minute_with_the_value_in_the_range_and_the_app_doing_the_work()
     {
         using var t = new TestDb();
-        t.Db.WriteMinute(Minute(T0, cpuMax: 80, app: 1));
-        t.Db.WriteMinute(Minute(T0 + 60, cpuMax: 90, app: null));
-        t.Db.WriteMinute(Minute(T0 + 120, cpuMax: 90, app: 2));
-        t.Db.WriteMinute(Minute(T0 + 180, cpuMax: 95, app: 3));
-        Assert.Equal((T0 + 60, (long?)null), t.Db.FindMinute("cpu_temp_max", 90, T0, T0 + 3600));
-        Assert.Equal((T0 + 120, (long?)2), t.Db.FindMinute("cpu_temp_max", 90, T0 + 61, T0 + 3600));
-        Assert.Null(t.Db.FindMinute("cpu_temp_max", 95, T0, T0 + 180));
-        Assert.Null(t.Db.FindMinute("cpu_temp_max", 91, T0, T0 + 3600));
-        Assert.Equal((T0, (long?)1), t.Db.FindMinute("cpu_temp_max", 80, T0, T0 + 1));
+        t.Db.WriteMinute(Minute(T0, cpuMax: 80, app: 9, cpuApp: 1, gpuApp: 4));
+        t.Db.WriteMinute(Minute(T0 + 60, cpuMax: 90, app: 9, cpuApp: null));
+        t.Db.WriteMinute(Minute(T0 + 120, cpuMax: 90, app: 9, cpuApp: 2));
+        t.Db.WriteMinute(Minute(T0 + 180, cpuMax: 95, app: 9, cpuApp: 3));
+        Assert.Equal((T0 + 60, (long?)null), t.Db.FindMinute("cpu_temp_max", 90, T0, T0 + 3600, "cpu_app"));
+        Assert.Equal((T0 + 120, (long?)2), t.Db.FindMinute("cpu_temp_max", 90, T0 + 61, T0 + 3600, "cpu_app"));
+        Assert.Null(t.Db.FindMinute("cpu_temp_max", 95, T0, T0 + 180, "cpu_app"));
+        Assert.Null(t.Db.FindMinute("cpu_temp_max", 91, T0, T0 + 3600, "cpu_app"));
+        Assert.Equal((T0, (long?)1), t.Db.FindMinute("cpu_temp_max", 80, T0, T0 + 1, "cpu_app"));
+        Assert.Equal((T0, (long?)4), t.Db.FindMinute("cpu_temp_max", 80, T0, T0 + 1, "gpu_app"));
+        Assert.Equal((T0, (long?)null), t.Db.FindMinute("cpu_temp_max", 80, T0, T0 + 1, null)); // never the app in front
     }
 
     [Theory]
@@ -117,8 +119,8 @@ public sealed class QueryTests
     public void Find_minute_works_for_every_column_reports_look_up(string column)
     {
         using var t = new TestDb();
-        t.Db.WriteMinute(Minute(T0, cpuMax: 1.25, gpuMax: 1.25, hot: 1.25, cpuVolt: 1.25, gpuVolt: 1.25, cpuPower: 1.25, gpuPower: 1.25, app: 7));
-        Assert.Equal((T0, (long?)7), t.Db.FindMinute(column, 1.25, T0, T0 + 60));
+        t.Db.WriteMinute(Minute(T0, cpuMax: 1.25, gpuMax: 1.25, hot: 1.25, cpuVolt: 1.25, gpuVolt: 1.25, cpuPower: 1.25, gpuPower: 1.25, cpuApp: 7));
+        Assert.Equal((T0, (long?)7), t.Db.FindMinute(column, 1.25, T0, T0 + 60, "cpu_app"));
     }
 
     // ── Days ──

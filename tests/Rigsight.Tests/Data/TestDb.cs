@@ -109,11 +109,11 @@ public static class Make
 
     public static SystemMinute Minute(long ts, double? cpu = 50, double? gpu = 45, double? cpuLoad = 20, double? gpuLoad = 10,
         long? app = null, int active = 60, int idle = 0, double? cpuMax = null, double? gpuMax = null, double? hot = null,
-        double? mem = null, double? cpuPower = null, double? gpuPower = null, double? cpuVolt = null, double? gpuVolt = null, double? ram = null) => new()
+        double? mem = null, double? cpuPower = null, double? gpuPower = null, double? cpuVolt = null, double? gpuVolt = null, double? ram = null, long? cpuApp = null, long? gpuApp = null) => new()
     {
         Ts = ts, CpuTemp = cpu, CpuTempMax = cpuMax ?? (cpu + 2), GpuTemp = gpu, GpuTempMax = gpuMax ?? (gpu + 1),
         GpuHotMax = hot ?? (gpu + 10), GpuMemMax = mem, CpuLoad = cpuLoad, GpuLoad = gpuLoad, CpuPower = cpuPower, GpuPower = gpuPower,
-        CpuVoltMax = cpuVolt, GpuVoltMax = gpuVolt, RamUsed = ram, FgApp = app, ActiveSec = active, IdleSec = idle,
+        CpuVoltMax = cpuVolt, GpuVoltMax = gpuVolt, RamUsed = ram, FgApp = app, CpuApp = cpuApp, GpuApp = gpuApp, ActiveSec = active, IdleSec = idle,
     };
 
     public static AppHour Hour(long ts, long app, double fg = 600, double idle = 0, double bg = 0, double min = 0,

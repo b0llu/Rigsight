@@ -143,8 +143,8 @@ public static class Fixtures
         tick.Today = new TodayInfo
         {
             OnSec = 5 * 3600, ActiveSec = 4 * 3600, IdleSec = 3600, TopApp = "Cyberpunk 2077", TopAppSec = 2 * 3600,
-            CpuPeak = 78, CpuPeakApp = "Cyberpunk 2077", CpuPeakCategory = AppCategory.Game,
-            GpuPeak = 71, GpuPeakApp = "Cyberpunk 2077", GpuPeakCategory = AppCategory.Game,
+            CpuPeak = 78, CpuPeakApp = "Cyberpunk 2077", CpuPeakTime = TimeUtil.NowUnix() - 1800,
+            GpuPeak = 71, GpuPeakApp = "Cyberpunk 2077", GpuPeakTime = TimeUtil.NowUnix() - 1700,
         };
         return tick;
     }

@@ -144,7 +144,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             var r = Report;
             if (r is null) return [];
             var rows = new List<PeakRow>();
-            bool oneDay = IsDay && Report.From.Date == Report.To.AddTicks(-1).Date;
+            bool oneDay = IsDay && r.From.Date == r.To.AddTicks(-1).Date;
             string When(Peak p) => oneDay ? p.Time.ToString("h:mm tt") : IsDay ? p.Time.ToString("ddd h:mm tt") : IsYear ? p.Time.ToString("d MMM, h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
             var tempBrush = new TempToBrushConverter();
             Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);

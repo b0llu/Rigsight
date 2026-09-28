@@ -45,6 +45,9 @@ internal sealed class TrackerRig : IDisposable
     /// <summary>Resource use reported for running apps (default: a busy, windowed-size app).</summary>
     public Dictionary<string, (double Cpu, double MemMB)> Usage { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Each running app's share of the GPU (default: none).</summary>
+    public Dictionary<string, double> GpuUsage { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public KeyValues Keys { get; set; }
 
     /// <summary>Sensors are read every this many seconds (the agent: 2 with the app closed, 1 while it's open).</summary>
@@ -114,6 +117,7 @@ internal sealed class TrackerRig : IDisposable
         {
             var (cpu, mem) = Usage.TryGetValue(exe, out var u) ? u : (5.0, 300.0);
             snapshot.Apps[exe] = new AppUsage { Exe = exe, FirstPid = 0, Count = 1, Cpu = cpu, MemMB = mem };
+            if (GpuUsage.TryGetValue(exe, out var gpu)) snapshot.Gpu[exe] = gpu;
         }
         return snapshot;
     }

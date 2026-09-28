@@ -60,12 +60,12 @@ public static class InsightEngine
 
         // Peaks are shown elsewhere (tiles, hot moments); they're only news when they're high (and not already a limit warning).
         if (r.CpuTempPeak is { } cpu && r.CpuOverLimitMin == 0 && ToneFor(cpu.Value, 75, 88) != InsightTone.Neutral)
-            list.Add(new Insight(IconTemp, $"CPU peaked at {Units.TempShort(cpu.Value)} {When(r, cpu.Time)}{While(r, cpu.App)}.",
+            list.Add(new Insight(IconTemp, $"CPU peaked at {Units.TempShort(cpu.Value)} {When(r, cpu.Time)}{PeakWords.With(cpu.App)}.",
                 ToneFor(cpu.Value, 75, 88), "peak", 85));
         if (r.GpuTempPeak is { } gpu && r.GpuOverLimitMin == 0 && ToneFor(gpu.Value, 75, 85) != InsightTone.Neutral)
         {
             string hot = r.GpuHotPeak is { } hs ? $" (hot spot {Units.TempShort(hs.Value)})" : "";
-            list.Add(new Insight(IconTemp, $"GPU peaked at {Units.TempShort(gpu.Value)}{hot} {When(r, gpu.Time)}{While(r, gpu.App)}.",
+            list.Add(new Insight(IconTemp, $"GPU peaked at {Units.TempShort(gpu.Value)}{hot} {When(r, gpu.Time)}{PeakWords.With(gpu.App)}.",
                 ToneFor(gpu.Value, 75, 85), "peak", 85));
         }
 
@@ -263,9 +263,6 @@ public static class InsightEngine
     private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     /// <summary>" while playing Dota 2", " while browsing in Chrome"… (empty if no app was in front).</summary>
-    private static string While(Report r, string? app) => app is null ? ""
-        : " " + ActivityWords.While(app, r.Apps.FirstOrDefault(a => a.Name == app)?.Category ?? AppCategory.Other);
-
     private static string DegreesDiff(double celsiusDiff)
     {
         double d = Math.Abs(celsiusDiff) * (Units.Fahrenheit ? 9.0 / 5 : 1);

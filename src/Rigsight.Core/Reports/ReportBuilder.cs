@@ -167,21 +167,23 @@ public static class ReportBuilder
         report.CpuLoadAvg = Avg(minutes.Select(m => m.CpuLoad));
         report.GpuLoadAvg = Avg(minutes.Select(m => m.GpuLoad));
 
-        Peak? PeakOf(Func<SystemMinute, double?> sel)
+        // Each high with the app doing the work then (see SystemMinute.CpuApp), not the window in front, which often
+        // isn't what made the heat. Voltage highs come at light loads, when the chip boosts: no app is named for them.
+        Peak? PeakOf(Func<SystemMinute, double?> sel, Func<SystemMinute, long?>? app = null)
         {
             SystemMinute? best = null;
             double bestV = double.MinValue;
             foreach (var m in minutes)
                 if (sel(m) is double v && v > bestV) { bestV = v; best = m; }
-            return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), best.FgApp is null ? null : NameOf(best.FgApp));
+            return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), app?.Invoke(best) is long id ? NameOf(id) : null);
         }
-        report.CpuTempPeak = PeakOf(m => m.CpuTempMax);
-        report.GpuTempPeak = PeakOf(m => m.GpuTempMax);
-        report.GpuHotPeak = PeakOf(m => m.GpuHotMax);
+        report.CpuTempPeak = PeakOf(m => m.CpuTempMax, m => m.CpuApp);
+        report.GpuTempPeak = PeakOf(m => m.GpuTempMax, m => m.GpuApp);
+        report.GpuHotPeak = PeakOf(m => m.GpuHotMax, m => m.GpuApp);
         report.CpuVoltPeak = PeakOf(m => m.CpuVoltMax);
         report.GpuVoltPeak = PeakOf(m => m.GpuVoltMax);
-        report.CpuPowerPeak = PeakOf(m => m.CpuPower);
-        report.GpuPowerPeak = PeakOf(m => m.GpuPower);
+        report.CpuPowerPeak = PeakOf(m => m.CpuPower, m => m.CpuApp);
+        report.GpuPowerPeak = PeakOf(m => m.GpuPower, m => m.GpuApp);
 
         // All history is now kept for the same time, but versions before 0.4.13 deleted minute detail after 90 days
         // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and
@@ -324,7 +326,8 @@ public static class ReportBuilder
             double bestV = double.MinValue;
             foreach (var h in older)
                 if (sel(h) is double v && v > bestV) { bestV = v; best = h; }
-            return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), NameOf(best.AppId));
+            // Hours only know the app in front, not the one doing the work: no app is named.
+            return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), null);
         }
         static Peak? Higher(Peak? a, Peak? b) => a is null ? b : b is null ? a : b.Value > a.Value ? b : a;
         report.CpuTempPeak = Higher(report.CpuTempPeak, HourPeak(h => h.CpuTempMax));
@@ -372,8 +375,8 @@ public static class ReportBuilder
         report.CpuLoadAvg = Ratio(days.Sum(d => d.CpuLoadSum), days.Sum(d => d.CpuLoadN));
         report.GpuLoadAvg = Ratio(days.Sum(d => d.GpuLoadSum), days.Sum(d => d.GpuLoadN));
 
-        // Highs: the day with the highest value, then the first minute of that day that reached it (and what was in front).
-        Peak? PeakOf(Func<SystemDay, double?> sel, string column)
+        // Highs: the day with the highest value, then the first minute of that day that reached it (and what was doing the work).
+        Peak? PeakOf(Func<SystemDay, double?> sel, string column, string? appColumn = null)
         {
             SystemDay? best = null;
             double bestV = double.MinValue;
@@ -381,16 +384,16 @@ public static class ReportBuilder
                 if (sel(d) is double v && v > bestV) { bestV = v; best = d; }
             if (best is null) return null;
             long next = TimeUtil.ToUnix(TimeUtil.FromUnix(best.Day).Date.AddDays(1));
-            var hit = db.FindMinute(column, bestV, best.Day, next);
+            var hit = db.FindMinute(column, bestV, best.Day, next, appColumn);
             return new Peak(bestV, TimeUtil.FromUnix(hit?.Ts ?? best.Day), hit?.App is long app ? NameOf(app) : null);
         }
-        report.CpuTempPeak = PeakOf(d => d.CpuTempMax, "cpu_temp_max");
-        report.GpuTempPeak = PeakOf(d => d.GpuTempMax, "gpu_temp_max");
-        report.GpuHotPeak = PeakOf(d => d.GpuHotMax, "gpu_hot_max");
+        report.CpuTempPeak = PeakOf(d => d.CpuTempMax, "cpu_temp_max", "cpu_app");
+        report.GpuTempPeak = PeakOf(d => d.GpuTempMax, "gpu_temp_max", "gpu_app");
+        report.GpuHotPeak = PeakOf(d => d.GpuHotMax, "gpu_hot_max", "gpu_app");
         report.CpuVoltPeak = PeakOf(d => d.CpuVoltMax, "cpu_volt_max");
         report.GpuVoltPeak = PeakOf(d => d.GpuVoltMax, "gpu_volt_max");
-        report.CpuPowerPeak = PeakOf(d => d.CpuPowerMax, "cpu_power");
-        report.GpuPowerPeak = PeakOf(d => d.GpuPowerMax, "gpu_power");
+        report.CpuPowerPeak = PeakOf(d => d.CpuPowerMax, "cpu_power", "cpu_app");
+        report.GpuPowerPeak = PeakOf(d => d.GpuPowerMax, "gpu_power", "gpu_app");
 
         // Older history without minutes (only ever at the start, where old versions thinned it out).
         long firstMinuteDay = days.Count > 0 ? days[0].Day : t;

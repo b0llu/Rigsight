@@ -85,6 +85,8 @@ public sealed class RigsightDb : IDisposable
 
         // Columns added after the first release.
         if (!HasColumn("system_minute", "gpu_mem_max")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_max REAL");
+        if (!HasColumn("system_minute", "cpu_app")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_app INTEGER");
+        if (!HasColumn("system_minute", "gpu_app")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_app INTEGER");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -227,12 +229,13 @@ public sealed class RigsightDb : IDisposable
     {
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
-                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $act, $idle)
+                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, active_sec, idle_sec)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $act, $idle)
             """,
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
             ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
+            ("$ca", m.CpuApp), ("$ga", m.GpuApp),
             ("$act", m.ActiveSec), ("$idle", m.IdleSec));
         cmd.ExecuteNonQuery();
 
@@ -405,12 +408,14 @@ public sealed class RigsightDb : IDisposable
     }
 
     /// <summary>
-    /// The first minute in a range where a system_minute column had the given value, and the app in front then:
-    /// where a day's high (from <see cref="GetSystemDays"/>) happened. The range is one day, found by the primary key.
+    /// The first minute in a range where a system_minute column had the given value, and the app a column of that
+    /// minute names (cpu_app or gpu_app; none when null): where a day's high (from <see cref="GetSystemDays"/>) happened,
+    /// and what was doing the work. The range is one day, found by the primary key.
     /// </summary>
-    public (long Ts, long? App)? FindMinute(string column, double value, long from, long to)
+    public (long Ts, long? App)? FindMinute(string column, double value, long from, long to, string? appColumn)
     {
-        using var cmd = Cmd($"SELECT ts, fg_app FROM system_minute WHERE ts >= $from AND ts < $to AND {column} = $v ORDER BY ts LIMIT 1",
+        string app = appColumn is not null && HasLoadApps ? appColumn : "NULL";
+        using var cmd = Cmd($"SELECT ts, {app} FROM system_minute WHERE ts >= $from AND ts < $to AND {column} = $v ORDER BY ts LIMIT 1",
             ("$from", from), ("$to", to), ("$v", value));
         using var r = cmd.ExecuteReader();
         return r.Read() ? (r.GetInt64(0), r.IsDBNull(1) ? null : r.GetInt64(1)) : null;
@@ -454,13 +459,17 @@ public sealed class RigsightDb : IDisposable
 
     // Whether system_minute has gpu_mem_max yet (added in 0.4.5; the agent adds it, the app may read first).
     private bool? _hasGpuMem;
+    // …and the apps doing the work (added in 0.8.1).
+    private bool? _hasLoadApps;
+    private bool HasLoadApps => _hasLoadApps ??= HasColumn("system_minute", "cpu_app");
 
     public List<SystemMinute> GetMinutes(long from, long to)
     {
         _hasGpuMem ??= HasColumn("system_minute", "gpu_mem_max");
         using var cmd = Cmd($"""
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
-                   cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")}
+                   cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
+                   {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -475,6 +484,7 @@ public sealed class RigsightDb : IDisposable
                 CpuVoltMax = D(r, 10), GpuVoltMax = D(r, 11), RamUsed = D(r, 12),
                 FgApp = r.IsDBNull(13) ? null : r.GetInt64(13),
                 ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
+                CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
             });
         }
         return list;

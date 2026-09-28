@@ -98,6 +98,31 @@ public static class Units
         };
     }
 
+    /// <summary>
+    /// A reading as the taskbar strip shows it: <see cref="TrayText"/> with a short unit, since the strip has the room
+    /// ("48°", "7%", "88 W", "4.5 GHz", "1.2k rpm").
+    /// </summary>
+    public static string StripText(SensorKind kind, double? value)
+    {
+        string text = TrayText(kind, value);
+        if (value is not double v || !double.IsFinite(v)) return text;
+        return kind switch
+        {
+            SensorKind.Temperature => text + "°",
+            SensorKind.Load or SensorKind.Control or SensorKind.Level or SensorKind.Humidity => text + "%",
+            SensorKind.Power => text + " W",
+            SensorKind.Fan => text + " rpm",
+            SensorKind.Flow => text + " L/h",
+            SensorKind.Clock => text + (v >= 1000 ? " GHz" : " MHz"),
+            SensorKind.Voltage => text + " V",
+            SensorKind.Current => text + " A",
+            SensorKind.SmallData => text + (v >= 1024 ? " GB" : " MB"),
+            SensorKind.Data => text + " GB",
+            SensorKind.Throughput => text + " MB/s",
+            _ => text,
+        };
+    }
+
     public static string TypeLabel(SensorKind kind) => kind switch
     {
         SensorKind.Temperature => "TEMP",

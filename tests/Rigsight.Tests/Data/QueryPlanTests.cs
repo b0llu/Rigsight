@@ -107,7 +107,7 @@ public sealed partial class QueryPlanTests
             "GetCrashContext" => () => db.GetCrashContext(from, to),
             "TempRange" => () => db.TempRange(from, to),
             "AverageTemps" => () => db.AverageTemps(from, to),
-            "FindMinute" => () => db.FindMinute("cpu_temp_max", 80, day, day + 86400),
+            "FindMinute" => () => db.FindMinute("cpu_temp_max", 80, day, day + 86400, "cpu_app"),
             "GetAppMonths" => () => db.GetAppMonths(U(2000, 1, 1), to),
             "GetAppTime" => () => { db.GetAppTime(1, from, to, monthly: false); db.GetAppTime(1, U(2000, 1, 1), to, monthly: true); },
             "PeakTempsBefore" => () => db.PeakTempsBefore(day + 43200, 5),

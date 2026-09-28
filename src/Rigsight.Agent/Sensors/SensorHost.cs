@@ -345,7 +345,7 @@ internal sealed class SensorHost
     }
 
     /// <summary>One sensor's current reading, kind and name, by identifier (null if this PC doesn't have it).</summary>
-    public (double? Value, SensorKind Kind, string Name)? ReadSensor(string id)
+    public (double? Value, SensorKind Kind, string Name, string HardwareType, string HardwareName)? ReadSensor(string id)
     {
         if (!_indexById.TryGetValue(id, out int i)) return null;
         var s = _sensors[i];
@@ -353,7 +353,7 @@ internal sealed class SensorHost
         double? value = s.Value is float f && float.IsFinite(f) ? f : null;
         // Without driver access some temperature sensors report 0 instead of nothing.
         if (kind == SensorKind.Temperature && value <= 0) value = null;
-        return (value, kind, s.Name);
+        return (value, kind, s.Name, s.Hardware.HardwareType.ToString(), s.Hardware.Name);
     }
 
     public float?[] ReadAll()

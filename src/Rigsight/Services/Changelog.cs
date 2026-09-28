@@ -29,6 +29,16 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.9.0", 9, 28,
+            added:
+            [
+                "Readings right in the taskbar, beside the clock, with a short name under each (CPU, GPU, Load, VRAM…). Customize → Taskbar.",
+            ],
+            better:
+            [
+                "Taskbar icons carry their part's colour, and can be grouped with an icon per part. Icons you drag out of the arrow now stay out.",
+                "Temperature peaks now name the app that was doing the work, not just the one in front, or none when no app clearly was.",
+            ]),
         V("0.8.0", 9, 28,
             added:
             [

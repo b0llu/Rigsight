@@ -9,7 +9,7 @@
 
         <!-- One reading as its taskbar icon shows it (twice the real size): the short number, coloured like the real one. -->
         <DataTemplate x:Key="IconNumber">
-            <Viewbox StretchDirection="DownOnly" MaxWidth="30" MaxHeight="{Binding Tag, RelativeSource={RelativeSource AncestorType=Grid}}">
+            <Viewbox StretchDirection="DownOnly" MaxWidth="26" MaxHeight="{Binding Tag, RelativeSource={RelativeSource AncestorType=Grid}}">
                 <TextBlock FontFamily="Segoe UI" FontWeight="Bold" FontSize="22" LineHeight="22" LineStackingStrategy="BlockLineHeight">
                     <TextBlock.Text>
                         <MultiBinding Converter="{StaticResource TrayText}">
@@ -113,7 +113,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Taskbar" Style="{StaticResource H1}" />
-            <TextBlock Text="Readings next to the clock, always in view. Hover over one to see what it is; right-click it to remove it."
+            <TextBlock Text="Readings next to the clock, always in view, each part in its own colour: blue for the CPU, green for the GPU, purple for RAM."
                        Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
             <!-- Preview: the corner of the taskbar, as it will look -->
@@ -140,9 +140,11 @@
                                 <TextBlock Text="&#xE701;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Style="{StaticResource BarText}" Margin="12,0,0,0" />
                                 <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Style="{StaticResource BarText}" Margin="12,0,0,0" />
                             </StackPanel>
-                            <!-- The readings: an icon each, or all in one -->
-                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Sensors}" VerticalAlignment="Center" Focusable="False"
-                                          Visibility="{Binding Separate, Converter={StaticResource Vis}}">
+                            <!-- The readings, as the icons will be: an icon each or grouped by part, each with its part's colour
+                                 mark (the part's name under it, here only, to learn the colours by) -->
+                            <!-- The strip: each part's readings over its name, as the agent draws it (at the real size) -->
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding PreviewStrip}" VerticalAlignment="Center" Focusable="False" Margin="0,0,6,0"
+                                          Visibility="{Binding ShowStrip, Converter={StaticResource Vis}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
@@ -150,29 +152,70 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Width="32" Height="32" Margin="6,0,0,0" Tag="30" ToolTip="{Binding Name}"
-                                              Visibility="{Binding Found, Converter={StaticResource Vis}}">
-                                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource IconNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                        </Grid>
+                                        <StackPanel Margin="16,0,0,0" ToolTip="{Binding Tooltip}">
+                                            <ItemsControl ItemsSource="{Binding Readings}" Focusable="False">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,7,0">
+                                                            <TextBlock FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="12">
+                                                                <TextBlock.Text>
+                                                                    <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
+                                                                        <Binding Path="Row.Sensor.Kind" />
+                                                                        <Binding Path="Row.Sensor.Value" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.Text>
+                                                                <TextBlock.Foreground>
+                                                                    <MultiBinding Converter="{StaticResource TrayBrush}">
+                                                                        <Binding Path="Row.Sensor.Kind" />
+                                                                        <Binding Path="Row.Sensor.Value" />
+                                                                        <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.Foreground>
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Label}" Foreground="{Binding LabelBrush}" Opacity="{Binding LabelOpacity}"
+                                                                       FontFamily="Segoe UI" FontWeight="{Binding LabelWeight}" FontSize="9.5" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding CombinedPreview}" Width="32" Height="32" Margin="6,0,0,0" Focusable="False"
-                                          VerticalAlignment="Center" Visibility="{Binding Combined, Converter={StaticResource Vis}}">
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding PreviewIcons}" VerticalAlignment="Center" Focusable="False"
+                                          Visibility="{Binding ShowIcons, Converter={StaticResource Vis}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <UniformGrid Columns="1" />
+                                        <StackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Tag="15">
-                                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource IconNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                        </Grid>
+                                        <StackPanel Margin="6,0,0,0" ToolTip="{Binding Tooltip}">
+                                            <DockPanel Width="32" Height="32">
+                                                <Rectangle DockPanel.Dock="Left" Width="4" Height="28" Fill="{Binding Mark}" Margin="0,0,2,0" />
+                                                <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" VerticalAlignment="Center">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Tag="{Binding DataContext.NumberHeight, RelativeSource={RelativeSource AncestorType=DockPanel}}"
+                                                                  Height="{Binding DataContext.NumberHeight, RelativeSource={RelativeSource AncestorType=DockPanel}}">
+                                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource IconNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource BarText}" FontSize="9.5" HorizontalAlignment="Center" Opacity="0.6" Margin="3,2,0,0" />
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
+                            <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" Visibility="{Binding ShowIcons, Converter={StaticResource Vis}}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                                        Style="{StaticResource BarText}" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0.8" />
                             <!-- The middle of the taskbar, hinted: apps pinned there -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -184,7 +227,7 @@
                         </DockPanel>
                     </Border>
                     <!-- Under the preview: what to do if the icons don't show up -->
-                    <DockPanel Margin="22,14,22,16">
+                    <DockPanel Margin="22,14,22,16" Visibility="{Binding ShowIcons, Converter={StaticResource Vis}}">
                         <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,10,0" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                    Text="Windows may tuck new icons behind the arrow next to the clock. Drag them out once and they stay in view." />
@@ -192,41 +235,74 @@
                 </StackPanel>
             </ctl:SmoothBorder>
 
-            <!-- How: an icon each, or all in one -->
+            <!-- How: in the taskbar, an icon each, or an icon per part -->
             <TextBlock Text="STYLE" Style="{StaticResource Caption}" Margin="4,26,0,10" />
-            <UniformGrid Columns="2" Margin="-6,0">
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
-                    <DockPanel>
-                        <Border DockPanel.Dock="Right" CornerRadius="7" Background="{StaticResource BarDark}" Padding="9,6" VerticalAlignment="Center" Margin="12,0,0,0">
+            <UniformGrid Columns="3" Margin="-6,0">
+                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding InStrip}" Margin="6,0" AutomationProperties.Name="In the taskbar">
+                    <StackPanel>
+                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="10,5" HorizontalAlignment="Left" Margin="0,0,0,12">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="62" FontWeight="Bold" FontSize="13" Foreground="#34D399" Margin="0,0,8,0" />
-                                <TextBlock Text="71" FontWeight="Bold" FontSize="13" Foreground="#FBBF24" Margin="0,0,8,0" />
-                                <TextBlock Text="45" FontWeight="Bold" FontSize="13" Foreground="White" />
+                                <StackPanel Margin="0,0,6,0">
+                                    <TextBlock Text="62°" FontWeight="SemiBold" FontSize="11" Foreground="#34D399" />
+                                    <TextBlock Text="CPU" FontWeight="Bold" FontSize="8.5" Foreground="#5B8CFF" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,12,0">
+                                    <TextBlock Text="35%" FontWeight="SemiBold" FontSize="11" Foreground="White" />
+                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#5B8CFF" Opacity="0.8" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,6,0">
+                                    <TextBlock Text="71°" FontWeight="SemiBold" FontSize="11" Foreground="#FBBF24" />
+                                    <TextBlock Text="GPU" FontWeight="Bold" FontSize="8.5" Foreground="#3DDC97" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="98%" FontWeight="SemiBold" FontSize="11" Foreground="White" />
+                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#3DDC97" Opacity="0.8" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
-                        <StackPanel>
-                            <TextBlock Text="An icon each" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock Text="Every reading on its own. Easiest to read at a glance." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                        </StackPanel>
-                    </DockPanel>
+                        <TextBlock Text="In the taskbar" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="Beside the clock, a short name under each reading." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
                 </RadioButton>
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Combined}" Margin="6,0" AutomationProperties.Name="All in one">
-                    <DockPanel>
-                        <Border DockPanel.Dock="Right" CornerRadius="7" Background="{StaticResource BarDark}" Padding="10,3" VerticalAlignment="Center" Margin="12,0,0,0">
-                            <StackPanel>
-                                <TextBlock Text="62" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#34D399" />
-                                <TextBlock Text="45" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />
+                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
+                    <StackPanel>
+                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="10,6" HorizontalAlignment="Left" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Width="2" Height="14" Fill="#5B8CFF" Margin="0,0,2,0" />
+                                <TextBlock Text="62" FontWeight="Bold" FontSize="13" Foreground="#34D399" Margin="0,0,8,0" />
+                                <Rectangle Width="2" Height="14" Fill="#3DDC97" Margin="0,0,2,0" />
+                                <TextBlock Text="71" FontWeight="Bold" FontSize="13" Foreground="#FBBF24" Margin="0,0,8,0" />
+                                <Rectangle Width="2" Height="14" Fill="#5B8CFF" Margin="0,0,2,0" />
+                                <TextBlock Text="35" FontWeight="Bold" FontSize="13" Foreground="White" />
                             </StackPanel>
                         </Border>
-                        <StackPanel>
-                            <TextBlock Text="All in one" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock Text="One icon, two readings at a time, taking turns. Saves space." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                        </StackPanel>
-                    </DockPanel>
+                        <TextBlock Text="An icon each" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="Small icons by the clock, a colour mark on each for its part." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Grouped}" Margin="6,0" AutomationProperties.Name="An icon per part">
+                    <StackPanel>
+                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="10,3" HorizontalAlignment="Left" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Width="2" Height="22" Fill="#5B8CFF" Margin="0,0,2,0" />
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="62" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#34D399" />
+                                    <TextBlock Text="35" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />
+                                </StackPanel>
+                                <Rectangle Width="2" Height="22" Fill="#3DDC97" Margin="0,0,2,0" />
+                                <StackPanel>
+                                    <TextBlock Text="71" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#FBBF24" />
+                                    <TextBlock Text="98" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="An icon per part" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="Two readings stacked in each, the temperature on top. Takes the least room." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
                 </RadioButton>
             </UniformGrid>
-            <TextBlock Text="{Binding CombinedNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
-                       Visibility="{Binding CombinedNote, Converter={StaticResource Vis}}" />
+            <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
 
             <!-- What: the readings, in order -->
             <DockPanel Margin="4,26,0,10">
@@ -264,6 +340,8 @@
                                         <!-- The live reading -->
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="13.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />
+                                        <Rectangle DockPanel.Dock="Left" Width="3" Height="26" RadiusX="1.5" RadiusY="1.5" Fill="{Binding Mark}" Margin="0,0,10,0"
+                                                   ToolTip="{Binding PartLabel}" Visibility="{Binding Found, Converter={StaticResource Vis}}" />
                                         <ContentPresenter DockPanel.Dock="Left" Content="{Binding Sensor}" ContentTemplate="{StaticResource KindBadge}" Margin="0,0,12,0"
                                                           Visibility="{Binding Found, Converter={StaticResource Vis}}" />
                                         <StackPanel VerticalAlignment="Center">
