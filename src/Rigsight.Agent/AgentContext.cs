@@ -323,6 +323,7 @@ internal sealed class AgentContext : ApplicationContext
                     long unixMs = TimeUtil.NowUnixMs();
                     _history.Add(unixMs, _sensors);
                     _tracker.OnSensors(keys);
+                    _tracker.OnFans(_sensors.ReadFans());
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
                     if (_sensors.DrivesUpdated) _driveHistory.Add(unixMs, _sensors);

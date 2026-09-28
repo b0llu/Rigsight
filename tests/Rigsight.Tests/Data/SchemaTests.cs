@@ -19,12 +19,18 @@ public sealed class SchemaTests
         ["meta"] = ["key", "value"],
         ["apps"] = ["id", "exe", "name", "path", "category", "first_seen"],
         ["system_minute"] = ["ts", "cpu_temp", "cpu_temp_max", "gpu_temp", "gpu_temp_max", "gpu_hot_max", "cpu_load", "gpu_load",
-            "cpu_power", "gpu_power", "cpu_volt_max", "gpu_volt_max", "ram_used", "fg_app", "active_sec", "idle_sec", "gpu_mem_max", "cpu_app", "gpu_app"],
+            "cpu_power", "gpu_power", "cpu_volt_max", "gpu_volt_max", "ram_used", "fg_app", "active_sec", "idle_sec", "gpu_mem_max", "cpu_app", "gpu_app",
+            "cpu_clock", "gpu_clock"],
         ["app_hour"] = ["ts", "app_id", .. HourValueColumns],
         ["app_month"] = ["month", "app_id", .. HourValueColumns],
         ["system_day"] = ["day", "minutes", "active_sec", "idle_sec", "cpu_temp_sum", "cpu_temp_n", "gpu_temp_sum", "gpu_temp_n",
             "cpu_load_sum", "cpu_load_n", "gpu_load_sum", "gpu_load_n", "cpu_temp_max", "gpu_temp_max", "gpu_hot_max",
-            "cpu_volt_max", "gpu_volt_max", "cpu_power_max", "gpu_power_max"],
+            "cpu_volt_max", "gpu_volt_max", "cpu_power_max", "gpu_power_max",
+            "idle_cpu_sum", "idle_cpu_n", "idle_gpu_sum", "idle_gpu_n", "load_cpu_sum", "load_cpu_n", "load_gpu_sum", "load_gpu_n",
+            "cpu_clock_sum", "cpu_clock_n", "gpu_clock_sum", "gpu_clock_n"],
+        ["fans"] = ["id", "sensor", "name", "hardware"],
+        ["fan_minute"] = ["ts", "fan", "rpm_avg", "rpm_max"],
+        ["fan_day"] = ["day", "fan", "rpm_sum", "rpm_n", "rpm_max", "idle_sum", "idle_n"],
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
         ["crashes"] = ["id", "ts", "kind", "app_exe", "app_path", "module", "code", "detail", "during_sleep"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
@@ -80,6 +86,9 @@ public sealed class SchemaTests
     [InlineData("crashes", "id")]
     [InlineData("drive_day", "day,drive")]
     [InlineData("meta", "key")]
+    [InlineData("fans", "id")]
+    [InlineData("fan_minute", "ts,fan")]
+    [InlineData("fan_day", "day,fan")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)
     {
         using var t = new TestDb();

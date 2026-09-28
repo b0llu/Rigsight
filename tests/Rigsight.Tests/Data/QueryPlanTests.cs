@@ -17,10 +17,10 @@ namespace Rigsight.Tests.Data;
 /// </summary>
 public sealed partial class QueryPlanTests
 {
-    // What may be read whole: SQLite's own catalogue and table info, the apps list (one row per app, read whole by design), settings
+    // What may be read whole: SQLite's own catalogue and table info, the apps and fans lists (a row each, read whole by design), settings
     // kept in meta, one constant row and subquery results. Queries name tables by their alias ("SCAN c"), so
     // anything else scanned counts as a history table.
-    private static readonly string[] SmallTables = ["sqlite_master", "pragma_table_info", "apps", "a", "meta", "CONSTANT"];
+    private static readonly string[] SmallTables = ["sqlite_master", "pragma_table_info", "apps", "a", "fans", "meta", "CONSTANT"];
 
     [GeneratedRegex(@"^(SCAN|SEARCH) (\(?[\w-]+\)?)(.*)$")]
     private static partial Regex PlanLine();
@@ -78,7 +78,7 @@ public sealed partial class QueryPlanTests
     {
         "GetMinutes", "GetAppHours", "GetAppTotals", "GetSystemDays", "GetSessions", "GetLongestSessions", "GetSessionStats", "GetRecentSessions",
         "GetCrashes", "GetCrashContext", "TempRange", "AverageTemps", "FindMinute", "GetAppMonths", "GetAppTime", "PeakTempsBefore", "FrontAppAt",
-        "FirstTimes", "GetDriveDays",
+        "FirstTimes", "GetDriveDays", "Fans",
     };
 
     [Theory]
@@ -114,9 +114,25 @@ public sealed partial class QueryPlanTests
             "FrontAppAt" => () => db.FrontAppAt(day + 43200),
             "FirstTimes" => () => { db.FirstDataTime(); db.FirstMinuteTime(); db.FirstCrashTime(); },
             "GetDriveDays" => () => db.GetDriveDays(from),
+            "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); },
             _ => throw new ArgumentException(method),
         };
         AssertNoFullScans(Seeds.Small, Capture(db, run), method);
+    }
+
+    [Fact]
+    public void Writing_a_minutes_fans_reads_no_whole_table()
+    {
+        // The day's fan totals are added up again from that day's fan minutes joined to its system minutes: both by key.
+        using var t = new TestDb();
+        long ts = U(2025, 1, 10) + 3600;
+        t.Db.WriteMinute(Minute(ts));
+        var statements = Capture(t.Db, () =>
+        {
+            long fan = t.Db.FanId("/gpu-nvidia/0/fan/0", "GPU Fan", "NVIDIA GeForce RTX 3080 Ti");
+            t.Db.WriteFanMinutes(ts, [(fan, 1200, 1300)]);
+        });
+        AssertNoFullScans(t.Path, statements, "Writing a minute's fans");
     }
 
     public static TheoryData<ReportRange> Ranges => [.. Enum.GetValues<ReportRange>()];

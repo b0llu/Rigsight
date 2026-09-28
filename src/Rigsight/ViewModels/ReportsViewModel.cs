@@ -213,4 +213,11 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Range = ReportRange.Day;
         Anchor = day.Date;
     }
+
+    /// <summary>The report for the period of <paramref name="anchor"/>: a week, a month, a year.</summary>
+    public void ShowPeriod(ReportRange range, DateTime anchor)
+    {
+        Range = range;
+        Anchor = anchor.Date;
+    }
 }

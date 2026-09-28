@@ -298,10 +298,27 @@ public sealed partial class ShellViewModel : ObservableObject
         if (id == _historyLoad && minutes is not null) Live.LoadMinuteHistory(minutes);
     }
 
+    private static RecapPeriod? RecapPeriodOf(string? arg) => arg switch
+    {
+        "last-week" => RecapPeriod.LastWeek,
+        "last-month" => RecapPeriod.LastMonth,
+        "last-year" => RecapPeriod.LastYear,
+        _ => null,
+    };
+
     public void Navigate(string? page, string? arg)
     {
         if (!string.IsNullOrEmpty(page))
         {
+            // The recap of a whole period: last week, month or year.
+            if (page == "reports" && RecapPeriodOf(arg) is { } period)
+            {
+                var (range, anchor) = HomeViewModel.Bounds(period, DateTime.Today);
+                CurrentPage = "reports";
+                ReportsPage.ShowPeriod(range, anchor);
+                ActivateRequested?.Invoke();
+                return;
+            }
             // A recap: that day's report ("yesterday", or its date when it's from longer ago).
             if (page == "reports" && (arg == "yesterday" ? DateTime.Today.AddDays(-1)
                 : DateTime.TryParseExact(arg, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : (DateTime?)null) is { } day)

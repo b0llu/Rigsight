@@ -50,6 +50,9 @@ internal sealed class TrackerRig : IDisposable
 
     public KeyValues Keys { get; set; }
 
+    /// <summary>The fans, as read with the sensors (default: none).</summary>
+    public List<FanReading> Fans { get; } = [];
+
     /// <summary>Sensors are read every this many seconds (the agent: 2 with the app closed, 1 while it's open).</summary>
     public int SensorEvery { get; set; } = 2;
     private long _tick;
@@ -105,7 +108,7 @@ internal sealed class TrackerRig : IDisposable
             Clock.Advance(1);
             _tick++;
             Tracker.OnActivity(sample, dt);
-            if (_tick % SensorEvery == 0) Tracker.OnSensors(Keys);
+            if (_tick % SensorEvery == 0) { Tracker.OnSensors(Keys); Tracker.OnFans(Fans); }
             if (_tick % 5 == 0) Tracker.OnProcesses(Snapshot(), new Dictionary<string, WindowState>(Windows, StringComparer.OrdinalIgnoreCase), 5);
         }
     }
@@ -185,15 +188,28 @@ internal static class DbInvariants
         gpu_temp_sum, gpu_temp_n, gpu_temp_max, gpu_hot_max, cpu_power_max, gpu_power_max, cpu_volt_max, gpu_volt_max, gpu_load_sum, gpu_load_n
         """;
 
-    private const string DaySums = """
+    private const string Idle = "cpu_load < 15 AND gpu_load < 15";
+
+    private const string DaySums = $"""
         count(*), total(active_sec), total(idle_sec), total(cpu_temp), count(cpu_temp), total(gpu_temp), count(gpu_temp),
         total(cpu_load), count(cpu_load), total(gpu_load), count(gpu_load), max(cpu_temp_max), max(gpu_temp_max), max(gpu_hot_max),
-        max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power)
+        max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power),
+        total(CASE WHEN {Idle} THEN cpu_temp END), count(CASE WHEN {Idle} THEN cpu_temp END),
+        total(CASE WHEN {Idle} THEN gpu_temp END), count(CASE WHEN {Idle} THEN gpu_temp END),
+        total(CASE WHEN cpu_load >= 50 THEN cpu_temp END), count(CASE WHEN cpu_load >= 50 THEN cpu_temp END),
+        total(CASE WHEN gpu_load >= 80 THEN gpu_temp END), count(CASE WHEN gpu_load >= 80 THEN gpu_temp END),
+        total(cpu_clock), count(cpu_clock), total(gpu_clock), count(gpu_clock)
         """;
 
     private const string DayCols = """
         minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n, gpu_load_sum,
-        gpu_load_n, cpu_temp_max, gpu_temp_max, gpu_hot_max, cpu_volt_max, gpu_volt_max, cpu_power_max, gpu_power_max
+        gpu_load_n, cpu_temp_max, gpu_temp_max, gpu_hot_max, cpu_volt_max, gpu_volt_max, cpu_power_max, gpu_power_max,
+        idle_cpu_sum, idle_cpu_n, idle_gpu_sum, idle_gpu_n, load_cpu_sum, load_cpu_n, load_gpu_sum, load_gpu_n,
+        cpu_clock_sum, cpu_clock_n, gpu_clock_sum, gpu_clock_n
+        """;
+
+    private const string FanSums = $"""
+        total(f.rpm_avg), count(*), max(f.rpm_max), total(CASE WHEN m.{Idle} THEN f.rpm_avg END), count(CASE WHEN m.{Idle} THEN f.rpm_avg END)
         """;
 
     public static void Check(string dbPath)
@@ -202,6 +218,8 @@ internal static class DbInvariants
         conn.Open();
         Same(conn, "app_month", $"SELECT month, app_id, {MonthCols} FROM app_month", $"SELECT {MonthOf}, app_id, {HourSums} FROM app_hour GROUP BY 1, 2", 2);
         Same(conn, "system_day", $"SELECT day, {DayCols} FROM system_day", $"SELECT {DayOf}, {DaySums} FROM system_minute GROUP BY 1", 1);
+        Same(conn, "fan_day", "SELECT day, fan, rpm_sum, rpm_n, rpm_max, idle_sum, idle_n FROM fan_day",
+            $"SELECT {DayOf.Replace("ts", "f.ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts GROUP BY 1, 2", 2);
     }
 
     private static void Same(SqliteConnection conn, string what, string stored, string computed, int keyColumns)

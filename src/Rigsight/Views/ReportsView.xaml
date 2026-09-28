@@ -128,7 +128,7 @@
                             <ItemsControl ItemsSource="{Binding Report.Insights}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <DockPanel Margin="0,6">
+                                        <DockPanel Margin="0,6" ToolTip="{Binding DetailOrNull}">
                                             <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
                                                            Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />

@@ -1,4 +1,5 @@
 using Rigsight.Agent.Sensors;
+using Rigsight.Agent.Tracking;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Tests.Agent;
@@ -11,6 +12,67 @@ public class TrackerMinuteTests
         CpuTemp = 55, CpuLoad = 20, CpuPower = 40, CpuVoltage = 1.1, GpuTemp = 48, GpuLoad = 10, GpuPower = 60,
         GpuHotSpot = 60, GpuMemJunction = 62, GpuVoltage = 0.9, RamUsed = 12,
     };
+
+    [Fact]
+    public void Clocks_are_averaged_into_the_minute_and_the_day()
+    {
+        using var rig = new TrackerRig();
+        rig.Keys = Typical with { CpuClock = 4400.4, GpuClock = 1799.6 }; // kept as whole MHz
+        rig.Use("code.exe", 59);
+        rig.Keys = Typical with { CpuClock = 4000, GpuClock = 1500 };
+        rig.Use("code.exe", 66);
+        var minutes = rig.Minutes();
+        Assert.Equal(2, minutes.Count);
+        Assert.Equal((4400.0, 1800.0), (minutes[0].CpuClock, minutes[0].GpuClock));
+        Assert.Equal((4000.0, 1500.0), (minutes[1].CpuClock, minutes[1].GpuClock));
+        var day = Assert.Single(rig.Db.GetSystemDays(0, long.MaxValue)!);
+        Assert.Equal(4200, day.CpuClockSum / day.CpuClockN);
+        rig.AssertInvariants();
+    }
+
+    [Fact]
+    public void A_day_keeps_its_temperatures_by_load_band()
+    {
+        // Idle minutes and heavy-load minutes added up apart, so months later "at idle" can still be compared.
+        using var rig = new TrackerRig();
+        rig.Keys = Typical with { CpuTemp = 40, GpuTemp = 35, CpuLoad = 5, GpuLoad = 3 };
+        rig.Use("code.exe", 119);
+        rig.Keys = Typical with { CpuTemp = 80, GpuTemp = 75, CpuLoad = 90, GpuLoad = 95 };
+        rig.Use("game.exe", 60);
+        rig.Keys = Typical with { CpuTemp = 60, GpuTemp = 50, CpuLoad = 40, GpuLoad = 30 }; // neither band
+        rig.Use("code.exe", 65);
+        var day = Assert.Single(rig.Db.GetSystemDays(0, long.MaxValue)!);
+        Assert.Equal((40.0, 35.0, 2), (day.IdleCpu, day.IdleGpu, day.IdleCpuN));
+        Assert.Equal((80.0, 75.0, 1, 1), (day.LoadCpu, day.LoadGpu, day.LoadCpuN, day.LoadGpuN));
+        rig.AssertInvariants();
+    }
+
+    [Fact]
+    public void Every_fan_is_kept_per_minute_with_its_name_and_the_days_idle_speed()
+    {
+        using var rig = new TrackerRig();
+        rig.Keys = Typical with { CpuLoad = 5, GpuLoad = 3 }; // idle
+        rig.Fans.AddRange([new("/gpu-nvidia/0/fan/0", "GPU Fan", "NVIDIA GeForce RTX 3080 Ti", 900), new("/lpc/it8686e/fan/1", "Fan #2", "Gigabyte B650", 700)]);
+        rig.Use("code.exe", 59);
+        rig.Fans[0] = rig.Fans[0] with { Rpm = 1500 };
+        rig.Fans[1] = rig.Fans[1] with { Rpm = null }; // a fan that stopped reporting
+        rig.Keys = Typical with { CpuLoad = 90, GpuLoad = 95 };
+        rig.Use("game.exe", 66);
+
+        var fans = rig.Db.GetFans();
+        Assert.Equal(["GPU Fan", "Fan #2"], fans.Select(f => f.Name));
+        Assert.Equal("NVIDIA GeForce RTX 3080 Ti", fans[0].Hardware);
+        var minutes = rig.Db.GetFanMinutes(0, long.MaxValue);
+        Assert.Equal(3, minutes.Count); // two fans in the first minute, one in the second
+        Assert.Equal((900, 900), (minutes[0].RpmAvg, minutes[0].RpmMax));
+        Assert.Equal(fans[0].Id, minutes[2].Fan);
+        Assert.Equal(1500, minutes[2].RpmAvg);
+
+        var days = rig.Db.GetFanDays(0, long.MaxValue);
+        var gpu = days.Single(d => d.Fan == fans[0].Id);
+        Assert.Equal((1200.0, 1500, 900.0, 1), (gpu.Rpm, gpu.RpmMax, gpu.IdleRpm, gpu.IdleN)); // idle: the first minute only
+        rig.AssertInvariants();
+    }
 
     [Fact]
     public void Nothing_is_written_before_the_first_minute_ends()

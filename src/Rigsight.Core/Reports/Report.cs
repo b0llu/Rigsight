@@ -1,3 +1,4 @@
+using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -11,10 +12,47 @@ public sealed record Peak(double Value, DateTime Time, string? App);
 
 public enum InsightTone { Neutral, Good, Warn, Hot }
 
-/// <summary>One plain-language observation, e.g. "Elden Ring ran your GPU the hottest (avg 74°C)".</summary>
+/// <summary>One plain-language observation, e.g. "Your GPU spent 48 minutes over 75°, nearly all of it on Rematch."</summary>
 /// <param name="Key">What it's about ("screen", "top-app", "peak"…), so a page can leave out what it already shows.</param>
 /// <param name="Priority">Higher comes first; warnings rank above trivia.</param>
-public sealed record Insight(string Icon, string Text, InsightTone Tone = InsightTone.Neutral, string Key = "", int Priority = 50);
+/// <param name="Detail">The numbers behind it, for whoever wants to check ("Rematch 46 min · Chrome 2 min").</param>
+public sealed record Insight(string Icon, string Text, InsightTone Tone = InsightTone.Neutral, string Key = "", int Priority = 50, string Detail = "")
+{
+    /// <summary>The detail for a tooltip: none when there's nothing to add (a bound tooltip of "" would show an empty box).</summary>
+    public string? DetailOrNull => Detail.Length == 0 ? null : Detail;
+}
+
+/// <summary>Minutes a part spent over its warm line (<see cref="Report.HotLine"/>) put down to one app.</summary>
+public sealed record HotShare(string App, int Minutes);
+
+/// <summary>
+/// Work an app did in the background: the longest run of minutes it kept the CPU (or GPU) under heavy load while
+/// another app was in front.
+/// </summary>
+public sealed record BackgroundWork(string App, string FrontApp, AppCategory FrontCategory, DateTime Start, int Minutes, bool Gpu);
+
+public enum RecordKind { LongestGameSession, HottestGpu, HottestCpu, MostScreenTime }
+
+/// <summary>A record this period set: the value (formatted), the app if any, and how many days back it holds (30, 90 or 365).</summary>
+public sealed record RecordNote(RecordKind Kind, string Value, string? App, int Days);
+
+/// <summary>Temperatures at idle and under heavy load over an older stretch of days, and when that was.</summary>
+public sealed record ThenTemps(LoadTemps Idle, LoadTemps Load, DateTime From, DateTime To, int Days);
+
+/// <summary>
+/// A fan's speeds over a period: at idle, and in the warm band (60–75°) of the part it cools (the GPU for a GPU fan,
+/// else the CPU), where a faster fan for the same temperature means a cooler that's clogging up.
+/// </summary>
+public sealed record FanStat(string Name, string Hardware, bool Gpu, double? IdleRpm, int IdleMinutes, double? WarmRpm, int WarmMinutes);
+
+/// <summary>Minutes a chip ran its clocks down while hot under load, by how much, and from what temperature.</summary>
+public sealed record Throttling(int Minutes, double DropPercent, double FromTemp);
+
+/// <summary>Your usual on this weekday: the same weekday over the weeks before.</summary>
+public sealed record WeekdayUsual(DayOfWeek Day, int Days, double ActiveSec, double GamingSec);
+
+/// <summary>What the insights compare a period with beyond the week before it.</summary>
+public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenTemps? Then = null);
 
 public sealed class AppStat
 {
@@ -140,6 +178,33 @@ public sealed class Report
     public LoadTemps? HotSpotGap { get; set; }
     public int CpuOverLimitMin { get; set; }
     public int GpuOverLimitMin { get; set; }
+
+    /// <summary>Over this, a minute counts as hot (its highest reading): what the hot minutes by app are counted from.</summary>
+    public const double HotLine = 75;
+
+    /// <summary>Minutes over <see cref="HotLine"/>, and how they split between the apps working the part (unknown ones left out).</summary>
+    public int CpuHotMinutes { get; set; }
+    public int GpuHotMinutes { get; set; }
+    public List<HotShare> CpuHotByApp { get; set; } = [];
+    public List<HotShare> GpuHotByApp { get; set; } = [];
+
+    /// <summary>The longest run of heavy work an app did while another was in front, if any lasted.</summary>
+    public BackgroundWork? BackgroundWork { get; set; }
+
+    /// <summary>What was going on just before each crash (by crash ID), when there were any.</summary>
+    public Dictionary<long, CrashContext> CrashContexts { get; set; } = [];
+
+    /// <summary>Records this period set against the days before it, and how many days in a row screen time beat its usual.</summary>
+    public List<RecordNote> Records { get; set; } = [];
+    public int StreakDays { get; set; }
+
+    /// <summary>After heavy GPU load ended, how long the GPU took to cool below 50° (averaged over the times it did).</summary>
+    public double? CooldownMinutes { get; set; }
+    public int CooldownCount { get; set; }
+
+    public List<FanStat> Fans { get; set; } = [];
+    public Throttling? CpuThrottle { get; set; }
+    public Throttling? GpuThrottle { get; set; }
 
     /// <summary>Days in <see cref="Days"/> with anything recorded (for daily averages).</summary>
     public int DaysWithData => Days.Count(d => d.OnSec > 0);

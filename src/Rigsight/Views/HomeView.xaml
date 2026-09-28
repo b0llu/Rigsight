@@ -110,19 +110,32 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- Yesterday -->
+                <!-- The recap: yesterday, or the last whole week, month or year -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Yesterday" Style="{StaticResource H2}" Margin="0,0,0,14" />
+                        <DockPanel Margin="0,0,0,14">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding HasPeriods, Converter={StaticResource Vis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="Day" IsChecked="{Binding IsYesterday}" GroupName="recap" AutomationProperties.Name="Yesterday" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="Week" IsChecked="{Binding IsLastWeek}" GroupName="recap" AutomationProperties.Name="Last week"
+                                                 Visibility="{Binding HasLastWeek, Converter={StaticResource Vis}}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="Month" IsChecked="{Binding IsLastMonth}" GroupName="recap" AutomationProperties.Name="Last month"
+                                                 Visibility="{Binding HasLastMonth, Converter={StaticResource Vis}}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="Year" IsChecked="{Binding IsLastYear}" GroupName="recap" AutomationProperties.Name="Last year"
+                                                 Visibility="{Binding HasLastYear, Converter={StaticResource Vis}}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
 
-                        <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{Binding Yesterday.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
+                        <StackPanel Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Style="{StaticResource Muted}">
-                                <Run Text="active · PC on for" /> <Run Text="{Binding Yesterday.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
+                                <Run Text="active · PC on for" /> <Run Text="{Binding Recap.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
                             </TextBlock>
 
-                            <ItemsControl ItemsSource="{Binding YesterdayTopApps}" Margin="0,14,0,0">
+                            <ItemsControl ItemsSource="{Binding RecapTopApps}" Margin="0,14,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <DockPanel Margin="0,4">
@@ -134,10 +147,10 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <ItemsControl ItemsSource="{Binding YesterdayInsights}" Margin="0,12,0,0">
+                            <ItemsControl ItemsSource="{Binding RecapInsights}" Margin="0,12,0,0">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <DockPanel Margin="0,5">
+                                        <DockPanel Margin="0,5" ToolTip="{Binding DetailOrNull}">
                                             <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,2,10,0"
                                                        Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                                             <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
@@ -146,7 +159,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="OpenYesterday_Click">
+                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="OpenRecap_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Open full recap" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
@@ -154,11 +167,10 @@
                             </Button>
                         </StackPanel>
 
-                        <StackPanel Visibility="{Binding YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <StackPanel Visibility="{Binding RecapHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
-                            <TextBlock Text="No history for yesterday yet." Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
-                            <TextBlock Text="Yesterday's active time, most-used apps and highlights show here once there's a full day of history."
-                                       Style="{StaticResource Muted}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding RecapEmptyTitle}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
+                            <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -171,7 +183,7 @@
                     <ItemsControl ItemsSource="{Binding TodayInsights}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <DockPanel Margin="0,6">
+                                <DockPanel Margin="0,6" ToolTip="{Binding DetailOrNull}">
                                     <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
                                         <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
                                                    Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />

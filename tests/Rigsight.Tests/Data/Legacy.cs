@@ -15,8 +15,10 @@ public static class Legacy
     public const string V045 = "0.4.5";
     /// <summary>0.4.13 – 0.5.2: crash and per-app session indexes, app_month and the session bound; no system_day.</summary>
     public const string V0413 = "0.4.13";
+    /// <summary>0.5.3 – 0.9.0: system_day (without the load bands and clocks), the apps doing the work per minute; no fans.</summary>
+    public const string V090 = "0.9.0";
 
-    public static TheoryData<string> Versions => [V02, V045, V0413];
+    public static TheoryData<string> Versions => [V02, V045, V0413, V090];
 
     private const string V02Ddl = """
         CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
@@ -76,6 +78,23 @@ public static class Legacy
         INSERT OR REPLACE INTO meta(key, value) SELECT 'max_session_sec', coalesce(max(end - start), 0) FROM sessions;
         """;
 
+    // 0.5.3's daily totals (recomputed as each minute is written), and 0.9.0's app-doing-the-work columns.
+    private const string V090Ddl = """
+        CREATE TABLE IF NOT EXISTS system_day(
+            day INTEGER PRIMARY KEY, minutes INTEGER NOT NULL, active_sec REAL NOT NULL, idle_sec REAL NOT NULL,
+            cpu_temp_sum REAL NOT NULL, cpu_temp_n INTEGER NOT NULL, gpu_temp_sum REAL NOT NULL, gpu_temp_n INTEGER NOT NULL,
+            cpu_load_sum REAL NOT NULL, cpu_load_n INTEGER NOT NULL, gpu_load_sum REAL NOT NULL, gpu_load_n INTEGER NOT NULL,
+            cpu_temp_max REAL, gpu_temp_max REAL, gpu_hot_max REAL, cpu_volt_max REAL, gpu_volt_max REAL,
+            cpu_power_max REAL, gpu_power_max REAL);
+        INSERT INTO system_day SELECT CAST(strftime('%s', ts, 'unixepoch', 'localtime', 'start of day', 'utc') AS INTEGER),
+            count(*), total(active_sec), total(idle_sec), total(cpu_temp), count(cpu_temp), total(gpu_temp), count(gpu_temp),
+            total(cpu_load), count(cpu_load), total(gpu_load), count(gpu_load), max(cpu_temp_max), max(gpu_temp_max), max(gpu_hot_max),
+            max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power)
+        FROM system_minute GROUP BY 1;
+        ALTER TABLE system_minute ADD COLUMN cpu_app INTEGER;
+        ALTER TABLE system_minute ADD COLUMN gpu_app INTEGER;
+        """;
+
     /// <summary>Makes a database as <paramref name="version"/> left it, holding <paramref name="history"/> (or nothing).</summary>
     public static string Create(string version, History? history)
     {
@@ -85,11 +104,12 @@ public static class Legacy
         Exec(conn, "PRAGMA journal_mode=WAL;" + V02Ddl);
         if (version != V02) Exec(conn, V045Ddl);
         history?.WriteRaw(conn, withGpuMem: version != V02);
-        if (version == V0413)
+        if (version is V0413 or V090)
         {
             Exec(conn, V0413Ddl);
             Exec(conn, V0413Fill);
         }
+        if (version == V090) Exec(conn, V090Ddl);
         return path;
     }
 

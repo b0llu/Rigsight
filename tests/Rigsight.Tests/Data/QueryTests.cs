@@ -147,6 +147,7 @@ public sealed class QueryTests
             Day = U(2025, 1, 10), Minutes = 2, ActiveSec = 50, IdleSec = 70, CpuTempSum = 120, CpuTempN = 2, GpuTempSum = 40, GpuTempN = 1,
             CpuLoadSum = 20, CpuLoadN = 1, GpuLoadSum = 100, GpuLoadN = 2, CpuTempMax = 75, GpuTempMax = 45, GpuHotMax = 70,
             CpuVoltMax = 1.3, GpuVoltMax = 1.0, CpuPowerMax = 100, GpuPowerMax = 300,
+            LoadGpuSum = 40, LoadGpuN = 1, // the first minute's GPU was under heavy load; nothing was idle (a missing load isn't idle)
         }, d, strict: true);
     }
 

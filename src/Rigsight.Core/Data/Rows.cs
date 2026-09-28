@@ -40,6 +40,41 @@ public sealed class SystemDay
     public double? GpuVoltMax { get; set; }
     public double? CpuPowerMax { get; set; }
     public double? GpuPowerMax { get; set; }
+
+    // Temperatures by load band (see LoadBands), so a day's idle and heavy-load averages can be compared with other
+    // days' without reading their minutes; and the clocks. All zero in days from before 0.9.1, until recomputed.
+    public double IdleCpuSum { get; set; }
+    public int IdleCpuN { get; set; }
+    public double IdleGpuSum { get; set; }
+    public int IdleGpuN { get; set; }
+    public double LoadCpuSum { get; set; }
+    public int LoadCpuN { get; set; }
+    public double LoadGpuSum { get; set; }
+    public int LoadGpuN { get; set; }
+    public double CpuClockSum { get; set; }
+    public int CpuClockN { get; set; }
+    public double GpuClockSum { get; set; }
+    public int GpuClockN { get; set; }
+
+    public double OnSec() => Minutes * 60.0;
+
+    public double? IdleCpu => IdleCpuN > 0 ? IdleCpuSum / IdleCpuN : null;
+    public double? IdleGpu => IdleGpuN > 0 ? IdleGpuSum / IdleGpuN : null;
+    public double? LoadCpu => LoadCpuN > 0 ? LoadCpuSum / LoadCpuN : null;
+    public double? LoadGpu => LoadGpuN > 0 ? LoadGpuSum / LoadGpuN : null;
+}
+
+/// <summary>A fan the agent has seen: its sensor, and its name and hardware as the sensors list gives them.</summary>
+public sealed record FanRow(long Id, string Sensor, string Name, string Hardware);
+
+/// <summary>One fan's speed over one minute the PC was on (rpm, averaged and the highest).</summary>
+public sealed record FanMinute(long Ts, long Fan, int RpmAvg, int RpmMax);
+
+/// <summary>One fan's minutes of a local day added up (rpm sum over the minutes and their count, the highest, and the same at idle).</summary>
+public sealed record FanDay(long Day, long Fan, double RpmSum, int RpmN, int RpmMax, double IdleSum, int IdleN)
+{
+    public double? Rpm => RpmN > 0 ? RpmSum / RpmN : null;
+    public double? IdleRpm => IdleN > 0 ? IdleSum / IdleN : null;
 }
 
 /// <summary>One row per minute the PC was on: system-wide sensor summary and what was in front.</summary>
@@ -67,6 +102,9 @@ public sealed class SystemMinute
     /// </summary>
     public long? CpuApp { get; set; }
     public long? GpuApp { get; set; }
+    /// <summary>Average clocks over the minute, in MHz (null before 0.9.1, or without the sensor).</summary>
+    public double? CpuClock { get; set; }
+    public double? GpuClock { get; set; }
     public int ActiveSec { get; set; }
     public int IdleSec { get; set; }
 }

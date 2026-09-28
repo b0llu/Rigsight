@@ -80,6 +80,21 @@ internal sealed class SensorHost
     /// <summary>Whether each sensor (same order) is a temperature, where 0 means "no reading".</summary>
     public bool[] IsTemperature { get; private set; } = [];
 
+    // The fans (their place in the list), read for the history each time the sensors are.
+    private int[] _fans = [];
+
+    /// <summary>Every fan's speed right now, with its sensor, name and hardware.</summary>
+    public List<Tracking.FanReading> ReadFans()
+    {
+        var list = new List<Tracking.FanReading>(_fans.Length);
+        foreach (int i in _fans)
+        {
+            var s = _sensors[i];
+            list.Add(new Tracking.FanReading(Ids[i], s.Name, s.Hardware.Name, s.Value is float f && float.IsFinite(f) ? f : null));
+        }
+        return list;
+    }
+
     // RAM usage until the memory group is open (see EarlyMemory), and whether that has happened.
     private readonly List<IHardware> _earlyMemory = [];
     private Task? _memoryTask;
@@ -198,6 +213,7 @@ internal sealed class SensorHost
         Ids = ids;
         _indexById = indexById;
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
+        _fans = [.. Enumerable.Range(0, _sensors.Count).Where(i => _sensors[i].SensorType == SensorType.Fan)];
         _fresh = new bool[_sensors.Count];
         Schema = schema;
 

@@ -39,15 +39,17 @@ public sealed class HistoryPageTests
         {
             Assert.True(home.Loaded);
             Assert.True(home.HasTodayData);
-            Assert.True(home.YesterdayHasData);
+            Assert.True(home.RecapHasData);
+            Assert.Equal(RecapPeriod.Yesterday, home.Period);
+            Assert.Equal("Yesterday", home.RecapTitle);
             Assert.InRange(home.TodayTopApps.Count, 1, 6);
             Assert.All(home.TodayTopApps, a => Assert.True(a.ActiveSec >= 30 && a.Category != AppCategory.System));
             Assert.Equal(home.TodayTopApps.Max(a => a.ActiveSec), home.TodayTopMax);
-            Assert.InRange(home.YesterdayTopApps.Count, 1, 3);
-            Assert.All(home.YesterdayTopApps, a => Assert.True(a.ActiveSec >= 60 && a.Category != AppCategory.System));
+            Assert.InRange(home.RecapTopApps.Count, 1, 3);
+            Assert.All(home.RecapTopApps, a => Assert.True(a.ActiveSec >= 60 && a.Category != AppCategory.System));
             Assert.True(home.TodayInsights.Count <= 5);
-            Assert.True(home.YesterdayInsights.Count <= 3);
-            Assert.DoesNotContain(home.TodayInsights.Concat(home.YesterdayInsights), i => i.Key is "screen" or "top-app");
+            Assert.True(home.RecapInsights.Count <= 3);
+            Assert.DoesNotContain(home.TodayInsights.Concat(home.RecapInsights), i => i.Key is "screen" or "top-app");
             Assert.False(home.ShowLearning);
             Assert.Contains(home.Greeting, new[] { "Up late", "Good morning", "Good afternoon", "Good evening" });
             Assert.Equal(DateTime.Now.ToString("dddd, d MMMM"), home.DateText);
@@ -79,8 +81,59 @@ public sealed class HistoryPageTests
         Kit.Wait(() => home.RefreshAsync());
         foreach (var p in new[] { nameof(HomeViewModel.Today), nameof(HomeViewModel.TodayTopApps), nameof(HomeViewModel.TodayInsights),
                      nameof(HomeViewModel.HasTodayData), nameof(HomeViewModel.ShowLearning), nameof(HomeViewModel.Yesterday),
-                     nameof(HomeViewModel.YesterdayTopApps), nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
+                     nameof(HomeViewModel.Recap), nameof(HomeViewModel.RecapTopApps), nameof(HomeViewModel.Periods), nameof(HomeViewModel.Greeting), nameof(HomeViewModel.Loaded) })
             Assert.Contains(p, changed);
+    }
+
+    [Theory]
+    [InlineData("2026-09-28", null, "Yesterday")]
+    [InlineData("2026-09-28", "2026-09-27", "Yesterday, LastWeek")]                 // a day into last week is enough
+    [InlineData("2026-09-28", "2026-09-21", "Yesterday, LastWeek")]                 // last week's Monday
+    [InlineData("2026-09-28", "2026-08-31", "Yesterday, LastWeek, LastMonth")]      // a day of August
+    [InlineData("2026-09-28", "2025-12-31", "Yesterday, LastWeek, LastMonth, LastYear")]
+    [InlineData("2026-09-01", "2026-08-30", "Yesterday, LastWeek, LastMonth")]      // the 1st: last month is whole
+    [InlineData("2026-01-01", "2025-06-01", "Yesterday, LastWeek, LastMonth, LastYear")]
+    public void The_periods_offered_follow_when_history_starts(string todayText, string? firstText, string expected)
+    {
+        var today = DateTime.Parse(todayText);
+        DateTime? first = firstText is null ? null : DateTime.Parse(firstText);
+        Assert.Equal(expected, string.Join(", ", HomeViewModel.PeriodsFor(first, today)));
+    }
+
+    [Fact]
+    public void Each_period_is_the_whole_one_before_today()
+    {
+        var today = new DateTime(2026, 9, 28);
+        Assert.Equal((ReportRange.Day, new DateTime(2026, 9, 27)), HomeViewModel.Bounds(RecapPeriod.Yesterday, today));
+        var (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastWeek, today);
+        Assert.Equal((new DateTime(2026, 9, 21), new DateTime(2026, 9, 28)), ReportBuilder.Bounds(range, anchor));
+        (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastMonth, today);
+        Assert.Equal((new DateTime(2026, 8, 1), new DateTime(2026, 9, 1)), ReportBuilder.Bounds(range, anchor));
+        (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastYear, today);
+        Assert.Equal((new DateTime(2025, 1, 1), new DateTime(2026, 1, 1)), ReportBuilder.Bounds(range, anchor));
+    }
+
+    [Fact]
+    public void Picking_a_period_loads_its_report_once_and_names_it()
+    {
+        var (_, reports, live) = Setup();
+        var home = Ui.Run(() => new HomeViewModel(reports, live));
+        Kit.Wait(() => home.RefreshAsync());
+        Ui.Run(() => Assert.True(home.HasLastWeek, "the seeded history reaches into last week"));
+        Ui.Run(() => home.Period = RecapPeriod.LastWeek);
+        Assert.True(Ui.WaitFor(() => home.Recap is { Range: ReportRange.Week }, 15_000));
+        Ui.Run(() =>
+        {
+            Assert.Equal(("Last week", "last-week", true), (home.RecapTitle, home.RecapArg, home.IsLastWeek));
+            Assert.Equal(ReportBuilder.Bounds(ReportRange.Week, DateTime.Today.AddDays(-7)).From, home.Recap!.From);
+            Assert.True(home.RecapHasData);
+        });
+        var week = Ui.Run(() => home.Recap);
+        Ui.Run(() => home.Period = RecapPeriod.Yesterday);
+        Assert.True(Ui.WaitFor(() => home.Recap is { Range: ReportRange.Day }, 15_000));
+        Ui.Run(() => home.Period = RecapPeriod.LastWeek);
+        Assert.True(Ui.WaitFor(() => home.Recap is { Range: ReportRange.Week }, 15_000));
+        Ui.Run(() => Assert.Same(week, home.Recap)); // kept, not built again
     }
 
     [Fact]

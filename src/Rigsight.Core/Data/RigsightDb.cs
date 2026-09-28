@@ -87,6 +87,9 @@ public sealed class RigsightDb : IDisposable
         if (!HasColumn("system_minute", "gpu_mem_max")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_max REAL");
         if (!HasColumn("system_minute", "cpu_app")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_app INTEGER");
         if (!HasColumn("system_minute", "gpu_app")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_app INTEGER");
+        // The clocks (0.9.1), for spotting a chip slowing itself down when hot.
+        if (!HasColumn("system_minute", "cpu_clock")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_clock REAL");
+        if (!HasColumn("system_minute", "gpu_clock")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_clock REAL");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -110,7 +113,26 @@ public sealed class RigsightDb : IDisposable
                 cpu_temp_max REAL, gpu_temp_max REAL, gpu_hot_max REAL, cpu_volt_max REAL, gpu_volt_max REAL,
                 cpu_power_max REAL, gpu_power_max REAL)
             """);
-        if (newDays) Exec($"INSERT INTO system_day SELECT {DayOf("ts")}, {MinuteSums} FROM system_minute GROUP BY 1");
+        // Temperatures by load band and the clocks, per day (0.9.1): how a PC ran months ago, without its minutes.
+        // Added to a database from before, every day is added up again from its minutes, once.
+        bool newBands = !HasColumn("system_day", "idle_cpu_sum");
+        foreach (var column in new[] { "idle_cpu_sum REAL NOT NULL DEFAULT 0", "idle_cpu_n INTEGER NOT NULL DEFAULT 0",
+                     "idle_gpu_sum REAL NOT NULL DEFAULT 0", "idle_gpu_n INTEGER NOT NULL DEFAULT 0",
+                     "load_cpu_sum REAL NOT NULL DEFAULT 0", "load_cpu_n INTEGER NOT NULL DEFAULT 0",
+                     "load_gpu_sum REAL NOT NULL DEFAULT 0", "load_gpu_n INTEGER NOT NULL DEFAULT 0",
+                     "cpu_clock_sum REAL NOT NULL DEFAULT 0", "cpu_clock_n INTEGER NOT NULL DEFAULT 0",
+                     "gpu_clock_sum REAL NOT NULL DEFAULT 0", "gpu_clock_n INTEGER NOT NULL DEFAULT 0" })
+            if (!HasColumn("system_day", column.Split(' ')[0])) Exec($"ALTER TABLE system_day ADD COLUMN {column}");
+        if (newDays || newBands) Exec($"DELETE FROM system_day; INSERT INTO system_day SELECT {DayOf("ts")}, {MinuteSums} FROM system_minute GROUP BY 1");
+
+        // Every fan, minute by minute (0.9.1): what the fans did, and (per day) how fast they run at idle.
+        Exec("""
+            CREATE TABLE IF NOT EXISTS fans(id INTEGER PRIMARY KEY, sensor TEXT NOT NULL UNIQUE, name TEXT NOT NULL, hardware TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS fan_minute(ts INTEGER NOT NULL, fan INTEGER NOT NULL, rpm_avg INTEGER NOT NULL, rpm_max INTEGER NOT NULL,
+                PRIMARY KEY(ts, fan)) WITHOUT ROWID;
+            CREATE TABLE IF NOT EXISTS fan_day(day INTEGER NOT NULL, fan INTEGER NOT NULL, rpm_sum REAL NOT NULL, rpm_n INTEGER NOT NULL,
+                rpm_max INTEGER NOT NULL, idle_sum REAL NOT NULL, idle_n INTEGER NOT NULL, PRIMARY KEY(day, fan));
+            """);
     }
 
     private bool HasTable(string table)
@@ -149,10 +171,22 @@ public sealed class RigsightDb : IDisposable
         $"CAST(strftime('%s', {unix}, 'unixepoch', 'localtime', 'start of day'{shift}, 'utc') AS INTEGER)";
 
     // system_minute rows added up into one system_day row (total() is 0 rather than NULL when nothing was read).
-    private const string MinuteSums = """
+    // In system_day's column order (the daily rows are made of these, positionally).
+    private const string MinuteSums = $"""
         count(*), total(active_sec), total(idle_sec), total(cpu_temp), count(cpu_temp), total(gpu_temp), count(gpu_temp),
         total(cpu_load), count(cpu_load), total(gpu_load), count(gpu_load), max(cpu_temp_max), max(gpu_temp_max), max(gpu_hot_max),
-        max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power)
+        max(cpu_volt_max), max(gpu_volt_max), max(cpu_power), max(gpu_power),
+        total(CASE WHEN {Reports.LoadBands.IdleSql} THEN cpu_temp END), count(CASE WHEN {Reports.LoadBands.IdleSql} THEN cpu_temp END),
+        total(CASE WHEN {Reports.LoadBands.IdleSql} THEN gpu_temp END), count(CASE WHEN {Reports.LoadBands.IdleSql} THEN gpu_temp END),
+        total(CASE WHEN {Reports.LoadBands.CpuHeavySql} THEN cpu_temp END), count(CASE WHEN {Reports.LoadBands.CpuHeavySql} THEN cpu_temp END),
+        total(CASE WHEN {Reports.LoadBands.GpuHeavySql} THEN gpu_temp END), count(CASE WHEN {Reports.LoadBands.GpuHeavySql} THEN gpu_temp END),
+        total(cpu_clock), count(cpu_clock), total(gpu_clock), count(gpu_clock)
+        """;
+
+    // fan_day's, from a fan's minutes joined to the system minutes (for the idle band), in its column order.
+    private const string FanSums = $"""
+        total(f.rpm_avg), count(*), max(f.rpm_max),
+        total(CASE WHEN m.{Reports.LoadBands.IdleSql} THEN f.rpm_avg END), count(CASE WHEN m.{Reports.LoadBands.IdleSql} THEN f.rpm_avg END)
         """;
 
     private bool HasColumn(string table, string column)
@@ -229,13 +263,14 @@ public sealed class RigsightDb : IDisposable
     {
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
-                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, active_sec, idle_sec)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $act, $idle)
+                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle)
             """,
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
             ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
-            ("$ca", m.CpuApp), ("$ga", m.GpuApp),
+            // Clocks as whole MHz: an integer takes two bytes in the row where a decimal takes eight.
+            ("$ca", m.CpuApp), ("$ga", m.GpuApp), ("$cc", WholeOrNull(m.CpuClock)), ("$gc", WholeOrNull(m.GpuClock)),
             ("$act", m.ActiveSec), ("$idle", m.IdleSec));
         cmd.ExecuteNonQuery();
 
@@ -246,6 +281,72 @@ public sealed class RigsightDb : IDisposable
             WHERE ts >= {DayOf("$ts")} AND ts < {DayOf("$ts", ", '+1 day'")}
             """, ("$ts", m.Ts));
         day.ExecuteNonQuery();
+    }
+
+    private static object? WholeOrNull(double? value) => value is double v && double.IsFinite(v) ? (long)Math.Round(v) : null;
+
+    private readonly Dictionary<string, long> _fanIds = [];
+
+    /// <summary>The fans' row for a fan sensor, made the first time it's seen.</summary>
+    public long FanId(string sensor, string name, string hardware)
+    {
+        if (_fanIds.TryGetValue(sensor, out long known)) return known;
+        using var cmd = Cmd("""
+            INSERT INTO fans(sensor, name, hardware) VALUES($s, $n, $h)
+            ON CONFLICT(sensor) DO UPDATE SET name = excluded.name, hardware = excluded.hardware
+            RETURNING id
+            """, ("$s", sensor), ("$n", name), ("$h", hardware));
+        return _fanIds[sensor] = (long)cmd.ExecuteScalar()!;
+    }
+
+    /// <summary>
+    /// A minute's fan speeds (after the system minute, which the day's idle totals join to), and the day's fan totals
+    /// added up again from its minutes.
+    /// </summary>
+    public void WriteFanMinutes(long ts, IReadOnlyList<(long Fan, int RpmAvg, int RpmMax)> fans)
+    {
+        if (fans.Count == 0) return;
+        foreach (var (fan, avg, max) in fans)
+        {
+            using var cmd = Cmd("INSERT OR REPLACE INTO fan_minute(ts, fan, rpm_avg, rpm_max) VALUES($ts, $f, $a, $m)",
+                ("$ts", ts), ("$f", fan), ("$a", avg), ("$m", max));
+            cmd.ExecuteNonQuery();
+        }
+        using var day = Cmd($"""
+            INSERT OR REPLACE INTO fan_day SELECT {DayOf("$ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts
+            WHERE f.ts >= {DayOf("$ts")} AND f.ts < {DayOf("$ts", ", '+1 day'")} GROUP BY 2
+            """, ("$ts", ts));
+        day.ExecuteNonQuery();
+    }
+
+    public List<FanRow> GetFans()
+    {
+        if (!HasFans) return [];
+        using var cmd = Cmd("SELECT id, sensor, name, hardware FROM fans ORDER BY id");
+        using var r = cmd.ExecuteReader();
+        var list = new List<FanRow>();
+        while (r.Read()) list.Add(new FanRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3)));
+        return list;
+    }
+
+    public List<FanMinute> GetFanMinutes(long from, long to)
+    {
+        if (!HasFans) return [];
+        using var cmd = Cmd("SELECT ts, fan, rpm_avg, rpm_max FROM fan_minute WHERE ts >= $from AND ts < $to ORDER BY ts, fan", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<FanMinute>();
+        while (r.Read()) list.Add(new FanMinute(r.GetInt64(0), r.GetInt64(1), r.GetInt32(2), r.GetInt32(3)));
+        return list;
+    }
+
+    public List<FanDay> GetFanDays(long from, long to)
+    {
+        if (!HasFans) return [];
+        using var cmd = Cmd("SELECT day, fan, rpm_sum, rpm_n, rpm_max, idle_sum, idle_n FROM fan_day WHERE day >= $from AND day < $to ORDER BY day, fan", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<FanDay>();
+        while (r.Read()) list.Add(new FanDay(r.GetInt64(0), r.GetInt64(1), r.GetDouble(2), r.GetInt32(3), r.GetInt32(4), r.GetDouble(5), r.GetInt32(6)));
+        return list;
     }
 
     /// <summary>Adds per-app deltas into their hour buckets (sums add up, maxima take the larger value).</summary>
@@ -353,6 +454,12 @@ public sealed class RigsightDb : IDisposable
             INSERT INTO system_day SELECT {DayOf("ts")}, {MinuteSums} FROM system_minute
                 WHERE ts >= {DayOf("$t")} AND ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1;
             """, ("$t", before))) c1d.ExecuteNonQuery();
+        using (var c1f = Cmd($"""
+            DELETE FROM fan_minute WHERE ts < $t;
+            DELETE FROM fan_day WHERE day <= {DayOf("$t")};
+            INSERT INTO fan_day SELECT {DayOf("f.ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts
+                WHERE f.ts >= {DayOf("$t")} AND f.ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1, 2;
+            """, ("$t", before))) c1f.ExecuteNonQuery();
         using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
@@ -386,9 +493,11 @@ public sealed class RigsightDb : IDisposable
     {
         _hasSystemDay ??= HasTable("system_day");
         if (!_hasSystemDay.Value) return null;
-        using var cmd = Cmd("""
+        using var cmd = Cmd($"""
             SELECT day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n,
-                   gpu_load_sum, gpu_load_n, cpu_temp_max, gpu_temp_max, gpu_hot_max, cpu_volt_max, gpu_volt_max, cpu_power_max, gpu_power_max
+                   gpu_load_sum, gpu_load_n, cpu_temp_max, gpu_temp_max, gpu_hot_max, cpu_volt_max, gpu_volt_max, cpu_power_max, gpu_power_max,
+                   {(HasBands ? "idle_cpu_sum, idle_cpu_n, idle_gpu_sum, idle_gpu_n, load_cpu_sum, load_cpu_n, load_gpu_sum, load_gpu_n, cpu_clock_sum, cpu_clock_n, gpu_clock_sum, gpu_clock_n"
+                       : "0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0")}
             FROM system_day WHERE day >= $from AND day < $to ORDER BY day
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -402,6 +511,9 @@ public sealed class RigsightDb : IDisposable
                 CpuLoadSum = r.GetDouble(8), CpuLoadN = r.GetInt32(9), GpuLoadSum = r.GetDouble(10), GpuLoadN = r.GetInt32(11),
                 CpuTempMax = D(r, 12), GpuTempMax = D(r, 13), GpuHotMax = D(r, 14), CpuVoltMax = D(r, 15), GpuVoltMax = D(r, 16),
                 CpuPowerMax = D(r, 17), GpuPowerMax = D(r, 18),
+                IdleCpuSum = r.GetDouble(19), IdleCpuN = r.GetInt32(20), IdleGpuSum = r.GetDouble(21), IdleGpuN = r.GetInt32(22),
+                LoadCpuSum = r.GetDouble(23), LoadCpuN = r.GetInt32(24), LoadGpuSum = r.GetDouble(25), LoadGpuN = r.GetInt32(26),
+                CpuClockSum = r.GetDouble(27), CpuClockN = r.GetInt32(28), GpuClockSum = r.GetDouble(29), GpuClockN = r.GetInt32(30),
             });
         }
         return list;
@@ -457,11 +569,24 @@ public sealed class RigsightDb : IDisposable
         return ReadSessions(cmd);
     }
 
+    /// <summary>The longest game session (active seconds) in a range, if any.</summary>
+    public double? LongestGameSessionSec(long from, long to)
+    {
+        using var cmd = Cmd("""
+            SELECT max(active_sec) FROM sessions WHERE start >= $earliest AND start < $to AND end > $from AND is_game = 1
+            """, ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1));
+        return cmd.ExecuteScalar() is double v ? v : null;
+    }
+
     // Whether system_minute has gpu_mem_max yet (added in 0.4.5; the agent adds it, the app may read first).
     private bool? _hasGpuMem;
-    // …and the apps doing the work (added in 0.8.1).
-    private bool? _hasLoadApps;
+    // …and the apps doing the work (added in 0.8.1), and the clocks (0.9.1).
+    private bool? _hasLoadApps, _hasClocks, _hasFans, _hasBands;
     private bool HasLoadApps => _hasLoadApps ??= HasColumn("system_minute", "cpu_app");
+    private bool HasClocks => _hasClocks ??= HasColumn("system_minute", "cpu_clock");
+    // The app reads a database the agent made, which may be an older one (0.9.0 or before) without the fans or the day bands.
+    private bool HasFans => _hasFans ??= HasTable("fans");
+    private bool HasBands => _hasBands ??= HasColumn("system_day", "idle_cpu_sum");
 
     public List<SystemMinute> GetMinutes(long from, long to)
     {
@@ -469,7 +594,7 @@ public sealed class RigsightDb : IDisposable
         using var cmd = Cmd($"""
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
                    cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
-                   {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}
+                   {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -485,6 +610,7 @@ public sealed class RigsightDb : IDisposable
                 FgApp = r.IsDBNull(13) ? null : r.GetInt64(13),
                 ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
                 CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
+                CpuClock = D(r, 19), GpuClock = D(r, 20),
             });
         }
         return list;

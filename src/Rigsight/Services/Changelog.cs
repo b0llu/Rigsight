@@ -29,6 +29,21 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.10.0", 9, 28,
+            added:
+            [
+                "Home's recap card now covers last week, last month and last year too, as history allows.",
+                "Highlights that name who made the heat: the app behind the hot minutes, work done behind the app you were using, the hottest game.",
+                "Highlights over months: idle and load temperatures against a few months ago, fans faster for the same temperature, a chip slowing itself.",
+                "Records and streaks: the longest gaming session in months, the hottest peak, most screen time, days in a row over your usual.",
+                "Fan speeds and clocks are kept minute by minute, for the highlights now and a Fans page later.",
+            ],
+            better:
+            [
+                "A day is compared with your usual for that weekday once there are enough of them, not a mix of weekdays and weekends.",
+                "The same top app, background hog or memory hog as the day before isn't news any more; what changed comes first.",
+                "Hover a highlight to see the numbers behind it. Crashes say what came just before them: heat, or one app in front.",
+            ]),
         V("0.9.0", 9, 28,
             added:
             [

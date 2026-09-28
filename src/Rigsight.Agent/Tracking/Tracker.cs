@@ -7,6 +7,9 @@ using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Tracking;
 
+/// <summary>A fan as read with the sensors: its sensor, its name and hardware (for the fans list), and its speed.</summary>
+internal readonly record struct FanReading(string Id, string Name, string Hardware, double? Rpm);
+
 /// <summary>
 /// Turns raw samples into history: per-minute system summaries, per-hour per-app usage, and
 /// sessions. Everything runs on the agent's sampler thread, and data is written once a minute.
@@ -28,11 +31,20 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public readonly Dictionary<long, double> Foreground = [];
         public int N;
 
-        public double CpuTempSum, GpuTempSum, CpuLoadSum, GpuLoadSum, CpuPowerSum, GpuPowerSum, RamSum;
-        public int CpuTempN, GpuTempN, CpuLoadN, GpuLoadN, CpuPowerN, GpuPowerN, RamN;
+        public double CpuTempSum, GpuTempSum, CpuLoadSum, GpuLoadSum, CpuPowerSum, GpuPowerSum, RamSum, CpuClockSum, GpuClockSum;
+        public int CpuTempN, GpuTempN, CpuLoadN, GpuLoadN, CpuPowerN, GpuPowerN, RamN, CpuClockN, GpuClockN;
+        /// <summary>Each fan's speed over the minute, by sensor (see <see cref="FanReading"/>).</summary>
+        public readonly Dictionary<string, FanAcc> Fans = [];
         public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
         /// <summary>The app working the CPU / GPU hardest in the minute before this minute's hottest reading (null: none clearly).</summary>
         public AppInfo? CpuApp, GpuApp;
+    }
+
+    private sealed class FanAcc
+    {
+        public required string Name, Hardware;
+        public double Sum, Max;
+        public int N;
     }
 
     private sealed class Session
@@ -228,6 +240,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         Acc(k.CpuPower, ref m.CpuPowerSum, ref m.CpuPowerN);
         Acc(k.GpuPower, ref m.GpuPowerSum, ref m.GpuPowerN);
         Acc(k.RamUsed, ref m.RamSum, ref m.RamN);
+        Acc(k.CpuClock, ref m.CpuClockSum, ref m.CpuClockN);
+        Acc(k.GpuClock, ref m.GpuClockSum, ref m.GpuClockN);
         // The minute's hottest reading so far: note who was working that part hardest just before it.
         if (k.CpuTemp is double cpuNow && (m.CpuTempMax is null || cpuNow > m.CpuTempMax)) m.CpuApp = Busiest(Load.Cpu);
         if (k.GpuTemp is double gpuNow && (m.GpuTempMax is null || gpuNow > m.GpuTempMax)) m.GpuApp = Busiest(Load.Gpu);
@@ -379,6 +393,21 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (_loadPids.Count > 500) _loadPids.Clear();
     }
 
+    /// <summary>Every fan's speed, read with the sensors: kept per minute (averaged and the highest).</summary>
+    public void OnFans(IReadOnlyList<FanReading> fans)
+    {
+        if (Paused) return;
+        var m = _minute;
+        foreach (var f in fans)
+        {
+            if (f.Rpm is not double rpm || !double.IsFinite(rpm) || rpm < 0) continue;
+            if (!m.Fans.TryGetValue(f.Id, out var acc)) m.Fans[f.Id] = acc = new FanAcc { Name = f.Name, Hardware = f.Hardware };
+            acc.Sum += rpm;
+            acc.N++;
+            acc.Max = Math.Max(acc.Max, rpm);
+        }
+    }
+
     // ── Persistence ───────────────────────────────────────────────────────
 
     private void RollMinute()
@@ -420,9 +449,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     FgApp = m.Foreground.Count > 0 ? m.Foreground.MaxBy(kv => kv.Value).Key : null,
                     CpuApp = m.CpuApp?.Id,
                     GpuApp = m.GpuApp?.Id,
+                    CpuClock = Avg(m.CpuClockSum, m.CpuClockN),
+                    GpuClock = Avg(m.GpuClockSum, m.GpuClockN),
                     ActiveSec = (int)Math.Min(60, Math.Round(m.Active)),
                     IdleSec = (int)Math.Min(60, Math.Round(m.Idle)),
                 });
+                db.WriteFanMinutes(_minuteTs, [.. m.Fans.Where(f => f.Value.N > 0)
+                    .Select(f => (db.FanId(f.Key, f.Value.Name, f.Value.Hardware), (int)Math.Round(f.Value.Sum / f.Value.N), (int)Math.Round(f.Value.Max)))]);
             }
 
             foreach (var h in _deltas.Values)

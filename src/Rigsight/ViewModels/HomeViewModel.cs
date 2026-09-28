@@ -5,6 +5,9 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
+/// <summary>The period the recap card on Home shows: yesterday, or the last whole week, month or year.</summary>
+public enum RecapPeriod { Yesterday, LastWeek, LastMonth, LastYear }
+
 public sealed partial class HomeViewModel(ReportService reports, LiveData live) : ObservableObject
 {
     public LiveData Live { get; } = live;
@@ -16,13 +19,70 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>"Learning your day" only once history has loaded and really has no apps yet.</summary>
     public bool ShowLearning => Loaded && TodayTopApps.Count == 0;
 
+    /// <summary>The recap card's report: the period picked (yesterday until another is).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(YesterdayTopApps), nameof(YesterdayHasData), nameof(YesterdayInsights))]
-    private Report? _yesterday;
+    [NotifyPropertyChangedFor(nameof(RecapTopApps), nameof(RecapHasData), nameof(RecapInsights), nameof(RecapEmptyTitle), nameof(RecapEmptyText))]
+    private Report? _recap;
+
+    /// <summary>Yesterday's report (the recap card's first period; the dashboard's Yesterday tile shows it whatever the card shows).</summary>
+    public Report? Yesterday => _recaps.GetValueOrDefault(RecapPeriod.Yesterday);
+    public bool YesterdayHasData => Yesterday is { HasData: true };
+    public List<AppStat> YesterdayTopApps => TopApps(Yesterday);
+
+    private void YesterdayChanged()
+    {
+        OnPropertyChanged(nameof(Yesterday));
+        OnPropertyChanged(nameof(YesterdayHasData));
+        OnPropertyChanged(nameof(YesterdayTopApps));
+    }
+
+    private static List<AppStat> TopApps(Report? r) => r?.Apps.Where(a => a.ActiveSec >= 60 && a.Category != AppCategory.System).Take(3).ToList() ?? [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLearning))]
     private bool _loaded;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
+    private RecapPeriod _period;
+
+    /// <summary>The periods there's history for, in order (a period only once it's whole and something was recorded in it).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLastWeek), nameof(HasLastMonth), nameof(HasLastYear), nameof(HasPeriods))]
+    private List<RecapPeriod> _periods = [RecapPeriod.Yesterday];
+
+    public bool HasPeriods => Periods.Count > 1;
+    public bool HasLastWeek => Periods.Contains(RecapPeriod.LastWeek);
+    public bool HasLastMonth => Periods.Contains(RecapPeriod.LastMonth);
+    public bool HasLastYear => Periods.Contains(RecapPeriod.LastYear);
+
+    // The segmented control's buttons.
+    public bool IsYesterday { get => Period == RecapPeriod.Yesterday; set { if (value) Period = RecapPeriod.Yesterday; } }
+    public bool IsLastWeek { get => Period == RecapPeriod.LastWeek; set { if (value) Period = RecapPeriod.LastWeek; } }
+    public bool IsLastMonth { get => Period == RecapPeriod.LastMonth; set { if (value) Period = RecapPeriod.LastMonth; } }
+    public bool IsLastYear { get => Period == RecapPeriod.LastYear; set { if (value) Period = RecapPeriod.LastYear; } }
+
+    public string RecapTitle => Period switch
+    {
+        RecapPeriod.LastWeek => "Last week",
+        RecapPeriod.LastMonth => "Last month",
+        RecapPeriod.LastYear => "Last year",
+        _ => "Yesterday",
+    };
+
+    /// <summary>What "Open full recap" asks the Reports page for (see ShellViewModel.Navigate).</summary>
+    public string RecapArg => Period switch
+    {
+        RecapPeriod.LastWeek => "last-week",
+        RecapPeriod.LastMonth => "last-month",
+        RecapPeriod.LastYear => "last-year",
+        _ => "yesterday",
+    };
+
+    public string RecapEmptyTitle => $"No history for {RecapTitle.ToLowerInvariant()} yet.";
+    public string RecapEmptyText => Period == RecapPeriod.Yesterday
+        ? "Yesterday's active time, most-used apps and highlights show here once there's a full day of history."
+        : $"{RecapTitle}'s active time, most-used apps and highlights show here once there's history for it.";
 
     public string Greeting => DateTime.Now.Hour switch
     {
@@ -42,22 +102,68 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     public List<Insight> TodayInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(5).ToList() ?? [];
 
-    public bool YesterdayHasData => Yesterday is { HasData: true };
-    public List<AppStat> YesterdayTopApps => Yesterday?.Apps.Where(a => a.ActiveSec >= 60 && a.Category != AppCategory.System).Take(3).ToList() ?? [];
-    public List<Insight> YesterdayInsights => Yesterday?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(3).ToList() ?? [];
+    public bool RecapHasData => Recap is { HasData: true };
+    public List<AppStat> RecapTopApps => TopApps(Recap);
+    public List<Insight> RecapInsights => Recap?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(3).ToList() ?? [];
 
-    private DateTime _yesterdayLoadedFor;
+    private readonly Dictionary<RecapPeriod, Report?> _recaps = [];
+    private DateTime _recapsFor;
+    private int _recapLoad;
+
+    /// <summary>The period's bounds: a whole one, ending before today.</summary>
+    public static (ReportRange Range, DateTime Anchor) Bounds(RecapPeriod period, DateTime today) => period switch
+    {
+        RecapPeriod.LastWeek => (ReportRange.Week, today.AddDays(-7)),
+        RecapPeriod.LastMonth => (ReportRange.Month, new DateTime(today.Year, today.Month, 1).AddDays(-1)),
+        RecapPeriod.LastYear => (ReportRange.Year, new DateTime(today.Year - 1, 1, 1)),
+        _ => (ReportRange.Day, today.AddDays(-1)),
+    };
+
+    /// <summary>The periods to offer, from when history starts: each once it's whole and history reaches into it.</summary>
+    public static List<RecapPeriod> PeriodsFor(DateTime? firstDay, DateTime today)
+    {
+        var list = new List<RecapPeriod> { RecapPeriod.Yesterday };
+        if (firstDay is not { } first) return list;
+        foreach (var period in new[] { RecapPeriod.LastWeek, RecapPeriod.LastMonth, RecapPeriod.LastYear })
+        {
+            var (range, anchor) = Bounds(period, today);
+            var (from, to) = ReportBuilder.Bounds(range, anchor);
+            if (first < to && to <= today) list.Add(period);
+        }
+        return list;
+    }
+
+    partial void OnPeriodChanged(RecapPeriod value) => _ = LoadRecapAsync();
 
     public async Task RefreshAsync()
     {
         OnPropertyChanged(nameof(Greeting));
         OnPropertyChanged(nameof(DateText));
         Today = await reports.BuildAsync(ReportRange.Day, DateTime.Today);
-        if (_yesterdayLoadedFor != DateTime.Today)
+        if (_recapsFor != DateTime.Today)
         {
-            Yesterday = await reports.BuildAsync(ReportRange.Day, DateTime.Today.AddDays(-1));
-            _yesterdayLoadedFor = DateTime.Today;
+            _recapsFor = DateTime.Today;
+            _recaps.Clear();
+            Periods = PeriodsFor(await reports.FirstDayAsync(), DateTime.Today);
+            if (!Periods.Contains(Period)) Period = RecapPeriod.Yesterday;
+            await LoadRecapAsync();
+            YesterdayChanged();
         }
         Loaded = true;
+    }
+
+    /// <summary>The picked period's report, built once a day and kept; only the latest pick's result is shown.</summary>
+    private async Task LoadRecapAsync()
+    {
+        var period = Period;
+        int id = ++_recapLoad;
+        if (!_recaps.TryGetValue(period, out var report))
+        {
+            var (range, anchor) = Bounds(period, DateTime.Today);
+            report = await reports.BuildAsync(range, anchor);
+            _recaps[period] = report;
+            if (period == RecapPeriod.Yesterday) YesterdayChanged();
+        }
+        if (id == _recapLoad) Recap = report;
     }
 }
