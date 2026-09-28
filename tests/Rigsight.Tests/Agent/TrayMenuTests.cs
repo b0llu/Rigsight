@@ -124,13 +124,15 @@ public class TrayMenuTests
         var settings = new RigsightSettings();
         foreach (var w in settings.Widgets) (w.Enabled, w.Locked) = (w.Style == WidgetStyle.Pill, true);
         int opened = 0;
-        var widgets = new WidgetManager(() => settings, change => change(settings), () => opened++);
+        var widgets = new WidgetManager(() => settings, change => change(settings), _ => opened++);
         var root = widgets.BuildTrayMenu();
         var (menu, _) = Build(root);
         using (menu)
         {
             DropDownOpening(root);
-            var names = Enum.GetValues<WidgetStyle>().Select(WidgetManager.DisplayName).ToList();
+            // The FPS widget first, as on the app's Widgets page.
+            var names = WidgetCatalog.Listed.Select(WidgetManager.DisplayName).ToList();
+            Assert.Equal("FPS", names[0]);
             Assert.Equal([.. names, "", "Unlock all widgets", "Widget settings…"],
                 root.DropDownItems.Cast<ToolStripItem>().Select(i => i is ToolStripSeparator ? "" : i.Text));
             Assert.Equal(["Slim bar"], root.DropDownItems.OfType<ToolStripMenuItem>().Where(i => i.Checked).Select(i => i.Text));

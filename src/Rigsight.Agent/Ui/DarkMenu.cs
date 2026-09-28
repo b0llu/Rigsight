@@ -15,7 +15,7 @@ internal sealed class DarkMenuRenderer() : ToolStripProfessionalRenderer(new Men
 
     internal static bool Light => Theme == "light" || Theme == "system" && WidgetRenderer.WindowsUsesLight();
 
-    private static bool Grey => Theme == "grey";
+    internal static bool Grey => Theme == "grey";
 
     // As in the app's Dark.xaml, Grey.xaml and Light.xaml: the raised surface, hover, stroke, text and faint text.
     internal static Color Bg => Light ? Color.FromArgb(255, 255, 255) : Grey ? Color.FromArgb(48, 48, 48) : Color.FromArgb(22, 22, 22);

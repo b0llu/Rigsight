@@ -54,6 +54,7 @@ public class DrawingCostTests(ITestOutputHelper output)
         { WidgetStyle.NowPlaying, 4.5, 8_000 },
         { WidgetStyle.Today, 6, 10_000 },
         { WidgetStyle.Graph, 12, 16_000 },
+        { WidgetStyle.Fps, 3, 8_000 },
     };
 
     [Theory]

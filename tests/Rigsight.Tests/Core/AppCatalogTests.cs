@@ -198,6 +198,54 @@ public sealed class AppCatalogTests
         Assert.Equal("Bad Path", AppCatalog.ResolveName("bad_path.exe", "\0:bad"));
     }
 
+    /// <summary>A Steam library with one game in it, whose exe (like an Unreal game's) has no description.</summary>
+    private static string SteamGame(string? manifestName, string installDir = "Rematch")
+    {
+        var steamapps = Path.Combine(TestEnvironment.NewFolder("steam"), "SteamLibrary", "steamapps");
+        var bin = Directory.CreateDirectory(Path.Combine(steamapps, "common", installDir, "Runtime", "Binaries", "Win64")).FullName;
+        var exe = Path.Combine(bin, "RuntimeClient-Win64-Shipping.exe");
+        File.WriteAllText(exe, "not a real exe");
+        File.WriteAllText(Path.Combine(steamapps, "appmanifest_10.acf"), "\"AppState\"\n{\n\t\"appid\"\t\t\"10\"\n\t\"name\"\t\t\"Other Game\"\n\t\"installdir\"\t\t\"Other\"\n}\n");
+        if (manifestName is not null)
+            File.WriteAllText(Path.Combine(steamapps, "appmanifest_20.acf"),
+                $"\"AppState\"\n{{\n\t\"appid\"\t\t\"20\"\n\t\"name\"\t\t\"{manifestName}\"\n\t\"StateFlags\"\t\t\"4\"\n\t\"installdir\"\t\t\"{installDir}\"\n\t\"UserConfig\"\n\t{{\n\t\t\"name\"\t\t\"ignored\"\n\t}}\n}}\n");
+        return exe;
+    }
+
+    [Fact]
+    public void A_steam_game_without_a_description_takes_steams_name()
+    {
+        var exe = SteamGame("REMATCH");
+        Assert.Equal("REMATCH", AppCatalog.ResolveName("RuntimeClient-Win64-Shipping.exe", exe));
+        Assert.Equal("REMATCH", AppCatalog.GameName(exe.ToUpperInvariant()));
+    }
+
+    [Fact]
+    public void Helpers_in_a_game_folder_are_not_named_after_the_game()
+    {
+        var folder = Path.GetDirectoryName(SteamGame("REMATCH"))!;
+        Assert.Equal("Easy Anti-Cheat", AppCatalog.ResolveName("start_protected_game.exe", Path.Combine(folder, "start_protected_game.exe")));
+        Assert.Equal("Setup", AppCatalog.ResolveName("setup.exe", Path.Combine(folder, "setup.exe")));
+        Assert.Equal("Crashreportclient", AppCatalog.ResolveName("CrashReportClient.exe", Path.Combine(folder, "CrashReportClient.exe")));
+    }
+
+    [Fact]
+    public void Without_steams_record_the_game_folder_names_it() =>
+        Assert.Equal("Rematch", AppCatalog.ResolveName("RuntimeClient-Win64-Shipping.exe", SteamGame(null)));
+
+    [Theory]
+    [InlineData(@"C:\Program Files\Epic Games\Fortnite\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe", "Fortnite")]
+    [InlineData(@"D:\GOG Galaxy\Games\Cyberpunk 2077\bin\x64\game.exe", "Cyberpunk 2077")]
+    [InlineData(@"C:\XboxGames\Starfield\Content\Starfield.exe", "Starfield")]
+    [InlineData(@"E:\Games\Hollow Knight\hollow_knight.exe", "Hollow Knight")]
+    [InlineData(@"Z:\nowhere\steamapps\common\No Library Here\bin\game.exe", "No Library Here")]
+    [InlineData(@"E:\Games\loose.exe", null)]
+    [InlineData(@"C:\Program Files\Tool\tool.exe", null)]
+    [InlineData(@"C:\Users\me\Documents\My Games\thing.exe", null)]
+    [InlineData(null, null)]
+    public void Games_are_named_after_their_folder_in_a_library(string? path, string? expected) =>
+        Assert.Equal(expected, AppCatalog.GameName(path));
+
     [Fact]
     public void A_real_exe_is_named_by_its_description()
     {

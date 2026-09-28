@@ -128,7 +128,7 @@ public class AgentSettingsTests
         Assert.Equal(250, merged.LiveRefreshMs);
         Assert.Equal("dark", merged.Theme);
         Assert.Equal(500, merged.Tracking.SensorIntervalMs);
-        Assert.Equal(Enum.GetValues<WidgetStyle>().Length, merged.Widgets.Count);
+        Assert.Equal(WidgetCatalog.BuiltIn.Count, merged.Widgets.Count);
         Assert.Equal(2.0, merged.Widgets.Single(w => w.Style == WidgetStyle.Pill).Scale);
     }
 

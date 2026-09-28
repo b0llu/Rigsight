@@ -181,18 +181,58 @@ public sealed partial class OverlayViewModel : ObservableObject
     public string Hotkey => Config.Hotkey;
 
     public string Intro => Enabled
-        ? $"Press {Hotkey} in any game to show or hide a small readout in the corner of the screen. It never takes focus, and clicks pass straight through it."
+        ? $"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it."
         : "The shortcut is off. You can still show the overlay from here or from the tray icon's menu.";
 
-    public string Corner { get => Config.Corner.ToString(); set => Change(c => c.Corner = Enum.Parse<OverlayCorner>(value), nameof(Corner)); }
+    /// <summary>Where the overlay goes (see <see cref="OverlayPlacement"/>): set by dragging it on the Overlay page's picture of the screen.</summary>
+    public Controls.OverlaySpot Spot
+    {
+        get => new(OverlayPlacement.AnchorOf(Config), Config.OffsetX, Config.OffsetY);
+        set
+        {
+            Change(c => (c.Anchor, c.OffsetX, c.OffsetY) = (value.Anchor, value.X, value.Y), nameof(Spot));
+            OnPropertyChanged(nameof(HangsOffLeftOrTop));
+            OnPropertyChanged(nameof(PreviewHorizontal));
+            OnPropertyChanged(nameof(PreviewVertical));
+        }
+    }
+
+    /// <summary>
+    /// Pushed past the left or top edge: RivaTuner (games it draws in) can't draw there and keeps it at the edge. The
+    /// overlay's size is its preview's (twice size 1) on the main screen.
+    /// </summary>
+    public bool HangsOffLeftOrTop
+    {
+        get
+        {
+            // Before the agent has drawn a preview: the size the Position picture assumes (see OverlayScreen).
+            var size = Preview is System.Windows.Media.Imaging.BitmapSource b
+                ? (W: b.PixelWidth / 2.0 * Config.Scale, H: b.PixelHeight / 2.0 * Config.Scale) : (W: 220 * Config.Scale, H: 110 * Config.Scale);
+            var spot = Spot;
+            var (x, y) = OverlayPlacement.Place(spot.Anchor, spot.X, spot.Y, System.Windows.SystemParameters.PrimaryScreenWidth,
+                System.Windows.SystemParameters.PrimaryScreenHeight, size.W, size.H, Controls.OverlayScreen.Gap);
+            return x < -0.5 || y < -0.5;
+        }
+    }
     public string Layout { get => Config.Layout.ToString(); set => Change(c => c.Layout = Enum.Parse<OverlayLayout>(value), nameof(Layout)); }
     public double BackgroundPercent { get => Math.Round(Config.BackgroundOpacity * 100); set => Change(c => c.BackgroundOpacity = value / 100, nameof(BackgroundPercent)); }
     public double ContentPercent { get => Math.Round(Config.ContentOpacity * 100); set => Change(c => c.ContentOpacity = value / 100, nameof(ContentPercent)); }
     public string Colors { get => Config.Grayscale ? "Grayscale" : "Color"; set => Change(c => c.Grayscale = value == "Grayscale", nameof(Colors)); }
+    /// <summary>The top preview's side, as the overlay's anchor: left, centre or right; top, middle or bottom.</summary>
+    public string PreviewHorizontal => OverlayPlacement.Column(Spot.Anchor) switch { 0 => "Left", 1 => "Center", _ => "Right" };
+    public string PreviewVertical => OverlayPlacement.Row(Spot.Anchor) switch { 0 => "Top", 1 => "Center", _ => "Bottom" };
+
+    public double ScaleValue => Config.Scale;
+
     public string Scale
     {
         get => Config.Scale.ToString("0.##", CultureInfo.InvariantCulture);
-        set => Change(c => c.Scale = double.Parse(value, CultureInfo.InvariantCulture), nameof(Scale));
+        set
+        {
+            Change(c => c.Scale = double.Parse(value, CultureInfo.InvariantCulture), nameof(Scale));
+            OnPropertyChanged(nameof(ScaleValue));
+            OnPropertyChanged(nameof(HangsOffLeftOrTop));
+        }
     }
 
     // ── Fullscreen games (RivaTuner) ──
@@ -300,7 +340,9 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     // ── Preview ──
 
-    [ObservableProperty] private ImageSource? _preview;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HangsOffLeftOrTop))]
+    private ImageSource? _preview;
 
     /// <summary>Asks the agent to draw fresh previews (the overlay's included).</summary>
     public void RequestPreview() => _client.SendCommand("render-previews");

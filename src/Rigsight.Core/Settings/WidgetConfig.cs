@@ -1,5 +1,6 @@
 namespace Rigsight.Core.Settings;
 
+/// <summary>The built-in widgets (one of each), and <see cref="Custom"/> for the user's own.</summary>
 public enum WidgetStyle
 {
     /// <summary>CPU and GPU temperature with load, power and a sparkline.</summary>
@@ -14,23 +15,72 @@ public enum WidgetStyle
     Today,
     /// <summary>Last five minutes of CPU and GPU temperature as a chart.</summary>
     Graph,
+    /// <summary>The frame rate of the game in front, from RivaTuner.</summary>
+    Fps,
+    /// <summary>One the user made: its own name, layout and readings (see <see cref="WidgetConfig.Layout"/>).</summary>
+    Custom,
 }
 
-/// <summary>System follows Windows' app mode. Black is no longer offered (it became Dark); kept so older settings files still load.</summary>
-public enum WidgetTheme { Dark, Light, System, Black }
+/// <summary>How a widget lays out its readings (see <see cref="WidgetCatalog"/>).</summary>
+public enum WidgetLayout
+{
+    /// <summary>One line of readings.</summary>
+    Bar,
+    /// <summary>A small grid of big readings, with a mini chart where there's history.</summary>
+    Tiles,
+    /// <summary>Ring gauges (temperatures and percentages).</summary>
+    Gauges,
+    /// <summary>Lines over the last five minutes.</summary>
+    Graph,
+    /// <summary>The app in front (Now playing); no readings to pick.</summary>
+    NowPlaying,
+    /// <summary>Today so far; no readings to pick.</summary>
+    Today,
+}
 
+/// <summary>
+/// A reading on a widget: one of the overlay's (<see cref="OverlayMetric"/>, by name) or any sensor
+/// ("sensor:" and its identifier), with an optional short name shown instead of its own.
+/// </summary>
+public sealed class WidgetItem
+{
+    public string Id { get; set; } = "";
+    public string? Label { get; set; }
+}
+
+/// <summary>
+/// System follows Windows' app mode; Grey is the dark one on dark grey, as the app's Grey theme. Black is no longer
+/// offered (it became Dark); kept so older settings files still load.
+/// </summary>
+public enum WidgetTheme { Dark, Light, System, Black, Grey }
+
+/// <summary>
+/// No longer a choice: widgets always step aside on the screen of a game in front, and the overlay takes over (a
+/// window over a game costs it latency and turns G-Sync/FreeSync off). Kept so older settings files still load.
+/// </summary>
 public enum WidgetVisibility
 {
     Always,
-    /// <summary>Hide while a fullscreen app (game, video) is in front.</summary>
     HideInFullscreen,
-    /// <summary>No longer offered (the overlay replaced it); kept so older settings files still load.</summary>
     OnlyInFullscreen,
 }
 
 public sealed class WidgetConfig
 {
     public WidgetStyle Style { get; set; }
+
+    /// <summary>Tells widgets apart: the style's name for a built-in one, "custom-…" for the user's own.</summary>
+    public string Id { get; set; } = "";
+
+    /// <summary>The user's own widget's name (built-in ones have theirs, see <see cref="WidgetCatalog.Title"/>).</summary>
+    public string? Name { get; set; }
+
+    /// <summary>The user's own widget's layout (a built-in one's comes with its style, see <see cref="WidgetCatalog.LayoutOf"/>).</summary>
+    public WidgetLayout? Layout { get; set; }
+
+    /// <summary>What it shows, in order; null: the style's own (see <see cref="WidgetCatalog.ItemsOf"/>), so "reset" is null.</summary>
+    public List<WidgetItem>? Items { get; set; }
+
     public bool Enabled { get; set; }
     public int? X { get; set; }
     public int? Y { get; set; }
@@ -50,9 +100,14 @@ public sealed class WidgetConfig
     public bool Locked { get; set; }
 
     public WidgetTheme Theme { get; set; } = WidgetTheme.Dark;
+
+    /// <summary>Labels grey and readings white instead of coloured, as the overlay can.</summary>
+    public bool Grayscale { get; set; }
+
+    /// <summary>No longer used (see <see cref="WidgetVisibility"/>).</summary>
     public WidgetVisibility Visibility { get; set; } = WidgetVisibility.Always;
 
-    /// <summary>One of each style; only the slim bar is on to start with.</summary>
+    /// <summary>One of each built-in style; only the slim bar is on to start with.</summary>
     public static List<WidgetConfig> Defaults() =>
-        [.. Enum.GetValues<WidgetStyle>().Select(s => new WidgetConfig { Style = s, Enabled = s == WidgetStyle.Pill })];
+        [.. WidgetCatalog.BuiltIn.Select(s => new WidgetConfig { Style = s, Id = s.ToString(), Enabled = s == WidgetStyle.Pill })];
 }

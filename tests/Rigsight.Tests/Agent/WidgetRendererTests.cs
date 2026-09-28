@@ -14,7 +14,7 @@ public class WidgetRendererTests
     private static readonly Dictionary<WidgetStyle, (int W, int H)> BaseSizes = new()
     {
         [WidgetStyle.Compact] = (276, 122), [WidgetStyle.Gauges] = (248, 150), [WidgetStyle.NowPlaying] = (310, 88),
-        [WidgetStyle.Today] = (256, 140), [WidgetStyle.Graph] = (300, 138),
+        [WidgetStyle.Today] = (256, 140), [WidgetStyle.Graph] = (300, 138), [WidgetStyle.Fps] = (184, 100),
     };
 
     public static TheoryData<WidgetStyle, WidgetTheme> StylesAndThemes()
@@ -75,6 +75,15 @@ public class WidgetRendererTests
         Assert.Equal(255, p.A);
         if (light) Assert.True(p.R > 240 && p.G > 240 && p.B > 240, p.ToString());
         else Assert.True(p.R < 20 && p.G < 20 && p.B < 20, p.ToString());
+    }
+
+    [Fact]
+    public void The_grey_theme_is_a_dark_grey_panel()
+    {
+        var cfg = new WidgetConfig { Style = WidgetStyle.Today, Theme = WidgetTheme.Grey, BackgroundOpacity = 1 };
+        using var bmp = WidgetRenderer.Render(cfg, Empty(), 1, false, out _);
+        var p = bmp.GetPixel(bmp.Width - 20, bmp.Height - 4);
+        Assert.True(p.A == 255 && p.R == p.G && p.G == p.B && p.R is > 30 and < 50, p.ToString());
     }
 
     [Fact]
@@ -194,6 +203,132 @@ public class WidgetRendererTests
             : new ActivityInfo();
         using var bmp = WidgetRenderer.Render(new WidgetConfig { Style = WidgetStyle.NowPlaying }, data, 1, false, out _);
         Assert.Equal(310, bmp.Width);
+    }
+
+    /// <summary>How far the most colourful solid pixel is from grey (0: all grey).</summary>
+    private static int MostColourful(Bitmap bmp) =>
+        Pixels(bmp).Where(p => p.A > 128).Max(p => Math.Max(p.R, Math.Max(p.G, p.B)) - Math.Min(p.R, Math.Min(p.G, p.B)));
+
+    public static TheoryData<WidgetStyle> Styles() => [.. Enum.GetValues<WidgetStyle>()];
+
+    [Theory]
+    [MemberData(nameof(Styles))]
+    public void Grayscale_takes_the_colour_out_of_every_style(WidgetStyle style)
+    {
+        foreach (var theme in new[] { WidgetTheme.Dark, WidgetTheme.Light })
+        {
+            var cfg = new WidgetConfig { Style = style, Theme = theme, BackgroundOpacity = 1 };
+            using var colour = WidgetRenderer.Render(cfg, Full(), 1.5f, false, out _);
+            cfg.Grayscale = true;
+            using var gray = WidgetRenderer.Render(cfg, Full(), 1.5f, false, out _);
+            Assert.True(MostColourful(colour) > 60, $"{style}/{theme} has no colour to begin with");
+            Assert.True(MostColourful(gray) < 12, $"{style}/{theme} still has colour in grayscale");
+        }
+    }
+
+    private static WidgetConfig Mine(WidgetLayout layout, params string[] items) => new()
+    {
+        Style = WidgetStyle.Custom, Id = "custom-test", Name = "Mine", Layout = layout, BackgroundOpacity = 1,
+        Items = [.. items.Select(i => new WidgetItem { Id = i })],
+    };
+
+    [Theory]
+    [InlineData(WidgetLayout.Bar)]
+    [InlineData(WidgetLayout.Tiles)]
+    [InlineData(WidgetLayout.Gauges)]
+    [InlineData(WidgetLayout.Graph)]
+    public void Widgets_of_your_own_draw_every_reading_in_every_layout(WidgetLayout layout)
+    {
+        var data = Full();
+        data.Readings["/fan/0"] = new OverlaySensorReading("Pump", SensorKind.Fan, 2100);
+        data.Readings["/temp/9"] = new OverlaySensorReading("Water", SensorKind.Temperature, 31.5);
+        data.Histories[OverlayMetric.GpuHotSpot] = Wave(300, 80);
+        foreach (var metric in WidgetCatalog.Offered(layout))
+            foreach (var d in new[] { data, Empty(), Extreme() })
+            {
+                using var bmp = WidgetRenderer.Render(Mine(layout, metric.ToString()), d, 1.5f, true, out var close);
+                Assert.True(Coverage(bmp) > 0.5, $"{layout}/{metric} mostly blank");
+                Assert.True(new RectangleF(0, 0, bmp.Width, bmp.Height).Contains(close));
+            }
+        if (WidgetCatalog.AllowsSensor(layout))
+            foreach (var d in new[] { data, Empty() })
+            {
+                using var bmp = WidgetRenderer.Render(Mine(layout, "sensor:/temp/9", "sensor:/fan/0", "sensor:/gone"), d, 1, false, out _);
+                Assert.True(Coverage(bmp) > 0.5);
+            }
+        // Every reading the layout takes, at once.
+        var all = WidgetCatalog.Offered(layout).Select(m => m.ToString()).Take(WidgetCatalog.MaxItems(layout)).ToArray();
+        using (var full = WidgetRenderer.Render(Mine(layout, all), data, 1, false, out _)) Assert.True(Coverage(full) > 0.5);
+    }
+
+    [Fact]
+    public void Fps_in_the_slim_bar_makes_it_longer_and_it_still_draws_the_rest()
+    {
+        var bar = new WidgetConfig { Style = WidgetStyle.Pill, BackgroundOpacity = 1 };
+        using var plain = WidgetRenderer.Render(bar, Full(), 1, false, out _);
+        bar.Items = WidgetCatalog.Items(OverlayMetric.Fps, OverlayMetric.CpuTemp, OverlayMetric.GpuTemp, OverlayMetric.Ram);
+        using var withFps = WidgetRenderer.Render(bar, Full(), 1, false, out _);
+        Assert.Equal(plain.Height, withFps.Height);
+        Assert.True(withFps.Width > plain.Width + 40, $"{plain.Width} → {withFps.Width}");
+    }
+
+    [Theory]
+    [InlineData(1, 184, 100)]
+    [InlineData(2, 276, 122)]   // the Compact widget's size
+    [InlineData(3, 276, 212)]
+    [InlineData(6, 276, 302)]
+    public void Tiles_grow_by_rows_of_two(int count, int width, int height)
+    {
+        var items = WidgetCatalog.Offered(WidgetLayout.Tiles).Take(count).Select(m => m.ToString()).ToArray();
+        using var bmp = WidgetRenderer.Render(Mine(WidgetLayout.Tiles, items), Full(), 1, false, out _);
+        Assert.Equal((width, height), (bmp.Width, bmp.Height));
+    }
+
+    [Theory]
+    [InlineData(1, 134)]
+    [InlineData(2, 248)]        // the Gauges widget's size
+    [InlineData(4, 476)]
+    public void Gauges_sit_side_by_side(int count, int width)
+    {
+        var items = WidgetCatalog.Offered(WidgetLayout.Gauges).Take(count).Select(m => m.ToString()).ToArray();
+        using var bmp = WidgetRenderer.Render(Mine(WidgetLayout.Gauges, items), Full(), 1, false, out _);
+        Assert.Equal((width, 150), (bmp.Width, bmp.Height));
+    }
+
+    [Fact]
+    public void A_short_name_replaces_the_readings_own()
+    {
+        var bar = Mine(WidgetLayout.Bar, "CpuTemp");
+        using var usual = WidgetRenderer.Render(bar, Full(), 1, false, out _);
+        bar.Items![0].Label = "Processor temperature";
+        using var named = WidgetRenderer.Render(bar, Full(), 1, false, out _);
+        Assert.True(named.Width > usual.Width);
+    }
+
+    [Fact]
+    public void A_grayscale_widget_leaves_the_overlay_in_colour()
+    {
+        WidgetRenderer.Render(new WidgetConfig { Style = WidgetStyle.Compact, Grayscale = true }, Full(), 1, false, out _).Dispose();
+        using var overlay = WidgetRenderer.RenderOverlay(AllMetrics(), Full(), 1);
+        Assert.True(MostColourful(overlay) > 60);
+        using var widget = WidgetRenderer.Render(new WidgetConfig { Style = WidgetStyle.Compact, BackgroundOpacity = 1 }, Full(), 1, false, out _);
+        Assert.True(MostColourful(widget) > 60);
+    }
+
+    [Fact]
+    public void The_fps_widget_shows_the_frame_rate_or_what_it_waits_for()
+    {
+        var cfg = new WidgetConfig { Style = WidgetStyle.Fps, BackgroundOpacity = 1 };
+        var noLow = Full();
+        noLow.Frame = new FrameStats(60, 16.7, null);
+        using var playing = WidgetRenderer.Render(cfg, Full(), 1, false, out _);
+        using var withoutLow = WidgetRenderer.Render(cfg, noLow, 1, false, out _);
+        using var waiting = WidgetRenderer.Render(cfg, new WidgetData { RtssRunning = true }, 1, false, out _);
+        using var noRivaTuner = WidgetRenderer.Render(cfg, new WidgetData { RtssRunning = false }, 1, false, out _);
+        Bitmap[] all = [playing, withoutLow, waiting, noRivaTuner];
+        for (int i = 0; i < all.Length; i++)
+            for (int j = i + 1; j < all.Length; j++)
+                Assert.False(SamePixels(all[i], all[j]), $"states {i} and {j} look the same");
     }
 }
 

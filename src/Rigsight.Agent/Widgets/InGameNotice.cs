@@ -32,7 +32,9 @@ internal sealed class InGameNotice : IDisposable
     /// <summary>Shows the notice for <paramref name="seconds"/> (replacing one still showing). False if RivaTuner isn't running.</summary>
     public bool Show(Notice notice, OverlaySettings overlay, bool overlayVisible, int seconds)
     {
-        bool top = overlayVisible && overlay.Corner == OverlayCorner.BottomRight;
+        // Bottom right, out of the overlay's way: at the top when the overlay is at the bottom right.
+        int anchor = OverlayPlacement.AnchorOf(overlay);
+        bool top = overlayVisible && OverlayPlacement.Column(anchor) == 2 && OverlayPlacement.Row(anchor) == 2;
         string text = WidgetRenderer.RtssNoticeText(ToastRenderer.KindLabel(notice.Kind), ToastRenderer.Accent(notice.Kind),
             notice.Title, notice.Body, top, overlay.Scale);
         if (!Rtss.Show(text, Rtss.NoticeOwner)) return false;

@@ -255,13 +255,18 @@ internal static class ToastRenderer
 {
     private const float Width = 404, Pad = 17, IconSize = 42;
 
-    // The app's colours, dark or light as the Theme setting says (the same choice as the menus). The dark ones are also
-    // used for the notice drawn inside a game by RivaTuner (WidgetRenderer.RtssNoticeText), which is always dark.
+    // The app's colours, dark, grey or light as the Theme setting says (the same choice as the menus). The dark ones are
+    // also used for the notice drawn inside a game by RivaTuner (WidgetRenderer.RtssNoticeText), which is always dark.
     internal static readonly Color Bg = Color.FromArgb(250, 22, 22, 22);
     private static readonly Color Border = Color.FromArgb(46, 46, 46);
     internal static readonly Color Text = Color.FromArgb(255, 255, 255);
     internal static readonly Color Muted = Color.FromArgb(163, 163, 163);
     private static readonly Color CloseHover = Color.FromArgb(36, 36, 36);
+
+    private static readonly Color GreyBg = Color.FromArgb(250, 48, 48, 48);
+    private static readonly Color GreyBorder = Color.FromArgb(72, 72, 72);
+    private static readonly Color GreyMuted = Color.FromArgb(173, 173, 173);
+    private static readonly Color GreyCloseHover = Color.FromArgb(59, 59, 59);
 
     private static readonly Color LightBg = Color.FromArgb(250, 255, 255, 255);
     private static readonly Color LightBorder = Color.FromArgb(211, 211, 211);
@@ -298,10 +303,11 @@ internal static class ToastRenderer
     };
 
     public static Bitmap Render(Notice n, float scale, bool hover, out RectangleF closeRect) =>
-        Render(n, scale, hover, DarkMenuRenderer.Light, out closeRect);
+        Render(n, scale, hover, DarkMenuRenderer.Light, out closeRect, DarkMenuRenderer.Grey);
 
-    internal static Bitmap Render(Notice n, float scale, bool hover, bool light, out RectangleF closeRect)
+    internal static Bitmap Render(Notice n, float scale, bool hover, bool light, out RectangleF closeRect, bool grey = false)
     {
+        grey &= !light;
         using var titleFont = new Font("Segoe UI Semibold", 16f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var bodyFont = new Font("Segoe UI", 14f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var capFont = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Pixel);
@@ -325,8 +331,8 @@ internal static class ToastRenderer
         var card = new RectangleF(0.5f, 0.5f, Width - 1, height - 1);
         using (var path = RoundRect(card, 14))
         {
-            using var bg = new SolidBrush(light ? LightBg : Bg);
-            using var border = new Pen(light ? LightBorder : Border, 1);
+            using var bg = new SolidBrush(light ? LightBg : grey ? GreyBg : Bg);
+            using var border = new Pen(light ? LightBorder : grey ? GreyBorder : Border, 1);
             g.FillPath(bg, path);
             g.SetClip(path);
             using (var bar = new SolidBrush(accent)) g.FillRectangle(bar, 0, 0, 4, height);
@@ -340,7 +346,7 @@ internal static class ToastRenderer
 
         using var capBrush = new SolidBrush(accent);
         using var titleBrush = new SolidBrush(light ? LightText : Text);
-        using var bodyBrush = new SolidBrush(light ? LightMuted : Muted);
+        using var bodyBrush = new SolidBrush(light ? LightMuted : grey ? GreyMuted : Muted);
         g.DrawString(KindLabel(n.Kind), capFont, capBrush, textX, Pad - 2, StringFormat.GenericTypographic);
 
         using var trim = (StringFormat)StringFormat.GenericTypographic.Clone();
@@ -352,7 +358,7 @@ internal static class ToastRenderer
         var close = new RectangleF(Width - 30, 10, 20, 20);
         if (hover)
         {
-            using var cb = new SolidBrush(light ? LightCloseHover : CloseHover);
+            using var cb = new SolidBrush(light ? LightCloseHover : grey ? GreyCloseHover : CloseHover);
             g.FillEllipse(cb, close);
             using var cp = new Pen(light ? LightText : Text, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
             float i = 6.5f;

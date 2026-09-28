@@ -314,18 +314,164 @@ public sealed class SettingsPageTests
     // ── Widgets ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void There_is_a_card_for_every_widget_style()
+    public void There_is_a_card_for_every_built_in_widget_and_none_of_the_users_own_yet()
     {
         using var link = new AgentLink();
         var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
         Ui.Run(() =>
         {
-            Assert.Equal(Enum.GetValues<WidgetStyle>(), vm.Cards.Select(c => c.Style));
-            Assert.Equal(vm.Cards.Count, vm.Cards.Select(c => c.Title).Distinct().Count());
-            Assert.Equal(vm.Cards.Count, vm.Cards.Select(c => c.Description).Distinct().Count());
-            Assert.All(vm.Cards, c => Assert.False(string.IsNullOrWhiteSpace(c.Title)));
-            Assert.Equal("Slim bar", vm.Cards.Single(c => c.Style == WidgetStyle.Pill).Title);
-            Assert.Equal("Temperature graph", vm.Cards.Single(c => c.Style == WidgetStyle.Graph).Title);
+            // The FPS widget first (the newest, the one people look for), then the rest in their usual order.
+            Assert.Equal(WidgetCatalog.BuiltIn.OrderBy(st => st != WidgetStyle.Fps), vm.BuiltIn.Select(c => c.Style));
+            Assert.Empty(vm.Custom);
+            Assert.False(vm.HasCustom);
+            Assert.True(vm.CanCreate);
+            Assert.Equal(vm.BuiltIn.Count, vm.BuiltIn.Select(c => c.Title).Distinct().Count());
+            Assert.Equal(vm.BuiltIn.Count, vm.BuiltIn.Select(c => c.Description).Distinct().Count());
+            Assert.All(vm.BuiltIn, c => Assert.True(c.IsBuiltIn && !string.IsNullOrWhiteSpace(c.Title)));
+            Assert.Equal("Slim bar", vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill).Title);
+            Assert.Equal("Temperature graph", vm.BuiltIn.Single(c => c.Style == WidgetStyle.Graph).Title);
+            Assert.False(vm.IsEditing);
+        });
+    }
+
+    [Fact]
+    public void Adding_fps_to_the_slim_bar_and_resetting_it()
+    {
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            var bar = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill);
+            bar.EditCommand.Execute(null);
+            Assert.Same(bar, vm.Editing);
+            Assert.True(bar.IsEditing && vm.IsEditing);
+            Assert.Equal(["CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
+            Assert.False(bar.CanReset);
+
+            bar.ReadingToAdd = bar.Offered.Single(o => o.Metric == OverlayMetric.Fps);
+            bar.AddReadingCommand.Execute(null);
+            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "Fps"], bar.Items.Select(i => i.Id));
+            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "Fps"], link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items!.Select(i => i.Id));
+            Assert.DoesNotContain(bar.Offered, o => o.Metric == OverlayMetric.Fps);
+            Assert.True(bar.CanReset);
+            Assert.Null(bar.ReadingToAdd);
+
+            // First in line, with a short name of its own.
+            bar.MoveItemUpCommand.Execute(bar.Items[3]);
+            bar.MoveItemUpCommand.Execute(bar.Items[2]);
+            bar.MoveItemUpCommand.Execute(bar.Items[1]);
+            bar.MoveItemUpCommand.Execute(bar.Items[0]); // already first: nothing
+            Assert.Equal(["Fps", "CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
+            bar.Items[0].Label = "  Frames  ";
+            Assert.Equal("Frames", link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items![0].Label);
+            Assert.Equal("Frames", bar.Items[0].Label);
+
+            bar.ResetCommand.Execute(null);
+            Assert.Null(link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items);
+            Assert.Equal(["CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
+            Assert.False(bar.CanReset);
+
+            vm.CloseEditorCommand.Execute(null);
+            Assert.Null(vm.Editing);
+            Assert.False(bar.IsEditing);
+        });
+    }
+
+    [Fact]
+    public void A_widget_always_keeps_one_reading_and_at_most_its_layouts_share()
+    {
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            var gauges = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Gauges);
+            // Gauges show temperatures and percentages only.
+            Assert.DoesNotContain(gauges.Offered, o => o.Metric is OverlayMetric.CpuClock or OverlayMetric.Fps or OverlayMetric.Clock);
+            gauges.RemoveItemCommand.Execute(gauges.Items[0]);
+            gauges.RemoveItemCommand.Execute(gauges.Items[0]); // the last one stays
+            Assert.Single(gauges.Items);
+            while (gauges.CanAddMore)
+            {
+                gauges.ReadingToAdd = gauges.Offered[0];
+                gauges.AddReadingCommand.Execute(null);
+            }
+            Assert.Equal(4, gauges.Items.Count);
+            Assert.Equal("4 of 4", gauges.ItemsCount);
+            gauges.ReadingToAdd = gauges.Offered[0];
+            Assert.False(gauges.AddReadingCommand.CanExecute(null));
+
+            // Now playing and Today show no readings to pick.
+            Assert.False(vm.BuiltIn.Single(c => c.Style == WidgetStyle.NowPlaying).HasReadings);
+            Assert.True(gauges.HasReadings);
+        });
+    }
+
+    [Fact]
+    public void Making_renaming_copying_and_deleting_widgets_of_your_own()
+    {
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var mine = Assert.Single(vm.Custom);
+            Assert.Same(mine, vm.Editing);
+            Assert.True(mine.IsCustom && mine.Enabled);
+            Assert.Equal("My widget 1", mine.Title);
+            Assert.Equal("Bar · 3 readings", mine.Description);
+            Assert.StartsWith("custom-", mine.Id);
+            var saved = link.Settings.Current.Widgets.Single(w => w.Id == mine.Id);
+            Assert.Equal((WidgetStyle.Custom, WidgetLayout.Bar), (saved.Style, saved.Layout));
+            link.Sent("render-previews");
+
+            mine.Title = "  Temps  ";
+            Assert.Equal("Temps", link.Settings.Current.Widgets.Single(w => w.Id == mine.Id).Name);
+            mine.Title = "   ";
+            Assert.Equal("My widget", mine.Title);
+            mine.Title = "Temps";
+
+            // Graph: it keeps what a graph can show (RAM, CPU and GPU temperature all can).
+            mine.Layout = "Graph";
+            Assert.Equal("Graph", mine.Layout);
+            Assert.Equal("Graph · 3 readings", mine.Description);
+            Assert.False(mine.CanAddSensors); // no history of other sensors
+            mine.Layout = "Now playing"; // not a layout of one's own
+            Assert.Equal("Graph", mine.Layout);
+
+            // Built-in widgets keep their name and layout.
+            var compact = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Compact);
+            compact.Title = "Nope";
+            compact.Layout = "Bar";
+            Assert.Equal(("Compact", "Tiles"), (compact.Title, compact.Layout));
+
+            vm.Duplicate(mine);
+            Assert.Equal(2, vm.Custom.Count);
+            var copy = vm.Custom[1];
+            Assert.Equal("Temps copy", copy.Title);
+            Assert.Equal("Graph", copy.Layout);
+            Assert.NotEqual(mine.Id, copy.Id);
+            Assert.Same(copy, vm.Editing);
+
+            // A built-in widget copied becomes one of your own, with its readings.
+            vm.Duplicate(vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill));
+            Assert.Equal(("Slim bar copy", "Bar"), (vm.Custom[2].Title, vm.Custom[2].Layout));
+
+            var barCopy = vm.Custom[2];
+            copy.DeleteCommand.Execute(null);
+            Assert.Same(barCopy, vm.Editing); // another one open stays open
+            Assert.Equal(["Temps", "Slim bar copy"], vm.Custom.Select(c => c.Title));
+            barCopy.DeleteCommand.Execute(null);
+            Assert.Null(vm.Editing); // the one open is gone, and so is the editor
+            vm.Duplicate(vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill));
+            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == copy.Id);
+            vm.BuiltIn[0].DeleteCommand.Execute(null); // built-in ones can't be deleted
+            Assert.Equal(WidgetCatalog.BuiltIn.Count, vm.BuiltIn.Count);
+
+            // Opened from a widget's menu on the desktop.
+            vm.Edit(mine.Id);
+            Assert.Same(mine, vm.Editing);
+            vm.Edit("custom-nope");
+            Assert.Same(mine, vm.Editing);
         });
     }
 
@@ -333,6 +479,7 @@ public sealed class SettingsPageTests
     [InlineData(WidgetStyle.Compact)]
     [InlineData(WidgetStyle.Pill)]
     [InlineData(WidgetStyle.Graph)]
+    [InlineData(WidgetStyle.Fps)]
     public void A_widget_cards_controls_change_only_that_widget(WidgetStyle style)
     {
         using var link = new AgentLink();
@@ -341,9 +488,10 @@ public sealed class SettingsPageTests
         {
             var card = vm.Cards.Single(c => c.Style == style);
             var others = SettingsStore.Serialize(link.Settings.Current.Clone());
+            Assert.Equal(WidgetCatalog.BuiltIn.Count, vm.Cards.Count());
             card.Enabled = true;
             card.Theme = "Light";
-            card.Visibility = "HideInFullscreen";
+            card.Colors = "Grayscale";
             card.Locked = true;
             card.BackgroundPercent = 55;
             card.ContentPercent = 80;
@@ -351,12 +499,12 @@ public sealed class SettingsPageTests
             var config = link.Settings.Current.Widgets.Single(w => w.Style == style);
             Assert.True(config.Enabled);
             Assert.Equal(WidgetTheme.Light, config.Theme);
-            Assert.Equal(WidgetVisibility.HideInFullscreen, config.Visibility);
+            Assert.True(config.Grayscale);
             Assert.True(config.Locked);
             Assert.Equal(0.55, config.BackgroundOpacity, 6);
             Assert.Equal(0.8, config.ContentOpacity, 6);
             Assert.Equal(1.25, config.Scale);
-            Assert.Equal((55.0, 80.0, "1.25", "Light", "HideInFullscreen"), (card.BackgroundPercent, card.ContentPercent, card.Scale, card.Theme, card.Visibility));
+            Assert.Equal((55.0, 80.0, "1.25", "Light", "Grayscale"), (card.BackgroundPercent, card.ContentPercent, card.Scale, card.Theme, card.Colors));
             Assert.All(link.Settings.Current.Widgets.Where(w => w.Style != style), w => Assert.False(w.Enabled));
             Assert.NotEqual(others, SettingsStore.Serialize(link.Settings.Current));
         });
@@ -373,7 +521,7 @@ public sealed class SettingsPageTests
             System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
             try
             {
-                var card = vm.Cards[0];
+                var card = vm.Cards.Single(c => c.Style == WidgetStyle.Compact);
                 card.Scale = "1.5";
                 Assert.Equal("1.5", card.Scale);
                 Assert.Equal(1.5, link.Settings.Current.Widgets[0].Scale);
@@ -397,7 +545,7 @@ public sealed class SettingsPageTests
 
         var folder = Path.Combine(RigsightPaths.DataDir, "previews");
         Directory.CreateDirectory(folder);
-        var file = Path.Combine(folder, "Pill.png");
+        var file = Path.Combine(folder, "Pill.png"); // by the widget's identifier: the style's name for a built-in one
         try
         {
             WritePng(file, 40, 12);
@@ -430,7 +578,7 @@ public sealed class SettingsPageTests
         var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
         Ui.Run(() =>
         {
-            var card = vm.Cards[0];
+            var card = vm.Cards.Single(c => c.Style == WidgetStyle.Compact);
             link.Settings.Update(s => s.Widgets[0].Locked = true);
             var changed = Kit.Changes(card, vm.Refresh);
             Assert.Contains("", changed);
@@ -635,22 +783,33 @@ public sealed class OverlayPageTests
         Ui.Run(() =>
         {
             var o = link.Settings.Current.Overlay;
-            vm.Corner = "BottomRight";
+            vm.Spot = new Rigsight.Controls.OverlaySpot(8, -0.05, 0);
             vm.Layout = "Line";
             vm.BackgroundPercent = 35;
             vm.ContentPercent = 70;
             vm.Colors = "Grayscale";
             vm.Scale = "1.5";
             o = link.Settings.Current.Overlay;
-            Assert.Equal(OverlayCorner.BottomRight, o.Corner);
+            Assert.Equal((8, -0.05, 0.0), (o.Anchor, o.OffsetX, o.OffsetY));
+            Assert.Equal(("Right", "Bottom"), (vm.PreviewHorizontal, vm.PreviewVertical));
             Assert.Equal(OverlayLayout.Line, o.Layout);
             Assert.Equal(0.35, o.BackgroundOpacity, 6);
             Assert.Equal(0.7, o.ContentOpacity, 6);
             Assert.True(o.Grayscale);
             Assert.Equal(1.5, o.Scale);
-            Assert.Equal(("BottomRight", "Line", 35.0, 70.0, "Grayscale", "1.5"), (vm.Corner, vm.Layout, vm.BackgroundPercent, vm.ContentPercent, vm.Colors, vm.Scale));
+            Assert.Equal((new Rigsight.Controls.OverlaySpot(8, -0.05, 0), "Line", 35.0, 70.0, "Grayscale", "1.5"), (vm.Spot, vm.Layout, vm.BackgroundPercent, vm.ContentPercent, vm.Colors, vm.Scale));
             vm.Colors = "Color";
             Assert.False(link.Settings.Current.Overlay.Grayscale);
+
+            // Pushed past the left edge: RivaTuner can't draw there, and the page says so.
+            Assert.False(vm.HangsOffLeftOrTop);
+            vm.Spot = new Rigsight.Controls.OverlaySpot(0, -0.02, 0);
+            Assert.True(vm.HangsOffLeftOrTop);
+            vm.Spot = new Rigsight.Controls.OverlaySpot(2, 0.02, 0); // off the right edge is fine
+            Assert.False(vm.HangsOffLeftOrTop);
+            Assert.Equal(("Right", "Top"), (vm.PreviewHorizontal, vm.PreviewVertical));
+            vm.Spot = new Rigsight.Controls.OverlaySpot(4, 0, 0);
+            Assert.Equal(("Center", "Center"), (vm.PreviewHorizontal, vm.PreviewVertical));
         });
     }
 

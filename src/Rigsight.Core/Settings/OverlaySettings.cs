@@ -35,7 +35,22 @@ public sealed class OverlaySettings
     public bool Enabled { get; set; } = true;
 
     public string Hotkey { get; set; } = DefaultHotkey;
+
+    /// <summary>Before 0.8: one of four corners. Read once for <see cref="Anchor"/>, which replaced it.</summary>
     public OverlayCorner Corner { get; set; } = OverlayCorner.TopLeft;
+
+    /// <summary>
+    /// Where the overlay hangs from, in reading order: 0 top left, 1 top centre, 2 top right, 3 middle left, 4 centre,
+    /// 5 middle right, 6 bottom left, 7 bottom centre, 8 bottom right. It grows away from it (a right one grows to
+    /// the left). Null in older settings (taken from <see cref="Corner"/>). See <see cref="OverlayPlacement"/>.
+    /// </summary>
+    public int? Anchor { get; set; }
+
+    /// <summary>How far the overlay is moved from its anchor, as a share of the screen's width (+ right) and height (+ down).</summary>
+    public double OffsetX { get; set; }
+
+    /// <inheritdoc cref="OffsetX"/>
+    public double OffsetY { get; set; }
     public OverlayLayout Layout { get; set; } = OverlayLayout.Rows;
     /// <summary>How solid the panel behind the readings is (0: none, just the readings).</summary>
     public double BackgroundOpacity { get; set; } = 0.9;

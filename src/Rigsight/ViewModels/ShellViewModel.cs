@@ -33,7 +33,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Crashes = new CrashesViewModel(Reports, Settings);
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
-        Widgets = new WidgetsViewModel(Settings, client);
+        Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current);
@@ -319,6 +319,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
             if (page == "apps" && arg is not null) Apps.ShowToday(arg);
+            if (page == "widgets" && arg is not null) Widgets.Edit(arg); // "Edit widget…" on a widget on the desktop
             CurrentPage = page;
         }
         ActivateRequested?.Invoke();

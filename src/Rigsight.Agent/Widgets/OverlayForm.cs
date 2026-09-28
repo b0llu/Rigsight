@@ -32,6 +32,14 @@ internal sealed class OverlayForm : Form
         }
     }
 
+    /// <summary>The overlay's top-left on <paramref name="screen"/> (see <see cref="OverlayPlacement"/>).</summary>
+    internal static Point Place(OverlaySettings settings, Rectangle screen, Size size, int gap)
+    {
+        var (x, y) = OverlayPlacement.Place(OverlayPlacement.AnchorOf(settings), settings.OffsetX, settings.OffsetY,
+            screen.Width, screen.Height, size.Width, size.Height, gap);
+        return new Point(screen.Left + (int)Math.Round(x), screen.Top + (int)Math.Round(y));
+    }
+
     public void Redraw(OverlaySettings settings, WidgetData? data)
     {
         if (!IsHandleCreated) return;
@@ -45,14 +53,17 @@ internal sealed class OverlayForm : Form
         float dpi = Win32.GetDpiForMonitor(monitor, 0, out uint dpiX, out _) == 0 ? dpiX : DeviceDpi;
 
         using var bmp = WidgetRenderer.RenderOverlay(settings, data, dpi / 96f * (float)settings.Scale);
-        int margin = (int)(16 * dpi / 96f);
-        bool right = settings.Corner is OverlayCorner.TopRight or OverlayCorner.BottomRight;
-        bool bottom = settings.Corner is OverlayCorner.BottomLeft or OverlayCorner.BottomRight;
-        var at = new Point(
-            right ? screen.Right - bmp.Width - margin : screen.Left + margin,
-            bottom ? screen.Bottom - bmp.Height - margin : screen.Top + margin);
+        var at = Place(settings, screen, bmp.Size, (int)(16 * dpi / 96f));
 
-        Win32.SetLayeredBitmap(Handle, bmp, at, 255); // opacity is in the bitmap (background and content apart)
+        // Hanging off the screen (the user's choice): only the part on it, never onto the screen next to it.
+        var visible = Rectangle.Intersect(new Rectangle(at, bmp.Size), screen);
+        if (visible.Size == bmp.Size)
+            Win32.SetLayeredBitmap(Handle, bmp, at, 255); // opacity is in the bitmap (background and content apart)
+        else if (!visible.IsEmpty)
+        {
+            using var part = bmp.Clone(new Rectangle(visible.X - at.X, visible.Y - at.Y, visible.Width, visible.Height), bmp.PixelFormat);
+            Win32.SetLayeredBitmap(Handle, part, visible.Location, 255);
+        }
         // Games that switch to fullscreen can end up above us; stay on top without taking focus.
         Win32.SetWindowPos(Handle, Win32.HWND_TOPMOST, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
     }

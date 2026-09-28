@@ -39,7 +39,7 @@ public sealed class SettingsMigrationTests
     public void Before_v2_widgets_are_reset_to_the_slim_bar(int version)
     {
         var s = Load($$"""{ "SettingsVersion": {{version}}, "Widgets": {{CustomWidgets}} }""");
-        Assert.Equal(Enum.GetValues<WidgetStyle>(), s.Widgets.Select(w => w.Style));
+        Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
         Assert.Equal([WidgetStyle.Pill], s.Widgets.Where(w => w.Enabled).Select(w => w.Style));
         Assert.All(s.Widgets, w => Assert.Null(w.X));
         Assert.All(s.Widgets, w => Assert.Equal(1.0, w.Scale));

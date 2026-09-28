@@ -124,7 +124,7 @@ internal sealed class AgentContext : ApplicationContext
         _tracker.SetSettings(_settings);
         _tracker.SessionEnded += OnSessionEnded;
 
-        _widgets = new WidgetManager(() => _settings, MutateSettings, () => OpenApp("widgets"));
+        _widgets = new WidgetManager(() => _settings, MutateSettings, id => OpenApp("widgets", id));
         _overlay = new OverlayManager(isAdmin);
         _overlay.StateChanged += OnOverlayStateChanged;
         _overlay.CantReachGame += OnOverlayCantReachGame;
@@ -141,7 +141,7 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);
-        if (_settings.Overlay.Enabled && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
+        if (NeedsRtss(_settings) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
 
         // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
         // the game session in progress), and let the installer ask for a clean stop ("--quit").
@@ -308,7 +308,7 @@ internal sealed class AgentContext : ApplicationContext
                     t0 = Stopwatch.GetTimestamp();
                     // Sensors on the overlay stay live in games (the app is usually closed then).
                     // And those in the taskbar, which are always on show.
-                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors]);
+                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. WidgetSensorIds(_settings)]);
                     _sensors.Update(everything: live, now);
                     Measure("sensors", t0);
                     t0 = Stopwatch.GetTimestamp();
@@ -630,6 +630,39 @@ internal sealed class AgentContext : ApplicationContext
         return list;
     }
 
+    /// <summary>The sensors on shown widgets (kept live while they show, as the overlay's are).</summary>
+    private static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
+        settings.Widgets.Where(w => w.Enabled).SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
+
+    /// <summary>The widgets' sensors: the name given on All sensors, else the sensor's own (a widget's own short name wins when drawn).</summary>
+    private Dictionary<string, OverlaySensorReading> WidgetSensors(RigsightSettings settings)
+    {
+        var map = new Dictionary<string, OverlaySensorReading>();
+        foreach (var id in WidgetSensorIds(settings))
+            if (_sensors.ReadSensor(id) is { } r)
+                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value);
+        return map;
+    }
+
+    /// <summary>Five minutes of each reading a tile or graph shows beyond CPU and GPU temperature (which have their own).</summary>
+    private Dictionary<OverlayMetric, float[]> WidgetHistories(HashSet<OverlayMetric> metrics)
+    {
+        var map = new Dictionary<OverlayMetric, float[]>();
+        foreach (var m in metrics)
+        {
+            string? key = m switch
+            {
+                OverlayMetric.GpuHotSpot => KeySensors.GpuHotSpot,
+                OverlayMetric.CpuLoad => KeySensors.CpuLoad,
+                OverlayMetric.GpuLoad => KeySensors.GpuLoad,
+                OverlayMetric.Ram => KeySensors.RamLoad,
+                _ => null,
+            };
+            if (key is not null) map[m] = _history.Recent(key, 300_000);
+        }
+        return map;
+    }
+
     /// <summary>The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own.</summary>
     private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
     {
@@ -648,7 +681,10 @@ internal sealed class AgentContext : ApplicationContext
         var settings = _settings;
         var trayReadings = TrayReadingsFor(settings);
         var activity = _tracker.Activity;
-        bool drawsHistory = settings.Widgets.Any(w => w.Enabled && w.Style is WidgetStyle.Compact or WidgetStyle.Graph);
+        // Only tiles and graphs draw history lines; skip scanning it otherwise.
+        var historyOf = settings.Widgets.Where(w => w.Enabled && WidgetCatalog.LayoutOf(w) is WidgetLayout.Tiles or WidgetLayout.Graph)
+            .SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Metric(i.Id)).OfType<OverlayMetric>().ToHashSet();
+        bool drawsHistory = historyOf.Contains(OverlayMetric.CpuTemp) || historyOf.Contains(OverlayMetric.GpuTemp);
         var data = new WidgetData
         {
             CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower, CpuClock = k.CpuClock,
@@ -662,6 +698,8 @@ internal sealed class AgentContext : ApplicationContext
             Activity = activity,
             Today = _tracker.Today(),
             Sensors = OverlaySensors(settings),
+            Readings = WidgetSensors(settings),
+            Histories = WidgetHistories(historyOf),
         };
         _lastToday = data.Today;
 
@@ -672,6 +710,8 @@ internal sealed class AgentContext : ApplicationContext
         // Our own windows can report as fullscreen-sized; only treat other apps as fullscreen.
         bool otherFullscreen = fullscreen && activity.Exe is not null &&
             !activity.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase);
+        // Widgets are for the desktop and apps: with a game in front (any window mode) the overlay takes over.
+        bool gameInFront = activity.Category == AppCategory.Game && activity.Exe is not null && !activity.Paused;
 
         // Tray health dot: amber within 12° of a limit, red at or over it.
         var a = settings.Alerts;
@@ -684,7 +724,7 @@ internal sealed class AgentContext : ApplicationContext
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
             _trayReadings.Update(trayReadings, settings.TrayCombined);
-            _widgets.Update(data, otherFullscreen);
+            _widgets.Update(data, gameInFront ? Win32.MonitorFromWindow(Win32.GetForegroundWindow(), 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
@@ -972,7 +1012,7 @@ internal sealed class AgentContext : ApplicationContext
         incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
         foreach (var w in incoming.Widgets)
         {
-            var mine = current.Widgets.FirstOrDefault(x => x.Style == w.Style);
+            var mine = current.Widgets.FirstOrDefault(x => x.Id == w.Id);
             if (mine is not null) { w.X = mine.X; w.Y = mine.Y; }
         }
     }
@@ -1042,6 +1082,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             _widgets.Apply(updated);
             _overlay.Apply(updated.Overlay);
+            if (NeedsRtss(updated) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
             // Keep the app's widget previews in sync with theme changes.
             if (_pipe.ClientCount > 0) RenderPreviews(updated);
         }, null);
@@ -1052,6 +1093,10 @@ internal sealed class AgentContext : ApplicationContext
     /// Writes widget and overlay preview images and tells the app they're ready. The overlay's sensors are read
     /// on the sampler thread for these settings (so one just added shows straight away), then drawn on the UI thread.
     /// </summary>
+    /// <summary>The overlay draws in games through RivaTuner, and the FPS widget reads the frame rate from it.</summary>
+    private static bool NeedsRtss(RigsightSettings s) =>
+        s.Overlay.Enabled || s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w));
+
     private void RenderPreviews(RigsightSettings settings) =>
         RunOnSampler(() =>
         {

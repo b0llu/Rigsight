@@ -165,7 +165,8 @@ internal static partial class WidgetRenderer
     /// &lt;P0/2/6/8&gt;&lt;Ln&gt; sticky corner layer, &lt;M&gt; margins, &lt;C=AARRGGBB&gt;&lt;B=0,0,Rr&gt;\b rounded
     /// background, &lt;A=±n&gt; alignment in symbols (negative = right), &lt;S=-n&gt; n% subscript size.
     /// </summary>
-    public static string RtssText(OverlaySettings o, WidgetData? data)
+    /// <param name="screen">The game's render size (RivaTuner's pixels), for a position away from the corners; null: 1920 × 1080.</param>
+    public static string RtssText(OverlaySettings o, WidgetData? data, Size? screen = null)
     {
         var rows = OverlayRows(o, data ?? new WidgetData());
         if (rows.Count == 0) return "";
@@ -209,25 +210,42 @@ internal static partial class WidgetRenderer
             return RtssLeftSpacer + string.Join("  ", parts);
         }
 
-        int corner = o.Corner switch
-        {
-            OverlayCorner.TopRight => 2,
-            OverlayCorner.BottomLeft => 6,
-            OverlayCorner.BottomRight => 8,
-            _ => 0,
-        };
         int fontHeight = -(int)Math.Round(8 * o.Scale);
         int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);
-        bool right = o.Corner is OverlayCorner.TopRight or OverlayCorner.BottomRight;
-        bool bottom = o.Corner is OverlayCorner.BottomLeft or OverlayCorner.BottomRight;
-        var (left, top, rightM, bottomM) = RtssMargins(right, bottom, o.Scale);
+        var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
+        string body = RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
+        var (anchor, dx, dy) = RtssPlace(o, screen ?? new Size(1920, 1080));
+        var (left, top, rightM, bottomM) = RtssMargins(anchor, dx, dy, o.Scale);
         string header =
-            $"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}>" +   // our font instead of RivaTuner's default
-            $"<P{corner}><L0><M={left},{top},{rightM},{bottomM}>" +    // our corner, gap and padding (see RtssMargins)
+            $"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}>" +              // our font instead of RivaTuner's default
+            $"<P{anchor}><L0><M={left},{top},{rightM},{bottomM}>" +                // its place and padding (see RtssPlace)
             // Rounded translucent panel behind the text; none at all at 0% (alpha 00 would draw it solid, see above).
             (alpha > 0 ? $"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>" : "");
-        var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
-        return header + RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
+        return header + body;
+    }
+
+    /// <summary>
+    /// Where RivaTuner puts the overlay: on the same one of its nine anchors as our window (see <see cref="OverlayPlacement"/>)
+    /// and, per axis, how far from it in the game's pixels: in from a near edge, in from a far edge (negative: hanging
+    /// off it), or away from the middle. RivaTuner lays the text out from there, so the overlay grows away from its
+    /// anchor as in our window, and nothing depends on its size (measured in RTSS 7.3.5). RivaTuner won't draw past
+    /// the left or top edge: a spot hanging off those sits against the edge.
+    /// </summary>
+    internal static (int Anchor, int Dx, int Dy) RtssPlace(OverlaySettings o, Size screen)
+    {
+        int anchor = OverlayPlacement.AnchorOf(o);
+        return (anchor, Axis(OverlayPlacement.Column(anchor), o.OffsetX, screen.Width), Axis(OverlayPlacement.Row(anchor), o.OffsetY, screen.Height));
+
+        static int Axis(int third, double offset, int length)
+        {
+            double shift = offset * length;
+            return third switch
+            {
+                0 => (int)Math.Max(0, Math.Round(RtssGapPx + shift)),
+                1 => (int)Math.Round(shift),
+                _ => (int)Math.Round(RtssGapPx - shift),
+            };
+        }
     }
 
     /// <summary>
@@ -241,7 +259,7 @@ internal static partial class WidgetRenderer
         static string Clean(string text) => text.Replace("<", "").Replace(">", "");
         static string Hex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
         int fontHeight = -(int)Math.Round(8 * scale);
-        var (left, topMargin, right, bottom) = RtssMargins(right: true, bottom: !top, scale);
+        var (left, topMargin, right, bottom) = RtssMargins(top ? 2 : 8, RtssGapPx, RtssGapPx, scale);
         var bg = Ui.ToastRenderer.Bg;
         string pad = RtssLeftSpacer + " ";
         var text = new System.Text.StringBuilder()
@@ -298,16 +316,25 @@ internal static partial class WidgetRenderer
     /// with W the text width and k the zoom, the layer is W − k(L+R) wide and pinned to its corner; the text
     /// starts at kL from the layer's left and the panel spans from there to W − kR. So left/top margins move
     /// the text and panel together, and right/bottom ones only grow or shrink the panel. Solving for "panel
-    /// <see cref="RtssGapPx"/> from both screen edges, text at its start, <see cref="RtssPadPx"/> spare at its end":
-    /// near edge L = gap/k (or −gap/k when pinned to the far edge), far edge R = −(gap+pad)/k (or (gap−pad)/k).
+    /// d from the pinned edges, text at its start, <see cref="RtssPadPx"/> spare at its end":
+    /// near edge L = d/k (or −d/k when pinned to the far edge), far edge R = −(d+pad)/k (or (d−pad)/k).
+    /// d is <see cref="RtssGapPx"/> in a corner, more for a spot further in (see <see cref="RtssPlace"/>).
     /// Left and top padding come from spacers instead (<see cref="RtssLeftSpacer"/>, <see cref="RtssTopSpacer"/>).
     /// The spacing was tuned to match our own window, and checked across corners, layouts and readings.
     /// </summary>
-    private static (int Left, int Top, int Right, int Bottom) RtssMargins(bool right, bool bottom, double scale)
+    /// <remarks>
+    /// Centred anchors follow the same rule as a near edge with d the shift from the middle: the layer grows by the
+    /// padding and stays centred, so the panel's middle lands d from the screen's (measured: any text width, either way).
+    /// </remarks>
+    private static (int Left, int Top, int Right, int Bottom) RtssMargins(int anchor, int dx, int dy, double scale)
     {
-        int near = RtssGapPx / RtssZoom;
-        int Far(bool pinnedFar, int padAt1) { int pad = (int)Math.Round(padAt1 * scale); return pinnedFar ? (RtssGapPx - pad) / RtssZoom : -(RtssGapPx + pad) / RtssZoom; }
-        return (right ? -near : near, bottom ? -near : near, Far(right, RtssPadPx), Far(bottom, RtssPadBottomPx));
+        int padX = (int)Math.Round(RtssPadPx * scale), padY = (int)Math.Round(RtssPadBottomPx * scale);
+        var (left, right) = Axis(OverlayPlacement.Column(anchor) == 2, dx, padX);
+        var (top, bottom) = Axis(OverlayPlacement.Row(anchor) == 2, dy, padY);
+        return (left, top, right, bottom);
+
+        static (int Near, int Far) Axis(bool pinnedFar, int d, int pad) =>
+            pinnedFar ? (-(d / RtssZoom), (d - pad) / RtssZoom) : (d / RtssZoom, -(d + pad) / RtssZoom);
     }
 
     /// <summary>A unit that starts with a number ("1% low") needs a space after the value; others sit close ("6.9ms" reads as "6.9 ms").</summary>

@@ -18,7 +18,7 @@ public sealed class SettingsNormalizeTests
         Assert.Equal(300, s.ChartWindowSeconds);
         Assert.Equal("home", s.StartPage);
         Assert.True(s.AutoUpdate);
-        Assert.Equal(Enum.GetValues<WidgetStyle>(), s.Widgets.Select(w => w.Style));
+        Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
         Assert.Equal([WidgetStyle.Pill], s.Widgets.Where(w => w.Enabled).Select(w => w.Style));
         Assert.Equal(OverlaySettings.DefaultMetrics(), s.Overlay.Metrics);
         Assert.Equal(OverlaySettings.DefaultHotkey, s.Overlay.Hotkey);
@@ -144,7 +144,7 @@ public sealed class SettingsNormalizeTests
               { "Style": "Graph", "Enabled": false, "X": 2 }
             ]
             """);
-        Assert.Equal(Enum.GetValues<WidgetStyle>(), s.Widgets.Select(w => w.Style));
+        Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
         var graph = s.Widgets.Single(w => w.Style == WidgetStyle.Graph);
         Assert.True(graph.Enabled);
         Assert.Equal(1, graph.X);
@@ -155,7 +155,7 @@ public sealed class SettingsNormalizeTests
     public void An_empty_widget_list_gets_every_style_off()
     {
         var s = Load("\"Widgets\": []");
-        Assert.Equal(Enum.GetValues<WidgetStyle>(), s.Widgets.Select(w => w.Style));
+        Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
         Assert.All(s.Widgets, w => Assert.False(w.Enabled));
     }
 

@@ -27,9 +27,9 @@ It records quietly in the background using about **0.01% of your CPU**, and ever
 - **📅 Your day, minute by minute.** Reports for any day, week, month or year: which app was in front, how hot things ran, your longest sessions, and anything worth noticing.
 - **🧩 Where your time and heat go.** Time per app, how hot each game runs your PC, and how that changes over time.
 - **💥 Crashes, explained in plain words.** App crashes, freezes, driver resets, blue screens and sudden shutdowns, with what probably happened, what to try, and what changed before it started.
-- **🎮 Your numbers, inside the game.** Press `Alt+Shift+O` for a small overlay with FPS, temperatures, load and anything else you pick, in colour or grayscale. It works in fullscreen games too and is safe with anti-cheat.
+- **🎮 Your numbers, inside the game.** Press `Alt+Shift+O` for a small overlay with FPS, temperatures, load and anything else you pick, in colour or grayscale, anywhere on the screen. It works in fullscreen games too and is safe with anti-cheat.
 - **🧱 Your own dashboards.** Build pages from tiles and arrange them however you like.
-- **🖥️ On your desktop.** Six widgets, a tray icon with a health dot, and calm notifications: a daily recap, game summaries and temperature alerts.
+- **🖥️ On your desktop.** Seven widgets you can edit, or make your own with any readings, a tray icon with a health dot, and calm notifications: a daily recap, game summaries and temperature alerts.
 - **💾 Storage and memory.** Drive space and health, cleanup suggestions, and which apps use your memory.
 - **⚫ Black, grey or white.** A pure black, dark grey or pure white app, or let it follow Windows.
 

@@ -56,6 +56,12 @@ public class NotificationTests
         var l = light.GetPixel(light.Width - 40, light.Height - 12);
         Assert.True(d.R == d.G && d.G == d.B && d.R < 30, $"dark card {d}"); // neutral, not the old navy
         Assert.True(l.R == l.G && l.G == l.B && l.R > 245, $"light card {l}");
+        // The Grey theme: a dark grey card; grey never wins over light.
+        using var grey = ToastRenderer.Render(n, 1, false, light: false, out _, grey: true);
+        var g = grey.GetPixel(grey.Width - 40, grey.Height - 12);
+        Assert.True(g.R == g.G && g.G == g.B && g.R is > 40 and < 60, $"grey card {g}");
+        using var lightWins = ToastRenderer.Render(n, 1, false, light: true, out _, grey: true);
+        Assert.True(SamePixels(light, lightWins));
         // Each kind's colour stays its own on white too.
         var kinds = Enum.GetValues<NoticeKind>();
         Assert.Equal(5, kinds.Select(k => ToastRenderer.Accent(k, light: true)).Distinct().Count());

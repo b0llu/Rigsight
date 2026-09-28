@@ -114,7 +114,7 @@ internal sealed class WidgetForm : Form
             case WM_LBUTTONUP:
                 if (_closeRect.Contains(PointToClient(Cursor.Position)))
                 {
-                    _manager.Mutate(Config.Style, c => c.Enabled = false);
+                    _manager.Mutate(Config.Id, c => c.Enabled = false);
                     return;
                 }
                 break;
@@ -125,7 +125,7 @@ internal sealed class WidgetForm : Form
                 return;
 
             case WM_EXITSIZEMOVE:
-                _manager.Mutate(Config.Style, c => { c.X = Left; c.Y = Top; });
+                _manager.Mutate(Config.Id, c => { c.X = Left; c.Y = Top; });
                 break;
 
             case WM_DPICHANGED:

@@ -136,26 +136,9 @@
                             <TextBlock Text="Preview appears when the agent is running" Style="{StaticResource Muted}" FontSize="12"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <!-- Drawn at twice the size for sharpness; shown at its real size, in the chosen corner. -->
-                            <Viewbox StretchDirection="DownOnly" Margin="14">
-                                <Viewbox.Style>
-                                    <Style TargetType="Viewbox">
-                                        <Setter Property="HorizontalAlignment" Value="Left" />
-                                        <Setter Property="VerticalAlignment" Value="Top" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Corner}" Value="TopRight">
-                                                <Setter Property="HorizontalAlignment" Value="Right" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Corner}" Value="BottomLeft">
-                                                <Setter Property="VerticalAlignment" Value="Bottom" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Corner}" Value="BottomRight">
-                                                <Setter Property="HorizontalAlignment" Value="Right" />
-                                                <Setter Property="VerticalAlignment" Value="Bottom" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Viewbox.Style>
+                            <!-- Drawn at twice the size for sharpness; shown at its real size, on the side it's placed. -->
+                            <Viewbox StretchDirection="DownOnly" Margin="14"
+                                     HorizontalAlignment="{Binding PreviewHorizontal}" VerticalAlignment="{Binding PreviewVertical}">
                                 <Image Source="{Binding Preview}" Stretch="None" RenderOptions.BitmapScalingMode="HighQuality">
                                     <Image.LayoutTransform>
                                         <ScaleTransform ScaleX="0.5" ScaleY="0.5" />
@@ -284,21 +267,18 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="Look" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="CORNER" Style="{StaticResource OptionLabel}" />
-                        <Border Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Top left" GroupName="corner"
-                                             IsChecked="{Binding Corner, Converter={StaticResource Equals}, ConverterParameter=TopLeft}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Top right" GroupName="corner"
-                                             IsChecked="{Binding Corner, Converter={StaticResource Equals}, ConverterParameter=TopRight}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Bottom left" GroupName="corner"
-                                             IsChecked="{Binding Corner, Converter={StaticResource Equals}, ConverterParameter=BottomLeft}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Bottom right" GroupName="corner"
-                                             IsChecked="{Binding Corner, Converter={StaticResource Equals}, ConverterParameter=BottomRight}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
+                    <DockPanel Margin="0,4,0,8">
+                        <TextBlock Text="POSITION" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
+                        <ctl:OverlayScreen Width="440" DockPanel.Dock="Left" VerticalAlignment="Top" AutomationProperties.Name="Overlay position"
+                                           Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" />
+                        <StackPanel Margin="16,0,0,0" VerticalAlignment="Top">
+                            <TextBlock Text="Drag it anywhere, even partly off the screen. It snaps to the corners, edges and centre."
+                                       Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" />
+                            <TextBlock Text="In games RivaTuner draws in, it stops at the left and top edges: RivaTuner can't draw past them."
+                                       FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Visibility="{Binding HangsOffLeftOrTop, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </DockPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
                         <TextBlock Text="LAYOUT" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
@@ -362,7 +342,7 @@
                     <StackPanel>
                         <TextBlock Text="Rigsight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) Rigsight draws it itself. Either way it uses the readings, corner, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
+                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) Rigsight draws it itself. Either way it uses the readings, position, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"
                                    Text="A game that was already open when RivaTuner started needs a restart. Rigsight itself never hooks into games, so it's safe with anti-cheat." />
                     </StackPanel>

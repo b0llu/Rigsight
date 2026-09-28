@@ -117,7 +117,8 @@ internal sealed class OverlayManager : IDisposable
 
         if (InGameRtssReaches())
         {
-            _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data));
+            int pid = ForegroundPid();
+            _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size));
             if (_form is { Visible: true }) _form.Hide();
             return;
         }
@@ -151,6 +152,18 @@ internal sealed class OverlayManager : IDisposable
     /// <summary>A Direct3D game is running in exclusive fullscreen in front (not borderless, not minimised).</summary>
     private static bool IsExclusiveFullscreen() =>
         Win32.SHQueryUserNotificationState(out int state) == 0 && state == Win32.QUNS_RUNNING_D3D_FULL_SCREEN;
+
+    /// <summary>The screen (in pixels) of whatever is in front.</summary>
+    internal static System.Drawing.Rectangle ForegroundScreen() => ScreenOf(Win32.GetForegroundWindow());
+
+    internal static System.Drawing.Rectangle ScreenOf(IntPtr window)
+    {
+        IntPtr monitor = Win32.MonitorFromWindow(window, 2 /* MONITOR_DEFAULTTONEAREST */);
+        var info = new Win32.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Win32.MONITORINFO>() };
+        return Win32.GetMonitorInfo(monitor, ref info)
+            ? System.Drawing.Rectangle.FromLTRB(info.rcMonitor.Left, info.rcMonitor.Top, info.rcMonitor.Right, info.rcMonitor.Bottom)
+            : Screen.PrimaryScreen!.Bounds;
+    }
 
     private static int ForegroundPid()
     {

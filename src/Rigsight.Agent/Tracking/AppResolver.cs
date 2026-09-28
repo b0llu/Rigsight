@@ -104,10 +104,12 @@ internal sealed class AppResolver
         _byExe.Clear();
         foreach (var a in db.LoadApps())
         {
-            // Names saved by older versions ("Microsoft® Windows® Operating System" for a screenshot) get fixed once.
+            // Names saved by older versions ("Microsoft® Windows® Operating System" for a screenshot, or a game's file
+            // name where its library now gives the real one) get fixed once.
             var name = a.Name;
             if (AppCatalog.KnownName(a.Exe) is { } known && known != name) name = known;
-            else if (AppCatalog.IsGenericName(name)) name = AppCatalog.ResolveName(a.Exe, a.Path);
+            else if (AppCatalog.IsGenericName(name) || name == AppCatalog.FallbackName(a.Exe) && AppCatalog.GameName(a.Path) is not null)
+                name = AppCatalog.ResolveName(a.Exe, a.Path);
             if (name != a.Name)
             {
                 try { db.UpsertApp(a.Exe, name, a.Path, a.Category); }

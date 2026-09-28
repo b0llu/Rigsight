@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Apps;
@@ -94,6 +95,9 @@ public static class AppCatalog
         ["dwm.exe"] = "Windows display (DWM)", ["svchost.exe"] = "Windows service", ["systemsettings.exe"] = "Settings",
         ["wallpaper32.exe"] = "Wallpaper Engine", ["wallpaper64.exe"] = "Wallpaper Engine", ["wallpaperservice32.exe"] = "Wallpaper Engine service",
         ["wallpaperservice64.exe"] = "Wallpaper Engine service",
+        // Anti-cheat launchers sit in the game's folder; named after the game they'd look like a second copy of it.
+        ["start_protected_game.exe"] = "Easy Anti-Cheat", ["easyanticheat.exe"] = "Easy Anti-Cheat",
+        ["easyanticheat_eos_setup.exe"] = "Easy Anti-Cheat setup",
     };
 
     /// <summary>A built-in name for this exe, if it has one.</summary>
@@ -131,7 +135,63 @@ public static class AppCatalog
                 // Access denied or not a PE file: fall through.
             }
         }
+        if (!NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase) && GameName(path) is { Length: <= 48 } game) return game;
         return FallbackName(exe);
+    }
+
+    // Game libraries whose next folder is the game's own (…\steamapps\common\Rematch\…), most specific first.
+    private static readonly string[] Libraries =
+    [
+        @"\steamapps\common\", @"\epic games\", @"\gog galaxy\games\", @"\ubisoft game launcher\games\", @"\riot games\",
+        @"\xboxgames\", @"\ea games\", @"\rockstar games\", @"\games\",
+    ];
+
+    /// <summary>
+    /// The game's name from where it's installed, for exes that don't name themselves (Unreal games are all
+    /// "&lt;Project&gt;-Win64-Shipping.exe" with no description): Steam's own name for it, or else its folder.
+    /// </summary>
+    public static string? GameName(string? path)
+    {
+        if (path is null) return null;
+        foreach (var library in Libraries)
+        {
+            int i = path.IndexOf(library, StringComparison.OrdinalIgnoreCase);
+            if (i < 0) continue;
+            int start = i + library.Length, end = path.IndexOf('\\', start);
+            if (end <= start) return null; // the exe sits in the library folder itself
+            var folder = path[start..end];
+            if (library == Libraries[0] && SteamName(path[..(i + @"\steamapps".Length)], folder) is { } steam) return steam;
+            return folder;
+        }
+        return null;
+    }
+
+    private static readonly Regex AcfLine = new(@"^\s*""(name|installdir)""\s+""(.*)""\s*$", RegexOptions.IgnoreCase);
+
+    /// <summary>The name Steam shows for the game installed in steamapps\common\<paramref name="installDir"/>.</summary>
+    private static string? SteamName(string steamapps, string installDir)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(steamapps, "appmanifest_*.acf"))
+            {
+                string? name = null, dir = null;
+                foreach (var line in File.ReadLines(file))
+                {
+                    var m = AcfLine.Match(line);
+                    if (!m.Success) continue;
+                    if (m.Groups[1].Value.Equals("name", StringComparison.OrdinalIgnoreCase)) name ??= m.Groups[2].Value.Trim();
+                    else dir ??= m.Groups[2].Value.Trim();
+                    if (name is not null && dir is not null) break;
+                }
+                if (installDir.Equals(dir, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(name)) return name;
+            }
+        }
+        catch
+        {
+            // No access, or the library moved: the folder name will do.
+        }
+        return null;
     }
 
     public static string Label(AppCategory c) => c switch

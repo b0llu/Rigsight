@@ -113,13 +113,29 @@ public static class SettingsStore
 
         if (s.Theme is not ("dark" or "grey" or "light" or "system")) s.Theme = "dark";
 
-        foreach (var style in Enum.GetValues<WidgetStyle>())
-            if (s.Widgets.All(w => w.Style != style))
-                s.Widgets.Add(new WidgetConfig { Style = style });
-        s.Widgets = [.. s.Widgets.GroupBy(w => w.Style).Select(g => g.First()).OrderBy(w => w.Style)];
+        // One of each built-in widget, in order, then the user's own (each with its own identifier, name and layout).
+        var widgets = (s.Widgets ?? []).Where(w => w is not null && Enum.IsDefined(w.Style)).ToList();
+        foreach (var style in WidgetCatalog.BuiltIn)
+            if (widgets.All(w => w.Style != style))
+                widgets.Add(new WidgetConfig { Style = style });
+        var builtIn = widgets.Where(w => w.Style != WidgetStyle.Custom).GroupBy(w => w.Style).Select(g => g.First()).OrderBy(w => w.Style);
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var custom = new List<WidgetConfig>();
+        foreach (var w in widgets.Where(w => w.Style == WidgetStyle.Custom).Take(WidgetCatalog.MaxCustom))
+        {
+            if (string.IsNullOrWhiteSpace(w.Id) || !w.Id.StartsWith("custom-", StringComparison.Ordinal) || !ids.Add(w.Id))
+                ids.Add(w.Id = WidgetCatalog.NewId());
+            string name = (w.Name ?? "").Trim();
+            w.Name = name.Length == 0 ? WidgetCatalog.Title(WidgetStyle.Custom) : name.Length > WidgetCatalog.MaxNameLength ? name[..WidgetCatalog.MaxNameLength] : name;
+            if (w.Layout is not { } layout || !WidgetCatalog.CustomLayouts.Contains(layout)) w.Layout = WidgetLayout.Bar;
+            custom.Add(w);
+        }
+        s.Widgets = [.. builtIn, .. custom];
 
         foreach (var w in s.Widgets)
         {
+            if (w.Style != WidgetStyle.Custom) (w.Id, w.Name, w.Layout) = (w.Style.ToString(), null, null);
+            WidgetCatalog.Clean(w);
             if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
             w.BackgroundOpacity = Math.Clamp(w.BackgroundOpacity, 0, 1.0);
             w.ContentOpacity = Math.Clamp(w.ContentOpacity, 0.2, 1.0);
@@ -130,6 +146,10 @@ public static class SettingsStore
         o.BackgroundOpacity = Math.Clamp(o.BackgroundOpacity, 0, 1.0);
         o.ContentOpacity = Math.Clamp(o.ContentOpacity, 0.2, 1.0);
         o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
+        // Before 0.8 the overlay went in one of four corners: no anchor means that corner's (see OverlayPlacement.AnchorOf).
+        if (o.Anchor is int anchor) o.Anchor = Math.Clamp(anchor, 0, 8);
+        o.OffsetX = double.IsFinite(o.OffsetX) ? Math.Clamp(o.OffsetX, -1, 1) : 0;
+        o.OffsetY = double.IsFinite(o.OffsetY) ? Math.Clamp(o.OffsetY, -1, 1) : 0;
         if (!Hotkey.TryParse(o.Hotkey, out _)) o.Hotkey = OverlaySettings.DefaultHotkey;
         o.Metrics = [.. (o.Metrics ?? []).Where(m => Enum.IsDefined(m)).Distinct().Order()];
         o.Sensors = [.. (o.Sensors ?? []).Where(x => !string.IsNullOrWhiteSpace(x?.Id)).DistinctBy(x => x.Id).Take(OverlaySettings.MaxSensors)];

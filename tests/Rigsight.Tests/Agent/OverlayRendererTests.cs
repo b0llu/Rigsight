@@ -179,6 +179,51 @@ public partial class OverlayRendererTests
     }
 
     [Theory]
+    [InlineData(0, "<P0>", "<M=8,8,-13,-13>")]
+    [InlineData(2, "<P2>", "<M=-8,8,3,-13>")]
+    [InlineData(6, "<P6>", "<M=8,-8,-13,2>")]
+    [InlineData(8, "<P8>", "<M=-8,-8,3,2>")]
+    public void An_anchor_in_a_corner_is_exactly_the_old_corner(int anchor, string position, string margins)
+    {
+        var o = AllMetrics();
+        (o.Anchor, o.Corner) = (anchor, OverlayCorner.TopLeft); // the anchor wins over the old setting
+        Assert.StartsWith("<FNT=Segoe UI Semibold,-8,600,2>" + position + "<L0>" + margins, WidgetRenderer.RtssText(o, Full(), new Size(2560, 1440)));
+    }
+
+    [Fact]
+    public void A_spot_further_in_is_the_same_share_of_the_games_screen()
+    {
+        var o = AllMetrics();
+        (o.Anchor, o.OffsetX, o.OffsetY) = (0, 0.1, 0.05);
+        // 1920 × 1080: 16 + 192 across, 16 + 54 down; margins are in RivaTuner's 2× units, padding as in a corner.
+        Assert.Contains("<P0><L0><M=104,35,-109,-40>", WidgetRenderer.RtssText(o, Full(), new Size(1920, 1080)));
+        // From the bottom right, moved up and left: still pinned there, so it grows away from that corner.
+        (o.Anchor, o.OffsetX, o.OffsetY) = (8, -0.1, -0.05);
+        Assert.Contains("<P8><L0><M=-104,-35,99,29>", WidgetRenderer.RtssText(o, Full(), new Size(1920, 1080)));
+    }
+
+    [Fact]
+    public void Past_the_left_or_top_edge_it_sits_against_the_edge_in_rivatuner()
+    {
+        var o = AllMetrics();
+        (o.Anchor, o.OffsetX, o.OffsetY) = (0, -0.2, -0.2);
+        Assert.Contains("<P0><L0><M=0,0,", WidgetRenderer.RtssText(o, Full(), new Size(1920, 1080)));
+    }
+
+    [Theory]
+    [InlineData(4, 0.0, 0.0, "<P4><L0><M=0,0,-5,-5>")]        // centred: RivaTuner keeps it centred, whatever its width
+    [InlineData(4, 0.1, -0.05, "<P4><L0><M=96,-27,-101,21>")]  // away from the middle
+    [InlineData(1, -0.1, 0.0, "<P1><L0><M=-96,8,91,-13>")]     // top middle, left of centre
+    [InlineData(2, 0.1, 0.0, "<P2><L0><M=88,8,-93,-13>")]      // hanging off the right edge: a negative distance from it
+    [InlineData(6, 0.0, 0.05, "<P6><L0><M=8,19,-13,-24>")]     // off the bottom edge
+    public void Every_anchor_is_rivatuners_own_so_the_size_never_matters(int anchor, double offsetX, double offsetY, string place)
+    {
+        var o = AllMetrics();
+        (o.Anchor, o.OffsetX, o.OffsetY) = (anchor, offsetX, offsetY);
+        Assert.Contains(place, WidgetRenderer.RtssText(o, Full(), new Size(1920, 1080)));
+    }
+
+    [Theory]
     [InlineData(1.0, "-8", "<M=8,8,-13,-13>")]
     [InlineData(2.0, "-16", "<M=8,8,-18,-19>")]
     [InlineData(0.6, "-5", "<M=8,8,-11,-11>")]

@@ -118,6 +118,21 @@ public sealed class AppResolverTests : IDisposable
     }
 
     [Fact]
+    public void A_game_saved_under_its_file_name_gets_its_library_name_when_loaded()
+    {
+        var game = Path.Combine(TestEnvironment.NewFolder("steam"), "steamapps", "common", "Rematch", "Win64", "RuntimeClient-Win64-Shipping.exe");
+        _db.UpsertApp("RuntimeClient-Win64-Shipping.exe", "Runtimeclient Win64 Shipping", game, AppCategory.Game);
+        _db.UpsertApp("tool.exe", "Tool", @"C:\Program Files\Tool\tool.exe", AppCategory.Other);
+        _db.UpsertApp("renamed.exe", "Renamed By Its Exe", @"E:\Games\Something\renamed.exe", AppCategory.Game);
+        var apps = new AppResolver(_db);
+        var names = apps.All.ToDictionary(a => a.Exe, a => a.Name);
+        Assert.Equal("Rematch", names["RuntimeClient-Win64-Shipping.exe"]);
+        Assert.Equal("Tool", names["tool.exe"]);
+        Assert.Equal("Renamed By Its Exe", names["renamed.exe"]); // a name of its own stays
+        Assert.Equal("Rematch", _db.LoadApps().Single(a => a.Exe == "RuntimeClient-Win64-Shipping.exe").Name);
+    }
+
+    [Fact]
     public void Marking_as_a_game_is_saved()
     {
         var apps = new AppResolver(_db);

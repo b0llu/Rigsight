@@ -29,6 +29,23 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.8.0", 9, 28,
+            added:
+            [
+                "Put the overlay anywhere: drag it on Overlay → Look → Position, even partly off the screen. It snaps to the corners, edges and centre.",
+                "Make your own widgets: pick a layout (bar, tiles, gauges or graph) and any readings, sensors included (Widgets → Create widget).",
+                "Edit any widget: add FPS to the slim bar, reorder, rename readings. Built-in ones can go back to how they were.",
+                "An FPS widget for a second screen while you play, and widgets in Grey or Grayscale.",
+            ],
+            better:
+            [
+                "While you play a game, the widgets on its screen step aside, so they never add lag or turn off G-Sync. In games, use the overlay.",
+                "Notification cards follow the Grey theme.",
+            ],
+            fixedBugs:
+            [
+                "Games that don't name themselves now show their real name, like REMATCH instead of \"Runtimeclient Win64 Shipping\".",
+            ]),
         V("0.7.1", 9, 27,
             added:
             [

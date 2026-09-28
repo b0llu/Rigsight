@@ -47,7 +47,7 @@ public sealed class SettingsStoreTests
         Assert.True(s.UseFahrenheit);
         AssertComplete(s);
         Assert.Equal(730, s.Tracking.KeepHistoryDays);
-        Assert.Equal(Enum.GetValues<WidgetStyle>(), s.Widgets.Select(w => w.Style));
+        Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class SettingsStoreTests
     {
         Assert.NotNull(s.Widgets);
         Assert.All(s.Widgets, Assert.NotNull);
-        Assert.Equal(Enum.GetValues<WidgetStyle>().Length, s.Widgets.Count);
+        Assert.Equal(WidgetCatalog.BuiltIn.Count, s.Widgets.Count);
         Assert.NotNull(s.Overlay);
         Assert.NotNull(s.Overlay.Metrics);
         Assert.NotNull(s.Overlay.Sensors);

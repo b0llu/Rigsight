@@ -85,7 +85,7 @@ public sealed class SettingsModelTests
         Assert.Equal("Ex", sent.AppNames["x.exe"]);
         // Everything else too, not just what changed.
         Assert.True(sent.StartupConfigured);
-        Assert.Equal(Enum.GetValues<WidgetStyle>().Length, sent.Widgets.Count);
+        Assert.Equal(WidgetCatalog.BuiltIn.Count, sent.Widgets.Count);
         Assert.Contains(sent.CustomPages, p => p.Id == SharedData.DashboardId);
     }
 

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -51,6 +52,36 @@ internal static unsafe class Rtss
     public static void Clear(string owner = Owner) => Use(memory => WriteEntry(memory, null, owner));
 
     /// <summary>Whether RTSS is drawing inside this process (so our own window isn't needed there).</summary>
+    /// <summary>RivaTuner is running (its shared memory is live): cheaper than looking for the process.</summary>
+    public static bool IsLive() => Use(_ => true);
+
+    // The app entry's render resolution (dwResolutionX/Y, 2.13+): found at this place by measuring (1024 × 768 for
+    // DesktopOverlayHost64, RTSS 7.3.5, memory version 2.21).
+    private const int ResolutionAt = 9224;
+
+    /// <summary>The size the game RivaTuner is in renders at (the overlay's pixels), or null when it doesn't say.</summary>
+    public static Size? Resolution(int pid)
+    {
+        Size? size = null;
+        if (pid <= 0) return null;
+        Use(memory =>
+        {
+            if (U(memory, VersionAt) < 0x0002000D) return false;
+            uint entrySize = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);
+            if (!Fits(offset, count, entrySize, ResolutionAt + 8)) return false;
+            for (uint i = 0; i < count; i++)
+            {
+                byte* entry = memory + offset + i * entrySize;
+                if (*(int*)entry != pid) continue;
+                uint w = U(entry, ResolutionAt), h = U(entry, ResolutionAt + 4);
+                if (w is >= 320 and <= 16384 && h is >= 200 and <= 16384) size = new Size((int)w, (int)h);
+                return true;
+            }
+            return false;
+        });
+        return size;
+    }
+
     public static bool IsHooked(int pid) => pid > 0 && Use(memory =>
     {
         uint size = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);

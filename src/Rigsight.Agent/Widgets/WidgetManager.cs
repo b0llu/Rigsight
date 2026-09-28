@@ -5,42 +5,31 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Agent.Widgets;
 
 /// <summary>Creates, updates and positions widget windows according to settings. UI thread only.</summary>
-internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<Action<RigsightSettings>> mutateSettings, Action openWidgetSettings)
+internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<Action<RigsightSettings>> mutateSettings, Action<string?> openWidgetSettings)
 {
-    private readonly Dictionary<WidgetStyle, WidgetForm> _forms = [];
+    private readonly Dictionary<string, WidgetForm> _forms = [];
     private WidgetData? _data;
-    private bool _fullscreen;
+    private IntPtr _gameMonitor;
 
-    public static string DisplayName(WidgetStyle style) => style switch
-    {
-        WidgetStyle.Compact => "Compact",
-        WidgetStyle.Pill => "Slim bar",
-        WidgetStyle.Gauges => "Gauges",
-        WidgetStyle.NowPlaying => "Now playing",
-        WidgetStyle.Today => "Today",
-        _ => "Temperature graph",
-    };
+    public static string DisplayName(WidgetStyle style) => WidgetCatalog.Title(style);
 
     public void Apply(RigsightSettings settings)
     {
-        foreach (var cfg in settings.Widgets)
+        // Gone from settings (a widget of the user's own deleted) or turned off: its window goes.
+        var shown = settings.Widgets.Where(w => w.Enabled).Select(w => w.Id).ToHashSet();
+        foreach (var id in _forms.Keys.Where(id => !shown.Contains(id)).ToList())
         {
-            _forms.TryGetValue(cfg.Style, out var form);
-            if (!cfg.Enabled)
-            {
-                if (form is not null)
-                {
-                    form.Close();
-                    form.Dispose();
-                    _forms.Remove(cfg.Style);
-                }
-                continue;
-            }
-
+            _forms[id].Close();
+            _forms[id].Dispose();
+            _forms.Remove(id);
+        }
+        foreach (var cfg in settings.Widgets.Where(w => w.Enabled))
+        {
+            _forms.TryGetValue(cfg.Id, out var form);
             if (form is null)
             {
                 form = new WidgetForm(cfg, this);
-                _forms[cfg.Style] = form;
+                _forms[cfg.Id] = form;
                 if (_data is not null) form.UpdateData(_data);
                 PlaceInitially(form, cfg);
             }
@@ -74,27 +63,46 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         form.Redraw();
     }
 
-    public void Update(WidgetData data, bool fullscreen)
+    /// <param name="gameMonitor">The screen of the game in front, or zero.</param>
+    public void Update(WidgetData data, IntPtr gameMonitor)
     {
-        _data = data;
-        if (_fullscreen != fullscreen)
+        if (_forms.Values.Any(f => ShowsFrameRate(f.Config)))
         {
-            _fullscreen = fullscreen;
-            UpdateVisibility();
+            // Its own copy: the overlay sets the frame rate on the shared data only when it shows it.
+            data = data.Copy();
+            data.Frame = Rtss.ReadFrameStats(ForegroundPid());
+            data.RtssRunning = data.Frame is not null || Rtss.IsLive();
         }
+        _data = data;
+        if (gameMonitor != _gameMonitor && _forms.Count > 0)
+            Rigsight.Core.Log.Write("widgets", gameMonitor == IntPtr.Zero ? "Showing again" : $"Stepping aside for {data.Activity.Name ?? "a game"}");
+        _gameMonitor = gameMonitor;
+        UpdateVisibility();
         foreach (var form in _forms.Values)
             form.UpdateData(data);
     }
 
+    /// <summary>Whether a widget shows anything from RivaTuner (frame rate, frame time, 1% low).</summary>
+    public static bool ShowsFrameRate(WidgetConfig cfg) =>
+        WidgetCatalog.ItemsOf(cfg).Any(i => WidgetCatalog.Metric(i.Id) is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow);
+
+    private static int ForegroundPid()
+    {
+        Native.Win32.GetWindowThreadProcessId(Native.Win32.GetForegroundWindow(), out int pid);
+        return pid;
+    }
+
+    /// <summary>
+    /// Widgets are for the desktop and apps (fullscreen videos too): on the screen of a game in front, windowed or
+    /// not, they step aside and the overlay takes over (a window over a game makes Windows compose its frames: later
+    /// on screen, G-Sync/FreeSync off). Widgets on other screens stay.
+    /// </summary>
     private void UpdateVisibility()
     {
         foreach (var form in _forms.Values)
         {
-            bool show = form.Config.Visibility switch
-            {
-                WidgetVisibility.HideInFullscreen => !_fullscreen,
-                _ => true,
-            };
+            bool show = _gameMonitor == IntPtr.Zero ||
+                Native.Win32.MonitorFromWindow(form.Handle, 2 /* MONITOR_DEFAULTTONEAREST */) != _gameMonitor;
             if (show && !form.Visible)
             {
                 form.Show();
@@ -107,11 +115,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         }
     }
 
-    public void Mutate(WidgetStyle style, Action<WidgetConfig> change) =>
+    public void Mutate(string id, Action<WidgetConfig> change) =>
         mutateSettings(s =>
         {
-            var cfg = s.Widgets.First(w => w.Style == style);
-            change(cfg);
+            if (s.Widgets.FirstOrDefault(w => w.Id == id) is { } cfg) change(cfg);
         });
 
     public void ShowMenu(WidgetForm form, Point at)
@@ -119,38 +126,34 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         var cfg = form.Config;
         var menu = DarkMenu();
 
-        menu.Items.Add(Header(DisplayName(cfg.Style) + " widget"));
+        menu.Items.Add(Header(WidgetCatalog.Title(cfg) + (cfg.Style == WidgetStyle.Custom ? "" : " widget")));
         menu.Items.Add(new ToolStripSeparator());
 
         var theme = new ToolStripMenuItem("Theme");
-        foreach (var t in new[] { WidgetTheme.Dark, WidgetTheme.Light, WidgetTheme.System })
-            theme.DropDownItems.Add(Check(t.ToString(), cfg.Theme == t, () => Mutate(cfg.Style, c => c.Theme = t)));
+        foreach (var t in new[] { WidgetTheme.Dark, WidgetTheme.Grey, WidgetTheme.Light, WidgetTheme.System })
+            theme.DropDownItems.Add(Check(t.ToString(), cfg.Theme == t, () => Mutate(cfg.Id, c => c.Theme = t)));
         menu.Items.Add(theme);
 
         var background = new ToolStripMenuItem("Background opacity");
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.5, 0.25, 0.0 })
-            background.DropDownItems.Add(Check(o == 0 ? "None" : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Style, c => c.BackgroundOpacity = o)));
+            background.DropDownItems.Add(Check(o == 0 ? "None" : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.BackgroundOpacity = o)));
         menu.Items.Add(background);
 
         var contentOpacity = new ToolStripMenuItem("Content opacity");
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.6, 0.45 })
-            contentOpacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.ContentOpacity - o) < 0.01, () => Mutate(cfg.Style, c => c.ContentOpacity = o)));
+            contentOpacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.ContentOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.ContentOpacity = o)));
         menu.Items.Add(contentOpacity);
 
         var size = new ToolStripMenuItem("Size");
         foreach (var (label, s) in new[] { ("Small", 0.8), ("Normal", 1.0), ("Large", 1.25), ("Extra large", 1.5) })
-            size.DropDownItems.Add(Check(label, Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Style, c => c.Scale = s)));
+            size.DropDownItems.Add(Check(label, Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Id, c => c.Scale = s)));
         menu.Items.Add(size);
 
-        var show = new ToolStripMenuItem("Show");
-        show.DropDownItems.Add(Check("Always", cfg.Visibility == WidgetVisibility.Always, () => Mutate(cfg.Style, c => c.Visibility = WidgetVisibility.Always)));
-        show.DropDownItems.Add(Check("Hide during fullscreen apps", cfg.Visibility == WidgetVisibility.HideInFullscreen, () => Mutate(cfg.Style, c => c.Visibility = WidgetVisibility.HideInFullscreen)));
-        menu.Items.Add(show);
-
-        menu.Items.Add(Check("Lock in place (click-through)", cfg.Locked, () => Mutate(cfg.Style, c => c.Locked = !c.Locked)));
+        menu.Items.Add(Check("Grayscale", cfg.Grayscale, () => Mutate(cfg.Id, c => c.Grayscale = !c.Grayscale)));
+        menu.Items.Add(Check("Lock in place (click-through)", cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Item("More widget options…", openWidgetSettings));
-        menu.Items.Add(Item("Hide this widget", () => Mutate(cfg.Style, c => c.Enabled = false)));
+        menu.Items.Add(Item("Edit widget…", () => openWidgetSettings(cfg.Id)));
+        menu.Items.Add(Item("Hide this widget", () => Mutate(cfg.Id, c => c.Enabled = false)));
 
         menu.Closed += (_, _) => menu.BeginInvoke(menu.Dispose);
         menu.Show(at);
@@ -164,16 +167,23 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         {
             root.DropDownItems.Clear();
             var settings = getSettings();
-            foreach (var cfg in settings.Widgets)
-            {
-                var style = cfg.Style;
-                root.DropDownItems.Add(Check(DisplayName(style), cfg.Enabled, () => Mutate(style, c => c.Enabled = !c.Enabled)));
-            }
+            // The built-in ones (FPS first, as on the Widgets page), then the user's own.
+            var builtIn = settings.Widgets.Where(w => w.Style != WidgetStyle.Custom).OrderBy(w => w.Style != WidgetStyle.Fps).ToList();
+            var custom = settings.Widgets.Where(w => w.Style == WidgetStyle.Custom).ToList();
+            foreach (var cfg in builtIn) root.DropDownItems.Add(Toggle(cfg));
+            if (custom.Count > 0) root.DropDownItems.Add(new ToolStripSeparator());
+            foreach (var cfg in custom) root.DropDownItems.Add(Toggle(cfg));
             root.DropDownItems.Add(new ToolStripSeparator());
             root.DropDownItems.Add(Item("Unlock all widgets", () => mutateSettings(s => s.Widgets.ForEach(w => w.Locked = false))));
-            root.DropDownItems.Add(Item("Widget settings…", openWidgetSettings));
+            root.DropDownItems.Add(Item("Widget settings…", () => openWidgetSettings(null)));
         };
         root.DropDownItems.Add("…"); // placeholder so the arrow shows
+
+        ToolStripMenuItem Toggle(WidgetConfig cfg)
+        {
+            string id = cfg.Id;
+            return Check(WidgetCatalog.Title(cfg), cfg.Enabled, () => Mutate(id, c => c.Enabled = !c.Enabled));
+        }
         if (root.DropDown is ToolStripDropDownMenu dd) dd.Renderer = new DarkMenuRenderer();
         return root;
     }
@@ -188,9 +198,20 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             foreach (var cfg in settings.Widgets)
             {
                 // Shown over a backdrop in the app, so both opacities are visible there as on the desktop.
-                var preview = new WidgetConfig { Style = cfg.Style, Theme = cfg.Theme, BackgroundOpacity = cfg.BackgroundOpacity, ContentOpacity = cfg.ContentOpacity, Scale = 1 };
-                using var bmp = WidgetRenderer.Render(preview, _data, 2f, hover: false, out _);
-                bmp.Save(Path.Combine(dir, $"{cfg.Style}.png"), System.Drawing.Imaging.ImageFormat.Png);
+                var preview = new WidgetConfig
+                {
+                    Style = cfg.Style, Id = cfg.Id, Name = cfg.Name, Layout = cfg.Layout, Items = cfg.Items, Theme = cfg.Theme,
+                    Grayscale = cfg.Grayscale, BackgroundOpacity = cfg.BackgroundOpacity, ContentOpacity = cfg.ContentOpacity, Scale = 1,
+                };
+                var data = _data;
+                // A frame rate only exists with a game in front (never, while the app is): show one as it would look.
+                if (ShowsFrameRate(cfg) && data?.Frame is null)
+                {
+                    data = data?.Copy() ?? new WidgetData();
+                    data.Frame = new FrameStats(144, 6.9, 118);
+                }
+                using var bmp = WidgetRenderer.Render(preview, data, 2f, hover: false, out _);
+                bmp.Save(Path.Combine(dir, $"{cfg.Id}.png"), System.Drawing.Imaging.ImageFormat.Png);
             }
         }
         catch (Exception ex)
