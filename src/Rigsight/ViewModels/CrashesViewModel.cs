@@ -115,7 +115,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private List<CrashGroup> _groupsShown = [];
 
     // Years of history can hold thousands of crashes: build the newest cards, and more as the page scrolls.
-    private const int PageSize = 50;
+    private const int PageSize = 20;
     private int _limit = PageSize;
     private List<CrashGroup> _matching = [];
 
@@ -126,6 +126,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         if (!HasMore) return;
         _limit += PageSize;
+        ShowPage();
+    }
+
+    /// <summary>Back to the first page of cards (the newest), when more were loaded by scrolling.</summary>
+    public void ShowFirstPage()
+    {
+        if (_limit == PageSize) return;
+        _limit = PageSize;
         ShowPage();
     }
 
@@ -199,7 +207,11 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         _changes = changes;
         Regroup();
         ApplyView();
+        Loaded = true;
     }
+
+    /// <summary>Loaded once: a later visit only needs a rebuild if the crashes changed.</summary>
+    public bool Loaded { get; private set; }
 
     private void Regroup()
     {

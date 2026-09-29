@@ -9,7 +9,7 @@ namespace Rigsight.Tests.App;
 /// <summary>
 /// The animations really move, and where they can be seen: each is caught partway (a value between its two ends), which
 /// an animation that jumps, or runs before anything is drawn, never shows. (The switch knob once jumped at the end of
-/// its transition while its track faded fine; a first-visit page's fade once ran out while the page was being built.)
+/// its transition while its track faded fine.)
 /// </summary>
 [Collection("UI")]
 public sealed class MotionTests
@@ -85,27 +85,6 @@ public sealed class MotionTests
             Assert.Equal(0.0, bar.RenderTransform.Value.M22);
             item.IsChecked = true;
             Moves(Watch(() => bar.RenderTransform.Value.M22), 0, 1);
-            window.Close();
-        });
-    }
-
-    [Fact]
-    public void A_page_seen_for_the_first_time_fades_in_once_it_is_drawn()
-    {
-        if (!Motion.Enabled) return; // Windows' animation effects are off on this PC: nothing animates, by design
-        Ui.Run(() =>
-        {
-            var host = new ContentControl();
-            var window = Host(host);
-            // A page with plenty in it, as a real one: building and drawing it takes a while.
-            var column = new StackPanel();
-            for (int i = 0; i < 400; i++) column.Children.Add(new TextBlock { Text = $"Row {i}", Margin = new Thickness(4) });
-            var page = new UserControl { Content = new ScrollViewer { Content = column } };
-
-            host.Content = page;
-            Motion.PageIn(host, page);
-            Assert.Equal(0.0, host.Opacity); // hidden while it's built, rather than showing half-drawn
-            Moves(Watch(() => host.Opacity), 0, 1);
             window.Close();
         });
     }

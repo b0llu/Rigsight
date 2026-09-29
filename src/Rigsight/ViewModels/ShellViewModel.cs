@@ -207,7 +207,8 @@ public sealed partial class ShellViewModel : ObservableObject
             case "home": await Home.RefreshAsync(); break;
             case "reports": await ReportsPage.LoadAsync(); break;
             case "apps": await Apps.LoadAsync(); break;
-            case "crashes": await Crashes.LoadAsync(); break;
+            // Coming back: rebuilt only if the crashes changed (rebuilding its cards froze the window for a quarter second).
+            case "crashes": await Crashes.LoadAsync(onlyIfChanged: Crashes.Loaded); break;
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;

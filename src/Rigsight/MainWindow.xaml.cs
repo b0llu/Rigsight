@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         foreach (var view in _pages.Values) view.DataContext = null;
         _pages.Clear();
         PageHost.Content = null;
-        ShowPage(_vm.CurrentPage, animate: false); // the same page in new colours: nothing to arrive
+        ShowPage(_vm.CurrentPage);
     }
 
     /// <summary>The What's new card fades in over the window and grows into place when it opens.</summary>
@@ -73,10 +73,9 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Pages are built on first visit, so opening the app only pays for what you look at. Each comes in with a short
-    /// fade and rise (see <see cref="Motion"/>).
+    /// Pages are built on first visit, so opening the app only pays for what you look at.
     /// </summary>
-    private void ShowPage(string page, bool animate = true)
+    private void ShowPage(string page)
     {
         if (!_pages.TryGetValue(page, out var view))
         {
@@ -98,9 +97,7 @@ public partial class MainWindow : Window
             };
             _pages[page] = view;
         }
-        if (PageHost.Content == view) return; // already showing (the same page asked for again)
         PageHost.Content = view;
-        if (animate) Motion.PageIn(PageHost, view);
     }
 
     public void BringToFront()

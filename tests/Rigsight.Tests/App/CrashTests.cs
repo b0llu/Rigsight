@@ -494,38 +494,46 @@ public sealed class CrashesPageTests
     }
 
     [Fact]
-    public void Long_histories_show_fifty_cards_at_a_time()
+    public void Long_histories_show_twenty_cards_at_a_time()
     {
+        // Twenty, not more: the cards are laid out again each time the page opens (fifty froze the window for a tenth
+        // of a second), and twenty already reach well below the window, so scrolling loads more in time.
         var (vm, _) = Page();
         var start = DateTime.Now.AddHours(-1);
         Show(vm, Enumerable.Range(0, 120).Select(i => Crashes.App(start.AddHours(-i * 6), $"app{i % 7}.exe")));
         Ui.Run(() =>
         {
-            Assert.Equal(50, vm.GroupsShown.Count);
+            Assert.Equal(20, vm.GroupsShown.Count);
             Assert.True(vm.HasMore);
             Assert.Equal(120, vm.Crashes.Count); // the tile counts them all
             vm.ShowMoreCommand.Execute(null);
-            Assert.Equal(100, vm.GroupsShown.Count);
+            Assert.Equal(40, vm.GroupsShown.Count);
+            while (vm.HasMore) vm.ShowMoreCommand.Execute(null);
+            Assert.Equal(120, vm.GroupsShown.Count);
             vm.ShowMoreCommand.Execute(null);
             Assert.Equal(120, vm.GroupsShown.Count);
-            Assert.False(vm.HasMore);
-            vm.ShowMoreCommand.Execute(null);
-            Assert.Equal(120, vm.GroupsShown.Count);
-            // Newest first, and the first page is the newest fifty.
+            // Newest first, and the first page is the newest twenty.
             Assert.Equal(vm.GroupsShown.OrderByDescending(g => g.LastTime), vm.GroupsShown);
 
-            // A new filter starts at fifty again.
+            // A new filter starts at twenty again.
             vm.Filter = "Apps";
-            Assert.Equal(50, vm.GroupsShown.Count);
+            Assert.Equal(20, vm.GroupsShown.Count);
             vm.ShowMoreCommand.Execute(null);
             vm.Grouped = true;
             Assert.Equal(7, vm.GroupsShown.Count);
             Assert.False(vm.HasMore);
             vm.Grouped = false;
-            Assert.Equal(50, vm.GroupsShown.Count);
+            Assert.Equal(20, vm.GroupsShown.Count);
             vm.ShowMoreCommand.Execute(null);
             vm.ShowMuted = true;
-            Assert.Equal(50, vm.GroupsShown.Count);
+            Assert.Equal(20, vm.GroupsShown.Count);
+
+            // Leaving the page: back to the newest twenty.
+            vm.ShowMoreCommand.Execute(null);
+            vm.ShowMoreCommand.Execute(null);
+            vm.ShowFirstPage();
+            Assert.Equal(20, vm.GroupsShown.Count);
+            Assert.True(vm.HasMore);
         });
     }
 

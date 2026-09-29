@@ -20,6 +20,7 @@ namespace Rigsight.E2E;
 ///
 /// Steps: start the agent → measure it with no window open → open the app and time it → visit every page (CPU per
 /// page, screenshots) → idle on Home → cycle through all pages many times watching memory and handles for leaks →
+/// switch between every pair of pages quickly, timing how long the window takes to answer (stutters) →
 /// close the app and check the agent gives its memory back → ask the agent to quit and check it saved cleanly →
 /// read the log for errors. Every measure is checked against a budget, and against the baseline of the last accepted
 /// run (tests/Rigsight.E2E/baseline.json) so a slow creep shows up too.
@@ -199,6 +200,42 @@ internal static class Program
             Record("app.leak.gdi_per_cycle", Slope(half.Select(p => (double)p.Gdi)), "GDI/cycle", "App GDI growth per cycle", budget: 2);
             Record("app.leak.user_per_cycle", Slope(half.Select(p => (double)p.User)), "USER/cycle", "App USER object growth per cycle", budget: 2);
             Record("app.after_cycles.private_mb", points[^1].PrivateMb, "MB", "App memory after all the cycles", budget: 350);
+
+            // ── Stutters ──
+            // Every page to every other page, quickly, while another thread asks the window for an answer every 20 ms: a
+            // page that freezes the window, when opened or a moment later as it finishes loading, shows as a slow answer.
+            // (Crashes once rebuilt its whole list on each visit: a quarter-second freeze just after opening it.)
+            int rounds = quick ? 1 : 2;
+            Step($"Switching between every pair of pages, {rounds}× (stutters)");
+            var switches = new List<(string From, string To, double Ms)>();
+            // The sidebar's items, found once: finding one by name searches the whole window, which would be timed too.
+            var nav = pageCpu.Keys.ToDictionary(p => p, ui.NavItem);
+            using (var watch = new WindowWatch(app!.MainWindowHandle))
+            {
+                for (int r = 0; r < rounds; r++)
+                    foreach (var from in pageCpu.Keys)
+                        foreach (var to in pageCpu.Keys)
+                        {
+                            if (from == to) continue;
+                            nav[from].Select();
+                            Thread.Sleep(120);
+                            var t = Stopwatch.GetTimestamp();
+                            nav[to].Select();
+                            WindowWatch.Answer(app!.MainWindowHandle);
+                            switches.Add((from, to, Stopwatch.GetElapsedTime(t).TotalMilliseconds));
+                        }
+                ui.Press("Home");
+                Thread.Sleep(1000);
+                var answers = watch.Stop();
+                var ordered = switches.OrderByDescending(x => x.Ms).ToList();
+                Console.WriteLine($"  {switches.Count} switches: median {ordered[ordered.Count / 2].Ms:0} ms, slowest {ordered[0].Ms:0} ms ({ordered[0].From} → {ordered[0].To})");
+                foreach (var g in switches.Where(x => x.Ms > 100).GroupBy(x => (x.From, x.To)).Take(10))
+                    Console.WriteLine($"    {g.Key.From} → {g.Key.To}: {string.Join(", ", g.Select(x => $"{x.Ms:0} ms"))}");
+                Console.WriteLine($"  window answered {answers.Count} times: longest wait {answers.Max():0} ms, over 100 ms {answers.Count(a => a > 100)} times");
+                Record("app.switch.median_ms", ordered[ordered.Count / 2].Ms, "ms", "Switching pages, the usual time until the window answers", budget: 80);
+                Record("app.switch.slow_count", switches.Count(x => x.Ms > 100), "switches", "Page switches that took over 100 ms", budget: 3);
+                Record("app.switch.freeze_ms", answers.Max(), "ms", "Longest the window froze while switching pages", budget: 200);
+            }
 
             // ── Close the app ──
             Step("Closing the app");
@@ -724,6 +761,51 @@ internal static class Program
     private static extern bool QueryFullProcessImageName(SafeHandle process, int flags, StringBuilder name, ref int size);
 }
 
+/// <summary>
+/// From another thread, asks the window for an answer (an empty message) every 20 ms and notes how long each took: a
+/// window that is busy (building a page, rebuilding a list) can't answer until it's done.
+/// </summary>
+internal sealed class WindowWatch : IDisposable
+{
+    private readonly List<double> _answers = [];
+    private readonly Thread _thread;
+    private volatile bool _running = true;
+
+    public WindowWatch(IntPtr window)
+    {
+        _thread = new Thread(() =>
+        {
+            while (_running)
+            {
+                double ms = Answer(window);
+                lock (_answers) _answers.Add(ms);
+                Thread.Sleep(20);
+            }
+        }) { IsBackground = true };
+        _thread.Start();
+    }
+
+    /// <summary>How long the window took to answer, in ms (up to 5 s).</summary>
+    public static double Answer(IntPtr window)
+    {
+        var t = Stopwatch.GetTimestamp();
+        SendMessageTimeout(window, 0 /* WM_NULL */, IntPtr.Zero, IntPtr.Zero, 2 /* SMTO_ABORTIFHUNG */, 5000, out _);
+        return Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+    }
+
+    public List<double> Stop()
+    {
+        _running = false;
+        _thread.Join();
+        lock (_answers) return [.. _answers];
+    }
+
+    public void Dispose() { if (_running) Stop(); }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint timeout, out IntPtr result);
+}
+
 /// <summary>Drives the app's window through UI Automation (what screen readers use): no mouse, no keyboard.</summary>
 internal sealed class AppUi(Process app)
 {
@@ -743,6 +825,15 @@ internal sealed class AppUi(Process app)
         if (e.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var select)) ((SelectionItemPattern)select).Select();
         else if (e.TryGetCurrentPattern(InvokePattern.Pattern, out var invoke)) ((InvokePattern)invoke).Invoke();
         else throw new Exception($"Can't press \"{name}\"");
+    }
+
+    /// <summary>A sidebar item, to pick its page (see <see cref="SelectionItemPattern.Select"/>).</summary>
+    public SelectionItemPattern NavItem(string page)
+    {
+        var e = Root.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.NameProperty, page), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton)))
+            ?? throw new Exception($"No \"{page}\" in the sidebar");
+        return (SelectionItemPattern)e.GetCurrentPattern(SelectionItemPattern.Pattern);
     }
 
     /// <summary>Scrolls the page's biggest scrolling area to the end (loads more cards on pages that page in).</summary>
