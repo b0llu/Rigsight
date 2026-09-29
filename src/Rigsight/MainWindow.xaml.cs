@@ -53,14 +53,16 @@ public partial class MainWindow : Window
         foreach (var view in _pages.Values) view.DataContext = null;
         _pages.Clear();
         PageHost.Content = null;
-        ShowPage(_vm.CurrentPage);
+        ShowPage(_vm.CurrentPage, animate: false); // the same page in new colours: nothing to arrive
     }
 
-    /// <summary>The What's new card fades in when it opens.</summary>
+    /// <summary>The What's new card fades in over the window and grows into place when it opens.</summary>
     private void OnWhatsNewOpened(object? sender, PropertyChangedEventArgs e)
     {
-        if (_vm.WhatsNew.IsOpen)
-            WhatsNewLayer.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        if (!_vm.WhatsNew.IsOpen || !Motion.Enabled) return;
+        WhatsNewLayer.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            { FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop });
+        Motion.PopIn(WhatsNewCardHost);
     }
 
     private void WhatsNewBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.WhatsNew.CloseCommand.Execute(null);
@@ -70,8 +72,11 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(ShellViewModel.CurrentPage)) ShowPage(_vm.CurrentPage);
     }
 
-    /// <summary>Pages are built on first visit, so opening the app only pays for what you look at.</summary>
-    private void ShowPage(string page)
+    /// <summary>
+    /// Pages are built on first visit, so opening the app only pays for what you look at. Each comes in with a short
+    /// fade and rise (see <see cref="Motion"/>).
+    /// </summary>
+    private void ShowPage(string page, bool animate = true)
     {
         if (!_pages.TryGetValue(page, out var view))
         {
@@ -93,7 +98,9 @@ public partial class MainWindow : Window
             };
             _pages[page] = view;
         }
+        if (PageHost.Content == view) return; // already showing (the same page asked for again)
         PageHost.Content = view;
+        if (animate) Motion.PageIn(PageHost, view);
     }
 
     public void BringToFront()

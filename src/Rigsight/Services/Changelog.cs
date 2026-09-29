@@ -29,6 +29,8 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.11.1", 9, 29,
+            added: ["Smooth animations across the app: pages, buttons, switches and the sidebar."]),
         V("0.11.0", 9, 29,
             added: ["Taskbar readings in grayscale, for a calmer taskbar."],
             better:

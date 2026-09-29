@@ -39,6 +39,7 @@ public partial class App : Application
         _client = new AgentClient(Dispatcher);
         var shell = new ShellViewModel(_client);
         ThemeManager.Apply(shell.Settings.Current.Theme);
+        Motion.ApplyDurations(Resources);
         var window = new MainWindow(shell);
         MainWindow = window;
         window.Show();

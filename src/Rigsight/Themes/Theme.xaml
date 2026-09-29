@@ -6,6 +6,14 @@
 
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+    <!-- ── Motion ───────────────────────────────────────────────────────
+         How long a control takes to show a change (hover, press, on/off): in on the quick side, back out a little slower.
+         Only on a change: the states below are the controls' visual states, which don't animate a page as it opens.
+         Set to nothing at startup when Windows' animation effects are off (see Services/Motion.cs). -->
+    <Duration x:Key="MotionFast">0:0:0.12</Duration>
+    <Duration x:Key="MotionNormal">0:0:0.2</Duration>
+    <CubicEase x:Key="MotionEase" EasingMode="EaseOut" />
+
     <!-- ── Converters ──────────────────────────────────────────────────── -->
     <conv:TempToBrushConverter x:Key="TempBrush" />
     <conv:TrayTextConverter x:Key="TrayText" />
@@ -37,6 +45,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
+                    <!-- Rows change shade at once: lists can hold hundreds of rows and refresh every few seconds (Memory),
+                         so they keep the lightest template (no layers or states to animate). -->
                     <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="10,8" Margin="0,0,0,2">
                         <ContentPresenter />
                     </Border>
@@ -183,25 +193,61 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
-                        <Grid>
-                            <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0"
-                                    HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" Visibility="Hidden" />
-                            <!-- The label fills the row, so an item can put something at its right edge (Settings' attention dot). -->
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
-                            </DockPanel>
-                        </Grid>
-                    </Border>
+                    <!-- The shade fades in on hover and stays while selected; the accent bar grows from its middle when
+                         the page is picked and shrinks away when another is. -->
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" GeneratedEasingFunction="{StaticResource MotionEase}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Checked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Selected" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Hover" Background="{DynamicResource Surface2Brush}" CornerRadius="10" Opacity="0" />
+                        <Border x:Name="Selected" Background="{DynamicResource Surface2Brush}" CornerRadius="10" Opacity="0" />
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
+                            <Grid>
+                                <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0"
+                                        HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleY="0" />
+                                    </Border.RenderTransform>
+                                </Border>
+                                <!-- The label fills the row, so an item can put something at its right edge (Settings' attention dot). -->
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                    <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
-                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -224,15 +270,30 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="12,5">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <!-- The picked segment's shade fades across from the one before. -->
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" GeneratedEasingFunction="{StaticResource MotionEase}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Checked">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Selected" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Selected" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="12,5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -251,17 +312,32 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Padding="14,8">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
+                    <!-- The hover shade fades in over the button's own colour; a press dims it a touch. -->
+                    <Grid x:Name="Root">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition To="Pressed" GeneratedDuration="0:0:0.05" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" />
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="9" Opacity="0" />
+                        <ContentPresenter Margin="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -276,12 +352,30 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="9,4">
-                        <ContentPresenter VerticalAlignment="Center" />
-                    </Border>
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="9,4">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -294,16 +388,25 @@
          the main action through a trigger use this template too. -->
     <ControlTemplate x:Key="AccentButtonTemplate" TargetType="Button">
         <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Padding="14,8">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualStateGroup.Transitions>
+                        <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                        <VisualTransition To="Pressed" GeneratedDuration="0:0:0.05" />
+                        <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                    </VisualStateGroup.Transitions>
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="MouseOver">
+                        <Storyboard><DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity" To="0.86" Duration="0" /></Storyboard>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <Storyboard><DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity" To="0.72" Duration="0" /></Storyboard>
+                    </VisualState>
+                    <VisualState x:Name="Disabled" />
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
-        <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.86" />
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
-            </Trigger>
-        </ControlTemplate.Triggers>
     </ControlTemplate>
     <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -330,13 +433,31 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="13" />
-                    </Border>
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="13" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -352,19 +473,37 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
+                    <!-- Switched: the knob slides across while the track fills with the accent colour. -->
                     <DockPanel Background="Transparent" LastChildFill="True">
-                        <Border x:Name="Track" DockPanel.Dock="Right" Width="42" Height="22" CornerRadius="11"
-                                Background="{DynamicResource HoverBrush}" VerticalAlignment="Center" Margin="16,0,0,0">
-                            <Ellipse x:Name="Knob" Width="16" Height="16" Margin="3,0" Fill="{DynamicResource MutedBrush}"
-                                     HorizontalAlignment="Left" />
-                        </Border>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" GeneratedEasingFunction="{StaticResource MotionEase}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Checked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="20" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="TrackOn" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Grid DockPanel.Dock="Right" Width="42" Height="22" VerticalAlignment="Center" Margin="16,0,0,0">
+                            <Border x:Name="Track" CornerRadius="11" Background="{DynamicResource HoverBrush}" />
+                            <Border x:Name="TrackOn" CornerRadius="11" Background="{DynamicResource AccentBrush}" Opacity="0" />
+                            <Ellipse x:Name="Knob" Width="16" Height="16" Margin="3,0" Fill="{DynamicResource MutedBrush}" HorizontalAlignment="Left">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform />
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
                         <ContentPresenter VerticalAlignment="Center" />
                     </DockPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
                             <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource OnAccentBrush}" />
-                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

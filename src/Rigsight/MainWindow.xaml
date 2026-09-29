@@ -327,7 +327,7 @@
             <Border Background="#99000000" MouseLeftButtonDown="WhatsNewBackdrop_MouseDown" />
             <!-- The card itself exists only while open: kept in the window while closed, its list held on to closed pages
                  after a theme change (a WPF quirk; MemoryLeakTests caught it). -->
-            <ContentControl Content="{Binding}" Focusable="False">
+            <ContentControl x:Name="WhatsNewCardHost" Content="{Binding}" Focusable="False">
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
                         <Setter Property="ContentTemplate" Value="{x:Null}" />
