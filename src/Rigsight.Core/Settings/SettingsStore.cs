@@ -50,7 +50,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 8;
+    private const int CurrentVersion = 9;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -106,6 +106,8 @@ public static class SettingsStore
         // v8: "What's new" after an update. Settings from an earlier version mean an update from 0.6.3 or before: it
         // shows what came after that (a new install has no file, and sees nothing).
         if (s.SettingsVersion is > 0 and < 8) s.WhatsNewSeen ??= "0.6.3";
+        // v9: grayscale taskbar readings. A new install starts in grayscale; an earlier setup keeps its colours.
+        if (s.SettingsVersion is > 0 and < 9) s.TrayGrayscale = false;
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;
@@ -117,7 +119,7 @@ public static class SettingsStore
         var widgets = (s.Widgets ?? []).Where(w => w is not null && Enum.IsDefined(w.Style)).ToList();
         foreach (var style in WidgetCatalog.BuiltIn)
             if (widgets.All(w => w.Style != style))
-                widgets.Add(new WidgetConfig { Style = style });
+                widgets.Add(new WidgetConfig { Style = style, Grayscale = true });
         var builtIn = widgets.Where(w => w.Style != WidgetStyle.Custom).GroupBy(w => w.Style).Select(g => g.First()).OrderBy(w => w.Style);
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var custom = new List<WidgetConfig>();
@@ -142,7 +144,7 @@ public static class SettingsStore
             w.Scale = Math.Clamp(w.Scale, 0.6, 2.0);
         }
 
-        var o = s.Overlay ??= new OverlaySettings();
+        var o = s.Overlay ??= new OverlaySettings { Grayscale = true };
         o.BackgroundOpacity = Math.Clamp(o.BackgroundOpacity, 0, 1.0);
         o.ContentOpacity = Math.Clamp(o.ContentOpacity, 0.2, 1.0);
         o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);

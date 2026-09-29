@@ -179,7 +179,7 @@ public sealed class SettingsMigrationTests
     [InlineData(7)]
     [InlineData(1000)]
     public void Every_version_ends_up_current(int version) =>
-        Assert.Equal(8, Load($$"""{ "SettingsVersion": {{version}} }""").SettingsVersion);
+        Assert.Equal(9, Load($$"""{ "SettingsVersion": {{version}} }""").SettingsVersion);
 
     [Theory]
     [InlineData(0)]

@@ -415,4 +415,34 @@ public sealed class SettingsStoreTests
         using (new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             Assert.True(SettingsStore.Load(file).UseFahrenheit);
     }
+
+    [Fact]
+    public void A_new_install_starts_in_grayscale_everywhere()
+    {
+        var s = SettingsStore.Load(Path.Combine(TestEnvironment.NewFolder("settings"), "none.json"));
+        Assert.True(s.TrayGrayscale);
+        Assert.True(s.Overlay.Grayscale);
+        Assert.All(s.Widgets, w => Assert.True(w.Grayscale));
+        Assert.True(new RigsightSettings().TrayGrayscale); // the agent's and app's settings before any file
+    }
+
+    [Fact]
+    public void An_earlier_setup_keeps_its_colours()
+    {
+        // Settings from 0.10 and before: widgets and overlay say what they are; the taskbar had its parts' colours.
+        var s = SettingsStore.Deserialize("""
+            { "SettingsVersion": 8, "TraySensors": ["/a"],
+              "Overlay": { "Grayscale": false }, "Widgets": [ { "Style": "Pill", "Grayscale": false } ] }
+            """);
+        Assert.False(s.TrayGrayscale);
+        Assert.False(s.Overlay.Grayscale);
+        Assert.False(s.Widgets.Single(w => w.Style == WidgetStyle.Pill).Grayscale);
+        Assert.All(s.Widgets.Where(w => w.Style != WidgetStyle.Pill), w => Assert.True(w.Grayscale)); // built-ins it didn't have yet
+
+        // Chosen since, kept either way.
+        s.TrayGrayscale = true;
+        Assert.True(SettingsStore.Deserialize(SettingsStore.Serialize(s)).TrayGrayscale);
+        s.TrayGrayscale = false;
+        Assert.False(SettingsStore.Deserialize(SettingsStore.Serialize(s)).TrayGrayscale);
+    }
 }

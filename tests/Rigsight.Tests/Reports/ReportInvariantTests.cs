@@ -270,8 +270,9 @@ public sealed class ReportInvariantTests
         using var t = TestDb.At(Seeds.PathOf(p));
         var (f, to) = Unix(r);
         var alerts = new AlertSettings();
-        Assert.Equal((long)t.Scalar($"SELECT count(*) FROM system_minute WHERE ts >= {f} AND ts < {to} AND cpu_temp_max >= {alerts.CpuLimit}")!, r.CpuOverLimitMin);
-        Assert.Equal((long)t.Scalar($"SELECT count(*) FROM system_minute WHERE ts >= {f} AND ts < {to} AND gpu_temp_max >= {alerts.GpuLimit}")!, r.GpuOverLimitMin);
+        // By the minute's average: a spike within a minute isn't a minute at the limit.
+        Assert.Equal((long)t.Scalar($"SELECT count(*) FROM system_minute WHERE ts >= {f} AND ts < {to} AND cpu_temp >= {alerts.CpuLimit}")!, r.CpuOverLimitMin);
+        Assert.Equal((long)t.Scalar($"SELECT count(*) FROM system_minute WHERE ts >= {f} AND ts < {to} AND gpu_temp >= {alerts.GpuLimit}")!, r.GpuOverLimitMin);
     }
 
     [Theory]
@@ -284,13 +285,15 @@ public sealed class ReportInvariantTests
         Assert.True(r.FirstActive <= r.LastActive);
         Assert.InRange(r.FirstActive!.Value, r.From, r.To);
         Assert.InRange(r.LastActive!.Value, r.From, r.To);
-        Assert.True(r.DayStart is null || r.DayStart.Value.Hour >= 5);
+        // Before 5 AM only when the day started early after a quiet night (not the night before running on).
+        Assert.True(r.DayStart is null || r.DayStart.Value.Hour >= 5 || r.LateUntil is null && r.DayStart == r.FirstActive);
         var s = Assert.IsType<Stretch>(r.LongestStretch);
         Assert.True(s.Seconds > 0);
         Assert.InRange(s.Start, r.From, r.To);
         Assert.InRange(s.End, s.Start, r.To);
-        foreach (var lt in new[] { r.IdleTemps, r.GpuLoadTemps, r.CpuLoadTemps, r.HotSpotGap })
+        foreach (var lt in new[] { r.RestTemps, r.HotSpotGap })
             Assert.True(lt is null || lt.Minutes > 0);
+        Assert.All(r.Steady, s => Assert.True(s.Minutes > 0 && s.Days > 0));
     }
 
     [Theory]
@@ -380,15 +383,19 @@ public sealed class ReportInvariantTests
         var anchor = Seeds.TypicalNow.AddDays(-back);
         var report = ReportBuilder.Build(db, kind, anchor, Make.Settings());
         var before = ReportBuilder.Build(db, kind, ReportBuilder.Previous(kind, anchor), Make.Settings());
-        double diff = report.ActiveSec - before.ActiveSec;
         var line = report.Insights.SingleOrDefault(i => i.Key == "screen-compare");
-        if (Math.Abs(diff) < 15 * 60 || !before.HasData || before.ActiveSec == 0)
+        if (kind == ReportRange.Week)
         {
-            Assert.Null(line);
+            double diff = report.ActiveSec - before.ActiveSec;
+            if (Math.Abs(diff) < 15 * 60 || !before.HasData || before.ActiveSec == 0) { Assert.Null(line); return; }
+            Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than the week before.", line?.Text);
             return;
         }
-        string than = kind switch { ReportRange.Week => "the week before", ReportRange.Year => "the year before", _ => "the month before" };
-        Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than {than}.", line?.Text);
+        // A month or year: a day at a time, over each one's own length.
+        double perDay = report.ActiveSec / (report.To - report.From).TotalDays - before.ActiveSec / (before.To - before.From).TotalDays;
+        if (Math.Abs(perDay) < 10 * 60 || !before.HasData || before.ActiveSec == 0) { Assert.Null(line); return; }
+        string than = kind == ReportRange.Year ? "the year before" : "the month before";
+        Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(perDay))} a day {(perDay > 0 ? "more" : "less")} than {than}.", line?.Text);
     }
 
     public static TheoryData<string, string, string, string, string> PreviousPeriods => new()

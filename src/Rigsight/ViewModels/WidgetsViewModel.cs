@@ -370,7 +370,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
         _settings.Update(s => s.Widgets.Add(new WidgetConfig
         {
             Style = WidgetStyle.Custom, Id = id, Name = name, Layout = WidgetLayout.Bar,
-            Items = WidgetCatalog.DefaultItems(WidgetStyle.Custom), Enabled = true,
+            Items = WidgetCatalog.DefaultItems(WidgetStyle.Custom), Enabled = true, Grayscale = true,
         }));
         Sync();
         Edit(id);

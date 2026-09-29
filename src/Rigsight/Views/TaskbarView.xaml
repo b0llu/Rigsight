@@ -22,6 +22,7 @@
                             <Binding Path="Sensor.Kind" />
                             <Binding Path="Sensor.Value" />
                             <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                            <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
                         </MultiBinding>
                     </TextBlock.Foreground>
                 </TextBlock>
@@ -113,7 +114,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Taskbar" Style="{StaticResource H1}" />
-            <TextBlock Text="Readings next to the clock, always in view, each part in its own colour: blue for the CPU, green for the GPU, purple for RAM."
+            <TextBlock Text="Readings next to the clock, always in view. In color, each part has its own: blue for the CPU, green for the GPU, purple for RAM."
                        Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
             <!-- Preview: the corner of the taskbar, as it will look -->
@@ -174,6 +175,7 @@
                                                                         <Binding Path="Row.Sensor.Kind" />
                                                                         <Binding Path="Row.Sensor.Value" />
                                                                         <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                                        <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
                                                                     </MultiBinding>
                                                                 </TextBlock.Foreground>
                                                             </TextBlock>
@@ -304,6 +306,17 @@
             <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
                        Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
 
+            <!-- The parts' colours, or grayscale -->
+            <TextBlock Text="COLORS" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource Segment}" Content="Color" GroupName="traycolors"
+                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
+                    <RadioButton Style="{StaticResource Segment}" Content="Grayscale" GroupName="traycolors"
+                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+                </StackPanel>
+            </Border>
+
             <!-- What: the readings, in order -->
             <DockPanel Margin="4,26,0,10">
                 <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Bottom" />
@@ -342,8 +355,9 @@
                                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />
                                         <Rectangle DockPanel.Dock="Left" Width="3" Height="26" RadiusX="1.5" RadiusY="1.5" Fill="{Binding Mark}" Margin="0,0,10,0"
                                                    ToolTip="{Binding PartLabel}" Visibility="{Binding Found, Converter={StaticResource Vis}}" />
+                                        <!-- Its own bindings see the sensor (its content), so whether the row's was found comes from the row -->
                                         <ContentPresenter DockPanel.Dock="Left" Content="{Binding Sensor}" ContentTemplate="{StaticResource KindBadge}" Margin="0,0,12,0"
-                                                          Visibility="{Binding Found, Converter={StaticResource Vis}}" />
+                                                          Visibility="{Binding DataContext.Found, RelativeSource={RelativeSource AncestorType=DockPanel}, Converter={StaticResource Vis}}" />
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />

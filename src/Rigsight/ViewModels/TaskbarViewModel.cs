@@ -154,6 +154,25 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowIcons));
         OnPropertyChanged(nameof(PreviewIcons));
         OnPropertyChanged(nameof(StripNote));
+        OnPropertyChanged(nameof(Colors));
+        OnPropertyChanged(nameof(Gray));
+        OnPropertyChanged(nameof(PreviewStrip));
+    }
+
+    /// <summary>The parts' colours, or grayscale (the taskbar's text colour and grey).</summary>
+    public bool Gray => _settings.Current.TrayGrayscale;
+
+    /// <summary>"Color" or "Grayscale", for the colors switch.</summary>
+    public string Colors
+    {
+        get => Gray ? "Grayscale" : "Color";
+        set
+        {
+            bool gray = value == "Grayscale";
+            if (gray == Gray) return;
+            _settings.Update(s => s.TrayGrayscale = gray);
+            OnStyleChanged();
+        }
     }
 
     // The three ways, for the style cards (radio buttons).
@@ -179,7 +198,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var found = Sensors.Where(r => r.Found).ToList();
             var parts = TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind), int.MaxValue);
             var names = TrayParts.Names([.. parts.Select(p => p[0].Part)]);
-            return [.. parts.Select((rows, i) => new TaskbarStripPart(rows, MarkBrush(rows[0].Part, TaskbarLight), names[i]))];
+            return [.. parts.Select((rows, i) => new TaskbarStripPart(rows, MarkBrush(rows[0].Part, TaskbarLight, Gray), names[i]))];
         }
     }
 
@@ -192,15 +211,16 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var icons = Style == TrayStyle.Grouped
                 ? TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind))
                 : [.. found.Select(r => new List<TaskbarSensorRow> { r })];
-            return [.. icons.Select(rows => new TaskbarPreviewIcon(rows, MarkBrush(rows[0].Part, TaskbarLight), rows[0].PartLabel))];
+            return [.. icons.Select(rows => new TaskbarPreviewIcon(rows, MarkBrush(rows[0].Part, TaskbarLight, Gray), rows[0].PartLabel))];
         }
     }
 
     private static readonly Dictionary<(TrayPart, bool), Brush> Marks = [];
 
-    /// <summary>A part's colour mark as a brush (deeper on a light taskbar, as the real icon has it).</summary>
-    public static Brush MarkBrush(TrayPart part, bool light)
+    /// <summary>A part's colour mark as a brush (deeper on a light taskbar, as the real icon has it; grey in grayscale).</summary>
+    public static Brush MarkBrush(TrayPart part, bool light, bool gray = false)
     {
+        if (gray) part = TrayPart.Other;
         if (Marks.TryGetValue((part, light), out var brush)) return brush;
         var (r, g, b) = TrayParts.Color(part, light);
         brush = new SolidColorBrush(Color.FromRgb(r, g, b));

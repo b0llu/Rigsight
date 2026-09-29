@@ -11,7 +11,7 @@ public sealed class SettingsNormalizeTests
     public void An_empty_file_gives_the_defaults()
     {
         var s = SettingsStore.Deserialize("{}");
-        Assert.Equal(8, s.SettingsVersion);
+        Assert.Equal(9, s.SettingsVersion);
         Assert.False(s.UseFahrenheit);
         Assert.Equal("dark", s.Theme);
         Assert.Equal(1000, s.LiveRefreshMs);
@@ -35,7 +35,7 @@ public sealed class SettingsNormalizeTests
     [Fact]
     public void Defaults_need_no_repair()
     {
-        var fresh = new RigsightSettings { SettingsVersion = 8 };
+        var fresh = new RigsightSettings { SettingsVersion = 9 };
         Assert.Equal(SettingsStore.Serialize(fresh), SettingsStore.Serialize(SettingsStore.Deserialize(SettingsStore.Serialize(fresh))));
     }
 
@@ -381,7 +381,7 @@ public sealed class SettingsNormalizeTests
     public void A_literal_null_gives_the_defaults()
     {
         var s = SettingsStore.Deserialize("null");
-        Assert.Equal(8, s.SettingsVersion);
+        Assert.Equal(9, s.SettingsVersion);
         Assert.Equal(SettingsStore.Serialize(SettingsStore.Deserialize("{}")), SettingsStore.Serialize(s));
     }
 

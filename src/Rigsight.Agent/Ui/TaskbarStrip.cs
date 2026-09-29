@@ -46,8 +46,11 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// <summary>Each reading's widest shape so far ("88°", "888 W"): the place kept for it (see <see cref="Shape"/>).</summary>
     private readonly Dictionary<string, string> _widest = [];
 
-    /// <summary>Shows <paramref name="readings"/> in the taskbar; false when it can't (nothing is shown then).</summary>
-    public bool Update(IReadOnlyList<TrayReading> readings)
+    /// <summary>
+    /// Shows <paramref name="readings"/> in the taskbar, in grayscale when <paramref name="gray"/>; false when it can't
+    /// (nothing is shown then).
+    /// </summary>
+    public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false)
     {
         if (readings.Count == 0 || !Supported) { Hide(); return false; }
         if (!_wired)
@@ -85,12 +88,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             var cells = _cells.Select((c, i) =>
             {
                 var labels = TrayParts.StripLabels([.. c.Select(r => r.Short)], names[i]);
-                return new StripCell(names[i], WidgetRenderer.TrayMark(c[0].Part, light),
-                    [.. c.Select((r, j) => Value(r, light, labels[j]))]);
+                return new StripCell(names[i], WidgetRenderer.TrayMark(c[0].Part, light, gray),
+                    [.. c.Select((r, j) => Value(r, light, gray, labels[j]))]);
             }).ToList();
 
             // Drawn again only when something shown changed; placed again whenever the tray moved.
-            string key = $"{barHeight}|{scale}|{light}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb()))));
+            string key = $"{barHeight}|{scale}|{light}|{gray}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb()))));
             Size size = _placed.Size;
             if (key != _drawn)
             {
@@ -111,12 +114,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
     }
 
-    private StripValue Value(TrayReading r, bool light, string label)
+    private StripValue Value(TrayReading r, bool light, bool gray, string label)
     {
         string text = Units.StripText(r.Kind, r.Value);
         string shape = Shape(text);
         if (!_widest.TryGetValue(r.Id, out var widest) || shape.Length > widest.Length) _widest[r.Id] = widest = shape;
-        return new StripValue(text, WidgetRenderer.TrayColor(r.Kind, r.Value, light), label, widest);
+        return new StripValue(text, WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray), label, widest);
     }
 
     /// <summary>

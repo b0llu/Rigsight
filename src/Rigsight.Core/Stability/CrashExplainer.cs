@@ -116,7 +116,8 @@ public static class CrashExplainer
             default:
             {
                 if (WindowsPart(e) is { } part) return part;
-                string module = e.Module ?? "";
+                // Windows writes "unknown" when it couldn't tell: no module, not one called that.
+                string module = string.Equals(e.Module, "unknown", StringComparison.OrdinalIgnoreCase) ? "" : e.Module ?? "";
                 string moduleLower = module.ToLowerInvariant();
                 ExceptionCodes.TryGetValue(e.Code ?? "", out var ex);
                 string what = ex.Meaning is null ? "" : $" Windows says {ex.Meaning} ({ex.Name}).";
@@ -128,11 +129,11 @@ public static class CrashExplainer
                 bool ownCode = !string.IsNullOrEmpty(module) && string.Equals(module, e.AppExe, StringComparison.OrdinalIgnoreCase);
                 if (ownCode)
                     return new($"{app} crashed", $"{app} crashed in its own code.{what}",
-                        "Usually a bug in the app or game. Update it, verify the game files, and remove mods if you use them.", "The app itself", "its own code");
+                        "Usually a bug in the app or game. Update it, verify the game files, and remove mods if you use them.", "The app itself", "in its own code");
 
                 if (moduleLower is "ntdll.dll" or "kernelbase.dll" or "ucrtbase.dll" or "kernel32.dll")
                     return new($"{app} crashed", $"{app} hit an error it couldn't recover from.{what}",
-                        "Usually a bug in the app. Update it; if it only happens in one game, verify its files and disable overlays.", "The app itself", "its own code");
+                        "Usually a bug in the app. Update it; if it only happens in one game, verify its files and disable overlays.", "The app itself", "in its own code");
 
                 return new($"{app} crashed",
                     string.IsNullOrEmpty(module) ? $"{app} crashed.{what}" : $"{app} crashed inside {module}.{what}",

@@ -70,7 +70,8 @@ public sealed class TrayTextConverter : IMultiValueConverter
 
 /// <summary>
 /// A taskbar reading's colour: a temperature's (as everywhere), otherwise the taskbar's text colour. Kind, Value, and
-/// optionally whether the taskbar is light (else the app's text colour).
+/// optionally whether the taskbar is light (else the app's text colour) and whether it's in grayscale (temperatures too
+/// in the text colour).
 /// </summary>
 public sealed class TrayBrushConverter : IMultiValueConverter
 {
@@ -79,7 +80,8 @@ public sealed class TrayBrushConverter : IMultiValueConverter
     public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
     {
         if (values is not [SensorKind kind, var value, ..]) return TempToBrushConverter.None;
-        if (kind == SensorKind.Temperature) return Temp.Convert(value, targetType, null, culture);
+        bool gray = values is [_, _, _, true, ..];
+        if (kind == SensorKind.Temperature && !gray) return Temp.Convert(value, targetType, null, culture);
         if (value is not double) return TempToBrushConverter.None;
         return values is [_, _, bool light, ..] ? light ? Brushes.Black : Brushes.White
             : Application.Current.TryFindResource("TextBrush") ?? Brushes.White;

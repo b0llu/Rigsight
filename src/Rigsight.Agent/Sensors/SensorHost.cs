@@ -83,14 +83,28 @@ internal sealed class SensorHost
     // The fans (their place in the list), read for the history each time the sensors are.
     private int[] _fans = [];
 
-    /// <summary>Every fan's speed right now, with its sensor, name and hardware.</summary>
+    // Fans are recorded every minute, so their chips are read every 10 s even with the app closed (else only while
+    // it's open: a motherboard's). An NVIDIA card's through NVML (_fastFans: each NVML fan's sensor), or failing that
+    // its full update once a minute. Only readings taken this time are recorded (_fanValues, _fresh): an old value
+    // left over from the last time the app was open would say a fan held one speed for hours.
+    private const long FanIntervalMs = 10_000, FullGpuFanIntervalMs = 60_000;
+    private long _lastFansMs, _lastGpuFansMs;
+    private readonly HashSet<IHardware> _fanHardware = [];
+    private int[] _fastFans = [];
+    private readonly Dictionary<int, double?> _fanValues = [];
+
+    /// <summary>The speed of every fan read by the last <see cref="Update"/> (see <see cref="FanIntervalMs"/>), with its sensor, name and hardware.</summary>
     public List<Tracking.FanReading> ReadFans()
     {
         var list = new List<Tracking.FanReading>(_fans.Length);
         foreach (int i in _fans)
         {
             var s = _sensors[i];
-            list.Add(new Tracking.FanReading(Ids[i], s.Name, s.Hardware.Name, s.Value is float f && float.IsFinite(f) ? f : null));
+            double? rpm;
+            if (_fanValues.TryGetValue(i, out var fast)) rpm = fast;
+            else if (_fresh[i]) rpm = s.Value is float f && float.IsFinite(f) ? f : null;
+            else continue; // not read this time: its last value may be hours old
+            list.Add(new Tracking.FanReading(Ids[i], s.Name, s.Hardware.Name, rpm));
         }
         return list;
     }
@@ -116,6 +130,7 @@ internal sealed class SensorHost
         {
             _fastGpu = fast;
             _fastGpuHardware = nvidia[0];
+            MapFastFans();
         }
         DriveHealth = ReadDriveHealth();
     }
@@ -214,6 +229,9 @@ internal sealed class SensorHost
         _indexById = indexById;
         IsTemperature = [.. _sensors.Select(s => s.SensorType == SensorType.Temperature)];
         _fans = [.. Enumerable.Range(0, _sensors.Count).Where(i => _sensors[i].SensorType == SensorType.Fan)];
+        _fanHardware.Clear();
+        foreach (int i in _fans) _fanHardware.Add(_sensorHardware[i]);
+        MapFastFans();
         _fresh = new bool[_sensors.Count];
         Schema = schema;
 
@@ -222,6 +240,14 @@ internal sealed class SensorHost
             set.Add(hw);
             foreach (var sub in hw.SubHardware) AddWithSubs(sub, set);
         }
+    }
+
+    /// <summary>The NVIDIA card's fan sensors in NVML's order, when NVML reads as many fans as the card lists.</summary>
+    private void MapFastFans()
+    {
+        var gpuFans = _fans.Where(i => _sensorHardware[i] == _fastGpuHardware)
+            .OrderBy(i => _sensors[i].Identifier.ToString(), StringComparer.Ordinal).ToArray();
+        _fastFans = _fastGpu is { FanCount: > 0 } fast && gpuFans.Length == fast.FanCount ? gpuFans : [];
     }
 
     /// <summary>Whether sensor <paramref name="index"/> was read by the last <see cref="Update"/> (not an old value).</summary>
@@ -321,6 +347,9 @@ internal sealed class SensorHost
             _fastValues.Clear();
             _fastGpu!.Read(_fastValues);
         }
+        bool fansDue = nowMs - _lastFansMs >= FanIntervalMs;
+        if (fansDue) _lastFansMs = nowMs;
+        _fanValues.Clear();
 
         _updatedNow.Clear();
         foreach (var (hw, tier) in _hardware)
@@ -332,11 +361,22 @@ internal sealed class SensorHost
                 Tier.Live => everything,
                 Tier.Slow => slowDue,
                 _ => false,
-            } || (_watched.Contains(hw) && (tier != Tier.Slow || watchedSlowDue));
+            } || (_watched.Contains(hw) && (tier != Tier.Slow || watchedSlowDue)) || (fansDue && _fanHardware.Contains(hw));
             if (update)
             {
                 SafeUpdate(hw);
                 _updatedNow.Add(hw);
+            }
+        }
+        if (_usingFastValues && fansDue && _fanHardware.Contains(_fastGpuHardware!))
+        {
+            if (_fastFans.Length > 0)
+                for (int k = 0; k < _fastFans.Length; k++) _fanValues[_fastFans[k]] = _fastGpu!.FanRpm(k);
+            else if (nowMs - _lastGpuFansMs >= FullGpuFanIntervalMs)
+            {
+                _lastGpuFansMs = nowMs;
+                SafeUpdate(_fastGpuHardware!);
+                _updatedNow.Add(_fastGpuHardware!);
             }
         }
         for (int i = 0; i < _fresh.Length; i++) _fresh[i] = _updatedNow.Contains(_sensorHardware[i]);

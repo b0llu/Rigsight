@@ -31,11 +31,14 @@ internal static partial class WidgetRenderer
     private static bool _taskbarLight;
     private static long _taskbarLightChecked = long.MinValue / 2;
 
-    /// <summary>Temperatures in their colour (as everywhere in Rigsight), everything else in the taskbar's text colour.</summary>
-    public static Color TrayColor(SensorKind kind, double? value, bool light)
+    /// <summary>
+    /// Temperatures in their colour (as everywhere in Rigsight), everything else in the taskbar's text colour; in
+    /// grayscale, temperatures too.
+    /// </summary>
+    public static Color TrayColor(SensorKind kind, double? value, bool light, bool gray = false)
     {
         var p = light ? LightPalette : DarkPalette;
-        return kind == SensorKind.Temperature ? TempColor(value, p) : value is null ? p.Faint : p.Text;
+        return value is null ? p.Faint : kind == SensorKind.Temperature && !gray ? TempColor(value, p) : p.Text;
     }
 
     /// <summary>
@@ -89,10 +92,10 @@ internal static partial class WidgetRenderer
         return bmp;
     }
 
-    /// <summary>A part's colour mark (see <see cref="TrayParts.Color"/>).</summary>
-    public static Color TrayMark(TrayPart part, bool light)
+    /// <summary>A part's colour mark (see <see cref="TrayParts.Color"/>); in grayscale, every part's is grey.</summary>
+    public static Color TrayMark(TrayPart part, bool light, bool gray = false)
     {
-        var (r, gr, b) = TrayParts.Color(part, light);
+        var (r, gr, b) = TrayParts.Color(gray ? TrayPart.Other : part, light);
         return Color.FromArgb(r, gr, b);
     }
 

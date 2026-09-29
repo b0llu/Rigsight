@@ -92,6 +92,14 @@ internal static class Program
             agent = admin ? StartElevated(agentExe, data, bin)
                 : Process.Start(new ProcessStartInfo(agentExe, ["--no-elevate", "--data-dir", data]) { UseShellExecute = false, WorkingDirectory = bin })!;
             if (!WaitFor(() => LogHas("Sensors ready"), 60_000)) throw new Exception("The agent didn't finish finding sensors within a minute");
+            // The agent starts itself again at once (with the small garbage-collector setting the app has too): the one
+            // measured from here on is the process that says it's starting, not the one launched.
+            if (LogLine("[agent] Starting") is { } started && System.Text.RegularExpressions.Regex.Match(started, @"process (\d+)") is { Success: true } pid
+                && int.Parse(pid.Groups[1].Value) != agent.Id)
+            {
+                agent.Dispose();
+                agent = Process.GetProcessById(int.Parse(pid.Groups[1].Value));
+            }
             Record("agent.startup_ms", sw.ElapsedMilliseconds, "ms", "Agent start until its sensors are ready", budget: 15_000);
             Console.WriteLine($"  {LogLine("Sensors ready")}");
 

@@ -50,12 +50,44 @@ internal sealed class NvidiaFastPath
                 mask = m;
                 thermal = Marshal.GetDelegateForFunctionPointer<ThermalSensorsDelegate>(fn);
             }
-            return new NvidiaFastPath(device, handle, mask, thermal);
+            return new NvidiaFastPath(device, handle, mask, thermal) { FanCount = CountFans(device) };
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or MarshalDirectiveException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// How many fans NVML reads the speed of (0: none, or a driver too old to say), in the order LibreHardwareMonitor
+    /// lists them ("GPU Fan 1", "GPU Fan 2"…).
+    /// </summary>
+    public int FanCount { get; private init; }
+
+    private static int CountFans(IntPtr device)
+    {
+        try
+        {
+            if (nvmlDeviceGetNumFans(device, out uint n) != 0 || n is 0 or > 8) return 0;
+            for (uint i = 0; i < n; i++)
+                if (!TryFanRpm(device, i, out _)) return 0;
+            return (int)n;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Fan <paramref name="fan"/>'s speed in rpm (0 when it's stopped, as fans at idle often are), about 0.2 ms.</summary>
+    public double? FanRpm(int fan) => TryFanRpm(_nvmlDevice, (uint)fan, out uint rpm) ? rpm : null;
+
+    private static bool TryFanRpm(IntPtr device, uint fan, out uint rpm)
+    {
+        var info = new NvmlFanSpeedInfo { Version = (uint)Marshal.SizeOf<NvmlFanSpeedInfo>() | (1u << 24), Fan = fan };
+        bool ok = nvmlDeviceGetFanSpeedRPM(device, ref info) == 0;
+        rpm = info.Speed;
+        return ok;
     }
 
     public void Read(Dictionary<string, double?> into)
@@ -95,10 +127,13 @@ internal sealed class NvidiaFastPath
     [DllImport("nvml.dll")] private static extern int nvmlDeviceGetPowerUsage(IntPtr device, out uint milliwatts);
     [DllImport("nvml.dll")] private static extern int nvmlDeviceGetMemoryInfo(IntPtr device, out NvmlMemory memory);
     [DllImport("nvml.dll")] private static extern int nvmlDeviceGetClockInfo(IntPtr device, int clockType, out uint mhz);
+    [DllImport("nvml.dll")] private static extern int nvmlDeviceGetNumFans(IntPtr device, out uint count);
+    [DllImport("nvml.dll")] private static extern int nvmlDeviceGetFanSpeedRPM(IntPtr device, ref NvmlFanSpeedInfo info);
     [DllImport("nvapi64.dll", EntryPoint = "nvapi_QueryInterface")] private static extern IntPtr NvApiQueryInterface(uint id);
 
     [StructLayout(LayoutKind.Sequential)] private struct NvmlUtilization { public uint Gpu, Memory; }
     [StructLayout(LayoutKind.Sequential)] private struct NvmlMemory { public ulong Total, Free, Used; }
+    [StructLayout(LayoutKind.Sequential)] private struct NvmlFanSpeedInfo { public uint Version, Fan, Speed; }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct ThermalSensors

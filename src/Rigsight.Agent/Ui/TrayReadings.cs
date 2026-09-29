@@ -55,10 +55,10 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
     internal static List<string> Keys(List<List<TrayReading>> icons) => [.. icons.Select(icon => "reading|" + icon[0].Id)];
 
     /// <summary>
-    /// Shows <paramref name="readings"/> (none: no icons at all). An icon that stays is kept as it is, so adding or
-    /// removing one leaves the others where the user put them.
+    /// Shows <paramref name="readings"/> (none: no icons at all), in grayscale when <paramref name="gray"/>. An icon
+    /// that stays is kept as it is, so adding or removing one leaves the others where the user put them.
     /// </summary>
-    public void Update(IReadOnlyList<TrayReading> readings, bool grouped)
+    public void Update(IReadOnlyList<TrayReading> readings, bool grouped, bool gray = false)
     {
         _grouped = grouped;
         var icons = Icons(readings, grouped);
@@ -81,7 +81,7 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
                 slot = _slots[keys[i]] = made;
             }
             slot.Readings = icons[i];
-            Draw(slot, [.. icons[i].Select(r => Line(r, light))], Mark(icons[i], light), Tooltip(icons[i]), size, light);
+            Draw(slot, [.. icons[i].Select(r => Line(r, light, gray))], Mark(icons[i], light, gray), Tooltip(icons[i]), size, light);
         }
     }
 
@@ -93,8 +93,8 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
     }
 
     /// <summary>The icon's colour mark: its part's (none while a reading isn't found, as the part isn't known).</summary>
-    private static Color? Mark(IReadOnlyList<TrayReading> icon, bool light) =>
-        icon.All(r => r.Hardware.Length == 0) ? null : WidgetRenderer.TrayMark(icon[0].Part, light);
+    private static Color? Mark(IReadOnlyList<TrayReading> icon, bool light, bool gray) =>
+        icon.All(r => r.Hardware.Length == 0) ? null : WidgetRenderer.TrayMark(icon[0].Part, light, gray);
 
     /// <summary>
     /// Right-click: remove this icon's readings, switch between an icon each and grouped by part, or open the Taskbar
@@ -131,8 +131,8 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
         _ => "Remove these readings",
     };
 
-    private static (string Text, Color Color) Line(TrayReading r, bool light) =>
-        (WidgetRenderer.TrayText(r.Kind, r.Value), WidgetRenderer.TrayColor(r.Kind, r.Value, light));
+    private static (string Text, Color Color) Line(TrayReading r, bool light, bool gray) =>
+        (WidgetRenderer.TrayText(r.Kind, r.Value), WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray));
 
     private static void Draw(Slot slot, List<(string Text, Color Color)> lines, Color? mark, string tip, int size, bool light)
     {

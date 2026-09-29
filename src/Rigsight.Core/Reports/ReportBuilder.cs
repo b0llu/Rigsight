@@ -131,10 +131,11 @@ public static class ReportBuilder
         // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
         // And further back: the same weekday over recent weeks, and how the PC ran a few months ago.
-        var context = new InsightContext(range == ReportRange.Day ? WeekdayUsualOf(db, from, apps, settings) : null, ThenTempsOf(db, from));
+        var context = new InsightContext(range == ReportRange.Day ? WeekdayUsualOf(db, from, apps, settings) : null,
+            IsLong(range) ? null : ThenHeatOf(db, from, id => NameOf(apps, settings, id)));
         if (range == ReportRange.Day)
         {
-            report.Records = RecordsOf(db, report, from);
+            report.Records = RecordsOf(db, report, from, [.. apps.Values.Where(a => CategoryOf(apps, settings, a.Id) == AppCategory.Game).Select(a => a.Id)]);
             report.StreakDays = StreakOf(db, report, from);
         }
         if (report.Crashes.Count > 0) report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
@@ -160,27 +161,42 @@ public static class ReportBuilder
         return new WeekdayUsual(day.DayOfWeek, same.Count, same.Sum(r => r.ActiveSec) / same.Count, gaming / same.Count);
     }
 
-    /// <summary>How long ago "then" is, and how long a stretch: temperatures from 4 months back to 1 month back.</summary>
-    private const int ThenFromDays = 120, ThenToDays = 30, ThenMinDays = 10, ThenMinMinutes = 300;
+    private static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    {
+        if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+        return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
+    }
+
+    private static AppCategory CategoryOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    {
+        if (id is not long i || !apps.TryGetValue(i, out var a)) return AppCategory.Other;
+        return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;
+    }
+
+    /// <summary>How long ago "then" is: from 4 months back to 1 month back.</summary>
+    private const int ThenFromDays = 120, ThenToDays = 30;
 
     /// <summary>
-    /// Temperatures at idle and under load a few months ago (the days from <see cref="ThenFromDays"/> to
-    /// <see cref="ThenToDays"/> back), for spotting slow drift: dust and old paste show over months, not days. Null
-    /// without enough days then (their daily totals by load band, kept since 0.9.1 and added up for older days too).
+    /// How the PC ran a few months ago (the days from <see cref="ThenFromDays"/> to <see cref="ThenToDays"/> back): each
+    /// app's steady load and the temperatures at rest, for spotting slow drift. Dust and old paste show over months,
+    /// not days. From the daily heat totals (heat_day, added up as the minutes are written, as <see cref="SteadyOf"/>
+    /// reads minutes): months of minutes would be too many to read at every refresh. Null when nothing ran steadily then.
     /// </summary>
-    internal static ThenTemps? ThenTempsOf(RigsightDb db, DateTime from)
+    internal static ThenHeat? ThenHeatOf(RigsightDb db, DateTime from, Func<long?, string> nameOf)
     {
         var (start, end) = (from.Date.AddDays(-ThenFromDays), from.Date.AddDays(-ThenToDays));
-        var rows = db.GetSystemDays(TimeUtil.ToUnix(start), TimeUtil.ToUnix(end));
-        if (rows is null) return null;
-        var withIdle = rows.Where(r => r.IdleCpuN + r.IdleGpuN > 0).ToList();
-        int idleMinutes = withIdle.Sum(r => Math.Max(r.IdleCpuN, r.IdleGpuN));
-        if (withIdle.Count < ThenMinDays || idleMinutes < ThenMinMinutes) return null;
+        var days = db.GetHeatDays(TimeUtil.ToUnix(start), TimeUtil.ToUnix(end));
         static double? Ratio(double sum, int n) => n > 0 ? sum / n : null;
-        var idle = new LoadTemps(Ratio(rows.Sum(r => r.IdleCpuSum), rows.Sum(r => r.IdleCpuN)), Ratio(rows.Sum(r => r.IdleGpuSum), rows.Sum(r => r.IdleGpuN)), idleMinutes);
-        var load = new LoadTemps(Ratio(rows.Sum(r => r.LoadCpuSum), rows.Sum(r => r.LoadCpuN)), Ratio(rows.Sum(r => r.LoadGpuSum), rows.Sum(r => r.LoadGpuN)),
-            Math.Max(rows.Sum(r => r.LoadCpuN), rows.Sum(r => r.LoadGpuN)));
-        return new ThenTemps(idle, load, start, end, withIdle.Count);
+        var steady = days.Where(d => d.App != 0).GroupBy(d => d.App)
+            .Select(g => (App: g.Key, Rows: g.ToList()))
+            .Where(g => g.Rows.Sum(x => x.GpuN) > 0)
+            .Select(g => new SteadyLoad(g.App, nameOf(g.App), g.Rows.Sum(x => x.N), g.Rows.Count, g.Rows.Sum(x => x.GpuSum) / g.Rows.Sum(x => x.GpuN),
+                Ratio(g.Rows.Sum(x => x.CpuSum), g.Rows.Sum(x => x.CpuN)), Ratio(g.Rows.Sum(x => x.PowerSum), g.Rows.Sum(x => x.PowerN))))
+            .OrderByDescending(s => s.Minutes).ToList();
+        var rest = days.Where(d => d.App == 0).ToList();
+        int restN = rest.Sum(x => x.N);
+        var resting = restN > 0 ? new LoadTemps(Ratio(rest.Sum(x => x.CpuSum), rest.Sum(x => x.CpuN)), Ratio(rest.Sum(x => x.GpuSum), rest.Sum(x => x.GpuN)), restN) : null;
+        return steady.Count == 0 ? null : new ThenHeat(steady, resting, start, end);
     }
 
     /// <summary>The windows a record is checked over, and the days of history each needs to mean anything.</summary>
@@ -191,12 +207,14 @@ public static class ReportBuilder
     /// months and year before it (the widest window it beats, given enough days of history in it). Only what's worth
     /// a record: an hour of a game, a peak of 70° or more, four hours of use.
     /// </summary>
-    internal static List<RecordNote> RecordsOf(RigsightDb db, Report report, DateTime day)
+    internal static List<RecordNote> RecordsOf(RigsightDb db, Report report, DateTime day, IReadOnlyCollection<long> games)
     {
         var list = new List<RecordNote>();
         long to = TimeUtil.ToUnix(day);
         var days = db.GetSystemDays(TimeUtil.ToUnix(day.AddDays(-365)), to);
         if (days is null) return list;
+        // "In a year" needs about a year of history: not a year's worth of days scattered over five months.
+        long first = db.FirstMinuteTime() ?? to;
 
         void Check(RecordKind kind, double? value, double atLeast, Func<SystemDay, double?> pick, string text, string? app = null, Func<int, double?>? other = null)
         {
@@ -206,7 +224,7 @@ public static class ReportBuilder
             {
                 long start = TimeUtil.ToUnix(day.AddDays(-window));
                 var inWindow = days.Where(d => d.Day >= start && d.OnSec() > 0).ToList();
-                if (inWindow.Count < minDays) break;
+                if (inWindow.Count < minDays || first > TimeUtil.ToUnix(day.AddDays(-window * 0.9))) break;
                 double? max = other is not null ? other(window) : inWindow.Max(pick);
                 if (max is double m && m >= v) break;
                 best = window;
@@ -214,9 +232,10 @@ public static class ReportBuilder
             if (best > 0) list.Add(new RecordNote(kind, text, app, best));
         }
 
-        var longest = report.Sessions.Where(s => s.IsGame).MaxBy(s => s.ActiveSec);
+        // A session that began the night before is that day's to count, not this one's.
+        var longest = report.Sessions.Where(s => s.IsGame && s.Start >= report.From).MaxBy(s => s.ActiveSec);
         Check(RecordKind.LongestGameSession, longest?.ActiveSec, 3600, _ => null, Units.Duration(longest?.ActiveSec ?? 0), longest?.Name,
-            window => db.LongestGameSessionSec(TimeUtil.ToUnix(day.AddDays(-window)), to));
+            window => db.LongestGameSessionSec(TimeUtil.ToUnix(day.AddDays(-window)), to, games));
         Check(RecordKind.HottestGpu, report.GpuTempPeak?.Value, 70, d => d.GpuTempMax, Units.TempShort(report.GpuTempPeak?.Value ?? 0));
         Check(RecordKind.HottestCpu, report.CpuTempPeak?.Value, 70, d => d.CpuTempMax, Units.TempShort(report.CpuTempPeak?.Value ?? 0));
         Check(RecordKind.MostScreenTime, report.ActiveSec, 4 * 3600, d => d.ActiveSec, Units.Duration(report.ActiveSec));
@@ -336,8 +355,16 @@ public static class ReportBuilder
 
         report.GamingSec = stats.Values.Where(a => a.Category == AppCategory.Game).Sum(a => a.ActiveSec);
         AddDayShape(report, minutes, settings.Alerts, NameOf);
+        // A break shorter than the away time isn't seen at all: with a long one, "without a break" can't be told.
+        if (settings.Tracking.IdleMinutes > BreakMinutes * 2) report.LongestStretch = null;
         AddHeat(report, minutes, NameOf, CategoryOf);
+        (report.Steady, report.RestTemps, report.HotSpotGap) = SteadyOf(minutes, NameOf);
+        report.GpuThrottle = ThrottleOf(minutes);
         if (minutes.Count > 0 && to - from <= FanRangeLimit) AddFans(db, report, minutes, f, t);
+        // A game being played right now: its session isn't written until it ends.
+        if (from <= DateTime.Now && DateTime.Now < to && minutes.Count > 0 && minutes[^1] is { FgApp: long fg, ActiveSec: > 0 } last
+            && TimeUtil.NowUnix() - last.Ts <= 180 && CategoryOf(fg) == AppCategory.Game)
+            report.GameOngoing = NameOf(fg);
 
         report.Apps = [.. stats.Values.OrderByDescending(s => s.ActiveSec).ThenByDescending(s => s.OpenSec)];
         foreach (var s in report.Apps.Where(s => s.ActiveSec > 0))
@@ -714,27 +741,44 @@ public static class ReportBuilder
         }
         if (bestEnd > bestStart)
             report.LongestStretch = new Stretch(TimeUtil.FromUnix(bestStart), TimeUtil.FromUnix(bestEnd), bestApp is null ? null : nameOf(bestApp));
+        // The small hours are the night before running late only when they carry on from it (use in the first half
+        // hour after midnight); up at 4:30 after a quiet night is the day starting early.
+        if (report.LateUntil is not null && report.FirstActive is { } firstUse && firstUse - report.From >= LateNightCarriesOn)
+        {
+            report.DayStart = firstUse;
+            report.LateUntil = null;
+        }
 
-        // Temperatures compared at the same load, so an idle morning isn't "cooler than usual" just because nothing ran.
-        report.IdleTemps = TempsWhere(minutes, m => m.CpuLoad < 15 && m.GpuLoad < 15);
-        report.GpuLoadTemps = TempsWhere(minutes, m => m.GpuLoad >= 80);
-        report.CpuLoadTemps = TempsWhere(minutes, m => m.CpuLoad >= 50);
+        int awayRun = 0;
+        long awayEnd = 0;
+        void CloseAway()
+        {
+            if (awayRun >= Report.LongAwayMinutes) report.LongAwaySec += awayRun * 60;
+            awayRun = 0;
+        }
+        foreach (var m in minutes)
+        {
+            bool away = m.IdleSec > m.ActiveSec && !(m.CpuLoad >= LoadBands.CpuHeavyLoad) && !(m.GpuLoad >= LoadBands.GpuHeavyLoad);
+            if (!away || m.Ts != awayEnd) CloseAway();
+            if (!away) continue;
+            awayRun++;
+            awayEnd = m.Ts + 60;
+        }
+        CloseAway();
 
-        // Hot spot vs core under heavy GPU load: a widening gap is the classic sign of dried-out paste or poor contact.
-        var gaps = minutes.Where(m => m.GpuLoad >= 80 && m.GpuHotMax is not null && m.GpuTempMax is not null)
-            .Select(m => m.GpuHotMax!.Value - m.GpuTempMax!.Value).ToList();
-        if (gaps.Count > 0) report.HotSpotGap = new LoadTemps(null, gaps.Average(), gaps.Count);
-
-        report.CpuOverLimitMin = minutes.Count(m => m.CpuTempMax >= alerts.CpuLimit);
-        report.GpuOverLimitMin = minutes.Count(m => m.GpuTempMax >= alerts.GpuLimit);
+        // By the minute's average: a moment's spike isn't holding a temperature (nor is it for the alert).
+        report.CpuTempHeld = minutes.Max(m => m.CpuTemp);
+        report.GpuTempHeld = minutes.Max(m => m.GpuTemp);
+        report.CpuOverLimitMin = minutes.Count(m => m.CpuTemp >= alerts.CpuLimit);
+        report.GpuOverLimitMin = minutes.Count(m => m.GpuTemp >= alerts.GpuLimit);
     }
+
+    private static readonly TimeSpan LateNightCarriesOn = TimeSpan.FromMinutes(30);
 
     /// <summary>Fan minutes are read for ranges up to this (a week and its "usual"): a month of them per fan is too many.</summary>
     private static readonly TimeSpan FanRangeLimit = TimeSpan.FromDays(8);
 
-    /// <summary>Under this, the GPU has cooled down (after heavy load ended).</summary>
-    private const double CoolLine = 50;
-    private const int HeavyRunMinutes = 10, CooldownCapMinutes = 90, BackgroundMinMinutes = 5;
+    private const int BackgroundMinMinutes = 5;
 
     /// <summary>
     /// The heat and who made it: minutes over the warm line by the app working the part; heavy work an app did in the
@@ -789,92 +833,166 @@ public static class ReportBuilder
         Runs(false, m => m.CpuLoad >= LoadBands.CpuHeavyLoad, m => m.CpuApp);
         Runs(true, m => m.GpuLoad >= LoadBands.GpuHeavyLoad, m => m.GpuApp);
         report.BackgroundWork = best;
-
-        report.GpuThrottle = ThrottleOf(minutes, m => m.GpuLoad >= LoadBands.GpuHeavyLoad, m => m.GpuClock, m => m.GpuTempMax, hot: 83);
-        report.CpuThrottle = ThrottleOf(minutes, m => m.CpuLoad >= LoadBands.CpuHeavyLoad, m => m.CpuClock, m => m.CpuTempMax, hot: 85);
-
-        // Cooling down: after ten minutes or more of heavy GPU load ends, how long until the GPU is under the cool line.
-        var cooldowns = new List<int>();
-        int heavyRun = 0;
-        long? coolingSince = null;
-        foreach (var m in minutes)
-        {
-            if (m.GpuLoad >= LoadBands.GpuHeavyLoad)
-            {
-                heavyRun++;
-                coolingSince = null;
-                continue;
-            }
-            if (heavyRun >= HeavyRunMinutes && coolingSince is null) coolingSince = m.Ts;
-            heavyRun = 0;
-            if (coolingSince is long since)
-            {
-                int elapsed = (int)((m.Ts - since) / 60) + 1;
-                if (elapsed > CooldownCapMinutes) coolingSince = null;
-                else if (m.GpuTemp < CoolLine) { cooldowns.Add(elapsed); coolingSince = null; }
-            }
-        }
-        if (cooldowns.Count > 0)
-        {
-            report.CooldownMinutes = cooldowns.Average();
-            report.CooldownCount = cooldowns.Count;
-        }
     }
 
-    /// <summary>Clocks under this share of their usual (under load, when cool) count as running down.</summary>
-    private const double ThrottleClockShare = 0.88;
-    private const int ThrottleMinReference = 10, ThrottleMinMinutes = 3;
+    /// <summary>A run of heavy GPU load is still warming up for this many minutes; after them it's steady.</summary>
+    internal const int WarmUpMinutes = 10;
+
+    /// <summary>After heavy work (either chip) ends, this long until the PC counts as at rest again.</summary>
+    internal const int RestAfterMinutes = 15;
+
+    private sealed class SteadyAcc
+    {
+        public int N, CpuN, PowerN;
+        public double Gpu, Cpu, Power;
+        public readonly HashSet<DateTime> Days = [];
+    }
 
     /// <summary>
-    /// Minutes under heavy load where the chip was hot and its clock well under what it runs when cool under the same
-    /// load (the middle of those minutes): the chip slowing itself down to stay in bounds.
+    /// Each app's steady heavy GPU load (see <see cref="SteadyLoad"/>), the temperatures at rest (see
+    /// <see cref="Report.RestTemps"/>), and the hot spot's gap over the core under steady load.
     /// </summary>
-    private static Throttling? ThrottleOf(List<SystemMinute> minutes, Func<SystemMinute, bool> loaded, Func<SystemMinute, double?> clock, Func<SystemMinute, double?> temp, double hot)
+    internal static (List<SteadyLoad> Steady, LoadTemps? Resting, LoadTemps? Gap) SteadyOf(List<SystemMinute> minutes, Func<long?, string> nameOf)
     {
-        var under = minutes.Where(m => loaded(m) && clock(m) is > 0 && temp(m) is not null).ToList();
-        var cool = under.Where(m => temp(m) < hot - 5).Select(m => clock(m)!.Value).Order().ToList();
-        if (cool.Count < ThrottleMinReference) return null;
-        double reference = cool[cool.Count / 2];
-        var slowed = under.Where(m => temp(m) >= hot && clock(m) < reference * ThrottleClockShare).ToList();
-        if (slowed.Count < ThrottleMinMinutes) return null;
-        double drop = (1 - slowed.Average(m => clock(m)!.Value) / reference) * 100;
-        return new Throttling(slowed.Count, drop, slowed.Min(m => temp(m)!.Value));
+        var byApp = new Dictionary<long, SteadyAcc>();
+        long? runApp = null;
+        long runEnd = 0, busyUntil = 0;
+        int runLength = 0, restN = 0, restCpuN = 0, restGpuN = 0, gapN = 0;
+        double restCpu = 0, restGpu = 0, gap = 0;
+        foreach (var m in minutes)
+        {
+            bool gpuHeavy = m.GpuLoad >= LoadBands.GpuHeavyLoad;
+            if (gpuHeavy || m.CpuLoad >= LoadBands.CpuHeavyLoad) busyUntil = m.Ts + 60 + RestAfterMinutes * 60;
+            if (!gpuHeavy)
+            {
+                runApp = null;
+                if (m.Ts < busyUntil || m.ActiveSec < ActiveMinuteSec || !(m.CpuLoad < LoadBands.IdleMaxLoad && m.GpuLoad < LoadBands.IdleMaxLoad)) continue;
+                restN++;
+                if (m.CpuTemp is double rc) { restCpu += rc; restCpuN++; }
+                if (m.GpuTemp is double rg) { restGpu += rg; restGpuN++; }
+                continue;
+            }
+            long app = m.GpuApp ?? 0;
+            if (runApp != app || m.Ts != runEnd) (runApp, runLength) = (app, 0);
+            runLength++;
+            runEnd = m.Ts + 60;
+            if (runLength <= WarmUpMinutes || m.GpuTemp is not double gpu) continue;
+            if (m.GpuHotMax is double hot && m.GpuTempMax is double top) { gap += hot - top; gapN++; }
+            if (m.GpuApp is not long id) continue;
+            if (!byApp.TryGetValue(id, out var a)) byApp[id] = a = new SteadyAcc();
+            a.N++;
+            a.Gpu += gpu;
+            if (m.CpuTemp is double c) { a.Cpu += c; a.CpuN++; }
+            if (m.GpuPower is double p) { a.Power += p; a.PowerN++; }
+            a.Days.Add(TimeUtil.FromUnix(m.Ts).Date);
+        }
+        var steady = byApp.Select(x => new SteadyLoad(x.Key, nameOf(x.Key), x.Value.N, x.Value.Days.Count, x.Value.Gpu / x.Value.N,
+                x.Value.CpuN > 0 ? x.Value.Cpu / x.Value.CpuN : null, x.Value.PowerN > 0 ? x.Value.Power / x.Value.PowerN : null))
+            .OrderByDescending(s => s.Minutes).ToList();
+        var rest = restN > 0 ? new LoadTemps(restCpuN > 0 ? restCpu / restCpuN : null, restGpuN > 0 ? restGpu / restGpuN : null, restN) : null;
+        return (steady, rest, gapN > 0 ? new LoadTemps(null, gap / gapN, gapN) : null);
     }
 
-    /// <summary>The warm band a fan's speed is compared in: the part it cools between these temperatures.</summary>
-    private const double WarmFrom = 60, WarmTo = 75;
+    /// <summary>Clocks under this share of their run's cool ones count as running down.</summary>
+    private const double ThrottleClockShare = 0.88;
+    private const int ThrottleMinReference = 3, ThrottleMinMinutes = 3; // a GPU is warm within minutes of a game starting
 
-    /// <summary>Each fan's speed at idle and in the warm band of the part it cools, over the period's minutes.</summary>
+    /// <summary>The GPU is at its slow-down point from here (NVIDIA's default target is 83°).</summary>
+    private const double ThrottleHot = 83;
+
+    /// <summary>
+    /// The GPU slowing itself to stay in bounds: within one run of one app's heavy load, minutes at its slow-down point
+    /// with clocks well under the same run's while it was cool, at no more power than then. A different game, a
+    /// heavier scene drawing more power, or clocks easing a step or two as it warms (as boost does) aren't that.
+    /// </summary>
+    private static Throttling? ThrottleOf(List<SystemMinute> minutes)
+    {
+        int slowed = 0;
+        double dropSum = 0, fromTemp = double.MaxValue;
+        var run = new List<SystemMinute>();
+        void Close()
+        {
+            var cool = run.Where(m => m.GpuTempMax < ThrottleHot - 5 && m.GpuPower is not null).ToList();
+            if (cool.Count >= ThrottleMinReference)
+            {
+                double clock = Median(cool.Select(m => m.GpuClock!.Value)), power = Median(cool.Select(m => m.GpuPower!.Value));
+                foreach (var m in run)
+                    if (m.GpuTempMax >= ThrottleHot && m.GpuClock < clock * ThrottleClockShare && m.GpuPower <= power * 1.02)
+                    {
+                        slowed++;
+                        dropSum += 1 - m.GpuClock!.Value / clock;
+                        fromTemp = Math.Min(fromTemp, m.GpuTempMax!.Value);
+                    }
+            }
+            run.Clear();
+        }
+        long? app = null;
+        long end = 0;
+        foreach (var m in minutes)
+        {
+            bool heavy = m.GpuLoad >= LoadBands.GpuHeavyLoad && m.GpuClock is > 0 && m.GpuTempMax is not null;
+            if (!heavy || m.GpuApp != app || m.Ts != end)
+            {
+                Close();
+                if (!heavy) continue;
+                app = m.GpuApp;
+            }
+            run.Add(m);
+            end = m.Ts + 60;
+        }
+        Close();
+        return slowed >= ThrottleMinMinutes ? new Throttling(slowed, dropSum / slowed * 100, fromTemp) : null;
+    }
+
+    private static double Median(IEnumerable<double> values)
+    {
+        var sorted = values.Order().ToList();
+        return sorted[sorted.Count / 2];
+    }
+
+    /// <summary>
+    /// From here a GPU's fans turn: many stop below about 60° on purpose (and keep turning down to about 50° once
+    /// started), so only minutes at this or more can say a GPU fan has stopped when it shouldn't.
+    /// </summary>
+    internal const double GpuFanSpinTemp = 70;
+
+    /// <summary>
+    /// Each fan over the period: the minutes it should have been turning (a GPU fan with the GPU at
+    /// <see cref="GpuFanSpinTemp"/> or more; any other fan while the PC was on), how many it read 0 rpm, and the longest
+    /// run of those (see <see cref="FanStat"/>). A fan that never should have turned isn't listed.
+    /// </summary>
     private static void AddFans(RigsightDb db, Report report, List<SystemMinute> minutes, long from, long to)
     {
         var fans = db.GetFans();
         if (fans.Count == 0) return;
-        var fanMinutes = db.GetFanMinutes(from, to);
-        if (fanMinutes.Count == 0) return;
+        var byFan = db.GetFanMinutes(from, to).GroupBy(fm => fm.Fan).ToDictionary(g => g.Key, g => g.ToList());
+        if (byFan.Count == 0) return;
         var byTs = minutes.ToDictionary(m => m.Ts);
-        var acc = fans.ToDictionary(f => f.Id, _ => (IdleSum: 0.0, IdleN: 0, WarmSum: 0.0, WarmN: 0));
-        foreach (var fm in fanMinutes)
+        foreach (var fan in fans)
         {
-            if (!byTs.TryGetValue(fm.Ts, out var m) || !acc.TryGetValue(fm.Fan, out var a)) continue;
-            bool gpuFan = fans.First(f => f.Id == fm.Fan).Sensor.StartsWith("/gpu", StringComparison.Ordinal);
-            if (m.CpuLoad < LoadBands.IdleMaxLoad && m.GpuLoad < LoadBands.IdleMaxLoad) a = (a.IdleSum + fm.RpmAvg, a.IdleN + 1, a.WarmSum, a.WarmN);
-            double? temp = gpuFan ? m.GpuTemp : m.CpuTemp;
-            if (temp >= WarmFrom && temp < WarmTo) a = (a.IdleSum, a.IdleN, a.WarmSum + fm.RpmAvg, a.WarmN + 1);
-            acc[fm.Fan] = a;
+            if (!byFan.TryGetValue(fan.Id, out var fanMinutes)) continue;
+            bool gpu = fan.Sensor.StartsWith("/gpu", StringComparison.Ordinal);
+            int spin = 0, stopped = 0, run = 0, longest = 0;
+            long runStart = 0, last = 0, bestStart = 0;
+            double runTemp = 0, bestTemp = 0;
+            foreach (var fm in fanMinutes)
+            {
+                if (!byTs.TryGetValue(fm.Ts, out var m)) continue;
+                double? temp = gpu ? m.GpuTemp : m.CpuTemp;
+                if (gpu && !(temp >= GpuFanSpinTemp)) { run = 0; continue; } // cool enough to be still on purpose
+                spin++;
+                if (fm.RpmMax > 0) { run = 0; continue; }
+                stopped++;
+                if (run == 0 || fm.Ts != last + 60) (run, runStart, runTemp) = (0, fm.Ts, 0);
+                run++;
+                last = fm.Ts;
+                runTemp = Math.Max(runTemp, temp ?? 0);
+                if (run > longest) (longest, bestStart, bestTemp) = (run, runStart, runTemp);
+            }
+            if (spin > 0)
+                report.Fans.Add(new FanStat(fan.Name, fan.Hardware, gpu, spin, stopped, longest,
+                    longest > 0 ? TimeUtil.FromUnix(bestStart) : null, longest > 0 && bestTemp > 0 ? bestTemp : null));
         }
-        report.Fans = [.. fans.Where(f => acc[f.Id].IdleN + acc[f.Id].WarmN > 0).Select(f =>
-        {
-            var a = acc[f.Id];
-            return new FanStat(f.Name, f.Hardware, f.Sensor.StartsWith("/gpu", StringComparison.Ordinal),
-                a.IdleN > 0 ? a.IdleSum / a.IdleN : null, a.IdleN, a.WarmN > 0 ? a.WarmSum / a.WarmN : null, a.WarmN);
-        })];
-    }
-
-    private static LoadTemps? TempsWhere(List<SystemMinute> minutes, Func<SystemMinute, bool> match)
-    {
-        var picked = minutes.Where(match).ToList();
-        if (picked.Count == 0) return null;
-        return new LoadTemps(Avg(picked.Select(m => m.CpuTemp)), Avg(picked.Select(m => m.GpuTemp)), picked.Count);
     }
 
     private static double? Avg(IEnumerable<double?> values)

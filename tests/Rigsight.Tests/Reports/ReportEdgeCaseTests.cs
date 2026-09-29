@@ -272,10 +272,9 @@ public sealed class ReportEdgeCaseTests
 
     [Theory]
     [InlineData(96, 0)]
-    [InlineData(95, 1)] // reaching the limit counts
-    [InlineData(90, 1)]
-    [InlineData(61, 1)]
-    [InlineData(60, 30)]
+    [InlineData(95, 0)] // one minute spiked to 95°, but it averaged 50°: a spike isn't a minute at the limit (the alert waits it out too)
+    [InlineData(51, 0)]
+    [InlineData(50, 30)] // reaching the limit counts
     public void Minutes_over_the_alert_limit_follow_the_users_limit(double limit, int expected)
     {
         using var t = TwoApps(out long ts);

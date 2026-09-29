@@ -36,7 +36,7 @@ public sealed class WhatsNewTests
             Assert.NotEmpty(r.Sections);
             Assert.All(r.Sections.SelectMany(s => s.Items), item =>
             {
-                Assert.InRange(item.Length, 10, 140);         // one short line
+                Assert.InRange(item.Length, 10, 90);          // a headline, not an explanation
                 Assert.EndsWith(".", item);
                 Assert.DoesNotContain("GitHub", item);         // in-app text never names it
             });

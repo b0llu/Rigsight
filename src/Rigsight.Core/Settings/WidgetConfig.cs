@@ -107,7 +107,7 @@ public sealed class WidgetConfig
     /// <summary>No longer used (see <see cref="WidgetVisibility"/>).</summary>
     public WidgetVisibility Visibility { get; set; } = WidgetVisibility.Always;
 
-    /// <summary>One of each built-in style; only the slim bar is on to start with.</summary>
+    /// <summary>One of each built-in style, in grayscale; only the slim bar is on to start with.</summary>
     public static List<WidgetConfig> Defaults() =>
-        [.. WidgetCatalog.BuiltIn.Select(s => new WidgetConfig { Style = s, Id = s.ToString(), Enabled = s == WidgetStyle.Pill })];
+        [.. WidgetCatalog.BuiltIn.Select(s => new WidgetConfig { Style = s, Id = s.ToString(), Enabled = s == WidgetStyle.Pill, Grayscale = true })];
 }

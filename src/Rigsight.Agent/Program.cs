@@ -9,6 +9,9 @@ namespace Rigsight.Agent;
 
 internal static class Program
 {
+    private const string Gen0Variable = "DOTNET_GCgen0size";
+    private const string Gen0Size = "0x400000"; // 4 MB, as the app has
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -109,6 +112,27 @@ internal static class Program
             }
         }
 
+        // The garbage collector sizes its short-lived area from the CPU's cache: tens of megabytes on a large-cache CPU (a
+        // Ryzen X3D has 96 MB of L3), filled and emptied over and over by an agent that needs a few. It can only be set
+        // before the runtime starts, so, as the app does, start again with it set (about a tenth of a second), and clear
+        // it so what the agent starts (the update helper, RivaTuner) doesn't inherit it. See Rigsight's Program.
+        if (Environment.GetEnvironmentVariable(Gen0Variable) is null && Environment.ProcessPath is { } exe)
+        {
+            try
+            {
+                var start = new ProcessStartInfo(exe) { UseShellExecute = false };
+                foreach (var a in args) start.ArgumentList.Add(a);
+                start.Environment[Gen0Variable] = Gen0Size;
+                using var child = Process.Start(start);
+                if (child is not null) return;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("agent", ex); // run as we are, with the runtime's own sizing
+            }
+        }
+        Environment.SetEnvironmentVariable(Gen0Variable, null);
+
         Mutex mutex;
         try
         {
@@ -134,7 +158,7 @@ internal static class Program
         Application.ThreadException += (_, e) => Log.Error("agent", e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error("agent", (Exception)e.ExceptionObject);
 
-        Log.Write("agent", $"Starting (admin: {isAdmin})");
+        Log.Write("agent", $"Starting (admin: {isAdmin}, process {Environment.ProcessId})");
         Application.Run(new AgentContext(args, isAdmin));
         GC.KeepAlive(mutex);
     }

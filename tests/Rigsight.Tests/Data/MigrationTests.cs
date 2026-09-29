@@ -300,4 +300,31 @@ public sealed class MigrationTests
                 else Assert.True(Equals(v, w), $"row {i} {col}: expected {v ?? "NULL"}, got {w ?? "NULL"}");
             }
     }
+
+    [Fact]
+    public void Fan_speeds_recorded_before_they_were_read_fresh_go_once_and_the_fans_stay()
+    {
+        // Until 0.10.2 a fan's last reading was recorded over and over while the app was closed: those rows go the first
+        // time the fixed agent opens the database, and what it records from then on stays.
+        using var t = new TestDb();
+        long ts = U(2025, 1, 10) + 3600;
+        t.Db.WriteMinute(Minute(ts));
+        long fan = t.Db.FanId("/gpu-nvidia/0/fan/1", "GPU Fan 1", "RTX");
+        t.Db.WriteFanMinutes(ts, [(fan, 1790, 1790)]);
+        using (var raw = t.Raw())
+        using (var forget = raw.CreateCommand())
+        {
+            forget.CommandText = "DELETE FROM meta WHERE key = 'fans_fresh'"; // as a 0.10.0 database has it
+            forget.ExecuteNonQuery();
+        }
+        t.OpenWriter();
+        Assert.Empty(t.Db.GetFanMinutes(ts, ts + 60));
+        Assert.Empty(t.Db.GetFanDays(0, ts + 86400));
+        Assert.Single(t.Db.GetFans());
+
+        t.Db.WriteFanMinutes(ts, [(fan, 1600, 1650)]);
+        t.OpenWriter();
+        Assert.Single(t.Db.GetFanMinutes(ts, ts + 60)); // once only
+    }
 }
+

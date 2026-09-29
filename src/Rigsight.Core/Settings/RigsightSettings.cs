@@ -24,7 +24,8 @@ public sealed class RigsightSettings
     public TrackingSettings Tracking { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
     public List<WidgetConfig> Widgets { get; set; } = WidgetConfig.Defaults();
-    public OverlaySettings Overlay { get; set; } = new();
+    /// <summary>A new install's overlay (like its widgets and taskbar readings) starts in grayscale.</summary>
+    public OverlaySettings Overlay { get; set; } = new() { Grayscale = true };
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
     /// <remarks>Read into this case-insensitive dictionary (not a new one), so copies from the pipe keep matching any case.</remarks>
@@ -52,6 +53,12 @@ public sealed class RigsightSettings
 
     /// <summary>How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons.</summary>
     public TrayStyle TrayStyle { get; set; }
+
+    /// <summary>
+    /// The taskbar readings in the taskbar's text colour and grey, without the parts' colours (on a new install; settings
+    /// from before 0.11 keep the colours they had).
+    /// </summary>
+    public bool TrayGrayscale { get; set; } = true;
 
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];

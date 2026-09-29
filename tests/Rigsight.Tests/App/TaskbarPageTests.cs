@@ -33,6 +33,28 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
+    public void Grayscale_to_start_and_the_preview_follows_the_colors_switch()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
+            Assert.Equal(("Grayscale", true), (page.Colors, settings.Current.TrayGrayscale));
+            var grey = TaskbarViewModel.MarkBrush(TrayPart.Other, page.TaskbarLight);
+            Assert.Equal(grey, page.PreviewStrip.Single().NameBrush);
+            Assert.Equal(grey, page.PreviewIcons.Single().Mark);
+
+            page.Colors = "Color";
+            Assert.False(settings.Current.TrayGrayscale);
+            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight), page.PreviewStrip.Single().NameBrush);
+            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight), page.PreviewIcons.Single().Mark);
+
+            page.Colors = "Grayscale";
+            Assert.True(settings.Current.TrayGrayscale);
+        });
+    }
+
+    [Fact]
     public void Readings_are_added_once_each_with_no_limit_and_kept_in_order()
     {
         var (page, settings, live) = Make();
@@ -70,6 +92,7 @@ public sealed class TaskbarPageTests
         {
             foreach (var label in new[] { "CPU load", "GPU temperature", "RAM in use", "CPU temperature", "GPU load" })
                 page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
+            page.Colors = "Color";
             page.Separate = true;
             Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyle);
             Assert.True(page.ShowIcons);
@@ -101,6 +124,7 @@ public sealed class TaskbarPageTests
         {
             foreach (var label in new[] { "GPU load", "CPU temperature", "RAM in use", "GPU temperature", "CPU load", "GPU power" })
                 page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
+            page.Colors = "Color";
             Assert.True(page.InStrip);
             var parts = page.PreviewStrip;
             Assert.Equal(["GPU", "CPU", "RAM"], parts.Select(p => p.Name));

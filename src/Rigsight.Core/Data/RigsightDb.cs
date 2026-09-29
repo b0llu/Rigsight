@@ -133,7 +133,30 @@ public sealed class RigsightDb : IDisposable
             CREATE TABLE IF NOT EXISTS fan_day(day INTEGER NOT NULL, fan INTEGER NOT NULL, rpm_sum REAL NOT NULL, rpm_n INTEGER NOT NULL,
                 rpm_max INTEGER NOT NULL, idle_sum REAL NOT NULL, idle_n INTEGER NOT NULL, PRIMARY KEY(day, fan));
             """);
+        // Each day's steady load by app and its time at rest (0.10.2): how the PC ran months ago, in the same terms as a
+        // report reads its own minutes (see HeatSql). Added up for the days already recorded, once.
+        bool newHeat = !HasTable("heat_day");
+        Exec("""
+            CREATE TABLE IF NOT EXISTS heat_day(day INTEGER NOT NULL, app INTEGER NOT NULL, n INTEGER NOT NULL,
+                gpu_sum REAL NOT NULL, gpu_n INTEGER NOT NULL, cpu_sum REAL NOT NULL, cpu_n INTEGER NOT NULL,
+                power_sum REAL NOT NULL, power_n INTEGER NOT NULL, PRIMARY KEY(day, app)) WITHOUT ROWID;
+            """);
+        if (newHeat)
+        {
+            using var all = Cmd($"INSERT OR REPLACE INTO heat_day {HeatSql}", ("$from", long.MinValue / 2), ("$to", long.MaxValue / 2));
+            all.ExecuteNonQuery();
+        }
+
+        // Until 0.10.2 a fan's last reading was recorded again and again while the app was closed (its chip wasn't read
+        // then): those speeds are mostly hours old, so they go, once. The fans themselves stay.
+        if (GetMeta(FansFreshKey) is null)
+        {
+            Exec("DELETE FROM fan_minute; DELETE FROM fan_day;");
+            SetMeta(FansFreshKey, "1");
+        }
     }
+
+    private const string FansFreshKey = "fans_fresh";
 
     private bool HasTable(string table)
     {
@@ -181,6 +204,33 @@ public sealed class RigsightDb : IDisposable
         total(CASE WHEN {Reports.LoadBands.CpuHeavySql} THEN cpu_temp END), count(CASE WHEN {Reports.LoadBands.CpuHeavySql} THEN cpu_temp END),
         total(CASE WHEN {Reports.LoadBands.GpuHeavySql} THEN gpu_temp END), count(CASE WHEN {Reports.LoadBands.GpuHeavySql} THEN gpu_temp END),
         total(cpu_clock), count(cpu_clock), total(gpu_clock), count(gpu_clock)
+        """;
+
+    /// <summary>
+    /// heat_day's rows for the local days from $from to $to, from their minutes, as ReportBuilder.SteadyOf reads a
+    /// report's: per app, its minutes at heavy GPU load past the first ten of each run (runs counted from $from); and as
+    /// app 0, the minutes at rest (someone there, both chips under 15%, 16 minutes after either last worked hard, looked
+    /// for a quarter of an hour before $from too). In heat_day's column order.
+    /// </summary>
+    private static readonly string HeatSql = $"""
+        WITH m AS (
+          SELECT ts, gpu_temp, cpu_temp, gpu_power, gpu_app, active_sec, cpu_load, gpu_load,
+                 max(CASE WHEN gpu_load >= {Reports.LoadBands.GpuHeavyLoad} OR cpu_load >= {Reports.LoadBands.CpuHeavyLoad} THEN ts END)
+                   OVER (ORDER BY ts ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS last_busy
+          FROM system_minute WHERE ts >= $from - {(Reports.ReportBuilder.RestAfterMinutes + 1) * 60} AND ts < $to),
+        runs AS (
+          SELECT ts, gpu_temp, cpu_temp, gpu_power, gpu_app, ts / 60 - row_number() OVER (PARTITION BY gpu_app ORDER BY ts) AS run
+          FROM m WHERE ts >= $from AND gpu_load >= {Reports.LoadBands.GpuHeavyLoad} AND gpu_app IS NOT NULL),
+        steady AS (
+          SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY gpu_app, run ORDER BY ts) AS k FROM runs)
+          WHERE k > {Reports.ReportBuilder.WarmUpMinutes} AND gpu_temp IS NOT NULL)
+        SELECT {DayOf("ts")}, gpu_app, count(*), total(gpu_temp), count(gpu_temp), total(cpu_temp), count(cpu_temp), total(gpu_power), count(gpu_power)
+        FROM steady GROUP BY 1, 2
+        UNION ALL
+        SELECT {DayOf("ts")}, 0, count(*), total(gpu_temp), count(gpu_temp), total(cpu_temp), count(cpu_temp), 0, 0 FROM m
+        WHERE ts >= $from AND active_sec >= 20 AND cpu_load < {Reports.LoadBands.IdleMaxLoad} AND gpu_load < {Reports.LoadBands.IdleMaxLoad}
+          AND (last_busy IS NULL OR ts >= last_busy + {(Reports.ReportBuilder.RestAfterMinutes + 1) * 60})
+        GROUP BY 1
         """;
 
     // fan_day's, from a fan's minutes joined to the system minutes (for the idle band), in its column order.
@@ -281,6 +331,16 @@ public sealed class RigsightDb : IDisposable
             WHERE ts >= {DayOf("$ts")} AND ts < {DayOf("$ts", ", '+1 day'")}
             """, ("$ts", m.Ts));
         day.ExecuteNonQuery();
+        // And its heat, the same way (a couple of milliseconds: one day's minutes).
+        using var bounds = Cmd($"SELECT {DayOf("$ts")}, {DayOf("$ts", ", '+1 day'")}", ("$ts", m.Ts));
+        using (var r = bounds.ExecuteReader())
+        {
+            r.Read();
+            (long from, long to) = (r.GetInt64(0), r.GetInt64(1));
+            r.Close();
+            using var heat = Cmd($"DELETE FROM heat_day WHERE day = $from; INSERT OR REPLACE INTO heat_day {HeatSql}", ("$from", from), ("$to", to));
+            heat.ExecuteNonQuery();
+        }
     }
 
     private static object? WholeOrNull(double? value) => value is double v && double.IsFinite(v) ? (long)Math.Round(v) : null;
@@ -460,6 +520,21 @@ public sealed class RigsightDb : IDisposable
             INSERT INTO fan_day SELECT {DayOf("f.ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts
                 WHERE f.ts >= {DayOf("$t")} AND f.ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1, 2;
             """, ("$t", before))) c1f.ExecuteNonQuery();
+        using (var c1h = Cmd($"""
+            DELETE FROM heat_day WHERE day <= {DayOf("$t")};
+            """, ("$t", before))) c1h.ExecuteNonQuery();
+        using (var c1b = Cmd($"SELECT {DayOf("$t")}, {DayOf("$t", ", '+1 day'")}", ("$t", before)))
+        using (var r = c1b.ExecuteReader())
+        {
+            // The day the cutoff falls in, added up again from what's left of it (none past the calendar's end).
+            if (r.Read() && !r.IsDBNull(0) && !r.IsDBNull(1))
+            {
+                (long from, long to) = (r.GetInt64(0), r.GetInt64(1));
+                r.Close();
+                using var heat = Cmd($"INSERT OR REPLACE INTO heat_day {HeatSql}", ("$from", from), ("$to", to));
+                heat.ExecuteNonQuery();
+            }
+        }
         using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
@@ -467,7 +542,8 @@ public sealed class RigsightDb : IDisposable
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;");
+        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;"
+            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day;");
         Exec("VACUUM");
     }
 
@@ -570,10 +646,16 @@ public sealed class RigsightDb : IDisposable
     }
 
     /// <summary>The longest game session (active seconds) in a range, if any.</summary>
-    public double? LongestGameSessionSec(long from, long to)
+    /// <summary>
+    /// The longest session of any of <paramref name="games"/> (the apps that are games now: one relabelled since counts
+    /// with its old sessions), from <paramref name="from"/> to <paramref name="to"/>.
+    /// </summary>
+    public double? LongestGameSessionSec(long from, long to, IReadOnlyCollection<long> games)
     {
-        using var cmd = Cmd("""
-            SELECT max(active_sec) FROM sessions WHERE start >= $earliest AND start < $to AND end > $from AND is_game = 1
+        if (games.Count == 0) return null;
+        using var cmd = Cmd($"""
+            SELECT max(active_sec) FROM sessions WHERE start >= $earliest AND start < $to AND end > $from
+              AND app_id IN ({string.Join(',', games.Select(g => g.ToString(System.Globalization.CultureInfo.InvariantCulture)))})
             """, ("$from", from), ("$to", to), ("$earliest", from - MaxSessionSec() - 1));
         return cmd.ExecuteScalar() is double v ? v : null;
     }
@@ -615,6 +697,24 @@ public sealed class RigsightDb : IDisposable
         }
         return list;
     }
+
+    /// <summary>
+    /// Each day's steady load by app and time at rest (app 0) from <paramref name="from"/> to <paramref name="to"/> (see
+    /// heat_day). None from a database older than 0.10.2, which the app may read before the agent has updated it.
+    /// </summary>
+    public List<HeatDay> GetHeatDays(long from, long to)
+    {
+        if (!(_hasHeat ??= HasTable("heat_day"))) return [];
+        using var cmd = Cmd("SELECT day, app, n, gpu_sum, gpu_n, cpu_sum, cpu_n, power_sum, power_n FROM heat_day WHERE day >= $from AND day < $to",
+            ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<HeatDay>();
+        while (r.Read())
+            list.Add(new HeatDay(r.GetInt64(0), r.GetInt64(1), r.GetInt32(2), r.GetDouble(3), r.GetInt32(4), r.GetDouble(5), r.GetInt32(6), r.GetDouble(7), r.GetInt32(8)));
+        return list;
+    }
+
+    private bool? _hasHeat;
 
     public List<AppHour> GetAppHours(long from, long to)
     {

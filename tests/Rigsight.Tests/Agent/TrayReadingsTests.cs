@@ -216,6 +216,20 @@ public class TrayReadingsTests
     }
 
     [Fact]
+    public void In_grayscale_temperatures_take_the_taskbars_colour_and_every_part_is_marked_grey()
+    {
+        foreach (bool light in new[] { false, true })
+        {
+            var text = WidgetRenderer.TrayColor(SensorKind.Load, 40, light).ToArgb();
+            Assert.Equal(text, WidgetRenderer.TrayColor(SensorKind.Temperature, 90, light, gray: true).ToArgb());
+            Assert.Equal(WidgetRenderer.TrayColor(SensorKind.Temperature, null, light).ToArgb(), WidgetRenderer.TrayColor(SensorKind.Temperature, null, light, gray: true).ToArgb());
+            var grey = WidgetRenderer.TrayMark(TrayPart.Other, light).ToArgb();
+            Assert.All(Enum.GetValues<TrayPart>(), part => Assert.Equal(grey, WidgetRenderer.TrayMark(part, light, gray: true).ToArgb()));
+            Assert.NotEqual(grey, WidgetRenderer.TrayMark(TrayPart.Cpu, light).ToArgb());
+        }
+    }
+
+    [Fact]
     public void Taskbar_sensors_are_saved_tidy_with_no_limit()
     {
         var s = new RigsightSettings { TraySensors = ["/a", "", "/b", "/a", " ", .. Enumerable.Range(0, 30).Select(i => $"/s{i}")] };

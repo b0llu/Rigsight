@@ -193,4 +193,10 @@ public static class TimeUtil
 }
 
 /// <summary>What was going on just before a crash (see RigsightDb.GetCrashContext).</summary>
+/// <summary>
+/// A day's heat (heat_day): for an app, its minutes of steady heavy GPU load with the GPU and CPU temperatures and GPU
+/// power summed; for app 0, the minutes at rest with their temperatures.
+/// </summary>
+public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN, double CpuSum, int CpuN, double PowerSum, int PowerN);
+
 public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec);

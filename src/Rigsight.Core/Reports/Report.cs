@@ -36,14 +36,35 @@ public enum RecordKind { LongestGameSession, HottestGpu, HottestCpu, MostScreenT
 /// <summary>A record this period set: the value (formatted), the app if any, and how many days back it holds (30, 90 or 365).</summary>
 public sealed record RecordNote(RecordKind Kind, string Value, string? App, int Days);
 
-/// <summary>Temperatures at idle and under heavy load over an older stretch of days, and when that was.</summary>
-public sealed record ThenTemps(LoadTemps Idle, LoadTemps Load, DateTime From, DateTime To, int Days);
+/// <summary>
+/// One app working the GPU hard, steadily: its minutes at heavy GPU load past the first ten of each run (still warming
+/// up then), on how many days, and the average temperatures and GPU power over them. The same game at steady load is
+/// the one like-for-like way to compare temperatures across time: a lighter game, a warm-up or a menu isn't.
+/// </summary>
+public sealed record SteadyLoad(long AppId, string App, int Minutes, int Days, double Gpu, double? Cpu, double? GpuPower)
+{
+    /// <summary>Two stretches of the same app's steady load as one (a day and the week before it).</summary>
+    public static SteadyLoad Merge(SteadyLoad a, SteadyLoad b)
+    {
+        int n = a.Minutes + b.Minutes;
+        static double? W(double? x, int nx, double? y, int ny) => x is null ? y : y is null ? x : (x * nx + y * ny) / (nx + ny);
+        return new SteadyLoad(a.AppId, a.App, n, a.Days + b.Days, (a.Gpu * a.Minutes + b.Gpu * b.Minutes) / n,
+            W(a.Cpu, a.Minutes, b.Cpu, b.Minutes), W(a.GpuPower, a.Minutes, b.GpuPower, b.Minutes));
+    }
+}
 
 /// <summary>
-/// A fan's speeds over a period: at idle, and in the warm band (60–75°) of the part it cools (the GPU for a GPU fan,
-/// else the CPU), where a faster fan for the same temperature means a cooler that's clogging up.
+/// How a PC ran some months ago: each app's steady load and the temperatures at rest then (the room's measure), from
+/// <see cref="From"/> to <see cref="To"/>.
 /// </summary>
-public sealed record FanStat(string Name, string Hardware, bool Gpu, double? IdleRpm, int IdleMinutes, double? WarmRpm, int WarmMinutes);
+public sealed record ThenHeat(List<SteadyLoad> Steady, LoadTemps? Rest, DateTime From, DateTime To);
+
+/// <summary>
+/// A fan over a period, for telling a stopped fan from one that's meant to be still: the minutes it should have been
+/// turning (for a GPU fan, the GPU at 70° or more: below that many stop on purpose; for any other, whenever the PC was
+/// on), how many of them it read 0 rpm, and the longest run of those, when it started and how hot the part got in it.
+/// </summary>
+public sealed record FanStat(string Name, string Hardware, bool Gpu, int SpinMinutes, int StoppedMinutes, int LongestStop, DateTime? StopStart, double? StopTemp);
 
 /// <summary>Minutes a chip ran its clocks down while hot under load, by how much, and from what temperature.</summary>
 public sealed record Throttling(int Minutes, double DropPercent, double FromTemp);
@@ -52,7 +73,7 @@ public sealed record Throttling(int Minutes, double DropPercent, double FromTemp
 public sealed record WeekdayUsual(DayOfWeek Day, int Days, double ActiveSec, double GamingSec);
 
 /// <summary>What the insights compare a period with beyond the week before it.</summary>
-public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenTemps? Then = null);
+public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenHeat? Then = null);
 
 public sealed class AppStat
 {
@@ -150,6 +171,13 @@ public sealed class Report
     public double ActiveSec { get; set; }
     public double AwaySec { get; set; }
 
+    /// <summary>
+    /// Time left on with nobody there, in unbroken stretches of <see cref="LongAwayMinutes"/> or more with nothing working
+    /// hard (a render or a download left running is work, not the PC sitting there).
+    /// </summary>
+    public double LongAwaySec { get; set; }
+    public const int LongAwayMinutes = 30;
+
     public double? CpuTempAvg { get; set; }
     public double? GpuTempAvg { get; set; }
     public double? CpuLoadAvg { get; set; }
@@ -157,6 +185,10 @@ public sealed class Report
 
     public Peak? CpuTempPeak { get; set; }
     public Peak? GpuTempPeak { get; set; }
+
+    /// <summary>The highest minute averages: how hot a chip held, not a moment's spike (as <see cref="CpuTempPeak"/> can be).</summary>
+    public double? CpuTempHeld { get; set; }
+    public double? GpuTempHeld { get; set; }
     public Peak? GpuHotPeak { get; set; }
     public Peak? CpuVoltPeak { get; set; }
     public Peak? GpuVoltPeak { get; set; }
@@ -171,11 +203,20 @@ public sealed class Report
     /// <summary>End of the last use before 5 AM, if the night before ran late.</summary>
     public DateTime? LateUntil { get; set; }
     public Stretch? LongestStretch { get; set; }
-    public LoadTemps? IdleTemps { get; set; }
-    public LoadTemps? GpuLoadTemps { get; set; }
-    public LoadTemps? CpuLoadTemps { get; set; }
-    /// <summary>Gpu = average hot-spot-minus-core gap under heavy GPU load.</summary>
+
+    /// <summary>
+    /// Temperatures at rest: someone at the PC, nothing working the CPU or GPU, and a quarter of an hour since either
+    /// last worked hard (a GPU cooling down from a game isn't at rest). They follow the room.
+    /// </summary>
+    public LoadTemps? RestTemps { get; set; }
+
+    /// <summary>Each app's steady heavy GPU load (see <see cref="SteadyLoad"/>), most minutes first.</summary>
+    public List<SteadyLoad> Steady { get; set; } = [];
+
+    /// <summary>Gpu = average hot-spot-minus-core gap under steady heavy GPU load (Minutes of it).</summary>
     public LoadTemps? HotSpotGap { get; set; }
+
+    /// <summary>Minutes a chip averaged at or over its alert limit (a moment's spike doesn't count, as it doesn't for the alert).</summary>
     public int CpuOverLimitMin { get; set; }
     public int GpuOverLimitMin { get; set; }
 
@@ -198,13 +239,14 @@ public sealed class Report
     public List<RecordNote> Records { get; set; } = [];
     public int StreakDays { get; set; }
 
-    /// <summary>After heavy GPU load ended, how long the GPU took to cool below 50° (averaged over the times it did).</summary>
-    public double? CooldownMinutes { get; set; }
-    public int CooldownCount { get; set; }
-
     public List<FanStat> Fans { get; set; } = [];
-    public Throttling? CpuThrottle { get; set; }
     public Throttling? GpuThrottle { get; set; }
+
+    /// <summary>
+    /// The game in front for the last minutes of a period still going on: its session isn't over, so it isn't among
+    /// <see cref="Sessions"/> yet.
+    /// </summary>
+    public string? GameOngoing { get; set; }
 
     /// <summary>Days in <see cref="Days"/> with anything recorded (for daily averages).</summary>
     public int DaysWithData => Days.Count(d => d.OnSec > 0);

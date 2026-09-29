@@ -8,8 +8,9 @@ using static Rigsight.Tests.Data.Make;
 namespace Rigsight.Tests.Reports;
 
 /// <summary>
-/// What a report reads out of the minutes beyond totals: who made the heat, work done in the background, clocks
-/// running down, cooling down, the fans; and out of the days before it: records, streaks, the same weekday, months ago.
+/// What a report reads out of the minutes beyond totals: who made the heat, work done in the background, steady load
+/// and rest, clocks running down, fans that stopped; and out of the days before it: records, streaks, the same weekday,
+/// months ago.
 /// </summary>
 public sealed class HeatShapeTests
 {
@@ -51,52 +52,78 @@ public sealed class HeatShapeTests
     }
 
     [Fact]
-    public void Clocks_well_under_their_cool_level_when_hot_are_throttling()
+    public void Clocks_well_under_the_same_sessions_cool_ones_when_hot_are_throttling()
     {
         using var t = new TestDb();
         var (game, _, _) = Apps(t);
-        for (int i = 0; i < 15; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 70, gpuClock: 1800 + i)); // cool, at full clocks
-        for (int i = 15; i < 19; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 85 + i - 15, gpuClock: 1500));
-        for (int i = 19; i < 22; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 86, gpuClock: 1780)); // hot but not slowed
+        for (int i = 0; i < 15; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 70, gpuPower: 300, gpuClock: 1800 + i, gpuApp: game)); // cool, at full clocks
+        for (int i = 15; i < 19; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 85 + i - 15, gpuPower: 290, gpuClock: 1500, gpuApp: game));
+        for (int i = 19; i < 22; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 86, gpuPower: 300, gpuClock: 1780, gpuApp: game)); // hot but not slowed
         var r = Build(t);
         Assert.NotNull(r.GpuThrottle);
         Assert.Equal((4, 85.0), (r.GpuThrottle.Minutes, r.GpuThrottle.FromTemp));
         Assert.InRange(r.GpuThrottle.DropPercent, 16, 18);
-        Assert.Null(r.CpuThrottle);
     }
 
     [Fact]
-    public void Cooling_down_is_timed_from_the_end_of_heavy_load_to_the_cool_line()
+    public void Lower_clocks_in_a_heavier_game_or_scene_are_not_throttling()
     {
         using var t = new TestDb();
-        var (game, _, _) = Apps(t);
-        int i = 0;
-        for (; i < 12; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpu: 70));
-        foreach (double temp in new[] { 65, 60, 55, 52, 49, 47 }) t.Db.WriteMinute(Minute(T0 + i++ * 60, app: game, gpuLoad: 5, gpu: temp));
-        for (int k = 0; k < 5; k++) t.Db.WriteMinute(Minute(T0 + i++ * 60, app: game, gpuLoad: 95, gpu: 70)); // too short a run to count
-        foreach (double temp in new[] { 60, 48 }) t.Db.WriteMinute(Minute(T0 + i++ * 60, app: game, gpuLoad: 5, gpu: temp));
+        var (game, _, blender) = Apps(t);
+        // A light game cool at high clocks, then a heavy one hot at lower clocks: another load, not the same one slowed.
+        for (int i = 0; i < 30; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpuLoad: 95, gpuMax: 70, gpuPower: 180, gpuClock: 2800, gpuApp: game));
+        for (int i = 30; i < 60; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: blender, gpuLoad: 99, gpuMax: 86, gpuPower: 330, gpuClock: 2400, gpuApp: blender));
+        Assert.Null(Build(t).GpuThrottle);
+        // In one game: a heavier scene draws more power and clocks lower by the power limit, hot or not.
+        using var t2 = new TestDb();
+        var (game2, _, _) = Apps(t2);
+        for (int i = 0; i < 20; i++) t2.Db.WriteMinute(Minute(T0 + i * 60, app: game2, gpuLoad: 95, gpuMax: 74, gpuPower: 250, gpuClock: 2700, gpuApp: game2));
+        for (int i = 20; i < 40; i++) t2.Db.WriteMinute(Minute(T0 + i * 60, app: game2, gpuLoad: 99, gpuMax: 84, gpuPower: 340, gpuClock: 2300, gpuApp: game2));
+        Assert.Null(Build(t2).GpuThrottle);
+    }
+
+    [Fact]
+    public void Steady_load_skips_each_runs_warm_up_and_rest_skips_the_cool_down_after()
+    {
+        using var t = new TestDb();
+        var (game, chrome, _) = Apps(t);
+        int m = 0;
+        void Write(int count, Func<int, SystemMinute> make) { for (int i = 0; i < count; i++, m++) t.Db.WriteMinute(make(i)); }
+        Write(30, _ => Minute(T0 + m * 60, app: chrome, cpu: 40, gpu: 35, cpuLoad: 5, gpuLoad: 3)); // at rest
+        Write(40, i => Minute(T0 + m * 60, app: game, cpu: 60, gpu: i < 10 ? 50 + i * 2 : 72, cpuLoad: 30, gpuLoad: 97, gpuPower: 300, gpuApp: game, hot: i < 10 ? null : 72 + 14));
+        Write(15, i => Minute(T0 + m * 60, app: chrome, cpu: 45, gpu: 60 - i, cpuLoad: 5, gpuLoad: 3)); // cooling down: not rest
+        Write(30, _ => Minute(T0 + m * 60, app: chrome, cpu: 41, gpu: 37, cpuLoad: 5, gpuLoad: 3)); // rest again
+        Write(20, _ => Minute(T0 + m * 60, app: chrome, cpu: 38, gpu: 34, cpuLoad: 2, gpuLoad: 1, active: 0, idle: 60)); // away: not rest either
         var r = Build(t);
-        Assert.Equal((5.0, 1), (r.CooldownMinutes, r.CooldownCount));
+        var steady = Assert.Single(r.Steady);
+        Assert.Equal(("Game", 30, 1, 72.0, 60.0, 300.0), (steady.App, steady.Minutes, steady.Days, steady.Gpu, steady.Cpu, steady.GpuPower));
+        Assert.NotNull(r.RestTemps);
+        Assert.Equal((60, 40.5, 36.0), (r.RestTemps.Minutes, r.RestTemps.Cpu, r.RestTemps.Gpu));
+        Assert.Equal((13.0, 30), (r.HotSpotGap!.Gpu, r.HotSpotGap.Minutes)); // steady minutes only: 86 over the core's high of 73
     }
 
     [Fact]
-    public void Each_fans_speed_is_read_at_idle_and_in_the_warm_band()
+    public void A_fans_minutes_that_should_turn_and_its_longest_stop_are_counted()
     {
         using var t = new TestDb();
         var (game, _, _) = Apps(t);
-        long gpuFan = t.Db.FanId("/gpu-nvidia/0/fan/0", "GPU Fan", "RTX"), caseFan = t.Db.FanId("/lpc/it8686e/fan/1", "Fan #2", "B650");
-        for (int i = 0; i < 40; i++)
+        long gpuFan = t.Db.FanId("/gpu-nvidia/0/fan/1", "GPU Fan 1", "RTX"), caseFan = t.Db.FanId("/lpc/it8686e/0/fan/1", "Fan #2", "ITE IT8686E"),
+            empty = t.Db.FanId("/lpc/it8686e/0/fan/3", "Fan #4", "ITE IT8686E");
+        for (int i = 0; i < 60; i++)
         {
-            bool idle = i < 20;
-            t.Db.WriteMinute(Minute(T0 + i * 60, app: game, cpu: idle ? 40 : 65, gpu: idle ? 35 : 68, cpuLoad: idle ? 5 : 60, gpuLoad: idle ? 3 : 90));
-            t.Db.WriteFanMinutes(T0 + i * 60, [(gpuFan, idle ? 800 : 1600, idle ? 850 : 1700), (caseFan, idle ? 700 : 900, idle ? 700 : 950)]);
+            // Twenty cool minutes (the GPU fan stopped on purpose), then hot ones; the GPU fan stops at 30–37, the case fan at 40–54.
+            double gpu = i < 20 ? 45 : 78;
+            int gpuRpm = i < 20 || i is >= 30 and < 38 ? 0 : 1600, caseRpm = i is >= 40 and < 55 ? 0 : 1000;
+            t.Db.WriteMinute(Minute(T0 + i * 60, app: game, gpu: gpu, gpuLoad: i < 20 ? 3 : 95));
+            t.Db.WriteFanMinutes(T0 + i * 60, [(gpuFan, gpuRpm, gpuRpm), (caseFan, caseRpm, caseRpm), (empty, 0, 0)]);
         }
         var fans = Build(t).Fans;
-        Assert.Equal(2, fans.Count);
-        var gpu = fans.Single(f => f.Name == "GPU Fan");
-        Assert.Equal((true, 800.0, 20, 1600.0, 20), (gpu.Gpu, gpu.IdleRpm, gpu.IdleMinutes, gpu.WarmRpm, gpu.WarmMinutes));
+        var g = fans.Single(f => f.Gpu);
+        Assert.Equal((40, 8, 8, L(T0 + 30 * 60), 78.0), (g.SpinMinutes, g.StoppedMinutes, g.LongestStop, g.StopStart, g.StopTemp)); // cool minutes don't count
         var c = fans.Single(f => f.Name == "Fan #2");
-        Assert.Equal((false, 700.0, 20, 900.0, 20), (c.Gpu, c.IdleRpm, c.IdleMinutes, c.WarmRpm, c.WarmMinutes)); // warm by the CPU's temperature
+        Assert.Equal((60, 15, 15, L(T0 + 40 * 60)), (c.SpinMinutes, c.StoppedMinutes, c.LongestStop, c.StopStart));
+        var e = fans.Single(f => f.Name == "Fan #4");
+        Assert.Equal((60, 60, 60), (e.SpinMinutes, e.StoppedMinutes, e.LongestStop)); // always 0: the week before will say it's nothing
     }
 
     /// <summary>Days of history before <see cref="Day"/>: a minute a day with the given values, on days the picker says.</summary>
@@ -113,9 +140,11 @@ public sealed class HeatShapeTests
         var (game, _, _) = Apps(t);
         DaysBefore(t, 45, _ => true, back => Minute(U(Day.AddDays(-back).AddHours(12)), app: game, cpuMax: 60, gpuMax: 55));
         t.Db.WriteMinute(Minute(T0, app: game, cpuMax: 78, gpuMax: 69)); // the GPU's 69° isn't worth a record
-        var records = Build(t).Records;
-        var cpu = Assert.Single(records);
-        Assert.Equal((RecordKind.HottestCpu, "78°", 90), (cpu.Kind, cpu.Value, cpu.Days)); // 45 days: enough for three months, not a year
+        var cpu = Assert.Single(Build(t).Records);
+        Assert.Equal((RecordKind.HottestCpu, "78°", 30), (cpu.Kind, cpu.Value, cpu.Days)); // 45 days of history: a month, not "three months"
+        DaysBefore(t, 100, back => back > 45 && back % 2 == 0, back => Minute(U(Day.AddDays(-back).AddHours(12)), app: game, cpuMax: 60, gpuMax: 55));
+        cpu = Assert.Single(Build(t).Records);
+        Assert.Equal(90, cpu.Days); // 100 days back, 72 of them used: three months, not a year
 
         t.Db.WriteMinute(Minute(U(Day.AddDays(-50).AddHours(12)), app: game, cpuMax: 79)); // a hotter day within three months: only a month's record
         Assert.Equal(30, Assert.Single(Build(t).Records).Days);
@@ -157,22 +186,51 @@ public sealed class HeatShapeTests
     }
 
     [Fact]
-    public void Months_ago_is_the_stretch_from_four_months_back_to_one_with_enough_idle_days()
+    public void Months_ago_is_each_games_steady_load_and_the_rest_from_four_months_back_to_one()
     {
         using var t = new TestDb();
         var (game, _, _) = Apps(t);
-        for (int back = 40; back < 112; back += 6) // twelve days, half an hour idle each, and a bit under load
-            for (int i = 0; i < 40; i++)
+        for (int back = 40; back < 112; back += 6) // twelve days: half an hour at rest, then half an hour of play
+            for (int i = 0; i < 60; i++)
             {
                 long ts = U(Day.AddDays(-back).AddHours(12)) + i * 60;
-                t.Db.WriteMinute(i < 30 ? Minute(ts, app: game, cpu: 40, gpu: 35, cpuLoad: 5, gpuLoad: 3) : Minute(ts, app: game, cpu: 75, gpu: 70, cpuLoad: 60, gpuLoad: 90));
+                t.Db.WriteMinute(i < 30 ? Minute(ts, app: game, cpu: 40, gpu: 35, cpuLoad: 5, gpuLoad: 3)
+                    : Minute(ts, app: game, cpu: 75, gpu: 70, cpuLoad: 40, gpuLoad: 90, gpuPower: 280, gpuApp: game));
             }
-        for (int i = 0; i < 60; i++) t.Db.WriteMinute(Minute(U(Day.AddDays(-20).AddHours(12)) + i * 60, app: game, cpu: 60, gpu: 60, cpuLoad: 5, gpuLoad: 3)); // too recent
-        var then = ReportBuilder.ThenTempsOf(t.Db, Day);
+        for (int i = 0; i < 60; i++) t.Db.WriteMinute(Minute(U(Day.AddDays(-20).AddHours(12)) + i * 60, app: game, cpu: 60, gpu: 60, gpuLoad: 90, gpuApp: game)); // too recent
+        var then = ReportBuilder.ThenHeatOf(t.Db, Day, id => id == game ? "Game" : "?");
         Assert.NotNull(then);
-        Assert.Equal((40.0, 35.0, 360, 12), (then.Idle.Cpu, then.Idle.Gpu, then.Idle.Minutes, then.Days));
-        Assert.Equal((75.0, 70.0), (then.Load.Cpu, then.Load.Gpu));
+        var steady = Assert.Single(then.Steady);
+        Assert.Equal(("Game", 12 * 20, 12, 70.0, 75.0, 280.0), (steady.App, steady.Minutes, steady.Days, steady.Gpu, steady.Cpu, steady.GpuPower)); // ten warm-up minutes a day left out
+        Assert.Equal((40.0, 35.0), (then.Rest!.Cpu, then.Rest.Gpu));
         Assert.Equal((Day.AddDays(-120), Day.AddDays(-30)), (then.From, then.To));
-        Assert.Null(ReportBuilder.ThenTempsOf(t.Db, Day.AddDays(-100))); // too few days then
+        Assert.Null(ReportBuilder.ThenHeatOf(t.Db, Day.AddDays(-200), _ => "?")); // nothing ran then
+    }
+
+    [Fact]
+    public void The_daily_heat_totals_read_each_day_as_a_report_reads_its_minutes()
+    {
+        // "Months ago" comes from heat_day, "now" from the report's own minutes: the two must measure alike.
+        string path = Path.Combine(Support.TestEnvironment.NewFolder("heat-day"), "rigsight.db");
+        Support.PcSim.Live(path, Day.AddDays(-6), Day, new Support.PcSim.Options { Seed = 11, GameChance = 1, Game = 0 });
+        using var db = RigsightDb.OpenReader(path)!;
+        for (var d = Day.AddDays(-6); d < Day; d = d.AddDays(1))
+        {
+            long f = U(d), to = U(d.AddDays(1));
+            var (steady, rest, _) = ReportBuilder.SteadyOf(db.GetMinutes(f, to), id => id.ToString()!);
+            var rows = db.GetHeatDays(f, to);
+            foreach (var s in steady)
+            {
+                var row = Assert.Single(rows, r => r.App == s.AppId);
+                Assert.Equal(s.Minutes, row.N);
+                Assert.Equal(s.Gpu, row.GpuSum / row.GpuN, 6);
+                Assert.Equal(s.GpuPower!.Value, row.PowerSum / row.PowerN, 6);
+            }
+            Assert.Equal(steady.Count, rows.Count(r => r.App != 0));
+            var restRow = rows.SingleOrDefault(r => r.App == 0);
+            Assert.Equal(rest?.Minutes ?? 0, restRow?.N ?? 0);
+            if (rest is not null) Assert.Equal(rest.Gpu!.Value, restRow!.GpuSum / restRow.GpuN, 6);
+        }
     }
 }
+

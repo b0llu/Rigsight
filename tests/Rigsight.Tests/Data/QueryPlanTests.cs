@@ -58,6 +58,8 @@ public sealed partial class QueryPlanTests
             {
                 var m = PlanLine().Match(line.Trim());
                 if (!m.Success || SmallTables.Contains(m.Groups[2].Value) || m.Groups[2].Value.StartsWith('(')) continue;
+                // A query's own intermediate results ("WITH m AS (…)") are scanned as they're made, not read from a table.
+                if (Regex.IsMatch(trimmed, $@"\b{Regex.Escape(m.Groups[2].Value)}\s+AS\s*\(", RegexOptions.IgnoreCase)) continue;
                 // "SCAN t" reads the whole table, and so does "SCAN t USING INDEX" (every entry of the index); a
                 // "SEARCH" narrows to a key range.
                 if (m.Groups[1].Value == "SCAN")
@@ -78,7 +80,7 @@ public sealed partial class QueryPlanTests
     {
         "GetMinutes", "GetAppHours", "GetAppTotals", "GetSystemDays", "GetSessions", "GetLongestSessions", "GetSessionStats", "GetRecentSessions",
         "GetCrashes", "GetCrashContext", "TempRange", "AverageTemps", "FindMinute", "GetAppMonths", "GetAppTime", "PeakTempsBefore", "FrontAppAt",
-        "FirstTimes", "GetDriveDays", "Fans",
+        "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec",
     };
 
     [Theory]
@@ -115,6 +117,8 @@ public sealed partial class QueryPlanTests
             "FirstTimes" => () => { db.FirstDataTime(); db.FirstMinuteTime(); db.FirstCrashTime(); },
             "GetDriveDays" => () => db.GetDriveDays(from),
             "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); },
+            "GetHeatDays" => () => db.GetHeatDays(U(now.Date.AddDays(-120)), U(now.Date.AddDays(-30))),
+            "LongestGameSessionSec" => () => db.LongestGameSessionSec(from, to, [1, 2, 3]),
             _ => throw new ArgumentException(method),
         };
         AssertNoFullScans(Seeds.Small, Capture(db, run), method);

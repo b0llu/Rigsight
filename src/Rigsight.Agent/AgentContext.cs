@@ -86,6 +86,13 @@ internal sealed class AgentContext : ApplicationContext
     private static readonly bool Profiling = Environment.GetEnvironmentVariable("RIGSIGHT_PROFILE") == "1";
     private readonly Dictionary<string, double> _profile = [];
     private long _profileStart = Stopwatch.GetTimestamp();
+    private bool _procsSampled;
+
+    /// <summary>With RIGSIGHT_PROFILE=1: the private memory at a step of starting up, to see which step costs what.</summary>
+    private static void MemoryAt(string step)
+    {
+        if (Profiling) Log.Write("profile", $"{step}: {Process.GetCurrentProcess().PrivateMemorySize64 / 1048576.0:0.0} MB private");
+    }
 
     private void Measure(string name, long startTimestamp)
     {
@@ -104,6 +111,7 @@ internal sealed class AgentContext : ApplicationContext
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
         _ui = SynchronizationContext.Current!;
         _isAdmin = isAdmin;
+        MemoryAt("starting");
 
         _settings = SettingsStore.Load();
         Units.Fahrenheit = _settings.UseFahrenheit;
@@ -126,8 +134,10 @@ internal sealed class AgentContext : ApplicationContext
         _tracker = new Tracker(_db, _apps);
         _tracker.SetSettings(_settings);
         _tracker.SessionEnded += OnSessionEnded;
+        MemoryAt("database open");
 
         _widgets = new WidgetManager(() => _settings, MutateSettings, id => OpenApp("widgets", id));
+        MemoryAt("widgets");
         _overlay = new OverlayManager(isAdmin);
         _overlay.StateChanged += OnOverlayStateChanged;
         _overlay.CantReachGame += OnOverlayCantReachGame;
@@ -140,7 +150,7 @@ internal sealed class AgentContext : ApplicationContext
             setStyle: style => MutateSettings(s => s.TrayStyle = style),
             openPage: () => OpenApp("taskbar"));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
-            () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), Quit);
+            () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
 
         _pipe = new PipeServer(BuildHello, OnUiMessage);
@@ -157,7 +167,7 @@ internal sealed class AgentContext : ApplicationContext
         // Waking from sleep is turning the PC on again, for the daily recap.
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
-        _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit(), null), null, Timeout.Infinite, executeOnlyOnce: true);
+        _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit("a quit signal (the installer, or --quit)"), null), null, Timeout.Infinite, executeOnlyOnce: true);
 
         // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
         // the real startup task alone.
@@ -281,6 +291,7 @@ internal sealed class AgentContext : ApplicationContext
                 if (_sensors.TakeMemory())
                 {
                     Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
+                    MemoryAt("RAM sticks in");
                     CompactMemory();
                     if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
                 }
@@ -362,8 +373,13 @@ internal sealed class AgentContext : ApplicationContext
                     double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : Math.Min((now - lastProc) / 1000.0, 60);
                     lastProc = now;
                     t0 = Stopwatch.GetTimestamp();
+                    bool firstProcs = !_procsSampled;
+                    _procsSampled = true;
+                    if (firstProcs) MemoryAt("before the first process sample");
                     var snapshot = _procSampler.Sample();
+                    if (firstProcs) MemoryAt("processes sampled");
                     snapshot.Gpu = _gpuSampler.Sample(snapshot);
+                    if (firstProcs) MemoryAt("GPU use by app sampled");
                     Measure("processes", t0);
                     t0 = Stopwatch.GetTimestamp();
                     _activity.UpdateProcessMap(snapshot.PidToExe);
@@ -445,6 +461,7 @@ internal sealed class AgentContext : ApplicationContext
             {
                 Log.Error("sensors", ex);
             }
+            MemoryAt("sensors open");
             if (guard.Tripped) _stoppedForMemory = true;
         }
         if (_stoppedForMemory && !safe)
@@ -735,9 +752,9 @@ internal sealed class AgentContext : ApplicationContext
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
             // In the taskbar where it can be (Windows 11), else as icons.
-            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings);
+            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings, settings.TrayGrayscale);
             if (settings.TrayStyle != TrayStyle.Strip) _taskbarStrip.Hide();
-            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped);
+            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale);
             _widgets.Update(data, gameInFront ? Win32.MonitorFromWindow(Win32.GetForegroundWindow(), 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
@@ -978,7 +995,7 @@ internal sealed class AgentContext : ApplicationContext
                 RunOnSampler(RetryAllSensors);
                 break;
             case "quit":
-                _ui.Post(_ => Quit(), null);
+                _ui.Post(_ => Quit("the app"), null);
                 break;
             case "render-previews":
                 RenderPreviews(_settings);
@@ -1093,7 +1110,8 @@ internal sealed class AgentContext : ApplicationContext
             updated = replaceWith ?? current.Clone();
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
-            trayChanged = updated.TrayStyle != current.TrayStyle || !updated.TraySensors.SequenceEqual(current.TraySensors);
+            trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
+                          || !updated.TraySensors.SequenceEqual(current.TraySensors);
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
@@ -1190,7 +1208,7 @@ internal sealed class AgentContext : ApplicationContext
         try
         {
             Process.Start(new ProcessStartInfo(exe, "--replace") { UseShellExecute = true, Verb = "runas" });
-            Quit();
+            Quit("an elevated copy taking over");
         }
         catch (System.ComponentModel.Win32Exception)
         {
@@ -1198,9 +1216,11 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
-    private void Quit()
+    /// <summary>Stops the agent, saying why in the log (a copy that's simply gone can then be traced).</summary>
+    private void Quit(string why)
     {
         if (_stopping) return;
+        Log.Write("agent", $"Quitting: asked by {why}");
         SystemEvents.SessionEnding -= OnSessionEnding;
         SystemEvents.TimeChanged -= OnTimeChanged;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
