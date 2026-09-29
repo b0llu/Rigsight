@@ -466,9 +466,25 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Apps_open_on_this_week_sorted_by_active_time_with_the_first_selected()
+    public void Apps_open_on_today_like_Home()
+    {
+        // A week by default put last week's highs beside Home's today's ones, and they looked like they disagreed.
+        var (vm, _) = Apps();
+        Ui.Run(() =>
+        {
+            Assert.Equal(ReportRange.Day, vm.Unit);
+            Assert.Equal(DateTime.Today, vm.Anchor);
+            Assert.True(vm.IncludesToday);
+            Assert.True(vm.IsDay);
+        });
+    }
+
+    [Fact]
+    public void Apps_of_this_week_are_sorted_by_active_time_with_the_first_selected()
     {
         var (vm, _) = Apps();
+        Ui.Run(() => vm.Unit = ReportRange.Week);
+        Loaded(vm, () => vm.Summary.EndsWith(" this week") && vm.Apps.Count > 0);
         Ui.Run(() =>
         {
             Assert.Equal(ReportRange.Week, vm.Unit);
@@ -670,7 +686,7 @@ public sealed class HistoryPageTests
     public void Apps_of_an_earlier_period_do_not_include_today()
     {
         var (vm, _) = Apps();
-        Ui.Run(() => vm.Anchor = DateTime.Today.AddDays(-7));
+        Ui.Run(() => { vm.Unit = ReportRange.Week; vm.Anchor = DateTime.Today.AddDays(-7); });
         Loaded(vm, () => !vm.IncludesToday);
         Ui.Run(() =>
         {

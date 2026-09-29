@@ -252,6 +252,22 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         m.CpuVoltMax = Max(m.CpuVoltMax, k.CpuVoltage);
         m.GpuVoltMax = Max(m.GpuVoltMax, k.GpuVoltage);
 
+        // Today's peaks: every reading, whether or not anyone is at the PC, as the minutes keep them, so Home says what
+        // the reports and the Temperatures page say for today. Put down to the app that was doing the work (the one the
+        // minute's row keeps), not the window in front, which often isn't what made the heat.
+        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak))
+        {
+            _today.CpuPeak = c;
+            _today.CpuPeakTime = NowUnix();
+            _today.CpuPeakApp = NameOf(m.CpuApp);
+        }
+        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak))
+        {
+            _today.GpuPeak = g;
+            _today.GpuPeakTime = NowUnix();
+            _today.GpuPeakApp = NameOf(m.GpuApp);
+        }
+
         // Attribute readings to whatever is in front while the user is actually using it.
         var app = _foreground;
         if (app is null || !_present) return;
@@ -272,20 +288,6 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             session.GpuMax = Max(session.GpuMax, k.GpuTemp);
         }
 
-        // Today's peaks, while someone is at the PC: put down to the app that was doing the work (the one the minute's
-        // row keeps), not the window in front, which often isn't what made the heat.
-        if (k.CpuTemp is double c && (_today.CpuPeak is null || c > _today.CpuPeak))
-        {
-            _today.CpuPeak = c;
-            _today.CpuPeakTime = NowUnix();
-            _today.CpuPeakApp = NameOf(m.CpuApp);
-        }
-        if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak))
-        {
-            _today.GpuPeak = g;
-            _today.GpuPeakTime = NowUnix();
-            _today.GpuPeakApp = NameOf(m.GpuApp);
-        }
     }
 
     private string? NameOf(AppInfo? app) => app is null ? null : AppResolver.DisplayName(app, _settings);
@@ -515,30 +517,21 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         {
             var appRows = db.LoadApps().ToDictionary(a => a.Id);
             var r = ReportBuilder.BuildRaw(db, ReportRange.Day, LocalToday, LocalToday.AddDays(1), appRows, _settings);
-            // The peaks as OnSensors keeps them: the hottest reading while an app was in use, with that app (from
-            // each app's hourly highs), not the day's hottest minute, which may have had nobody at the PC.
-            var cpu = r.Apps.Where(a => a.CpuTempMax is not null).MaxBy(a => a.CpuTempMax);
-            var gpu = r.Apps.Where(a => a.GpuTempMax is not null).MaxBy(a => a.GpuTempMax);
-            // When each happened, and the app doing the work then, from the peak's minute (as while running, see OnSensors).
-            long from = TimeUtil.ToUnix(LocalToday), to = TimeUtil.ToUnix(LocalToday.AddDays(1));
-            (long? Time, string? App) PeakOf(string column, string appColumn, double? value) =>
-                value is double v && db.FindMinute(column, v, from, to, appColumn) is { } hit
-                    ? (hit.Ts, hit.App is long id ? NameById(id) : null)
-                    : (null, null);
-            var cpuPeak = PeakOf("cpu_temp_max", "cpu_app", cpu?.CpuTempMax);
-            var gpuPeak = PeakOf("gpu_temp_max", "gpu_app", gpu?.GpuTempMax);
+            // The peaks as OnSensors keeps them: the day's hottest minute and the app doing the work then, the same
+            // peak the reports show for today.
+            var (cpu, gpu) = (r.CpuTempPeak, r.GpuTempPeak);
             _today = new TodayState
             {
                 Day = LocalToday,
                 OnSec = r.OnSec,
                 ActiveSec = r.ActiveSec,
                 IdleSec = r.AwaySec,
-                CpuPeak = cpu?.CpuTempMax,
-                CpuPeakTime = cpuPeak.Time,
-                CpuPeakApp = cpuPeak.App,
-                GpuPeak = gpu?.GpuTempMax,
-                GpuPeakTime = gpuPeak.Time,
-                GpuPeakApp = gpuPeak.App,
+                CpuPeak = cpu?.Value,
+                CpuPeakTime = cpu is null ? null : TimeUtil.ToUnix(cpu.Time),
+                CpuPeakApp = cpu?.App,
+                GpuPeak = gpu?.Value,
+                GpuPeakTime = gpu is null ? null : TimeUtil.ToUnix(gpu.Time),
+                GpuPeakApp = gpu?.App,
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;

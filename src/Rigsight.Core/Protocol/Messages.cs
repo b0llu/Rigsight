@@ -65,9 +65,9 @@ public sealed class TodayInfo
     public long? GpuPeakTime { get; set; }
     public string? GpuPeakApp { get; set; }
 
-    /// <summary>"Rematch was busiest", or the time when no app clearly was (null before the first reading).</summary>
-    [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime);
-    [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime);
+    /// <summary>"Rematch used the CPU most", or the time when no app clearly was (null before the first reading).</summary>
+    [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime, "CPU");
+    [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime, "GPU");
 }
 
 /// <summary>A drive's SMART health, as judged the way CrystalDiskInfo does (hard drives have no wear "Life").</summary>

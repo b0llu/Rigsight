@@ -8,10 +8,14 @@ namespace Rigsight.Core.Apps;
 /// </summary>
 public static class PeakWords
 {
-    /// <summary>Under a peak's value: "Rematch was busiest", or when it was if no app clearly was (null: no peak yet).</summary>
-    public static string? Line(double? peak, string? app, long? time) =>
+    /// <summary>
+    /// Under a peak's value: "Rematch used the CPU most" (<paramref name="part"/> is "CPU" or "GPU"), or when it was if
+    /// no app clearly did (null: no peak yet). It says what's known, the app doing most of that part's work just before,
+    /// not that it made the heat on its own.
+    /// </summary>
+    public static string? Line(double? peak, string? app, long? time, string part) =>
         peak is null ? null
-        : app is not null ? $"{app} was busiest"
+        : app is not null ? $"{app} used the {part} most"
         : time is long t ? $"At {TimeUtil.FromUnix(t):h:mm tt}"
         : "";
 

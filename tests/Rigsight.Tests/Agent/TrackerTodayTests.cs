@@ -69,7 +69,7 @@ public class TrackerTodayTests
         var t = rig.Tracker.Today();
         Assert.Equal((84, "Elden Ring"), (t.CpuPeak, t.CpuPeakApp));
         Assert.Equal((79, "Elden Ring"), (t.GpuPeak, t.GpuPeakApp));
-        Assert.Equal("Elden Ring was busiest", t.CpuPeakLine);
+        Assert.Equal("Elden Ring used the CPU most", t.CpuPeakLine);
 
         // The minutes keep it too (for the reports and insights), apart from the app in front.
         var minute = rig.Minutes().First(m => m.CpuTempMax == 84);
@@ -257,7 +257,7 @@ public class TrackerTodayTests
     [Fact]
     public void Todays_peak_is_the_same_after_a_restart()
     {
-        // The hottest moment came while nobody was at the PC (a render left running): the peak shown today
+        // The hottest moment came while nobody was at the PC (a render left running): it's today's peak, and it
         // mustn't change just because the agent restarted.
         using var rig = new TrackerRig();
         rig.Keys = new KeyValues { CpuTemp = 60 };
@@ -266,10 +266,65 @@ public class TrackerTodayTests
         rig.Away("code.exe", 300);
         rig.Use(null, 300);
         var before = rig.Tracker.Today();
+        Assert.Equal(95, before.CpuPeak);
         rig.Restart();
         var after = rig.Tracker.Today();
         Assert.Equal(before.CpuPeak, after.CpuPeak);
         Assert.Equal(before.CpuPeakApp, after.CpuPeakApp);
+    }
+
+    /// <summary>
+    /// Home's peak for today is the one the day's report shows (and the Temperatures page): the hottest reading of
+    /// the day with the app doing that part's work, however the PC was being used when it came. Home once counted only
+    /// the time someone was at the PC, so a peak while away showed on one page and not the other.
+    /// </summary>
+    [Theory]
+    [InlineData("in use")]
+    [InlineData("away")]
+    [InlineData("locked")]
+    [InlineData("nothing in front")]
+    [InlineData("in use, then hotter while away")]
+    [InlineData("away, then hotter in use")]
+    public void Home_shows_the_days_peak_as_the_report_does(string when)
+    {
+        using var rig = new TrackerRig(null, null, null, EldenRing);
+        rig.Usage["eldenring.exe"] = (40, 4000);
+        rig.GpuUsage["eldenring.exe"] = 90;
+        rig.Running.Add("eldenring.exe");
+        rig.Keys = new KeyValues { CpuTemp = 55, GpuTemp = 50, GpuLoad = 20 };
+        rig.Use("code.exe", 300);
+        void Hot(double cpu, double gpu, Action run) { rig.Keys = new KeyValues { CpuTemp = cpu, GpuTemp = gpu, GpuLoad = 95 }; run(); }
+        switch (when)
+        {
+            case "in use": Hot(84, 77, () => rig.Use("code.exe", 120)); break;
+            case "away": Hot(88, 79, () => rig.Away("code.exe", 120)); break;
+            case "locked": Hot(90, 80, () => rig.Use("code.exe", 120, locked: true)); break;
+            case "nothing in front": Hot(91, 81, () => rig.Use(null, 120)); break;
+            case "in use, then hotter while away":
+                Hot(80, 70, () => rig.Use("code.exe", 120));
+                Hot(87, 78, () => rig.Away("code.exe", 120));
+                break;
+            case "away, then hotter in use":
+                Hot(80, 70, () => rig.Away("code.exe", 120));
+                Hot(86, 76, () => rig.Use("code.exe", 120));
+                break;
+        }
+        rig.Keys = new KeyValues { CpuTemp = 50, GpuTemp = 45, GpuLoad = 5 };
+        rig.Use("code.exe", 180);
+        rig.Tracker.Flush(closeAllSessions: true);
+
+        var day = rig.Clock.Now.LocalDateTime.Date;
+        var report = Rigsight.Core.Reports.ReportBuilder.BuildRaw(rig.Db, Rigsight.Core.Reports.ReportRange.Day, day, day.AddDays(1),
+            rig.Db.LoadApps().ToDictionary(a => a.Id), rig.Settings);
+        void Same(Rigsight.Core.Protocol.TodayInfo t)
+        {
+            Assert.Equal((report.CpuTempPeak!.Value, report.CpuTempPeak.App), (t.CpuPeak!.Value, t.CpuPeakApp));
+            Assert.Equal((report.GpuTempPeak!.Value, report.GpuTempPeak.App), (t.GpuPeak!.Value, t.GpuPeakApp));
+            Assert.Equal("Elden Ring", t.CpuPeakApp);
+        }
+        Same(rig.Tracker.Today());
+        rig.Restart();
+        Same(rig.Tracker.Today());
     }
 
     [Fact]

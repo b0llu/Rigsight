@@ -29,6 +29,9 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.11.3", 9, 29,
+            better: ["Apps opens on today, like Home."],
+            fixedBugs: ["Today's temperature peaks now match on every page.", "Clearer wording for which app was working hardest at a peak."]),
         V("0.11.2", 9, 29,
             better: ["Pages open instantly again, without a fade.", "The Crashes page opens without a stutter, even with a long history."]),
         V("0.11.1", 9, 29,

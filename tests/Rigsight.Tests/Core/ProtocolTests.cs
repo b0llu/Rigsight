@@ -205,8 +205,8 @@ public sealed class ProtocolTests
     public void Today_names_the_app_that_did_the_work_at_the_peak()
     {
         var today = new TodayInfo { CpuPeak = 88, CpuPeakApp = "Dota 2", CpuPeakTime = 1_790_000_000, GpuPeak = 70, GpuPeakApp = "ELDEN RING™: Nightreign" };
-        Assert.Equal("Dota 2 was busiest", today.CpuPeakLine);
-        Assert.Equal("ELDEN RING™: Nightreign was busiest", today.GpuPeakLine);
+        Assert.Equal("Dota 2 used the CPU most", today.CpuPeakLine);
+        Assert.Equal("ELDEN RING™: Nightreign used the GPU most", today.GpuPeakLine);
     }
 
     [Fact]

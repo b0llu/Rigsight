@@ -21,10 +21,13 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
 
-    /// <summary>The period shown (see <see cref="Controls.PeriodPicker"/>): this week unless picked otherwise.</summary>
+    /// <summary>
+    /// The period shown (see <see cref="Controls.PeriodPicker"/>): today unless picked otherwise, like Home. A week by
+    /// default put last week's highs beside Home's today's ones, and they looked like they disagreed.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(IncludesToday))]
-    private ReportRange _unit = ReportRange.Week;
+    private ReportRange _unit = ReportRange.Day;
 
     /// <summary>Any day in the period shown.</summary>
     [ObservableProperty]
