@@ -189,6 +189,97 @@ public sealed class ShellTests : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void A_preset_makes_a_ready_dashboard_named_after_it_and_blank_makes_an_empty_one()
+    {
+        var made = new List<CustomPageViewModel>();
+        var gaming = Models.DashboardPresets.All.Single(p => p.Name == "Gaming");
+        try
+        {
+            Ui.Run(() =>
+            {
+                Shell.NewPageCommand.Execute(gaming);
+                made.Add(Shell.CustomPages[^1]);
+                Shell.NewPageCommand.Execute(gaming);
+                made.Add(Shell.CustomPages[^1]);
+                Shell.NewPageCommand.Execute(Models.DashboardPresets.Blank);
+                made.Add(Shell.CustomPages[^1]);
+            });
+            Ui.Run(() =>
+            {
+                Assert.Equal(["Gaming", "Gaming 2"], made.Take(2).Select(p => p.Name));
+                Assert.StartsWith("Dashboard", made[2].Name);
+                Assert.All(made.Take(2), p => Assert.False(p.IsEditing)); // ready as it is
+                Assert.True(made[2].IsEditing); // an empty page opens for adding tiles
+                Assert.Empty(made[2].Tiles);
+
+                var expected = Models.DashboardPresets.TilesFor(gaming, Shell.Presets.Available);
+                Assert.Equal(expected.Select(t => (t.Kind, t.Sensor)), made[0].Tiles.Select(t => (t.Kind, t.SensorRef)));
+                // Laid out without overlaps.
+                var cells = made[0].Tiles.SelectMany(t => Enumerable.Range(t.X, t.W).SelectMany(x => Enumerable.Range(t.Y, t.H).Select(y => (x, y)))).ToList();
+                Assert.Equal(cells.Count, cells.Distinct().Count());
+                Assert.Equal(made[2].NavKey, Shell.CurrentPage);
+            });
+        }
+        finally
+        {
+            Ui.Run(() =>
+            {
+                Shell.ConfirmDelete = _ => true;
+                foreach (var p in made) p.DeletePageCommand.Execute(null);
+            });
+        }
+    }
+
+    [Fact]
+    public void New_dashboard_in_the_sidebar_opens_the_picker_and_unfolds_dashboards()
+    {
+        CustomPageViewModel? made = null;
+        try
+        {
+            Ui.Run(() =>
+            {
+                Shell.Sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
+                Assert.True(Shell.Sidebar.DashboardsCollapsed);
+                Assert.All(Shell.CustomPages, p => Assert.Equal(p.IsSelected, p.InNav));
+
+                Shell.Presets.OpenCommand.Execute(null);
+                Assert.True(Shell.Presets.IsOpen);
+                Shell.Presets.PickCommand.Execute(Shell.Presets.Cards.Single(c => c.Name == "My day"));
+                made = Shell.CustomPages[^1];
+                Assert.False(Shell.Presets.IsOpen);
+                Assert.Equal("My day", made.Name);
+                Assert.False(Shell.Sidebar.DashboardsCollapsed); // the new page is where you can see it
+                Assert.All(Shell.CustomPages, p => Assert.True(p.InNav));
+            });
+        }
+        finally
+        {
+            Ui.Run(() =>
+            {
+                Shell.ConfirmDelete = _ => true;
+                made?.DeletePageCommand.Execute(null);
+                if (Shell.Sidebar.DashboardsCollapsed) Shell.Sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
+            });
+        }
+    }
+
+    [Theory]
+    [InlineData("widgets")]
+    [InlineData("overlay")]
+    [InlineData("taskbar")]
+    public void On_screen_pages_are_ticked_in_the_sidebar(string page)
+    {
+        host.Show(page);
+        Ui.Run(() =>
+        {
+            Assert.Equal([page], Shell.Sidebar.OnScreen.Where(e => e.IsSelected).Select(e => e.Key));
+            Assert.True(Views(host.Window).ContainsKey(page));
+        });
+        host.Show("home");
+        Ui.Run(() => Assert.DoesNotContain(Shell.Sidebar.OnScreen, e => e.IsSelected));
+    }
+
+    [Fact]
     public void Deleting_the_open_dashboard_goes_home_and_forgets_it()
     {
         Ui.TakeProblems();

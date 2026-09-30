@@ -192,9 +192,50 @@ public sealed partial class OverlayViewModel : ObservableObject
         {
             Change(c => (c.Anchor, c.OffsetX, c.OffsetY) = (value.Anchor, value.X, value.Y), nameof(Spot));
             OnPropertyChanged(nameof(HangsOffLeftOrTop));
+            OnPropertyChanged(nameof(IsOffScreen));
             OnPropertyChanged(nameof(PreviewHorizontal));
             OnPropertyChanged(nameof(PreviewVertical));
         }
+    }
+
+    /// <summary>Whether dragging the overlay snaps it to the edges and centre (off: placed freely, to the pixel).</summary>
+    public bool SnapPosition
+    {
+        get => Config.SnapPosition;
+        set
+        {
+            Change(c => c.SnapPosition = value, nameof(SnapPosition));
+            OnPropertyChanged(nameof(HangsOffLeftOrTop));
+            OnPropertyChanged(nameof(IsOffScreen));
+        }
+    }
+
+    /// <summary>Back to where it starts out: the top-left corner.</summary>
+    [RelayCommand]
+    private void ResetPosition() => Spot = new Controls.OverlaySpot(0, 0, 0);
+
+    /// <summary>Placed freely right off the main screen: the page says so, next to the reset.</summary>
+    public bool IsOffScreen
+    {
+        get
+        {
+            var (x, y, w, h) = TopLeftAndSize();
+            return x + w <= 0 || y + h <= 0 || x >= System.Windows.SystemParameters.PrimaryScreenWidth || y >= System.Windows.SystemParameters.PrimaryScreenHeight;
+        }
+    }
+
+    /// <summary>
+    /// The overlay's top-left on the main screen and its size (its preview's, twice size 1; before the agent has drawn
+    /// one, the size the Position picture assumes, see OverlayScreen).
+    /// </summary>
+    private (double X, double Y, double W, double H) TopLeftAndSize()
+    {
+        var size = Preview is System.Windows.Media.Imaging.BitmapSource b
+            ? (W: b.PixelWidth / 2.0 * Config.Scale, H: b.PixelHeight / 2.0 * Config.Scale) : (W: 220 * Config.Scale, H: 110 * Config.Scale);
+        var spot = Spot;
+        var (x, y) = OverlayPlacement.Place(spot.Anchor, spot.X, spot.Y, System.Windows.SystemParameters.PrimaryScreenWidth,
+            System.Windows.SystemParameters.PrimaryScreenHeight, size.W, size.H, Controls.OverlayScreen.Gap, keepOnScreen: Config.SnapPosition);
+        return (x, y, size.W, size.H);
     }
 
     /// <summary>
@@ -205,12 +246,7 @@ public sealed partial class OverlayViewModel : ObservableObject
     {
         get
         {
-            // Before the agent has drawn a preview: the size the Position picture assumes (see OverlayScreen).
-            var size = Preview is System.Windows.Media.Imaging.BitmapSource b
-                ? (W: b.PixelWidth / 2.0 * Config.Scale, H: b.PixelHeight / 2.0 * Config.Scale) : (W: 220 * Config.Scale, H: 110 * Config.Scale);
-            var spot = Spot;
-            var (x, y) = OverlayPlacement.Place(spot.Anchor, spot.X, spot.Y, System.Windows.SystemParameters.PrimaryScreenWidth,
-                System.Windows.SystemParameters.PrimaryScreenHeight, size.W, size.H, Controls.OverlayScreen.Gap);
+            var (x, y, _, _) = TopLeftAndSize();
             return x < -0.5 || y < -0.5;
         }
     }
@@ -232,6 +268,7 @@ public sealed partial class OverlayViewModel : ObservableObject
             Change(c => c.Scale = double.Parse(value, CultureInfo.InvariantCulture), nameof(Scale));
             OnPropertyChanged(nameof(ScaleValue));
             OnPropertyChanged(nameof(HangsOffLeftOrTop));
+            OnPropertyChanged(nameof(IsOffScreen));
         }
     }
 
@@ -341,7 +378,7 @@ public sealed partial class OverlayViewModel : ObservableObject
     // ── Preview ──
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HangsOffLeftOrTop))]
+    [NotifyPropertyChangedFor(nameof(HangsOffLeftOrTop), nameof(IsOffScreen))]
     private ImageSource? _preview;
 
     /// <summary>Asks the agent to draw fresh previews (the overlay's included).</summary>

@@ -14,7 +14,9 @@ public static class ThemeManager
     public const string Dark = "dark", Grey = "grey", Light = "light", System = "system";
 
     private static string _mode = Dark;
+    private static string _accent = Accents.Mono;
     private static string? _palette;
+    private static Color? _accentColor;
     private static bool _listening;
 
     public static bool IsLight { get; private set; }
@@ -28,17 +30,20 @@ public static class ThemeManager
     public static event Action? Changed;
 
     /// <param name="mode">"dark", "grey", "light" or "system" (follow Windows' app mode).</param>
-    public static void Apply(string? mode)
+    /// <param name="accent">A key from <see cref="Accents.All"/>, or "windows" (follow Windows' accent).</param>
+    public static void Apply(string? mode, string? accent = Accents.Mono)
     {
         _mode = mode is Grey or Light or System ? mode : Dark;
-        if (_mode == System && !_listening)
+        _accent = Accents.Normalize(accent);
+        if ((_mode == System || _accent == Accents.Windows) && !_listening)
         {
             _listening = true;
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         }
         bool light = _mode == Light || (_mode == System && WindowsUsesLight());
         string name = light ? "Light" : _mode == Grey ? "Grey" : "Dark";
-        if (name == _palette) return;
+        var accentColor = Accents.ColorFor(_accent, light);
+        if (name == _palette && accentColor == _accentColor) return;
 
         var app = Application.Current;
         var dictionaries = app.Resources.MergedDictionaries;
@@ -47,6 +52,7 @@ public static class ThemeManager
              s.EndsWith("Themes/Light.xaml", StringComparison.OrdinalIgnoreCase)));
         // By its full address, so it's found from any application (the tests host the app's windows in their own).
         var palette = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Rigsight;component/Themes/{name}.xaml") };
+        if (accentColor is { } color) Accents.ApplyTo(palette, color);
         if (index >= 0) dictionaries[index] = palette;
         else dictionaries.Insert(0, palette);
 
@@ -62,6 +68,7 @@ public static class ThemeManager
         bool first = Version == 0;
         IsLight = light;
         _palette = name;
+        _accentColor = accentColor;
         Version++;
         ChartPaint.Load();
         foreach (Window w in app.Windows) ApplyTitleBar(w);
@@ -74,8 +81,10 @@ public static class ThemeManager
 
     private static void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
     {
-        if (e.Category != UserPreferenceCategory.General || _mode != System) return;
-        Application.Current?.Dispatcher.BeginInvoke(() => Apply(_mode));
+        // A change of Windows' accent arrives as General (or Color on some builds).
+        if (e.Category is not (UserPreferenceCategory.General or UserPreferenceCategory.Color)) return;
+        if (_mode != System && _accent != Accents.Windows) return;
+        Application.Current?.Dispatcher.BeginInvoke(() => Apply(_mode, _accent));
     }
 
     private static bool WindowsUsesLight()

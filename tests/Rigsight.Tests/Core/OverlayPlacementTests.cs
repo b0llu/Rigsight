@@ -38,22 +38,29 @@ public class OverlayPlacementTests
         Assert.Equal((W - OverlayPlacement.MinVisible, H - OverlayPlacement.MinVisible), OverlayPlacement.Place(8, 1, 1, W, H, Ow, Oh, Gap));
     }
 
+    [Fact]
+    public void Placed_freely_it_goes_wherever_it_was_put()
+    {
+        Assert.Equal((-1 * W + 16, -1 * H + 16), OverlayPlacement.Place(0, -1, -1, W, H, Ow, Oh, Gap, keepOnScreen: false));
+        Assert.Equal((2244 + W, 1304 + H), OverlayPlacement.Place(8, 1, 1, W, H, Ow, Oh, Gap, keepOnScreen: false));
+    }
+
     [Theory]
     [InlineData(16, 16, 0, 0, 0)]           // top-left corner
     [InlineData(1130, 660, 4, 0, 0)]        // dead centre
     [InlineData(2244, 1304, 8, 0, 0)]       // bottom-right corner
     [InlineData(400, 16, 0, 0.1500, 0)]     // along the top, still in the left third
-    [InlineData(1000, 900, 4, -0.0508, 0.1667)] // middle third both ways
-    [InlineData(-100, 700, 3, -0.0453, 0.0278)] // hanging off the left edge
-    [InlineData(2400, -50, 2, 0.0609, -0.0458)] // off the top right
+    [InlineData(1000, 900, 4, -0.050781, 0.166667)] // middle third both ways
+    [InlineData(-100, 700, 3, -0.045312, 0.027778)] // hanging off the left edge
+    [InlineData(2400, -50, 2, 0.060938, -0.045833)] // off the top right
     public void A_spot_is_hung_from_the_third_its_middle_is_in(double x, double y, int anchor, double offsetX, double offsetY)
     {
         var spot = OverlayPlacement.FromPosition(x, y, W, H, Ow, Oh, Gap);
         Assert.Equal((anchor, offsetX, offsetY), spot);
-        // And it goes back to the same place.
+        // And it goes back to the same place, to a hundredth of a pixel (placed freely, it lands on the exact pixel).
         var (px, py) = OverlayPlacement.Place(spot.Anchor, spot.OffsetX, spot.OffsetY, W, H, Ow, Oh, Gap);
-        Assert.InRange(px, x - 1, x + 1);
-        Assert.InRange(py, y - 1, y + 1);
+        Assert.InRange(px, x - 0.01, x + 0.01);
+        Assert.InRange(py, y - 0.01, y + 0.01);
     }
 
     [Fact]

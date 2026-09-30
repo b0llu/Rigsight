@@ -29,6 +29,14 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.13.0", 9, 30,
+            added: ["Dashboard presets, made to fit your PC's sensors.",
+                "Accent colours, or your Windows accent.",
+                "Filter the Apps page by category.",
+                "Place the overlay freely, to the pixel, even off the screen."],
+            better: ["A tidier sidebar: fold its sections, hide or reorder pages.",
+                "Widgets, overlay and taskbar together under On screen.",
+                "Settings sorted into clearer sections."]),
         V("0.12.1", 9, 30,
             added: ["Fans: pick a day, week, month or year, and the whole page follows.",
                 "A year view: see if a fan got slower over the months."],

@@ -36,7 +36,7 @@ internal sealed class OverlayForm : Form
     internal static Point Place(OverlaySettings settings, Rectangle screen, Size size, int gap)
     {
         var (x, y) = OverlayPlacement.Place(OverlayPlacement.AnchorOf(settings), settings.OffsetX, settings.OffsetY,
-            screen.Width, screen.Height, size.Width, size.Height, gap);
+            screen.Width, screen.Height, size.Width, size.Height, gap, keepOnScreen: settings.SnapPosition);
         return new Point(screen.Left + (int)Math.Round(x), screen.Top + (int)Math.Round(y));
     }
 

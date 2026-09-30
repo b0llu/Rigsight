@@ -480,6 +480,53 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void Apps_filter_by_category_with_a_chip_for_each_one_listed()
+    {
+        var (vm, settings) = Apps();
+        AllTime(vm);
+        Ui.Run(() =>
+        {
+            AppCategory Of(AppStat a) => settings.Current.AppCategories.GetValueOrDefault(a.Exe, a.Category);
+            var all = vm.Apps.Select(r => r.Stat).ToList();
+            var present = all.Select(Of).Distinct().ToHashSet();
+
+            // "All", then one chip per category in the list (Other last), nothing for a category with no app.
+            Assert.Null(vm.Filters[0].Category);
+            Assert.Same(vm.Filters[0], vm.Filter);
+            var chips = vm.Filters.Skip(1).Select(f => f.Category!.Value).ToList();
+            Assert.Equal(present.OrderBy(c => c == AppCategory.Other).ThenBy(c => (int)c), chips);
+            Assert.True(chips.Count >= 2, "the seeded apps should span several categories");
+
+            var games = vm.Filters.First(f => f.Category == chips[0]);
+            vm.Filter = games;
+            Assert.NotEmpty(vm.Apps);
+            Assert.All(vm.Apps, r => Assert.Equal(chips[0], Of(r.Stat)));
+            Assert.Equal(all.Count(a => Of(a) == chips[0]), vm.Apps.Count);
+            Assert.Equal(100, vm.Apps[0].Bar, 6); // bars measured within the category
+
+            // Search narrows within the category.
+            vm.Search = vm.Apps[0].Stat.Name;
+            Assert.All(vm.Apps, r => Assert.Equal(chips[0], Of(r.Stat)));
+            vm.Search = "";
+
+            // Moving the only apps out of the category shown: its chip goes and the list falls back to All.
+            var names = vm.Apps.Select(r => r.Stat.Exe).ToList();
+            var target = chips[0] == AppCategory.Productivity ? AppCategory.Media : AppCategory.Productivity;
+            foreach (var exe in names)
+            {
+                vm.SelectExe(exe);
+                vm.SelectedCategory = target;
+            }
+            Assert.DoesNotContain(vm.Filters, f => f.Category == chips[0]);
+            Assert.Null(vm.Filter?.Category);
+            Assert.Equal(all.Count, vm.Apps.Count);
+
+            vm.Filter = null; // the list clearing its selection: back to All
+            Assert.Same(vm.Filters[0], vm.Filter);
+        });
+    }
+
+    [Fact]
     public void Apps_of_this_week_are_sorted_by_active_time_with_the_first_selected()
     {
         var (vm, _) = Apps();

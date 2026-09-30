@@ -16,6 +16,9 @@ public sealed class RigsightSettings
     /// <summary>The app's colors: "dark", "grey", "light" or "system" (follow Windows).</summary>
     public string Theme { get; set; } = "dark";
 
+    /// <summary>The app's accent: "mono" (black and white), a colour's name, or "windows" (follow Windows).</summary>
+    public string Accent { get; set; } = "mono";
+
     /// <summary>How often the app's live views refresh while it is open.</summary>
     public int LiveRefreshMs { get; set; } = 1000;
 
@@ -68,6 +71,9 @@ public sealed class RigsightSettings
 
     /// <summary>Pages the user built from tiles.</summary>
     public List<CustomPageConfig> CustomPages { get; set; } = [];
+
+    /// <summary>The sidebar's page order, hidden pages and folded sections.</summary>
+    public SidebarSettings Sidebar { get; set; } = new();
 
     /// <summary>The page the app opens on: "home", another page's key, or "custom:&lt;id&gt;".</summary>
     public string StartPage { get; set; } = "home";

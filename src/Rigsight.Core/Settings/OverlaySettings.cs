@@ -51,6 +51,12 @@ public sealed class OverlaySettings
 
     /// <inheritdoc cref="OffsetX"/>
     public double OffsetY { get; set; }
+
+    /// <summary>
+    /// Dragging it on the Overlay page pulls it onto the edges and centre when close. Off: it goes exactly where it's
+    /// dropped, and arrow keys move it a pixel at a time.
+    /// </summary>
+    public bool SnapPosition { get; set; } = true;
     public OverlayLayout Layout { get; set; } = OverlayLayout.Rows;
     /// <summary>How solid the panel behind the readings is (0: none, just the readings).</summary>
     public double BackgroundOpacity { get; set; } = 0.9;

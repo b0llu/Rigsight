@@ -270,10 +270,24 @@
                     <DockPanel Margin="0,4,0,8">
                         <TextBlock Text="POSITION" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
                         <ctl:OverlayScreen Width="440" DockPanel.Dock="Left" VerticalAlignment="Top" AutomationProperties.Name="Overlay position"
-                                           Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" />
+                                           Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" Snap="{Binding SnapPosition}" />
                         <StackPanel Margin="16,0,0,0" VerticalAlignment="Top">
+                            <DockPanel Margin="0,0,0,10">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Reset position" Command="{Binding ResetPositionCommand}"
+                                        Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="Back to the top-left corner" />
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SnapPosition}" VerticalAlignment="Center">
+                                    <TextBlock Text="Snap to edges and centre" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center" />
+                                </CheckBox>
+                            </DockPanel>
+                            <TextBlock Text="It's off the screen now, so it won't show. Reset position brings it back."
+                                       FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding IsOffScreen, Converter={StaticResource Vis}}" />
                             <TextBlock Text="Drag it anywhere, even partly off the screen. It snaps to the corners, edges and centre."
-                                       Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" />
+                                       Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Visibility="{Binding SnapPosition, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="Drag it anywhere, off the screen too. Click it, then use the arrow keys to move it a pixel at a time (Shift: 10)."
+                                       Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
+                                       Visibility="{Binding SnapPosition, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <TextBlock Text="In games RivaTuner draws in, it stops at the left and top edges: RivaTuner can't draw past them."
                                        FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Visibility="{Binding HangsOffLeftOrTop, Converter={StaticResource Vis}}" />

@@ -448,6 +448,22 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void Sidebar_icons_are_font_characters_or_the_drawn_fan()
+    {
+        Ui.Run(() =>
+        {
+            var icon = new NavIconConverter();
+            Assert.Equal("", icon.Convert("", typeof(object), null, CultureInfo.InvariantCulture));
+            // The font has no fan: a fresh copy of the drawn one each time (it can only sit in one place).
+            var fan = icon.Convert("fan", typeof(object), null, CultureInfo.InvariantCulture);
+            Assert.IsType<System.Windows.Controls.Grid>(fan);
+            Assert.NotSame(fan, icon.Convert("fan", typeof(object), null, CultureInfo.InvariantCulture));
+            Assert.Null(icon.Convert(null, typeof(object), null, CultureInfo.InvariantCulture));
+            Assert.Same(System.Windows.Data.Binding.DoNothing, icon.ConvertBack("fan", typeof(string), null, CultureInfo.InvariantCulture));
+        });
+    }
+
+    [Fact]
     public void Every_converter_the_theme_declares_is_tested_here()
     {
         Type[] tested =
@@ -456,7 +472,7 @@ public sealed class ConverterTests
             typeof(DurationConverter), typeof(TempShortConverter), typeof(MegabytesConverter), typeof(BytesConverter), typeof(IconConverter),
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
-            typeof(TrayTextConverter), typeof(TrayBrushConverter),
+            typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

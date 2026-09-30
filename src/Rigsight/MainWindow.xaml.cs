@@ -33,6 +33,12 @@ public partial class MainWindow : Window
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
         PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
+            {
+                _vm.Presets.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.WhatsNew.IsOpen)
             {
                 _vm.WhatsNew.CloseCommand.Execute(null);
@@ -64,6 +70,8 @@ public partial class MainWindow : Window
             { FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop });
         Motion.PopIn(WhatsNewCardHost);
     }
+
+    private void PresetsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Presets.CloseCommand.Execute(null);
 
     private void WhatsNewBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.WhatsNew.CloseCommand.Execute(null);
 

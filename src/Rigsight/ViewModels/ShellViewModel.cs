@@ -42,6 +42,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
+        Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page);
+        Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
+        Sidebar.Changed += UpdateDashboardsInNav;
+        SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
         SettingsPage.GetHardware = () => [.. Live.Hardware.Select(h => (h.Type, h.Name))];
 
@@ -49,14 +53,16 @@ public sealed partial class ShellViewModel : ObservableObject
         var start = Settings.Current.StartPage;
         if (BuiltInPages.Any(p => p.Key == start) || FindCustomPage(start) is not null) _currentPage = start;
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == _currentPage;
+        Sidebar.Select(_currentPage);
 
         Settings.Changed += () =>
         {
-            ThemeManager.Apply(Settings.Current.Theme);
+            ThemeManager.Apply(Settings.Current.Theme, Settings.Current.Accent);
             Live.ApplySettings();
             Widgets.Refresh();
             Overlay.Refresh();
             SettingsPage.Refresh();
+            Sidebar.Refresh();
             UpdateSettingsAttention();
         };
         client.MessageReceived += OnMessage;
@@ -108,6 +114,16 @@ public sealed partial class ShellViewModel : ObservableObject
     public WhatsNewViewModel WhatsNew { get; }
     public SettingsViewModel SettingsPage { get; }
     public UpdateViewModel Update { get; }
+    public SidebarViewModel Sidebar { get; }
+
+    /// <summary>"New dashboard": pick a preset or a blank page.</summary>
+    public PresetPickerViewModel Presets { get; }
+
+    /// <summary>A folded DASHBOARDS section still shows the dashboard you're on.</summary>
+    private void UpdateDashboardsInNav()
+    {
+        foreach (var page in CustomPages) page.InNav = !Sidebar.DashboardsCollapsed || page.IsSelected;
+    }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
     public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];
@@ -120,17 +136,21 @@ public sealed partial class ShellViewModel : ObservableObject
     private CustomPageViewModel CreateCustomPage(CustomPageConfig config) =>
         new(config, Settings, Live, Home, Crashes, open: p => CurrentPage = p.NavKey, delete: DeleteCustomPage);
 
+    /// <summary>A new dashboard from a preset (named after it; a blank one is "Dashboard"), or with the starter tiles when none is given.</summary>
     [RelayCommand]
-    private void NewPage()
+    private void NewPage(Models.DashboardPreset? preset)
     {
         var names = CustomPages.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        string name = "Dashboard";
-        for (int i = 2; names.Contains(name); i++) name = $"Dashboard {i}";
+        string first = preset is null || preset == Models.DashboardPresets.Blank ? "Dashboard" : preset.Name;
+        string name = first;
+        for (int i = 2; names.Contains(name); i++) name = $"{first} {i}";
 
         var page = CreateCustomPage(new CustomPageConfig { Name = name, Grid = CustomPageConfig.CurrentGrid });
         CustomPages.Add(page);
-        page.AddStarterTiles();
-        page.IsEditing = true;
+        if (Sidebar.DashboardsCollapsed) Sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards); // show where it went
+        if (preset is null) page.AddStarterTiles();
+        else page.AddTiles(Models.DashboardPresets.TilesFor(preset, Presets.Available));
+        page.IsEditing = preset is null || preset == Models.DashboardPresets.Blank; // a preset is ready as it is
         CurrentPage = page.NavKey;
     }
 
@@ -191,6 +211,7 @@ public sealed partial class ShellViewModel : ObservableObject
     partial void OnCurrentPageChanged(string value)
     {
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
+        Sidebar.Select(value);
         _ = RefreshCurrentPageAsync();
     }
 

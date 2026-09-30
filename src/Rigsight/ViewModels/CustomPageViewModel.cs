@@ -79,6 +79,9 @@ public sealed partial class CustomPageViewModel : ObservableObject
 
     [ObservableProperty] private bool _isEditing;
 
+    /// <summary>In the sidebar (a folded DASHBOARDS section shows only the one you're on).</summary>
+    [ObservableProperty] private bool _inNav = true;
+
     /// <summary>Bound to this page's sidebar button.</summary>
     [ObservableProperty] private bool _isSelected;
     partial void OnIsSelectedChanged(bool value)
@@ -118,6 +121,17 @@ public sealed partial class CustomPageViewModel : ObservableObject
     public void AddStarterTiles()
     {
         foreach (var kind in TileCatalog.Starter()) Add(kind.Kind, kind.Sensor, kind.W, kind.H, save: false);
+        Save();
+    }
+
+    /// <summary>A preset's tiles (the ones this PC can fill), each at the preset's size or its usual one.</summary>
+    public void AddTiles(IEnumerable<PresetTile> tiles)
+    {
+        foreach (var t in tiles)
+        {
+            var kind = TileCatalog.ForTile(t.Kind, t.Sensor) ?? TileCatalog.Find(t.Kind);
+            Add(t.Kind, t.Sensor, t.W ?? kind.W, t.H ?? kind.H, save: false);
+        }
         Save();
     }
 

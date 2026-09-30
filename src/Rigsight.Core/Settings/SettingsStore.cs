@@ -114,6 +114,12 @@ public static class SettingsStore
         s.SettingsVersion = CurrentVersion;
 
         if (s.Theme is not ("dark" or "grey" or "light" or "system")) s.Theme = "dark";
+        if (string.IsNullOrWhiteSpace(s.Accent)) s.Accent = "mono";
+        s.Sidebar ??= new();
+        s.Sidebar.Order ??= [];
+        s.Sidebar.Hidden ??= [];
+        s.Sidebar.Collapsed ??= [];
+        s.Sidebar.Hidden.Remove("home");
 
         // One of each built-in widget, in order, then the user's own (each with its own identifier, name and layout).
         var widgets = (s.Widgets ?? []).Where(w => w is not null && Enum.IsDefined(w.Style)).ToList();

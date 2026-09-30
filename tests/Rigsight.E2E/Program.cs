@@ -129,7 +129,7 @@ internal static class Program
             if (!WaitFor(() => ui.HasSidebarReadings(), 20_000)) Fail("The sidebar never showed live CPU/GPU readings (no data from the agent?)");
 
             Step("Visiting every page");
-            string[] pages = ["Home", "Reports", "Apps", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "All sensors", "Widgets", "Overlay", "Settings"];
+            string[] pages = ["Home", "Reports", "Apps", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
             var pageCpu = new Dictionary<string, double>();
             foreach (var page in pages)
             {
@@ -213,8 +213,8 @@ internal static class Program
             using (var watch = new WindowWatch(app!.MainWindowHandle))
             {
                 for (int r = 0; r < rounds; r++)
-                    foreach (var from in pageCpu.Keys)
-                        foreach (var to in pageCpu.Keys)
+                    foreach (var from in nav.Keys)
+                        foreach (var to in nav.Keys)
                         {
                             if (from == to) continue;
                             nav[from].Select();

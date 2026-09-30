@@ -104,6 +104,61 @@
                         </DockPanel>
                     </ctl:SmoothBorder>
         </DataTemplate>
+        <!-- New dashboard (see the layer at the end of the window): a card per preset, built only while open. -->
+        <DataTemplate x:Key="PresetPicker">
+            <ctl:SmoothBorder Width="820" MaxHeight="760" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                              AutomationProperties.Name="New dashboard">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="28,22,16,4">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="Close" AutomationProperties.Name="Close">
+                            <TextBlock Text="&#xE711;" />
+                        </Button>
+                        <TextBlock Text="New dashboard" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Start from a preset made for this PC's sensors, then change anything you like."
+                               Style="{StaticResource Muted}" Margin="28,0,28,16" TextWrapping="Wrap" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="22,0,10,22" Padding="0,0,12,0">
+                        <ItemsControl ItemsSource="{Binding Cards}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.PickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                            Cursor="Hand" Focusable="False" Margin="6" AutomationProperties.Name="{Binding Name}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" MinWidth="0" MinHeight="0" Padding="0">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <ctl:SmoothBorder x:Name="Bd" CornerRadius="12" Padding="16,14" Background="{DynamicResource Surface2Brush}"
+                                                                  BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                                    <ContentPresenter />
+                                                </ctl:SmoothBorder>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="16" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Description}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                            <TextBlock Text="{Binding Shows}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                                       Visibility="{Binding Shows, Converter={StaticResource Vis}}" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </ctl:SmoothBorder>
+        </DataTemplate>
     </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
@@ -244,30 +299,66 @@
                     </ctl:SmoothBorder>
                 </StackPanel>
 
-                <!-- Navigation (scrolls if there are many dashboards on a short screen) -->
+                <!-- Navigation (scrolls if there are many dashboards on a short screen). The groups' order and hidden pages
+                     come from Settings; DASHBOARDS, HARDWARE and ON SCREEN fold away with a click on their heading. -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                <StackPanel>
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE80F;" Content="Home"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=home}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE9F9;" Content="Reports"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=reports}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xECA5;" Content="Apps"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=apps}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7BA;" Content="Crashes"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=crashes}" />
+                <StackPanel DataContext="{Binding Sidebar}">
+                    <StackPanel.Resources>
+                        <DataTemplate x:Key="NavEntry">
+                            <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" Content="{Binding Title}"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}" />
+                        </DataTemplate>
+                        <!-- A section heading that folds its group: the caption, and a faint chevron at the right (full while hovered or folded). -->
+                        <Style x:Key="SectionToggle" TargetType="Button">
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter Property="Margin" Value="0,14,0,4" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="12,4,10,4">
+                                            <DockPanel>
+                                                <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Style="{StaticResource Icon}" FontSize="9" Opacity="0.5"
+                                                           Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Text="&#xE70D;" />
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Chevron" Property="Opacity" Value="1" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                                                <Setter TargetName="Chevron" Property="Opacity" Value="1" />
+                                                <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </StackPanel.Resources>
 
-                    <TextBlock Text="DASHBOARDS" Style="{StaticResource Caption}" Margin="12,18,0,8" />
-                    <ItemsControl ItemsSource="{Binding CustomPages}" Focusable="False">
+                    <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+
+                    <Button Style="{StaticResource SectionToggle}" Tag="{Binding DashboardsCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="dashboards"
+                            AutomationProperties.Name="Dashboards" ToolTip="Show or hide your dashboards">
+                        <TextBlock Text="DASHBOARDS" Style="{StaticResource Caption}" />
+                    </Button>
+                    <ItemsControl ItemsSource="{Binding DataContext.CustomPages, RelativeSource={RelativeSource AncestorType=Window}}" Focusable="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <RadioButton Style="{StaticResource NavItem}" Tag="&#xF0E2;" IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                                <RadioButton Style="{StaticResource NavItem}" Tag="&#xF0E2;" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                             Visibility="{Binding InNav, Converter={StaticResource Vis}}">
                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                 </RadioButton>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Command="{Binding NewPageCommand}" AutomationProperties.Name="New dashboard" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
-                            ToolTip="Build your own dashboard from tiles">
+                    <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="New dashboard"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
+                            ToolTip="Start from a preset or a blank page"
+                            Visibility="{Binding DashboardsCollapsed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
@@ -286,26 +377,21 @@
                         </Button.Template>
                     </Button>
 
-                    <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" Margin="12,18,0,8" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE9CA;" Content="Temperatures"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=temperatures}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="{StaticResource FanIcon}" Content="Fans"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=fans}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE964;" Content="Memory"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=memory}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xEDA2;" Content="Storage"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=storage}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE9D9;" Content="All sensors"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=sensors}" />
+                    <Button Style="{StaticResource SectionToggle}" Tag="{Binding HardwareCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="hardware"
+                            AutomationProperties.Name="Hardware" ToolTip="Show or hide the hardware pages">
+                        <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" />
+                    </Button>
+                    <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
-                    <TextBlock Text="CUSTOMIZE" Style="{StaticResource Caption}" Margin="12,18,0,8" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xF246;" Content="Widgets"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=widgets}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE7FC;" Content="Overlay"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=overlay}" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE75B;" Content="Taskbar"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=taskbar}" />
+                    <Button Style="{StaticResource SectionToggle}" Tag="{Binding OnScreenCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="onscreen"
+                            AutomationProperties.Name="On screen" ToolTip="Show or hide widgets, overlay and taskbar">
+                        <TextBlock Text="ON SCREEN" Style="{StaticResource Caption}" />
+                    </Button>
+                    <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,14,12,14" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" AutomationProperties.Name="Settings"
+                                 DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
                         <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
                         <DockPanel>
@@ -336,6 +422,23 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsOpen}" Value="True">
                                 <Setter Property="ContentTemplate" Value="{StaticResource WhatsNewCard}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+
+        <!-- New dashboard: presets this PC can fill, and a blank page. Closed with the x, Esc or a click outside. -->
+        <Grid Grid.ColumnSpan="2" DataContext="{Binding Presets}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+            <Border Background="#99000000" MouseLeftButtonDown="PresetsBackdrop_MouseDown" />
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate" Value="{StaticResource PresetPicker}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

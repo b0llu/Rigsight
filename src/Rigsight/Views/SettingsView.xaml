@@ -17,6 +17,33 @@
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,2,16,0" />
         </Style>
+        <!-- An accent swatch: a dot in the colour, ringed while picked. -->
+        <Style x:Key="Swatch" TargetType="ListBoxItem">
+            <Setter Property="Cursor" Value="Hand" />
+            <!-- Focusable: a list item is only picked by a click once it takes focus. -->
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="3,0" />
+            <Setter Property="ToolTip" Value="{Binding Name}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Width="28" Height="28" Background="Transparent">
+                            <Ellipse x:Name="Ring" Stroke="{DynamicResource TextBrush}" StrokeThickness="2" Opacity="0" />
+                            <Ellipse x:Name="Dot" Width="18" Height="18" Fill="{Binding Brush}" Stroke="{DynamicResource StrokeBrush}" StrokeThickness="1" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="Margin" Value="4,26,0,8" />
         </Style>
@@ -44,25 +71,13 @@
                         <TextBlock Text="Temperature unit" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=dark}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Grey"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=grey}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=light}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=system}" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="Theme" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
                         <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
                                   DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />
                         <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" Margin="0,10">
+                        <TextBlock Text="Start with Windows" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
@@ -79,6 +94,66 @@
                             <TextBlock Text="While this window is open." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <!-- Appearance -->
+            <TextBlock Text="APPEARANCE" Style="{StaticResource Section}" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=dark}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Grey"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=grey}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=light}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"
+                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=system}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Theme" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <ListBox DockPanel.Dock="Right" Style="{StaticResource ChipList}" ItemContainerStyle="{StaticResource Swatch}" VerticalAlignment="Center"
+                                 AutomationProperties.Name="Accent colour" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
+                        <TextBlock Text="Accent colour" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <!-- Sidebar: each page's place in its group, and whether it's shown -->
+            <TextBlock Text="SIDEBAR" Style="{StaticResource Section}" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,10" DataContext="{Binding Sidebar}">
+                <StackPanel>
+                    <StackPanel.Resources>
+                        <DataTemplate x:Key="SidebarRow">
+                            <DockPanel Margin="0,3">
+                                <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding IsShown}" IsEnabled="{Binding CanHide}"
+                                          VerticalAlignment="Center" Margin="14,0,0,0" AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Move down"
+                                        AutomationProperties.Name="{Binding Title, StringFormat='Move {0} down'}"
+                                        Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE70D;" FontSize="11" />
+                                </Button>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Move up"
+                                        AutomationProperties.Name="{Binding Title, StringFormat='Move {0} up'}"
+                                        Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE70E;" FontSize="11" />
+                                </Button>
+                                <ContentPresenter Content="{Binding Icon, Converter={StaticResource NavIcon}}" VerticalAlignment="Center" Width="16"
+                                                  TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="16" TextElement.Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock Text="{Binding Title}" Style="{StaticResource Title}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </StackPanel.Resources>
+                    <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource SidebarRow}" Focusable="False" />
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,8" />
+                    <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource SidebarRow}" Focusable="False" />
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,8" />
+                    <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource SidebarRow}" Focusable="False" />
                 </StackPanel>
             </ctl:SmoothBorder>
 
@@ -117,20 +192,6 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="1 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="2 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="5 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=5000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="10 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=10000}" />
-                            </StackPanel>
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Text="Background sensor sampling" Style="{StaticResource Title}" />
-                            <TextBlock Text="While this window is closed." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="5 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="10 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="30 s" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
@@ -160,6 +221,20 @@
                     </Style>
                 </ctl:SmoothBorder.Style>
                 <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="1 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="2 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="5 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=5000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="10 s" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=10000}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Background sensor sampling" Style="{StaticResource Title}" />
+                            <TextBlock Text="While this window is closed." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding YieldToHardwareApps}" Margin="0,10">
                         <StackPanel>
                             <TextBlock Text="Step aside for RGB and fan apps" Style="{StaticResource Title}" />
@@ -234,43 +309,6 @@
             <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Section}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Style="{StaticResource GhostButton}" Content="Daily recap" Command="{Binding PreviewCommand}" CommandParameter="recap" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="Game session" Command="{Binding PreviewCommand}" CommandParameter="session" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="Temperature alert" Command="{Binding PreviewCommand}" CommandParameter="alert" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="Crash" Command="{Binding PreviewCommand}" CommandParameter="crash" />
-                        </StackPanel>
-                        <TextBlock Text="Preview" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Rigsight cards" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Windows notifications" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Windows}" />
-                            </StackPanel>
-                        </Border>
-                        <StackPanel>
-                            <TextBlock Text="Style" Style="{StaticResource Title}" />
-                            <TextBlock Text="Windows notifications also stay in the notification center." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="5 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="8 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=8}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="15 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=15}" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="Cards stay on screen for" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding QuietDuringFullscreen}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Stay quiet while I'm gaming" Style="{StaticResource Title}" />
-                            <TextBlock Text="Temperature alerts still come through." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
                         <TextBlock Text="Daily recap" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
@@ -289,7 +327,7 @@
                         <TextBlock Text="Only for sessions longer than" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
-                        <TextBlock Text="Tell me when something crashes" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        <TextBlock Text="Crash alerts" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AlertsEnabled}" Margin="0,10">
                         <TextBlock Text="Temperature alerts" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -333,15 +371,51 @@
                             <TextBlock Text="At most one alert every" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
                     </StackPanel>
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,8" />
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Rigsight cards" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Windows notifications" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Windows}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Style" Style="{StaticResource Title}" />
+                            <TextBlock Text="Windows notifications also stay in the notification center." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="5 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="8 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=8}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="15 s" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Cards stay on screen for" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding QuietDuringFullscreen}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Stay quiet while I'm gaming" Style="{StaticResource Title}" />
+                            <TextBlock Text="Temperature alerts still come through." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource GhostButton}" Content="Daily recap" Command="{Binding PreviewCommand}" CommandParameter="recap" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Game session" Command="{Binding PreviewCommand}" CommandParameter="session" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Temperature alert" Command="{Binding PreviewCommand}" CommandParameter="alert" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource GhostButton}" Content="Crash" Command="{Binding PreviewCommand}" CommandParameter="crash" />
+                        </StackPanel>
+                        <TextBlock Text="Preview" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
-            <!-- Startup & data -->
-            <TextBlock Text="STARTUP &amp; DATA" Style="{StaticResource Section}" />
+
+            <!-- History -->
+            <TextBlock Text="HISTORY" Style="{StaticResource Section}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" Margin="0,10">
-                        <TextBlock Text="Start with Windows" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">

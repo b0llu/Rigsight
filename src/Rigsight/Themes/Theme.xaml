@@ -44,6 +44,7 @@
     <conv:TrayTextConverter x:Key="TrayText" />
     <conv:TrayBrushConverter x:Key="TrayBrush" />
     <conv:EqualsConverter x:Key="Equals" />
+    <conv:NavIconConverter x:Key="NavIcon" />
     <conv:EqualsToVisibilityConverter x:Key="EqualsVis" />
     <conv:VisibilityConverter x:Key="Vis" />
     <conv:TempDisplayConverter x:Key="TempDisplay" />
@@ -127,6 +128,54 @@
                     <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}">
                         <ItemsPresenter />
                     </ScrollViewer>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A row of filter chips that wraps (the Apps page's categories): one picked at a time, shaded while picked. -->
+    <Style x:Key="FilterChip" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <!-- Focusable (a list item is only picked by a click once it takes focus), without the dotted focus box. -->
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Bd" Background="Transparent" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="13" Padding="10,4">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource HoverBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="ChipList" TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource FilterChip}" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBox">
+                    <ItemsPresenter />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

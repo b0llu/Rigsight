@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core.Apps;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -12,6 +13,12 @@ namespace Rigsight.ViewModels;
 /// <summary>An app in the list, with the value used for its bar under the current sort.</summary>
 public sealed record AppListRow(AppStat Stat, double Bar, string Metric);
 
+/// <summary>A chip above the app list: every app (<see cref="Category"/> null) or one category.</summary>
+public sealed record CategoryFilter(AppCategory? Category, string Label)
+{
+    public override string ToString() => Label; // the chip's name for screen readers (and UI automation)
+}
+
 public sealed partial class AppsViewModel(ReportService reports, SettingsModel settings) : ObservableObject
 {
     private List<AppStat> _all = [];
@@ -20,6 +27,24 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
+
+    private static readonly CategoryFilter AllApps = new(null, "All");
+
+    /// <summary>"All", then each category that has an app in the period (Other last).</summary>
+    public ObservableCollection<CategoryFilter> Filters { get; } = [AllApps];
+
+    [ObservableProperty] private CategoryFilter? _filter = AllApps;
+
+    private bool _rebuildingFilters;
+
+    partial void OnFilterChanged(CategoryFilter? value)
+    {
+        if (_rebuildingFilters) return;
+        if (value is null) { Filter = AllApps; return; }
+        ApplyView();
+    }
+
+    private AppCategory CategoryOf(AppStat a) => settings.Current.AppCategories.GetValueOrDefault(a.Exe, a.Category);
 
     /// <summary>
     /// The period shown (see <see cref="Controls.PeriodPicker"/>): today unless picked otherwise, like Home. A week by
@@ -142,6 +167,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             var exe = Selected.Exe;
             settings.Update(s => s.AppCategories[exe] = value);
             OnPropertyChanged(nameof(Summary));
+            ApplyView(); // the app may leave the category shown, or bring a new chip
         }
     }
 
@@ -266,16 +292,13 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     private void ApplyView()
     {
+        UpdateFilters();
+        var category = Filter?.Category;
         var q = Search?.Trim() ?? "";
         var list = _all
+            .Where(a => category is null || CategoryOf(a) == category)
             .Where(a => q.Length == 0 || a.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || a.Exe.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .Where(a => Sort switch
-            {
-                "GpuTemp" or "CpuTemp" => a.ActiveSec >= 60,
-                "Memory" or "Cpu" => true,
-                // Time-based sorts: hide background services you never actually had open.
-                _ => a.OpenSec >= 30,
-            })
+            .Where(Listed)
             .OrderByDescending(Key)
             .ToList();
         var selected = Selected;
@@ -290,6 +313,36 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         while (Apps.Count > rows.Count) Apps.RemoveAt(Apps.Count - 1);
         MaxValue = max;
         if (selected is not null && Apps.FirstOrDefault(r => r.Stat.Id == selected.Id) is { } row) SelectedRow = row;
+    }
+
+    /// <summary>Whether the app belongs in the list under the current sort.</summary>
+    private bool Listed(AppStat a) => Sort switch
+    {
+        "GpuTemp" or "CpuTemp" => a.ActiveSec >= 60,
+        "Memory" or "Cpu" => true,
+        // Time-based sorts: hide background services you never actually had open.
+        _ => a.OpenSec >= 30,
+    };
+
+    /// <summary>Chips for the categories in the period, in a fixed order; a category that's gone falls back to All.</summary>
+    private void UpdateFilters()
+    {
+        var present = _all.Where(Listed).Select(CategoryOf).ToHashSet();
+        var wanted = Enum.GetValues<AppCategory>()
+            .Where(present.Contains)
+            .OrderBy(c => c == AppCategory.Other) // Other last
+            .ToList();
+        var current = Filters.Skip(1).Select(f => f.Category!.Value).ToList();
+        if (!current.SequenceEqual(wanted))
+        {
+            var keep = Filter?.Category;
+            _rebuildingFilters = true;
+            while (Filters.Count > 1) Filters.RemoveAt(1);
+            foreach (var c in wanted) Filters.Add(new CategoryFilter(c, AppCatalog.Label(c)));
+            // Re-pick the same category's new chip (the list was rebuilt), or All when it has no apps any more.
+            Filter = Filters.FirstOrDefault(f => f.Category == keep) ?? AllApps;
+            _rebuildingFilters = false;
+        }
     }
 
     private string Metric(AppStat a) => Sort switch

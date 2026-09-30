@@ -14,6 +14,9 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
+/// <summary>A swatch in Settings' accent row.</summary>
+public sealed record AccentOption(string Key, string Name, System.Windows.Media.Brush Brush);
+
 /// <summary>Settings page. Every property reads from and writes to the shared settings model.</summary>
 public sealed partial class SettingsViewModel(SettingsModel settings, AgentClient client, ReportService reports) : ObservableObject
 {
@@ -29,6 +32,41 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
     public string Theme { get => S.Theme; set { if (value is not null) Set(s => s.Theme = value); } }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
+
+    /// <summary>The sidebar's pages, for the Sidebar card (set by the shell).</summary>
+    public SidebarViewModel? Sidebar { get; set; }
+
+    public string Accent { get => Accents.Normalize(S.Accent); set { if (value is not null) Set(s => s.Accent = value); } }
+
+    private List<AccentOption>? _accentOptions;
+    private (bool Light, System.Windows.Media.Color? Windows) _accentShades;
+
+    /// <summary>
+    /// The accent swatches, in the shades the current theme would use; Windows' own accent last. The same list until
+    /// the shades change (a new one on every settings change would drop the picked swatch's ring).
+    /// </summary>
+    public List<AccentOption> AccentOptions
+    {
+        get
+        {
+            bool light = ThemeManager.IsLight;
+            var shades = (light, Accents.WindowsAccent(light));
+            if (_accentOptions is null || shades != _accentShades)
+            {
+                _accentShades = shades;
+                _accentOptions = [.. Accents.All.Select(a => new AccentOption(a.Key, a.Name, Swatch(light ? a.OnLight : a.OnDark)))];
+                if (shades.Item2 is { } windows) _accentOptions.Add(new AccentOption(Accents.Windows, "Windows accent", Swatch(windows)));
+            }
+            return _accentOptions;
+        }
+    }
+
+    private static System.Windows.Media.SolidColorBrush Swatch(System.Windows.Media.Color c)
+    {
+        var b = new System.Windows.Media.SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
 
     /// <summary>Supplied by the shell: the user's dashboards, which can also be the start page.</summary>
     public Func<IEnumerable<PageOption>>? GetCustomPages { get; set; }
@@ -285,6 +323,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public void Refresh()
     {
         OnPropertyChanged(string.Empty);
+        OnPropertyChanged(nameof(Accent)); // again, after the swatches (new ones in a new theme) are in
         ExcludedApps.Clear();
         foreach (var e in S.Tracking.ExcludedApps.Order(StringComparer.OrdinalIgnoreCase)) ExcludedApps.Add(e);
     }

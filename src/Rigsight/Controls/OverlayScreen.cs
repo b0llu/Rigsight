@@ -11,9 +11,10 @@ public readonly record struct OverlaySpot(int Anchor, double X, double Y);
 
 /// <summary>
 /// The overlay's spot, on a picture of the main screen: the overlay's preview at its real size relative to the screen,
-/// dragged anywhere (over the edges too, cut off where the screen ends, as on the real one). It pulls onto the nine
-/// anchors (corners, edge middles, centre) when it gets close, per axis, so edges line up; a click on an anchor's dot
-/// moves it there. Arrow keys nudge it (Shift: further). Saved once, when it's let go.
+/// dragged anywhere (over the edges too, cut off where the screen ends, as on the real one; placed freely, right off it). It pulls onto the nine
+/// anchors (corners, edge middles, centre) when it gets close, per axis, so edges line up, unless <see cref="Snap"/> is
+/// off (then it goes exactly where it's dropped). A click on an anchor's dot moves it there. Arrow keys nudge it (Shift:
+/// further): by half a percent of the screen while snapping, by a pixel when placed freely. Saved once, when it's let go.
 /// </summary>
 public sealed class OverlayScreen : FrameworkElement
 {
@@ -27,6 +28,13 @@ public sealed class OverlayScreen : FrameworkElement
     public static readonly DependencyProperty SpotProperty = DependencyProperty.Register(
         nameof(Spot), typeof(OverlaySpot), typeof(OverlayScreen),
         new FrameworkPropertyMetadata(default(OverlaySpot), FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    /// <summary>Pull onto the edges and centre when close (off: free, to the pixel).</summary>
+    public static readonly DependencyProperty SnapProperty = DependencyProperty.Register(
+        nameof(Snap), typeof(bool), typeof(OverlayScreen), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender,
+            (d, _) => ((OverlayScreen)d).UpdateToolTip()));
+
+    public bool Snap { get => (bool)GetValue(SnapProperty); set => SetValue(SnapProperty, value); }
 
     public ImageSource? Preview { get => (ImageSource?)GetValue(PreviewProperty); set => SetValue(PreviewProperty, value); }
     public double OverlayScale { get => (double)GetValue(OverlayScaleProperty); set => SetValue(OverlayScaleProperty, value); }
@@ -56,8 +64,12 @@ public sealed class OverlayScreen : FrameworkElement
         Focusable = true;
         FocusVisualStyle = null;
         Cursor = Cursors.Arrow;
-        ToolTip = "Drag the overlay anywhere, even partly off the screen. It snaps to the corners, edges and centre; arrow keys nudge it.";
+        UpdateToolTip();
     }
+
+    private void UpdateToolTip() => ToolTip = Snap
+        ? "Drag the overlay anywhere, even partly off the screen. It snaps to the corners, edges and centre; arrow keys nudge it."
+        : "Drag the overlay anywhere, off the screen too. Arrow keys move it a pixel at a time (Shift: 10).";
 
     private static double ScreenWidth => SystemParameters.PrimaryScreenWidth;
     private static double ScreenHeight => SystemParameters.PrimaryScreenHeight;
@@ -71,7 +83,7 @@ public sealed class OverlayScreen : FrameworkElement
     private Point TopLeft(OverlaySpot spot)
     {
         var size = OverlaySize;
-        var (x, y) = OverlayPlacement.Place(spot.Anchor, spot.X, spot.Y, ScreenWidth, ScreenHeight, size.Width, size.Height, Gap);
+        var (x, y) = OverlayPlacement.Place(spot.Anchor, spot.X, spot.Y, ScreenWidth, ScreenHeight, size.Width, size.Height, Gap, keepOnScreen: Snap);
         return new Point(x, y);
     }
 
@@ -178,19 +190,32 @@ public sealed class OverlayScreen : FrameworkElement
         var p = e.GetPosition(this);
         Cursor = _dragFrom is not null || Box().Contains(p) ? Cursors.SizeAll : Cursors.Arrow;
         if (_dragFrom is not { } from) { InvalidateVisual(); return; }
-        double f = Factor;
-        var size = OverlaySize;
-        double x = _dragStart.X + (p.X - from.X) / f, y = _dragStart.Y + (p.Y - from.Y) / f;
-        (x, _snappedX) = Snap(x, ScreenWidth, size.Width, f);
-        (y, _snappedY) = Snap(y, ScreenHeight, size.Height, f);
-        x = Math.Clamp(x, OverlayPlacement.MinVisible - size.Width, ScreenWidth - OverlayPlacement.MinVisible);
-        y = Math.Clamp(y, OverlayPlacement.MinVisible - size.Height, ScreenHeight - OverlayPlacement.MinVisible);
-        _dragAt = new Point(x, y);
+        _dragAt = Dragged(_dragStart, (p - from) / Factor);
         InvalidateVisual();
     }
 
+    /// <summary>
+    /// Where the overlay goes when dragged by <paramref name="moved"/> (real screen pixels) from <paramref name="start"/>:
+    /// while <see cref="Snap"/> is on, pulled onto an edge or the centre when close and kept partly on the screen;
+    /// placed freely, exactly there, off the screen too.
+    /// </summary>
+    internal Point Dragged(Point start, Vector moved)
+    {
+        double f = Factor;
+        var size = OverlaySize;
+        double x = start.X + moved.X, y = start.Y + moved.Y;
+        _snappedX = _snappedY = false;
+        if (Snap)
+        {
+            (x, _snappedX) = SnapTo(x, ScreenWidth, size.Width, f);
+            (y, _snappedY) = SnapTo(y, ScreenHeight, size.Height, f);
+            (x, y) = OverlayPlacement.KeepOnScreen(x, y, ScreenWidth, ScreenHeight, size.Width, size.Height);
+        }
+        return new Point(x, y);
+    }
+
     /// <summary>Pulls a start onto the nearest anchor line (the gap in from an edge, or centred) when it's close.</summary>
-    private static (double Value, bool Snapped) Snap(double start, double screen, double size, double f)
+    private static (double Value, bool Snapped) SnapTo(double start, double screen, double size, double f)
     {
         foreach (double line in new[] { Gap, (screen - size) / 2, screen - Gap - size })
             if (Math.Abs(start - line) * f < Magnet) return (line, true);
@@ -219,23 +244,37 @@ public sealed class OverlayScreen : FrameworkElement
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        double step = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? 0.05 : 0.005;
-        var (dx, dy) = e.Key switch
+        bool far = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        Nudge(e.Key, far);
+        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down) e.Handled = true;
+    }
+
+    /// <summary>
+    /// An arrow key: half a percent of the screen (Shift: 5%) while snapping; placed freely, one pixel (Shift: 10), so it
+    /// can be put exactly where wanted.
+    /// </summary>
+    public void Nudge(Key key, bool far)
+    {
+        double stepX = Snap ? (far ? 0.05 : 0.005) * ScreenWidth : far ? 10 : 1;
+        double stepY = Snap ? (far ? 0.05 : 0.005) * ScreenHeight : far ? 10 : 1;
+        var (dx, dy) = key switch
         {
-            Key.Left => (-step, 0.0),
-            Key.Right => (step, 0.0),
-            Key.Up => (0.0, -step),
-            Key.Down => (0.0, step),
+            Key.Left => (-stepX, 0.0),
+            Key.Right => (stepX, 0.0),
+            Key.Up => (0.0, -stepY),
+            Key.Down => (0.0, stepY),
             _ => (0.0, 0.0),
         };
         if (dx == 0 && dy == 0) return;
         var at = TopLeft(Spot);
         var size = OverlaySize;
-        Commit(new Point(
-            Math.Clamp(at.X + dx * ScreenWidth, OverlayPlacement.MinVisible - size.Width, ScreenWidth - OverlayPlacement.MinVisible),
-            Math.Clamp(at.Y + dy * ScreenHeight, OverlayPlacement.MinVisible - size.Height, ScreenHeight - OverlayPlacement.MinVisible)));
-        e.Handled = true;
+        double x = at.X + dx, y = at.Y + dy;
+        if (Snap) (x, y) = OverlayPlacement.KeepOnScreen(x, y, ScreenWidth, ScreenHeight, size.Width, size.Height);
+        Commit(new Point(x, y));
     }
+
+    /// <summary>The overlay's top-left on the real screen (device-independent pixels), where it is now.</summary>
+    public Point Position => TopLeft(Spot);
 
     private void Commit(Point at)
     {

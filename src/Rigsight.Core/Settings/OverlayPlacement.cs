@@ -8,7 +8,7 @@ namespace Rigsight.Core.Settings;
 /// </summary>
 public static class OverlayPlacement
 {
-    /// <summary>The part that always stays on screen (pixels), however far it's pushed off an edge.</summary>
+    /// <summary>The part that stays on screen (pixels) however far it's pushed off an edge, while it snaps (placed freely, none need).</summary>
     public const int MinVisible = 24;
 
     public static int Column(int anchor) => Math.Clamp(anchor, 0, 8) % 3;
@@ -26,13 +26,21 @@ public static class OverlayPlacement
     };
 
     /// <summary>The top-left of an overlay of <paramref name="width"/> × <paramref name="height"/> on a screen of <paramref name="screenWidth"/> × <paramref name="screenHeight"/>.</summary>
+    /// <param name="keepOnScreen">
+    /// Keep <see cref="MinVisible"/> of it on the screen (while it snaps). Placed freely it goes wherever it was put,
+    /// off the screen too (the Overlay page has a reset for that).
+    /// </param>
     public static (double X, double Y) Place(int anchor, double offsetX, double offsetY,
-        double screenWidth, double screenHeight, double width, double height, double gap)
+        double screenWidth, double screenHeight, double width, double height, double gap, bool keepOnScreen = true)
     {
         double x = Start(Column(anchor), screenWidth, width, gap) + offsetX * screenWidth;
         double y = Start(Row(anchor), screenHeight, height, gap) + offsetY * screenHeight;
-        return (Math.Clamp(x, MinVisible - width, screenWidth - MinVisible), Math.Clamp(y, MinVisible - height, screenHeight - MinVisible));
+        return keepOnScreen ? KeepOnScreen(x, y, screenWidth, screenHeight, width, height) : (x, y);
     }
+
+    /// <summary>At least <see cref="MinVisible"/> of it on the screen.</summary>
+    public static (double X, double Y) KeepOnScreen(double x, double y, double screenWidth, double screenHeight, double width, double height) =>
+        (Math.Clamp(x, MinVisible - width, screenWidth - MinVisible), Math.Clamp(y, MinVisible - height, screenHeight - MinVisible));
 
     /// <summary>
     /// The anchor and offsets for an overlay whose top-left is at (<paramref name="x"/>, <paramref name="y"/>): the
@@ -44,7 +52,8 @@ public static class OverlayPlacement
         int column = Third(x + width / 2, screenWidth), row = Third(y + height / 2, screenHeight);
         double offsetX = (x - Start(column, screenWidth, width, gap)) / screenWidth;
         double offsetY = (y - Start(row, screenHeight, height, gap)) / screenHeight;
-        return (row * 3 + column, Math.Round(offsetX, 4), Math.Round(offsetY, 4));
+        // Six places: a hundredth of a pixel even on an 8K screen, so a free placement lands on the exact pixel.
+        return (row * 3 + column, Math.Round(offsetX, 6), Math.Round(offsetY, 6));
     }
 
     /// <summary>Where the overlay starts along one axis with no offset: in from the near edge, centred, or in from the far edge.</summary>

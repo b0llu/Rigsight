@@ -38,6 +38,20 @@
             <DockPanel>
                 <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search apps…" Margin="4,0,4,10"
                          Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" />
+                <!-- Categories in the period: a dot in each one's colour (the one Reports uses). -->
+                <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" Margin="4,0,4,6" AutomationProperties.Name="Categories"
+                         ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"
+                                         Fill="{Binding Category, Converter={StaticResource CategoryBrush}}"
+                                         Visibility="{Binding Category, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
                 <DockPanel DockPanel.Dock="Top" Margin="6,0,4,8">
                     <ComboBox DockPanel.Dock="Right" Width="170" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
                         <ComboBoxItem Content="Most used" Tag="Active" />

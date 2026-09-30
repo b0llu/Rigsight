@@ -107,6 +107,15 @@ public sealed class EqualsConverter : IValueConverter
     }
 }
 
+/// <summary>A sidebar entry's icon: an icon-font character, or the drawn fan for "fan" (the font has none).</summary>
+public sealed class NavIconConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value as string == "fan" ? Application.Current.FindResource("FanIcon") : value;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>Visible when the value's string form equals ConverterParameter.</summary>
 public sealed class EqualsToVisibilityConverter : IValueConverter
 {
