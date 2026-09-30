@@ -29,6 +29,11 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.12.1", 9, 30,
+            added: ["Fans: pick a day, week, month or year, and the whole page follows.",
+                "A year view: see if a fan got slower over the months."],
+            better: ["Hover the fan charts to see each reading.", "Six facts for each fan, and a list that scrolls when you have many.",
+                "A new fan icon."]),
         V("0.12.0", 9, 30,
             added: ["A Fans page: how your fans are doing and what makes them spin.",
                 "A heads-up when a fan turns slower than it used to at the same heat.",

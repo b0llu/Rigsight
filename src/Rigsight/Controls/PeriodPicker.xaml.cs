@@ -45,6 +45,12 @@ public partial class PeriodPicker : UserControl
         DependencyProperty.Register(nameof(MinDate), typeof(DateTime?), typeof(PeriodPicker), new PropertyMetadata(null, (d, _) => ((PeriodPicker)d).Refresh()));
 
     /// <summary>Whether "All time" is offered (Reports leaves it out).</summary>
+    /// <summary>Off: no custom range (a page that reads a period's days or months, not any span of hours).</summary>
+    public static readonly DependencyProperty AllowCustomProperty =
+        DependencyProperty.Register(nameof(AllowCustom), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(true, (d, _) => ((PeriodPicker)d).Refresh()));
+
+    public bool AllowCustom { get => (bool)GetValue(AllowCustomProperty); set => SetValue(AllowCustomProperty, value); }
+
     public static readonly DependencyProperty AllowAllProperty =
         DependencyProperty.Register(nameof(AllowAll), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(true, (d, _) => ((PeriodPicker)d).Refresh()));
 
@@ -134,6 +140,7 @@ public partial class PeriodPicker : UserControl
         try
         {
             AllButton.Visibility = AllowAll ? Visibility.Visible : Visibility.Collapsed;
+            CustomButton.Visibility = AllowCustom ? Visibility.Visible : Visibility.Collapsed;
             foreach (RadioButton button in UnitButtons.Children)
                 button.IsChecked = (string)button.Tag == Unit.ToString();
 

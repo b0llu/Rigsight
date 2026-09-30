@@ -6,30 +6,29 @@
 
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-    <!-- The Fans page's icon (the icon font has no fan): four swept blades round a hub, two arcs for the spin. Drawn in
-         the colour of the text around it, like the font's icons; a new copy wherever it's used. -->
+    <!-- The Fans page's icon (the icon font has no fan): four swept blades round a hub, filling the icon's square. Drawn
+         in the colour of the text around it, like the font's icons; a new copy wherever it's used. -->
     <Grid x:Key="FanIcon" x:Shared="False" Width="16" Height="16">
         <Path Fill="{Binding (TextElement.Foreground), RelativeSource={RelativeSource Self}}">
             <Path.Data>
+                <!-- Four even blades, each a gently curved teardrop, around a round hub. -->
                 <GeometryGroup FillRule="Nonzero">
-                <EllipseGeometry Center="8,8" RadiusX="1.5" RadiusY="1.5" />
-                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                <EllipseGeometry Center="8,8" RadiusX="2" RadiusY="2" />
+                <PathGeometry Figures="M8.54,6.50 L8.81,6.23 L9.10,5.99 L9.39,5.79 L9.68,5.61 L9.96,5.45 L10.24,5.30 L10.50,5.17 L10.76,5.04 L11.01,4.91 L11.25,4.77 L11.49,4.62 L11.72,4.45 L11.93,4.19 L12.13,3.85 L12.32,3.33 L12.35,2.02 L12.35,2.01 L11.50,0.96 L10.85,0.77 L10.24,0.79 L9.68,0.95 L9.19,1.23 L8.75,1.57 L8.36,1.97 L8.02,2.40 L7.74,2.87 L7.53,3.35 L7.37,3.86 L7.28,4.37 L7.25,4.88 L7.27,5.37 L7.34,5.85 L7.46,6.30 Z">
                     <PathGeometry.Transform><RotateTransform Angle="0" CenterX="8" CenterY="8" /></PathGeometry.Transform>
                 </PathGeometry>
-                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                <PathGeometry Figures="M8.54,6.50 L8.81,6.23 L9.10,5.99 L9.39,5.79 L9.68,5.61 L9.96,5.45 L10.24,5.30 L10.50,5.17 L10.76,5.04 L11.01,4.91 L11.25,4.77 L11.49,4.62 L11.72,4.45 L11.93,4.19 L12.13,3.85 L12.32,3.33 L12.35,2.02 L12.35,2.01 L11.50,0.96 L10.85,0.77 L10.24,0.79 L9.68,0.95 L9.19,1.23 L8.75,1.57 L8.36,1.97 L8.02,2.40 L7.74,2.87 L7.53,3.35 L7.37,3.86 L7.28,4.37 L7.25,4.88 L7.27,5.37 L7.34,5.85 L7.46,6.30 Z">
                     <PathGeometry.Transform><RotateTransform Angle="90" CenterX="8" CenterY="8" /></PathGeometry.Transform>
                 </PathGeometry>
-                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                <PathGeometry Figures="M8.54,6.50 L8.81,6.23 L9.10,5.99 L9.39,5.79 L9.68,5.61 L9.96,5.45 L10.24,5.30 L10.50,5.17 L10.76,5.04 L11.01,4.91 L11.25,4.77 L11.49,4.62 L11.72,4.45 L11.93,4.19 L12.13,3.85 L12.32,3.33 L12.35,2.02 L12.35,2.01 L11.50,0.96 L10.85,0.77 L10.24,0.79 L9.68,0.95 L9.19,1.23 L8.75,1.57 L8.36,1.97 L8.02,2.40 L7.74,2.87 L7.53,3.35 L7.37,3.86 L7.28,4.37 L7.25,4.88 L7.27,5.37 L7.34,5.85 L7.46,6.30 Z">
                     <PathGeometry.Transform><RotateTransform Angle="180" CenterX="8" CenterY="8" /></PathGeometry.Transform>
                 </PathGeometry>
-                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                <PathGeometry Figures="M8.54,6.50 L8.81,6.23 L9.10,5.99 L9.39,5.79 L9.68,5.61 L9.96,5.45 L10.24,5.30 L10.50,5.17 L10.76,5.04 L11.01,4.91 L11.25,4.77 L11.49,4.62 L11.72,4.45 L11.93,4.19 L12.13,3.85 L12.32,3.33 L12.35,2.02 L12.35,2.01 L11.50,0.96 L10.85,0.77 L10.24,0.79 L9.68,0.95 L9.19,1.23 L8.75,1.57 L8.36,1.97 L8.02,2.40 L7.74,2.87 L7.53,3.35 L7.37,3.86 L7.28,4.37 L7.25,4.88 L7.27,5.37 L7.34,5.85 L7.46,6.30 Z">
                     <PathGeometry.Transform><RotateTransform Angle="270" CenterX="8" CenterY="8" /></PathGeometry.Transform>
                 </PathGeometry>
                 </GeometryGroup>
             </Path.Data>
         </Path>
-        <Path Stroke="{Binding (TextElement.Foreground), RelativeSource={RelativeSource Self}}" StrokeThickness="1"
-              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M3.12,2.58 A7.3,7.3 0 0 1 7.24,0.74 M12.88,13.42 A7.3,7.3 0 0 1 8.76,15.26" />
     </Grid>
 
     <!-- ── Motion ───────────────────────────────────────────────────────

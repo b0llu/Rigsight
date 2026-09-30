@@ -12,7 +12,7 @@
                 <RadioButton Style="{StaticResource Segment}" Content="Month" Tag="Month" Checked="Unit_Checked" />
                 <RadioButton Style="{StaticResource Segment}" Content="Year" Tag="Year" Checked="Unit_Checked" />
                 <RadioButton x:Name="AllButton" Style="{StaticResource Segment}" Content="All time" Tag="All" Checked="Unit_Checked" />
-                <RadioButton Style="{StaticResource Segment}" Content="Custom" Tag="Custom" Checked="Unit_Checked" />
+                <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" Content="Custom" Tag="Custom" Checked="Unit_Checked" />
             </StackPanel>
         </Border>
         <ctl:DatePager x:Name="Pager" Margin="12,0,0,0"

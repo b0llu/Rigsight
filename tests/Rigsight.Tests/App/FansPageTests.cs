@@ -172,8 +172,11 @@ public sealed class FansPageTests
             Assert.Equal(("All OK", true), (vm.StatusText, vm.StatusOk));
             Assert.Equal("6 fans · 4 fan headers free", vm.StatusNote); // a card's two fans count as two
             // The seeded card stands still under 50°: quiet time today, when the day has had some.
-            if (vm.Fans[0].Facts is { StoppedMinutes: > 0 }) Assert.NotNull(vm.QuietText);
-            if (vm.FastestText is not null) Assert.EndsWith(" RPM", vm.FastestText);
+            // Every tile always shows: a quiet day says so rather than leaving a gap.
+            Assert.Equal("QUIET TIME", vm.QuietLabel);
+            Assert.NotEqual("", vm.QuietText);
+            Assert.NotEqual("", vm.HardestApp);
+            if (vm.FastestText != "—") Assert.EndsWith(" RPM", vm.FastestText);
         });
     }
 
@@ -184,12 +187,12 @@ public sealed class FansPageTests
         Ui.Run(() =>
         {
             var gpu = vm.Fans[0].Detail!;
-            Assert.Equal("Your GPU's heat", gpu.FollowsValue);
+            // A card's own fans: where they start (when they stood still today), else that they follow its heat.
+            if (gpu.SilentBelow is double sb) Assert.Equal(("Starts spinning", $"Around {sb:0}°"), (gpu.FollowsLabel, gpu.FollowsValue));
+            else Assert.Equal(("Follows", "Your GPU's heat"), (gpu.FollowsLabel, gpu.FollowsValue));
             Assert.Equal("SPEED AT EACH GPU TEMPERATURE", gpu.CurveTitle);
             Assert.Equal("WHAT MAKES THEM SPIN", gpu.AppsTitle);
-            Assert.Equal("LAST 30 DAYS · GPU FANS", gpu.DaysTitle);
-            Assert.Equal(30, gpu.Days.Count);
-            Assert.Equal(DateTime.Today, gpu.Days[^1].Day);
+            Assert.Equal([DateTime.Today], gpu.Days.Select(d => d.Day)); // a day: one bar (the chart shows it through the day)
             Assert.False(gpu.IsSteady);
 
             var board = vm.Fans.Single(f => f.Sensor.Id == BoardFan1).Detail!;
@@ -210,7 +213,7 @@ public sealed class FansPageTests
         var minutes = fan.ToDictionary(f => f.Ts, f => new Rigsight.Core.Data.SystemMinute { Ts = f.Ts, CpuTemp = 45 + f.Ts % 20, GpuTemp = 40 });
         card.Facts = Rigsight.Core.Reports.FanAnalysis.Of(false, fan, minutes);
         card.MinutesOn = fan.Count;
-        var detail = FansViewModel.DetailOf(card, [fan], minutes, [], [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), DateTime.Today);
+        var detail = FansViewModel.DetailOf(card, [fan], minutes, [], [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), DateTime.Today, DateTime.Today.AddDays(1));
         Assert.True(detail.IsSteady);
         Assert.Equal("A set speed", detail.FollowsValue);
         Assert.StartsWith("About 1", detail.FollowsNote);
@@ -218,7 +221,10 @@ public sealed class FansPageTests
         Assert.Matches(@"^Within \d%$", detail.ThirdValue);
         Assert.Equal("same speed at every temperature", detail.LineLabel);
         Assert.Equal(2, detail.Line.Count);
-        Assert.Equal(120, detail.Points.Count);
+        Assert.Equal(120, detail.Dots.Sum(d => d.Minutes));
+        Assert.False(detail.HasApps); // it turns the same whatever runs: no list of apps
+        // Six facts: a set speed's range and its usual speed before, beside the three above.
+        Assert.Equal(["Follows", "Stood still", "Steadiness", "Average while spinning", "Range", "Usual"], detail.Facts.Select(f => f.Label));
         Assert.Null(detail.SilentBelow);
     }
 
@@ -233,9 +239,81 @@ public sealed class FansPageTests
         var minutes = Enumerable.Range(0, 200).ToDictionary(i => t0 + i * 60L, i => new Rigsight.Core.Data.SystemMinute { Ts = t0 + i * 60L, GpuTemp = 40 + i % 30, CpuTemp = 50 });
         var fan = minutes.Values.Select(m => new Rigsight.Core.Data.FanMinute(m.Ts, 1, m.GpuTemp < 52 ? 0 : (int)(900 + (m.GpuTemp!.Value - 52) * 60), 0)).ToList();
         card.Facts = Rigsight.Core.Reports.FanAnalysis.Of(true, fan, minutes);
-        var detail = FansViewModel.DetailOf(card, [fan, fan], minutes, [], [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), DateTime.Today);
+        var detail = FansViewModel.DetailOf(card, [fan, fan], minutes, [], [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), DateTime.Today, DateTime.Today.AddDays(1));
         Assert.Equal(52, detail.SilentBelow);
-        Assert.Equal("Silent below about 52°", detail.FollowsNote);
+        Assert.Equal(("Starts spinning", "Around 52°", "Silent below that, faster as it warms"), (detail.FollowsLabel, detail.FollowsValue, detail.FollowsNote));
+        // A card's six: where it starts, rest, fastest, average while turning, under heavy load, and how often it started.
+        Assert.Equal(["Starts spinning", "Stood still", "Fastest", "Average while spinning", "Under heavy load", "Started up"], detail.Facts.Select(f => f.Label));
+        Assert.EndsWith("times", detail.Facts[5].Value);
+    }
+
+    [Fact]
+    public void The_whole_page_follows_the_period()
+    {
+        var (vm, _) = Page();
+        Ui.Run(() =>
+        {
+            Assert.Equal((ReportRange.Day, DateTime.Today, true), (vm.Unit, vm.Anchor, vm.IsDay));
+            Assert.Equal("TODAY", vm.PeriodCaption);
+            vm.Unit = ReportRange.Week;
+        });
+        Kit.Wait(vm.RefreshAsync);
+        Ui.Run(() =>
+        {
+            Assert.False(vm.IsDay);
+            Assert.Equal("THIS WEEK", vm.PeriodCaption);
+            var days = vm.Fans[0].Detail!.Days;
+            Assert.Equal(7, days.Count); // a bar a day
+            Assert.Contains(days, d => d.Average is not null); // the seeded fans spun yesterday and today
+            if (vm.LoudestHour is not null) Assert.Equal("Loudest day", vm.LoudestLabel);
+            vm.Anchor = DateTime.Today.AddDays(-7);
+        });
+        Kit.Wait(vm.RefreshAsync);
+        Ui.Run(() =>
+        {
+            Assert.Equal("LAST WEEK", vm.PeriodCaption);
+            Assert.All(vm.Fans[0].Detail!.Days, d => Assert.True(d.Day < ReportBuilder.Bounds(ReportRange.Week, DateTime.Today).From));
+        });
+    }
+
+    [Fact]
+    public void A_year_reads_the_days_and_shows_each_month()
+    {
+        var (vm, _) = Page();
+        Ui.Run(() => vm.Unit = ReportRange.Year);
+        Kit.Wait(vm.RefreshAsync);
+        Ui.Run(() =>
+        {
+            Assert.True(vm.IsYear);
+            var gpu = vm.Fans[0].Detail!;
+            Assert.True(gpu.Monthly);
+            Assert.Equal(12, gpu.Days.Count); // a bar a month
+            Assert.Equal(new DateTime(DateTime.Today.Year, 1, 1), gpu.Days[0].Day);
+            Assert.Contains(gpu.Days, d => d.Average is not null); // this month's (seeded yesterday and today)
+            Assert.Equal(("Average", "Across the year's days"), (gpu.StillLabel, gpu.StillNote));
+            Assert.Equal("SPEED AT EACH GPU TEMPERATURE · IN GAMES", gpu.CurveTitle);
+            Assert.Equal("AVERAGE SPEED", vm.QuietLabel);
+            if (vm.LoudestHour is not null) Assert.Equal("Loudest month", vm.LoudestLabel);
+            Assert.Null(vm.StartsText); // kept by the day: no starts to count
+        });
+    }
+
+    [Fact]
+    public void A_years_trend_is_the_speed_at_one_temperature_month_by_month()
+    {
+        // Three months of a card in the same game at 70–72°: 1,900 rpm, then 1,800, then 1,600 (a fan getting slower).
+        var sensors = new[] { "/gpu-nvidia/0/fan/1" }
+            .Select(id => new Rigsight.Models.SensorItem(new Rigsight.Core.Protocol.SensorMeta { Id = id, Name = "GPU Fan", Kind = Rigsight.Core.SensorKind.Fan }, "RTX", "GpuNvidia")).ToList();
+        var card = new FanCard(sensors) { Facts = new FanFacts(FanFollows.Gpu, 500, 0, null) };
+        var year = new DateTime(2026, 1, 1);
+        var curves = new List<Rigsight.Core.Data.FanCurveDay>();
+        foreach (var (month, rpm) in new[] { (3, 1900.0), (4, 1800.0), (5, 1600.0) })
+            for (int d = 1; d <= 10; d++)
+                curves.Add(new(Rigsight.Core.Data.TimeUtil.ToUnix(new DateTime(2026, month, d)), 1, 5, 70, 20, 20 * rpm));
+        var detail = FansViewModel.YearOf(card, curves, [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), year, year.AddYears(1));
+        Assert.True(detail.HasTrend);
+        Assert.Equal("SPEED AT 71° EACH MONTH", detail.TrendTitle);
+        Assert.Equal([null, null, 1900.0, 1800.0, 1600.0, null], detail.Trend.Take(6).Select(b => b.Average));
     }
 
     [Fact]

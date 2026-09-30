@@ -107,11 +107,20 @@ public sealed class ReportService(SettingsModel settings)
 
     /// <summary>What the Fans page shows: the fans, their minutes and the PC's from <paramref name="from"/> (today), their
     /// days back to <paramref name="since"/> (to tell a fan that once spun from a header with nothing plugged in), and the apps.</summary>
-    public Task<FanHistory?> FanHistoryAsync(DateTime since, DateTime from) => Run(db =>
+    public Task<FanHistory?> FanHistoryAsync(DateTime since, DateTime from, DateTime to) => FanHistoryAsync(since, from, to, from, to, from.AddDays(-ViewModels.FansViewModel.UsualDays), from);
+
+    /// <summary>
+    /// The same with each part over its own range: minutes (<paramref name="from"/>–<paramref name="to"/>), days
+    /// (<paramref name="since"/> or <paramref name="daysFrom"/> to <paramref name="daysTo"/>) and daily curves
+    /// (<paramref name="curvesFrom"/>–<paramref name="curvesTo"/>): a year reads only its days and curves, and today's minutes.
+    /// </summary>
+    public Task<FanHistory?> FanHistoryAsync(DateTime since, DateTime from, DateTime to, DateTime daysFrom, DateTime daysTo, DateTime curvesFrom, DateTime curvesTo) => Run(db =>
     {
-        long start = TimeUtil.ToUnix(from), end = TimeUtil.NowUnix() + 60;
+        long start = TimeUtil.ToUnix(from), end = Math.Min(TimeUtil.ToUnix(to), TimeUtil.NowUnix() + 60);
+        long daysEnd = Math.Min(TimeUtil.ToUnix(daysTo), TimeUtil.NowUnix() + 60);
         return new FanHistory(db.GetFans(), db.GetFanMinutes(start, end), db.GetMinutes(start, end),
-            db.GetFanDays(TimeUtil.ToUnix(since), end), db.LoadApps(), db.GetFanCurveDays(TimeUtil.ToUnix(from.AddDays(-ViewModels.FansViewModel.UsualDays)), start));
+            db.GetFanDays(Math.Min(TimeUtil.ToUnix(since), TimeUtil.ToUnix(daysFrom)), daysEnd), db.LoadApps(),
+            db.GetFanCurveDays(TimeUtil.ToUnix(curvesFrom), TimeUtil.ToUnix(curvesTo)));
     });
 
     /// <summary>Temperatures at rest per day, for today and the days before it (heat_day).</summary>
