@@ -116,7 +116,7 @@ public sealed partial class QueryPlanTests
             "FrontAppAt" => () => db.FrontAppAt(day + 43200),
             "FirstTimes" => () => { db.FirstDataTime(); db.FirstMinuteTime(); db.FirstCrashTime(); },
             "GetDriveDays" => () => db.GetDriveDays(from),
-            "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); },
+            "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); db.GetFanCurveDays(U(2000, 1, 1), to); },
             "GetHeatDays" => () => db.GetHeatDays(U(now.Date.AddDays(-120)), U(now.Date.AddDays(-30))),
             "LongestGameSessionSec" => () => db.LongestGameSessionSec(from, to, [1, 2, 3]),
             _ => throw new ArgumentException(method),

@@ -64,10 +64,13 @@ public sealed class TodayInfo
     public double? GpuPeak { get; set; }
     public long? GpuPeakTime { get; set; }
     public string? GpuPeakApp { get; set; }
+    /// <summary>What kind of app each peak's app is (for the words under it); null with no app, or from an older agent.</summary>
+    public AppCategory? CpuPeakCategory { get; set; }
+    public AppCategory? GpuPeakCategory { get; set; }
 
-    /// <summary>"Rematch used the CPU most", or the time when no app clearly was (null before the first reading).</summary>
-    [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime, "CPU");
-    [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime, "GPU");
+    /// <summary>"While playing Rematch", or the time when no app clearly was (null before the first reading).</summary>
+    [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime, CpuPeakCategory);
+    [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime, GpuPeakCategory);
 }
 
 /// <summary>A drive's SMART health, as judged the way CrystalDiskInfo does (hard drives have no wear "Life").</summary>

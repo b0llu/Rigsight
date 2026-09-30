@@ -132,7 +132,7 @@ public static class ReportBuilder
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
         // And further back: the same weekday over recent weeks, and how the PC ran a few months ago.
         var context = new InsightContext(range == ReportRange.Day ? WeekdayUsualOf(db, from, apps, settings) : null,
-            IsLong(range) ? null : ThenHeatOf(db, from, id => NameOf(apps, settings, id)));
+            IsLong(range) ? null : ThenHeatOf(db, from, id => NameOf(apps, settings, id)), IsLong(range) ? null : ThenFansOf(db, from));
         if (range == ReportRange.Day)
         {
             report.Records = RecordsOf(db, report, from, [.. apps.Values.Where(a => CategoryOf(apps, settings, a.Id) == AppCategory.Game).Select(a => a.Id)]);
@@ -197,6 +197,23 @@ public static class ReportBuilder
         int restN = rest.Sum(x => x.N);
         var resting = restN > 0 ? new LoadTemps(Ratio(rest.Sum(x => x.CpuSum), rest.Sum(x => x.CpuN)), Ratio(rest.Sum(x => x.GpuSum), rest.Sum(x => x.GpuN)), restN) : null;
         return steady.Count == 0 ? null : new ThenHeat(steady, resting, start, end);
+    }
+
+    /// <summary>The fans' curves over the same days as <see cref="ThenHeatOf"/>: null when none were kept then.</summary>
+    internal static ThenFans? ThenFansOf(RigsightDb db, DateTime from)
+    {
+        var (start, end) = (from.Date.AddDays(-ThenFromDays), from.Date.AddDays(-ThenToDays));
+        var rows = db.GetFanCurveDays(TimeUtil.ToUnix(start), TimeUtil.ToUnix(end));
+        if (rows.Count == 0) return null;
+        var fans = db.GetFans().ToDictionary(f => f.Id);
+        var curves = rows.Where(x => fans.ContainsKey(x.Fan)).GroupBy(x => (fans[x.Fan].Name, fans[x.Fan].Hardware))
+            .ToDictionary(g => g.Key, g => (IReadOnlyDictionary<(long App, int Temp), FanBin>)g.GroupBy(x => (x.App, x.Temp))
+                .ToDictionary(b => b.Key, b => new FanBin(b.Sum(x => x.N), b.Sum(x => x.RpmSum) / b.Sum(x => x.N))));
+        // The middle of the minutes: the day by which half of them were kept.
+        var byDay = rows.GroupBy(x => x.Day).OrderBy(g => g.Key).Select(g => (Day: g.Key, N: g.Sum(x => x.N))).ToList();
+        long half = byDay.Sum(d => d.N) / 2, seen = 0;
+        long mid = byDay.First(d => (seen += d.N) >= half).Day;
+        return new ThenFans(curves, TimeUtil.FromUnix(mid));
     }
 
     /// <summary>The windows a record is checked over, and the days of history each needs to mean anything.</summary>
@@ -956,6 +973,11 @@ public static class ReportBuilder
     /// </summary>
     internal const double GpuFanSpinTemp = 70;
 
+
+    /// <summary>A fan's run of minutes ends at a gap longer than this (the PC off, asleep or restarting); its start and end
+    /// are read from this many minutes each (see <see cref="FanStat.RunDrop"/>).</summary>
+    private const int FanRunGapSeconds = 180, FanRunEdgeMinutes = 10;
+
     /// <summary>
     /// Each fan over the period: the minutes it should have been turning (a GPU fan with the GPU at
     /// <see cref="GpuFanSpinTemp"/> or more; any other fan while the PC was on), how many it read 0 rpm, and the longest
@@ -968,6 +990,7 @@ public static class ReportBuilder
         var byFan = db.GetFanMinutes(from, to).GroupBy(fm => fm.Fan).ToDictionary(g => g.Key, g => g.ToList());
         if (byFan.Count == 0) return;
         var byTs = minutes.ToDictionary(m => m.Ts);
+        var steady = FanCurves.Steady(minutes);
         foreach (var fan in fans)
         {
             if (!byFan.TryGetValue(fan.Id, out var fanMinutes)) continue;
@@ -989,9 +1012,42 @@ public static class ReportBuilder
                 runTemp = Math.Max(runTemp, temp ?? 0);
                 if (run > longest) (longest, bestStart, bestTemp) = (run, runStart, runTemp);
             }
-            if (spin > 0)
-                report.Fans.Add(new FanStat(fan.Name, fan.Hardware, gpu, spin, stopped, longest,
-                    longest > 0 ? TimeUtil.FromUnix(bestStart) : null, longest > 0 && bestTemp > 0 ? bestTemp : null));
+            if (spin == 0) continue;
+            var follows = FanAnalysis.Of(gpu, fanMinutes, byTs).Follows;
+            var turning = fanMinutes.Where(x => x.RpmAvg > 0).Select(x => x.RpmAvg).Order().ToList();
+            int? steadyRpm = follows == FanFollows.Steady ? turning[turning.Count / 2] : null;
+            int? slowRpm = turning.Count >= FanAnalysis.MinMinutes ? turning[turning.Count / 10] : null;
+            // Runs of turning minutes without a gap (the PC on throughout): the speed at each run's start against its end.
+            (int From, int To)? runDrop = null;
+            var runRpm = new List<int>();
+            long lastTs = 0;
+            void CloseRun()
+            {
+                if (runRpm.Count >= 2 * FanRunEdgeMinutes)
+                {
+                    int head = (int)Median(runRpm.Take(FanRunEdgeMinutes).Select(v => (double)v)), tail = (int)Median(runRpm.TakeLast(FanRunEdgeMinutes).Select(v => (double)v));
+                    if (tail < head && (runDrop is null || head - tail > runDrop.Value.From - runDrop.Value.To)) runDrop = (head, tail);
+                }
+                runRpm.Clear();
+            }
+            foreach (var x in fanMinutes)
+            {
+                if (x.RpmAvg <= 0) continue;
+                if (runRpm.Count > 0 && x.Ts - lastTs > FanRunGapSeconds) CloseRun();
+                runRpm.Add(x.RpmAvg);
+                lastTs = x.Ts;
+            }
+            CloseRun();
+            var curve = FanCurves.Of(follows, fanMinutes, byTs, steady);
+            report.Fans.Add(new FanStat(fan.Name, fan.Hardware, gpu, spin, stopped, longest,
+                longest > 0 ? TimeUtil.FromUnix(bestStart) : null, longest > 0 && bestTemp > 0 ? bestTemp : null)
+            {
+                Follows = follows,
+                SteadyRpm = steadyRpm,
+                SlowRpm = slowRpm,
+                RunDrop = runDrop,
+                Curve = curve.ToDictionary(x => x.Key, x => new FanBin(x.Value.N, x.Value.Sum / x.Value.N)),
+            });
         }
     }
 

@@ -30,6 +30,7 @@ public sealed class SchemaTests
             "cpu_clock_sum", "cpu_clock_n", "gpu_clock_sum", "gpu_clock_n"],
         ["fans"] = ["id", "sensor", "name", "hardware"],
         ["fan_minute"] = ["ts", "fan", "rpm_avg", "rpm_max"],
+        ["fan_curve_day"] = ["day", "fan", "app", "temp", "n", "rpm_sum"],
         ["fan_day"] = ["day", "fan", "rpm_sum", "rpm_n", "rpm_max", "idle_sum", "idle_n"],
         ["heat_day"] = ["day", "app", "n", "gpu_sum", "gpu_n", "cpu_sum", "cpu_n", "power_sum", "power_n"],
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
@@ -90,6 +91,7 @@ public sealed class SchemaTests
     [InlineData("fans", "id")]
     [InlineData("fan_minute", "ts,fan")]
     [InlineData("fan_day", "day,fan")]
+    [InlineData("fan_curve_day", "day,fan,app,temp")]
     [InlineData("heat_day", "day,app")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)
     {

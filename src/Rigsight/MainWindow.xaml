@@ -289,6 +289,8 @@
                     <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" Margin="12,18,0,8" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE9CA;" Content="Temperatures"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=temperatures}" />
+                    <RadioButton Style="{StaticResource NavItem}" Tag="{StaticResource FanIcon}" Content="Fans"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=fans}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE964;" Content="Memory"
                                  IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=memory}" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xEDA2;" Content="Storage"

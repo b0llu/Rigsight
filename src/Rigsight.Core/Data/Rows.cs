@@ -197,6 +197,9 @@ public static class TimeUtil
 /// A day's heat (heat_day): for an app, its minutes of steady heavy GPU load with the GPU and CPU temperatures and GPU
 /// power summed; for app 0, the minutes at rest with their temperatures.
 /// </summary>
+/// <summary>One fan's steady-load minutes at one temperature step for one app on one day, and their speed sum (fan_curve_day).</summary>
+public sealed record FanCurveDay(long Day, long Fan, long App, int Temp, int N, double RpmSum);
+
 public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN, double CpuSum, int CpuN, double PowerSum, int PowerN);
 
 public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec);

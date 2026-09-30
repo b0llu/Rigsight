@@ -31,7 +31,7 @@ public sealed class ProtocolTests
         Today = new TodayInfo
         {
             OnSec = 1, ActiveSec = 2, IdleSec = 3, TopApp = "Chrome", TopAppSec = 4, CpuPeak = 88.5, CpuPeakTime = 1_790_000_000,
-            CpuPeakApp = "Dota 2", GpuPeak = 70, GpuPeakTime = null, GpuPeakApp = null,
+            CpuPeakApp = "Dota 2", CpuPeakCategory = AppCategory.Game, GpuPeak = 70, GpuPeakTime = null, GpuPeakApp = null,
         },
         Extremes = new() { ["/cpu"] = [30, 90], ["/nan"] = [double.NaN, double.PositiveInfinity] },
         ExtremesDay = "2026-09-25",
@@ -71,6 +71,7 @@ public sealed class ProtocolTests
         Assert.Equal(3600.5, got.Activity.SessionActiveSec);
         Assert.Null(got.Activity.SessionGpuMax);
         Assert.Equal("Dota 2", got.Today!.CpuPeakApp);
+        Assert.Equal((AppCategory.Game, (AppCategory?)null), (got.Today.CpuPeakCategory, got.Today.GpuPeakCategory));
         Assert.Equal([30.0, 90.0], got.Extremes!["/cpu"]);
         Assert.True(double.IsNaN(got.Extremes["/nan"][0]));
         Assert.True(double.IsPositiveInfinity(got.Extremes["/nan"][1]));
@@ -204,9 +205,31 @@ public sealed class ProtocolTests
     [Fact]
     public void Today_names_the_app_that_did_the_work_at_the_peak()
     {
-        var today = new TodayInfo { CpuPeak = 88, CpuPeakApp = "Dota 2", CpuPeakTime = 1_790_000_000, GpuPeak = 70, GpuPeakApp = "ELDEN RING™: Nightreign" };
-        Assert.Equal("Dota 2 used the CPU most", today.CpuPeakLine);
-        Assert.Equal("ELDEN RING™: Nightreign used the GPU most", today.GpuPeakLine);
+        var today = new TodayInfo { CpuPeak = 88, CpuPeakApp = "Dota 2", CpuPeakTime = 1_790_000_000, CpuPeakCategory = AppCategory.Game,
+            GpuPeak = 70, GpuPeakApp = "ELDEN RING™: Nightreign", GpuPeakCategory = AppCategory.Game };
+        Assert.Equal("While playing Dota 2", today.CpuPeakLine);
+        Assert.Equal("While playing ELDEN RING™: Nightreign", today.GpuPeakLine);
+    }
+
+    /// <summary>
+    /// The words under a peak suit the kind of app (not "X was busiest" or "X used the CPU most", which read as a share
+    /// of use rather than where the heat came from).
+    /// </summary>
+    [Theory]
+    [InlineData(AppCategory.Game, "While playing Rematch")]
+    [InlineData(AppCategory.Media, "While Rematch was playing")]
+    [InlineData(AppCategory.Browser, "While using Rematch")]
+    [InlineData(AppCategory.Communication, "While using Rematch")]
+    [InlineData(AppCategory.Productivity, "While using Rematch")]
+    [InlineData(AppCategory.Development, "While using Rematch")]
+    [InlineData(AppCategory.Launcher, "While Rematch was running")]
+    [InlineData(AppCategory.System, "While Rematch was running")]
+    [InlineData(AppCategory.Other, "While Rematch was running")]
+    [InlineData(null, "While Rematch was running")] // an older agent that doesn't send the category
+    public void The_peak_line_suits_the_kind_of_app(AppCategory? category, string line)
+    {
+        Assert.Equal(line, new TodayInfo { CpuPeak = 80, CpuPeakApp = "Rematch", CpuPeakCategory = category }.CpuPeakLine);
+        Assert.Equal(line, new TodayInfo { GpuPeak = 80, GpuPeakApp = "Rematch", GpuPeakCategory = category }.GpuPeakLine);
     }
 
     [Fact]

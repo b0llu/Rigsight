@@ -105,6 +105,19 @@ public sealed class ReportService(SettingsModel settings)
 
     public Task<List<AppRow>?> KnownAppsAsync() => Run(db => db.LoadApps());
 
+    /// <summary>What the Fans page shows: the fans, their minutes and the PC's from <paramref name="from"/> (today), their
+    /// days back to <paramref name="since"/> (to tell a fan that once spun from a header with nothing plugged in), and the apps.</summary>
+    public Task<FanHistory?> FanHistoryAsync(DateTime since, DateTime from) => Run(db =>
+    {
+        long start = TimeUtil.ToUnix(from), end = TimeUtil.NowUnix() + 60;
+        return new FanHistory(db.GetFans(), db.GetFanMinutes(start, end), db.GetMinutes(start, end),
+            db.GetFanDays(TimeUtil.ToUnix(since), end), db.LoadApps(), db.GetFanCurveDays(TimeUtil.ToUnix(from.AddDays(-ViewModels.FansViewModel.UsualDays)), start));
+    });
+
+    /// <summary>Temperatures at rest per day, for today and the days before it (heat_day).</summary>
+    public Task<List<HeatDay>?> RestDaysAsync(DateTime today) => Run(db =>
+        db.GetHeatDays(TimeUtil.ToUnix(today.AddDays(-Core.Reports.RestTemps.LookBackDays)), TimeUtil.ToUnix(today.AddDays(1))));
+
     /// <summary>
     /// Crashes in a range, explained, with what was going on just before (temperatures, the app in front, how long it had
     /// been in use) and, for blue screens, the dump file Windows saved. Muted apps are left out unless asked for.
@@ -192,3 +205,7 @@ public sealed class ReportService(SettingsModel settings)
     public static Task<List<Core.Stability.SystemChange>> ChangesAsync(DateTime from, DateTime to) =>
         Task.Run(() => Core.Stability.ChangeLogReader.Read(from, to));
 }
+
+/// <summary>See <see cref="ReportService.FanHistoryAsync"/>.</summary>
+public sealed record FanHistory(List<FanRow> Fans, List<FanMinute> Minutes, List<SystemMinute> System, List<FanDay> Days, List<AppRow> Apps,
+    List<FanCurveDay> CurveDays);

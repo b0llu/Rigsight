@@ -69,7 +69,7 @@ public class TrackerTodayTests
         var t = rig.Tracker.Today();
         Assert.Equal((84, "Elden Ring"), (t.CpuPeak, t.CpuPeakApp));
         Assert.Equal((79, "Elden Ring"), (t.GpuPeak, t.GpuPeakApp));
-        Assert.Equal("Elden Ring used the CPU most", t.CpuPeakLine);
+        Assert.Equal("While playing Elden Ring", t.CpuPeakLine);
 
         // The minutes keep it too (for the reports and insights), apart from the app in front.
         var minute = rig.Minutes().First(m => m.CpuTempMax == 84);
@@ -192,6 +192,27 @@ public class TrackerTodayTests
     }
 
     [Fact]
+    public void A_category_picked_after_the_peak_changes_its_words_at_once_and_after_a_restart()
+    {
+        using var rig = new TrackerRig();
+        rig.Usage["someapp.exe"] = (60, 900);
+        rig.Use("someapp.exe", 30);
+        rig.Keys = new KeyValues { CpuTemp = 82 };
+        rig.Use("someapp.exe", 120);
+        Assert.Equal("While Someapp was running", rig.Tracker.Today().CpuPeakLine);
+
+        var settings = new RigsightSettings();
+        settings.AppCategories["someapp.exe"] = AppCategory.Media;
+        rig.Tracker.SetSettings(settings);
+        Assert.Equal("While Someapp was playing", rig.Tracker.Today().CpuPeakLine);
+
+        rig.Tracker.Flush(closeAllSessions: true);
+        rig.Restart();
+        rig.Tracker.SetSettings(settings);
+        Assert.Equal((AppCategory.Media, "While Someapp was playing"), (rig.Tracker.Today().CpuPeakCategory, rig.Tracker.Today().CpuPeakLine));
+    }
+
+    [Fact]
     public void Names_and_categories_chosen_by_the_user_are_shown()
     {
         var settings = new RigsightSettings();
@@ -204,6 +225,7 @@ public class TrackerTodayTests
         var t = rig.Tracker.Today();
         Assert.Equal("My Editor", t.TopApp);
         Assert.Equal("My Editor", t.CpuPeakApp);
+        Assert.Equal("While playing My Editor", t.CpuPeakLine);
         Assert.Equal("My Editor", rig.Tracker.Activity.Name);
         Assert.Equal(AppCategory.Game, rig.Tracker.Activity.Category);
         // The saved record keeps its own name: renaming is the user's view of it.
@@ -321,6 +343,7 @@ public class TrackerTodayTests
             Assert.Equal((report.CpuTempPeak!.Value, report.CpuTempPeak.App), (t.CpuPeak!.Value, t.CpuPeakApp));
             Assert.Equal((report.GpuTempPeak!.Value, report.GpuTempPeak.App), (t.GpuPeak!.Value, t.GpuPeakApp));
             Assert.Equal("Elden Ring", t.CpuPeakApp);
+            Assert.Equal("While playing Elden Ring", t.CpuPeakLine);
         }
         Same(rig.Tracker.Today());
         rig.Restart();

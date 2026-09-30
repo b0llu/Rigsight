@@ -64,7 +64,37 @@ public sealed record ThenHeat(List<SteadyLoad> Steady, LoadTemps? Rest, DateTime
 /// turning (for a GPU fan, the GPU at 70° or more: below that many stop on purpose; for any other, whenever the PC was
 /// on), how many of them it read 0 rpm, and the longest run of those, when it started and how hot the part got in it.
 /// </summary>
-public sealed record FanStat(string Name, string Hardware, bool Gpu, int SpinMinutes, int StoppedMinutes, int LongestStop, DateTime? StopStart, double? StopTemp);
+public sealed record FanStat(string Name, string Hardware, bool Gpu, int SpinMinutes, int StoppedMinutes, int LongestStop, DateTime? StopStart, double? StopTemp)
+{
+    /// <summary>What the fan's speed goes with over the period (see <see cref="FanAnalysis"/>).</summary>
+    public FanFollows Follows { get; init; }
+
+    /// <summary>A fan at a set speed (<see cref="FanFollows.Steady"/>): its usual speed while turning (the median).</summary>
+    public int? SteadyRpm { get; init; }
+
+    /// <summary>
+    /// Its slow end while turning (the 10th percentile): a fan at a set speed that slowed partway through the period
+    /// shows here, while the period as a whole no longer counts as steady.
+    /// </summary>
+    public int? SlowRpm { get; init; }
+
+    /// <summary>
+    /// The biggest slowdown while the PC stayed on (within one run of minutes, no restart between): its speed at the run's
+    /// start and at its end. A fan can't wear while the PC is off, and the BIOS needs a restart, so a fan that is simply
+    /// slower from the start of a run was most likely set so.
+    /// </summary>
+    public (int From, int To)? RunDrop { get; init; }
+
+    /// <summary>
+    /// A fan on a curve: its speed at each temperature of the chip it follows (2° steps), per app working that chip, under
+    /// steady heavy load only (past the first minutes of a run, while turning), so two periods compare speed at the same
+    /// heat in the same game. (Some cards turn their fans up for memory heat too, which differs from game to game.)
+    /// </summary>
+    public IReadOnlyDictionary<(long App, int Temp), FanBin> Curve { get; init; } = new Dictionary<(long App, int Temp), FanBin>();
+}
+
+/// <summary>A fan's minutes at one temperature step, and its average speed in them.</summary>
+public sealed record FanBin(int Minutes, double Rpm);
 
 /// <summary>Minutes a chip ran its clocks down while hot under load, by how much, and from what temperature.</summary>
 public sealed record Throttling(int Minutes, double DropPercent, double FromTemp);
@@ -73,7 +103,13 @@ public sealed record Throttling(int Minutes, double DropPercent, double FromTemp
 public sealed record WeekdayUsual(DayOfWeek Day, int Days, double ActiveSec, double GamingSec);
 
 /// <summary>What the insights compare a period with beyond the week before it.</summary>
-public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenHeat? Then = null);
+public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenHeat? Then = null, ThenFans? Fans = null);
+
+/// <summary>
+/// The fans' curves a few months ago (the same days as <see cref="ThenHeat"/>, from fan_curve_day), by fan name and
+/// hardware as <see cref="FanStat"/> has them, and the day in the middle of their minutes (for "in June").
+/// </summary>
+public sealed record ThenFans(IReadOnlyDictionary<(string Name, string Hardware), IReadOnlyDictionary<(long App, int Temp), FanBin>> Curves, DateTime Mid);
 
 public sealed class AppStat
 {

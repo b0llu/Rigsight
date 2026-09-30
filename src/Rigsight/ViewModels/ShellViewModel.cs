@@ -33,6 +33,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Crashes = new CrashesViewModel(Reports, Settings);
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
+        Fans = new FansViewModel(Reports, Live, Settings);
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
@@ -100,6 +101,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public CrashesViewModel Crashes { get; }
     public MemoryViewModel Memory { get; }
     public StorageViewModel Storage { get; }
+    public FansViewModel Fans { get; }
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
     public TaskbarViewModel Taskbar { get; }
@@ -158,7 +160,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
         new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"),
-        new("temperatures", "Temperatures"), new("memory", "Memory"), new("storage", "Storage"), new("sensors", "All sensors"),
+        new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("sensors", "All sensors"),
     ];
 
     [ObservableProperty]
@@ -212,6 +214,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
+            case "fans": await Fans.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
                 Overlay.LoadSensors();
@@ -257,6 +260,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "memory": await Memory.RefreshAsync(); break;
                 // Free space changes slowly: every five minutes is plenty.
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
+                case "fans": await Fans.RefreshAsync(); break;
                 case "temperatures": if (ChartShowsNow) await LoadTemperatureHistoryAsync(); break;
                 default:
                     if (FindCustomPage(CurrentPage) is { } custom)
@@ -297,6 +301,7 @@ public sealed partial class ShellViewModel : ObservableObject
             : (now - 24 * 3600, now + 60);
         var minutes = await Reports.MinutesAsync(from, to);
         if (id == _historyLoad && minutes is not null) Live.LoadMinuteHistory(minutes);
+        if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
     }
 
     private static RecapPeriod? RecapPeriodOf(string? arg) => arg switch

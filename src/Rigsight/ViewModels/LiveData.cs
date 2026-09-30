@@ -99,6 +99,18 @@ public sealed partial class LiveData : ObservableObject
     public ObservableCollection<DriveSummary> Drives { get; } = [];
     public ObservableCollection<SensorItem> Fans { get; } = [];
     public ObservableCollection<SensorItem> BoardTemps { get; } = [];
+
+    /// <summary>The Temperatures page's "At rest" rows: each chip settled and idle today, against its usual (see <see cref="Core.Reports.RestTemps"/>).</summary>
+    public ObservableCollection<RestRow> Rest { get; } = [];
+
+    /// <summary>Fills <see cref="Rest"/> from the days' temperatures at rest (heat_day).</summary>
+    public void LoadRest(IEnumerable<Core.Data.HeatDay> days)
+    {
+        var (cpu, gpu) = Core.Reports.RestTemps.Of(days, DateTime.Today);
+        Rest.Clear();
+        Rest.Add(new RestRow("CPU", cpu));
+        if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu));
+    }
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
     /// <summary>300, 3600, 21600 or 86400 seconds up to now, or 0 for one calendar day (<see cref="ChartDay"/>).</summary>
     public int ChartWindowSeconds

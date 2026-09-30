@@ -6,6 +6,32 @@
 
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+    <!-- The Fans page's icon (the icon font has no fan): four swept blades round a hub, two arcs for the spin. Drawn in
+         the colour of the text around it, like the font's icons; a new copy wherever it's used. -->
+    <Grid x:Key="FanIcon" x:Shared="False" Width="16" Height="16">
+        <Path Fill="{Binding (TextElement.Foreground), RelativeSource={RelativeSource Self}}">
+            <Path.Data>
+                <GeometryGroup FillRule="Nonzero">
+                <EllipseGeometry Center="8,8" RadiusX="1.5" RadiusY="1.5" />
+                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                    <PathGeometry.Transform><RotateTransform Angle="0" CenterX="8" CenterY="8" /></PathGeometry.Transform>
+                </PathGeometry>
+                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                    <PathGeometry.Transform><RotateTransform Angle="90" CenterX="8" CenterY="8" /></PathGeometry.Transform>
+                </PathGeometry>
+                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                    <PathGeometry.Transform><RotateTransform Angle="180" CenterX="8" CenterY="8" /></PathGeometry.Transform>
+                </PathGeometry>
+                <PathGeometry Figures="M8.5,6.5 C7.9,4.9 8.2,2.5 10.0,1.7 C11.5,1.1 13.0,2.0 12.6,3.5 C12.2,5.0 10.8,6.4 9.4,7.3 Z">
+                    <PathGeometry.Transform><RotateTransform Angle="270" CenterX="8" CenterY="8" /></PathGeometry.Transform>
+                </PathGeometry>
+                </GeometryGroup>
+            </Path.Data>
+        </Path>
+        <Path Stroke="{Binding (TextElement.Foreground), RelativeSource={RelativeSource Self}}" StrokeThickness="1"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M3.12,2.58 A7.3,7.3 0 0 1 7.24,0.74 M12.88,13.42 A7.3,7.3 0 0 1 8.76,15.26" />
+    </Grid>
+
     <!-- ── Motion ───────────────────────────────────────────────────────
          How long a control takes to show a change (hover, press, on/off): in on the quick side, back out a little slower.
          Only on a change: the states below are the controls' visual states, which don't animate a page as it opens.
@@ -237,7 +263,10 @@
                                 </Border>
                                 <!-- The label fills the row, so an item can put something at its right edge (Settings' attention dot). -->
                                 <DockPanel>
-                                    <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                    <!-- An icon-font character, or a drawn icon (see FanIcon) where the font has none. -->
+                                    <ContentPresenter DockPanel.Dock="Left" Content="{TemplateBinding Tag}" VerticalAlignment="Center"
+                                                      TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="16"
+                                                      TextElement.Foreground="{TemplateBinding Foreground}" />
                                     <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
                                 </DockPanel>
                             </Grid>

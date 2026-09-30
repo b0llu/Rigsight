@@ -147,6 +147,14 @@ public sealed class RigsightDb : IDisposable
             all.ExecuteNonQuery();
         }
 
+        // Each day's fan curves (0.12.0): a fan's speed at each temperature per app under steady load (see FanCurves), so a
+        // report can set a fan against how it turned months ago without reading months of minutes. Added up by
+        // WriteFanMinutes for the days before each new one (the days already recorded, the first time).
+        Exec("""
+            CREATE TABLE IF NOT EXISTS fan_curve_day(day INTEGER NOT NULL, fan INTEGER NOT NULL, app INTEGER NOT NULL, temp INTEGER NOT NULL,
+                n INTEGER NOT NULL, rpm_sum REAL NOT NULL, PRIMARY KEY(day, fan, app, temp)) WITHOUT ROWID;
+            """);
+
         // Until 0.10.2 a fan's last reading was recorded again and again while the app was closed (its chip wasn't read
         // then): those speeds are mostly hours old, so they go, once. The fans themselves stay.
         if (GetMeta(FansFreshKey) is null)
@@ -377,7 +385,67 @@ public sealed class RigsightDb : IDisposable
             WHERE f.ts >= {DayOf("$ts")} AND f.ts < {DayOf("$ts", ", '+1 day'")} GROUP BY 2
             """, ("$ts", ts));
         day.ExecuteNonQuery();
+        RollFanCurves(ts);
     }
+
+    private const string FanCurveKey = "fan_curve_through";
+
+    /// <summary>
+    /// fan_curve_day for the days before <paramref name="ts"/>'s day not added up yet (once a day: a finished day doesn't
+    /// change; today's curve comes from its minutes).
+    /// </summary>
+    private void RollFanCurves(long ts)
+    {
+        long DayStart(long t, string shift = "")
+        {
+            using var c = Cmd($"SELECT {DayOf("$t", shift)}", ("$t", t));
+            return (long)c.ExecuteScalar()!;
+        }
+        long today = DayStart(ts);
+        long through = GetMeta(FanCurveKey) is string s && long.TryParse(s, out long v) ? v : 0;
+        if (through >= today) return;
+
+        var days = new List<long>();
+        using (var c = Cmd($"SELECT DISTINCT {DayOf("ts")} FROM fan_minute WHERE ts >= $from AND ts < $to", ("$from", through), ("$to", today)))
+        using (var r = c.ExecuteReader())
+            while (r.Read()) days.Add(r.GetInt64(0));
+        var fans = GetFans().ToDictionary(f => f.Id);
+        foreach (long day in days)
+        {
+            long next = DayStart(day, ", '+1 day'");
+            var minutes = GetMinutes(day, next);
+            var byTs = minutes.ToDictionary(m => m.Ts);
+            var steady = Reports.FanCurves.Steady(minutes);
+            using (var clear = Cmd("DELETE FROM fan_curve_day WHERE day = $d", ("$d", day))) clear.ExecuteNonQuery();
+            foreach (var g in GetFanMinutes(day, next).GroupBy(f => f.Fan))
+            {
+                if (!fans.TryGetValue(g.Key, out var fan)) continue;
+                var list = g.ToList();
+                bool gpu = fan.Sensor.StartsWith("/gpu", StringComparison.Ordinal);
+                var follows = Reports.FanAnalysis.Of(gpu, list, byTs).Follows;
+                foreach (var ((app, temp), (n, sum)) in Reports.FanCurves.Of(follows, list, byTs, steady))
+                {
+                    using var ins = Cmd("INSERT OR REPLACE INTO fan_curve_day(day, fan, app, temp, n, rpm_sum) VALUES($d, $f, $a, $t, $n, $s)",
+                        ("$d", day), ("$f", g.Key), ("$a", app), ("$t", temp), ("$n", n), ("$s", sum));
+                    ins.ExecuteNonQuery();
+                }
+            }
+        }
+        SetMeta(FanCurveKey, today.ToString());
+    }
+
+    /// <summary>fan_curve_day's rows for the days from <paramref name="from"/> to <paramref name="to"/> (empty before 0.12.0).</summary>
+    public List<FanCurveDay> GetFanCurveDays(long from, long to)
+    {
+        if (!(_hasFanCurves ??= HasTable("fan_curve_day"))) return [];
+        using var cmd = Cmd("SELECT day, fan, app, temp, n, rpm_sum FROM fan_curve_day WHERE day >= $from AND day < $to", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<FanCurveDay>();
+        while (r.Read()) list.Add(new FanCurveDay(r.GetInt64(0), r.GetInt64(1), r.GetInt64(2), r.GetInt32(3), r.GetInt32(4), r.GetDouble(5)));
+        return list;
+    }
+
+    private bool? _hasFanCurves;
 
     public List<FanRow> GetFans()
     {
@@ -517,6 +585,7 @@ public sealed class RigsightDb : IDisposable
         using (var c1f = Cmd($"""
             DELETE FROM fan_minute WHERE ts < $t;
             DELETE FROM fan_day WHERE day <= {DayOf("$t")};
+            DELETE FROM fan_curve_day WHERE day <= {DayOf("$t")};
             INSERT INTO fan_day SELECT {DayOf("f.ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts
                 WHERE f.ts >= {DayOf("$t")} AND f.ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1, 2;
             """, ("$t", before))) c1f.ExecuteNonQuery();
@@ -543,7 +612,7 @@ public sealed class RigsightDb : IDisposable
     public void ClearHistory()
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;"
-            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day;");
+            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day;");
         Exec("VACUUM");
     }
 

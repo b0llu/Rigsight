@@ -101,6 +101,57 @@ public sealed class InsightScenarioTests : IDisposable
     }
 
     [Fact]
+    public void A_worn_gpu_fan_is_caught_turning_slower_at_the_same_heat()
+    {
+        // From the last day the card's fans turn 30% slower at every temperature, in the same game as every evening.
+        string path = Pc("gpu-fan-worn", Healthy with { Seed = 7, GameChance = 1, Game = 0, GpuFanWornFrom = End.AddDays(-1) });
+        var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-slower");
+        Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm over the previous 7 days\. "
+            + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", line.Text);
+        Assert.Contains(line.Tone, new[] { InsightTone.Warn, InsightTone.Hot });
+        Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-stopped");
+        // Said once, the day it started: not again the next day (nor every day until the slower speed is "usual").
+        Assert.DoesNotContain(Build(path, ReportRange.Day, End).Insights, i => i.Key == "fan-slower");
+        for (int back = 2; back < 30; back++)
+            Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-back)).Insights, i => i.Key == "fan-slower");
+    }
+
+    [Fact]
+    public void A_case_fan_at_a_set_speed_that_slows_is_caught_by_its_name()
+    {
+        // The case fan holds 1,000 rpm; from 2 PM on the last day, 780.
+        string path = Pc("case-fan-slow", Healthy with { Seed = 8, OnChance = 1, CaseFanSlowFrom = End.AddDays(-1).AddHours(14) });
+        var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-slower");
+        Assert.Matches(@"^Fan #2 on your motherboard slowed from [\d,]+ to [\d,]+ rpm while your PC was on\. If you changed its speed in a fan app, that's why; if not, check it's clean and turning freely\.$", line.Text);
+        Assert.Equal(InsightTone.Warn, line.Tone);
+        for (int back = 2; back < 30; back++)
+            Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-back)).Insights, i => i.Key.StartsWith("fan", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_gpu_fan_wearing_slowly_is_found_against_a_few_months_ago_once()
+    {
+        // The card's fans lose 8% of their speed a month, in the same game every evening: no week is far off the one
+        // before, but against a few months ago it's plain. Said once, the day it first shows, and never as "this week".
+        string path = Pc("gpu-fan-wear", Healthy with { Seed = 10, GameChance = 1, Game = 0, GpuFanWearPerMonth = 0.08 });
+        var days = Enumerable.Range(0, 60).Select(i => Build(path, ReportRange.Day, End.AddDays(-i))).ToList();
+        var older = days.SelectMany(d => d.Insights.Where(i => i.Key == "fan-older").Select(i => (R: d, I: i))).ToList();
+        var said = Assert.Single(older);
+        Assert.Matches(@"^Your GPU fans now spin \d+% slower at the same heat than in (January|February|March|April)( 2025)?: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm then\. "
+            + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", said.I.Text);
+        Assert.DoesNotContain(days.SelectMany(d => d.Insights), i => i.Key == "fan-slower");
+    }
+
+    [Fact]
+    public void A_case_fan_set_slower_while_the_pc_was_off_is_a_setting_not_a_problem()
+    {
+        // The BIOS changed overnight: from the next morning the case fan holds 780 instead of 1,000 rpm, all day.
+        string path = Pc("case-fan-bios", Healthy with { Seed = 9, OnChance = 1, CaseFanSlowFrom = End.AddDays(-1) });
+        foreach (var day in new[] { End.AddDays(-1), End })
+            Assert.DoesNotContain(Build(path, ReportRange.Day, day).Insights, i => i.Key.StartsWith("fan", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Dust_building_up_over_months_is_found_in_the_same_game()
     {
         // The coolers lose 3° a month from mid-January: by June the same game runs about 7° hotter than in March and April.

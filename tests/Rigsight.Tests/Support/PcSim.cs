@@ -43,6 +43,20 @@ internal sealed class PcSim
         /// <summary>A case fan (on the motherboard) that stops from this moment.</summary>
         public DateTime? CaseFanDeadFrom { get; init; }
 
+        /// <summary>
+        /// From this moment the GPU's fans turn <see cref="GpuFanWear"/> slower at every temperature (worn bearings, or
+        /// clogged). The card's temperatures are left as they were: the tests look at the fans.
+        /// </summary>
+        public DateTime? GpuFanWornFrom { get; init; }
+        public double GpuFanWear { get; init; } = 0.3;
+
+        /// <summary>The GPU's fans losing this share of their speed each 30 days from the first day lived (a bearing
+        /// wearing): too slowly for one week against the next to show, plain over months.</summary>
+        public double GpuFanWearPerMonth { get; init; }
+
+        /// <summary>From this moment the case fan, at a set 1,000 rpm, turns at 780.</summary>
+        public DateTime? CaseFanSlowFrom { get; init; }
+
         /// <summary>A GPU that holds its fans at zero below 60° (most modern cards). Off: a fan always turning, at least 800 rpm.</summary>
         public bool GpuZeroRpm { get; init; } = true;
 
@@ -86,6 +100,9 @@ internal sealed class PcSim
         new("Hades", "hades.exe", 35, 110, 15, 40),
     ];
 
+    /// <summary>The first day lived (gradual wear counts from it).</summary>
+    private DateTime _start;
+
     private PcSim(RigsightDb db, Options o)
     {
         _db = db;
@@ -111,7 +128,7 @@ internal sealed class PcSim
         using var db = RigsightDb.OpenWriter(path);
         using var raw = new SqliteConnection($"Data Source={path};Pooling=False");
         raw.Open();
-        var sim = new PcSim(db, options ?? new Options());
+        var sim = new PcSim(db, options ?? new Options()) { _start = from.Date };
         for (var day = from.Date; day < to; day = day.AddDays(1))
         {
             if (eachDay is null) sim.Day(day, to);
@@ -290,8 +307,10 @@ internal sealed class PcSim
         // GPU fans: stopped below 60°, spinning until back under 50° (a fan curve with a gap, as cards have).
         _gpuFansOn = !_o.GpuZeroRpm || (_gpuFansOn ? _gpuTemp > 50 : _gpuTemp >= 60);
         double gpuRpm = gpuFanDead ? 0 : _gpuFansOn ? Math.Clamp(1000 + (_gpuTemp - 55) * 45, _o.GpuZeroRpm ? 1000 : 800, 3000) : 0;
+        if (From(_o.GpuFanWornFrom, t)) gpuRpm *= 1 - _o.GpuFanWear;
+        if (_o.GpuFanWearPerMonth > 0) gpuRpm *= 1 - Math.Min(0.6, _o.GpuFanWearPerMonth * (t - _start).TotalDays / 30);
         double cpuFanRpm = 700 + Math.Max(0, _cpuTemp - 40) * 30;
-        double caseRpm = From(_o.CaseFanDeadFrom, t) ? 0 : 1000;
+        double caseRpm = From(_o.CaseFanDeadFrom, t) ? 0 : From(_o.CaseFanSlowFrom, t) ? 780 : 1000;
 
         long ts = TimeUtil.ToUnix(t);
         var minute = new SystemMinute

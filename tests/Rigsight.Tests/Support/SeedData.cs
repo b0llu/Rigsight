@@ -236,7 +236,39 @@ public static class SeedData
         tx.Commit();
         conn.Close();
 
-        using (RigsightDb.OpenWriter(dbPath)) { }
+        using (var db = RigsightDb.OpenWriter(dbPath)) AddFans(db, end);
+    }
+
+    /// <summary>
+    /// Fan speeds for yesterday and today, as the PC the tests' agent was captured on reports them (its sensor ids): the
+    /// graphics card's two fans follow its temperature and stand still while it's cool, four board fans hold a steady
+    /// speed, and the board's other headers never spin (nothing plugged in).
+    /// </summary>
+    private static void AddFans(RigsightDb db, DateTime end)
+    {
+        long gpu1 = db.FanId("/gpu-nvidia/0/fan/1", "GPU Fan 1", "NVIDIA GeForce RTX 3080 Ti");
+        long gpu2 = db.FanId("/gpu-nvidia/0/fan/2", "GPU Fan 2", "NVIDIA GeForce RTX 3080 Ti");
+        var board = new (long Id, int Rpm)[]
+        {
+            (db.FanId("/lpc/it8686e/0/fan/0", "Fan #1", "ITE IT8686E"), 1750),
+            (db.FanId("/lpc/it8686e/0/fan/1", "Fan #2", "ITE IT8686E"), 1630),
+            (db.FanId("/lpc/it8686e/0/fan/2", "Fan #3", "ITE IT8686E"), 1655),
+            (db.FanId("/lpc/it8686e/0/fan/4", "Fan #5", "ITE IT8686E"), 2250),
+        };
+        long empty = db.FanId("/lpc/it8686e/0/fan/3", "Fan #4", "ITE IT8686E");
+        var rnd = new Random(7);
+        foreach (var m in db.GetMinutes(TimeUtil.ToUnix(end.Date.AddDays(-1)), TimeUtil.ToUnix(end) + 60))
+        {
+            // Zero-RPM mode: still under 50°, then faster the hotter the card.
+            int Gpu(int offset) => m.GpuTemp is double g && g >= 50 ? (int)Math.Min(2200, 900 + (g - 50) * 60) + offset : 0;
+            var fans = new List<(long, int, int)> { (gpu1, Gpu(0), Gpu(40)), (gpu2, Gpu(60), Gpu(100)), (empty, 0, 0) };
+            foreach (var (id, rpm) in board)
+            {
+                int r = rpm + rnd.Next(-15, 16);
+                fans.Add((id, r, r + 10));
+            }
+            db.WriteFanMinutes(m.Ts, fans);
+        }
     }
 
     /// <summary>Settings for a test copy: nothing pops up on the tester's screen (widgets, overlay, alerts, recaps).</summary>

@@ -19,7 +19,7 @@ public static class TileCatalog
             new("cpu-gauge", "CPU temperature", "A big gauge, colored by how hot it is.", "\uE9CA", 3, 4, MinW: 2, MinH: 3),
             new("gpu-gauge", "GPU temperature", "A big gauge, colored by how hot it is.", "\uE9CA", 3, 4, MinW: 2, MinH: 3),
             new("temp-chart", "Temperature chart", "CPU and GPU temperatures over the last few minutes.", "\uE9D9", 12, 4, MinW: 4, MinH: 3),
-            new("fans", "Fans", "Every spinning fan and its speed.", "\uE9CA", 3, 4, MinW: 3, MinH: 3),
+            new("fans", "Fans", "Every spinning fan and its speed.", "\uEDA8", 3, 4, MinW: 3, MinH: 3),
             new("drives", "Drives", "How full each drive is, and its temperature.", "\uEDA2", 6, 4, MinW: 3, MinH: 3),
             new("top-memory", "Top memory users", "The apps using the most memory right now.", "\uE964", 6, 4, MinW: 4, MinH: 3),
         ]),

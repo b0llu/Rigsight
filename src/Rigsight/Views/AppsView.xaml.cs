@@ -43,23 +43,37 @@ public partial class AppsView : UserControl
                 [new CustomPopupPlacement(new Point(target.Width - popup.Width, target.Height + 4), PopupPrimaryAxis.Horizontal)],
         };
 
-        var category = new MenuItem { Header = "Category" };
+        // Every item has an icon, so their words line up: Windows' menus leave room for a tick only beside items that can
+        // be ticked, which pushed those right of the others. No focus outline either: the highlight already shows where
+        // the keyboard is.
+        static MenuItem Item(string header, string glyph) => new()
+        {
+            Header = header,
+            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 },
+            FocusVisualStyle = null,
+        };
+
+        var category = Item("Category", ""); // tag
         foreach (var c in vm.Categories)
         {
-            var item = new MenuItem { Header = AppCatalog.Label(c), IsCheckable = true, IsChecked = c == vm.SelectedCategory };
+            var item = new MenuItem { Header = AppCatalog.Label(c), IsCheckable = true, IsChecked = c == vm.SelectedCategory, FocusVisualStyle = null };
             item.Click += (_, _) => vm.SelectedCategory = c;
             category.Items.Add(item);
         }
         menu.Items.Add(category);
 
-        var track = new MenuItem { Header = "Don't track this app", IsCheckable = true, IsChecked = vm.SelectedExcluded,
-            ToolTip = "Stop recording this app (its existing history stays until you clear it)." };
-        track.Click += (_, _) => vm.SelectedExcluded = track.IsChecked;
+        // Says what picking it does, rather than a tick.
+        bool excluded = vm.SelectedExcluded;
+        var track = excluded ? Item("Track this app again", "") : Item("Don't track this app", ""); // eye / hide
+        track.ToolTip = excluded ? "Start recording this app again." : "Stop recording this app (its existing history stays until you clear it).";
+        track.Click += (_, _) => vm.SelectedExcluded = !excluded;
         menu.Items.Add(track);
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(new MenuItem { Header = "Open file location", Command = vm.OpenFileLocationCommand,
-            IsEnabled = vm.Selected?.Path is { Length: > 0 } });
+        var open = Item("Open file location", ""); // folder
+        open.Command = vm.OpenFileLocationCommand;
+        open.IsEnabled = vm.Selected?.Path is { Length: > 0 };
+        menu.Items.Add(open);
         menu.IsOpen = true;
     }
 }

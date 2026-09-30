@@ -95,10 +95,8 @@
                             <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{DynamicResource GpuBrush}"
                                          Value="{Binding SelectedGpu.VramPercent, Mode=OneWay, FallbackValue=0}" />
                             <DockPanel Margin="0,12,0,0">
-                                <TextBlock DockPanel.Dock="Right" FontSize="12" Foreground="{DynamicResource MutedBrush}">
-                                    <Run Text="{Binding SelectedGpu.Fan.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text="{Binding SelectedGpu.Clock.FormattedValue, Mode=OneWay, StringFormat='   ·   core {0}'}" />
-                                </TextBlock>
-                                <TextBlock Text="FAN · CLOCK" Style="{StaticResource Caption}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.Clock.FormattedValue, FallbackValue='—'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock Text="CORE CLOCK" Style="{StaticResource Caption}" />
                             </DockPanel>
                         </StackPanel>
 
@@ -177,7 +175,7 @@
                 </DockPanel>
             </ctl:SmoothBorder>
 
-            <!-- Fans, motherboard, drives -->
+            <!-- At rest, motherboard, drives (fans have their own page) -->
             <Grid Margin="0,18,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -186,23 +184,30 @@
                     <ColumnDefinition Width="18" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
+                <!-- Idle and settled: the same load every day, so what changes is the room and the cooling. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Fans" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                        <ItemsControl ItemsSource="{Binding Fans}">
+                        <TextBlock Text="At rest" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding Rest}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,5" Visibility="{Binding IsHidden, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" Style="{StaticResource Body}" FontWeight="SemiBold" />
-                                        <ctl:Sparkline DockPanel.Dock="Right" Width="90" Height="18" Margin="12,0" Source="{Binding History}" Version="{Binding Version}"
-                                                       Stroke="{DynamicResource AccentBrush}" />
-                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Muted}" />
-                                    </DockPanel>
+                                    <Grid Margin="0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="44" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Part}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{Binding Today, Converter={StaticResource TempBrush}}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                                   VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="No spinning fans reported." Style="{StaticResource Muted}"
-                                   Visibility="{Binding Fans.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <TextBlock Text="Idle and settled today, against the last 30 days. A warmer room raises these too."
+                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">

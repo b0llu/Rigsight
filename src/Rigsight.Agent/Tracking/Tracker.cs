@@ -64,8 +64,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public readonly Dictionary<long, double> AppSec = [];
         public double? CpuPeak, GpuPeak;
         public long? CpuPeakTime, GpuPeakTime;
-        /// <summary>The app working the CPU / GPU hardest just before each peak (null when none clearly was).</summary>
-        public string? CpuPeakApp, GpuPeakApp;
+        /// <summary>The app working the CPU / GPU hardest just before each peak (null when none clearly was); named
+        /// and categorised when asked, so a rename or a new category shows at once.</summary>
+        public AppInfo? CpuPeakApp, GpuPeakApp;
     }
 
     private RigsightSettings _settings = new();
@@ -259,13 +260,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         {
             _today.CpuPeak = c;
             _today.CpuPeakTime = NowUnix();
-            _today.CpuPeakApp = NameOf(m.CpuApp);
+            _today.CpuPeakApp = m.CpuApp;
         }
         if (k.GpuTemp is double g && (_today.GpuPeak is null || g > _today.GpuPeak))
         {
             _today.GpuPeak = g;
             _today.GpuPeakTime = NowUnix();
-            _today.GpuPeakApp = NameOf(m.GpuApp);
+            _today.GpuPeakApp = m.GpuApp;
         }
 
         // Attribute readings to whatever is in front while the user is actually using it.
@@ -528,10 +529,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 IdleSec = r.AwaySec,
                 CpuPeak = cpu?.Value,
                 CpuPeakTime = cpu is null ? null : TimeUtil.ToUnix(cpu.Time),
-                CpuPeakApp = cpu?.App,
+                CpuPeakApp = ByName(cpu?.App),
                 GpuPeak = gpu?.Value,
                 GpuPeakTime = gpu is null ? null : TimeUtil.ToUnix(gpu.Time),
-                GpuPeakApp = gpu?.App,
+                GpuPeakApp = ByName(gpu?.App),
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;
@@ -551,10 +552,12 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             IdleSec = _today.IdleSec,
             CpuPeak = _today.CpuPeak,
             CpuPeakTime = _today.CpuPeakTime,
-            CpuPeakApp = _today.CpuPeakApp,
+            CpuPeakApp = NameOf(_today.CpuPeakApp),
+            CpuPeakCategory = CategoryOf(_today.CpuPeakApp),
             GpuPeak = _today.GpuPeak,
             GpuPeakTime = _today.GpuPeakTime,
-            GpuPeakApp = _today.GpuPeakApp,
+            GpuPeakApp = NameOf(_today.GpuPeakApp),
+            GpuPeakCategory = CategoryOf(_today.GpuPeakApp),
         };
         if (_today.AppSec.Count > 0)
         {
@@ -564,6 +567,12 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         }
         return info;
     }
+
+    private AppCategory? CategoryOf(AppInfo? app) => app is null ? null : AppResolver.Category(app, _settings);
+
+    /// <summary>The app a report names (by its shown name), to continue today's peaks after a restart.</summary>
+    private AppInfo? ByName(string? name) =>
+        name is null ? null : apps.All.FirstOrDefault(a => AppResolver.DisplayName(a, _settings) == name);
 
     private string? NameById(long id)
     {

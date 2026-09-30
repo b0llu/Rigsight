@@ -49,7 +49,7 @@ public sealed class ShellTests : IClassFixture<AppHost>
     [Fact]
     public void Built_in_pages_are_the_sidebars()
     {
-        Assert.Equal(["home", "reports", "apps", "crashes", "temperatures", "memory", "storage", "sensors"], ShellViewModel.BuiltInPages.Select(p => p.Key));
+        Assert.Equal(["home", "reports", "apps", "crashes", "temperatures", "fans", "memory", "storage", "sensors"], ShellViewModel.BuiltInPages.Select(p => p.Key));
         Assert.All(ShellViewModel.BuiltInPages, p => Assert.False(string.IsNullOrWhiteSpace(p.Name)));
     }
 

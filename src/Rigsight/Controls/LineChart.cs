@@ -16,6 +16,7 @@ public sealed class LineChart : FrameworkElement
 {
     private const double AxisWidth = 42;
     private const double AxisHeight = 22;
+    private const int Rows = 4;
 
     public static readonly DependencyProperty SeriesProperty = DependencyProperty.Register(
         nameof(Series), typeof(IEnumerable<ChartSeries>), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -25,6 +26,17 @@ public sealed class LineChart : FrameworkElement
 
     public static readonly DependencyProperty WindowSecondsProperty = DependencyProperty.Register(
         nameof(WindowSeconds), typeof(int), typeof(LineChart), new FrameworkPropertyMetadata(300, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>What the lines are: temperatures (the default: in the user's unit, ° labels) or fan speeds (rpm, from 0).</summary>
+    public static readonly DependencyProperty KindProperty = DependencyProperty.Register(
+        nameof(Kind), typeof(SensorKind), typeof(LineChart), new FrameworkPropertyMetadata(SensorKind.Temperature, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public SensorKind Kind { get => (SensorKind)GetValue(KindProperty); set => SetValue(KindProperty, value); }
+
+    private bool IsTemp => Kind == SensorKind.Temperature;
+
+    /// <summary>A stored value as drawn: a temperature in the user's unit, anything else as it is.</summary>
+    private Func<double, double> Shown => IsTemp ? Units.Temp : static v => v;
 
     public static readonly DependencyProperty GridBrushProperty = DependencyProperty.Register(
         nameof(GridBrush), typeof(Brush), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -123,19 +135,29 @@ public sealed class LineChart : FrameworkElement
         }
         foreach (var s in series)
         {
-            Widen(ChartGeometry.Range(s.Sensor.History, from, Units.Temp));
-            if (from < LiveStart(s)) Widen(ChartGeometry.Range(s.Minutes, from, Units.Temp, LiveStart(s)));
+            Widen(ChartGeometry.Range(s.Sensor.History, from, Shown));
+            if (from < LiveStart(s)) Widen(ChartGeometry.Range(s.Minutes, from, Shown, LiveStart(s)));
         }
 
         if (lo > hi)
         {
-            DrawText(dc, _pastDay ? "No temperatures recorded on this day" : "Collecting data…", new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
+            DrawText(dc, _pastDay ? (IsTemp ? "No temperatures recorded on this day" : "Nothing recorded on this day") : "Collecting data…", new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }
 
-        lo = Math.Floor((lo - 2) / 10) * 10;
-        hi = Math.Ceiling((hi + 2) / 10) * 10;
-        if (hi - lo < 20) hi = lo + 20;
+        if (IsTemp)
+        {
+            lo = Math.Floor((lo - 2) / 10) * 10;
+            hi = Math.Ceiling((hi + 2) / 10) * 10;
+            if (hi - lo < 20) hi = lo + 20;
+        }
+        else
+        {
+            // Speeds from a standstill up (a fan's changes read as a share of its range, not magnified), on round steps.
+            lo = 0;
+            double step = new[] { 250.0, 500, 750, 1000, 1250, 1500, 2000, 2500 }.FirstOrDefault(s => s * Rows >= hi * 1.05, 5000);
+            hi = step * Rows;
+        }
 
         // Horizontal grid + Y labels.
         if (_gridPen is null || _gridPen.Brush != GridBrush)
@@ -144,13 +166,13 @@ public sealed class LineChart : FrameworkElement
             _gridPen.Freeze();
         }
         var gridPen = _gridPen;
-        const int rows = 4;
+        const int rows = Rows;
         for (int i = 0; i <= rows; i++)
         {
             double v = lo + (hi - lo) * i / rows;
             double y = Math.Round(plot.Bottom - plot.Height * i / rows) + 0.5;
             dc.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            DrawText(dc, $"{v:0}°", new Point(plot.Left - 8, y), dpi, alignRight: true);
+            DrawText(dc, IsTemp ? $"{v:0}°" : v.ToString("N0", CultureInfo.CurrentCulture), new Point(plot.Left - 8, y), dpi, alignRight: true);
         }
 
         // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
@@ -198,7 +220,7 @@ public sealed class LineChart : FrameworkElement
 
         void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null)
         {
-            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Units.Temp, until, joinTo) is not { } g) return;
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo) is not { } g) return;
             dc.DrawGeometry(s.Fill, null, g.Fill);
             dc.DrawGeometry(null, s.LinePen, g.Line);
         }
@@ -226,7 +248,7 @@ public sealed class LineChart : FrameworkElement
                 value = buffer.ValueAt(i);
                 if (rows.Count == 0 || rows.All(r => r.Value is null)) shownTime = buffer.TimeAt(i);
                 fromMinutes |= useMinutes;
-                double y = plot.Bottom - (Units.Temp(value.Value) - lo) / (hi - lo) * plot.Height;
+                double y = plot.Bottom - (Shown(value.Value) - lo) / (hi - lo) * plot.Height;
                 dc.DrawEllipse(s.Brush, new Pen(HoverBack, 2), new Point(hx, Math.Clamp(y, plot.Top, plot.Bottom)), 4, 4);
             }
             rows.Add((s, value));
@@ -238,7 +260,7 @@ public sealed class LineChart : FrameworkElement
 
         var title = Text(when, HoverFont, 12, HoverText, dpi);
         var lines = rows.Select(r => (r.Series, Name: Text(r.Series.Label, LabelFont, 12, HoverMuted, dpi),
-            Value: Text(r.Value is double v ? Units.Format(SensorKind.Temperature, v) : "—", HoverFont, 12, HoverText, dpi))).ToList();
+            Value: Text(r.Value is double v ? Units.Format(Kind, v) : "—", HoverFont, 12, HoverText, dpi))).ToList();
 
         const double pad = 10, dot = 14, gap = 16, lineH = 19;
         double nameW = lines.Count == 0 ? 0 : lines.Max(l => l.Name.Width);

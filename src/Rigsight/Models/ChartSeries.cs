@@ -15,7 +15,8 @@ public sealed class ChartSeries
         FromMinute = fromMinute;
     }
 
-    public string Label { get; }
+    /// <summary>The name in the legend and hover box (a renamed sensor updates it).</summary>
+    public string Label { get; set; }
     public SensorItem Sensor { get; }
 
     // Drawing resources, made once per theme (the chart redraws every second).
@@ -57,14 +58,20 @@ public sealed class ChartSeries
     /// <summary>Replaces the minute history. Gaps (PC off or asleep) are kept as breaks in the line.</summary>
     public void LoadMinutes(IEnumerable<SystemMinute> minutes)
     {
+        if (FromMinute is null) Minutes.Clear();
+        else LoadPoints(minutes.Select(m => (m.Ts, FromMinute(m))));
+    }
+
+    /// <summary>Replaces the minute history with other minutes (a fan's speeds), by each minute's start.</summary>
+    public void LoadPoints(IEnumerable<(long Ts, double? Value)> points)
+    {
         Minutes.Clear();
-        if (FromMinute is null) return;
         long previous = 0;
-        foreach (var m in minutes)
+        foreach (var (ts, value) in points)
         {
-            long t = m.Ts * 1000 + 30_000; // the middle of the minute
+            long t = ts * 1000 + 30_000; // the middle of the minute
             if (previous != 0 && t - previous > 150_000) Minutes.Add(previous + 60_000, double.NaN);
-            Minutes.Add(t, FromMinute(m) ?? double.NaN);
+            Minutes.Add(t, value ?? double.NaN);
             previous = t;
         }
     }

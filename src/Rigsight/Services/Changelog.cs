@@ -29,6 +29,12 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.12.0", 9, 30,
+            added: ["A Fans page: how your fans are doing and what makes them spin.",
+                "A heads-up when a fan turns slower than it used to at the same heat.",
+                "Temperatures at rest, next to your usual, on the Temperatures page."],
+            better: ["Peaks say what you were doing: playing, watching or working."],
+            fixedBugs: ["A tidier menu on the Apps page."]),
         V("0.11.3", 9, 29,
             better: ["Apps opens on today, like Home."],
             fixedBugs: ["Today's temperature peaks now match on every page.", "Clearer wording for which app was working hardest at a peak."]),

@@ -1,4 +1,5 @@
 using Rigsight.Core.Data;
+using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Apps;
 
@@ -9,13 +10,21 @@ namespace Rigsight.Core.Apps;
 public static class PeakWords
 {
     /// <summary>
-    /// Under a peak's value: "Rematch used the CPU most" (<paramref name="part"/> is "CPU" or "GPU"), or when it was if
-    /// no app clearly did (null: no peak yet). It says what's known, the app doing most of that part's work just before,
-    /// not that it made the heat on its own.
+    /// Under a peak's value: what was going on, in words that suit the kind of app doing most of that part's work just
+    /// before it ("While playing Rematch", "While Spotify was playing"), or when it was if no app clearly was (null: no
+    /// peak yet). ("Rematch was busiest" and "Rematch used the CPU most" read as a share of use, not as where the heat
+    /// came from.)
     /// </summary>
-    public static string? Line(double? peak, string? app, long? time, string part) =>
+    public static string? Line(double? peak, string? app, long? time, AppCategory? category = null) =>
         peak is null ? null
-        : app is not null ? $"{app} used the {part} most"
+        : app is not null ? category switch
+        {
+            AppCategory.Game => $"While playing {app}",
+            AppCategory.Media => $"While {app} was playing",
+            AppCategory.Browser or AppCategory.Communication or AppCategory.Productivity or AppCategory.Development => $"While using {app}",
+            // Launchers (downloads, updates), Windows' own work and anything unknown: it was running, maybe unseen.
+            _ => $"While {app} was running",
+        }
         : time is long t ? $"At {TimeUtil.FromUnix(t):h:mm tt}"
         : "";
 

@@ -129,6 +129,7 @@ public static class InsightEngine
 
         // A fan reading 0 rpm where it always turns (a GPU fan with the GPU hot; any other fan whenever the PC is on):
         // stopped, unplugged or stuck. Fans that stop on purpose, and headers with nothing on them, never do that.
+        var fanSaid = new HashSet<(string, string)>();
         if (usual is not null)
         {
             bool gpuSaid = false;
@@ -143,6 +144,78 @@ public static class InsightEngine
                     : new Insight(IconWarn, $"{fan.Name} on your motherboard stopped for {Minutes(fan.LongestStop)} from {from}, when it always turns. Check it isn't blocked or unplugged.",
                         InsightTone.Warn, "fan-stopped", 86, $"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}"));
                 gpuSaid |= fan.Gpu;
+                fanSaid.Add((fan.Name, fan.Hardware));
+            }
+
+            // A fan turning slower than it did in the days before, like for like: a fan on a curve at the same
+            // temperature of the chip it follows, in the same game, under the same steady heavy load; a fan at a set speed
+            // at that speed. Faster isn't news (a curve does that as it gets hotter). Slower may be a setting: the BIOS
+            // (only across a restart, when a fan can't have worn), the card's software or a fan app (named when one was
+            // running), so the words say so first. Said once, the day it starts, not again every day until it's "usual".
+            gpuSaid = r.Fans.Any(f => f.Gpu && fanSaid.Contains((f.Name, f.Hardware)));
+            var running = r.Apps.Where(a => a.OpenSec > 0).Select(a => a.Exe).ToList();
+            foreach (var fan in r.Fans.OrderByDescending(f => f.Gpu))
+            {
+                if (fanSaid.Contains((fan.Name, fan.Hardware)) || (fan.Gpu && gpuSaid)) continue;
+                var was = usual.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware);
+                if (was is null) continue;
+                var before = previous?.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware);
+                string? app = FanSoftware.Among(running, fan.Gpu);
+                string Check(string what, bool plural) =>
+                    $"If you changed {what} {(app is not null ? $"in {app}" : fan.Gpu ? "in the card's software" : "in a fan app")}, that's why; if not, check {(plural ? "they're" : "it's")} clean and turning freely.";
+                if (Slower(fan, was) is { } slow)
+                {
+                    if (before is not null && Slower(before, was) is not null) continue; // already said
+                    string part = fan.Follows == FanFollows.Cpu ? "CPU" : "GPU";
+                    string who = fan.Gpu ? "Your GPU fans" : $"{fan.Name} on your motherboard";
+                    // Hot, not just worth a look, when the chip was warm with its fans held back.
+                    list.Add(new Insight(IconWarn,
+                        $"{who} spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {Units.TempShort(slow.Temp)}, "
+                        + $"against {slow.Was:N0} rpm {usualLabel}. " + Check("the fan curve", fan.Gpu),
+                        slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
+                        $"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"));
+                    fanSaid.Add((fan.Name, fan.Hardware));
+                    gpuSaid |= fan.Gpu;
+                }
+                // At a set speed before, and slowing while the PC was on (a run of minutes with no restart), so not the
+                // BIOS. A fan that starts a run slower was set so while the PC was off: nothing to say.
+                else if (!fan.Gpu && was is { Follows: FanFollows.Steady, SteadyRpm: int usualRpm } && was.SpinMinutes >= FanUsualMinutes
+                         && fan.RunDrop is { } drop && drop.From >= usualRpm * (1 - SteadyUsualShare)
+                         && drop.To <= usualRpm * (1 - SteadySlowerShare) && usualRpm - drop.To >= SteadySlowerRpm)
+                {
+                    list.Add(new Insight(IconWarn,
+                        $"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on. " + Check("its speed", false),
+                        InsightTone.Warn, "fan-slower", 83, $"At a set {usualRpm:N0} rpm {usualLabel}"));
+                    fanSaid.Add((fan.Name, fan.Hardware));
+                }
+            }
+
+            // Slower than a few months ago at the same heat in the same game: wear or dust build up over months, too
+            // slowly for the week before to show. A day counts with its week (a day alone is too little), and it's said
+            // the first day it shows, not again each day after.
+            if (context?.Fans is { } thenFans)
+            {
+                foreach (var fan in r.Fans.OrderByDescending(f => f.Gpu))
+                {
+                    if (fanSaid.Contains((fan.Name, fan.Hardware)) || (fan.Gpu && gpuSaid)) continue;
+                    if (!thenFans.Curves.TryGetValue((fan.Name, fan.Hardware), out var thenCurve)) continue;
+                    var was = fan with { Curve = thenCurve };
+                    FanStat WithWeek(FanStat f) => isDay && usual.Fans.FirstOrDefault(u => u.Name == f.Name && u.Hardware == f.Hardware) is { } u ? MergeCurve(f, u) : f;
+                    if (Slower(WithWeek(fan), was, OlderSlowerShare, OlderSlowerRpm) is not { } slow) continue;
+                    if (previous?.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware) is { } before
+                        && Slower(WithWeek(before), was, OlderSlowerShare, OlderSlowerRpm) is not null) continue;
+                    string? app = FanSoftware.Among(running, fan.Gpu);
+                    string part = fan.Follows == FanFollows.Cpu ? "CPU" : "GPU";
+                    string who = fan.Gpu ? "Your GPU fans now spin" : $"{fan.Name} on your motherboard now spins";
+                    string when = thenFans.Mid.Year == DateTime.Today.Year ? $"in {thenFans.Mid:MMMM}" : $"in {thenFans.Mid:MMMM yyyy}";
+                    list.Add(new Insight(IconWarn,
+                        $"{who} {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {Units.TempShort(slow.Temp)}, against {slow.Was:N0} rpm then. "
+                        + $"If you changed the fan curve {(app is not null ? $"in {app}" : fan.Gpu ? "in the card's software" : "in the BIOS or a fan app")}, that's why; if not, check {(fan.Gpu ? "they're" : "it's")} clean and turning freely.",
+                        slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
+                        $"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"));
+                    fanSaid.Add((fan.Name, fan.Hardware));
+                    gpuSaid |= fan.Gpu;
+                }
             }
         }
 
@@ -412,6 +485,44 @@ public static class InsightEngine
     // A fan stopped: minutes in a row at 0 rpm when it should turn, and how reliably it turned in the week before.
     private const int GpuFanStopMinutes = 3, FanStopMinutes = 10, FanUsualMinutes = 60;
     private const double FanUsualStoppedShare = 0.02;
+
+    // A fan slower than before: at the same heat, a fifth slower and 250 rpm or more, over half an hour or more of steady
+    // load at temperatures both periods saw; at a set speed, 15% and 150 rpm.
+    private const double CurveSlowerShare = 0.2, SteadySlowerShare = 0.15, SteadyUsualShare = 0.05;
+    private const int CurveSlowerRpm = 250, SteadySlowerRpm = 150, CurveMinutes = 30, CurveBinMinutes = 5;
+
+    // Against a few months ago: many more minutes on each side, and wear builds slowly, so 15% and 200 rpm.
+    private const double OlderSlowerShare = 0.15;
+    private const int OlderSlowerRpm = 200;
+
+    /// <summary>A fan's curve with another period's added in (a day with its week): each step's minutes and speeds together.</summary>
+    internal static FanStat MergeCurve(FanStat a, FanStat b)
+    {
+        var bins = new Dictionary<(long App, int Temp), FanBin>(a.Curve);
+        foreach (var (k, v) in b.Curve)
+            bins[k] = bins.TryGetValue(k, out var x) ? new FanBin(x.Minutes + v.Minutes, (x.Rpm * x.Minutes + v.Rpm * v.Minutes) / (x.Minutes + v.Minutes)) : v;
+        return a with { Curve = bins };
+    }
+
+    /// <summary>
+    /// A fan on a curve compared with the days before at the temperatures both saw under steady load in the same app (each
+    /// step weighed by its minutes now): how much slower, at what temperature, or null when it isn't clearly slower or there's too
+    /// little to compare.
+    /// </summary>
+    internal static (double Percent, double Now, double Was, double Temp, int NowMinutes, int WasMinutes)? Slower(FanStat now, FanStat was,
+        double share = CurveSlowerShare, int rpm = CurveSlowerRpm)
+    {
+        if (now.Follows is not (FanFollows.Gpu or FanFollows.Cpu) || was.Follows != now.Follows) return null;
+        var both = now.Curve.Where(b => b.Value.Minutes >= CurveBinMinutes && was.Curve.TryGetValue(b.Key, out var w) && w.Minutes >= CurveBinMinutes)
+            .Select(b => (Temp: b.Key.Temp + FanCurves.BinDegrees / 2.0, Now: b.Value, Was: was.Curve[b.Key])).ToList();
+        int nowMinutes = both.Sum(b => b.Now.Minutes), wasMinutes = both.Sum(b => b.Was.Minutes);
+        if (nowMinutes < CurveMinutes || wasMinutes < CurveMinutes) return null;
+        double rpmNow = both.Sum(b => b.Now.Rpm * b.Now.Minutes) / nowMinutes;
+        double rpmWas = both.Sum(b => b.Was.Rpm * b.Now.Minutes) / nowMinutes;
+        double temp = both.Sum(b => b.Temp * b.Now.Minutes) / nowMinutes;
+        if (rpmNow > rpmWas * (1 - share) || rpmWas - rpmNow < rpm) return null;
+        return ((1 - rpmNow / rpmWas) * 100, rpmNow, rpmWas, temp, nowMinutes, wasMinutes);
+    }
 
     private static bool SamePower(SteadyLoad a, SteadyLoad b) =>
         a.GpuPower is not double pa || b.GpuPower is not double pb || pb <= 0 || Math.Abs(pa - pb) / pb <= DriftPowerShare;
