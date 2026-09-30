@@ -29,6 +29,9 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.13.1", 9, 30,
+            better: ["A neater Apps page: pick a category from a list next to the sort."],
+            fixedBugs: ["Dropdown lists react anywhere on a row, not just over the text."]),
         V("0.13.0", 9, 30,
             added: ["Dashboard presets, made to fit your PC's sensors.",
                 "Accent colours, or your Windows accent.",

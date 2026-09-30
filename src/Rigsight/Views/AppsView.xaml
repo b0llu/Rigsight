@@ -38,22 +38,27 @@
             <DockPanel>
                 <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search apps…" Margin="4,0,4,10"
                          Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" />
-                <!-- Categories in the period: a dot in each one's colour (the one Reports uses). -->
-                <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" Margin="4,0,4,6" AutomationProperties.Name="Categories"
-                         ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"
-                                         Fill="{Binding Category, Converter={StaticResource CategoryBrush}}"
-                                         Visibility="{Binding Category, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-                <DockPanel DockPanel.Dock="Top" Margin="6,0,4,8">
-                    <ComboBox DockPanel.Dock="Right" Width="170" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
+                <!-- One row under the search: which category (a dot in its colour, as on Reports) and the order. -->
+                <Grid DockPanel.Dock="Top" Margin="4,0,4,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox AutomationProperties.Name="Category" ToolTip="Show one kind of app"
+                              ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="7" Height="7" Margin="0,0,8,0" VerticalAlignment="Center"
+                                             Fill="{Binding Category, Converter={StaticResource CategoryBrush}}"
+                                             Visibility="{Binding Category, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <ComboBox Grid.Column="2" AutomationProperties.Name="Sort by" ToolTip="Sort by" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
                         <ComboBoxItem Content="Most used" Tag="Active" />
                         <ComboBoxItem Content="Most in background" Tag="Background" />
                         <ComboBoxItem Content="Hottest GPU" Tag="GpuTemp" />
@@ -61,8 +66,7 @@
                         <ComboBoxItem Content="Most memory" Tag="Memory" />
                         <ComboBoxItem Content="Most CPU use" Tag="Cpu" />
                     </ComboBox>
-                    <TextBlock Text="SORT BY" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                </DockPanel>
+                </Grid>
                 <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedRow}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>

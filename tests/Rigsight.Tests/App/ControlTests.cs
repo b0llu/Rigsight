@@ -1311,4 +1311,38 @@ public sealed class ControlTests
             Assert.True(over.Count == 0, string.Join("; ", over) + " | measured: " + string.Join("; ", results));
         });
     }
+
+    [Fact]
+    public void Every_part_of_a_dropdown_row_takes_the_mouse()
+    {
+        // Windows' own dropdown rows only reacted over their text: hovering or quickly clicking beside a name did nothing.
+        // Rows checked as they're styled, outside a dropdown: an open dropdown's popup wakes accessibility tools that
+        // hold on to windows and upset the leak tests.
+        Ui.Run(() =>
+        {
+            var template = (DataTemplate)System.Windows.Markup.XamlReader.Parse("""
+                <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+                  <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Label}" /></StackPanel>
+                </DataTemplate>
+                """);
+            var rows = new[]
+            {
+                new ComboBoxItem { Content = "Most used", Width = 180 },
+                new ComboBoxItem { Content = new CategoryFilter(AppCategory.Game, "Games"), ContentTemplate = template, Width = 180 },
+            };
+            var panel = new StackPanel();
+            foreach (var row in rows) panel.Children.Add(row);
+            var window = new Window { Content = panel, Left = -32000, Top = -32000, Width = 300, Height = 200, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                Ui.Pump(100);
+                foreach (var row in rows)
+                    foreach (double fx in new[] { 0.04, 0.5, 0.96 })
+                        foreach (double fy in new[] { 0.25, 0.5, 0.75 })
+                            Assert.NotNull(row.InputHitTest(new Point(row.ActualWidth * fx, row.ActualHeight * fy)));
+            }
+            finally { window.Close(); }
+        });
+    }
 }

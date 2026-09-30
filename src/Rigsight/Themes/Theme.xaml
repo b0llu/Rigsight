@@ -133,6 +133,47 @@
         </Setter>
     </Style>
 
+    <!-- Dropdown items: Windows' own (Fluent) look, but the whole row takes the mouse. Fluent's leaves the row's
+         background empty, so only the text itself could be hovered or clicked (a quick click beside a name did nothing). -->
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+        <Setter Property="Foreground" Value="{DynamicResource ComboBoxForeground}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Margin" Value="3,2,3,0" />
+        <Setter Property="Padding" Value="10,8,8,8" />
+        <Setter Property="Border.CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Grid Background="Transparent">
+                        <Border x:Name="ContentBorder" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding Border.CornerRadius}"
+                                Margin="{TemplateBinding Margin}" VerticalAlignment="Stretch" SnapsToDevicePixels="True">
+                            <Grid>
+                                <ContentPresenter x:Name="PART_ContentPresenter" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                                <Rectangle x:Name="ActiveRectangle" RadiusX="2" RadiusY="2" Fill="{DynamicResource ComboBoxItemPillFillBrush}" Width="3" Height="16"
+                                           HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="ContentBorder" Property="Background" Value="{DynamicResource ComboBoxItemBackgroundSelected}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ActiveRectangle" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="PART_ContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource ComboBoxItemForegroundSelected}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource ComboBoxForegroundDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- A row of filter chips that wraps (the Apps page's categories): one picked at a time, shaded while picked. -->
     <Style x:Key="FilterChip" TargetType="ListBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />

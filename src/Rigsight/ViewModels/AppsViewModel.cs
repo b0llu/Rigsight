@@ -13,10 +13,10 @@ namespace Rigsight.ViewModels;
 /// <summary>An app in the list, with the value used for its bar under the current sort.</summary>
 public sealed record AppListRow(AppStat Stat, double Bar, string Metric);
 
-/// <summary>A chip above the app list: every app (<see cref="Category"/> null) or one category.</summary>
+/// <summary>A choice in the category list above the apps: every app (<see cref="Category"/> null) or one category.</summary>
 public sealed record CategoryFilter(AppCategory? Category, string Label)
 {
-    public override string ToString() => Label; // the chip's name for screen readers (and UI automation)
+    public override string ToString() => Label; // its name for screen readers (and UI automation)
 }
 
 public sealed partial class AppsViewModel(ReportService reports, SettingsModel settings) : ObservableObject
@@ -28,9 +28,9 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
 
-    private static readonly CategoryFilter AllApps = new(null, "All");
+    private static readonly CategoryFilter AllApps = new(null, "All categories");
 
-    /// <summary>"All", then each category that has an app in the period (Other last).</summary>
+    /// <summary>"All categories", then each category that has an app in the period (Other last).</summary>
     public ObservableCollection<CategoryFilter> Filters { get; } = [AllApps];
 
     [ObservableProperty] private CategoryFilter? _filter = AllApps;
@@ -167,7 +167,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             var exe = Selected.Exe;
             settings.Update(s => s.AppCategories[exe] = value);
             OnPropertyChanged(nameof(Summary));
-            ApplyView(); // the app may leave the category shown, or bring a new chip
+            ApplyView(); // the app may leave the category shown, or bring a new one to the list
         }
     }
 
@@ -324,7 +324,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         _ => a.OpenSec >= 30,
     };
 
-    /// <summary>Chips for the categories in the period, in a fixed order; a category that's gone falls back to All.</summary>
+    /// <summary>The categories in the period, in a fixed order; a category that's gone falls back to All categories.</summary>
     private void UpdateFilters()
     {
         var present = _all.Where(Listed).Select(CategoryOf).ToHashSet();
@@ -339,7 +339,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             _rebuildingFilters = true;
             while (Filters.Count > 1) Filters.RemoveAt(1);
             foreach (var c in wanted) Filters.Add(new CategoryFilter(c, AppCatalog.Label(c)));
-            // Re-pick the same category's new chip (the list was rebuilt), or All when it has no apps any more.
+            // Re-pick the same category (the list was rebuilt), or all of them when it has no apps any more.
             Filter = Filters.FirstOrDefault(f => f.Category == keep) ?? AllApps;
             _rebuildingFilters = false;
         }
