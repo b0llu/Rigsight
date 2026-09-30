@@ -67,7 +67,7 @@
                         <ComboBoxItem Content="Most CPU use" Tag="Cpu" />
                     </ComboBox>
                 </Grid>
-                <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedRow}">
+                <ListBox Style="{StaticResource CardList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedRow}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid>

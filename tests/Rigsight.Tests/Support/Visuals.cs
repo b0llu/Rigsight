@@ -15,4 +15,11 @@ public static class Visuals
             foreach (var d in Descendants<T>(child)) yield return d;
         }
     }
+
+    /// <summary>Every ancestor of <paramref name="element"/> in the visual tree of type <typeparamref name="T"/>, nearest first.</summary>
+    public static IEnumerable<T> Ancestors<T>(DependencyObject element) where T : DependencyObject
+    {
+        for (var d = VisualTreeHelper.GetParent(element); d is not null; d = VisualTreeHelper.GetParent(d))
+            if (d is T match) yield return match;
+    }
 }

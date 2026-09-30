@@ -133,6 +133,36 @@
         </Setter>
     </Style>
 
+    <!-- A list filling a card (Card or RowCard, 12 px in from its sides): its scrollbar, when it has one, sits in the
+         card's right margin, so the rows keep their width whether it scrolls or not. -->
+    <Style x:Key="CardScroll" TargetType="ScrollViewer" BasedOn="{StaticResource GutterScroll}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollViewer">
+                    <Grid Background="{TemplateBinding Background}">
+                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Margin="{TemplateBinding Padding}"
+                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                        <ScrollBar x:Name="PART_VerticalScrollBar" HorizontalAlignment="Right" Margin="0,0,-11,0" Orientation="Vertical"
+                                   Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}"
+                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="CardList" TargetType="ListBox" BasedOn="{StaticResource PlainList}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBox">
+                    <ScrollViewer Style="{StaticResource CardScroll}" Padding="0" CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Dropdown items: Windows' own (Fluent) look, but the whole row takes the mouse. Fluent's leaves the row's
          background empty, so only the text itself could be hovered or clicked (a quick click beside a name did nothing). -->
     <Style TargetType="ComboBoxItem">

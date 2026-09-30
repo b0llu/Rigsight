@@ -29,6 +29,9 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.13.2", 9, 30,
+            fixedBugs: ["The Fans list only scrolls when you have more fans than fit.",
+                "Scrollbars no longer squeeze the Fans and Apps lists."]),
         V("0.13.1", 9, 30,
             better: ["A neater Apps page: pick a category from a list next to the sort."],
             fixedBugs: ["Dropdown lists react anywhere on a row, not just over the text."]),

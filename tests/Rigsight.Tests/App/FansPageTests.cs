@@ -36,6 +36,69 @@ public sealed class FansPageTests
     private const string GpuFan1 = "/gpu-nvidia/0/fan/1", GpuFan2 = "/gpu-nvidia/0/fan/2", BoardFan1 = "/lpc/it8686e/0/fan/0";
 
     [Fact]
+    public void The_fan_list_scrolls_only_for_more_fans_than_fit_whichever_is_picked()
+    {
+        // The list used to take the details' height, which changes with the pick: this PC's five rows scrolled for a
+        // board fan and not for the card's fans.
+        var (vm, _) = Page();
+        Ui.Run(() =>
+        {
+            var view = new Views.FansView { DataContext = vm };
+            var window = new System.Windows.Window
+            {
+                Content = view, Left = -32000, Top = -32000, Width = 1440, Height = 900, ShowActivated = false, ShowInTaskbar = false,
+            };
+            window.Show();
+            try
+            {
+                var list = Visuals.Descendants<System.Windows.Controls.ListBox>(view)
+                    .Single(l => System.Windows.Automation.AutomationProperties.GetName(l) == "Fans");
+                var scroller = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(list).First();
+                var listCard = Visuals.Ancestors<Controls.SmoothBorder>(list).First();
+                var detailCard = (Controls.SmoothBorder)view.FindName("DetailCard");
+                foreach (var fan in vm.Fans.ToList())
+                {
+                    vm.Selected = fan;
+                    Ui.Pump(150);
+                    Assert.Equal(0, scroller.ScrollableHeight); // five rows fit: no scrolling, whichever is picked
+                    Assert.Equal(detailCard.ActualHeight, listCard.ActualHeight, 1); // side by side, the same height
+                    Assert.True(listCard.ActualHeight <= Views.FansView.ListMaxHeight);
+                }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void A_card_lists_scrollbar_sits_in_the_cards_margin()
+    {
+        // Rows keep their width when the list scrolls (the scrollbar used to take a column of its own and push them in).
+        Ui.Run(() =>
+        {
+            var list = new System.Windows.Controls.ListBox
+            {
+                Style = (System.Windows.Style)System.Windows.Application.Current.FindResource("CardList"),
+                ItemsSource = Enumerable.Range(1, 40).Select(i => $"Row {i}").ToList(),
+                Width = 300, Height = 200,
+            };
+            var window = new System.Windows.Window
+            {
+                Content = new System.Windows.Controls.Border { Padding = new System.Windows.Thickness(12), Child = list },
+                Left = -32000, Top = -32000, Width = 400, Height = 300, ShowActivated = false, ShowInTaskbar = false,
+            };
+            window.Show();
+            try
+            {
+                Ui.Pump(150);
+                var scroller = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(list).First();
+                Assert.True(scroller.ScrollableHeight > 0);
+                Assert.Equal(300, scroller.ViewportWidth, 1);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void A_cards_fans_are_one_row_and_empty_headers_are_left_out()
     {
         var (vm, _) = Page();
