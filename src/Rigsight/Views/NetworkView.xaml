@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:vm="clr-namespace:Rigsight.ViewModels"
+             xmlns:views="clr-namespace:Rigsight.Views"
              x:Name="Page">
     <UserControl.Resources>
         <Style x:Key="TileBox" TargetType="Border">
@@ -259,69 +260,72 @@
                             <TextBlock Grid.Column="4" Text="UP" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                             <TextBlock Grid.Column="5" Text="BACKGROUND" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding Apps}" Focusable="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:NetAppRow}">
-                                    <StackPanel>
-                                        <Button Style="{StaticResource RowButton}" Padding="8,8" AutomationProperties.Name="{Binding Name}"
-                                                Command="{Binding DataContext.ToggleCommand, ElementName=Page}" CommandParameter="{Binding}">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="30" />
-                                                    <ColumnDefinition Width="1.6*" />
-                                                    <ColumnDefinition Width="1.4*" />
-                                                    <ColumnDefinition Width="84" />
-                                                    <ColumnDefinition Width="84" />
-                                                    <ColumnDefinition Width="130" />
-                                                </Grid.ColumnDefinitions>
-                                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                                    <TextBlock Text="{Binding CategoryText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
-                                                </StackPanel>
-                                                <Grid Grid.Column="2" Height="6" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
-                                                    <ctl:BarPair DownShare="{Binding DownBar}" UpShare="{Binding UpBar}" />
+                        <!-- A box of a set height (about nine apps): more apps, or an opened one, scroll inside it. -->
+                        <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="{x:Static views:NetworkView.AppsMaxHeight}">
+                            <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" AutomationProperties.Name="Apps">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NetAppRow}">
+                                        <StackPanel>
+                                            <Button Style="{StaticResource RowButton}" Padding="8,8" AutomationProperties.Name="{Binding Name}"
+                                                    Command="{Binding DataContext.ToggleCommand, ElementName=Page}" CommandParameter="{Binding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="30" />
+                                                        <ColumnDefinition Width="1.6*" />
+                                                        <ColumnDefinition Width="1.4*" />
+                                                        <ColumnDefinition Width="84" />
+                                                        <ColumnDefinition Width="84" />
+                                                        <ColumnDefinition Width="130" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                        <TextBlock Text="{Binding CategoryText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                                    </StackPanel>
+                                                    <Grid Grid.Column="2" Height="6" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                                        <ctl:BarPair DownShare="{Binding DownBar}" UpShare="{Binding UpBar}" />
+                                                    </Grid>
+                                                    <TextBlock Grid.Column="3" Text="{Binding DownText}" FontSize="13" Foreground="{DynamicResource CoolBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding UpText}" FontSize="13" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="5" Text="{Binding BackgroundText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextAlignment="Right" VerticalAlignment="Center" />
                                                 </Grid>
-                                                <TextBlock Grid.Column="3" Text="{Binding DownText}" FontSize="13" Foreground="{DynamicResource CoolBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="4" Text="{Binding UpText}" FontSize="13" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="5" Text="{Binding BackgroundText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                            </Grid>
-                                        </Button>
-                                        <!-- Opened: in front, in the background, away; its busiest time, fastest download and local traffic. -->
-                                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="16,12" Margin="38,0,0,8"
-                                                Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
-                                            <StackPanel>
-                                                <TextBlock Text="IN FRONT OR IN THE BACKGROUND" Style="{StaticResource Caption}" />
-                                                <ctl:ShareBar Height="8" Margin="0,8,0,6" Front="{Binding FrontShare}" Background2="{Binding BgShare}" Away="{Binding AwayShare}" />
-                                                <WrapPanel>
-                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
-                                                    <TextBlock Text="{Binding FrontText}" Style="{StaticResource LegendText}" />
-                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.45" />
-                                                    <TextBlock Text="{Binding BgText}" Style="{StaticResource LegendText}" />
-                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.22" />
-                                                    <TextBlock Text="{Binding AwayText}" Style="{StaticResource LegendText}" />
-                                                </WrapPanel>
-                                                <UniformGrid Columns="3" Margin="0,12,0,0">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{Binding BusiestLabel}" Style="{StaticResource TileNote}" />
-                                                        <TextBlock Text="{Binding BusiestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                                    </StackPanel>
-                                                    <StackPanel>
-                                                        <TextBlock Text="Fastest download" Style="{StaticResource TileNote}" />
-                                                        <TextBlock Text="{Binding FastestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                                    </StackPanel>
-                                                    <StackPanel>
-                                                        <TextBlock Text="Local network" Style="{StaticResource TileNote}" />
-                                                        <TextBlock Text="{Binding LocalText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                                    </StackPanel>
-                                                </UniformGrid>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                            </Button>
+                                            <!-- Opened: in front, in the background, away; its busiest time, fastest download and local traffic. -->
+                                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="16,12" Margin="38,0,0,8"
+                                                    Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="IN FRONT OR IN THE BACKGROUND" Style="{StaticResource Caption}" />
+                                                    <ctl:ShareBar Height="8" Margin="0,8,0,6" Front="{Binding FrontShare}" Background2="{Binding BgShare}" Away="{Binding AwayShare}" />
+                                                    <WrapPanel>
+                                                        <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                                        <TextBlock Text="{Binding FrontText}" Style="{StaticResource LegendText}" />
+                                                        <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.45" />
+                                                        <TextBlock Text="{Binding BgText}" Style="{StaticResource LegendText}" />
+                                                        <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.22" />
+                                                        <TextBlock Text="{Binding AwayText}" Style="{StaticResource LegendText}" />
+                                                    </WrapPanel>
+                                                    <UniformGrid Columns="3" Margin="0,12,0,0">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding BusiestLabel}" Style="{StaticResource TileNote}" />
+                                                            <TextBlock Text="{Binding BusiestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Fastest download" Style="{StaticResource TileNote}" />
+                                                            <TextBlock Text="{Binding FastestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Local network" Style="{StaticResource TileNote}" />
+                                                            <TextBlock Text="{Binding LocalText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -399,17 +403,31 @@
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Rectangle x:Name="Cell" Margin="0.5,0" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                                        <!-- Hover a quarter hour: it lights up and says its time and state. The transparent frame
+                                             takes the mouse in the gaps too, so moving along the strip never flickers. -->
+                                        <DataTemplate DataType="{x:Type vm:NetStripCell}">
+                                            <Border x:Name="Slot" Background="Transparent" Padding="0.5,0" ToolTip="{Binding Tip}"
+                                                    ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.Placement="Top">
+                                                <Rectangle x:Name="Cell" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                                            </Border>
                                             <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="Dropped">
+                                                <DataTrigger Binding="{Binding State}" Value="Dropped">
                                                     <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource HotBrush}" />
                                                     <Setter TargetName="Cell" Property="Opacity" Value="1" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding}" Value="None">
+                                                <DataTrigger Binding="{Binding State}" Value="None">
                                                     <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource Surface2Brush}" />
                                                     <Setter TargetName="Cell" Property="Opacity" Value="1" />
                                                 </DataTrigger>
+                                                <Trigger SourceName="Slot" Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                                                    <Setter TargetName="Slot" Property="RenderTransformOrigin" Value="0.5,0.5" />
+                                                    <Setter TargetName="Slot" Property="RenderTransform">
+                                                        <Setter.Value>
+                                                            <ScaleTransform ScaleY="1.25" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Trigger>
                                             </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

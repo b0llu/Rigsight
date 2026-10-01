@@ -14,6 +14,16 @@ public enum CrashKind
     UnexpectedShutdown,
 }
 
+/// <summary>What Windows was doing when the PC went down. Stored as is in crashes.during_sleep (0, 1, 2).</summary>
+public enum PowerMoment
+{
+    Running,
+    /// <summary>Asleep or waking up.</summary>
+    Asleep,
+    /// <summary>Shutting down, restarting or hibernating: the PC went off before Windows recorded a clean finish.</summary>
+    ShuttingDown,
+}
+
 /// <summary>One crash or unexpected shutdown, as found in the Windows event logs.</summary>
 public sealed class CrashEvent
 {
@@ -28,8 +38,15 @@ public sealed class CrashEvent
     /// <summary>Exception or bugcheck code, e.g. "c0000005" or "0x133".</summary>
     public string? Code { get; set; }
     public string? Detail { get; set; }
+    /// <summary>What Windows was doing when the PC went down (unexpected shutdowns only).</summary>
+    public PowerMoment Moment { get; set; }
+
     /// <summary>The PC was asleep or waking up when it went down.</summary>
-    public bool DuringSleep { get; set; }
+    public bool DuringSleep
+    {
+        get => Moment == PowerMoment.Asleep;
+        set => Moment = value ? PowerMoment.Asleep : PowerMoment.Running;
+    }
 
     public DateTime Time => Data.TimeUtil.FromUnix(Ts);
 }

@@ -16,13 +16,14 @@ internal static class Crashes
 
     public static CrashRow Row(CrashKind kind, DateTime time, string exe = "", string? name = null, string? module = null, string? code = null,
         bool sleep = false, double? cpu = null, double? gpu = null, string? front = null, double? session = null, bool game = false,
-        string? dump = null, string? detail = null)
+        string? dump = null, string? detail = null, PowerMoment? moment = null)
     {
         var e = new CrashEvent
         {
             Id = Interlocked.Increment(ref _id), Ts = TimeUtil.ToUnix(time), Kind = kind, AppExe = exe, Module = module, Code = code,
             DuringSleep = sleep, Detail = detail,
         };
+        if (moment is { } m) e.Moment = m;
         return new CrashRow
         {
             Event = e, Explanation = CrashExplainer.Explain(e, name), AppName = name, CpuBefore = cpu, GpuBefore = gpu, FrontApp = front,
@@ -40,6 +41,8 @@ internal static class Crashes
     public static CrashRow Reset(DateTime time) => Row(CrashKind.GpuDriverReset, time, module: "nvlddmkm");
 
     public static CrashRow Power(DateTime time, bool sleep = false) => Row(CrashKind.UnexpectedShutdown, time, sleep: sleep);
+
+    public static CrashRow Unfinished(DateTime time) => Row(CrashKind.UnexpectedShutdown, time, moment: PowerMoment.ShuttingDown);
 }
 
 /// <summary>How crashes are explained, grouped (repeats, and bursts that are one incident) and described.</summary>
@@ -195,6 +198,7 @@ public sealed class CrashModelTests
         Assert.Equal("Display driver stopped responding and has recovered", Query(Crashes.Reset(Noon)));
         Assert.Equal("PC shuts off unexpectedly Kernel-Power 41", Query(Crashes.Power(Noon)));
         Assert.Equal("PC loses power during sleep Kernel-Power 41", Query(Crashes.Power(Noon, sleep: true)));
+        Assert.Equal("Kernel-Power 41 during shutdown fast startup", Query(Crashes.Unfinished(Noon)));
         Assert.EndsWith("0x00000124 blue screen", Query(Crashes.Bsod(Noon)));
     }
 
@@ -738,6 +742,32 @@ public sealed class CrashesPageTests
             Assert.Contains("2 power losses while asleep (not a fault)", vm.StatusDetail);
             Assert.Contains(vm.Patterns, p => p.StartsWith("2 of 2 unexpected shutdowns happened while the PC was asleep"));
         });
+    }
+
+    [Fact]
+    public void Status_a_shutdown_that_did_not_finish_is_not_serious()
+    {
+        var (vm, _) = Page();
+        Show(vm, [Crashes.Unfinished(DateTime.Now.AddHours(-2)), Crashes.Unfinished(DateTime.Now.AddHours(-30)), Crashes.Power(DateTime.Now.AddHours(-50), sleep: true)]);
+        Ui.Run(() =>
+        {
+            Assert.Equal("No serious problems", vm.StatusTitle);
+            Assert.Contains("2 shutdowns that didn't finish (usually harmless)", vm.StatusDetail);
+            Assert.Contains("1 power loss while asleep (not a fault)", vm.StatusDetail);
+            Assert.Contains(vm.Patterns, p => p.StartsWith("2 of 3 unexpected shutdowns happened while Windows was shutting down"));
+            Assert.DoesNotContain(vm.Patterns, p => p.Contains("while the PC was asleep"));
+        });
+    }
+
+    [Fact]
+    public void Shutdowns_that_did_not_finish_group_apart_from_sleep_and_power_cuts()
+    {
+        var noon = DateTime.Today.AddHours(12);
+        var groups = CrashGroup.Build([
+            Crashes.Unfinished(noon), Crashes.Unfinished(noon.AddDays(-1)), Crashes.Power(noon.AddDays(-2), sleep: true), Crashes.Power(noon.AddDays(-3)),
+        ]);
+        Assert.Equal([1, 1, 2], groups.Select(g => g.Count).Order());
+        Assert.Equal(CrashSeverity.Info, groups.Single(g => g.Count == 2).Severity);
     }
 
     [Fact]

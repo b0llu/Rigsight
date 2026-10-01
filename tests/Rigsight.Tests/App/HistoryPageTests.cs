@@ -224,7 +224,6 @@ public sealed class HistoryPageTests
             Assert.Empty(vm.Peaks);
             Assert.Empty(vm.TopSessions);
             Assert.Empty(vm.CrashesShown);
-            Assert.False(vm.HasMoreApps);
             Assert.Equal(1, vm.MaxActive);
         });
     }
@@ -340,24 +339,16 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Report_lists_start_short_and_grow_on_request()
+    public void Report_apps_are_all_listed_and_crashes_start_short_and_grow_on_request()
     {
         var vm = Reports(out _);
         Ui.Run(() => vm.Range = ReportRange.Year);
         Settle(vm, () => vm.Report?.Range == ReportRange.Year);
         Ui.Run(() =>
         {
+            // Every used app: the list scrolls inside its own box instead of growing the page.
             var apps = vm.Report!.Apps.Where(a => a.ActiveSec >= 30).ToList();
-            Assert.Equal(Math.Min(20, apps.Count), vm.Apps.Count);
-            Assert.Equal(apps.Count > 20, vm.HasMoreApps);
-            Assert.Equal(apps.Take(vm.Apps.Count).Select(a => a.Exe), vm.Apps.Select(a => a.Exe));
-            if (vm.HasMoreApps)
-            {
-                int left = apps.Count - 20;
-                Assert.Equal($"Show {Math.Min(40, left)} more ({left} not shown)", vm.MoreAppsText);
-                vm.ShowMoreAppsCommand.Execute(null);
-                Assert.Equal(Math.Min(60, apps.Count), vm.Apps.Count);
-            }
+            Assert.Equal(apps.Select(a => a.Exe), vm.Apps.Select(a => a.Exe));
 
             Assert.Equal(Math.Min(5, vm.Crashes.Count), vm.CrashesShown.Count);
             Assert.Equal(vm.Crashes.Count > 5, vm.HasMoreCrashes);
@@ -379,8 +370,6 @@ public sealed class HistoryPageTests
         Settle(vm, () => vm.Report?.Range == ReportRange.Year);
         Ui.Run(() =>
         {
-            vm.ShowMoreAppsCommand.Execute(null);
-            vm.ShowMoreAppsCommand.Execute(null);
             int used = vm.Apps.Count;
             int background = vm.BackgroundOnlyCount;
             Assert.Equal($"Show unused apps ({background})", vm.BackgroundToggleText);

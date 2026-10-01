@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText), nameof(Peaks), nameof(TopSessions), nameof(HasData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Apps), nameof(Peaks), nameof(TopSessions), nameof(HasData),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -39,17 +39,17 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private int _trackedDays;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Apps), nameof(HasMoreApps), nameof(MoreAppsText))]
+    [NotifyPropertyChangedFor(nameof(Apps))]
     private bool _showBackgroundApps;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText))]
     private List<CrashRow> _crashes = [];
 
-    // A month can list hundreds of apps and dozens of crashes. Both lists sit mid-page (more sections follow),
-    // so they start short and grow on request rather than as the page scrolls.
-    private const int AppsPage = 20, CrashesPage = 5;
-    private int _appLimit = AppsPage, _crashLimit = CrashesPage;
+    // A month can list dozens of crashes. The list sits mid-page (more sections follow), so it starts short and grows
+    // on request rather than as the page scrolls. (Apps scroll inside a box of their own instead.)
+    private const int CrashesPage = 5;
+    private int _crashLimit = CrashesPage;
 
     public List<CrashRow> CrashesShown => [.. Crashes.Take(_crashLimit)];
     public bool HasMoreCrashes => Crashes.Count > _crashLimit;
@@ -62,27 +62,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         OnPropertyChanged(nameof(CrashesShown));
         OnPropertyChanged(nameof(HasMoreCrashes));
         OnPropertyChanged(nameof(MoreCrashesText));
-    }
-
-    private List<AppStat> AllApps => Report is null ? [] :
-        [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))];
-    public bool HasMoreApps => AllApps.Count > _appLimit;
-    public string MoreAppsText
-    {
-        get
-        {
-            int left = AllApps.Count - _appLimit;
-            return $"Show {Math.Min(AppsPage * 2, left)} more ({left} not shown)";
-        }
-    }
-
-    [RelayCommand]
-    private void ShowMoreApps()
-    {
-        _appLimit += AppsPage * 2;
-        OnPropertyChanged(nameof(Apps));
-        OnPropertyChanged(nameof(HasMoreApps));
-        OnPropertyChanged(nameof(MoreAppsText));
     }
 
     /// <summary>A day, or a custom range of up to two days: minute by minute (the timeline), not daily bars.</summary>
@@ -126,7 +105,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private static bool UsedActively(AppStat a) => a.ActiveSec >= 30;
 
     /// <summary>Apps you actually used; background-only apps are added when the toggle is on.</summary>
-    public List<AppStat> Apps => [.. AllApps.Take(_appLimit)];
+    public List<AppStat> Apps => Report is null ? [] :
+        [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))];
 
     public int BackgroundOnlyCount => Report?.Apps.Count(a => !UsedActively(a) && a.OpenSec >= 30) ?? 0;
 
@@ -200,7 +180,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
         if (id != _loadId) return;
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
-        if (report?.From != Report?.From || report?.To != Report?.To) (_appLimit, _crashLimit) = (AppsPage, CrashesPage);
+        if (report?.From != Report?.From || report?.To != Report?.To) _crashLimit = CrashesPage;
         TrackedDays = tracked;
         FirstDay = first;
         Report = report;

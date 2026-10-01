@@ -29,6 +29,10 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.14.2", 10, 1,
+            better: ["Hover the live network chart and the connection strip for the details.",
+                "Long app lists on Network and Reports scroll inside their own box."],
+            fixedBugs: ["A shutdown that didn't finish no longer shows as a power loss while asleep."]),
         V("0.14.1", 10, 1,
             fixedBugs: ["Every app on the Network page shows its proper name.",
                 "An app left open but never used no longer reads as used for 0s.",

@@ -280,6 +280,20 @@ public sealed class QueryTests
     }
 
     [Fact]
+    public void Rereading_a_shutdown_puts_its_moment_right_without_counting_it_as_new()
+    {
+        using var t = new TestDb();
+        // Older versions stored a shutdown that didn't finish as "asleep".
+        Assert.Single(t.Db.InsertCrashes([new CrashEvent { Ts = T0, Kind = CrashKind.UnexpectedShutdown, DuringSleep = true }]));
+        Assert.Empty(t.Db.InsertCrashes([new CrashEvent { Ts = T0, Kind = CrashKind.UnexpectedShutdown, Moment = PowerMoment.ShuttingDown }]));
+        Assert.Equal(PowerMoment.ShuttingDown, t.Db.GetCrashes(T0, T0 + 1).Single().Moment);
+        // Other kinds are never rewritten.
+        t.Db.InsertCrashes([new CrashEvent { Ts = T0 + 5, Kind = CrashKind.AppHang, AppExe = "a.exe" }]);
+        Assert.Empty(t.Db.InsertCrashes([new CrashEvent { Ts = T0 + 5, Kind = CrashKind.AppHang, AppExe = "a.exe", Moment = PowerMoment.Asleep }]));
+        Assert.Equal(PowerMoment.Running, t.Db.GetCrashes(T0 + 5, T0 + 6).Single().Moment);
+    }
+
+    [Fact]
     public void A_crash_kind_this_version_does_not_know_reads_as_an_app_crash()
     {
         using var t = new TestDb();

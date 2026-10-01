@@ -129,7 +129,7 @@ public sealed class NetBarsChart : NetChartBase
     };
 }
 
-/// <summary>The connection's speed over the last minute: download as a filled line, upload as a line.</summary>
+/// <summary>The connection's speed over the last minute: download as a filled line, upload as a line. Hover a moment for its speeds.</summary>
 public sealed class NetLiveChart : NetChartBase
 {
     public static readonly DependencyProperty HistoryProperty = DependencyProperty.Register(
@@ -169,6 +169,18 @@ public sealed class NetLiveChart : NetChartBase
         dc.DrawGeometry(Faded(DownBrush, 0.14), null, Line(p => p.Down, fill: true));
         dc.DrawGeometry(null, new Pen(DownBrush, 1.6), Line(p => p.Down, fill: false));
         dc.DrawGeometry(null, new Pen(UpBrush, 1.4), Line(p => p.Up, fill: false));
+
+        // Hover: the second nearest the pointer, its speeds marked on both lines.
+        if (HoverX is double hx && hx >= plot.Left - 6 && hx <= plot.Right + 6)
+        {
+            var near = points.MinBy(p => Math.Abs(At(p, 0).X - hx))!;
+            var (down, up) = (At(near, near.Down), At(near, near.Up));
+            dc.DrawEllipse(UpBrush, null, up, 3.5, 3.5);
+            dc.DrawEllipse(DownBrush, null, down, 3.5, 3.5);
+            long ago = last - near.Time;
+            Hover(dc, plot, down.X, ago <= 0 ? "Now" : ago == 1 ? "1 second ago" : $"{ago} seconds ago",
+                [$"Download {Units.Speed(near.Down)}", $"Upload {Units.Speed(near.Up)}"]);
+        }
     }
 }
 

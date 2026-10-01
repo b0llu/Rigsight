@@ -24,7 +24,7 @@ public static partial class CrashLogReader
     {
         var events = new List<CrashEvent>();
         var shutdownTimes = new List<(DateTime Logged, DateTime Happened)>();
-        var kernelPower = new List<(DateTime Logged, uint Bugcheck, bool Sleep)>();
+        var kernelPower = new List<(DateTime Logged, uint Bugcheck, PowerMoment Moment)>();
 
         foreach (var record in Query("Application", AppQuery, since))
         {
@@ -56,16 +56,14 @@ public static partial class CrashLogReader
                     case 41:
                         var data = Named(record);
                         uint.TryParse(data.GetValueOrDefault("BugcheckCode"), out var bugcheck);
-                        bool sleep = data.GetValueOrDefault("SleepInProgress") is { } s && s != "0" && s != "false" ||
-                                     int.TryParse(data.GetValueOrDefault("SystemSleepTransitionsToOn"), out var t) && t > 0;
-                        kernelPower.Add((logged, bugcheck, sleep));
+                        kernelPower.Add((logged, bugcheck, MomentOf(data)));
                         break;
                 }
             }
         }
 
         // Kernel-Power 41 is logged at the *next* boot; event 6008 says when the PC actually went down.
-        foreach (var (logged, bugcheck, sleep) in kernelPower)
+        foreach (var (logged, bugcheck, moment) in kernelPower)
         {
             var match = shutdownTimes.Where(s => Math.Abs((s.Logged - logged).TotalMinutes) < 5).Select(s => (DateTime?)s.Happened).FirstOrDefault();
             events.Add(new CrashEvent
@@ -74,12 +72,29 @@ public static partial class CrashLogReader
                 Kind = bugcheck != 0 ? CrashKind.SystemCrash : CrashKind.UnexpectedShutdown,
                 AppExe = "",
                 Code = bugcheck != 0 ? $"0x{bugcheck:X}" : null,
-                DuringSleep = sleep,
+                Moment = moment,
                 Detail = match is null ? $"Noticed at startup {logged:g}" : $"Found at next startup ({logged:g})",
             });
         }
 
         return [.. events.OrderBy(e => e.Ts)];
+    }
+
+    /// <summary>
+    /// What Windows was doing when the PC went down, from Kernel-Power 41's SleepInProgress: the power state it was
+    /// heading into (2–4 sleep, 5 hibernate, 6 off). Hibernate counts as shutting down: Fast Startup hibernates on
+    /// every shutdown. SystemSleepTransitionsToOn only counts wake-ups since the PC started, so it says nothing here.
+    /// </summary>
+    internal static PowerMoment MomentOf(IReadOnlyDictionary<string, string> data)
+    {
+        if (string.Equals(data.GetValueOrDefault("ConnectedStandbyInProgress"), "true", StringComparison.OrdinalIgnoreCase))
+            return PowerMoment.Asleep;
+        return int.TryParse(data.GetValueOrDefault("SleepInProgress"), out var state) ? state switch
+        {
+            >= 2 and <= 4 => PowerMoment.Asleep,
+            5 or 6 => PowerMoment.ShuttingDown,
+            _ => PowerMoment.Running,
+        } : PowerMoment.Running;
     }
 
     private const string DumpQuery = "*[System[Provider[@Name='Microsoft-Windows-WER-SystemErrorReporting'] and EventID=1001]]";

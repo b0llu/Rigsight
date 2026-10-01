@@ -59,7 +59,12 @@ public sealed class NetworkPageTests
         {
             Assert.Equal("Dropped once", vm.DropsTitle);
             Assert.StartsWith("Longest 3 min at 1:00", vm.DropsNote);
-            Assert.Equal(NetQuarter.Dropped, vm.Strip[4]);
+            Assert.Equal(NetQuarter.Dropped, vm.Strip[4].State);
+            // Hovering a quarter hour says when it was and what happened.
+            Assert.Equal("1:00 – 1:15 AM · Dropped", vm.Strip[4].Tip);
+            Assert.Equal("12:00 – 12:15 AM · " + (vm.Strip[0].State == NetQuarter.Online ? "Online" : "No record"), vm.Strip[0].Tip);
+            Assert.StartsWith("11:45 PM – 12:00 AM · ", vm.Strip[^1].Tip);
+            if (DateTime.Now < DateTime.Today.AddHours(23.75)) Assert.EndsWith("· Still to come", vm.Strip[^1].Tip);
         });
     }
 
@@ -152,6 +157,55 @@ public sealed class NetworkPageTests
             Assert.False(vm.HasData);
             Assert.False(vm.HasLive);
             Assert.Empty(vm.Apps);
+        });
+    }
+
+    [Fact]
+    public void Hovering_the_live_chart_shows_that_seconds_speeds()
+    {
+        Ui.Run(() =>
+        {
+            long now = 1_000_000;
+            var chart = new Controls.NetLiveChart
+            {
+                History = [.. Enumerable.Range(0, 60).Select(i => new NetLive { Time = now - 59 + i, Down = i % 7 * 300_000, Up = i % 5 * 40_000 })],
+            };
+            int plain = Draw.Inked(Draw.Render(chart, 600, 150));
+            var hover = typeof(Controls.FanChartBase).GetProperty("HoverX", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            hover.SetValue(chart, 300.0);
+            chart.InvalidateVisual();
+            Assert.True(Draw.Inked(Draw.Again(chart)) > plain); // a guide, two dots and the box with the speeds
+            hover.SetValue(chart, null);
+            chart.InvalidateVisual();
+            Assert.Equal(plain, Draw.Inked(Draw.Again(chart)));
+        });
+    }
+
+    [Fact]
+    public void Long_app_lists_scroll_inside_their_box()
+    {
+        var (vm, _) = Page(Yesterday, ReportRange.Year);
+        Ui.Run(() =>
+        {
+            var view = new Views.NetworkView { DataContext = vm };
+            var window = new System.Windows.Window
+            {
+                Content = view, Left = -32000, Top = -32000, Width = 1440, Height = 900, ShowActivated = false, ShowInTaskbar = false,
+            };
+            window.Show();
+            try
+            {
+                Ui.Pump(150);
+                var list = Visuals.Descendants<System.Windows.Controls.ItemsControl>(view).Single(i => System.Windows.Automation.AutomationProperties.GetName(i) == "Apps");
+                var box = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(view).Single(v => Visuals.Descendants<System.Windows.Controls.ItemsControl>(v).Contains(list) && v.MaxHeight == Views.NetworkView.AppsMaxHeight);
+                Assert.True(box.ActualHeight <= Views.NetworkView.AppsMaxHeight);
+                var first = vm.Apps[0];
+                for (int i = 0; i < 20; i++) vm.Apps.Add(first); // a PC with many more apps than fit
+                Ui.Pump(150);
+                Assert.Equal(Views.NetworkView.AppsMaxHeight, box.ActualHeight, 1);
+                Assert.True(box.ScrollableHeight > 0);
+            }
+            finally { window.Close(); }
         });
     }
 

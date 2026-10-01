@@ -172,6 +172,27 @@ public sealed class EventLogParsingTests
         Assert.Equal("Windows update KB1 (5 Sep)", new SystemChange(new DateTime(2026, 9, 5, 10, 0, 0), ChangeKind.WindowsUpdate, "Windows update KB1").Short);
     }
 
+    // ---- Kernel-Power 41: what Windows was doing when the PC went down ----
+
+    [Theory]
+    [InlineData("0", "0", PowerMoment.Running)]
+    [InlineData("0", "3", PowerMoment.Running)] // woke from sleep earlier since the PC started: not asleep now
+    [InlineData("1", "0", PowerMoment.Running)] // "working"
+    [InlineData("2", "0", PowerMoment.Asleep)]
+    [InlineData("4", "1", PowerMoment.Asleep)] // S3, the usual sleep
+    [InlineData("5", "0", PowerMoment.ShuttingDown)] // hibernate, which Fast Startup does on every shutdown
+    [InlineData("6", "1", PowerMoment.ShuttingDown)] // off: a shutdown that didn't finish (seen on the user's PC)
+    [InlineData("", "", PowerMoment.Running)]
+    public void Kernel_power_says_whether_the_PC_was_running_asleep_or_shutting_down(string sleepInProgress, string wakeUps, PowerMoment expected)
+    {
+        var data = new Dictionary<string, string> { ["SleepInProgress"] = sleepInProgress, ["SystemSleepTransitionsToOn"] = wakeUps, ["ConnectedStandbyInProgress"] = "false" };
+        Assert.Equal(expected, CrashLogReader.MomentOf(data));
+    }
+
+    [Fact]
+    public void Modern_standby_counts_as_asleep() =>
+        Assert.Equal(PowerMoment.Asleep, CrashLogReader.MomentOf(new Dictionary<string, string> { ["SleepInProgress"] = "0", ["ConnectedStandbyInProgress"] = "true" }));
+
     // ---- The real event logs: whatever is on this PC, reading never fails ----
 
     [Fact]

@@ -57,7 +57,7 @@ public sealed partial class CrashGroup : ObservableObject
     public static CrashSeverity SeverityOf(CrashRow r) => r.Event.Kind switch
     {
         CrashKind.SystemCrash => CrashSeverity.Critical,
-        CrashKind.UnexpectedShutdown => r.Event.DuringSleep ? CrashSeverity.Info : CrashSeverity.Critical,
+        CrashKind.UnexpectedShutdown => r.Event.Moment == PowerMoment.Running ? CrashSeverity.Critical : CrashSeverity.Info,
         CrashKind.GpuDriverReset => CrashSeverity.Serious,
         _ when r.Event.AppExe.Equals("dwm.exe", StringComparison.OrdinalIgnoreCase) => CrashSeverity.Serious,
         _ => CrashSeverity.Minor,
@@ -105,7 +105,12 @@ public sealed partial class CrashGroup : ObservableObject
             return e.Kind switch
             {
                 CrashKind.SystemCrash => $"{Latest.Culprit} {e.Code} blue screen",
-                CrashKind.UnexpectedShutdown => e.DuringSleep ? "PC loses power during sleep Kernel-Power 41" : "PC shuts off unexpectedly Kernel-Power 41",
+                CrashKind.UnexpectedShutdown => e.Moment switch
+                {
+                    PowerMoment.Asleep => "PC loses power during sleep Kernel-Power 41",
+                    PowerMoment.ShuttingDown => "Kernel-Power 41 during shutdown fast startup",
+                    _ => "PC shuts off unexpectedly Kernel-Power 41",
+                },
                 CrashKind.GpuDriverReset => "Display driver stopped responding and has recovered",
                 CrashKind.AppHang => $"{e.AppExe} not responding",
                 // The module only helps when it isn't the app itself.
@@ -197,7 +202,7 @@ public sealed partial class CrashGroup : ObservableObject
     private static string KeyOf(CrashRow r) => r.Event.Kind switch
     {
         CrashKind.SystemCrash => $"bsod|{r.Event.Code}",
-        CrashKind.UnexpectedShutdown => $"power|{r.Event.DuringSleep}",
+        CrashKind.UnexpectedShutdown => $"power|{r.Event.Moment}",
         CrashKind.GpuDriverReset => "gpu",
         _ => $"{r.Event.Kind}|{r.Event.AppExe.ToLowerInvariant()}|{r.Culprit}",
     };

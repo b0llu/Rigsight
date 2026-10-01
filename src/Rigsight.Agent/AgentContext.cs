@@ -968,7 +968,9 @@ internal sealed class AgentContext : ApplicationContext
             if (!_settings.Alerts.CrashNotifications) return;
 
             // Tell the user about system-level problems they may not have noticed (app crashes are covered by sessions).
+            // A shutdown that didn't finish is usually harmless and on some PCs happens every day: the Crashes page has it.
             var recent = added.Where(e => e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset
+                                          && e.Moment != PowerMoment.ShuttingDown
                                           && e.Time > DateTime.Now.AddHours(firstScan ? -24 : -1)).ToList();
             foreach (var e in recent.TakeLast(2))
             {

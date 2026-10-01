@@ -103,15 +103,21 @@ public static class CrashExplainer
             }
 
             case CrashKind.UnexpectedShutdown:
-                return e.DuringSleep
-                    ? new("PC lost power while asleep",
+                return e.Moment switch
+                {
+                    PowerMoment.Asleep => new("PC lost power while asleep",
                         "The PC was asleep (or waking up) when it went down, and no crash report was saved.",
                         "Common if power is switched off at the wall while the PC sleeps. Otherwise try updating the BIOS and chipset drivers, or turning off hybrid sleep.",
-                        "Power while asleep") // no cause: the title says it
-                    : new("PC shut off unexpectedly",
+                        "Power while asleep"), // no cause: the title says it
+                    PowerMoment.ShuttingDown => new("PC didn't finish shutting down",
+                        "Windows was shutting down or restarting when the PC went off, before it could record a clean finish. No crash report was saved.",
+                        "Usually harmless. If it keeps happening, try turning off Fast Startup, or update the BIOS and chipset drivers.",
+                        "Shutdown"), // no cause: the title says it
+                    _ => new("PC shut off unexpectedly",
                         "The PC turned off without shutting down, and no crash report was saved — a power cut, a held power button, or a hard freeze.",
                         "If it happened while gaming, check the temperatures just before, and consider the power supply.",
-                        "Power / hard freeze", "a power cut or a hard freeze");
+                        "Power / hard freeze", "a power cut or a hard freeze"),
+                };
 
             default:
             {

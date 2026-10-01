@@ -195,6 +195,17 @@ public sealed class CrashExplainerTests
         Assert.Equal((title, culprit), (e.Title, e.Culprit));
     }
 
+    [Fact]
+    public void A_shutdown_that_did_not_finish_is_explained_as_such_not_as_sleep()
+    {
+        var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.UnexpectedShutdown, Moment = PowerMoment.ShuttingDown });
+        Assert.Equal(("PC didn't finish shutting down", "Shutdown"), (e.Title, e.Culprit));
+        Assert.Null(e.Cause);
+        Assert.Contains("Fast Startup", e.Advice);
+        Assert.DoesNotContain("asleep", e.Reason);
+        Assert.DoesNotContain("wall", e.Advice);
+    }
+
     [Theory]
     [InlineData(0x124u, "WHEA_UNCORRECTABLE_ERROR")]
     [InlineData(0x101u, "CLOCK_WATCHDOG_TIMEOUT")]

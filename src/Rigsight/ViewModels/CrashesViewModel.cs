@@ -290,6 +290,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         };
         int asleep = rows.Count(r => r.Event.Kind == CrashKind.UnexpectedShutdown && r.Event.DuringSleep);
         if (asleep > 0) parts.Add($"{asleep} power loss{(asleep == 1 ? "" : "es")} while asleep (not a fault)");
+        int unfinished = rows.Count(r => r.Event.Kind == CrashKind.UnexpectedShutdown && r.Event.Moment == PowerMoment.ShuttingDown);
+        if (unfinished > 0) parts.Add($"{unfinished} shutdown{(unfinished == 1 ? "" : "s")} that didn't finish (usually harmless)");
         StatusDetail = string.Join(" · ", parts) + ".";
 
         int daysSince = lastSerious is null ? int.MaxValue : (int)(DateTime.Today - lastSerious.Time.Date).TotalDays;
@@ -325,6 +327,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         int asleep = shutdowns.Count(c => c.Event.DuringSleep);
         if (asleep >= 2)
             list.Add($"{asleep} of {shutdowns.Count} unexpected shutdowns happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems.");
+        int unfinished = shutdowns.Count(c => c.Event.Moment == PowerMoment.ShuttingDown);
+        if (unfinished >= 2)
+            list.Add($"{unfinished} of {shutdowns.Count} unexpected shutdowns happened while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them.");
 
         int gpuRelated = rows.Count(c => c.Culprit.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
                                          c.Culprit.Contains("AMD", StringComparison.OrdinalIgnoreCase) ||
@@ -352,7 +357,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         // Graphics problems point at graphics drivers (and Windows updates); other PC-level problems can be any driver.
         bool pcLevel = (g.IsIncident || g.Severity >= CrashSeverity.Serious) && !graphics;
         if (!pcLevel && !graphics) return null;
-        if (g.Latest.Event.Kind == CrashKind.UnexpectedShutdown && g.Latest.Event.DuringSleep) return null;
+        if (g.Latest.Event.Kind == CrashKind.UnexpectedShutdown && g.Latest.Event.Moment != PowerMoment.Running) return null;
 
         var first = g.First.Time;
         // Graphics drivers and Windows updates are the usual suspects; take the nearest two in the week before.

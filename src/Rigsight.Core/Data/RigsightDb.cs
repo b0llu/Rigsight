@@ -563,8 +563,16 @@ public sealed partial class RigsightDb : IDisposable
                 INSERT OR IGNORE INTO crashes(ts, kind, app_exe, app_path, module, code, detail, during_sleep)
                 VALUES($ts, $kind, $exe, $path, $module, $code, $detail, $sleep)
                 """, ("$ts", e.Ts), ("$kind", e.Kind.ToString()), ("$exe", e.AppExe ?? ""), ("$path", e.AppPath),
-                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", e.DuringSleep ? 1 : 0));
+                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", (int)e.Moment));
             if (cmd.ExecuteNonQuery() > 0) added.Add(e);
+            else if (e.Kind == CrashKind.UnexpectedShutdown)
+            {
+                // Older versions read the moment wrongly (a shutdown that didn't finish showed as "asleep"); the
+                // first scan after starting rereads 90 days, which puts those right without counting them as new.
+                using var fix = Cmd("UPDATE crashes SET during_sleep = $sleep WHERE kind = $kind AND ts = $ts AND app_exe = $exe AND during_sleep <> $sleep",
+                    ("$sleep", (int)e.Moment), ("$kind", e.Kind.ToString()), ("$ts", e.Ts), ("$exe", e.AppExe ?? ""));
+                fix.ExecuteNonQuery();
+            }
         }
         return added;
     }
@@ -991,7 +999,7 @@ public sealed partial class RigsightDb : IDisposable
                 Kind = Enum.TryParse<CrashKind>(r.GetString(2), out var k) ? k : CrashKind.AppCrash,
                 AppExe = r.GetString(3), AppPath = r.IsDBNull(4) ? null : r.GetString(4),
                 Module = r.IsDBNull(5) ? null : r.GetString(5), Code = r.IsDBNull(6) ? null : r.GetString(6),
-                Detail = r.IsDBNull(7) ? null : r.GetString(7), DuringSleep = r.GetInt64(8) != 0,
+                Detail = r.IsDBNull(7) ? null : r.GetString(7), Moment = (PowerMoment)Math.Clamp(r.GetInt64(8), 0, 2),
             });
         }
         return list;

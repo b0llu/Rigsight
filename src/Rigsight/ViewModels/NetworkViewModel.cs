@@ -74,6 +74,9 @@ public sealed record NetDownloadRow(string Name, string? Path, string When, stri
 /// <summary>A quarter hour of the connection strip: online, a drop, or nothing (the PC was off, or it's still to come).</summary>
 public enum NetQuarter { Online, Dropped, None }
 
+/// <summary>A quarter hour on the strip and what hovering it says ("2:00 – 2:15 PM · Online").</summary>
+public sealed record NetStripCell(NetQuarter State, string Tip);
+
 /// <summary>
 /// The Network page: the internet right now (speeds, the connection, who's using it), then the period's use: totals, a
 /// chart, every app with its background share, what moved while nobody was there, big downloads and drops, and the
@@ -230,7 +233,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _dropsTitle = "";
     [ObservableProperty] private string _dropsNote = "";
     [ObservableProperty] private bool _dropsWarn;
-    [ObservableProperty] private IReadOnlyList<NetQuarter> _strip = [];
+    [ObservableProperty] private IReadOnlyList<NetStripCell> _strip = [];
 
     private NetReport? _report;
 
@@ -383,7 +386,19 @@ public sealed partial class NetworkViewModel : ObservableObject
             for (var q = start; q <= end; q = q.AddMinutes(15))
                 if (q.Date == r.From.Date) strip[(q.Hour * 60 + q.Minute) / 15] = NetQuarter.Dropped;
         }
-        Strip = strip;
+        var day = r.From.Date;
+        Strip = [.. strip.Select((state, i) =>
+        {
+            var (from, to) = (day.AddMinutes(i * 15), day.AddMinutes(i * 15 + 15));
+            string what = state switch
+            {
+                NetQuarter.Online => "Online",
+                NetQuarter.Dropped => "Dropped",
+                _ => from > DateTime.Now ? "Still to come" : "No record",
+            };
+            string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
+            return new NetStripCell(state, $"{span} · {what}");
+        })];
     }
 
     private static string LastWord(ReportRange range, bool now) => (range switch
