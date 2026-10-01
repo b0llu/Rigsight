@@ -356,7 +356,8 @@ public static class InsightEngine
         var idleHog = IdleHog(r);
         if (idleHog is not null && IdleHog(previous)?.Name != idleHog.Name)
             list.Add(new Insight(IconIdle,
-                $"{idleHog.Name} sat open in the background for {Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec)} but you only used it for {Units.Duration(idleHog.ActiveSec)}.",
+                $"{idleHog.Name} sat open in the background for {Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec)}"
+                + (idleHog.ActiveSec < 60 ? " and you never opened it." : $" but you only used it for {Units.Duration(idleHog.ActiveSec)}."),
                 InsightTone.Neutral, "idle-app", 40));
 
         // Memory: only when one app took a big share, and it isn't the same one as the period before.

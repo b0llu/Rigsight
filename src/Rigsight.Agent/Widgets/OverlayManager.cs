@@ -272,7 +272,7 @@ internal sealed class OverlayManager : IDisposable
         data.Sensors = sensors;
         data.Frame ??= new FrameStats(144, 6.9, 118);
         using var bmp = WidgetRenderer.RenderOverlay(_settings, data, 2f);
-        bmp.Save(Path.Combine(dir, "Overlay.png"), System.Drawing.Imaging.ImageFormat.Png);
+        PreviewFile.Save(bmp, Path.Combine(dir, "Overlay.png"));
     }
 
     public void Dispose()

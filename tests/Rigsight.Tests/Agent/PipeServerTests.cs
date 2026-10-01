@@ -141,7 +141,8 @@ public sealed class PipeServerTests : IDisposable
         Assert.Equal(10_000, _received.Single(m => m.Cmd == "one").Arg!.Length);
     }
 
-    private RawClient Connect() => RawClient.Connect(_name);
+    // The server starts listening on a pool thread; with the whole suite running alongside, that can take seconds.
+    private RawClient Connect() => RawClient.Connect(_name, timeoutMs: 30_000);
 
     private static AgentMessage Tick(int n, string? padding = null) => new() { T = "tick", Time = n, Arg = padding };
 

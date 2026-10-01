@@ -29,6 +29,10 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.14.1", 10, 1,
+            fixedBugs: ["Every app on the Network page shows its proper name.",
+                "An app left open but never used no longer reads as used for 0s.",
+                "Widget pictures on the Widgets page always refresh."]),
         V("0.14.0", 10, 1,
             added: ["A Network page: what each app downloads and uploads, by day, week, month or year.",
                 "See what downloads in the background, and while you're away.",

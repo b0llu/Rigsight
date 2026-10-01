@@ -158,6 +158,9 @@ public sealed class AppCatalogTests
     [InlineData("TiWorker.exe", "Windows Update")]
     [InlineData("SearchIndexer.exe", "Windows Search indexing")]
     [InlineData("fossilize_replay.exe", "Steam shader pre-caching")]
+    [InlineData("curl.exe", "curl")]
+    [InlineData("warp-svc.exe", "Cloudflare WARP")]
+    [InlineData("svchost.exe:DoSvc", "Delivery Optimization")]
     public void Windows_helpers_have_readable_names(string exe, string expected)
     {
         Assert.Equal(expected, AppCatalog.KnownName(exe));

@@ -969,6 +969,16 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     [Fact]
+    public void An_app_open_all_along_but_never_used_is_said_so_not_used_for_0s()
+    {
+        var r = Past();
+        var discord = App("Discord", AppCategory.Communication, 0);
+        discord.BackgroundSec = 7 * 3600;
+        r.Apps.Add(discord);
+        Assert.Equal("Discord sat open in the background for 7h 00m and you never opened it.", Line(Gen(r), "idle-app"));
+    }
+
+    [Fact]
     public void A_big_memory_user_is_named_from_four_gigabytes()
     {
         var r = Past();

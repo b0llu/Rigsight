@@ -211,7 +211,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                     data.Frame = new FrameStats(144, 6.9, 118);
                 }
                 using var bmp = WidgetRenderer.Render(preview, data, 2f, hover: false, out _);
-                bmp.Save(Path.Combine(dir, $"{cfg.Id}.png"), System.Drawing.Imaging.ImageFormat.Png);
+                PreviewFile.Save(bmp, Path.Combine(dir, $"{cfg.Id}.png"));
             }
         }
         catch (Exception ex)

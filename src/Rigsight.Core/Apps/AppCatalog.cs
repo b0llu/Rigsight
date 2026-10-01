@@ -104,6 +104,8 @@ public static class AppCatalog
         ["searchindexer.exe"] = "Windows Search indexing", ["compattelrunner.exe"] = "Windows compatibility check",
         ["wmiprvse.exe"] = "Windows management (WMI)", ["audiodg.exe"] = "Windows audio",
         ["fossilize_replay.exe"] = "Steam shader pre-caching",
+        // Tools whose files describe themselves badly ("The curl executable") or not at all.
+        ["curl.exe"] = "curl", ["warp-svc.exe"] = "Cloudflare WARP", ["warp-taskbar.exe"] = "Cloudflare WARP",
         // Windows services that use the network, each in its own service host (see the agent's NetApps), and Windows'
         // own kernel traffic (file sharing, some VPNs).
         ["svchost.exe:dosvc"] = "Delivery Optimization", ["svchost.exe:wuauserv"] = "Windows Update", ["svchost.exe:usosvc"] = "Windows Update",
