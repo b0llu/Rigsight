@@ -308,7 +308,7 @@
                             <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" Content="{Binding Title}"
                                          IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}" />
                         </DataTemplate>
-                        <!-- A section heading that folds its group: the caption, and a faint chevron at the right (full while hovered or folded). -->
+                        <!-- A section heading that folds its group: the caption, and a chevron at the right in the muted text colour (white while hovered). -->
                         <Style x:Key="SectionToggle" TargetType="Button">
                             <Setter Property="Cursor" Value="Hand" />
                             <Setter Property="Focusable" Value="False" />
@@ -319,17 +319,16 @@
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="12,4,10,4">
                                             <DockPanel>
-                                                <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Style="{StaticResource Icon}" FontSize="9" Opacity="0.5"
-                                                           Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Text="&#xE70D;" />
+                                                <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Style="{StaticResource Icon}" FontSize="10"
+                                                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Text="&#xE70D;" />
                                                 <ContentPresenter VerticalAlignment="Center" />
                                             </DockPanel>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Chevron" Property="Opacity" Value="1" />
+                                                <Setter TargetName="Chevron" Property="Foreground" Value="{DynamicResource TextBrush}" />
                                             </Trigger>
                                             <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-                                                <Setter TargetName="Chevron" Property="Opacity" Value="1" />
                                                 <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
                                             </DataTrigger>
                                         </ControlTemplate.Triggers>

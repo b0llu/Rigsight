@@ -200,6 +200,11 @@ public sealed partial class LiveData : ObservableObject
     {
         // Today's totals arrive with the hello, before the agent has finished discovering the hardware.
         if (hello.Today is not null) Today = hello.Today;
+        if (hello.NetHistory is { Count: > 0 } net)
+        {
+            _netHistory.Clear();
+            foreach (var n in net) AddNet(n);
+        }
         if (hello.Drives is not null) _driveHealth = hello.Drives;
         if (hello.Hardware is null) return;
 
@@ -353,8 +358,32 @@ public sealed partial class LiveData : ObservableObject
         : reference.StartsWith("key:", StringComparison.Ordinal) ? _byKey.GetValueOrDefault(reference[4..])
         : _byId.GetValueOrDefault(reference);
 
+    // ── The internet ──────────────────────────────────────────────────────
+
+    /// <summary>The internet this second: the connection's speed and each app's (null: not read, as without admin rights).</summary>
+    public NetLive? Net { get; private set; }
+
+    /// <summary>The connection's speed over the last minute, oldest first (bytes a second).</summary>
+    public IReadOnlyList<NetLive> NetHistory => _netHistory;
+    private readonly List<NetLive> _netHistory = [];
+
+    /// <summary>How many seconds the live network chart shows.</summary>
+    public const int NetHistorySeconds = 60;
+
+    private void AddNet(NetLive net)
+    {
+        if (_netHistory.Count > 0 && _netHistory[^1].Time >= net.Time) return;
+        _netHistory.Add(new NetLive { Time = net.Time, Down = net.Down, Up = net.Up });
+        while (_netHistory.Count > NetHistorySeconds) _netHistory.RemoveAt(0);
+    }
+
     public void ApplyTick(AgentMessage tick)
     {
+        if (tick.Net is { } net)
+        {
+            Net = net;
+            AddNet(net);
+        }
         if (tick.Values is { } values && values.Length == _flat.Count)
         {
             for (int i = 0; i < values.Length; i++)

@@ -36,6 +36,12 @@ public sealed class SchemaTests
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
         ["crashes"] = ["id", "ts", "kind", "app_exe", "app_path", "module", "code", "detail", "during_sleep"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
+        ["net_minute"] = ["ts", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "steady", "app"],
+        ["net_day"] = ["day", "minutes", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "best", "best_ts"],
+        ["net_app_hour"] = ["ts", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
+        ["net_app_day"] = ["day", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
+        ["net_transfer"] = ["start", "app", "end", "bytes", "sec"],
+        ["net_drop"] = ["start", "end", "kind"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -93,6 +99,12 @@ public sealed class SchemaTests
     [InlineData("fan_day", "day,fan")]
     [InlineData("fan_curve_day", "day,fan,app,temp")]
     [InlineData("heat_day", "day,app")]
+    [InlineData("net_minute", "ts")]
+    [InlineData("net_day", "day")]
+    [InlineData("net_app_hour", "ts,app")]
+    [InlineData("net_app_day", "day,app")]
+    [InlineData("net_transfer", "start,app")]
+    [InlineData("net_drop", "start")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)
     {
         using var t = new TestDb();

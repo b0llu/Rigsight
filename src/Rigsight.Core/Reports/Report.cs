@@ -207,6 +207,9 @@ public sealed class Report
     public double ActiveSec { get; set; }
     public double AwaySec { get; set; }
 
+    /// <summary>The internet over the period (a day, week, month or year; null otherwise, or before any was recorded).</summary>
+    public NetReport? Net { get; set; }
+
     /// <summary>
     /// Time left on with nobody there, in unbroken stretches of <see cref="LongAwayMinutes"/> or more with nothing working
     /// hard (a render or a download left running is work, not the PC sitting there).

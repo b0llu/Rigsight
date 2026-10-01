@@ -29,6 +29,14 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.14.0", 10, 1,
+            added: ["A Network page: what each app downloads and uploads, by day, week, month or year.",
+                "See what downloads in the background, and while you're away.",
+                "Your biggest downloads, your top speed, and when the internet dropped.",
+                "A heads-up when your downloads get slower, or an app uploads far more than usual."],
+            better: ["A tidier storage map: the smallest folders sit together in one block."],
+            fixedBugs: ["Every word on the taskbar strip is as clear as the part's name.",
+                "Storage scans count what files really take, never more than your drive."]),
         V("0.13.2", 9, 30,
             fixedBugs: ["The Fans list only scrolls when you have more fans than fit.",
                 "Scrollbars no longer squeeze the Fans and Apps lists."]),

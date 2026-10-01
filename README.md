@@ -26,6 +26,7 @@ It records quietly in the background using about **0.01% of your CPU**, and ever
 - **🌡️ Every degree, with a timestamp.** Live CPU and GPU temperatures, fans, drives and every other sensor, with each day's highs and a history you can scroll back through.
 - **📅 Your day, minute by minute.** Reports for any day, week, month or year: which app was in front, how hot things ran, your longest sessions, and highlights worth noticing: who made the heat, records you set, and how your PC runs against months ago.
 - **🌀 Every fan at a glance.** How your fans are doing, which games make them spin hardest, how long your PC stays silent, and a heads-up when a fan starts turning slower than it used to.
+- **🌐 Where your internet goes.** What each app downloads and uploads, what moves in the background or while you're away, your biggest downloads, your top speed, and a heads-up when your internet slows down or keeps dropping.
 - **🧩 Where your time and heat go.** Time per app, how hot each game runs your PC, and how that changes over time.
 - **💥 Crashes, explained in plain words.** App crashes, freezes, driver resets, blue screens and sudden shutdowns, with what probably happened, what to try, and what changed before it started.
 - **🎮 Your numbers, inside the game.** Press `Alt+Shift+O` for a small overlay with FPS, temperatures, load and anything else you pick, in colour or grayscale, anywhere on the screen. It works in fullscreen games too and is safe with anti-cheat.

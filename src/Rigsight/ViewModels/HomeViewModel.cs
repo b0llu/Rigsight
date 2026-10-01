@@ -100,11 +100,23 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     // Home already shows the time totals and the most-used apps, so those lines are left out here.
     private static readonly HashSet<string> ShownElsewhere = ["screen", "top-app"];
 
-    public List<Insight> TodayInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(5).ToList() ?? [];
+    // Today's internet in a line is for looking back (the recap), not news while the day goes on.
+    public List<Insight> TodayInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key) && i.Key != "net-recap").Take(5).ToList() ?? [];
 
     public bool RecapHasData => Recap is { HasData: true };
     public List<AppStat> RecapTopApps => TopApps(Recap);
-    public List<Insight> RecapInsights => Recap?.Insights.Where(i => !ShownElsewhere.Contains(i.Key)).Take(3).ToList() ?? [];
+    /// <summary>The recap's top lines, always ending with the period's internet in a line when there is one.</summary>
+    public List<Insight> RecapInsights
+    {
+        get
+        {
+            if (Recap is null) return [];
+            var net = Recap.Insights.FirstOrDefault(i => i.Key == "net-recap");
+            var top = Recap.Insights.Where(i => !ShownElsewhere.Contains(i.Key) && i.Key != "net-recap").Take(net is null ? 3 : 2).ToList();
+            if (net is not null) top.Add(net);
+            return top;
+        }
+    }
 
     private readonly Dictionary<RecapPeriod, Report?> _recaps = [];
     private DateTime _recapsFor;

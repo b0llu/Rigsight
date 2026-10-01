@@ -102,7 +102,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 
-        void Add(string title, string description, string path, Func<FileInfo, bool>? filter = null)
+        void Add(string title, string description, string path, Func<DiskEntry, bool>? filter = null)
         {
             long size = StorageScanner.FolderSize(path, filter);
             if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
@@ -111,7 +111,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         Add("Temporary files", "Leftovers from installers and apps. Safe to delete anything not currently in use.", Path.GetTempPath());
         Add("Windows temporary files", "System temp folder.", Path.Combine(windows, "Temp"));
         Add("Old downloads", "Files in Downloads you haven't touched in 90+ days.", downloads,
-            f => f.LastWriteTime < DateTime.Now.AddDays(-90) && f.LastAccessTime < DateTime.Now.AddDays(-90));
+            f => f.LastWrite < DateTime.Now.AddDays(-90) && f.LastAccess < DateTime.Now.AddDays(-90));
         Add("Windows Update cache", "Already-installed update files. Disk Cleanup can remove these.", Path.Combine(windows, "SoftwareDistribution", "Download"));
         Add("NVIDIA shader cache", "Rebuilt automatically by games; can be cleared if it gets large.", Path.Combine(local, "NVIDIA", "DXCache"));
         Add("DirectX shader cache", "Rebuilt automatically; Disk Cleanup can clear it.", Path.Combine(local, "D3DSCache"));

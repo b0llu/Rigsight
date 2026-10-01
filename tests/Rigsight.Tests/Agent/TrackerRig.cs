@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Rigsight.Agent.Network;
 using Rigsight.Agent.Sensors;
 using Rigsight.Agent.Tracking;
 using Rigsight.Core;
@@ -52,6 +53,27 @@ internal sealed class TrackerRig : IDisposable
 
     /// <summary>The fans, as read with the sensors (default: none).</summary>
     public List<FanReading> Fans { get; } = [];
+
+    /// <summary>What each app moves over the network each second, as the trace would report it (default: nothing).</summary>
+    public Dictionary<string, NetCounts> Net { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // Made-up process IDs for the apps using the network, far above any real one (so none is looked up on this PC).
+    private readonly Dictionary<string, int> _pids = new(StringComparer.OrdinalIgnoreCase);
+    public int Pid(string exe) => _pids.TryGetValue(exe, out int pid) ? pid : _pids[exe] = 40_000_000 + _pids.Count * 4;
+
+    /// <summary>One second of <see cref="Net"/>, by process, and the process names the trace's IDs go with.</summary>
+    public (Dictionary<int, NetCounts> ByPid, Dictionary<int, string> Running) NetSecond()
+    {
+        var byPid = new Dictionary<int, NetCounts>();
+        var running = new Dictionary<int, string>();
+        foreach (var (exe, c) in Net)
+        {
+            int pid = Pid(exe);
+            running[pid] = exe;
+            byPid[pid] = new NetCounts { Down = c.Down, Up = c.Up, TunnelDown = c.TunnelDown, TunnelUp = c.TunnelUp, LanDown = c.LanDown, LanUp = c.LanUp };
+        }
+        return (byPid, running);
+    }
 
     /// <summary>Sensors are read every this many seconds (the agent: 2 with the app closed, 1 while it's open).</summary>
     public int SensorEvery { get; set; } = 2;
@@ -108,6 +130,11 @@ internal sealed class TrackerRig : IDisposable
             Clock.Advance(1);
             _tick++;
             Tracker.OnActivity(sample, dt);
+            if (Net.Count > 0)
+            {
+                var (byPid, running) = NetSecond();
+                Tracker.OnNetwork(byPid, running, dt);
+            }
             if (_tick % SensorEvery == 0) { Tracker.OnSensors(Keys); Tracker.OnFans(Fans); }
             if (_tick % 5 == 0) Tracker.OnProcesses(Snapshot(), new Dictionary<string, WindowState>(Windows, StringComparer.OrdinalIgnoreCase), 5);
         }

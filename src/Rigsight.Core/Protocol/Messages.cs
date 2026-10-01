@@ -130,6 +130,26 @@ public sealed class ProcDetail
     public double MemMB { get; set; }
 }
 
+/// <summary>The internet right now (the last second): the whole connection's speed and each app's, in bytes a second.</summary>
+public sealed class NetLive
+{
+    /// <summary>When (unix seconds).</summary>
+    public long Time { get; set; }
+    public double Down { get; set; }
+    public double Up { get; set; }
+    /// <summary>The apps moving anything, fastest first.</summary>
+    public List<NetAppLive> Apps { get; set; } = [];
+}
+
+public sealed class NetAppLive
+{
+    public string Exe { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Path { get; set; }
+    public double Down { get; set; }
+    public double Up { get; set; }
+}
+
 /// <summary>Agent → app.</summary>
 public sealed class AgentMessage
 {
@@ -146,6 +166,8 @@ public sealed class AgentMessage
     /// <summary>The graphics adapters as Windows offers them to games (the main GPU first); null from agents before 0.5.17.</summary>
     public List<KeySensors.PreferredGpu>? PreferredGpus { get; set; }
     public List<SeriesHistory>? History { get; set; }
+    /// <summary>The internet's speed over the last minute (hello), oldest first; null without app network use (no admin rights).</summary>
+    public List<NetLive>? NetHistory { get; set; }
     public List<DriveHealthInfo>? Drives { get; set; }
     /// <summary>Sensors left out on purpose (another program controls that hardware, or the last scan didn't finish).</summary>
     public SensorStatus? SensorStatus { get; set; }
@@ -162,6 +184,8 @@ public sealed class AgentMessage
     public Dictionary<string, double[]>? Extremes { get; set; }
     public string? ExtremesDay { get; set; }
     public bool ExtremesFull { get; set; }
+    /// <summary>The internet this second (null: not read, no admin rights).</summary>
+    public NetLive? Net { get; set; }
 
     // procs
     public List<ProcInfo>? Procs { get; set; }

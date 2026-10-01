@@ -304,6 +304,26 @@ public class TrayReadingsTests
         Assert.Equal(RightmostInk(a), RightmostInk(b));
     }
 
+    [Fact]
+    public void Every_word_under_the_numbers_is_as_bold_as_the_parts_name()
+    {
+        // A user saw "Load" and "Power" look fainter than "CPU" and "GPU": they were drawn regular and see-through.
+        // The same word under the first reading (the part's name's place) and the second must come out the same.
+        var cell = new StripCell("GPU", Color.FromArgb(91, 140, 255), [new("5%", Color.White, "Load"), new("5%", Color.White, "Load")]);
+        using var bmp = WidgetRenderer.RenderStrip([cell], 48, 1, out _);
+        (int Ink, int Strongest) Words(int from, int to)
+        {
+            int ink = 0, strongest = 0;
+            for (int x = from; x < to; x++)
+                for (int y = bmp.Height / 2; y < bmp.Height; y++)
+                    if (bmp.GetPixel(x, y) is { A: > 100 } c && c.B > 200 && c.R < 150) { ink++; strongest = Math.Max(strongest, c.A); }
+            return (ink, strongest);
+        }
+        var (first, second) = (Words(0, bmp.Width / 2), Words(bmp.Width / 2, bmp.Width));
+        Assert.Equal(first.Strongest, second.Strongest);
+        Assert.InRange(second.Ink, first.Ink * 0.9, first.Ink * 1.1);
+    }
+
     private static int RightmostInk(Bitmap bmp)
     {
         for (int x = bmp.Width - 1; x >= 0; x--)

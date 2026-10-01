@@ -203,3 +203,60 @@ public sealed record FanCurveDay(long Day, long Fan, long App, int Temp, int N, 
 public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN, double CpuSum, int CpuN, double PowerSum, int PowerN);
 
 public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec);
+
+/// <summary>
+/// One minute of internet use, all apps together (net_minute), in bytes: downloaded and uploaded, the part by apps that
+/// weren't in front, and the part while nobody was at the PC; the local network apart. <see cref="Steady"/> is the speed
+/// the download held for most of the minute (bytes a second: three seconds in four were at least this fast), and
+/// <see cref="App"/> the app that downloaded the most in it.
+/// </summary>
+public sealed record NetMinute(long Ts, long Down, long Up, long BgDown, long BgUp, long AwayDown, long AwayUp, long Lan, long? Steady, long? App);
+
+/// <summary>
+/// A local day of <see cref="NetMinute"/> rows added up (net_day). <see cref="Best"/> is the day's fastest steady download
+/// (bytes a second; null when nothing downloaded steadily enough to say), and <see cref="BestTs"/> its minute.
+/// </summary>
+public sealed record NetDay(long Day, int Minutes, long Down, long Up, long BgDown, long BgUp, long AwayDown, long AwayUp, long Lan, long? Best, long? BestTs)
+{
+    /// <summary>Everything that moved while the app doing it wasn't in front, someone there or not.</summary>
+    public long Background => BgDown + BgUp + AwayDown + AwayUp;
+}
+
+/// <summary>
+/// One app's internet use in an hour (net_app_hour) or a day (net_app_day), in bytes: written as deltas and summed by the
+/// database. Down and Up are all of it; the Bg and Away parts are while it wasn't in front (with someone at the PC, and
+/// without); GameDown what it downloaded while a game was in front; Lan its local network traffic both ways.
+/// </summary>
+public sealed class NetAppUse
+{
+    public long Ts { get; set; }
+    public long App { get; set; }
+    public long Down { get; set; }
+    public long Up { get; set; }
+    public long BgDown { get; set; }
+    public long BgUp { get; set; }
+    public long AwayDown { get; set; }
+    public long AwayUp { get; set; }
+    public long GameDown { get; set; }
+    public long Lan { get; set; }
+
+    public long Total => Down + Up;
+    public long Background => BgDown + BgUp + AwayDown + AwayUp;
+    public bool IsEmpty => Down == 0 && Up == 0 && Lan == 0;
+}
+
+/// <summary>A big download: one app taking in a lot in one go (net_transfer). Sec is the seconds it was moving, for its speed.</summary>
+public sealed record NetTransfer(long Start, long App, long End, long Bytes, int Sec)
+{
+    /// <summary>Bytes a second while it was moving.</summary>
+    public double Speed => Sec > 0 ? (double)Bytes / Sec : 0;
+}
+
+/// <summary>Why the internet went: the cable or Wi-Fi itself, or past the PC (the router, the provider).</summary>
+public enum NetDropKind { Link, Internet }
+
+/// <summary>A time the internet dropped (net_drop), from when to when (unix seconds).</summary>
+public sealed record NetDrop(long Start, long End, NetDropKind Kind)
+{
+    public long Seconds => End - Start;
+}

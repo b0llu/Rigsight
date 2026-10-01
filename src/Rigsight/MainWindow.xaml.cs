@@ -94,6 +94,7 @@ public partial class MainWindow : Window
                 "crashes" => new CrashesView { DataContext = _vm.Crashes },
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },
                 "fans" => new FansView { DataContext = _vm.Fans },
+                "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
                 "storage" => new StorageView { DataContext = _vm.Storage },
                 "sensors" => new SensorsView { DataContext = _vm.Live },

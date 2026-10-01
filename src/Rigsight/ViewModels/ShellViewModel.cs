@@ -34,6 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
+        Network = new NetworkViewModel(Reports, Live);
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
@@ -108,6 +109,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public MemoryViewModel Memory { get; }
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }
+    public NetworkViewModel Network { get; }
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
     public TaskbarViewModel Taskbar { get; }
@@ -180,7 +182,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
         new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"),
-        new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("sensors", "All sensors"),
+        new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("network", "Network"), new("sensors", "All sensors"),
     ];
 
     [ObservableProperty]
@@ -236,6 +238,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "storage": await Storage.RefreshAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "fans": await Fans.RefreshAsync(); break;
+            case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
                 Overlay.LoadSensors();
@@ -282,6 +285,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 // Free space changes slowly: every five minutes is plenty.
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
                 case "fans": await Fans.RefreshAsync(); break;
+                case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartShowsNow) await LoadTemperatureHistoryAsync(); break;
                 default:
                     if (FindCustomPage(CurrentPage) is { } custom)

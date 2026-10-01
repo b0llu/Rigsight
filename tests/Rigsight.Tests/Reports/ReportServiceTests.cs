@@ -181,7 +181,8 @@ public sealed class ReportServiceTests
         {
             Assert.All(Wait(_service.CrashesAsync(from, to))!.Where(r => r.Event.AppExe == crash.AppExe), r => Assert.Equal("Renamed App", r.AppName));
             Assert.Equal("Renamed Top App", Wait(_service.BuildRangeAsync(from, to))!.Apps.Single(a => a.Id == used.Id).Name);
-            Assert.Equal("Renamed Top App", Wait(_service.BuildAsync(ReportRange.Month, DateTime.Now))!.Apps.Single(a => a.Id == used.Id).Name);
+            // The month holding yesterday: on the 1st, this month has only hours in it, and may not have the app yet.
+            Assert.Equal("Renamed Top App", Wait(_service.BuildAsync(ReportRange.Month, DateTime.Today.AddDays(-1)))!.Apps.Single(a => a.Id == used.Id).Name);
         }
         finally
         {

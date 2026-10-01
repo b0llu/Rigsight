@@ -236,7 +236,11 @@ public static class SeedData
         tx.Commit();
         conn.Close();
 
-        using (var db = RigsightDb.OpenWriter(dbPath)) AddFans(db, end);
+        using (var db = RigsightDb.OpenWriter(dbPath))
+        {
+            AddFans(db, end);
+            AddNetwork(db, end);
+        }
     }
 
     /// <summary>
@@ -269,6 +273,51 @@ public static class SeedData
             }
             db.WriteFanMinutes(m.Ts, fans);
         }
+    }
+
+    /// <summary>
+    /// Internet use for yesterday and today: Chrome a steady trickle in front, Steam downloading in big bursts in the
+    /// background (one of them a steady 11.8 MB/s download, recorded as a big download), Discord sending as much as it
+    /// takes in, a little local traffic, and one drop today.
+    /// </summary>
+    private static void AddNetwork(RigsightDb db, DateTime end)
+    {
+        var apps = db.LoadApps().ToDictionary(a => a.Exe, a => a.Id, StringComparer.OrdinalIgnoreCase);
+        long chrome = apps["chrome.exe"], steam = apps["steam.exe"], discord = apps["discord.exe"];
+        const long MB = 1L << 20;
+        var hours = new Dictionary<(long Hour, long App), NetAppUse>();
+        void Add(long ts, long app, long down, long up, bool background, bool away)
+        {
+            var t = TimeUtil.FromUnix(ts);
+            long hour = TimeUtil.ToUnix(TimeUtil.LocalHourStart(t));
+            if (!hours.TryGetValue((hour, app), out var u)) hours[(hour, app)] = u = new NetAppUse { Ts = hour, App = app };
+            u.Down += down;
+            u.Up += up;
+            if (away) { u.AwayDown += down; u.AwayUp += up; }
+            else if (background) { u.BgDown += down; u.BgUp += up; }
+        }
+        foreach (var m in db.GetMinutes(TimeUtil.ToUnix(end.Date.AddDays(-1)), TimeUtil.ToUnix(end) + 60))
+        {
+            var t = TimeUtil.FromUnix(m.Ts);
+            bool away = m.ActiveSec == 0;
+            bool burst = t.Hour is 3 or 14 && t.Minute < 20;
+            long steamDown = burst ? (long)(11.8 * MB * 60) : 0;
+            long chromeDown = away ? 0 : 3 * MB, discordDown = away ? 0 : MB / 2;
+            Add(m.Ts, steam, steamDown, steamDown / 100, background: true, away);
+            Add(m.Ts, chrome, chromeDown, chromeDown / 20, background: false, away);
+            Add(m.Ts, discord, discordDown, discordDown, background: true, away);
+            long down = steamDown + chromeDown + discordDown, up = steamDown / 100 + chromeDown / 20 + discordDown;
+            long bgDown = away ? 0 : steamDown + discordDown, bgUp = away ? 0 : steamDown / 100 + discordDown;
+            db.WriteNetMinute(new NetMinute(m.Ts, down, up, bgDown, bgUp, away ? down : 0, away ? up : 0, 200_000,
+                burst ? (long)(11.8 * MB) : null, burst ? steam : chrome));
+        }
+        foreach (var u in hours.Values) db.AddNetAppUse(u);
+        foreach (var day in new[] { end.Date.AddDays(-1), end.Date })
+        {
+            var start = day.AddHours(14);
+            if (start < end) db.InsertNetTransfer(new NetTransfer(TimeUtil.ToUnix(start), steam, TimeUtil.ToUnix(start.AddMinutes(20)), (long)(11.8 * MB * 1200), 1200));
+        }
+        db.InsertNetDrop(new NetDrop(TimeUtil.ToUnix(end.Date.AddHours(1)), TimeUtil.ToUnix(end.Date.AddHours(1).AddMinutes(3)), NetDropKind.Internet));
     }
 
     /// <summary>Settings for a test copy: nothing pops up on the tester's screen (widgets, overlay, alerts, recaps).</summary>

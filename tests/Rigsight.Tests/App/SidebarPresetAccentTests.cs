@@ -32,7 +32,7 @@ public sealed class SidebarPresetAccentTests
         Ui.Run(() =>
         {
             Assert.Equal(["home", "reports", "apps", "crashes"], Keys(sidebar.Main));
-            Assert.Equal(["temperatures", "fans", "memory", "storage", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
             Assert.All(sidebar.Main.Concat(sidebar.Hardware).Concat(sidebar.OnScreen), e => Assert.True(e.IsVisible));
             Assert.False(sidebar.DashboardsCollapsed);
@@ -49,15 +49,15 @@ public sealed class SidebarPresetAccentTests
             var fans = sidebar.Hardware.Single(e => e.Key == "fans");
             sidebar.MoveUpCommand.Execute(fans);
             sidebar.MoveUpCommand.Execute(fans); // already first: stays
-            Assert.Equal(["fans", "temperatures", "memory", "storage", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
 
             var apps = sidebar.Main.Single(e => e.Key == "apps");
             sidebar.MoveDownCommand.Execute(apps);
             sidebar.MoveDownCommand.Execute(apps); // already last of its group: doesn't jump into HARDWARE
             Assert.Equal(["home", "reports", "crashes", "apps"], Keys(sidebar.Main));
-            Assert.Equal(["fans", "temperatures", "memory", "storage", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
 
-            Assert.Equal(["home", "reports", "crashes", "apps", "fans", "temperatures", "memory", "storage", "sensors", "widgets", "overlay", "taskbar"],
+            Assert.Equal(["home", "reports", "crashes", "apps", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
                 settings.Current.Sidebar.Order);
         });
     }
@@ -71,7 +71,7 @@ public sealed class SidebarPresetAccentTests
         Ui.Run(() =>
         {
             Assert.Equal(["crashes", "home", "reports", "apps"], Keys(sidebar.Main));
-            Assert.Equal(["storage", "memory", "temperatures", "fans", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["storage", "memory", "temperatures", "fans", "network", "sensors"], Keys(sidebar.Hardware));
         });
     }
 

@@ -157,4 +157,34 @@ public static class Units
     public static string Megabytes(double mb) => mb >= 1024 ? $"{mb / 1024:0.0} GB" : $"{mb:0} MB";
 
     private static string Rate(double bytesPerSec) => Bytes(bytesPerSec) + "/s";
+
+    /// <summary>
+    /// Data moved, as Windows counts it (1 GB = 1,024 MB): "640 MB", "3.4 GB", "118 GB" (a decimal only where it says
+    /// something), "1.25 TB".
+    /// </summary>
+    public static string Data(double bytes) => bytes switch
+    {
+        >= 1L << 40 => $"{bytes / (1L << 40):0.00} TB",
+        >= 10L << 30 => $"{bytes / (1L << 30):0} GB",
+        >= 1L << 30 => $"{bytes / (1L << 30):0.0} GB",
+        >= 1L << 20 => $"{bytes / (1L << 20):0} MB",
+        >= 1L << 10 => $"{bytes / (1L << 10):0} KB",
+        _ => $"{bytes:0} B",
+    };
+
+    /// <summary>A speed in bytes a second: "11.8 MB/s", "312 KB/s".</summary>
+    public static string Speed(double bytesPerSec) => bytesPerSec switch
+    {
+        >= 1L << 30 => $"{bytesPerSec / (1L << 30):0.0} GB/s",
+        >= 1L << 20 => $"{bytesPerSec / (1L << 20):0.0} MB/s",
+        >= 1L << 10 => $"{bytesPerSec / (1L << 10):0} KB/s",
+        _ => $"{bytesPerSec:0} B/s",
+    };
+
+    /// <summary>A speed as internet plans state it, in megabits a second: "99 Mbps", "1.2 Gbps".</summary>
+    public static string Mbps(double bytesPerSec)
+    {
+        double mbps = bytesPerSec * 8 / 1_000_000;
+        return mbps >= 1000 ? $"{mbps / 1000:0.0} Gbps" : mbps >= 10 ? $"{mbps:0} Mbps" : $"{mbps:0.0} Mbps";
+    }
 }

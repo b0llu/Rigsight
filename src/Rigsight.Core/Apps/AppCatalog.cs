@@ -45,7 +45,7 @@ public static class AppCatalog
         ["explorer.exe"] = AppCategory.System, ["taskmgr.exe"] = AppCategory.System, ["systemsettings.exe"] = AppCategory.System,
         ["applicationframehost.exe"] = AppCategory.System, ["searchhost.exe"] = AppCategory.System, ["startmenuexperiencehost.exe"] = AppCategory.System,
         ["shellexperiencehost.exe"] = AppCategory.System, ["lockapp.exe"] = AppCategory.System, ["mmc.exe"] = AppCategory.System,
-        ["control.exe"] = AppCategory.System, ["rigsight.exe"] = AppCategory.System, ["rigsight.agent.exe"] = AppCategory.System,
+        ["control.exe"] = AppCategory.System, ["system"] = AppCategory.System, ["rigsight.exe"] = AppCategory.System, ["rigsight.agent.exe"] = AppCategory.System,
     };
 
     private static readonly string[] GameFolders =
@@ -104,6 +104,11 @@ public static class AppCatalog
         ["searchindexer.exe"] = "Windows Search indexing", ["compattelrunner.exe"] = "Windows compatibility check",
         ["wmiprvse.exe"] = "Windows management (WMI)", ["audiodg.exe"] = "Windows audio",
         ["fossilize_replay.exe"] = "Steam shader pre-caching",
+        // Windows services that use the network, each in its own service host (see the agent's NetApps), and Windows'
+        // own kernel traffic (file sharing, some VPNs).
+        ["svchost.exe:dosvc"] = "Delivery Optimization", ["svchost.exe:wuauserv"] = "Windows Update", ["svchost.exe:usosvc"] = "Windows Update",
+        ["svchost.exe:bits"] = "Windows background downloads", ["svchost.exe:installservice"] = "Microsoft Store installs",
+        ["svchost.exe:dnscache"] = "Windows name lookups (DNS)", ["system"] = "Windows system",
     };
 
     /// <summary>A built-in name for this exe, if it has one.</summary>

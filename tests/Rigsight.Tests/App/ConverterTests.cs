@@ -458,6 +458,9 @@ public sealed class ConverterTests
             var fan = icon.Convert("fan", typeof(object), null, CultureInfo.InvariantCulture);
             Assert.IsType<System.Windows.Controls.Grid>(fan);
             Assert.NotSame(fan, icon.Convert("fan", typeof(object), null, CultureInfo.InvariantCulture));
+            // The network screen, a size smaller than the font's own (it fills its square more than the other icons).
+            var network = Assert.IsType<System.Windows.Controls.Grid>(icon.Convert("network", typeof(object), null, CultureInfo.InvariantCulture));
+            Assert.Equal(14, Assert.IsType<System.Windows.Controls.TextBlock>(network.Children[0]).FontSize);
             Assert.Null(icon.Convert(null, typeof(object), null, CultureInfo.InvariantCulture));
             Assert.Same(System.Windows.Data.Binding.DoNothing, icon.ConvertBack("fan", typeof(string), null, CultureInfo.InvariantCulture));
         });

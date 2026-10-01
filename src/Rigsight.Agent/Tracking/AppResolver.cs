@@ -57,6 +57,22 @@ internal sealed class AppResolver
         return app;
     }
 
+    /// <summary>
+    /// The app record for a Windows service running in its own service host ("svchost.exe:DoSvc"), named after the
+    /// service ("Delivery Optimization") rather than the host, made the first time it's seen.
+    /// </summary>
+    public AppInfo GetService(string service, int pid)
+    {
+        string exe = "svchost.exe:" + service;
+        if (_byExe.TryGetValue(exe, out var app)) return app;
+        var path = pid > 4 ? Win32.ProcessPath(pid) : null;
+        var name = AppCatalog.KnownName(exe) ?? ServiceNames.Display(service);
+        var id = db.UpsertApp(exe, name, path, AppCategory.System);
+        app = new AppInfo { Id = id, Exe = exe, Name = name, Path = path, AutoCategory = AppCategory.System };
+        _byExe[exe] = app;
+        return app;
+    }
+
     /// <summary>Name and path for display only (doesn't create a database record).</summary>
     public (string Name, string? Path) Describe(string exe, int pid)
     {

@@ -97,6 +97,19 @@ public sealed class ReportService(SettingsModel settings)
         return buckets;
     });
 
+    /// <summary>The Network page: the period's internet use (with its insights), and the first day any was recorded.</summary>
+    public Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            var (from, to) = ReportBuilder.Bounds(range, anchor);
+            var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s));
+            return (report, db.FirstNetDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
+        });
+    }
+
     public Task<List<DriveDay>?> DriveHistoryAsync(int days) =>
         Run(db => db.GetDriveDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-days))));
 

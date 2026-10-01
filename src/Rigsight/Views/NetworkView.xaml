@@ -1,0 +1,429 @@
+<UserControl x:Class="Rigsight.Views.NetworkView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:vm="clr-namespace:Rigsight.ViewModels"
+             x:Name="Page">
+    <UserControl.Resources>
+        <Style x:Key="TileBox" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16,13" />
+            <Setter Property="Margin" Value="9,0" />
+        </Style>
+        <Style x:Key="TileBig" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Margin" Value="0,4,0,2" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="TileNote" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="Fact" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="13,10" />
+            <Setter Property="Margin" Value="5" />
+        </Style>
+        <Style x:Key="RowCard" TargetType="ctl:SmoothBorder" BasedOn="{StaticResource Card}">
+            <Setter Property="Margin" Value="9,0" />
+        </Style>
+        <!-- A row that opens with a click (no hover look: rows don't light up in Rigsight). -->
+        <Style x:Key="RowButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Swatch" TargetType="Rectangle">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="RadiusX" Value="2" />
+            <Setter Property="RadiusY" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="LegendText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Margin" Value="6,0,14,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,32">
+            <TextBlock Text="Network" Style="{StaticResource H1}" />
+            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,14" TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
+                                  CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- ── Right now: speeds, the connection, and who's using it ── -->
+            <Grid Margin="-9,0,-9,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.35*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ctl:SmoothBorder x:Name="LiveCard" Style="{StaticResource RowCard}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="Right now" Style="{StaticResource H2}" />
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                    <TextBlock Text="Download" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding DownNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,12" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
+                                    <TextBlock Text="Upload" Style="{StaticResource LegendText}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding UpNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ctl:NetLiveChart Grid.Column="1" Height="150" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
+                        </Grid>
+                        <TextBlock Text="App network use is read while the agent runs as admin." Style="{StaticResource TileNote}" Margin="0,8,0,0"
+                                   Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <ItemsControl ItemsSource="{Binding Facts}" Margin="-5,12,-5,0" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:NetFact}">
+                                    <Border Style="{StaticResource Fact}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource TileNote}" />
+                                            <TextBlock Text="{Binding Value}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- As tall as the card beside it: more apps than fit scroll inside it. -->
+                <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource RowCard}" VerticalAlignment="Top" Height="{Binding ActualHeight, ElementName=LiveCard}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Using it now" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Top" Text="Nothing's moving right now." Style="{StaticResource TileNote}"
+                                   Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
+                        <TextBlock DockPanel.Dock="Top" Text="Each app's speed shows here while the agent runs as admin." Style="{StaticResource TileNote}"
+                                   TextWrapping="Wrap" Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NetLiveRow}">
+                                        <Grid Margin="0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="92" />
+                                                <ColumnDefinition Width="86" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="10,0" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="12.5" Foreground="{DynamicResource CoolBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="12.5" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </ctl:SmoothBorder>
+            </Grid>
+
+            <TextBlock Text="Nothing recorded for this period yet. Internet use is recorded while the agent runs as admin."
+                       Style="{StaticResource Muted}" TextWrapping="Wrap"
+                       Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+
+            <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
+                <!-- The period's network insights, as Home and Reports say them. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18" Visibility="{Binding Insights.Count, Converter={StaticResource Vis}}">
+                    <ItemsControl ItemsSource="{Binding Insights}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,5" ToolTip="{Binding DetailOrNull}">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                                   Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="14,0,0,0" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ctl:SmoothBorder>
+
+                <!-- ── Four even tiles ── -->
+                <UniformGrid Rows="1" Margin="-9,0,-9,18">
+                    <Border Style="{StaticResource TileBox}">
+                        <StackPanel>
+                            <TextBlock Text="DOWNLOADED" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding DownText}" Style="{StaticResource TileBig}" />
+                            <TextBlock Text="{Binding DownNote}" Style="{StaticResource TileNote}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBox}">
+                        <StackPanel>
+                            <TextBlock Text="UPLOADED" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding UpText}" Style="{StaticResource TileBig}" />
+                            <TextBlock Text="{Binding UpNote}" Style="{StaticResource TileNote}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBox}">
+                        <StackPanel>
+                            <TextBlock Text="IN THE BACKGROUND" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding BackgroundText}" Style="{StaticResource TileBig}" />
+                            <TextBlock Text="{Binding BackgroundNote}" Style="{StaticResource TileNote}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBox}">
+                        <StackPanel>
+                            <TextBlock Text="TOP SPEED" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding SpeedText}" Style="{StaticResource TileBig}" />
+                            <TextBlock Text="{Binding SpeedNote}" Style="{StaticResource TileNote}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- ── The chart, full width ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                <TextBlock Text="Download" Style="{StaticResource LegendText}" />
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.45" />
+                                <TextBlock Text="of it in the background" Style="{StaticResource LegendText}" />
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
+                                <TextBlock Text="Upload" Style="{StaticResource LegendText}" Margin="6,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <ctl:NetBarsChart Height="230" Bins="{Binding Bins}" Unit="{Binding Unit}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── Every app ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18" Visibility="{Binding HasApps, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetFilter" Content="All use"
+                                                 IsChecked="{Binding BackgroundOnly, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetFilter" Content="Background only"
+                                                 ToolTip="Only what each app moved while it wasn't the window in front"
+                                                 IsChecked="{Binding BackgroundOnly}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Apps" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Grid Margin="8,6,8,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30" />
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="1.4*" />
+                                <ColumnDefinition Width="84" />
+                                <ColumnDefinition Width="84" />
+                                <ColumnDefinition Width="130" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="APP" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="3" Text="DOWN" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="4" Text="UP" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="5" Text="BACKGROUND" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Apps}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:NetAppRow}">
+                                    <StackPanel>
+                                        <Button Style="{StaticResource RowButton}" Padding="8,8" AutomationProperties.Name="{Binding Name}"
+                                                Command="{Binding DataContext.ToggleCommand, ElementName=Page}" CommandParameter="{Binding}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="30" />
+                                                    <ColumnDefinition Width="1.6*" />
+                                                    <ColumnDefinition Width="1.4*" />
+                                                    <ColumnDefinition Width="84" />
+                                                    <ColumnDefinition Width="84" />
+                                                    <ColumnDefinition Width="130" />
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    <TextBlock Text="{Binding CategoryText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                                </StackPanel>
+                                                <Grid Grid.Column="2" Height="6" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                                    <ctl:BarPair DownShare="{Binding DownBar}" UpShare="{Binding UpBar}" />
+                                                </Grid>
+                                                <TextBlock Grid.Column="3" Text="{Binding DownText}" FontSize="13" Foreground="{DynamicResource CoolBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="4" Text="{Binding UpText}" FontSize="13" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="5" Text="{Binding BackgroundText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Button>
+                                        <!-- Opened: in front, in the background, away; its busiest time, fastest download and local traffic. -->
+                                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="16,12" Margin="38,0,0,8"
+                                                Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+                                            <StackPanel>
+                                                <TextBlock Text="IN FRONT OR IN THE BACKGROUND" Style="{StaticResource Caption}" />
+                                                <ctl:ShareBar Height="8" Margin="0,8,0,6" Front="{Binding FrontShare}" Background2="{Binding BgShare}" Away="{Binding AwayShare}" />
+                                                <WrapPanel>
+                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                                    <TextBlock Text="{Binding FrontText}" Style="{StaticResource LegendText}" />
+                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.45" />
+                                                    <TextBlock Text="{Binding BgText}" Style="{StaticResource LegendText}" />
+                                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.22" />
+                                                    <TextBlock Text="{Binding AwayText}" Style="{StaticResource LegendText}" />
+                                                </WrapPanel>
+                                                <UniformGrid Columns="3" Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding BusiestLabel}" Style="{StaticResource TileNote}" />
+                                                        <TextBlock Text="{Binding BusiestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="Fastest download" Style="{StaticResource TileNote}" />
+                                                        <TextBlock Text="{Binding FastestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="Local network" Style="{StaticResource TileNote}" />
+                                                        <TextBlock Text="{Binding LocalText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── Three even cards ── -->
+                <UniformGrid Rows="1" Margin="-9,0">
+                    <ctl:SmoothBorder Style="{StaticResource RowCard}">
+                        <StackPanel>
+                            <TextBlock Text="While you were away" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding AwayText}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,0" />
+                            <TextBlock Text="downloaded while nobody was at the PC" Style="{StaticResource TileNote}" />
+                            <ItemsControl ItemsSource="{Binding AwayApps}" Margin="0,10,0,0" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NetAmountRow}">
+                                        <DockPanel Margin="0,4">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Amount}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
+                    <ctl:SmoothBorder Style="{StaticResource RowCard}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding DownloadsTitle}" Style="{StaticResource H2}" />
+                            <TextBlock Text="No big downloads." Style="{StaticResource TileNote}" Margin="0,10,0,0"
+                                       Visibility="{Binding HasDownloads, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <ItemsControl ItemsSource="{Binding Downloads}" Margin="0,6,0,0" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NetDownloadRow}">
+                                        <Grid Margin="0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" Margin="10,0">
+                                                <TextBlock Style="{StaticResource Body}" TextTrimming="CharacterEllipsis">
+                                                    <Run Text="{Binding Name, Mode=OneWay}" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding When, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding How}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding Size}" FontSize="13" Foreground="{DynamicResource CoolBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
+                    <ctl:SmoothBorder Style="{StaticResource RowCard}">
+                        <StackPanel>
+                            <TextBlock Text="Connection" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding DropsTitle}" FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DropsWarn}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding DropsNote}" Style="{StaticResource TileNote}" Visibility="{Binding DropsNote, Converter={StaticResource Vis}}" />
+                            <!-- A day in quarter hours: online, dropped, or nothing (off, or still to come). -->
+                            <StackPanel Visibility="{Binding Strip.Count, Converter={StaticResource Vis}}" Margin="0,12,0,0">
+                                <ItemsControl ItemsSource="{Binding Strip}" Height="22" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Rectangle x:Name="Cell" Margin="0.5,0" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="Dropped">
+                                                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource HotBrush}" />
+                                                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding}" Value="None">
+                                                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource Surface2Brush}" />
+                                                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Grid Margin="0,6,0,0">
+                                    <TextBlock Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                                    <TextBlock Text="12 PM" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </UniformGrid>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

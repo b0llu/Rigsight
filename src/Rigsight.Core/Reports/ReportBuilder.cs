@@ -139,6 +139,9 @@ public static class ReportBuilder
             report.StreakDays = StreakOf(db, report, from);
         }
         if (report.Crashes.Count > 0) report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
+        if (range is ReportRange.Day or ReportRange.Week or ReportRange.Month or ReportRange.Year)
+            report.Net = NetReportBuilder.Build(db, range, anchor, apps, settings,
+                [.. report.Apps.Where(a => a.Category == AppCategory.Game && a.ActiveSec >= 60).Select(a => a.Name)]);
         report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts, context);
         return report;
     }

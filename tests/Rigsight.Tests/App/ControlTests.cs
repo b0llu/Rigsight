@@ -668,7 +668,8 @@ public sealed class ControlTests
             var map = new Treemap { Items = Nodes(sizes) };
             Draw.Render(map, 600, 400);
             var layout = Layout(map);
-            Assert.Equal(sizes.Length, layout.Count);
+            // Every block, the slivers together as one "Others" (see Treemap.Grouped).
+            Assert.Equal(Treemap.Grouped(map.Items!, 600 * 400).Count, layout.Count);
             double total = sizes.Sum(s => (double)s);
             foreach (var (rect, node, _) in layout)
             {

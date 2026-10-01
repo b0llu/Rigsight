@@ -80,7 +80,7 @@ public sealed partial class QueryPlanTests
     {
         "GetMinutes", "GetAppHours", "GetAppTotals", "GetSystemDays", "GetSessions", "GetLongestSessions", "GetSessionStats", "GetRecentSessions",
         "GetCrashes", "GetCrashContext", "TempRange", "AverageTemps", "FindMinute", "GetAppMonths", "GetAppTime", "PeakTempsBefore", "FrontAppAt",
-        "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec",
+        "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec", "Network",
     };
 
     [Theory]
@@ -119,6 +119,12 @@ public sealed partial class QueryPlanTests
             "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); db.GetFanCurveDays(U(2000, 1, 1), to); },
             "GetHeatDays" => () => db.GetHeatDays(U(now.Date.AddDays(-120)), U(now.Date.AddDays(-30))),
             "LongestGameSessionSec" => () => db.LongestGameSessionSec(from, to, [1, 2, 3]),
+            "Network" => () =>
+            {
+                db.GetNetMinutes(day, day + 86400); db.GetNetDays(U(2000, 1, 1), to); db.GetNetAppHours(day, day + 86400);
+                db.GetNetAppDays(from, to); db.GetNetAppTotals(U(2000, 1, 1), to); db.GetNetTransfers(from, to, 4); db.GetNetDrops(from, to);
+                db.FirstNetDay();
+            },
             _ => throw new ArgumentException(method),
         };
         AssertNoFullScans(Seeds.Small, Capture(db, run), method);
@@ -137,6 +143,22 @@ public sealed partial class QueryPlanTests
             t.Db.WriteFanMinutes(ts, [(fan, 1200, 1300)]);
         });
         AssertNoFullScans(t.Path, statements, "Writing a minute's fans");
+    }
+
+    [Fact]
+    public void Writing_a_minutes_internet_use_reads_no_whole_table()
+    {
+        using var t = new TestDb();
+        long ts = U(2025, 1, 10) + 3600;
+        var statements = Capture(t.Db, () =>
+        {
+            t.Db.WriteNetMinute(new NetMinute(ts, 1000, 10, 0, 0, 0, 0, 0, 600_000, 1));
+            t.Db.AddNetAppUse(new NetAppUse { Ts = ts, App = 1, Down = 1000, Up = 10 });
+            t.Db.InsertNetTransfer(new NetTransfer(ts, 1, ts + 60, 200_000_000, 60));
+            t.Db.InsertNetDrop(new NetDrop(ts, ts + 30, NetDropKind.Internet));
+            t.Db.Prune(ts - 86400 * 3 + 777);
+        });
+        AssertNoFullScans(t.Path, statements, "Writing a minute's internet use");
     }
 
     public static TheoryData<ReportRange> Ranges => [.. Enum.GetValues<ReportRange>()];

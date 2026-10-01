@@ -129,7 +129,7 @@ internal static class Program
             if (!WaitFor(() => ui.HasSidebarReadings(), 20_000)) Fail("The sidebar never showed live CPU/GPU readings (no data from the agent?)");
 
             Step("Visiting every page");
-            string[] pages = ["Home", "Reports", "Apps", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
+            string[] pages = ["Home", "Reports", "Apps", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "Network", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
             var pageCpu = new Dictionary<string, double>();
             foreach (var page in pages)
             {
@@ -421,7 +421,23 @@ internal static class Program
         File.Delete(response);
         if (!int.TryParse(answer, out int pid)) throw new Exception($"The admin helper refused: {answer}");
         Console.WriteLine("  (started through the admin helper: no Windows prompt)");
-        return Process.GetProcessById(pid);
+        try { return Process.GetProcessById(pid); }
+        catch (ArgumentException)
+        {
+            // Already gone: the agent starts itself again at once (see the gen0 restart), and the helper's answer can come
+            // after that. The one running says so in the log.
+            Process? started = null;
+            WaitFor(() => LogLine("[agent] Starting") is { } line
+                && System.Text.RegularExpressions.Regex.Match(line, @"process (\d+)") is { Success: true } m
+                && TryProcess(int.Parse(m.Groups[1].Value), out started), 15_000);
+            return started ?? throw new Exception($"The agent the admin helper started ({pid}) stopped at once");
+        }
+    }
+
+    private static bool TryProcess(int pid, out Process? process)
+    {
+        try { process = Process.GetProcessById(pid); return true; }
+        catch (ArgumentException) { process = null; return false; }
     }
 
     /// <summary>A command to the test agent over its pipe, like the app sends.</summary>

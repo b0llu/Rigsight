@@ -107,11 +107,18 @@ public sealed class EqualsConverter : IValueConverter
     }
 }
 
-/// <summary>A sidebar entry's icon: an icon-font character, or the drawn fan for "fan" (the font has none).</summary>
+/// <summary>
+/// A sidebar entry's icon: an icon-font character, the drawn fan for "fan" (the font has none), or the network screen for
+/// "network" (a size smaller, see NetworkIcon).
+/// </summary>
 public sealed class NavIconConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value as string == "fan" ? Application.Current.FindResource("FanIcon") : value;
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => (value as string) switch
+    {
+        "fan" => Application.Current.FindResource("FanIcon"),
+        "network" => Application.Current.FindResource("NetworkIcon"),
+        _ => value,
+    };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

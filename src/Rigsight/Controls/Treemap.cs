@@ -52,7 +52,7 @@ public sealed class Treemap : FrameworkElement
     {
         var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
         dc.DrawRectangle(Brushes.Transparent, null, bounds);
-        var items = (Items ?? []).Where(i => i.Size > 0).OrderByDescending(i => i.Size).ToList();
+        var items = Grouped(Items ?? [], bounds.Width * bounds.Height);
         if (items.Count == 0 || bounds.Width < 10 || bounds.Height < 10)
         {
             _layout = [];
@@ -73,13 +73,7 @@ public sealed class Treemap : FrameworkElement
             if (node.IsBucket) dc.DrawRoundedRectangle(Dim, null, r, 6, 6);
             if (i == _hover) dc.DrawRoundedRectangle(Highlight, null, r, 6, 6);
 
-            if (r.Width > 64 && r.Height > 34)
-            {
-                dc.PushClip(new RectangleGeometry(r));
-                ChartPaint.Text(dc, this, node.Name, new Point(r.X + 8, r.Y + 6), 12, Ink, bold: true, middle: false);
-                ChartPaint.Text(dc, this, Units.Bytes(node.Size), new Point(r.X + 8, r.Y + 22), 11, Ink, middle: false);
-                dc.Pop();
-            }
+            Label(dc, r, node);
         }
 
         if (_hover >= 0 && _hover < _layout.Count)
@@ -90,10 +84,69 @@ public sealed class Treemap : FrameworkElement
                 (node.Name, ChartPaint.TextBrush, true),
                 ($"{Units.Bytes(node.Size)}  ·  {node.Size / total:P1}", ChartPaint.Muted, false),
             };
-            if (node.Files > 0) lines.Add(($"{node.Files:N0} files", ChartPaint.Muted, false));
+            if (node.Name == "Others" && node.IsBucket) lines.Add(($"{node.Children.Count} smaller items", ChartPaint.Muted, false));
+            else if (node.Files > 0) lines.Add(($"{node.Files:N0} files", ChartPaint.Muted, false));
             if (node.Children.Count > 0) lines.Add(("Click to open", ChartPaint.Muted, false));
             ChartPaint.InfoBox(dc, this, lines, Mouse.GetPosition(this), bounds);
         }
+    }
+
+    /// <summary>Blocks under this share of the map are too small to read or click: they're shown together as "Others"…</summary>
+    internal const double MinShare = 0.015;
+
+    /// <summary>…and so are blocks under this many square pixels, wherever the map is small enough for that to be more.</summary>
+    internal const double MinArea = 2600;
+
+    /// <summary>
+    /// A block's name and size, as much as fits: both across when it's wide enough, the name cut short ("Progr…") when
+    /// it's narrow, and the name up its side when it's tall but thin. Nothing only on a block too small for a word.
+    /// </summary>
+    private void Label(DrawingContext dc, Rect r, FolderNode node)
+    {
+        dc.PushClip(new RectangleGeometry(r));
+        if (r.Width >= 36 && r.Height >= 22)
+        {
+            dc.DrawText(Fitted(node.Name, 12, r.Width - 16, bold: true), new Point(r.X + 8, r.Y + 6));
+            if (r.Height >= 38) dc.DrawText(Fitted(Units.Bytes(node.Size), 11, r.Width - 16), new Point(r.X + 8, r.Y + 22));
+        }
+        else if (r.Height >= 56 && r.Width >= 16)
+        {
+            var name = Fitted(node.Name, 12, r.Height - 16, bold: true);
+            dc.PushTransform(new RotateTransform(-90, r.X, r.Bottom));
+            dc.DrawText(name, new Point(r.X + 8, r.Bottom + (r.Width - name.Height) / 2));
+            dc.Pop();
+        }
+        dc.Pop();
+    }
+
+    /// <summary>One line of text, cut short with "…" past <paramref name="width"/>.</summary>
+    private FormattedText Fitted(string text, double size, double width, bool bold = false)
+    {
+        var ft = ChartPaint.Format(this, text, size, Ink, bold);
+        ft.MaxTextWidth = Math.Max(1, width);
+        ft.MaxLineCount = 1;
+        ft.Trimming = TextTrimming.CharacterEllipsis;
+        return ft;
+    }
+
+    /// <summary>
+    /// What the map shows, biggest first: every item big enough to read, and the rest (two or more) as one "Others" block
+    /// that opens to show them. The list view keeps every item.
+    /// </summary>
+    internal static List<FolderNode> Grouped(IReadOnlyList<FolderNode> nodes, double area = 0)
+    {
+        var items = nodes.Where(i => i.Size > 0).OrderByDescending(i => i.Size).ToList();
+        double total = items.Sum(i => (double)i.Size);
+        double share = area > 0 ? Math.Max(MinShare, MinArea / area) : MinShare;
+        var small = items.Where(i => i.Size < total * share).ToList();
+        if (small.Count < 2) return items;
+        var parent = small[0].Parent;
+        var others = new FolderNode
+        {
+            Name = "Others", Path = parent?.Path ?? small[0].Path, Parent = parent, IsBucket = true,
+            Size = small.Sum(i => i.Size), Files = small.Sum(i => i.Files), Children = small,
+        };
+        return [.. items.Except(small), others];
     }
 
     private static void Squarify(List<(double Area, FolderNode Node, int Color)> items, Rect rect, List<(Rect, FolderNode, int)> output)

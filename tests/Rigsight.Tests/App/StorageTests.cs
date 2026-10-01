@@ -12,15 +12,21 @@ namespace Rigsight.Tests.App;
 [Collection("UI")]
 public sealed class StorageTests
 {
-    /// <summary>A folder tree with known sizes: 200 B at the top, a/ 3 × 1000 B, b/c/ 5000 B, empty/ nothing.</summary>
+    /// <summary>A cluster on the test drive (NTFS's usual): files of whole clusters take exactly their size.</summary>
+    private const int K = 4096;
+
+    /// <summary>
+    /// A folder tree with known sizes, in whole 4 KB clusters so the space each file takes is its size: 8 KB at the top,
+    /// a/ 3 × 4 KB, b/c/ 20 KB, empty/ nothing.
+    /// </summary>
     private static string Tree()
     {
         var root = TestEnvironment.NewFolder("scan");
-        File.WriteAllBytes(Path.Combine(root, "top.bin"), new byte[200]);
+        File.WriteAllBytes(Path.Combine(root, "top.bin"), new byte[2 * K]);
         Directory.CreateDirectory(Path.Combine(root, "a"));
-        for (int i = 0; i < 3; i++) File.WriteAllBytes(Path.Combine(root, "a", $"f{i}.bin"), new byte[1000]);
+        for (int i = 0; i < 3; i++) File.WriteAllBytes(Path.Combine(root, "a", $"f{i}.bin"), new byte[K]);
         Directory.CreateDirectory(Path.Combine(root, "b", "c"));
-        File.WriteAllBytes(Path.Combine(root, "b", "c", "big.bin"), new byte[5000]);
+        File.WriteAllBytes(Path.Combine(root, "b", "c", "big.bin"), new byte[5 * K]);
         Directory.CreateDirectory(Path.Combine(root, "empty"));
         return root;
     }
@@ -42,20 +48,20 @@ public sealed class StorageTests
         {
             Assert.False(vm.IsScanning);
             var r = vm.Result!;
-            Assert.Equal(8200, r.Root.Size);
+            Assert.Equal(10 * K, r.Root.Size);
             Assert.Equal(5, r.Root.Files);
             Assert.Equal(5, r.FileCount);
             // Biggest first; the empty folder is left out; loose files get a bucket of their own.
             Assert.Equal(["b", "a", "Files in this folder"], r.Root.Children.Select(c => c.Name));
-            Assert.Equal([5000L, 3000L, 200L], r.Root.Children.Select(c => c.Size));
+            Assert.Equal([5L * K, 3L * K, 2L * K], r.Root.Children.Select(c => c.Size));
             Assert.True(r.Root.Children[2].IsBucket);
             Assert.All(r.Root.Children, c => Assert.Same(r.Root, c.Parent));
-            Assert.Equal(5000.0 / 8200 * 100, r.Root.Children[0].Share, 6);
+            Assert.Equal(50, r.Root.Children[0].Share, 6);
             Assert.Equal(100, r.Root.Share);
             Assert.Equal("big.bin", r.LargestFiles[0].Name);
             Assert.Equal(Path.Combine(root, "b", "c"), r.LargestFiles[0].Folder);
             Assert.Equal(r.LargestFiles.OrderByDescending(f => f.Size).Select(f => f.Size), r.LargestFiles.Select(f => f.Size));
-            Assert.Matches(@"^8 KB in 5 files · scanned in \d+\.\ds$", vm.ScanStatus);
+            Assert.Matches(@"^40 KB in 5 files · scanned in \d+\.\ds$", vm.ScanStatus);
             Assert.Same(r.Root, vm.Current);
             Assert.Equal([r.Root], vm.Breadcrumbs);
             Assert.False(vm.CanGoUp);
@@ -96,7 +102,7 @@ public sealed class StorageTests
     public void Refresh_after_deleting_a_file_drops_it_and_stays_in_the_open_folder()
     {
         var root = Tree();
-        File.WriteAllBytes(Path.Combine(root, "b", "c", "keep.bin"), new byte[700]);
+        File.WriteAllBytes(Path.Combine(root, "b", "c", "keep.bin"), new byte[K]);
         var vm = Page();
         int cleanupRuns = 0;
         Ui.Run(() => vm.FindCleanup = () => { cleanupRuns++; return [new CleanupItem("Temp", "", 1, null, false)]; });
@@ -114,9 +120,9 @@ public sealed class StorageTests
         Ui.Run(() =>
         {
             Assert.DoesNotContain(vm.Result!.LargestFiles, f => f.Name == "big.bin");
-            Assert.Equal(3900, vm.Result.Root.Size);
+            Assert.Equal(6 * K, vm.Result.Root.Size);
             Assert.Equal(b, vm.Current!.Path);                 // still in the folder that was open
-            Assert.Equal(700, vm.Current.Size);
+            Assert.Equal(K, vm.Current.Size);
             Assert.Equal(2, vm.Breadcrumbs.Count);             // root > b
             Assert.NotEmpty(vm.Volumes);                        // the drives were read again
             Assert.Equal("Temp", Assert.Single(vm.Cleanup).Title);
@@ -151,7 +157,7 @@ public sealed class StorageTests
         for (int i = 0; i < 65; i++)
         {
             var dir = Directory.CreateDirectory(Path.Combine(root, $"d{i:00}"));
-            File.WriteAllBytes(Path.Combine(dir.FullName, "x.bin"), new byte[100 + i]);
+            File.WriteAllBytes(Path.Combine(dir.FullName, "x.bin"), new byte[(i + 1) * K]);
         }
         var vm = Page();
         Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
@@ -161,7 +167,7 @@ public sealed class StorageTests
             Assert.Equal(61, children.Count);
             var bucket = Assert.Single(children, c => c.IsBucket);
             Assert.Equal("5 smaller folders", bucket.Name);
-            Assert.Equal(100 + 101 + 102 + 103 + 104, bucket.Size);
+            Assert.Equal((1 + 2 + 3 + 4 + 5) * K, bucket.Size);
             Assert.Equal(vm.Result.Root.Size, children.Sum(c => c.Size));
         });
     }
@@ -213,7 +219,7 @@ public sealed class StorageTests
         var reports = new List<(long Files, long Bytes)>();
         var progress = new SyncProgress(reports);
         var result = await StorageScanner.ScanAsync(root, progress, TestContext.Current.CancellationToken);
-        Assert.Equal((5L, 8200L), reports[^1]);
+        Assert.Equal((5L, 10L * K), reports[^1]);
         Assert.Equal(Path.GetFileName(root), result.Root.Name);
         Assert.Equal(root, result.Root.Path);
     }
@@ -230,8 +236,8 @@ public sealed class StorageTests
     public void Folder_sizes_for_cleanup_suggestions()
     {
         var root = Tree();
-        Assert.Equal(8200, StorageScanner.FolderSize(root));
-        Assert.Equal(5000, StorageScanner.FolderSize(root, f => f.Length > 1000));
+        Assert.Equal(10 * K, StorageScanner.FolderSize(root));
+        Assert.Equal(7 * K, StorageScanner.FolderSize(root, f => f.Length > K));
         Assert.Equal(0, StorageScanner.FolderSize(Path.Combine(root, "nope")));
         Assert.Equal(0, StorageScanner.FolderSize(Path.Combine(root, "empty")));
     }

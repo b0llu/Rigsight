@@ -1,5 +1,4 @@
 using System.Text;
-using Microsoft.Win32;
 using Rigsight.Agent.Native;
 using Rigsight.Core.Protocol;
 
@@ -19,7 +18,6 @@ internal sealed class ProcessLabels
 
     // Roles by process, read once per process (a command line never changes).
     private readonly Dictionary<(int Pid, long Created), string?> _roles = [];
-    private readonly Dictionary<string, string> _services = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A process's command line (null if it can't be read). Tests give their own.</summary>
     internal Func<int, string?> CommandLine { get; init; } = Win32.ProcessCommandLine;
@@ -33,7 +31,7 @@ internal sealed class ProcessLabels
         var roles = processes.Select(p =>
         {
             if (!_roles.TryGetValue((p.Pid, p.Created), out var role))
-                _roles[(p.Pid, p.Created)] = role = Role(exe, CommandLine(p.Pid), ServiceName);
+                _roles[(p.Pid, p.Created)] = role = Role(exe, CommandLine(p.Pid), ServiceNames.Display);
             return role;
         }).ToList();
         // In a browser-style app the one process without a role is the one that runs the rest. (A service host
@@ -110,32 +108,6 @@ internal sealed class ProcessLabels
         int end = commandLine.IndexOf(' ', i);
         var value = (end < 0 ? commandLine[i..] : commandLine[i..end]).Trim('"');
         return value.Length > 0 ? value : null;
-    }
-
-    /// <summary>A service's display name ("Task Scheduler" for "Schedule").</summary>
-    private string ServiceName(string service)
-    {
-        if (_services.TryGetValue(service, out var name)) return name;
-        name = service;
-        try
-        {
-            using var key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{service}");
-            if (key?.GetValue("DisplayName") is string display && display.Length > 0)
-            {
-                if (!display.StartsWith('@')) name = display;
-                else
-                {
-                    // "@%SystemRoot%\system32\schedsvc.dll,-100": a string inside a Windows file.
-                    var text = new StringBuilder(256);
-                    if (Win32.SHLoadIndirectString(display, text, text.Capacity, IntPtr.Zero) == 0 && text.Length > 0) name = text.ToString();
-                }
-            }
-        }
-        catch
-        {
-            // Not readable: the short name will do.
-        }
-        return _services[service] = name;
     }
 
     /// <summary>Titles of the visible top-level windows, by process.</summary>

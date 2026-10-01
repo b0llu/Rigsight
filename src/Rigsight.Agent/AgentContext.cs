@@ -1,9 +1,11 @@
 using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using Rigsight.Agent.Ipc;
 using Rigsight.Agent.Native;
+using Rigsight.Agent.Network;
 using Rigsight.Agent.Sensors;
 using Rigsight.Agent.Tracking;
 using Rigsight.Agent.Ui;
@@ -59,6 +61,15 @@ internal sealed class AgentContext : ApplicationContext
     private bool _procsNow; // sampler thread: sample processes on this pass
     private bool _sensorsNow; // sampler thread: read the sensors (and redraw the taskbar readings) on this pass
     private readonly ActivityMonitor _activity = new();
+    // Internet use (sampler thread): the trace of every app's bytes (null without admin rights), this PC's addresses (read
+    // again when the adapters change), drops, and the last minute's speeds for an app that connects.
+    private NetworkTrace? _netTrace;
+    private volatile AddressBook _addresses = AddressBook.Empty;
+    private volatile bool _addressesChanged = true;
+    private readonly ConnectionWatch _connection = new();
+    private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
+    private readonly Queue<NetLive> _netHistory = new();
+    private readonly Lock _netHistoryLock = new();
     // The PC was just turned on or woke from sleep: the recap is due once the user is here (sampler thread reads it).
     private volatile bool _justTurnedOn = DailyRecap.JustSignedIn();
     private bool _presentNow;
@@ -271,9 +282,11 @@ internal sealed class AgentContext : ApplicationContext
 
         RecordDrives();
         RestoreExtremes();
+        StartNetwork();
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
+        long lastNet = 0, nextAddresses = 0;
         long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000,
             nextHardwareApps = 30_000;
         // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
@@ -320,6 +333,21 @@ internal sealed class AgentContext : ApplicationContext
                 _tracker.OnActivity(sample, dt);
                 Measure("activity", t0);
 
+                t0 = Stopwatch.GetTimestamp();
+                if (_addressesChanged || now >= nextAddresses)
+                {
+                    _addressesChanged = false;
+                    _addresses = AddressBook.Read();
+                    nextAddresses = now + 60_000;
+                }
+                // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
+                if (lastNet == 0 || now - lastNet >= 900)
+                {
+                    SampleNetwork(lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60));
+                    lastNet = now;
+                }
+                Measure("network", t0);
+
                 if (now >= nextSensor || _sensorsNow)
                 {
                     _sensorsNow = false;
@@ -358,6 +386,7 @@ internal sealed class AgentContext : ApplicationContext
                             Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
                             ExtremesDay = _extremes.Day,
                             ExtremesFull = full,
+                            Net = _netTrace is null ? null : _tracker.NetNow,
                         });
                     }
 
@@ -382,6 +411,7 @@ internal sealed class AgentContext : ApplicationContext
                     if (firstProcs) MemoryAt("GPU use by app sampled");
                     Measure("processes", t0);
                     t0 = Stopwatch.GetTimestamp();
+                    _running = snapshot.PidToExe;
                     _activity.UpdateProcessMap(snapshot.PidToExe);
                     var windows = _activity.ScanWindows();
                     _tracker.OnProcesses(snapshot, windows, pdt);
@@ -427,6 +457,9 @@ internal sealed class AgentContext : ApplicationContext
 
         _tracker.Flush(closeAllSessions: true);
         SaveExtremes(force: true);
+        _netTrace?.Dispose();
+        NetworkChange.NetworkAddressChanged -= OnAddressChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
         _sensors.Close();
         _gpuSampler.Dispose();
         _db.Dispose();
@@ -802,7 +835,54 @@ internal sealed class AgentContext : ApplicationContext
 
     private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Resume) _justTurnedOn = true;
+        if (e.Mode == PowerModes.Resume)
+        {
+            _justTurnedOn = true;
+            RunOnSampler(() => _connection.Settle(TimeUtil.NowUnix()));
+        }
+        else if (e.Mode == PowerModes.Suspend) RunOnSampler(_connection.Suspend);
+    }
+
+    // ── Internet ──────────────────────────────────────────────────────────
+
+    /// <summary>Sampler thread: starts reading every app's network use (with admin rights), and watching for drops.</summary>
+    private void StartNetwork()
+    {
+        NetworkChange.NetworkAddressChanged += OnAddressChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnAvailabilityChanged;
+        _addresses = AddressBook.Read();
+        _addressesChanged = false;
+        _connection.Settle(TimeUtil.NowUnix());
+        if (_isAdmin) _netTrace = NetworkTrace.Start("Rigsight Network" + RigsightPaths.InstanceSuffix, () => _addresses);
+        MemoryAt("network");
+    }
+
+    private void OnAddressChanged(object? sender, EventArgs e) => _addressesChanged = true;
+    private void OnAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e) => _addressesChanged = true;
+
+    /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>
+    private void SampleNetwork(double seconds)
+    {
+        long? internetDown = null;
+        if (_netTrace is { } trace)
+        {
+            var counts = trace.Take();
+            long down = 0;
+            foreach (var c in counts.Values) down += c.InternetDown;
+            internetDown = down;
+            _tracker.OnNetwork(counts, _running, seconds);
+            var now = _tracker.NetNow;
+            lock (_netHistoryLock)
+            {
+                _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });
+                while (_netHistory.Count > 60) _netHistory.Dequeue();
+            }
+        }
+        if (_connection.Observe(TimeUtil.NowUnix(), NetAdapters.WindowsSeesInternet(), _addresses.CardConnected, internetDown) is { } drop)
+        {
+            Log.Write("network", $"The internet dropped for {drop.Seconds} s ({drop.Kind})");
+            _tracker.OnDrop(drop);
+        }
     }
 
     /// <summary>
@@ -949,6 +1029,8 @@ internal sealed class AgentContext : ApplicationContext
             hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
             hello.Drives = sensors.DriveHealth;
             hello.SensorStatus = _sensorStatus;
+            if (_netTrace is not null)
+                lock (_netHistoryLock) hello.NetHistory = [.. _netHistory];
             _sendAllExtremes = true;
         }
         _pendingPage = _pendingArg = null;

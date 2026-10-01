@@ -6,6 +6,12 @@
 
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+    <!-- The Network page's icon: the font's Ethernet screen, which fills its square more than the other pages' icons, drawn a
+         size smaller in the same 16-pixel slot so it sits as large as they do. -->
+    <Grid x:Key="NetworkIcon" x:Shared="False" Width="16" Height="16">
+        <TextBlock Text="&#xE839;" FontFamily="{StaticResource IconFont}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
+
     <!-- The Fans page's icon (the icon font has no fan): four swept blades round a hub, filling the icon's square. Drawn
          in the colour of the text around it, like the font's icons; a new copy wherever it's used. -->
     <Grid x:Key="FanIcon" x:Shared="False" Width="16" Height="16">

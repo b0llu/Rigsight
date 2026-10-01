@@ -219,6 +219,10 @@ public static class InsightEngine
             }
         }
 
+        // The internet: its own lines, with their own bars to clear (see NetInsights). A download while nobody was there is
+        // news on the quietest day.
+        if (r.Net is { } net) list.AddRange(net.Insights);
+
         // ── Everything else needs enough use to mean something ──
 
         if (!enoughUse)

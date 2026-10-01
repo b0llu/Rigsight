@@ -9,7 +9,7 @@ namespace Rigsight.Core.Data;
 /// SQLite store in %LocalAppData%\Rigsight\rigsight.db. The agent opens it read-write and is the
 /// only writer; the app opens it read-only. WAL mode lets both work at the same time.
 /// </summary>
-public sealed class RigsightDb : IDisposable
+public sealed partial class RigsightDb : IDisposable
 {
     private const int SchemaVersion = 1;
     private readonly SqliteConnection _conn;
@@ -162,6 +162,8 @@ public sealed class RigsightDb : IDisposable
             Exec("DELETE FROM fan_minute; DELETE FROM fan_day;");
             SetMeta(FansFreshKey, "1");
         }
+
+        EnsureNetworkSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -607,12 +609,14 @@ public sealed class RigsightDb : IDisposable
         using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
+        PruneNetwork(before);
     }
 
     public void ClearHistory()
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;"
-            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day;");
+            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day;"
+            + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;");
         Exec("VACUUM");
     }
 

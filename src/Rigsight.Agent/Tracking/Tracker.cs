@@ -1,3 +1,4 @@
+using Rigsight.Agent.Network;
 using Rigsight.Agent.Sensors;
 using Rigsight.Core;
 using Rigsight.Core.Data;
@@ -80,6 +81,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
     private AppInfo? _foreground;
     private bool _present;
+
+    // Internet use, by app (see NetTracker): which app each process is, and the bookkeeping.
+    private readonly NetApps _netApps = new(apps);
+    private readonly NetTracker _net = new(db);
+
+    /// <summary>The internet over the last second: the whole connection's speed and each app's.</summary>
+    public NetLive NetNow => _net.Live;
     private double? _lastGpuLoad;
 
     /// <summary>What each app asked of the CPU and the GPU, sample by sample, over the last <see cref="LoadWindowSeconds"/>.</summary>
@@ -338,6 +346,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         foreach (var session in _sessions.Values.ToList())
             if (!snapshot.Apps.ContainsKey(session.App.Exe)) CloseSession(session);
 
+        _netApps.Prune(snapshot.PidToExe);
         if (Paused) return;
         RecordLoad(snapshot);
 
@@ -411,6 +420,34 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         }
     }
 
+    /// <summary>
+    /// What each process sent and received over the last second (<paramref name="seconds"/>), from the network trace;
+    /// <paramref name="running"/> names the processes (the last process sample's).
+    /// </summary>
+    public void OnNetwork(Dictionary<int, NetCounts> byPid, IReadOnlyDictionary<int, string> running, double seconds)
+    {
+        if (Paused) return;
+        var counts = new List<(AppInfo? App, NetCounts Counts)>(byPid.Count);
+        foreach (var (pid, c) in byPid)
+        {
+            if (c.IsEmpty) continue;
+            var app = _netApps.Of(pid, running, Excluded);
+            // Apps left out of tracking still use the internet: their bytes count in the totals, under no name.
+            if (app is not null && Excluded(app.Exe)) app = null;
+            counts.Add((app, c));
+        }
+        bool gameInFront = _foreground is not null && _present && AppResolver.Category(_foreground, _settings) == AppCategory.Game;
+        _net.OnSecond(NowUnix(), counts, seconds, _foreground, _present, gameInFront, a => AppResolver.DisplayName(a, _settings));
+    }
+
+    /// <summary>A time the internet dropped (see ConnectionWatch).</summary>
+    public void OnDrop(NetDrop drop)
+    {
+        if (Paused) return;
+        try { db.InsertNetDrop(drop); }
+        catch (Exception ex) { Log.Error("network", ex); }
+    }
+
     // ── Persistence ───────────────────────────────────────────────────────
 
     private void RollMinute()
@@ -420,6 +457,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (minute == _minuteTs) return;
         Flush(closeAllSessions: false);
         _minute = new MinuteAcc();
+        _net.NewMinute();
         _minuteTs = minute;
     }
 
@@ -463,6 +501,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
             foreach (var h in _deltas.Values)
                 if (!h.IsEmpty) db.AddAppHour(h);
+
+            // The minute's hour, counted back from the minute itself (at an hour's first minute the clock is already past it).
+            _net.Write(_minuteTs, _minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60, closing: closeAllSessions);
 
             foreach (var session in _sessions.Values.ToList())
             {
@@ -586,6 +627,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _minute = new MinuteAcc();
         _deltas.Clear();
         _sessions.Clear();
+        _net.Clear();
         _today = new TodayState { Day = LocalToday };
     }
 

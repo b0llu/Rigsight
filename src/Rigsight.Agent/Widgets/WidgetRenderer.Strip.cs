@@ -23,7 +23,8 @@ internal static partial class WidgetRenderer
     /// <summary>
     /// The strip at <paramref name="height"/> pixels (the taskbar's) and <paramref name="scale"/> (its DPI / 96): each
     /// reading over its word, like the clock's time over its date, the part's name under its first ("CPU") and a
-    /// short one under the rest ("Load"), all in the part's colour; on a short taskbar, "CPU 48° 7%" on one line.
+    /// short one under the rest ("Load"), all bold in the part's colour (the colour groups them: a quieter word only
+    /// looked faded at taskbar size); on a short taskbar, "CPU 48° 7%" on one line.
     /// <paramref name="cells"/>' right edges come back (for tooltips). Transparent but for the text, with an
     /// all-but-invisible background so clicks between the letters still land on it.
     /// </summary>
@@ -33,7 +34,6 @@ internal static partial class WidgetRenderer
         using var nameFamily = new FontFamily("Segoe UI");
         using var valueFont = new Font(valueFamily, 12f * scale, FontStyle.Regular, GraphicsUnit.Pixel);
         using var nameFont = new Font(nameFamily, 9.5f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        using var labelFont = new Font(nameFamily, 9.5f * scale, FontStyle.Regular, GraphicsUnit.Pixel);
         bool twoLines = height >= StripTwoLineHeight * scale;
         float pad = 4 * scale, gap = 16 * scale, inner = 7 * scale;
         var format = StringFormat.GenericTypographic;
@@ -44,7 +44,7 @@ internal static partial class WidgetRenderer
         // Each reading keeps a place as wide as the widest it's been (its number or, on two lines, its word), numbers
         // and words to its right like the clock's: a digit more or less moves nothing. One line: the name, then the numbers.
         float Number(StripValue v) => Math.Max(Width(v.Text, valueFont), Width(v.Reserve, valueFont));
-        float Column(StripValue v, int i) => Math.Max(Number(v), Width(v.Label, i == 0 ? nameFont : labelFont));
+        float Column(StripValue v, int i) => Math.Max(Number(v), Width(v.Label, nameFont));
         var columns = cells.Select(c => c.Values.Select((v, i) => twoLines ? Column(v, i) : Number(v)).ToArray()).ToArray();
         var widths = cells.Select((c, k) => columns[k].Sum() + inner * Math.Max(0, c.Values.Count - 1)
             + (twoLines ? 0 : Width(c.Name, nameFont) + inner)).ToArray();
@@ -67,8 +67,6 @@ internal static partial class WidgetRenderer
         {
             var cell = cells[k];
             using var nameBrush = new SolidBrush(cell.NameColor);
-            // The words after the part's name a little quieter, so the name still heads the group.
-            using var labelBrush = new SolidBrush(Color.FromArgb(205, cell.NameColor));
             float vx = x;
             if (!twoLines)
             {
@@ -82,10 +80,7 @@ internal static partial class WidgetRenderer
                 float right = vx + columns[k][i];
                 g.DrawString(value.Text, valueFont, brush, right - Width(value.Text, valueFont), valueTop, format);
                 if (twoLines && value.Label.Length > 0)
-                {
-                    var font = i == 0 ? nameFont : labelFont;
-                    g.DrawString(value.Label, font, i == 0 ? nameBrush : labelBrush, right - Width(value.Label, font), nameTop, format);
-                }
+                    g.DrawString(value.Label, nameFont, nameBrush, right - Width(value.Label, nameFont), nameTop, format);
                 vx += columns[k][i] + inner;
             }
             x += widths[k];
