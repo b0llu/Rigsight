@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Rigsight — Know your rig</title>
-  <meta name="description" content="Free Windows app that records your PC's temperatures, loads, app usage and crashes all day, and keeps them as history. In-game overlay, desktop widgets, ~0.01% CPU." />
+  <meta name="description" content="Free Windows app that records your PC's temperatures, fans, app usage, internet use and crashes all day, and keeps them as history. In-game overlay, desktop widgets, ~0.02% CPU." />
   <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://b0llu.github.io/Rigsight/" />
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="apple-touch-icon" href="img/logo.png" />
 
@@ -13,20 +14,37 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Rigsight" />
   <meta property="og:title" content="Rigsight — Know your rig" />
-  <meta property="og:description" content="Your PC's temperatures, app usage and crashes, recorded all day and kept as history. Free for Windows." />
+  <meta property="og:description" content="Your PC's temperatures, app usage, internet use and crashes, recorded all day and kept as history. Free for Windows." />
   <meta property="og:url" content="https://b0llu.github.io/Rigsight/" />
   <meta property="og:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Rigsight's Temperatures page: live CPU and GPU gauges and a day of temperature history" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Rigsight — Know your rig" />
+  <meta name="twitter:description" content="Your PC's temperatures, app usage, internet use and crashes, recorded all day and kept as history. Free for Windows." />
   <meta name="twitter:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=0.5.19m" />
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="styles.css?v=0.14.0b" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Rigsight",
+    "description": "Free Windows app that records your PC's temperatures, fans, app usage, internet use and crashes all day, and keeps them as history.",
+    "operatingSystem": "Windows 10, Windows 11",
+    "applicationCategory": "UtilitiesApplication",
+    "url": "https://b0llu.github.io/Rigsight/",
+    "downloadUrl": "https://github.com/b0llu/Rigsight/releases/latest",
+    "image": "https://b0llu.github.io/Rigsight/img/og.png",
+    "license": "https://opensource.org/licenses/MIT",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 </head>
 <body>
+  <a class="skip" href="#features">Skip to content</a>
   <div class="bg-glow" aria-hidden="true"></div>
 
   <!-- ── Navigation ─────────────────────────────────────────── -->
@@ -56,18 +74,18 @@
     <section class="hero" id="hero">
       <!-- Real screenshots of the app (whole cards and panels), drifting past behind the copy. Decorative. -->
       <div class="marquee" aria-hidden="true">
-        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="eager" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="eager" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="eager" decoding="async" /></div><div class="track"><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="eager" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="eager" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="eager" decoding="async" /></div></div></div>
-        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="eager" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="eager" decoding="async" /><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="eager" decoding="async" /></div><div class="track"><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="eager" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="eager" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="eager" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="eager" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="eager" decoding="async" /><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="eager" decoding="async" /></div></div></div>
-        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-chrome.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-month.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-drives.webp" width="1212" height="298" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-chrome.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-month.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/gpu.webp" width="608" height="437" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-drives.webp" width="1212" height="298" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-today.webp" width="726" height="419" alt="" loading="lazy" decoding="async" /></div></div></div>
-        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-year.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="lazy" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="lazy" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/reports-year.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /><img src="img/hero/memory-ram.webp" width="608" height="431" alt="" loading="lazy" decoding="async" /><img src="img/hero/crashes.webp" width="1212" height="406" alt="" loading="lazy" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-dota.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-yesterday.webp" width="490" height="419" alt="" loading="lazy" decoding="async" /></div></div></div>
-        <div class="row"><div class="lane"><div class="track"><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /></div><div class="track"><img src="img/hero/gaming.webp" width="1212" height="440" alt="" loading="lazy" decoding="async" /><img src="img/hero/storage-free.webp" width="608" height="354" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-day.webp" width="1212" height="346" alt="" loading="lazy" decoding="async" /><img src="img/hero/apps-cyberpunk.webp" width="834" height="517" alt="" loading="lazy" decoding="async" /><img src="img/hero/home-standout.webp" width="1212" height="306" alt="" loading="lazy" decoding="async" /><img src="img/hero/reports-week.webp" width="1212" height="482" alt="" loading="lazy" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-week.webp" srcset="img/hero/reports-week-s.webp 725w, img/hero/reports-week.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/gpu.webp" srcset="img/hero/gpu-s.webp 265w, img/hero/gpu.webp 530w" sizes="calc(23svh * 1.32)" width="530" height="400" alt="" decoding="async" /><img src="img/hero/home-today.webp" srcset="img/hero/home-today-s.webp 252w, img/hero/home-today.webp 505w" sizes="calc(23svh * 1.26)" width="505" height="400" alt="" decoding="async" /><img src="img/hero/crashes.webp" srcset="img/hero/crashes-s.webp 763w, img/hero/crashes.webp 1152w" sizes="calc(23svh * 3.81)" width="1152" height="302" alt="" decoding="async" /><img src="img/hero/apps-game.webp" srcset="img/hero/apps-game-s.webp 308w, img/hero/apps-game.webp 616w" sizes="calc(23svh * 1.54)" width="616" height="400" alt="" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" decoding="async" /></div><div class="track"><img src="img/hero/reports-week.webp" srcset="img/hero/reports-week-s.webp 725w, img/hero/reports-week.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/gpu.webp" srcset="img/hero/gpu-s.webp 265w, img/hero/gpu.webp 530w" sizes="calc(23svh * 1.32)" width="530" height="400" alt="" decoding="async" /><img src="img/hero/home-today.webp" srcset="img/hero/home-today-s.webp 252w, img/hero/home-today.webp 505w" sizes="calc(23svh * 1.26)" width="505" height="400" alt="" decoding="async" /><img src="img/hero/crashes.webp" srcset="img/hero/crashes-s.webp 763w, img/hero/crashes.webp 1152w" sizes="calc(23svh * 3.81)" width="1152" height="302" alt="" decoding="async" /><img src="img/hero/apps-game.webp" srcset="img/hero/apps-game-s.webp 308w, img/hero/apps-game.webp 616w" sizes="calc(23svh * 1.54)" width="616" height="400" alt="" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-yesterday.webp" srcset="img/hero/home-yesterday-s.webp 172w, img/hero/home-yesterday.webp 343w" sizes="calc(23svh * 0.86)" width="343" height="400" alt="" decoding="async" /><img src="img/hero/network-day.webp" srcset="img/hero/network-day-s.webp 526w, img/hero/network-day.webp 1052w" sizes="calc(23svh * 2.63)" width="1052" height="400" alt="" decoding="async" /><img src="img/hero/memory-ram.webp" srcset="img/hero/memory-ram-s.webp 270w, img/hero/memory-ram.webp 540w" sizes="calc(23svh * 1.35)" width="540" height="400" alt="" decoding="async" /><img src="img/hero/fans.webp" srcset="img/hero/fans-s.webp 452w, img/hero/fans.webp 904w" sizes="calc(23svh * 2.26)" width="904" height="400" alt="" decoding="async" /><img src="img/hero/storage-health.webp" srcset="img/hero/storage-health-s.webp 320w, img/hero/storage-health.webp 580w" sizes="calc(23svh * 1.60)" width="580" height="362" alt="" decoding="async" /><img src="img/hero/gaming.webp" srcset="img/hero/gaming-s.webp 630w, img/hero/gaming.webp 1152w" sizes="calc(23svh * 3.15)" width="1152" height="366" alt="" decoding="async" /></div><div class="track"><img src="img/hero/home-yesterday.webp" srcset="img/hero/home-yesterday-s.webp 172w, img/hero/home-yesterday.webp 343w" sizes="calc(23svh * 0.86)" width="343" height="400" alt="" decoding="async" /><img src="img/hero/network-day.webp" srcset="img/hero/network-day-s.webp 526w, img/hero/network-day.webp 1052w" sizes="calc(23svh * 2.63)" width="1052" height="400" alt="" decoding="async" /><img src="img/hero/memory-ram.webp" srcset="img/hero/memory-ram-s.webp 270w, img/hero/memory-ram.webp 540w" sizes="calc(23svh * 1.35)" width="540" height="400" alt="" decoding="async" /><img src="img/hero/fans.webp" srcset="img/hero/fans-s.webp 452w, img/hero/fans.webp 904w" sizes="calc(23svh * 2.26)" width="904" height="400" alt="" decoding="async" /><img src="img/hero/storage-health.webp" srcset="img/hero/storage-health-s.webp 320w, img/hero/storage-health.webp 580w" sizes="calc(23svh * 1.60)" width="580" height="362" alt="" decoding="async" /><img src="img/hero/gaming.webp" srcset="img/hero/gaming-s.webp 630w, img/hero/gaming.webp 1152w" sizes="calc(23svh * 3.15)" width="1152" height="366" alt="" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/home-standout.webp" srcset="img/hero/home-standout-s.webp 753w, img/hero/home-standout.webp 1152w" sizes="calc(23svh * 3.76)" width="1152" height="306" alt="" decoding="async" /><img src="img/hero/apps-list.webp" srcset="img/hero/apps-list-s.webp 98w, img/hero/apps-list.webp 196w" sizes="calc(23svh * 0.49)" width="196" height="400" alt="" decoding="async" /><img src="img/hero/reports-month.webp" srcset="img/hero/reports-month-s.webp 725w, img/hero/reports-month.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/network-apps.webp" srcset="img/hero/network-apps-s.webp 378w, img/hero/network-apps.webp 755w" sizes="calc(23svh * 1.89)" width="755" height="400" alt="" decoding="async" /><img src="img/hero/storage-drives.webp" srcset="img/hero/storage-drives-s.webp 389w, img/hero/storage-drives.webp 580w" sizes="calc(23svh * 1.95)" width="580" height="298" alt="" decoding="async" /><img src="img/hero/fans-curve.webp" srcset="img/hero/fans-curve-s.webp 738w, img/hero/fans-curve.webp 1152w" sizes="calc(23svh * 3.69)" width="1152" height="312" alt="" decoding="async" /></div><div class="track"><img src="img/hero/home-standout.webp" srcset="img/hero/home-standout-s.webp 753w, img/hero/home-standout.webp 1152w" sizes="calc(23svh * 3.76)" width="1152" height="306" alt="" decoding="async" /><img src="img/hero/apps-list.webp" srcset="img/hero/apps-list-s.webp 98w, img/hero/apps-list.webp 196w" sizes="calc(23svh * 0.49)" width="196" height="400" alt="" decoding="async" /><img src="img/hero/reports-month.webp" srcset="img/hero/reports-month-s.webp 725w, img/hero/reports-month.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/network-apps.webp" srcset="img/hero/network-apps-s.webp 378w, img/hero/network-apps.webp 755w" sizes="calc(23svh * 1.89)" width="755" height="400" alt="" decoding="async" /><img src="img/hero/storage-drives.webp" srcset="img/hero/storage-drives-s.webp 389w, img/hero/storage-drives.webp 580w" sizes="calc(23svh * 1.95)" width="580" height="298" alt="" decoding="async" /><img src="img/hero/fans-curve.webp" srcset="img/hero/fans-curve-s.webp 738w, img/hero/fans-curve.webp 1152w" sizes="calc(23svh * 3.69)" width="1152" height="312" alt="" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/reports-year.webp" srcset="img/hero/reports-year-s.webp 725w, img/hero/reports-year.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/network-away.webp" srcset="img/hero/network-away-s.webp 860w, img/hero/network-away.webp 1152w" sizes="calc(23svh * 4.30)" width="1152" height="268" alt="" decoding="async" /><img src="img/hero/gpu.webp" srcset="img/hero/gpu-s.webp 265w, img/hero/gpu.webp 530w" sizes="calc(23svh * 1.32)" width="530" height="400" alt="" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" decoding="async" /><img src="img/hero/apps-game.webp" srcset="img/hero/apps-game-s.webp 308w, img/hero/apps-game.webp 616w" sizes="calc(23svh * 1.54)" width="616" height="400" alt="" decoding="async" /><img src="img/hero/home-yesterday.webp" srcset="img/hero/home-yesterday-s.webp 172w, img/hero/home-yesterday.webp 343w" sizes="calc(23svh * 0.86)" width="343" height="400" alt="" decoding="async" /></div><div class="track"><img src="img/hero/reports-year.webp" srcset="img/hero/reports-year-s.webp 725w, img/hero/reports-year.webp 1152w" sizes="calc(23svh * 3.62)" width="1152" height="318" alt="" decoding="async" /><img src="img/hero/network-away.webp" srcset="img/hero/network-away-s.webp 860w, img/hero/network-away.webp 1152w" sizes="calc(23svh * 4.30)" width="1152" height="268" alt="" decoding="async" /><img src="img/hero/gpu.webp" srcset="img/hero/gpu-s.webp 265w, img/hero/gpu.webp 530w" sizes="calc(23svh * 1.32)" width="530" height="400" alt="" decoding="async" /><img src="img/hero/widget-today.webp" width="256" height="140" alt="" decoding="async" /><img src="img/hero/apps-game.webp" srcset="img/hero/apps-game-s.webp 308w, img/hero/apps-game.webp 616w" sizes="calc(23svh * 1.54)" width="616" height="400" alt="" decoding="async" /><img src="img/hero/home-yesterday.webp" srcset="img/hero/home-yesterday-s.webp 172w, img/hero/home-yesterday.webp 343w" sizes="calc(23svh * 0.86)" width="343" height="400" alt="" decoding="async" /></div></div></div>
+        <div class="row"><div class="lane"><div class="track"><img src="img/hero/gaming.webp" srcset="img/hero/gaming-s.webp 630w, img/hero/gaming.webp 1152w" sizes="calc(23svh * 3.15)" width="1152" height="366" alt="" decoding="async" /><img src="img/hero/storage-drives.webp" srcset="img/hero/storage-drives-s.webp 389w, img/hero/storage-drives.webp 580w" sizes="calc(23svh * 1.95)" width="580" height="298" alt="" decoding="async" /><img src="img/hero/reports-day.webp" srcset="img/hero/reports-day-s.webp 670w, img/hero/reports-day.webp 1152w" sizes="calc(23svh * 3.35)" width="1152" height="344" alt="" decoding="async" /><img src="img/hero/fans.webp" srcset="img/hero/fans-s.webp 452w, img/hero/fans.webp 904w" sizes="calc(23svh * 2.26)" width="904" height="400" alt="" decoding="async" /><img src="img/hero/home-standout.webp" srcset="img/hero/home-standout-s.webp 753w, img/hero/home-standout.webp 1152w" sizes="calc(23svh * 3.76)" width="1152" height="306" alt="" decoding="async" /><img src="img/hero/network-day.webp" srcset="img/hero/network-day-s.webp 526w, img/hero/network-day.webp 1052w" sizes="calc(23svh * 2.63)" width="1052" height="400" alt="" decoding="async" /></div><div class="track"><img src="img/hero/gaming.webp" srcset="img/hero/gaming-s.webp 630w, img/hero/gaming.webp 1152w" sizes="calc(23svh * 3.15)" width="1152" height="366" alt="" decoding="async" /><img src="img/hero/storage-drives.webp" srcset="img/hero/storage-drives-s.webp 389w, img/hero/storage-drives.webp 580w" sizes="calc(23svh * 1.95)" width="580" height="298" alt="" decoding="async" /><img src="img/hero/reports-day.webp" srcset="img/hero/reports-day-s.webp 670w, img/hero/reports-day.webp 1152w" sizes="calc(23svh * 3.35)" width="1152" height="344" alt="" decoding="async" /><img src="img/hero/fans.webp" srcset="img/hero/fans-s.webp 452w, img/hero/fans.webp 904w" sizes="calc(23svh * 2.26)" width="904" height="400" alt="" decoding="async" /><img src="img/hero/home-standout.webp" srcset="img/hero/home-standout-s.webp 753w, img/hero/home-standout.webp 1152w" sizes="calc(23svh * 3.76)" width="1152" height="306" alt="" decoding="async" /><img src="img/hero/network-day.webp" srcset="img/hero/network-day-s.webp 526w, img/hero/network-day.webp 1052w" sizes="calc(23svh * 2.63)" width="1052" height="400" alt="" decoding="async" /></div></div></div>
       </div>
       <div class="veil" aria-hidden="true"></div>
 
       <div class="wrap hero-copy">
         <img class="hero-logo reveal" src="img/logo.png" width="64" height="64" alt="" />
         <h1 class="reveal">Rigsight</h1>
-        <p class="lead reveal">Know your rig. Your PC's temperatures, app time and crashes, recorded all day and kept as history.</p>
+        <p class="lead reveal">Know your rig. Your PC's temperatures, app time, internet use and crashes, recorded all day and kept as history.</p>
         <div class="cta-row reveal">
           <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
@@ -90,7 +108,7 @@
     <!-- ── Numbers strip ──────────────────────────────────────── -->
     <section class="strip" aria-label="At a glance">
       <div class="wrap strip-grid">
-        <div class="stat reveal"><b>~0.01%</b><span>CPU while it records</span></div>
+        <div class="stat reveal"><b>~0.02%</b><span>CPU while it records</span></div>
         <div class="stat reveal"><b>Every minute</b><span>kept as history, for as long as you like</span></div>
         <div class="stat reveal"><b>Every sensor</b><span>temps, fans, clocks, power, voltages, drives</span></div>
         <div class="stat reveal"><b>0 bytes</b><span>of your data sent anywhere. No account, no telemetry.</span></div>
@@ -136,7 +154,7 @@
             <li>Alerts that ignore one-second spikes and only fire when it stays hot</li>
           </ul>
         </div>
-        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/temperatures-gauges.webp" width="1152" height="427" alt="CPU and GPU temperature gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high" /></figure>
+        <figure class="shot reveal" data-zoom><img loading="lazy" src="img/temperatures-gauges.webp" srcset="img/temperatures-gauges-720.webp 720w, img/temperatures-gauges.webp 1152w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1152" height="436" alt="CPU and GPU temperature gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high" /></figure>
       </article>
 
       <article class="feature wrap flip">
@@ -146,28 +164,14 @@
           <p>Pick any day, week, month or year. A timeline shows which app was in front each minute, with CPU and GPU temperature drawn over it, plus your peaks and when they happened.</p>
           <ul class="checks">
             <li>Active time vs. time the PC was just on</li>
-            <li>Highlights that only speak up when something stands out: who made the heat, records, a fan working harder than it used to</li>
+            <li>Highlights that only speak up when something stands out: who made the heat, records, a fan turning slower than it used to</li>
             <li>Temperatures compared with your usual, idle with idle and load with load, this week and months ago</li>
           </ul>
         </div>
-        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/reports.webp" width="1440" height="932" alt="A day's report: active time, a minute-by-minute timeline of apps and temperatures, what stood out and the hottest moments" /></figure>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/reports.webp" srcset="img/reports-720.webp 720w, img/reports.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="A day's report: active time, a minute-by-minute timeline of apps and temperatures, what stood out and the hottest moments" /></figure>
       </article>
 
       <article class="feature wrap">
-        <div class="f-copy reveal">
-          <span class="tag tag-purple">Apps</span>
-          <h2>Where your time and heat go.</h2>
-          <p>Every app and game, measured: time you actually used it, time it sat in the background, and time it was minimized. See how hot each one runs your CPU and GPU, and how much memory it takes.</p>
-          <ul class="checks">
-            <li>Any day, week, month or year, or all time</li>
-            <li>A fullscreen game counts as in use even on a controller</li>
-            <li>Rename apps, set categories, or never track one</li>
-          </ul>
-        </div>
-        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/apps.webp" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
-      </article>
-
-      <article class="feature wrap flip">
         <div class="f-copy reveal">
           <span class="tag tag-red">Crashes</span>
           <h2>Crashes, explained in plain words.</h2>
@@ -178,7 +182,49 @@
             <li>Patterns, one-click reports to paste in a forum, and mute for noisy apps</li>
           </ul>
         </div>
-        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/crashes.webp" width="1440" height="932" alt="Crashes page with a severity timeline and plain-language explanations" /></figure>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/crashes.webp" srcset="img/crashes-720.webp 720w, img/crashes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Crashes page: a month of crashes on a timeline, patterns, and each crash explained in plain words" /></figure>
+      </article>
+
+      <article class="feature wrap flip">
+        <div class="f-copy reveal">
+          <span class="tag tag-purple">Apps</span>
+          <h2>Where your time and heat go.</h2>
+          <p>Every app and game, measured: time you actually used it, time it sat in the background, and time it was minimized. See how hot each one runs your CPU and GPU, and how much memory it takes.</p>
+          <ul class="checks">
+            <li>Any day, week, month or year, or all time</li>
+            <li>A fullscreen game counts as in use even on a controller</li>
+            <li>Rename apps, set categories, or never track one</li>
+          </ul>
+        </div>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/apps.webp" srcset="img/apps-720.webp 720w, img/apps.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
+      </article>
+
+      <article class="feature wrap">
+        <div class="f-copy reveal">
+          <span class="tag tag-cyan">Network</span>
+          <h2>Where your internet goes.</h2>
+          <p>How much you downloaded and uploaded, and which app used it. Each app's use is split into what you were using, what ran in the background, and what downloaded while you were away.</p>
+          <ul class="checks">
+            <li>Any day, week, month or year, with your biggest downloads</li>
+            <li>Spots apps that quietly use your internet in the background</li>
+            <li>Notices when your connection drops, or downloads get slower than usual</li>
+          </ul>
+        </div>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/network.webp" srcset="img/network-720.webp 720w, img/network.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Network page: a month of downloads and uploads, each day on a chart, and every app's use with how much ran in the background" /></figure>
+      </article>
+
+      <article class="feature wrap flip">
+        <div class="f-copy reveal">
+          <span class="tag tag-amber">Fans</span>
+          <h2>Every fan, and what wakes it up.</h2>
+          <p>Every fan on your graphics card and motherboard. See when your GPU fans start spinning, how long they stood still, how fast they turn at each temperature, and which game made them work hardest.</p>
+          <ul class="checks">
+            <li>Any day, week, month or year</li>
+            <li>A quick check that every fan is OK</li>
+            <li>A heads-up when a fan stops or turns slower than it used to</li>
+          </ul>
+        </div>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/fans.webp" srcset="img/fans-720.webp 720w, img/fans.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Fans page: every fan's speed, when the GPU fans start spinning, how long they stood still and which game made them work hardest" /></figure>
       </article>
 
       <article class="feature wrap">
@@ -191,7 +237,7 @@
             <li>Today's biggest memory users, with their peaks</li>
           </ul>
         </div>
-        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/memory.webp" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
+        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/memory.webp" srcset="img/memory-720.webp 720w, img/memory.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
       </article>
     </section>
 
@@ -280,7 +326,7 @@
           <p class="sub">Rigsight records quietly in the background and uses almost nothing. The window only runs while you have it open.</p>
         </div>
         <div class="lite reveal">
-          <div><b>~0.01%</b><span>of your CPU, recording in the background</span></div>
+          <div><b>~0.02%</b><span>of your CPU, recording in the background</span></div>
           <div><b>~40 MB</b><span>of memory while it does</span></div>
         </div>
       </div>
@@ -297,7 +343,7 @@
           <p class="sub">No account. No telemetry. The only thing Rigsight ever checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.</p>
           <div class="never">
             <span>Never records:</span>
-            <em>window titles</em><em>keystrokes</em><em>screenshots</em><em>file contents</em>
+            <em>window titles</em><em>keystrokes</em><em>screenshots</em><em>file contents</em><em>websites you visit</em>
           </div>
         </div>
       </div>
@@ -333,10 +379,10 @@
         <details class="reveal"><summary>Is it really free?</summary><p>Yes. Rigsight is free and open source under the MIT license. No trial, no premium tier, no ads.</p></details>
         <details class="reveal"><summary>Does it work with AMD and Intel?</summary><p>Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path.</p></details>
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
-        <details class="reveal"><summary>Will it slow my games down?</summary><p>No. In the background Rigsight uses around 0.006% of your CPU and runs at low priority, so your games always come first.</p></details>
-        <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It never records window titles, keystrokes, screenshots or file contents, and none of it is sent anywhere.</p></details>
+        <details class="reveal"><summary>Will it slow my games down?</summary><p>No. In the background Rigsight uses around 0.02% of your CPU and runs at low priority, so your games always come first.</p></details>
+        <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It also counts how much each app downloads and uploads. It never records window titles, keystrokes, screenshots, file contents or the websites you visit, and none of it is sent anywhere.</p></details>
         <details class="reveal"><summary>How do I update it?</summary><p>You don't have to. New versions download quietly in the background and install the next time you start your PC. Want it sooner? Click <b>Restart</b> in the app and you're on the new version in seconds.</p></details>
-        <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 25 MB.</p></details>
+        <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 35 MB.</p></details>
         <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>
       </div>
     </section>
@@ -372,6 +418,6 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=0.5.18d" defer></script>
+  <script src="app.js?v=0.14.0" defer></script>
 </body>
 </html>

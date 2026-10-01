@@ -1,4 +1,10 @@
 /* Rigsight site. Black and white like the app; colour only where it means something. */
+/* Inter (SIL Open Font License, fonts/OFL.txt), latin subset, served from here: no third-party requests. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url(fonts/inter-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
   --bg: #000;
   --surface: #0a0a0a;
@@ -7,7 +13,8 @@
   --stroke-2: #2a2a2a;
   --text: #fff;
   --muted: #a3a3a3;
-  --faint: #6b6b6b;
+  --faint: #7c7c7c;
+  --dim: #6b6b6b;
   --blue: #5699ef;
   --green: #42d0a8;
   --cpu: #5b8cff;
@@ -47,7 +54,7 @@ kbd {
 code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
 
 .wrap { width: min(100% - 32px, var(--wrap)); margin-inline: auto; }
-.dim { color: var(--faint); }
+.dim { color: var(--dim); }
 .grad { background: var(--brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .eyebrow { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 16px; }
 .sub { color: var(--muted); font-size: 18px; max-width: 620px; }
@@ -200,6 +207,7 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .tag-purple { color: var(--purple); background: rgba(177,140,255,.12); }
 .tag-red { color: var(--red); background: rgba(248,113,113,.12); }
 .tag-amber { color: var(--amber); background: rgba(251,191,36,.12); }
+.tag-cyan { color: var(--cyan); background: rgba(56,189,248,.12); }
 .checks { margin: 26px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .checks li { position: relative; padding-left: 30px; color: #d4d4d4; font-size: 15.5px; }
 .checks li::before {
@@ -354,6 +362,8 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 .credits { width: 100%; color: var(--faint); font-size: 13px; }
 
 /* ── Lightbox, toast ────────────────────────────────────── */
+.skip { position: absolute; left: 16px; top: -60px; z-index: 200; padding: 10px 16px; border-radius: 10px; background: #fff; color: #000; font-weight: 600; text-decoration: none; }
+.skip:focus { top: 16px; }
 .lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.88); backdrop-filter: blur(8px); cursor: zoom-out; }
 .lightbox[hidden] { display: none; }
 .lightbox img { max-height: 92vh; width: auto; border-radius: 12px; border: 1px solid #333; }

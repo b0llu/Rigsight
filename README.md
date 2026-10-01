@@ -6,20 +6,20 @@
 
 <p align="center">
   <b>Know your rig.</b><br />
-  Your PC's temperatures, usage and crashes, recorded all day and kept as history.
+  Your PC's temperatures, app time, internet use and crashes, recorded all day and kept as history.
 </p>
 
 <p align="center">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white" />
-  <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.01%25-2ea043" />
+  <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.02%25-2ea043" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
 </p>
 
 ---
 
-Most hardware monitors only show numbers while you're watching. Rigsight keeps them, so you can look back at any day, week, month or year: how hot your GPU got in each game, which apps took your time, and why your PC crashed last Tuesday.
+Most hardware monitors only show numbers while you're watching. Rigsight keeps them, so you can look back at any day, week, month or year: how hot your GPU got in each game, which apps took your time, where your internet went, and why your PC crashed last Tuesday.
 
-It records quietly in the background using about **0.01% of your CPU**, and everything stays on your PC.
+It records quietly in the background using about **0.02% of your CPU**, and everything stays on your PC.
 
 ## What it does
 
@@ -55,18 +55,18 @@ Leave **PawnIO** and **RivaTuner** ticked if the installer offers them. PawnIO r
 
 No account, no telemetry. The only thing Rigsight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.
 
-It knows which app is in front and how hard your hardware is working. It never records window titles, what you type, or what's on your screen.
+It knows which app is in front, how hard your hardware is working, and how much each app downloads and uploads. It never records window titles, what you type, what's on your screen, or the websites you visit.
 
 ## FAQ
 
 **Why does it need admin rights?**
-Windows only lets programs with admin rights read CPU and motherboard sensors. Only the small background part runs as admin, and you're asked once, not at every start.
+Windows only lets programs with admin rights read CPU and motherboard sensors, and see how much each app uses the internet. Only the small background part runs as admin, and you're asked once, not at every start.
 
 **My CPU temperature is missing.**
 Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight.
 
 **Does it slow down games?**
-No. It uses about 0.01% of your CPU and waits until you leave a fullscreen game to show anything that isn't urgent.
+No. It uses about 0.02% of your CPU and waits until you leave a fullscreen game to show anything that isn't urgent.
 
 **The overlay doesn't show in my game.**
 Open the Overlay page: it tells you what's missing and can install RivaTuner for you. A game that was already open when RivaTuner started needs a restart.

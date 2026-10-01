@@ -125,7 +125,7 @@
   const lbImg = lb.querySelector("img");
   document.querySelectorAll("[data-zoom] img").forEach(img => {
     img.addEventListener("click", () => {
-      lbImg.src = img.currentSrc || img.src;
+      lbImg.src = img.src; // the full-size shot, whatever size the page shows
       lbImg.alt = img.alt;
       lb.hidden = false;
       document.body.style.overflow = "hidden";
