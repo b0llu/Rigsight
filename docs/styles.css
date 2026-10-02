@@ -105,6 +105,7 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .nav-cta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .icon-link { color: var(--muted); display: inline-flex; transition: color .2s; }
 .icon-link:hover { color: var(--text); }
+.icon-link.coffee:hover { color: var(--amber); }
 
 /* ── Hero ───────────────────────────────────────────────── */
 /* Exactly one screen tall. Five rows of real app screenshots drift past in alternating directions behind everything;
@@ -359,6 +360,8 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 .foot-inner nav { display: flex; flex-wrap: wrap; gap: 22px; }
 .foot-inner nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
 .foot-inner nav a:hover { color: var(--text); }
+.foot-inner nav a.support { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); }
+.foot-inner nav a.support:hover { color: #fcd34d; }
 .credits { width: 100%; color: var(--faint); font-size: 13px; }
 
 /* ── Lightbox, toast ────────────────────────────────────── */

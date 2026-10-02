@@ -29,6 +29,8 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.14.3", 10, 2,
+            added: ["A way to support Rigsight, in Settings."]),
         V("0.14.2", 10, 1,
             better: ["Hover the live network chart and the connection strip for the details.",
                 "Long app lists on Network and Reports scroll inside their own box."],

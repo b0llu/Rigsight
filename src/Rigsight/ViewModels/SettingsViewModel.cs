@@ -378,6 +378,13 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         Process.Start(new ProcessStartInfo(RigsightPaths.DataDir) { UseShellExecute = true });
     }
 
+    /// <summary>Settings → About: opens the Buy Me a Coffee page in the browser; the app itself never contacts it.</summary>
+    [RelayCommand]
+    private static void Support()
+    {
+        try { Process.Start(new ProcessStartInfo("https://buymeacoffee.com/bollu") { UseShellExecute = true })?.Dispose(); } catch { }
+    }
+
     [RelayCommand]
     private async Task ExportCsv()
     {

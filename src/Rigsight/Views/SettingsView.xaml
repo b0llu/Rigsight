@@ -531,6 +531,14 @@
                                        Visibility="{Binding ReportStatus, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Buy me a coffee" Command="{Binding SupportCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Buy me a coffee" />
+                        <StackPanel>
+                            <TextBlock Text="Support Rigsight" Style="{StaticResource Title}" />
+                            <TextBlock Text="Rigsight is free and made by one person." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
                     <StackPanel Margin="0,10">
                         <TextBlock Text="Hardware readings" Style="{StaticResource Title}" />
                         <TextBlock Style="{StaticResource Hint}"

@@ -92,6 +92,10 @@ To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (
 - Overlay in fullscreen games: [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) by Unwinder
 - [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet), [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore), [Inno Setup](https://jrsoftware.org/isinfo.php)
 
+## Support
+
+Rigsight is free and made by one person. If it's useful to you, you can [buy me a coffee](https://buymeacoffee.com/bollu) ☕
+
 ## License
 
 [MIT](LICENSE)
