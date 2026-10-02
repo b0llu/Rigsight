@@ -13,6 +13,7 @@
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white" />
   <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.02%25-2ea043" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
+  <a href="https://buymeacoffee.com/bollu"><img alt="Buy me a coffee" src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black" /></a>
 </p>
 
 ---
@@ -94,7 +95,9 @@ To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (
 
 ## Support
 
-Rigsight is free and made by one person. If it's useful to you, you can [buy me a coffee](https://buymeacoffee.com/bollu) ☕
+Rigsight is free and made by one person. If it's useful to you, you can buy me a coffee.
+
+<a href="https://buymeacoffee.com/bollu"><img alt="Buy me a coffee" height="44" src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=bollu&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" /></a>
 
 ## License
 

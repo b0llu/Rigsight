@@ -532,7 +532,8 @@
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Buy me a coffee" Command="{Binding SupportCommand}"
+                        <!-- Buy Me a Coffee's own yellow, the same in every theme. -->
+                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="Buy me a coffee" Command="{Binding SupportCommand}"
                                 VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Buy me a coffee" />
                         <StackPanel>
                             <TextBlock Text="Support Rigsight" Style="{StaticResource Title}" />

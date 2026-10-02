@@ -29,6 +29,8 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.14.4", 10, 2,
+            better: ["The support button in Settings is easier to spot."]),
         V("0.14.3", 10, 2,
             added: ["A way to support Rigsight, in Settings."]),
         V("0.14.2", 10, 1,
