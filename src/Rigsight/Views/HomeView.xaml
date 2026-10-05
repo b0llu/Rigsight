@@ -127,6 +127,9 @@
                             </Border>
                             <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
+                        <!-- Another day standing in for yesterday: why. -->
+                        <TextBlock Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
+                                   Visibility="{Binding RecapNote, Converter={StaticResource Vis}}" />
 
                         <StackPanel Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"

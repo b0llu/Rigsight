@@ -39,7 +39,7 @@ public static class ChangeEffects
         IReadOnlyList<(DateTime Time, CrashKind Kind)> problems, Func<long, string> nameOf, DateTime now)
     {
         var effects = new Dictionary<DateTime, ChangeEffect>();
-        var days = changes.Where(IsMajor).GroupBy(c => c.Time.Date).OrderBy(g => g.Key).Select(g => (Day: g.Key, At: g.Min(c => c.Time))).ToList();
+        var days = changes.Where(IsMajor).GroupBy(c => c.Time.Date).OrderBy(g => g.Key).Select(g => (Day: g.Key, At: g.Min(c => c.Earliest))).ToList(); // a problem in the minutes before it was noticed may be its doing
         var tomorrow = now.Date.AddDays(1);
         for (int i = 0; i < days.Count; i++)
         {

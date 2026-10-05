@@ -80,14 +80,51 @@ public sealed class TimelinePageTests
             Assert.Equal(["3 apps updated", "NVIDIA graphics driver 616.92"], driver.Entries.Select(e => e.Title));
             Assert.Equal((true, "Was 610.47", "7:15 PM"), (driver.Entries[1].IsKey, driver.Entries[1].Detail, driver.Entries[1].TimeText));
             Assert.Equal("NVIDIA HD Audio Driver, NVIDIA PhysX, NVIDIA App", driver.Entries[0].Detail);
+            Assert.Equal("7:36 PM", driver.Entries[0].TimeText); // the last of the three
             Assert.False(driver.Entries[0].IsKey);
 
             // An install shows its version; drive space has no time and comes last.
             var older = vm.Days[3];
             Assert.Equal(["Stremio installed", "FACEIT now starts with Windows", "61 GB more in use on E:"], older.Entries.Select(e => e.Title));
             Assert.Equal(["5.0.26", null, "1,104 GB to 1,165 GB in use"], older.Entries.Select(e => e.Detail));
-            Assert.Equal("", older.Entries[2].TimeText);
+            Assert.Equal(["9:00 PM", "5:00 PM", "All day"], older.Entries.Select(e => e.TimeText)); // every line says when
             Assert.Equal("8 changes since " + changes.Min(c => c.Time).ToString("d MMM yyyy"), vm.CountText);
+        });
+    }
+
+    [Fact]
+    public void A_time_that_is_when_the_change_was_noticed_says_so()
+    {
+        var day = Today.AddDays(-3);
+        SystemChange Found(double hour, string app) => Update(day.AddHours(hour), app) with { Subject = $"app:{app.ToLowerInvariant()}" };
+        var (vm, _) = Page([Change(day.AddHours(19.25), ChangeKind.Driver, "NVIDIA graphics driver 616.92"),      // from Windows' log
+            Found(20, "Steam"),
+            Change(day, ChangeKind.Storage, "61 GB more in use on E:", "1,104 GB", "1,165 GB"),
+            Found(9, "A"), Found(10, "C") with { Time = day.AddDays(-1).AddHours(10) }, Found(11, "D") with { Time = day.AddDays(-1).AddHours(11) },
+            Found(12, "E") with { Time = day.AddDays(-1).AddHours(12) }]);
+        Ui.Run(() =>
+        {
+            var entries = vm.Days[0].Entries;
+            Assert.Equal(["~8:00 PM", "7:15 PM", "~9:00 AM", "All day"], entries.Select(e => e.TimeText));
+            Assert.Equal("Between 7:50 PM and 8:00 PM", entries[0].TimeTip); // the ten minutes between two checks
+            Assert.Null(entries[1].TimeTip); // exact: nothing to explain
+            Assert.NotNull(entries[3].TimeTip);
+
+            // A folded line carries the time of its newest update, approximate like it; so does each one under it.
+            var folded = Assert.Single(vm.Days[1].Entries);
+            Assert.Equal(("3 apps updated", "~12:00 PM"), (folded.Title, folded.TimeText));
+            Assert.NotNull(folded.TimeTip);
+            Assert.All(folded.Children, c => Assert.StartsWith("~", c.TimeText));
+        });
+
+        // The check before is known: the range is the real one, with its day when the PC was off in between.
+        var at = Today.AddDays(-2).AddHours(9).AddMinutes(1);
+        var (known, _) = Page([Found(0, "Steam") with { Time = at, NoticedFrom = at.AddMinutes(-4) },
+            Found(0, "Edge") with { Time = at.AddHours(1), NoticedFrom = at.AddDays(-1).AddHours(14) }]);
+        Ui.Run(() =>
+        {
+            Assert.Equal($"Between {at.AddDays(-1).AddHours(14):ddd d MMM, h:mm tt} and 10:01 AM", known.Days[0].Entries[0].TimeTip);
+            Assert.Equal("Between 8:57 AM and 9:01 AM", known.Days[0].Entries[1].TimeTip);
         });
     }
 
@@ -140,6 +177,61 @@ public sealed class TimelinePageTests
             vm.GroupUpdates = false;
             vm.GroupUpdates = true;
             Assert.False(vm.Days[0].Entries[0].IsExpanded);
+        });
+    }
+
+    [Fact]
+    public void A_months_app_updates_can_be_one_line_at_the_top_of_the_month()
+    {
+        // Two months back, so nothing here depends on how far into this month today is.
+        var first = new DateTime(Today.Year, Today.Month, 1).AddMonths(-2);
+        var driver = Change(first.AddDays(9).AddHours(19), ChangeKind.Driver, "NVIDIA graphics driver 616.92");
+        var (vm, _) = Page([Update(first.AddDays(2).AddHours(9), "Steam"), Update(first.AddDays(9).AddHours(10), "Chrome", "2.0"), Update(first.AddDays(20).AddHours(10), "Chrome", "3.0"),
+            Update(first.AddDays(20).AddHours(11), "Discord"), driver,
+            Update(first.AddMonths(1).AddDays(3).AddHours(9), "Steam"), Update(first.AddMonths(1).AddDays(4).AddHours(9), "Edge")]); // two in the next month: too few to fold
+        Ui.Run(() =>
+        {
+            Assert.True(vm.GroupUpdates);
+            vm.Grouping = "Month";
+            Assert.True(vm.GroupUpdates);
+
+            // The later month keeps its two updates on their days; the earlier one opens with its four in one line.
+            Assert.Equal([first.AddMonths(1).AddDays(4), first.AddMonths(1).AddDays(3)], vm.Days.Take(2).Select(d => d.Day));
+            var month = vm.Days[2];
+            Assert.True(month.IsSummary);
+            Assert.Equal(("App updates", first.ToString("MMMM yyyy").ToUpper(), "FaintBrush"), (month.Title, month.Month, month.NodeBrush));
+            var line = Assert.Single(month.Entries);
+            Assert.Equal(("4 app updates", "Chrome ×2, Discord, Steam", "All month", true), (line.Title, line.Detail, line.TimeText, line.HasChildren));
+            Assert.Equal(["Discord updated to 2.0", "Chrome updated to 3.0", "Chrome updated to 2.0", "Steam updated to 2.0"], line.Children.Select(c => c.Title));
+            Assert.Equal($"{first.AddDays(20):d MMM} · was 1.0", line.Children[0].Detail);
+
+            // The days under it show what's left: the driver. The update-only days are gone, and the heading isn't repeated.
+            var rest = vm.Days.Skip(3).ToList();
+            var day = Assert.Single(rest);
+            Assert.Equal((first.AddDays(9), null, false), (day.Day, day.Month, day.IsSummary));
+            Assert.Equal("NVIDIA graphics driver 616.92", Assert.Single(day.Entries).Title);
+
+            // Its versions open and stay open; a month in the calendar goes to the top of that month.
+            vm.ToggleVersionsCommand.Execute(line);
+            vm.Grouping = "Each";
+            vm.Grouping = "Month";
+            Assert.True(vm.Days[2].Entries[0].IsExpanded);
+            TimelineDay? asked = null;
+            vm.JumpRequested += d => asked = d;
+            vm.OnTopDay(first);
+            vm.ZoomOutCommand.Execute(null);
+            var cell = vm.CalendarMonths.Single(m => m.Month == first);
+            Assert.Equal(5, cell.Count); // the folded updates still count
+            vm.PickMonthCommand.Execute(cell);
+            Assert.True(asked!.IsSummary);
+            // A day of that month goes to the day, not the month's line.
+            vm.JumpTo(first.AddDays(9));
+            Assert.Equal(first.AddDays(9), asked.Day);
+
+            // Back to days: every update is on its own day again.
+            vm.Grouping = "Day";
+            Assert.DoesNotContain(vm.Days, d => d.IsSummary);
+            Assert.Equal(5, vm.Days.Count); // five days hold the seven changes
         });
     }
 

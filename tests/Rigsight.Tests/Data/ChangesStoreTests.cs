@@ -38,6 +38,28 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
+    public void When_the_check_before_ran_is_kept_with_a_change_found_by_a_check()
+    {
+        using var t = new TestDb();
+        var found = new SystemChange(T, ChangeKind.AppUpdated, "Steam updated to 2.11") { Subject = "app:steam", NoticedFrom = T.AddMinutes(-7) };
+        var old = new SystemChange(T.AddHours(1), ChangeKind.AppUpdated, "Edge updated to 2") { Subject = "app:edge" }; // recorded before this was kept
+        var logged = new SystemChange(T.AddHours(2), ChangeKind.WindowsUpdate, "Windows update KB1") { Subject = "KB1" };
+        t.Db.InsertChanges([found, old, logged]);
+        var read = t.Db.GetChanges(0, long.MaxValue / 2);
+        Assert.Equal([T.AddMinutes(-7), null, null], read.Select(c => c.NoticedFrom));
+        Assert.Equal([T.AddMinutes(-7), T.AddHours(1).AddMinutes(-Inventory.ScanMinutes), T.AddHours(2)], read.Select(c => c.Earliest));
+
+        // A database from 0.15.0 has no such column: the agent adds it, and the app reads either.
+        t.Db.Dispose();
+        t.Exec("ALTER TABLE changes DROP COLUMN from_ts");
+        using (var reader = t.Reader()) Assert.All(reader.GetChanges(0, long.MaxValue / 2), c => Assert.Null(c.NoticedFrom));
+        var db = t.OpenWriter();
+        Assert.Equal(3, db.GetChanges(0, long.MaxValue / 2).Count);
+        db.InsertChanges([found with { Time = T.AddDays(1), NoticedFrom = T.AddDays(1).AddMinutes(-10) }]);
+        Assert.Equal(T.AddDays(1).AddMinutes(-10), db.GetChanges(0, long.MaxValue / 2)[^1].NoticedFrom);
+    }
+
+    [Fact]
     public void A_driver_counts_once_per_version()
     {
         using var t = new TestDb();

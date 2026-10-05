@@ -441,7 +441,7 @@ internal sealed class AgentContext : ApplicationContext
 
                 if (now >= nextChangeScan)
                 {
-                    nextChangeScan = now + 10 * 60_000;
+                    nextChangeScan = now + Inventory.ScanMinutes * 60_000;
                     ScanChanges();
                 }
 
@@ -1010,8 +1010,10 @@ internal sealed class AgentContext : ApplicationContext
             // log entry only says when. Before the first inventory the logs are all there is.
             var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > since.AddHours(1));
             if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
+            // Found by this check, so it happened since the last one (which may be last night's).
+            if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];
             if (graphics is not null)
-                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time } : c)];
+                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = Inventory.ExactPrefix + c.Subject, NoticedFrom = null } : c)];
 
             _db.InsertChanges(logged);
             _db.InsertChanges(found);

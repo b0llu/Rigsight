@@ -254,6 +254,51 @@ public sealed class InventoryTests
         Assert.All(new[] { Inventory.Cpu, Inventory.Ram, Inventory.Board, Inventory.Bios, Inventory.Windows, Inventory.Setting, Inventory.GpuDriver }, k => Assert.False(Inventory.IsList(k)));
     }
 
+    // ---- When it happened ----
+
+    [Fact]
+    public void A_change_found_by_comparing_inventories_is_dated_when_it_was_noticed()
+    {
+        // Every kind the inventory finds: the time is the check's, so the change came in the minutes before it.
+        var app = Assert.Single(Inventory.Diff(Inventory.App, Inventory.AppItems([("Steam", "2.10")]), Inventory.AppItems([("Steam", "2.11")]), At));
+        Assert.True(app.IsApproximate);
+        Assert.Equal(At.AddMinutes(-Inventory.ScanMinutes), app.Earliest);
+        var setting = Assert.Single(Inventory.Diff(Inventory.Setting, [new(Inventory.Setting, "fast-startup", "Fast Startup", Inventory.On)], [new(Inventory.Setting, "fast-startup", "Fast Startup", Inventory.Off)], At));
+        Assert.True(setting.IsApproximate);
+        var bios = Assert.Single(Inventory.Diff(Inventory.Bios, [new(Inventory.Bios, Inventory.Bios, "BIOS", "F66d")], [new(Inventory.Bios, Inventory.Bios, "BIOS", "F67")], At));
+        Assert.True(bios.IsApproximate);
+
+        // A graphics driver whose log entry gave the real moment is exact; so is everything read from Windows' logs.
+        var (_, before) = Inventory.GraphicsItems([(@"pci\ven_10de&dev_2208", "RTX", "NVIDIA", "32.0.16.1047", null)]);
+        var (_, after) = Inventory.GraphicsItems([(@"pci\ven_10de&dev_2208", "RTX", "NVIDIA", "32.0.16.1692", null)]);
+        var driver = Assert.Single(Inventory.Diff(Inventory.GpuDriver, before, after, At));
+        Assert.True(driver.IsApproximate);
+        var logged = driver with { Subject = Inventory.ExactPrefix + driver.Subject };
+        Assert.False(logged.IsApproximate);
+        Assert.Equal(logged.Time, logged.Earliest);
+        Assert.True(logged.IsGraphicsDriver);
+    }
+
+    [Theory]
+    [InlineData("oem12")]                                              // a driver package from the log
+    [InlineData("nvidia-graphics")]
+    [InlineData("2026-09 Cumulative Update for Windows 11 (KB5065426)")]
+    [InlineData("Windows: a title that only looks like a kind")]
+    [InlineData("C:")]                                                 // a drive's space
+    [InlineData(":")]
+    [InlineData("")]
+    public void What_Windows_logged_or_a_whole_days_reading_isnt_approximate(string subject) =>
+        Assert.False(new SystemChange(At, ChangeKind.Driver, "x") { Subject = subject }.IsApproximate);
+
+    [Fact]
+    public void Every_inventory_kind_is_known_as_one()
+    {
+        Assert.All(new[] { Inventory.App, Inventory.Startup, Inventory.Gpu, Inventory.GpuDriver, Inventory.Disk, Inventory.Cpu, Inventory.Ram, Inventory.Board,
+            Inventory.Bios, Inventory.Windows, Inventory.Setting }, k => Assert.True(Inventory.IsKind(k)));
+        Assert.False(Inventory.IsKind("oem12"));
+        Assert.False(Inventory.IsKind(Inventory.ExactPrefix + Inventory.GpuDriver));
+    }
+
     // ---- Drive space ----
 
     private static DriveDay Space(int day, double used, double total = 931, string drive = "D:\\") =>

@@ -129,6 +129,20 @@ public sealed class ChangeEffectsTests
     }
 
     [Fact]
+    public void A_problem_in_the_minutes_before_a_change_was_noticed_may_be_its_doing()
+    {
+        // A BIOS update is found by a check of the PC, up to ten minutes after it happened: a blue screen five minutes
+        // before that check counts as after the change; one an hour before doesn't.
+        var bios = new SystemChange(Day.AddHours(19), ChangeKind.Firmware, "BIOS updated to F67") { Subject = "bios:bios", Was = "F66d", Now = "F67" };
+        Assert.True(bios.IsApproximate);
+        var pc = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(0, 19 - 5 / 60.0, CrashKind.SystemCrash).Problem(0, 18, CrashKind.SystemCrash);
+        Assert.Equal(["1 blue screen since over 18 h of use; 1 blue screen over 42 h before."], pc.Effect(bios)!.Lines);
+        // The same change with its exact time from Windows' log: both came before it.
+        var exact = bios with { Subject = "logged-bios:bios" };
+        Assert.Equal(["No problems since; 2 blue screens in the 14 days before."], pc.Effect(exact)!.Lines);
+    }
+
+    [Fact]
     public void Problems_on_both_sides_are_given_with_the_hours_of_use()
     {
         var effect = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(-5, 10).Problem(2, 10).Effect()!;

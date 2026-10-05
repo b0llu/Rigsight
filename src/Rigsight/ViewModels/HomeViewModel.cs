@@ -43,7 +43,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     private bool _loaded;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
     private RecapPeriod _period;
 
     /// <summary>The periods there's history for, in order (a period only once it's whole and something was recorded in it).</summary>
@@ -62,13 +62,30 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public bool IsLastMonth { get => Period == RecapPeriod.LastMonth; set { if (value) Period = RecapPeriod.LastMonth; } }
     public bool IsLastYear { get => Period == RecapPeriod.LastYear; set { if (value) Period = RecapPeriod.LastYear; } }
 
+    /// <summary>
+    /// The day the card's "Day" shows: yesterday, or, when the PC wasn't used yesterday, the last day it was (null:
+    /// yesterday). A PC left off over a weekend opens on Friday's recap, not on an empty card.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote))]
+    private DateTime? _lastUsedDay;
+
+    /// <summary>The last day used stands in for yesterday (the "Day" recap, and that day isn't yesterday).</summary>
+    private DateTime? StandIn => Period == RecapPeriod.Yesterday && LastUsedDay is { } day && day < DateTime.Today.AddDays(-1) ? day : null;
+
     public string RecapTitle => Period switch
     {
         RecapPeriod.LastWeek => "Last week",
         RecapPeriod.LastMonth => "Last month",
         RecapPeriod.LastYear => "Last year",
+        // A day of the last week by its name; an older one by its date.
+        _ when StandIn is { } day => (DateTime.Today - day).TotalDays <= 6 ? day.ToString("dddd") : day.ToString("d MMMM"),
         _ => "Yesterday",
     };
+
+    /// <summary>Under the title when another day stands in for yesterday: why ("Not used for 2 days.").</summary>
+    public string? RecapNote => StandIn is not { } day ? null
+        : (int)(DateTime.Today - day).TotalDays - 1 is var idle && idle <= 1 ? "Your PC wasn't used yesterday." : $"Your PC wasn't used for {idle} days.";
 
     /// <summary>What "Open full recap" asks the Reports page for (see ShellViewModel.Navigate).</summary>
     public string RecapArg => Period switch
@@ -76,6 +93,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         RecapPeriod.LastWeek => "last-week",
         RecapPeriod.LastMonth => "last-month",
         RecapPeriod.LastYear => "last-year",
+        _ when StandIn is { } day => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
         _ => "yesterday",
     };
 
@@ -156,6 +174,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         {
             _recapsFor = DateTime.Today;
             _recaps.Clear();
+            LastUsedDay = null;
             Periods = PeriodsFor(await reports.FirstDayAsync(), DateTime.Today);
             if (!Periods.Contains(Period)) Period = RecapPeriod.Yesterday;
             await LoadRecapAsync();
@@ -173,6 +192,13 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         {
             var (range, anchor) = Bounds(period, DateTime.Today);
             report = await reports.BuildAsync(range, anchor);
+            // Nothing yesterday: the last day the PC was used, if there is one.
+            if (period == RecapPeriod.Yesterday && report is not { HasData: true })
+            {
+                LastUsedDay = await reports.LastUsedDayAsync(DateTime.Today);
+                if (LastUsedDay is { } day && await reports.BuildAsync(ReportRange.Day, day) is { HasData: true } last) report = last;
+                else LastUsedDay = null;
+            }
             _recaps[period] = report;
             if (period == RecapPeriod.Yesterday) YesterdayChanged();
         }

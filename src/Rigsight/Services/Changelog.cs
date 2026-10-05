@@ -59,6 +59,12 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.1", 10, 5,
+            better: ["Group a month's app updates into one line on the Timeline.",
+                "Home shows the last day you used your PC when yesterday was a day off.",
+                "A ~ marks Timeline times that are when a change was noticed, not the exact moment."],
+            fixedBugs: ["The Timeline list always loads, also when you come back to the page.",
+                "Every line on the Timeline says when it happened."]),
         V("0.15.0", 10, 5,
             feature: new("Timeline", "Everything that changed on your PC, day by day.",
                 ["See when a driver, a Windows update, an app or a setting changed.",

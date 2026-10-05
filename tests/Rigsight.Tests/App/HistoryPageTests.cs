@@ -101,6 +101,52 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void A_PC_not_used_yesterday_shows_the_last_day_it_was_used_and_says_why()
+    {
+        var (_, reports, live) = Setup();
+        var home = Ui.Run(() => new HomeViewModel(reports, live));
+        var today = DateTime.Today;
+        Ui.Run(() =>
+        {
+            // Used yesterday (or nothing known): yesterday, with nothing to explain.
+            Assert.Equal(("Yesterday", "yesterday", null), (home.RecapTitle, home.RecapArg, home.RecapNote));
+            home.LastUsedDay = today.AddDays(-1);
+            Assert.Equal(("Yesterday", "yesterday", null), (home.RecapTitle, home.RecapArg, home.RecapNote));
+
+            // Off for a day: the day before yesterday, by its name, and its own full recap.
+            home.LastUsedDay = today.AddDays(-2);
+            Assert.Equal((today.AddDays(-2).ToString("dddd"), today.AddDays(-2).ToString("yyyy-MM-dd"), "Your PC wasn't used yesterday."),
+                (home.RecapTitle, home.RecapArg, home.RecapNote));
+
+            // Off for two days, and for longer than a week (then the date, not a weekday that could be any week's).
+            home.LastUsedDay = today.AddDays(-3);
+            Assert.Equal((today.AddDays(-3).ToString("dddd"), "Your PC wasn't used for 2 days."), (home.RecapTitle, home.RecapNote));
+            home.LastUsedDay = today.AddDays(-10);
+            Assert.Equal((today.AddDays(-10).ToString("d MMMM"), "Your PC wasn't used for 9 days."), (home.RecapTitle, home.RecapNote));
+
+            // The week, month and year recaps are whole periods either way.
+            home.Periods = [RecapPeriod.Yesterday, RecapPeriod.LastWeek];
+            home.Period = RecapPeriod.LastWeek;
+            Assert.Equal(("Last week", "last-week", null), (home.RecapTitle, home.RecapArg, home.RecapNote));
+        });
+    }
+
+    [Fact]
+    public void The_last_day_used_is_found_in_the_history()
+    {
+        var (_, reports, _) = Setup();
+        DateTime? last = null, none = null;
+        Kit.Wait(async () =>
+        {
+            last = await reports.LastUsedDayAsync(DateTime.Today);
+            none = await reports.LastUsedDayAsync(new DateTime(2000, 1, 1));
+        });
+        Assert.NotNull(last);
+        Assert.True(last < DateTime.Today);
+        Assert.Null(none);
+    }
+
+    [Fact]
     public void Each_period_is_the_whole_one_before_today()
     {
         var today = new DateTime(2026, 9, 28);

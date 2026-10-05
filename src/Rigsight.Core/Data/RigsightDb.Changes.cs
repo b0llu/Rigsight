@@ -18,11 +18,14 @@ public sealed partial class RigsightDb
             CREATE TABLE IF NOT EXISTS inventory(kind TEXT NOT NULL, key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL,
                 PRIMARY KEY(kind, key)) WITHOUT ROWID;
             """);
+        // When the check before ran (0.15.1): a change found by a check happened between then and its time.
+        if (!HasColumn("changes", "from_ts")) Exec("ALTER TABLE changes ADD COLUMN from_ts INTEGER");
     }
 
     // The app reads a database the agent made, which may be from before 0.15.0.
-    private bool? _hasChanges;
+    private bool? _hasChanges, _hasChangeFrom;
     public bool HasChanges => _hasChanges ??= HasTable("changes");
+    private bool HasChangeFrom => _hasChangeFrom ??= HasColumn("changes", "from_ts");
 
     // ── Writer ────────────────────────────────────────────────────────────
 
@@ -42,8 +45,9 @@ public sealed partial class RigsightDb
                     ("$k", c.Kind.ToString()), ("$s", c.Subject), ("$ts", ts));
                 if (last.ExecuteScalar() is string version && version.Equals(c.Now, StringComparison.OrdinalIgnoreCase)) continue;
             }
-            using var cmd = Cmd("INSERT OR IGNORE INTO changes(ts, kind, subject, title, was, now) VALUES($ts, $k, $s, $t, $w, $n)",
-                ("$ts", ts), ("$k", c.Kind.ToString()), ("$s", c.Subject), ("$t", c.Title), ("$w", c.Was), ("$n", c.Now));
+            using var cmd = Cmd("INSERT OR IGNORE INTO changes(ts, kind, subject, title, was, now, from_ts) VALUES($ts, $k, $s, $t, $w, $n, $f)",
+                ("$ts", ts), ("$k", c.Kind.ToString()), ("$s", c.Subject), ("$t", c.Title), ("$w", c.Was), ("$n", c.Now),
+                ("$f", c.NoticedFrom is { } from ? TimeUtil.ToUnix(from) : null));
             if (cmd.ExecuteNonQuery() > 0) added.Add(c);
         }
         return added;
@@ -104,7 +108,7 @@ public sealed partial class RigsightDb
     public List<SystemChange> GetChanges(long from, long to)
     {
         if (!HasChanges) return [];
-        using var cmd = Cmd("SELECT id, ts, kind, subject, title, was, now FROM changes WHERE ts >= $from AND ts < $to ORDER BY ts, id",
+        using var cmd = Cmd($"SELECT id, ts, kind, subject, title, was, now, {(HasChangeFrom ? "from_ts" : "NULL")} FROM changes WHERE ts >= $from AND ts < $to ORDER BY ts, id",
             ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
         var list = new List<SystemChange>();
@@ -114,6 +118,7 @@ public sealed partial class RigsightDb
             list.Add(new SystemChange(TimeUtil.FromUnix(r.GetInt64(1)), kind, r.GetString(4))
             {
                 Id = r.GetInt64(0), Subject = r.GetString(3), Was = r.IsDBNull(5) ? null : r.GetString(5), Now = r.IsDBNull(6) ? null : r.GetString(6),
+                NoticedFrom = r.IsDBNull(7) ? null : TimeUtil.FromUnix(r.GetInt64(7)),
             });
         }
         return list;

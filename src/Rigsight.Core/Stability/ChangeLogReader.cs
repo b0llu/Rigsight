@@ -41,6 +41,22 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     /// <summary>How it is now.</summary>
     public string? Now { get; init; }
 
+    /// <summary>
+    /// The time is when the change was noticed, not when it happened: it was found by comparing the PC's inventory
+    /// with the last one (see <see cref="Inventory"/>), so it happened in the minutes before. Drivers and updates read
+    /// from Windows' logs carry the exact time (a graphics driver too, when its log entry was found).
+    /// </summary>
+    public bool IsApproximate => Subject.IndexOf(':') is > 0 and var colon && Inventory.IsKind(Subject[..colon]);
+
+    /// <summary>
+    /// When the check before the one that found it ran: it happened between then and <see cref="Time"/>. Null for an
+    /// exact time, and for changes recorded before this was kept (then the usual ten minutes are assumed).
+    /// </summary>
+    public DateTime? NoticedFrom { get; init; }
+
+    /// <summary>The earliest it can have happened.</summary>
+    public DateTime Earliest => !IsApproximate ? Time : NoticedFrom is { } from && from < Time ? from : Time.AddMinutes(-Inventory.ScanMinutes);
+
     public string Short => $"{Title} ({Time:d MMM})";
 
     /// <summary>A second line under the title: what it was before.</summary>

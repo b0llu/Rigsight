@@ -42,7 +42,7 @@ public sealed class SchemaTests
         ["net_app_day"] = ["day", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
         ["net_transfer"] = ["start", "app", "end", "bytes", "sec"],
         ["net_drop"] = ["start", "end", "kind"],
-        ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now"],
+        ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now", "from_ts"],
         ["inventory"] = ["kind", "key", "name", "value"],
     };
 

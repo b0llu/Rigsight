@@ -354,7 +354,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
         var first = g.First.Time;
         // Graphics drivers and Windows updates are the usual suspects; take the nearest two in the week before.
-        var before = _changes.Where(c => c.Time < first && c.Time >= first.AddDays(-7))
+        // A change noticed minutes after the problem may have come before it (see SystemChange.Earliest).
+        var before = _changes.Where(c => c.Earliest < first && c.Time >= first.AddDays(-7))
             .Where(c => pcLevel || c.Kind == ChangeKind.WindowsUpdate || c.Title.Contains("graphics", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(c => c.Title.Contains("graphics", StringComparison.OrdinalIgnoreCase) || c.Kind == ChangeKind.WindowsUpdate)
             .ThenByDescending(c => c.Time)

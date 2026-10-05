@@ -57,6 +57,10 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
     public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 
+    /// <summary>The last day before <paramref name="before"/> the PC was really used (five minutes or more), if any.</summary>
+    public Task<DateTime?> LastUsedDayAsync(DateTime before) =>
+        Run(db => db.LastUsedDayBefore(TimeUtil.ToUnix(before.Date)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null);
+
     /// <summary>The first day with minute-by-minute history (kept for less time than daily totals).</summary>
     public Task<DateTime?> FirstMinuteDayAsync() => Run(db => db.FirstMinuteTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 

@@ -50,11 +50,11 @@
         <DataTemplate x:Key="PlainEntry">
             <Grid Margin="0,5">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="72" />
                     <ColumnDefinition Width="26" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
                            Foreground="{DynamicResource MutedBrush}" />
                 <TextBlock x:Name="Line" Grid.Column="2" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
@@ -71,11 +71,11 @@
         <DataTemplate x:Key="ProblemEntry">
             <Grid Margin="0,5">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="72" />
                     <ColumnDefinition Width="26" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
                            Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
                 <TextBlock Grid.Column="2" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}">
@@ -88,11 +88,11 @@
         <DataTemplate x:Key="RichEntry">
             <Grid Margin="0,5">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="72" />
                     <ColumnDefinition Width="26" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
                            Foreground="{DynamicResource MutedBrush}" />
                 <StackPanel Grid.Column="2">
@@ -175,14 +175,17 @@
         <DockPanel Grid.Row="1" Margin="0,16,0,0" Height="36">
             <ComboBox AutomationProperties.Name="Show" ToolTip="Show one kind of change" MinWidth="190" VerticalAlignment="Center"
                       ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" />
-            <TextBlock Text="App updates" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
+            <TextBlock Text="Group app updates" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Grouped per day"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By day"
                                  ToolTip="Three or more app updates on a day are one line"
-                                 IsChecked="{Binding GroupUpdates}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="One line each"
-                                 IsChecked="{Binding GroupUpdates, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                 IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Day}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By month"
+                                 ToolTip="A month's app updates are one line at the top of the month"
+                                 IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Month}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Off" ToolTip="Every app update on its own line"
+                                 IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Each}" />
                 </StackPanel>
             </Border>
             <TextBlock Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center" />

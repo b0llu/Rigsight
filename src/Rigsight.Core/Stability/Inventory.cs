@@ -23,6 +23,15 @@ public static partial class Inventory
 
     public const string On = "on", Off = "off";
 
+    /// <summary>How often the agent reads the inventory: a change found by it happened within this long before.</summary>
+    public const int ScanMinutes = 10;
+
+    /// <summary>Marks a change found in the inventory whose exact time is known after all (from Windows' logs).</summary>
+    public const string ExactPrefix = "logged-";
+
+    /// <summary>One of the inventory's kinds (the start of the subject of every change found by it).</summary>
+    public static bool IsKind(string kind) => kind is App or Startup or Gpu or GpuDriver or Disk or Cpu or Ram or Board or Bios or Windows or Setting;
+
     /// <summary>Kinds whose items come and go (an app, a drive); the others are single facts that only change value.</summary>
     public static bool IsList(string kind) => kind is App or Startup or Gpu or Disk;
 
