@@ -287,7 +287,7 @@ internal sealed class AgentContext : ApplicationContext
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
         long lastNet = 0, nextAddresses = 0;
-        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000,
+        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000, nextChangeScan = 40_000,
             nextHardwareApps = 30_000;
         // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
         // last window closes, hand that back too.
@@ -437,6 +437,12 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     nextCrashScan = now + 10 * 60_000;
                     ScanCrashes();
+                }
+
+                if (now >= nextChangeScan)
+                {
+                    nextChangeScan = now + 10 * 60_000;
+                    ScanChanges();
                 }
 
                 if (now >= nextDrives)
@@ -982,6 +988,38 @@ internal sealed class AgentContext : ApplicationContext
         catch (Exception ex)
         {
             Log.Error("crashes", ex);
+        }
+    }
+
+    /// <summary>
+    /// Sampler thread: notes what changed on the PC. Drivers and Windows updates come from the event logs (all they
+    /// still hold the first time, then what's new); apps, startup programs, hardware and settings from setting the
+    /// PC's inventory against the last one.
+    /// </summary>
+    private void ScanChanges()
+    {
+        try
+        {
+            var now = DateTime.Now;
+            bool first = _db.ChangesScanned is null;
+            var since = _db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned).AddHours(-1) : now.AddYears(-2);
+            var logged = ChangeLogReader.Read(since, now);
+            var found = _db.ApplyInventory(Inventory.Read(), Inventory.Owner(), now);
+
+            // A graphics driver is followed by its version in the inventory (the logs often don't name it); the
+            // log entry only says when. Before the first inventory the logs are all there is.
+            var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > since.AddHours(1));
+            if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
+            if (graphics is not null)
+                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time } : c)];
+
+            _db.InsertChanges(logged);
+            _db.InsertChanges(found);
+            _db.ChangesScanned = TimeUtil.ToUnix(now);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("changes", ex);
         }
     }
 

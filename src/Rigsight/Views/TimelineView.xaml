@@ -1,0 +1,321 @@
+<UserControl x:Class="Rigsight.Views.TimelineView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Rigsight.Views"
+             x:Name="Page">
+    <UserControl.Resources>
+        <Style x:Key="PanelHead" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+
+        <!-- A day or a month in the calendar: lit when something happened in it. -->
+        <Style x:Key="CalendarCell" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="7" />
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                            <ContentPresenter />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasAny}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="Cursor" Value="Hand" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasAny}" Value="False">
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- One line under a day. Most are a plain change (kept light: a long list builds hundreds of them); a problem has
+             its way to the Crashes page; a change with more to it shows what was different after, or the updates folded into it. -->
+        <DataTemplate x:Key="PlainEntry">
+            <Grid Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="26" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
+                           Foreground="{DynamicResource MutedBrush}" />
+                <TextBlock x:Name="Line" Grid.Column="2" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                </TextBlock>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsKey}" Value="True">
+                    <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ProblemEntry">
+            <Grid Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="26" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
+                           Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                <TextBlock Grid.Column="2" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}">
+                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}"
+                        Command="{Binding DataContext.OpenCrashesCommand, ElementName=Page}" CommandParameter="{Binding}">See on Crashes</Hyperlink>
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RichEntry">
+            <Grid Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66" />
+                    <ColumnDefinition Width="26" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
+                           Foreground="{DynamicResource MutedBrush}" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="Line" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                    </TextBlock>
+                    <!-- What was different after it -->
+                    <ItemsControl ItemsSource="{Binding Effect}" Margin="0,3,0,2">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,2">
+                                    <TextBlock Text="&#xE8AB;" Style="{StaticResource Icon}" FontSize="11" VerticalAlignment="Top" Margin="0,3,7,0"
+                                               Foreground="{Binding DataContext.EffectBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource ResourceBrush}}" />
+                                    <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{Binding DataContext.EffectBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource ResourceBrush}}" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Style="{StaticResource ActionButton}" Content="{Binding ToggleText}" HorizontalAlignment="Left" Margin="-9,2,0,0"
+                            Command="{Binding DataContext.ToggleVersionsCommand, ElementName=Page}" CommandParameter="{Binding}"
+                            Visibility="{Binding HasChildren, Converter={StaticResource Vis}}" />
+                    <ItemsControl ItemsSource="{Binding Children}" Margin="0,2,0,0" Visibility="{Binding IsExpanded, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,2">
+                                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsKey}" Value="True">
+                    <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <views:TimelineEntryTemplates x:Key="EntryTemplates" Plain="{StaticResource PlainEntry}" Problem="{StaticResource ProblemEntry}" Rich="{StaticResource RichEntry}" />
+
+        <!-- A day: its dot on the line that runs down the list, its name, and its lines. -->
+        <DataTemplate x:Key="DayTemplate">
+            <StackPanel>
+                <TextBlock Text="{Binding Month}" Style="{StaticResource PanelHead}" Margin="34,6,0,10"
+                           Visibility="{Binding Month, Converter={StaticResource Vis}}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="34" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="1" HorizontalAlignment="Left" Margin="6,18,0,-2" Background="{DynamicResource StrokeBrush}" />
+                    <Ellipse Width="13" Height="13" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,4,0,0"
+                             Fill="{Binding NodeBrush, Converter={StaticResource ResourceBrush}}" />
+                    <StackPanel Grid.Column="1" Margin="0,0,0,20">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{Binding SubTitle}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="10,0,0,1" VerticalAlignment="Bottom" />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Entries}" ItemTemplateSelector="{StaticResource EntryTemplates}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="32,26,32,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Timeline" Style="{StaticResource H1}" />
+            <TextBlock Text="What was installed, updated, removed or switched on this PC, day by day." Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- What to show -->
+        <DockPanel Grid.Row="1" Margin="0,16,0,0" Height="36">
+            <ComboBox AutomationProperties.Name="Show" ToolTip="Show one kind of change" MinWidth="190" VerticalAlignment="Center"
+                      ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" />
+            <TextBlock Text="App updates" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
+            <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Grouped per day"
+                                 ToolTip="Three or more app updates on a day are one line"
+                                 IsChecked="{Binding GroupUpdates}" />
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="One line each"
+                                 IsChecked="{Binding GroupUpdates, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </DockPanel>
+
+        <Grid Grid.Row="2" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="32" />
+                <ColumnDefinition Width="252" />
+            </Grid.ColumnDefinitions>
+
+            <!-- The days, newest first; older ones are built as the list is scrolled. -->
+            <ScrollViewer x:Name="Scroller" Style="{StaticResource GutterScroll}" ScrollChanged="Scroller_ScrollChanged">
+                <StackPanel Margin="2,2,0,24">
+                    <ItemsControl x:Name="List" ItemsSource="{Binding Days}" ItemTemplate="{StaticResource DayTemplate}" />
+                    <StackPanel HorizontalAlignment="Center" Margin="0,48,0,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                        <TextBlock Text="&#xE81C;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <ScrollViewer Grid.Column="2" Style="{StaticResource GutterScroll}">
+                <StackPanel Margin="0,0,0,24">
+                    <!-- Jump to a day: one month, or (a click on its name) the year's months. -->
+                    <TextBlock Text="JUMP TO A DAY" Style="{StaticResource PanelHead}" />
+                    <DockPanel Margin="-6,0,-6,4">
+                        <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="0" Command="{Binding GoBackCommand}" IsEnabled="{Binding CanGoBack}"
+                                AutomationProperties.Name="Earlier">
+                            <TextBlock Text="&#xE76B;" Style="{StaticResource Icon}" FontSize="11" />
+                        </Button>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource ActionButton}" Margin="0" Command="{Binding GoForwardCommand}" IsEnabled="{Binding CanGoForward}"
+                                AutomationProperties.Name="Later">
+                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" />
+                        </Button>
+                        <Button Style="{StaticResource ActionButton}" Margin="0" HorizontalAlignment="Center" Command="{Binding ZoomOutCommand}" ToolTip="Pick a month">
+                            <TextBlock Text="{Binding CalendarTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        </Button>
+                    </DockPanel>
+
+                    <StackPanel Visibility="{Binding IsYearView, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <ItemsControl ItemsSource="{Binding Weekdays}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="7" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding CalendarCells}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="7" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button x:Name="Cell" Style="{StaticResource CalendarCell}" Height="34" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Label}"
+                                            Command="{Binding DataContext.PickDayCommand, ElementName=Page}" CommandParameter="{Binding}">
+                                        <Grid>
+                                            <Border x:Name="Today" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="1" CornerRadius="7" Visibility="Collapsed" />
+                                            <TextBlock Text="{Binding Text}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,4" />
+                                            <Ellipse Width="4" Height="4" VerticalAlignment="Bottom" Margin="0,0,0,4"
+                                                     Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}"
+                                                     Visibility="{Binding HasAny, Converter={StaticResource Vis}}" />
+                                        </Grid>
+                                    </Button>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                            <Setter TargetName="Today" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Day}" Value="{x:Null}">
+                                            <Setter TargetName="Cell" Property="Visibility" Value="Hidden" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding CalendarMonths}" Visibility="{Binding IsYearView, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button x:Name="Cell" Style="{StaticResource CalendarCell}" Height="46" Margin="2" AutomationProperties.Name="{Binding Label}"
+                                        Command="{Binding DataContext.PickMonthCommand, ElementName=Page}" CommandParameter="{Binding}">
+                                    <Grid>
+                                        <Border x:Name="Current" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="1" CornerRadius="7" Visibility="Collapsed" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Text}" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                        <Setter TargetName="Current" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Something changed" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,14,0" />
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource HotBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="A problem" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
+                    </WrapPanel>
+
+                    <!-- This PC now -->
+                    <StackPanel Margin="0,26,0,0" Visibility="{Binding Now.Count, Converter={StaticResource Vis}}">
+                        <TextBlock Text="THIS PC NOW" Style="{StaticResource PanelHead}" />
+                        <ItemsControl ItemsSource="{Binding Now}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,4">
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Label}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" />
+                                        <StackPanel HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding Value}" FontSize="13" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Since}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right"
+                                                       Visibility="{Binding Since, Converter={StaticResource Vis}}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

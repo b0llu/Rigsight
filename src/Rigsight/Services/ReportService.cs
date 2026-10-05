@@ -223,9 +223,70 @@ public sealed class ReportService(SettingsModel settings)
         return times.Count == 0 ? (DateTime?)null : TimeUtil.FromUnix(times.Min()).Date;
     });
 
-    /// <summary>Driver installs and Windows updates in a range (possible causes of crashes that followed).</summary>
-    public static Task<List<Core.Stability.SystemChange>> ChangesAsync(DateTime from, DateTime to) =>
-        Task.Run(() => Core.Stability.ChangeLogReader.Read(from, to));
+    /// <summary>
+    /// What changed under Windows in a range (drivers, updates, hardware, the BIOS): possible causes of crashes that
+    /// followed. From the recorded changes; from Windows' own logs until the agent has made its first record.
+    /// </summary>
+    public static Task<List<Core.Stability.SystemChange>> ChangesAsync(DateTime from, DateTime to) => Task.Run(() =>
+    {
+        try
+        {
+            using var db = RigsightDb.OpenReader();
+            if (db is { HasChanges: true, ChangesScanned: not null })
+                return [.. db.GetChanges(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)).Where(c => c.IsSystemLevel)];
+        }
+        catch (Exception ex)
+        {
+            Log.Error("reports", ex);
+        }
+        return Core.Stability.ChangeLogReader.Read(from, to);
+    });
+
+    /// <summary>
+    /// Everything the Timeline page shows: every change recorded (with the days a drive's space jumped), the problems
+    /// a change can explain (blue screens, sudden shutdowns and graphics driver resets: the PC's own, not one app
+    /// crashing, which is the Crashes page's), and the PC as it is now.
+    /// </summary>
+    public Task<TimelineData?> TimelineAsync()
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var changes = db.GetChanges(0, long.MaxValue / 2);
+            changes.AddRange(Core.Stability.StorageChanges.From(db.GetDriveDays(0)));
+
+            var byExe = db.LoadApps().ToDictionary(a => a.Exe, StringComparer.OrdinalIgnoreCase);
+            var problems = db.GetCrashes(0, long.MaxValue / 2)
+                .Where(e => e.Kind is Core.Stability.CrashKind.SystemCrash or Core.Stability.CrashKind.GpuDriverReset
+                    || (e.Kind == Core.Stability.CrashKind.UnexpectedShutdown && e.Moment == Core.Stability.PowerMoment.Running))
+                .Select(e =>
+                {
+                    string? name = string.IsNullOrEmpty(e.AppExe) ? null
+                        : s.AppNames.TryGetValue(e.AppExe, out var alias) ? alias
+                        : Core.Apps.AppCatalog.KnownName(e.AppExe) ?? (byExe.TryGetValue(e.AppExe, out var row) ? row.Name : Core.Apps.AppCatalog.FallbackName(e.AppExe));
+                    return new TimelineProblem(e.Time, e.Kind, Core.Stability.CrashExplainer.Explain(e, name).Title);
+                }).ToList();
+            // How the PC ran after each big change against before it (same game, same load; problems per hour of use).
+            var names = byExe.Values.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
+            var effects = ChangeEffects.Of(changes, db.GetHeatDays(0, long.MaxValue / 2), db.GetSystemDays(0, long.MaxValue / 2) ?? [],
+                [.. problems.Select(p => (p.Time, p.Kind))], id => names.GetValueOrDefault(id, "a game"), DateTime.Now);
+            return new TimelineData(changes, problems, db.GetInventory()) { Effects = effects };
+        });
+    }
+}
+
+/// <summary>See <see cref="ReportService.TimelineAsync"/>.</summary>
+public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, List<TimelineProblem> Problems, List<Core.Stability.InventoryItem> Inventory)
+{
+    /// <summary>What was different after a day's big changes (see <see cref="ChangeEffects"/>), by day.</summary>
+    public Dictionary<DateTime, ChangeEffect> Effects { get; init; } = [];
+}
+
+/// <summary>A crash, freeze or sudden shutdown as one line on the timeline.</summary>
+public sealed record TimelineProblem(DateTime Time, Core.Stability.CrashKind Kind, string Title)
+{
+    /// <summary>The PC itself went down (a blue screen, a sudden shutdown), not one app.</summary>
+    public bool IsCritical => Kind is Core.Stability.CrashKind.SystemCrash or Core.Stability.CrashKind.UnexpectedShutdown;
 }
 
 /// <summary>See <see cref="ReportService.FanHistoryAsync"/>.</summary>

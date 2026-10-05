@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace Rigsight.Services;
 
 /// <summary>What one version brought, in plain words: new things, things that work better, and fixes.</summary>
@@ -8,6 +10,9 @@ public sealed record ReleaseNotes(Version Version, DateOnly Date, string[] New, 
     public string DateText => Date.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>The non-empty groups, in order, for the What's new card.</summary>
+    /// <summary>The release's headline feature, shown big at the top of its What's new (most releases have none).</summary>
+    public ReleaseFeature? Feature { get; init; }
+
     public IReadOnlyList<ReleaseSection> Sections =>
     [
         .. new[] { new ReleaseSection("NEW", "new", New), new ReleaseSection("BETTER", "better", Better), new ReleaseSection("FIXED", "fixed", Fixed) }
@@ -18,17 +23,49 @@ public sealed record ReleaseNotes(Version Version, DateOnly Date, string[] New, 
 public sealed record ReleaseSection(string Title, string Kind, string[] Items);
 
 /// <summary>
+/// A release's headline feature, for the top of its What's new: its name, one line on what it is, a few things it can
+/// do, and the page that opens it, so people see there is something new and go and try it.
+/// </summary>
+/// <param name="icon">An icon-font character, or "fan" / "network" for the drawn ones (as in the sidebar).</param>
+/// <param name="page">The page's navigation key ("timeline").</param>
+public sealed partial class ReleaseFeature(string name, string pitch, string[] points, string page, string icon, bool isPage = true) : ObservableObject
+{
+    public string Name { get; } = name;
+    public string Pitch { get; } = pitch;
+    public string[] Points { get; } = points;
+    public string Page { get; } = page;
+    public string Icon { get; } = icon;
+
+    /// <summary>A page of its own ("NEW PAGE"), or something new on a page there already was ("NEW FEATURE").</summary>
+    public string Tag { get; } = isPage ? "NEW PAGE" : "NEW FEATURE";
+
+    /// <summary>The button names the page it opens, which for a feature isn't always the feature's own name.</summary>
+    public string OpenText { get; init; } = $"Open {name}";
+
+    /// <summary>Something true about this PC from the feature's own data ("31 changes already found…"), once known.</summary>
+    [ObservableProperty] private string? _fact;
+}
+
+/// <summary>
 /// Every version's "What's new", newest first, written for the people using Rigsight (not the release notes): one short
 /// headline per change, enough to make them go and look or to know it's fixed. No examples, menu paths or internals. A new version gets an entry here before it ships (a test
 /// checks); one with nothing a person would notice gets none, and then no What's new either.
 /// </summary>
 public static class Changelog
 {
-    private static ReleaseNotes V(string version, int month, int day, string[]? added = null, string[]? better = null, string[]? fixedBugs = null) =>
-        new(Version.Parse(version), new DateOnly(2026, month, day), added ?? [], better ?? [], fixedBugs ?? []);
+    private static ReleaseNotes V(string version, int month, int day, string[]? added = null, string[]? better = null, string[]? fixedBugs = null,
+        ReleaseFeature? feature = null) =>
+        new(Version.Parse(version), new DateOnly(2026, month, day), added ?? [], better ?? [], fixedBugs ?? []) { Feature = feature };
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.0", 10, 5,
+            feature: new("Timeline", "Everything that changed on your PC, day by day.",
+                ["See when a driver, a Windows update, an app or a setting changed.",
+                    "Find out if your PC ran hotter or less stable after a change.",
+                    "Jump to any day, or show just one kind of change."],
+                "timeline", "\uE81C"),
+            better: ["Crashes also show hardware and BIOS changes from the week before."]),
         V("0.14.4", 10, 2,
             better: ["The support button in Settings is easier to spot."]),
         V("0.14.3", 10, 2,
@@ -42,10 +79,11 @@ public static class Changelog
                 "An app left open but never used no longer reads as used for 0s.",
                 "Widget pictures on the Widgets page always refresh."]),
         V("0.14.0", 10, 1,
-            added: ["A Network page: what each app downloads and uploads, by day, week, month or year.",
-                "See what downloads in the background, and while you're away.",
-                "Your biggest downloads, your top speed, and when the internet dropped.",
-                "A heads-up when your downloads get slower, or an app uploads far more than usual."],
+            feature: new("Network", "What each app downloads and uploads.",
+                ["By day, week, month or year, with what ran in the background or while you were away.",
+                    "Your biggest downloads, your top speed, and when the internet dropped.",
+                    "A heads-up when downloads get slower, or an app uploads far more than usual."],
+                "network", "network"),
             better: ["A tidier storage map: the smallest folders sit together in one block."],
             fixedBugs: ["Every word on the taskbar strip is as clear as the part's name.",
                 "Storage scans count what files really take, never more than your drive."]),
@@ -69,9 +107,11 @@ public static class Changelog
             better: ["Hover the fan charts to see each reading.", "Six facts for each fan, and a list that scrolls when you have many.",
                 "A new fan icon."]),
         V("0.12.0", 9, 30,
-            added: ["A Fans page: how your fans are doing and what makes them spin.",
-                "A heads-up when a fan turns slower than it used to at the same heat.",
-                "Temperatures at rest, next to your usual, on the Temperatures page."],
+            feature: new("Fans", "How your fans are doing, and what makes them spin.",
+                ["Every fan's speed through the day, and the app or heat behind it.",
+                    "A heads-up when a fan turns slower than it used to at the same heat."],
+                "fans", "fan"),
+            added: ["Temperatures at rest, next to your usual, on the Temperatures page."],
             better: ["Peaks say what you were doing: playing, watching or working."],
             fixedBugs: ["A tidier menu on the Apps page."]),
         V("0.11.3", 9, 29,
@@ -109,19 +149,21 @@ public static class Changelog
                 "Highlights skip what isn't news. Hover one to see the numbers behind it.",
             ]),
         V("0.9.0", 9, 28,
-            added: ["Live readings right in the taskbar, beside the clock."],
+            feature: new("Taskbar readings", "Live readings right in the taskbar, beside the clock.",
+                ["Temperatures, load and more, always in view.",
+                    "Each part in its own colour: CPU, GPU, memory."],
+                "taskbar", "\uE75B", isPage: false) { OpenText = "Open Taskbar" },
             better:
             [
                 "Taskbar icons are colour-coded by part and stay where you drag them.",
                 "Temperature peaks name the app doing the work.",
             ]),
         V("0.8.0", 9, 28,
-            added:
-            [
-                "Place the in-game overlay anywhere on the screen.",
-                "Build your own widgets, or change the built-in ones.",
-                "An FPS widget, and new Grey and Grayscale looks for widgets.",
-            ],
+            feature: new("Your own widgets", "Build widgets from any reading, or change the built-in ones.",
+                ["Pick the readings, the size and the look.",
+                    "An FPS widget, and new Grey and Grayscale looks."],
+                "widgets", "\uF246", isPage: false) { OpenText = "Open Widgets" },
+            added: ["Place the in-game overlay anywhere on the screen."],
             better:
             [
                 "Widgets step aside while you play, so they never add lag.",

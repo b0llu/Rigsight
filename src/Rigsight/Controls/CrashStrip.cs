@@ -148,7 +148,7 @@ public sealed class CrashStrip : FrameworkElement
             else if (DayCommand is not null) lines.Add(("Click to see this day", ChartPaint.Label, false));
             foreach (var p in d.Problems.Take(6)) lines.Add((p, ChartPaint.Muted, false));
             if (d.Problems.Count > 6) lines.Add(($"and {d.Problems.Count - 6} more", ChartPaint.Muted, false));
-            foreach (var c in d.Changes.Take(4)) lines.Add(($"Installed: {c.Title}", ChangeBrush, false));
+            foreach (var c in d.Changes.Take(4)) lines.Add((c.Line, ChangeBrush, false));
             double cx = plot.Left + slot * (_hover + 0.5);
             // The strip is short, so the box may extend above it (over the page header area).
             ChartPaint.InfoBox(dc, this, lines, new Point(cx, plot.Top), new Rect(0, -240, w, h + 240));

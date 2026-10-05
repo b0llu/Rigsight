@@ -92,6 +92,7 @@ public partial class MainWindow : Window
                 "reports" => new ReportsView { DataContext = _vm.ReportsPage },
                 "apps" => new AppsView { DataContext = _vm.Apps },
                 "crashes" => new CrashesView { DataContext = _vm.Crashes },
+                "timeline" => new TimelineView { DataContext = _vm.Timeline },
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },
                 "fans" => new FansView { DataContext = _vm.Fans },
                 "network" => new NetworkView { DataContext = _vm.Network },

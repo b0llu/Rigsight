@@ -55,7 +55,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         _settings = settings;
         _go = go;
         NavEntry E(string key, string title, string icon) => new(key, title, icon, this);
-        Main = [E("home", "Home", "\uE80F"), E("reports", "Reports", "\uE9F9"), E("apps", "Apps", "\uECA5"), E("crashes", "Crashes", "\uE7BA")];
+        Main = [E("home", "Home", "\uE80F"), E("reports", "Reports", "\uE9F9"), E("apps", "Apps", "\uECA5"), E("crashes", "Crashes", "\uE7BA"),
+            E("timeline", "Timeline", "\uE81C")];
         Hardware = [E("temperatures", "Temperatures", "\uE9CA"), E("fans", "Fans", "fan"), E("memory", "Memory", "\uE964"),
             E("storage", "Storage", "\uEDA2"), E("network", "Network", "network"), E("sensors", "All sensors", "\uE9D9")];
         OnScreen = [E("widgets", "Widgets", "\uF246"), E("overlay", "Overlay", "\uE7FC"), E("taskbar", "Taskbar", "\uE75B")];

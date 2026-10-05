@@ -31,6 +31,11 @@ public sealed partial class ShellViewModel : ObservableObject
         ReportsPage = new ReportsViewModel(Reports);
         Apps = new AppsViewModel(Reports, Settings);
         Crashes = new CrashesViewModel(Reports, Settings);
+        Timeline = new TimelineViewModel(Reports, openCrashes: day =>
+        {
+            Crashes.ShowDay(day);
+            CurrentPage = "crashes";
+        });
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
@@ -38,7 +43,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
-        WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current);
+        WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: page => CurrentPage = page, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
@@ -99,6 +104,14 @@ public sealed partial class ShellViewModel : ObservableObject
         launchCheck.Start();
     }
 
+    /// <summary>What a new feature's page already holds for this PC, for its What's new ("31 changes already found…").</summary>
+    private async Task<string?> FeatureFactAsync(string page)
+    {
+        if (page != "timeline" || await Reports.TimelineAsync() is not { Changes.Count: > 0 } data) return null;
+        var first = data.Changes.Min(c => c.Time);
+        return $"{data.Changes.Count:N0} change{(data.Changes.Count == 1 ? "" : "s")} already found on this PC, back to {first:MMMM yyyy}.";
+    }
+
     public SettingsModel Settings { get; }
     public ReportService Reports { get; }
     public LiveData Live { get; }
@@ -106,6 +119,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public ReportsViewModel ReportsPage { get; }
     public AppsViewModel Apps { get; }
     public CrashesViewModel Crashes { get; }
+    public TimelineViewModel Timeline { get; }
     public MemoryViewModel Memory { get; }
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }
@@ -181,7 +195,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Pages that can be chosen as the start page (besides dashboards).</summary>
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
-        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"),
+        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"), new("timeline", "Timeline"),
         new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("network", "Network"), new("sensors", "All sensors"),
     ];
 
@@ -234,6 +248,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "apps": await Apps.LoadAsync(); break;
             // Coming back: rebuilt only if the crashes changed (rebuilding its cards froze the window for a quarter second).
             case "crashes": await Crashes.LoadAsync(onlyIfChanged: Crashes.Loaded); break;
+            case "timeline": await Timeline.LoadAsync(); break;
             case "memory": await Memory.RefreshAsync(); break;
             case "storage": await Storage.RefreshAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
@@ -281,6 +296,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "reports": if (ReportsPage.IncludesNow) await ReportsPage.LoadAsync(); break;
                 case "apps": if (Apps.IncludesToday) await Apps.LoadAsync(); break;
                 case "crashes": if (Crashes.IncludesToday) await Crashes.LoadAsync(onlyIfChanged: true); break;
+                case "timeline": await Timeline.LoadAsync(onlyIfChanged: true); break;
                 case "memory": await Memory.RefreshAsync(); break;
                 // Free space changes slowly: every five minutes is plenty.
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;

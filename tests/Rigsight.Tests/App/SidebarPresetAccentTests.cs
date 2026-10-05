@@ -31,7 +31,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar();
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "crashes"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
             Assert.All(sidebar.Main.Concat(sidebar.Hardware).Concat(sidebar.OnScreen), e => Assert.True(e.IsVisible));
@@ -53,11 +53,12 @@ public sealed class SidebarPresetAccentTests
 
             var apps = sidebar.Main.Single(e => e.Key == "apps");
             sidebar.MoveDownCommand.Execute(apps);
+            sidebar.MoveDownCommand.Execute(apps);
             sidebar.MoveDownCommand.Execute(apps); // already last of its group: doesn't jump into HARDWARE
-            Assert.Equal(["home", "reports", "crashes", "apps"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "crashes", "timeline", "apps"], Keys(sidebar.Main));
             Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
 
-            Assert.Equal(["home", "reports", "crashes", "apps", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
+            Assert.Equal(["home", "reports", "crashes", "timeline", "apps", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
                 settings.Current.Sidebar.Order);
         });
     }
@@ -70,7 +71,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar(start);
         Ui.Run(() =>
         {
-            Assert.Equal(["crashes", "home", "reports", "apps"], Keys(sidebar.Main));
+            Assert.Equal(["crashes", "home", "reports", "apps", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["storage", "memory", "temperatures", "fans", "network", "sensors"], Keys(sidebar.Hardware));
         });
     }

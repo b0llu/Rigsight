@@ -3,12 +3,57 @@ using System.Text.RegularExpressions;
 
 namespace Rigsight.Core.Stability;
 
-public enum ChangeKind { Driver, WindowsUpdate }
+public enum ChangeKind
+{
+    Driver,
+    WindowsUpdate,
+    /// <summary>A new version of Windows (24H2 to 25H2).</summary>
+    Windows,
+    AppInstalled,
+    AppRemoved,
+    AppUpdated,
+    /// <summary>A program that starts with Windows was added, removed, or switched on or off.</summary>
+    Startup,
+    /// <summary>A part was added, removed or swapped: graphics card, drive, memory, processor, motherboard.</summary>
+    Hardware,
+    /// <summary>The motherboard's BIOS.</summary>
+    Firmware,
+    /// <summary>A Windows setting that affects how the PC runs (Fast Startup, Game Mode…).</summary>
+    Setting,
+    /// <summary>A drive's used space jumped or dropped within a day.</summary>
+    Storage,
+}
 
-/// <summary>Something that changed on the PC (a driver or a Windows update), as a possible cause of later crashes.</summary>
+/// <summary>
+/// Something that changed on the PC, as a line on the Changes page and a possible cause of later crashes.
+/// <see cref="Title"/> reads by itself ("NVIDIA graphics driver 616.92", "7-Zip updated to 26.01").
+/// </summary>
 public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
 {
+    public long Id { get; init; }
+
+    /// <summary>What changed, the same from one change of it to the next (a driver's package, an app's name).</summary>
+    public string Subject { get; init; } = "";
+
+    /// <summary>How it was before (a version, a size, "on"), where that's known.</summary>
+    public string? Was { get; init; }
+
+    /// <summary>How it is now.</summary>
+    public string? Now { get; init; }
+
     public string Short => $"{Title} ({Time:d MMM})";
+
+    /// <summary>A second line under the title: what it was before.</summary>
+    public string? Detail => Kind == ChangeKind.Storage ? $"{Was} to {Now} in use" : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
+
+    /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>
+    public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? $"Installed: {Title}" : Title;
+
+    /// <summary>A graphics card's driver (the inventory follows those by version, see <see cref="Inventory"/>).</summary>
+    public bool IsGraphicsDriver => Kind == ChangeKind.Driver && Title.Contains("graphics driver", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Changes that can explain a PC-level problem: what Windows runs on, not which apps came and went.</summary>
+    public bool IsSystemLevel => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate or ChangeKind.Windows or ChangeKind.Hardware or ChangeKind.Firmware;
 }
 
 /// <summary>
@@ -70,12 +115,14 @@ public static partial class ChangeLogReader
                 if (provider.Length == 0 || provider.StartsWith("Microsoft", StringComparison.OrdinalIgnoreCase)) continue;
                 if (!seen.Add($"{inf}|{version}")) continue;
 
-                string title;
+                string title, subject = inf.ToLowerInvariant();
+                string? now = version;
                 if (provider.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) && inf.StartsWith("nv", StringComparison.OrdinalIgnoreCase))
                 {
                     // NVIDIA's installer logs its audio and helper parts, not the display driver itself: one entry per install.
                     if (list.Any(c => c.Kind == ChangeKind.Driver && c.Title.StartsWith("NVIDIA graphics") && Math.Abs((c.Time - r.TimeCreated!.Value).TotalHours) < 2)) continue;
                     title = "NVIDIA graphics driver installed";
+                    (subject, now) = ("nvidia-graphics", null);
                 }
                 else if (inf.Equals("pawnio", StringComparison.OrdinalIgnoreCase))
                 {
@@ -86,7 +133,7 @@ public static partial class ChangeLogReader
                     string kind = Classes.GetValueOrDefault(Prop(r, 2) ?? "", "device");
                     title = $"{Shorten(provider)} {kind} driver {version}";
                 }
-                list.Add(new SystemChange(r.TimeCreated ?? from, ChangeKind.Driver, title));
+                list.Add(new SystemChange(r.TimeCreated ?? from, ChangeKind.Driver, title) { Subject = subject, Now = now });
             }
         }
     }
@@ -99,7 +146,7 @@ public static partial class ChangeLogReader
             {
                 string title = Prop(r, 0)?.Trim() ?? "";
                 if (title.Length == 0 || IsRoutine(title)) continue;
-                list.Add(new SystemChange(r.TimeCreated ?? from, ChangeKind.WindowsUpdate, Describe(title)));
+                list.Add(new SystemChange(r.TimeCreated ?? from, ChangeKind.WindowsUpdate, Describe(title)) { Subject = title });
             }
         }
     }

@@ -1,0 +1,499 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core.Stability;
+using Rigsight.Services;
+
+namespace Rigsight.ViewModels;
+
+/// <summary>A kind of change to show, with how many there are ("Drivers (4)").</summary>
+public sealed record TimelineFilter(string Key, string Name, int Count)
+{
+    public string Label => $"{Name} ({Count:N0})";
+}
+
+/// <summary>One line under a day: a change, a problem, or a day's app updates folded into one.</summary>
+public sealed partial class TimelineEntry : ObservableObject
+{
+    public string TimeText { get; init; } = "";
+    public string Icon { get; init; } = "";
+    public string Title { get; init; } = "";
+    public string? Detail { get; init; }
+
+    /// <summary>Drivers, Windows and hardware stand out: they're what a PC-wide problem usually comes from.</summary>
+    public bool IsKey { get; init; }
+
+    /// <summary>The palette brush for the line: text for a change, warm or hot for a problem.</summary>
+    public string Brush { get; init; } = "TextBrush";
+    public string IconBrush { get; init; } = "MutedBrush";
+
+    /// <summary>A problem's day, to open on the Crashes page.</summary>
+    public DateTime? CrashDay { get; init; }
+    public bool IsProblem => CrashDay is not null;
+
+    /// <summary>What was different after this change (see <see cref="Core.Reports.ChangeEffects"/>), and the brush for it.</summary>
+    public List<string> Effect { get; set; } = [];
+    public string EffectBrush { get; set; } = "MutedBrush";
+
+    /// <summary>The app updates folded into this line.</summary>
+    public List<TimelineEntry> Children { get; init; } = [];
+    public bool HasChildren => Children.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToggleText))]
+    private bool _isExpanded;
+
+    public string ToggleText => IsExpanded ? "Hide versions" : "Show versions";
+}
+
+/// <summary>A day on the timeline with everything that happened on it, newest first.</summary>
+public sealed class TimelineDay
+{
+    public DateTime Day { get; init; }
+    public string Title { get; init; } = "";
+    public string SubTitle { get; init; } = "";
+
+    /// <summary>"SEPTEMBER 2026" above the first day shown of each month.</summary>
+    public string? Month { get; init; }
+    public List<TimelineEntry> Entries { get; init; } = [];
+
+    /// <summary>The dot on the line: blue for changes, red for a day with only problems.</summary>
+    public string NodeBrush { get; init; } = "CpuBrush";
+}
+
+/// <summary>
+/// A day in the calendar (or a blank before the 1st). What's on it can change while the month stays (another filter):
+/// the cell is kept and told, so the calendar isn't built again.
+/// </summary>
+public sealed partial class CalendarCell(DateTime? day) : ObservableObject
+{
+    public DateTime? Day { get; } = day;
+    public string Text => Day?.Day.ToString() ?? "";
+    /// <summary>For screen readers: the whole date.</summary>
+    public string Label => Day?.ToString("D") ?? "";
+
+    [ObservableProperty] private bool _hasAny;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DotBrush))]
+    private bool _onlyProblems;
+
+    [ObservableProperty] private bool _isToday;
+    [ObservableProperty] private string? _tip;
+
+    public string DotBrush => OnlyProblems ? "HotBrush" : "CpuBrush";
+}
+
+/// <summary>A month in the calendar's year view, with how much happened in it.</summary>
+public sealed record CalendarMonthCell(DateTime Month, int Count, bool IsCurrent)
+{
+    public string Text => Month.ToString("MMM");
+    public string Label => Month.ToString("MMMM yyyy");
+    public bool HasAny => Count > 0;
+    public string CountText => Count > 0 ? Count.ToString("N0") : "";
+}
+
+/// <summary>A line of "This PC now": what it runs, and since when where a change to it was seen.</summary>
+public sealed record NowFact(string Label, string Value, string? Since);
+
+/// <summary>
+/// The Timeline page: what changed on the PC day by day (drivers, Windows, apps, startup programs, hardware, settings,
+/// drive space) with the problems that happened in between, a calendar to jump around in, and the PC as it is now.
+/// </summary>
+public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes) : ObservableObject
+{
+    /// <summary>
+    /// Days built at a time: the newest first (about a screenful, so opening the page or changing the filter is quick),
+    /// older ones as the list is scrolled.
+    /// </summary>
+    internal const int PageSize = 6;
+
+    /// <summary>From this many app updates in a day they fold into one line (when grouping is on).</summary>
+    private const int GroupFrom = 3;
+
+    private List<SystemChange> _changes = [];
+    private List<TimelineProblem> _problems = [];
+    private Dictionary<DateTime, Core.Reports.ChangeEffect> _effects = [];
+    private string _signature = "";
+
+    // Under the current filter: every day with something on it (newest first), and what's on each.
+    private List<DateTime> _dayOrder = [];
+    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems)> _byDay = [];
+    private readonly HashSet<DateTime> _expanded = [];
+
+    public ObservableCollection<TimelineDay> Days { get; } = [];
+
+    [ObservableProperty] private List<TimelineFilter> _filters = [];
+    [ObservableProperty] private TimelineFilter? _filter;
+
+    /// <summary>A day's app updates as one line (default), or each on its own.</summary>
+    [ObservableProperty] private bool _groupUpdates = true;
+
+    [ObservableProperty] private string _countText = "";
+    [ObservableProperty] private string _emptyText = "";
+    [ObservableProperty] private bool _isEmpty;
+    [ObservableProperty] private List<NowFact> _now = [];
+
+    /// <summary>Loaded once: later visits only rebuild if something changed.</summary>
+    public bool Loaded { get; private set; }
+
+    /// <summary>Raised to scroll the list to a day (already built), or to the top (null).</summary>
+    public event Action<TimelineDay?>? JumpRequested;
+
+    private bool _applying;
+
+    partial void OnFilterChanged(TimelineFilter? value)
+    {
+        if (!_applying) Rebuild(keepPlace: false);
+    }
+
+    partial void OnGroupUpdatesChanged(bool value) => Rebuild(keepPlace: false);
+
+    /// <param name="onlyIfChanged">The minute refresh: leave the page alone unless something new was recorded.</param>
+    public async Task LoadAsync(bool onlyIfChanged = false)
+    {
+        if (await reports.TimelineAsync() is { } data) Apply(data, onlyIfChanged);
+    }
+
+    internal void Apply(TimelineData data, bool onlyIfChanged = false)
+    {
+        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Effects.OrderBy(e => e.Key).SelectMany(e => e.Value.Lines))}";
+        bool same = signature == _signature;
+        _signature = signature;
+        Now = BuildNow(data);
+        if (same && (onlyIfChanged || Loaded)) return;
+
+        _changes = data.Changes;
+        _problems = data.Problems;
+        _effects = data.Effects;
+        Loaded = true;
+        Rebuild(keepPlace: Days.Count > 0);
+    }
+
+    // ── The list ────────────────────────────────────────────────────────
+
+    private static readonly (string Key, string Name, ChangeKind[] Kinds)[] Kinds =
+    [
+        ("drivers", "Drivers", [ChangeKind.Driver]),
+        ("windows", "Windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows]),
+        ("apps", "Apps", [ChangeKind.AppInstalled, ChangeKind.AppRemoved, ChangeKind.AppUpdated]),
+        ("startup", "Startup programs", [ChangeKind.Startup]),
+        ("hardware", "Hardware", [ChangeKind.Hardware, ChangeKind.Firmware]),
+        ("settings", "Settings", [ChangeKind.Setting]),
+        ("storage", "Drive space", [ChangeKind.Storage]),
+    ];
+
+    /// <summary>Works everything out again for the data, the filter and the grouping.</summary>
+    private void Rebuild(bool keepPlace)
+    {
+        // The kinds there are, with their counts; the one picked stays picked.
+        string key = Filter?.Key ?? "all";
+        var filters = new List<TimelineFilter> { new("all", "Everything", _changes.Count) };
+        filters.AddRange(Kinds.Select(k => new TimelineFilter(k.Key, k.Name, _changes.Count(c => k.Kinds.Contains(c.Kind)))).Where(f => f.Count > 0 || f.Key == key));
+        // The same kinds and counts (only the filter or the grouping changed): the dropdown keeps its list.
+        if (!filters.SequenceEqual(Filters) || Filter is null)
+        {
+            _applying = true;
+            Filters = filters;
+            Filter = filters.FirstOrDefault(f => f.Key == key) ?? filters[0];
+            _applying = false;
+        }
+
+        bool all = Filter.Key == "all";
+        var kinds = Kinds.FirstOrDefault(k => k.Key == Filter.Key).Kinds;
+        var changes = all ? _changes : [.. _changes.Where(c => kinds.Contains(c.Kind))];
+        // Problems are context for everything together; a list of one kind is just that kind.
+        var problems = all ? _problems : [];
+
+        _byDay = [];
+        foreach (var c in changes) DayOf(c.Time.Date).Changes.Add(c);
+        foreach (var p in problems) DayOf(p.Time.Date).Problems.Add(p);
+        _dayOrder = [.. _byDay.Keys.OrderByDescending(d => d)];
+
+        int shown = keepPlace ? Math.Max(Days.Count, PageSize) : PageSize;
+        Days.Clear();
+        AddDays(shown);
+
+        IsEmpty = _dayOrder.Count == 0;
+        EmptyText = all ? "No changes yet" : "Nothing of this kind has changed";
+        CountText = changes.Count == 0 ? "" : $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} since {changes.Min(c => c.Time):d MMM yyyy}";
+
+        if (!keepPlace)
+        {
+            CalendarMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            IsYearView = false;
+            JumpRequested?.Invoke(null);
+        }
+        BuildCalendar();
+
+        (List<SystemChange> Changes, List<TimelineProblem> Problems) DayOf(DateTime day) =>
+            _byDay.TryGetValue(day, out var d) ? d : _byDay[day] = ([], []);
+    }
+
+    public bool HasMore => Days.Count < _dayOrder.Count;
+
+    /// <summary>Called by the list's infinite scroll near the bottom.</summary>
+    [RelayCommand]
+    private void ShowMore() => AddDays(PageSize);
+
+    /// <summary>Back to the newest days, when more were built by scrolling (leaving the page).</summary>
+    public void ShowFirstPage()
+    {
+        while (Days.Count > PageSize) Days.RemoveAt(Days.Count - 1);
+        OnPropertyChanged(nameof(HasMore));
+    }
+
+    private void AddDays(int count)
+    {
+        for (int i = 0; i < count && Days.Count < _dayOrder.Count; i++)
+        {
+            var day = _dayOrder[Days.Count];
+            bool newMonth = Days.Count == 0 || Days[^1].Day.Year != day.Year || Days[^1].Day.Month != day.Month;
+            Days.Add(BuildDay(day, newMonth));
+        }
+        OnPropertyChanged(nameof(HasMore));
+    }
+
+    private TimelineDay BuildDay(DateTime day, bool newMonth)
+    {
+        var (changes, problems) = _byDay[day];
+        var entries = new List<(DateTime At, TimelineEntry Entry)>();
+
+        // The same kind of problem several times in a day is one line ("3 graphics driver resets").
+        foreach (var group in problems.GroupBy(p => p.Kind))
+        {
+            var first = group.MinBy(p => p.Time)!;
+            int n = group.Count();
+            string brush = first.IsCritical ? "HotBrush" : "WarmBrush";
+            entries.Add((first.Time, new TimelineEntry
+            {
+                TimeText = first.Time.ToString("h:mm tt"), Icon = "", Brush = brush, IconBrush = brush, IsKey = true, CrashDay = day,
+                Title = n == 1 ? first.Title : Capital(CrashesViewModel.KindCount(group.Key, n)),
+            }));
+        }
+
+        var updates = changes.Where(c => c.Kind == ChangeKind.AppUpdated).OrderByDescending(c => c.Time).ToList();
+        bool fold = GroupUpdates && updates.Count >= GroupFrom;
+        // What was different afterwards goes under the day's biggest change (a graphics driver before a Windows update).
+        var biggest = _effects.ContainsKey(day) ? changes.Where(Core.Reports.ChangeEffects.IsMajor).OrderBy(Rank).ThenBy(c => c.Time).FirstOrDefault() : null;
+        foreach (var c in changes)
+        {
+            if (fold && c.Kind == ChangeKind.AppUpdated) continue;
+            var entry = EntryOf(c);
+            if (c == biggest)
+            {
+                entry.Effect = _effects[day].Lines;
+                entry.EffectBrush = _effects[day].Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GpuBrush", _ => "MutedBrush" };
+            }
+            entries.Add((c.Time, entry));
+        }
+        if (fold)
+        {
+            entries.Add((updates[0].Time, new TimelineEntry
+            {
+                Icon = IconOf(ChangeKind.AppUpdated), Title = $"{updates.Count} apps updated",
+                Detail = string.Join(", ", updates.Select(NameOf)), Children = [.. updates.Select(EntryOf)], IsExpanded = _expanded.Contains(day),
+            }));
+        }
+
+        int ago = (int)(DateTime.Today - day).TotalDays;
+        return new TimelineDay
+        {
+            Day = day,
+            Title = ago switch { 0 => "Today", 1 => "Yesterday", _ => day.ToString("dddd d") },
+            SubTitle = ago <= 1 ? day.ToString("dddd, d MMMM") : "",
+            Month = newMonth ? day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
+            NodeBrush = changes.Count == 0 ? "HotBrush" : "CpuBrush",
+            // Newest first; a drive's space has no time of day and comes last.
+            Entries = [.. entries.OrderByDescending(e => e.Entry.TimeText.Length > 0 || e.Entry.HasChildren).ThenByDescending(e => e.At).Select(e => e.Entry)],
+        };
+
+        static int Rank(SystemChange c) => c.IsGraphicsDriver ? 0 : c.Kind switch { ChangeKind.Firmware => 1, ChangeKind.Hardware => 2, ChangeKind.Windows => 3, _ => 4 };
+        static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
+        // "7-Zip (x64) updated to 26.01" is "7-Zip (x64)" in the folded line.
+        static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
+    }
+
+    private static TimelineEntry EntryOf(SystemChange c) => new()
+    {
+        TimeText = c.Kind == ChangeKind.Storage ? "" : c.Time.ToString("h:mm tt"),
+        Icon = IconOf(c.Kind),
+        Title = c.Title,
+        // An app just installed has no "before": its version is the detail.
+        Detail = c.Kind == ChangeKind.AppInstalled ? c.Now : c.Detail,
+        IsKey = c.IsSystemLevel,
+    };
+
+    private static string IconOf(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Driver => "",
+        ChangeKind.WindowsUpdate or ChangeKind.Windows => "",
+        ChangeKind.AppInstalled => "",
+        ChangeKind.AppRemoved => "",
+        ChangeKind.AppUpdated => "",
+        ChangeKind.Startup => "",
+        ChangeKind.Hardware or ChangeKind.Firmware => "",
+        ChangeKind.Setting => "",
+        _ => "",
+    };
+
+    [RelayCommand]
+    private void ToggleVersions(TimelineEntry entry)
+    {
+        entry.IsExpanded = !entry.IsExpanded;
+        if (Days.FirstOrDefault(d => d.Entries.Contains(entry)) is not { } day) return;
+        if (entry.IsExpanded) _expanded.Add(day.Day); else _expanded.Remove(day.Day);
+    }
+
+    [RelayCommand]
+    private void OpenCrashes(TimelineEntry entry)
+    {
+        if (entry.CrashDay is { } day) openCrashes(day);
+    }
+
+    // ── The calendar ────────────────────────────────────────────────────
+
+    /// <summary>The month the calendar shows (its 1st), or any month of the year it shows.</summary>
+    [ObservableProperty] private DateTime _calendarMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    /// <summary>Zoomed out: the twelve months of a year instead of a month's days.</summary>
+    [ObservableProperty] private bool _isYearView;
+
+    [ObservableProperty] private string _calendarTitle = "";
+    [ObservableProperty] private List<string> _weekdays = [];
+    [ObservableProperty] private List<CalendarCell> _calendarCells = [];
+    [ObservableProperty] private List<CalendarMonthCell> _calendarMonths = [];
+    [ObservableProperty] private bool _canGoBack;
+    [ObservableProperty] private bool _canGoForward;
+
+    private DateTime FirstMonth => _dayOrder.Count > 0 ? new DateTime(_dayOrder[^1].Year, _dayOrder[^1].Month, 1) : ThisMonth;
+    private static DateTime ThisMonth => new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    private void BuildCalendar()
+    {
+        var m = CalendarMonth;
+        if (IsYearView)
+        {
+            CalendarTitle = m.Year.ToString();
+            CalendarMonths = [.. Enumerable.Range(1, 12).Select(i =>
+            {
+                var month = new DateTime(m.Year, i, 1);
+                int n = _byDay.Where(d => d.Key.Year == m.Year && d.Key.Month == i).Sum(d => d.Value.Changes.Count + d.Value.Problems.Count);
+                return new CalendarMonthCell(month, n, month == m);
+            })];
+            CanGoBack = m.Year > FirstMonth.Year;
+            CanGoForward = m.Year < DateTime.Today.Year;
+            return;
+        }
+
+        var format = CultureInfo.CurrentCulture.DateTimeFormat;
+        int firstDay = (int)format.FirstDayOfWeek;
+        if (Weekdays.Count == 0) Weekdays = [.. Enumerable.Range(0, 7).Select(i => format.ShortestDayNames[(firstDay + i) % 7][..1].ToUpper(CultureInfo.CurrentCulture))];
+        // The month already shown keeps its cells (they're told what changed); another month gets new ones.
+        var cells = CalendarCells;
+        if (cells.FirstOrDefault(c => c.Day is not null)?.Day != m)
+        {
+            cells = [];
+            for (int i = ((int)m.DayOfWeek - firstDay + 7) % 7; i > 0; i--) cells.Add(new CalendarCell(null));
+            for (var d = m; d.Month == m.Month; d = d.AddDays(1)) cells.Add(new CalendarCell(d));
+        }
+        foreach (var cell in cells)
+        {
+            if (cell.Day is not { } d) continue;
+            _byDay.TryGetValue(d, out var day);
+            cell.IsToday = d == DateTime.Today;
+            cell.HasAny = day.Changes is not null;
+            cell.OnlyProblems = day.Changes is { Count: 0 };
+            if (day.Changes is null)
+            {
+                cell.Tip = null;
+                continue;
+            }
+            // Hovering a day says what's on it.
+            var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
+                .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Title)).ToList();
+            if (day.Changes.Count > 5) lines.Add($"and {day.Changes.Count - 5} more");
+            cell.Tip = string.Join("\n", lines);
+        }
+        CalendarTitle = m.ToString("MMMM yyyy");
+        if (!ReferenceEquals(cells, CalendarCells)) CalendarCells = cells;
+        CanGoBack = m > FirstMonth;
+        CanGoForward = m < ThisMonth;
+    }
+
+    [RelayCommand]
+    private void GoBack() => Step(-1);
+
+    [RelayCommand]
+    private void GoForward() => Step(1);
+
+    private void Step(int by)
+    {
+        if (by < 0 ? !CanGoBack : !CanGoForward) return;
+        CalendarMonth = IsYearView ? CalendarMonth.AddYears(by) : CalendarMonth.AddMonths(by);
+        BuildCalendar();
+    }
+
+    /// <summary>A click on the month's name: the whole year, to pick another month.</summary>
+    [RelayCommand]
+    private void ZoomOut()
+    {
+        IsYearView = true;
+        BuildCalendar();
+    }
+
+    [RelayCommand]
+    private void PickMonth(CalendarMonthCell cell)
+    {
+        CalendarMonth = cell.Month;
+        IsYearView = false;
+        BuildCalendar();
+        JumpTo(cell.Month.AddMonths(1).AddDays(-1));
+    }
+
+    [RelayCommand]
+    private void PickDay(CalendarCell cell)
+    {
+        if (cell is { Day: { } day, HasAny: true }) JumpTo(day);
+    }
+
+    /// <summary>Scrolls the list to a day (or the nearest one before it with anything on it), building down to it first.</summary>
+    public void JumpTo(DateTime day)
+    {
+        int index = _dayOrder.FindIndex(d => d <= day.Date);
+        if (index < 0) return;
+        if (index >= Days.Count) AddDays(index - Days.Count + PageSize);
+        JumpRequested?.Invoke(Days[index]);
+    }
+
+    /// <summary>The list was scrolled: the calendar follows the month being read.</summary>
+    public void OnTopDay(DateTime day)
+    {
+        var month = new DateTime(day.Year, day.Month, 1);
+        if (IsYearView || month == CalendarMonth) return;
+        CalendarMonth = month;
+        BuildCalendar();
+    }
+
+    // ── This PC now ─────────────────────────────────────────────────────
+
+    private static List<NowFact> BuildNow(TimelineData data)
+    {
+        var facts = new List<NowFact>();
+        var items = data.Inventory.ToLookup(i => i.Kind);
+        string? Since(Func<SystemChange, bool> match) =>
+            data.Changes.LastOrDefault(match) is { } c ? $"since {c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy")}" : null;
+
+        if (items[Inventory.Windows].FirstOrDefault() is { } windows)
+            facts.Add(new("Windows", $"{windows.Name.Replace("Windows ", "")} {windows.Value}", Since(c => c.Kind == ChangeKind.Windows)));
+        if (items[Inventory.GpuDriver].FirstOrDefault() is { } driver)
+            facts.Add(new("Graphics driver", driver.Value, Since(c => c.IsGraphicsDriver)));
+        if (items[Inventory.Bios].FirstOrDefault() is { } bios)
+            facts.Add(new("BIOS", bios.Value, Since(c => c.Kind == ChangeKind.Firmware)));
+        if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new("Memory", ram.Value, null));
+        if (items[Inventory.App].Any()) facts.Add(new("Apps installed", items[Inventory.App].Count().ToString("N0"), null));
+        if (items[Inventory.Startup].Any()) facts.Add(new("Start with Windows", items[Inventory.Startup].Count(i => i.Value == Inventory.On).ToString("N0"), null));
+        return facts;
+    }
+}

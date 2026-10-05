@@ -308,14 +308,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         };
     }
 
-    private static string KindCount(CrashKind kind, int n) => kind switch
-    {
-        CrashKind.AppCrash => n == 1 ? "1 app crash" : $"{n} app crashes",
-        CrashKind.AppHang => n == 1 ? "1 app froze" : $"{n} apps froze",
-        CrashKind.GpuDriverReset => n == 1 ? "1 graphics driver reset" : $"{n} graphics driver resets",
-        CrashKind.SystemCrash => n == 1 ? "1 blue screen" : $"{n} blue screens",
-        _ => n == 1 ? "1 unexpected shutdown" : $"{n} unexpected shutdowns",
-    };
+    internal static string KindCount(CrashKind kind, int n) => CrashWords.Count(kind, n);
 
     // ── Patterns ────────────────────────────────────────────────────────
 

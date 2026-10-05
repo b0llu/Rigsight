@@ -42,6 +42,8 @@ public sealed class SchemaTests
         ["net_app_day"] = ["day", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
         ["net_transfer"] = ["start", "app", "end", "bytes", "sec"],
         ["net_drop"] = ["start", "end", "kind"],
+        ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now"],
+        ["inventory"] = ["kind", "key", "name", "value"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -49,6 +51,7 @@ public sealed class SchemaTests
         ["ix_sessions_start"] = "sessions(start)",
         ["ix_sessions_app"] = "sessions(app_id, start)",
         ["ix_crashes_ts"] = "crashes(ts)",
+        ["ix_changes_ts"] = "changes(ts)",
     };
 
     public static TheoryData<string> TableNames => [.. Tables.Keys];
@@ -105,6 +108,8 @@ public sealed class SchemaTests
     [InlineData("net_app_day", "day,app")]
     [InlineData("net_transfer", "start,app")]
     [InlineData("net_drop", "start")]
+    [InlineData("changes", "id")]
+    [InlineData("inventory", "kind,key")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)
     {
         using var t = new TestDb();

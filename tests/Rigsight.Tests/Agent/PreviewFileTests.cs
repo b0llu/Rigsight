@@ -51,7 +51,12 @@ public sealed class PreviewFileTests : IDisposable
         var path = Path.Combine(_dir, "Pill.png");
         using (var red = Picture(Color.Red)) PreviewFile.Save(red, path);
         var reader = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var freed = new Timer(_ => reader.Dispose(), null, 10, Timeout.Infinite);
+        // On a thread of its own: in a full run the shared pool is busy, and a timer on it once fired after the retries had ended.
+        new Thread(() =>
+        {
+            Thread.Sleep(10);
+            reader.Dispose();
+        }) { IsBackground = true }.Start();
         using (var blue = Picture(Color.Blue))
             Assert.True(PreviewFile.Save(blue, path));
         Assert.Equal(Color.Blue.ToArgb(), Read(path).ToArgb());
