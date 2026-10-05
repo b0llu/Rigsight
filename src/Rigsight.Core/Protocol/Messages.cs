@@ -139,6 +139,9 @@ public sealed class NetLive
     public double Up { get; set; }
     /// <summary>The apps moving anything, fastest first.</summary>
     public List<NetAppLive> Apps { get; set; } = [];
+    /// <summary>Windows has stopped delivering network events though the network is in use, and the agent couldn't get
+    /// them back: nothing is being recorded for now (it keeps trying).</summary>
+    public bool Stalled { get; set; }
 }
 
 public sealed class NetAppLive

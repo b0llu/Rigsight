@@ -149,6 +149,21 @@ public sealed class NetworkPageTests
     }
 
     [Fact]
+    public void The_page_says_when_network_use_is_not_being_recorded()
+    {
+        var (vm, live) = Page();
+        var tick = Fixtures.Tick();
+        tick.Net = new NetLive { Time = 1000, Stalled = true };
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() => Assert.True(vm.Stalled));
+        // Events are coming in again: the line goes.
+        tick = Fixtures.Tick();
+        tick.Net = new NetLive { Time = 1001, Down = 50_000 };
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() => Assert.False(vm.Stalled));
+    }
+
+    [Fact]
     public void Without_the_trace_the_page_says_why()
     {
         var (vm, _) = Page(new DateTime(2001, 1, 1));

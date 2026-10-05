@@ -40,6 +40,10 @@ internal sealed unsafe class NetworkTrace : IDisposable
     private Dictionary<int, NetCounts> _counts = [];
     private Dictionary<int, NetCounts> _spare = [];
     private volatile bool _stopped;
+    private long _events;
+
+    /// <summary>Events delivered since the trace started, counted or not (see <see cref="TraceWatch"/>).</summary>
+    public long Events => Interlocked.Read(ref _events);
 
     private NetworkTrace(string name, Func<AddressBook> addresses)
     {
@@ -149,6 +153,54 @@ internal sealed unsafe class NetworkTrace : IDisposable
         ControlTraceW(session, name, props, code);
     }
 
+    /// <summary>The start of every test copy's trace name (a test copy adds its own suffix: "Rigsight Network.1A2B…").</summary>
+    private const string TestPrefix = "Rigsight Network.";
+
+    /// <summary>
+    /// Stops the traces test copies of Rigsight left running (every "Rigsight Network.…" but <paramref name="own"/>): a
+    /// test agent that was killed leaves its session behind with nobody reading it. Returns the names stopped.
+    /// </summary>
+    public static List<string> StopOthers(string own)
+    {
+        const int max = 64, nameBytes = 512, fileBytes = 2048, size = 120 + nameBytes + fileBytes;
+        var stopped = new List<string>();
+        IntPtr block = Marshal.AllocHGlobal(max * size), array = Marshal.AllocHGlobal(max * IntPtr.Size), props = Marshal.AllocHGlobal(PropertiesSize);
+        try
+        {
+            new Span<byte>((void*)block, max * size).Clear();
+            for (int i = 0; i < max; i++)
+            {
+                byte* b = (byte*)block + i * size;
+                *(uint*)(b + 0) = size;                  // Wnode.BufferSize
+                *(uint*)(b + 112) = 120 + nameBytes;     // LogFileNameOffset
+                *(uint*)(b + 116) = 120;                 // LoggerNameOffset
+                ((IntPtr*)array)[i] = (IntPtr)b;
+            }
+            int rc = QueryAllTracesW(array, max, out uint count);
+            if (rc != 0 && rc != 234 /* more sessions than asked for */) return stopped;
+            for (int i = 0; i < Math.Min(count, max); i++)
+            {
+                string? name = Marshal.PtrToStringUni((IntPtr)((byte*)block + i * size + 120));
+                if (name is null || !name.StartsWith(TestPrefix, StringComparison.OrdinalIgnoreCase) || name.Equals(own, StringComparison.OrdinalIgnoreCase)) continue;
+                new Span<byte>((void*)props, PropertiesSize).Clear();
+                *(uint*)props = PropertiesSize;
+                *(uint*)((byte*)props + 116) = 120;
+                if (ControlTraceW(0, name, props, EventTraceControlStop) == 0) stopped.Add(name);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("network", ex);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(block);
+            Marshal.FreeHGlobal(array);
+            Marshal.FreeHGlobal(props);
+        }
+        return stopped;
+    }
+
     /// <summary>Each process's bytes since the last call (taken on the sampler thread).</summary>
     public Dictionary<int, NetCounts> Take()
     {
@@ -166,6 +218,7 @@ internal sealed unsafe class NetworkTrace : IDisposable
 
     private void OnEvent(IntPtr record)
     {
+        Interlocked.Increment(ref _events);
         byte* r = (byte*)record;
         ushort id = *(ushort*)(r + 40);              // EventHeader.EventDescriptor.Id
         ushort length = *(ushort*)(r + 86);          // UserDataLength
@@ -235,4 +288,5 @@ internal sealed unsafe class NetworkTrace : IDisposable
     [DllImport("advapi32.dll", SetLastError = true)] private static extern ulong OpenTraceW(IntPtr logFile);
     [DllImport("advapi32.dll")] private static extern int ProcessTrace(ulong* handles, uint count, IntPtr start, IntPtr end);
     [DllImport("advapi32.dll")] private static extern int CloseTrace(ulong handle);
+    [DllImport("advapi32.dll")] private static extern int QueryAllTracesW(IntPtr propertyArray, uint count, out uint loggerCount);
 }

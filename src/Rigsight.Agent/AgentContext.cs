@@ -67,6 +67,7 @@ internal sealed class AgentContext : ApplicationContext
     private volatile AddressBook _addresses = AddressBook.Empty;
     private volatile bool _addressesChanged = true;
     private readonly ConnectionWatch _connection = new();
+    private readonly TraceWatch _traceWatch = new();
     private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
     private readonly Queue<NetLive> _netHistory = new();
     private readonly Lock _netHistoryLock = new();
@@ -286,7 +287,7 @@ internal sealed class AgentContext : ApplicationContext
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
-        long lastNet = 0, nextAddresses = 0;
+        long lastNet = 0, nextAddresses = 0, nextTraceCheck = 60_000;
         long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000, nextChangeScan = 40_000,
             nextHardwareApps = 30_000;
         // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
@@ -339,6 +340,11 @@ internal sealed class AgentContext : ApplicationContext
                     _addressesChanged = false;
                     _addresses = AddressBook.Read();
                     nextAddresses = now + 60_000;
+                }
+                if (now >= nextTraceCheck)
+                {
+                    nextTraceCheck = now + 60_000;
+                    CheckNetworkTrace();
                 }
                 // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
                 if (lastNet == 0 || now - lastNet >= 900)
@@ -859,8 +865,45 @@ internal sealed class AgentContext : ApplicationContext
         _addresses = AddressBook.Read();
         _addressesChanged = false;
         _connection.Settle(TimeUtil.NowUnix());
-        if (_isAdmin) _netTrace = NetworkTrace.Start("Rigsight Network" + RigsightPaths.InstanceSuffix, () => _addresses);
+        if (_isAdmin) _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
         MemoryAt("network");
+    }
+
+    private static string NetTraceName => "Rigsight Network" + RigsightPaths.InstanceSuffix;
+
+    /// <summary>
+    /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
+    /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
+    /// </summary>
+    private void CheckNetworkTrace()
+    {
+        if (_netTrace is not { } trace) return;
+        switch (_traceWatch.Check(TimeUtil.NowUnix(), NetAdapters.CardBytes(), trace.Events))
+        {
+            case TraceRemedy.Restart:
+                Log.Write("network", "App network use stopped coming in while the network was busy: reading it again");
+                RestartNetworkTrace();
+                break;
+            case TraceRemedy.ClearOthers:
+                var others = NetworkTrace.StopOthers(NetTraceName);
+                Log.Write("network", others.Count == 0 ? "Still nothing coming in: reading it again"
+                    : $"Still nothing coming in: stopped {others.Count} trace(s) left by test copies ({string.Join(", ", others)}), reading it again");
+                RestartNetworkTrace();
+                break;
+            case TraceRemedy.GiveUp:
+                Log.Write("network", $"App network use still isn't coming in: trying again in {TraceWatch.RetrySeconds / 60} minutes");
+                break;
+            case TraceRemedy.Recovered:
+                Log.Write("network", "App network use is coming in again");
+                break;
+        }
+    }
+
+    private void RestartNetworkTrace()
+    {
+        _netTrace?.Dispose();
+        _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
+        _traceWatch.Restarted();
     }
 
     private void OnAddressChanged(object? sender, EventArgs e) => _addressesChanged = true;
@@ -878,6 +921,7 @@ internal sealed class AgentContext : ApplicationContext
             internetDown = down;
             _tracker.OnNetwork(counts, _running, seconds);
             var now = _tracker.NetNow;
+            now.Stalled = _traceWatch.Stalled;
             lock (_netHistoryLock)
             {
                 _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });

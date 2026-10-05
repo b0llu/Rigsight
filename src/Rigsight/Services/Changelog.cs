@@ -59,6 +59,8 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.3", 10, 5,
+            fixedBugs: ["Network use no longer stops being recorded without a sign."]),
         V("0.15.2", 10, 5,
             better: ["Group the Timeline by month to see each month in one row.",
                 "When you change a fan's speed setting, the Fans page shows the new setting on its own."],

@@ -105,6 +105,10 @@
                         </Grid>
                         <TextBlock Text="App network use is read while the agent runs as admin." Style="{StaticResource TileNote}" Margin="0,8,0,0"
                                    Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
+                        <TextBlock Text="Network use isn't being recorded right now. Restarting your PC should bring it back."
+                                   FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
+                                   Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                         <ItemsControl ItemsSource="{Binding Facts}" Margin="-5,12,-5,0" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>

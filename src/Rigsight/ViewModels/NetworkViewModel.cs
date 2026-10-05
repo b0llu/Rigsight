@@ -143,6 +143,9 @@ public sealed partial class NetworkViewModel : ObservableObject
     // ── Right now ──
 
     [ObservableProperty] private bool _hasLive;
+
+    /// <summary>The agent isn't getting network events from Windows and couldn't get them back: nothing is recorded for now.</summary>
+    [ObservableProperty] private bool _stalled;
     [ObservableProperty] private string _downNow = "—";
     [ObservableProperty] private string _upNow = "—";
     public ObservableCollection<NetLiveRow> UsingNow { get; } = [];
@@ -162,6 +165,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         var net = Live.Net;
         HasLive = net is not null;
+        Stalled = net?.Stalled == true;
         if (net is null) return;
         DownNow = Units.Speed(net.Down);
         UpNow = Units.Speed(net.Up);

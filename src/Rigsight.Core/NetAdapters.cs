@@ -42,6 +42,29 @@ public static unsafe class NetAdapters
         }
     }
 
+    /// <summary>
+    /// Bytes in and out through the PC's network cards since Windows started, by the cards' own counters (nothing to do
+    /// with any trace); null when they can't be read.
+    /// </summary>
+    public static long? CardBytes()
+    {
+        try
+        {
+            long total = 0;
+            foreach (var n in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (n.OperationalStatus != OperationalStatus.Up || n.NetworkInterfaceType == NetworkInterfaceType.Loopback || !IsHardware(n)) continue;
+                var stats = n.GetIPStatistics();
+                total += stats.BytesReceived + stats.BytesSent;
+            }
+            return total;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static bool HasGateway(NetworkInterface n)
     {
         try { return n.GetIPProperties().GatewayAddresses.Any(g => !g.Address.Equals(System.Net.IPAddress.Any) && !g.Address.Equals(System.Net.IPAddress.IPv6Any)); }
