@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:conv="clr-namespace:Rigsight.Converters">
+                    xmlns:conv="clr-namespace:Rigsight.Converters"
+                    xmlns:ctl="clr-namespace:Rigsight.Controls">
 
     <!-- The colours live in Dark.xaml and Light.xaml (one of them is merged before this file). -->
 
@@ -140,8 +141,9 @@
     </Style>
 
     <!-- A list filling a card (Card or RowCard, 12 px in from its sides): its scrollbar, when it has one, sits in the
-         card's right margin, so the rows keep their width whether it scrolls or not. -->
+         card's right margin, so the rows keep their width whether it scrolls or not. At its end the wheel scrolls the page. -->
     <Style x:Key="CardScroll" TargetType="ScrollViewer" BasedOn="{StaticResource GutterScroll}">
+        <Setter Property="ctl:WheelChain.Enabled" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollViewer">

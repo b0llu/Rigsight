@@ -59,6 +59,10 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.2", 10, 5,
+            better: ["Group the Timeline by month to see each month in one row.",
+                "When you change a fan's speed setting, the Fans page shows the new setting on its own."],
+            fixedBugs: ["Scrolling past the end of a list carries on down the page."]),
         V("0.15.1", 10, 5,
             better: ["Group a month's app updates into one line on the Timeline.",
                 "Home shows the last day you used your PC when yesterday was a day off.",

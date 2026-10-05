@@ -13,7 +13,8 @@ public sealed record TimelineFilter(string Key, string Name, int Count)
     public string Label => $"{Name} ({Count:N0})";
 }
 
-/// <summary>One line under a day: a change, a problem, or a day's app updates folded into one.</summary>
+/// <summary>One line under a day: a change, a problem, or a day's app updates folded into one. Under a month: one kind
+/// of change that month (its drivers, its app updates) folded into one.</summary>
 public sealed partial class TimelineEntry : ObservableObject
 {
     public string TimeText { get; init; } = "";
@@ -47,7 +48,13 @@ public sealed partial class TimelineEntry : ObservableObject
     [NotifyPropertyChangedFor(nameof(ToggleText))]
     private bool _isExpanded;
 
-    public string ToggleText => IsExpanded ? "Hide versions" : "Show versions";
+    /// <summary>What opening and closing the folded lines is called (a month's line holds changes, not versions).</summary>
+    public string ShowText { get; init; } = "Show versions";
+    public string HideText { get; init; } = "Hide versions";
+    public string ToggleText => IsExpanded ? HideText : ShowText;
+
+    /// <summary>Which of a row's folded lines this is (a month has one per kind of change), to keep it open when rebuilt.</summary>
+    public string Key { get; init; } = "";
 }
 
 /// <summary>A day on the timeline with everything that happened on it, newest first.</summary>
@@ -57,14 +64,14 @@ public sealed class TimelineDay
     public string Title { get; init; } = "";
     public string SubTitle { get; init; } = "";
 
-    /// <summary>"SEPTEMBER 2026" above the first day shown of each month.</summary>
+    /// <summary>"SEPTEMBER 2026" above the first day shown of each month (by month: "2026" above each year's first month).</summary>
     public string? Month { get; init; }
     public List<TimelineEntry> Entries { get; init; } = [];
 
-    /// <summary>The dot on the line: blue for changes, red for a day with only problems, faint for a month's app updates.</summary>
+    /// <summary>The dot on the line: blue for changes, red for a day (or a month) with only problems.</summary>
     public string NodeBrush { get; init; } = "CpuBrush";
 
-    /// <summary>Not a day: a month's app updates in one line, at the top of that month.</summary>
+    /// <summary>Not a day: a whole month in one row (grouped by month), a line for each kind of change in it.</summary>
     public bool IsSummary { get; init; }
 }
 
@@ -123,14 +130,15 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private Dictionary<DateTime, Core.Reports.ChangeEffect> _effects = [];
     private string _signature = "";
 
-    // Under the current filter: every day with something on it (newest first), and what's on each.
+    // Under the current filter: every row with something on it (newest first), and what's on each. A row is a day, or
+    // grouped by month a month (its 1st); the calendar always goes by the days (_onDay).
     private List<DateTime> _dayOrder = [];
     private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems)> _byDay = [];
-    private readonly HashSet<DateTime> _expanded = [];
+    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems)> _onDay = [];
+    private bool _byMonth;
+    private readonly HashSet<(DateTime Row, string Line)> _expanded = [];
 
-    // A month's app updates folded into one line sit in _byDay too, under the month's last second: newest first, that
-    // puts them at the top of their month, and no real day (a midnight) can have the same key.
-    private HashSet<DateTime> _summaries = [];
+    private const string ProblemIcon = "";
 
     public ObservableCollection<TimelineDay> Days { get; } = [];
 
@@ -138,14 +146,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     [ObservableProperty] private TimelineFilter? _filter;
 
     /// <summary>
-    /// How app updates are shown: "Day" (three or more on a day are one line; the default), "Month" (a month's are one
-    /// line at the top of the month) or "Each" (every update on its own line).
+    /// How the list is grouped: "Day" (a row a day, three or more app updates on it one line; the default), "Month" (a
+    /// row a month, each kind of change in it one line) or "Each" (a row a day, every change on its own line).
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(GroupUpdates))]
     private string _grouping = "Day";
 
-    /// <summary>App updates are folded (by day or by month), not one line each.</summary>
+    /// <summary>Changes are folded (by day or by month), not one line each.</summary>
     public bool GroupUpdates
     {
         get => Grouping != "Each";
@@ -228,23 +236,13 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         // Problems are context for everything together; a list of one kind is just that kind.
         var problems = all ? _problems : [];
 
-        _byDay = [];
-        _summaries = [];
-        var folded = new HashSet<SystemChange>();
-        if (Grouping == "Month")
-        {
-            foreach (var month in changes.Where(c => c.Kind == ChangeKind.AppUpdated).GroupBy(c => new DateTime(c.Time.Year, c.Time.Month, 1)).Where(g => g.Count() >= GroupFrom))
-            {
-                var at = month.Key.AddMonths(1).AddSeconds(-1);
-                _byDay[at] = ([.. month], []);
-                _summaries.Add(at);
-                folded.UnionWith(month);
-            }
-        }
-        foreach (var c in changes)
-            if (!folded.Contains(c)) DayOf(c.Time.Date).Changes.Add(c);
+        _onDay = [];
+        foreach (var c in changes) DayOf(c.Time.Date).Changes.Add(c);
         foreach (var p in problems) DayOf(p.Time.Date).Problems.Add(p);
-        // (changes go in above, so a month's folded updates don't also show on their days)
+        // By month: a row a month with everything that happened in it; otherwise a row a day.
+        _byMonth = Grouping == "Month";
+        _byDay = !_byMonth ? _onDay : _onDay.GroupBy(d => new DateTime(d.Key.Year, d.Key.Month, 1)).ToDictionary(g => g.Key,
+            g => (Changes: g.SelectMany(d => d.Value.Changes).ToList(), Problems: g.SelectMany(d => d.Value.Problems).ToList()));
         _dayOrder = [.. _byDay.Keys.OrderByDescending(d => d)];
 
         int shown = keepPlace ? Math.Max(Days.Count, PageSize) : PageSize;
@@ -264,7 +262,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         BuildCalendar();
 
         (List<SystemChange> Changes, List<TimelineProblem> Problems) DayOf(DateTime day) =>
-            _byDay.TryGetValue(day, out var d) ? d : _byDay[day] = ([], []);
+            _onDay.TryGetValue(day, out var d) ? d : _onDay[day] = ([], []);
     }
 
     public bool HasMore => Days.Count < _dayOrder.Count;
@@ -285,8 +283,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         for (int i = 0; i < count && Days.Count < _dayOrder.Count; i++)
         {
             var day = _dayOrder[Days.Count];
-            bool newMonth = Days.Count == 0 || Days[^1].Day.Year != day.Year || Days[^1].Day.Month != day.Month;
-            Days.Add(BuildDay(day, newMonth));
+            // A heading above the first row of each month (by month: of each year).
+            bool heading = Days.Count == 0 || Days[^1].Day.Year != day.Year || (!_byMonth && Days[^1].Day.Month != day.Month);
+            Days.Add(_byMonth ? BuildMonth(day, heading) : BuildDay(day, heading));
         }
         OnPropertyChanged(nameof(HasMore));
     }
@@ -294,27 +293,6 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private TimelineDay BuildDay(DateTime day, bool newMonth)
     {
         var (changes, problems) = _byDay[day];
-        if (_summaries.Contains(day))
-        {
-            // A month's app updates: the apps by how often they were updated, and every update with its date on request.
-            var all = changes.OrderByDescending(c => c.Time).ToList();
-            var apps = all.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList();
-            const int shown = 8;
-            return new TimelineDay
-            {
-                Day = day, IsSummary = true, Title = "App updates", NodeBrush = "FaintBrush", Month = day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture),
-                Entries =
-                [
-                    new TimelineEntry
-                    {
-                        TimeText = "All month", Icon = IconOf(ChangeKind.AppUpdated), Title = $"{all.Count} app updates",
-                        Detail = string.Join(", ", apps.Take(shown)) + (apps.Count > shown ? $" and {apps.Count - shown} more" : ""),
-                        Children = [.. all.Select(c => new TimelineEntry { Title = c.Title, Detail = $"{c.Time:d MMM}{(c.Was is null ? "" : $" · was {c.Was}")}" })],
-                        IsExpanded = _expanded.Contains(day),
-                    },
-                ],
-            };
-        }
         var entries = new List<(DateTime At, TimelineEntry Entry)>();
 
         // The same kind of problem several times in a day is one line ("3 graphics driver resets").
@@ -325,7 +303,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             string brush = first.IsCritical ? "HotBrush" : "WarmBrush";
             entries.Add((first.Time, new TimelineEntry
             {
-                TimeText = first.Time.ToString("h:mm tt"), Icon = "", Brush = brush, IconBrush = brush, IsKey = true, CrashDay = day,
+                TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = brush, IconBrush = brush, IsKey = true, CrashDay = day,
                 Title = n == 1 ? first.Title : Capital(CrashesViewModel.KindCount(group.Key, n)),
             }));
         }
@@ -351,7 +329,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 TimeText = TimeOf(updates[0]), TimeTip = TipOf(updates[0]), // when the last of them was updated
                 Icon = IconOf(ChangeKind.AppUpdated), Title = $"{updates.Count} apps updated",
-                Detail = string.Join(", ", updates.Select(NameOf)), Children = [.. updates.Select(EntryOf)], IsExpanded = _expanded.Contains(day),
+                Detail = string.Join(", ", updates.Select(NameOf)), Children = [.. updates.Select(c => EntryOf(c))], IsExpanded = _expanded.Contains((day, "")),
             }));
         }
 
@@ -368,14 +346,87 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         };
 
         static int Rank(SystemChange c) => c.IsGraphicsDriver ? 0 : c.Kind switch { ChangeKind.Firmware => 1, ChangeKind.Hardware => 2, ChangeKind.Windows => 3, _ => 4 };
-        static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
-        // "7-Zip (x64) updated to 26.01" is "7-Zip (x64)" in the folded line.
-        static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
     }
 
-    private static TimelineEntry EntryOf(SystemChange c) => new()
+    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
+
+    // "7-Zip (x64) updated to 26.01" is "7-Zip (x64)" in the folded line.
+    private static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
+
+    /// <summary>A month's lines, in this order under its problems: what a PC-wide problem usually comes from first.</summary>
+    private static readonly (string Key, ChangeKind[] Kinds, string Many)[] MonthLines =
+    [
+        ("drivers", [ChangeKind.Driver], "driver updates"),
+        ("windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows], "Windows updates"),
+        ("hardware", [ChangeKind.Hardware, ChangeKind.Firmware], "hardware changes"),
+        ("installed", [ChangeKind.AppInstalled], "apps installed"),
+        ("removed", [ChangeKind.AppRemoved], "apps removed"),
+        ("updated", [ChangeKind.AppUpdated], "app updates"),
+        ("startup", [ChangeKind.Startup], "startup changes"),
+        ("settings", [ChangeKind.Setting], "settings changed"),
+        ("storage", [ChangeKind.Storage], "drive space changes"),
+    ];
+
+    /// <summary>
+    /// A month in one row: each kind of problem and each kind of change in it one line, with how many, which, and the
+    /// days they span; every one with its date on request. One of a kind is just that change, with its date.
+    /// </summary>
+    private TimelineDay BuildMonth(DateTime month, bool newYear)
     {
-        TimeText = TimeOf(c),
+        var (changes, problems) = _byDay[month];
+        var entries = new List<TimelineEntry>();
+        foreach (var group in problems.GroupBy(p => p.Kind))
+        {
+            var last = group.MaxBy(p => p.Time)!;
+            int n = group.Count();
+            string brush = group.Any(p => p.IsCritical) ? "HotBrush" : "WarmBrush";
+            entries.Add(new TimelineEntry
+            {
+                TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = brush, IconBrush = brush, IsKey = true, CrashDay = last.Time.Date,
+                Title = n == 1 ? last.Title : Capital(CrashesViewModel.KindCount(group.Key, n)),
+            });
+        }
+        foreach (var (key, kinds, many) in MonthLines)
+        {
+            var of = changes.Where(c => kinds.Contains(c.Kind)).OrderByDescending(c => c.Time).ToList();
+            if (of.Count == 0) continue;
+            if (of.Count == 1)
+            {
+                entries.Add(EntryOf(of[0], Span([of[0].Time])));
+                continue;
+            }
+            // App updates by app, the most updated first; the rest as they're worded, newest first.
+            bool updates = key == "updated";
+            var names = updates
+                ? of.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList()
+                : [.. of.Select(c => c.Title)];
+            int shown = updates ? 8 : 3;
+            entries.Add(new TimelineEntry
+            {
+                Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = $"{of.Count} {many}", IsKey = of[0].IsSystemLevel,
+                Detail = string.Join(", ", names.Take(shown)) + (names.Count > shown ? $" and {names.Count - shown} more" : ""),
+                Children = [.. of.Select(c => new TimelineEntry { Title = c.Title, Detail = $"{c.Time:d MMM}{(c.Was is null ? "" : $" · was {c.Was}")}" })],
+                ShowText = "Show all", HideText = "Hide", IsExpanded = _expanded.Contains((month, key)),
+            });
+        }
+        return new TimelineDay
+        {
+            Day = month, IsSummary = true, Title = month.ToString("MMMM"), Month = newYear ? month.ToString("yyyy") : null,
+            NodeBrush = changes.Count == 0 ? "HotBrush" : "CpuBrush", Entries = entries,
+        };
+
+        // The days they fell on: "9 Sep", or "3–20 Sep".
+        static string Span(IEnumerable<DateTime> times)
+        {
+            DateTime first = times.Min().Date, last = times.Max().Date;
+            return first == last ? $"{first:d MMM}" : $"{first:%d}–{last:d MMM}";
+        }
+    }
+
+    /// <param name="when">Said in place of its time of day (under a month: its date).</param>
+    private static TimelineEntry EntryOf(SystemChange c, string? when = null) => new()
+    {
+        TimeText = when ?? TimeOf(c),
         TimeTip = TipOf(c),
         Icon = IconOf(c.Kind),
         Title = c.Title,
@@ -415,7 +466,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     {
         entry.IsExpanded = !entry.IsExpanded;
         if (Days.FirstOrDefault(d => d.Entries.Contains(entry)) is not { } day) return;
-        if (entry.IsExpanded) _expanded.Add(day.Day); else _expanded.Remove(day.Day);
+        if (entry.IsExpanded) _expanded.Add((day.Day, entry.Key)); else _expanded.Remove((day.Day, entry.Key));
     }
 
     [RelayCommand]
@@ -451,7 +502,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             CalendarMonths = [.. Enumerable.Range(1, 12).Select(i =>
             {
                 var month = new DateTime(m.Year, i, 1);
-                int n = _byDay.Where(d => d.Key.Year == m.Year && d.Key.Month == i).Sum(d => d.Value.Changes.Count + d.Value.Problems.Count);
+                int n = _onDay.Where(d => d.Key.Year == m.Year && d.Key.Month == i).Sum(d => d.Value.Changes.Count + d.Value.Problems.Count);
                 return new CalendarMonthCell(month, n, month == m);
             })];
             CanGoBack = m.Year > FirstMonth.Year;
@@ -473,7 +524,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         foreach (var cell in cells)
         {
             if (cell.Day is not { } d) continue;
-            _byDay.TryGetValue(d, out var day);
+            _onDay.TryGetValue(d, out var day);
             cell.IsToday = d == DateTime.Today;
             cell.HasAny = day.Changes is not null;
             cell.OnlyProblems = day.Changes is { Count: 0 };
@@ -530,7 +581,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (cell is { Day: { } day, HasAny: true }) JumpTo(day);
     }
 
-    /// <summary>Scrolls the list to a day (or the nearest one before it with anything on it), building down to it first.</summary>
+    /// <summary>Scrolls the list to a day (or the nearest one before it with anything on it; by month, to its month),
+    /// building down to it first.</summary>
     public void JumpTo(DateTime day)
     {
         int index = _dayOrder.FindIndex(d => d <= day);

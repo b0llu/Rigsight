@@ -233,8 +233,9 @@ public sealed class FanCurveChart : FanChartBase
     }
 }
 
-/// <summary>One day on the 30-day chart: its average speed and its fastest (null bars: nothing recorded that day).</summary>
-public sealed record FanDayBar(DateTime Day, double? Average, double? Fastest);
+/// <summary>One day on the 30-day chart: its average speed and its fastest (null bars: nothing recorded that day).
+/// A day under an earlier speed setting is drawn faint (the page's figures are of the setting since).</summary>
+public sealed record FanDayBar(DateTime Day, double? Average, double? Fastest, bool Earlier = false);
 
 /// <summary>A fan's last 30 days: a bar per day, its average over the fastest it reached, empty days a tick. Hover a day for its numbers.</summary>
 public sealed class FanDaysChart : FanChartBase
@@ -279,7 +280,7 @@ public sealed class FanDaysChart : FanChartBase
                 continue;
             }
             if (d.Fastest is double f) dc.DrawRoundedRectangle(GhostBrush, null, new Rect(x, Y(f), bar, plot.Bottom - Y(f)), 3, 3);
-            if (d.Average is double a) dc.DrawRoundedRectangle(Brush, null, new Rect(x, Y(a), bar, plot.Bottom - Y(a)), 3, 3);
+            if (d.Average is double a) dc.DrawRoundedRectangle(d.Earlier ? Faded(Brush, 0.35) : Brush, null, new Rect(x, Y(a), bar, plot.Bottom - Y(a)), 3, 3);
         }
         var labels = Monthly ? Enumerable.Range(0, days.Count).Where(i => days.Count <= 12 || i % 2 == 0) : new[] { 0, days.Count / 2, days.Count - 1 }.Distinct();
         foreach (int i in labels)
@@ -292,6 +293,7 @@ public sealed class FanDaysChart : FanChartBase
             if (d.Average is null && d.Fastest is null) lines.Add("Nothing recorded");
             if (d.Average is not null) lines.Add($"{ValueLabel} {Units.Format(SensorKind.Fan, d.Average)}");
             if (d.Fastest is not null) lines.Add($"Fastest {Units.Format(SensorKind.Fan, d.Fastest)}");
+            if (d.Earlier) lines.Add("Before its setting changed");
             Hover(dc, plot, plot.Left + slot * (h + 0.5), d.Day.ToString(Monthly ? "MMMM yyyy" : "ddd d MMM", CultureInfo.CurrentCulture), lines);
         }
     }

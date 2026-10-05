@@ -100,6 +100,44 @@ public class FanFactsTests
         Assert.Equal(day.Count, facts.StoppedMinutes);
         Assert.Equal(FanFollows.Unknown, facts.Follows);
     }
+
+    /// <summary>A fan's days from each day's speed while idle (and its idle minutes), a day apart.</summary>
+    private static List<FanDay> Days(params (int Rpm, int IdleMinutes)[] days) =>
+        [.. days.Select((d, i) => new FanDay(T0 + i * 86400L, 1, d.Rpm * 600.0, 600, d.Rpm + 80, d.Rpm * (double)d.IdleMinutes, d.IdleMinutes))];
+
+    [Fact]
+    public void A_new_speed_setting_starts_the_day_the_idle_speed_steps()
+    {
+        // As the real board fan: about 1,640 rpm for days, then about 1,100 from a restart on (one short day among them).
+        var days = Days((1659, 184), (1632, 402), (1633, 351), (1098, 112), (1097, 23), (1107, 488));
+        Assert.Equal(days[3].Day, FanSetting.ChangedOn(days));
+        // From a set speed to a curve that idles lower, and the other way.
+        Assert.Equal(T0 + 2 * 86400L, FanSetting.ChangedOn(Days((1755, 300), (1749, 300), (1333, 112), (1368, 488))));
+        Assert.Equal(T0 + 86400L, FanSetting.ChangedOn(Days((900, 300), (1400, 300), (1380, 300))));
+    }
+
+    [Fact]
+    public void One_setting_is_not_split_by_ordinary_days()
+    {
+        Assert.Null(FanSetting.ChangedOn([]));
+        Assert.Null(FanSetting.ChangedOn(Days((1640, 300))));
+        // A curve's idle speed wanders a little with the room.
+        Assert.Null(FanSetting.ChangedOn(Days((1010, 300), (1080, 200), (960, 400), (1100, 300), (1040, 90))));
+        // One odd day among days at the same level is a day, not a setting.
+        Assert.Null(FanSetting.ChangedOn(Days((1640, 300), (1650, 300), (1100, 200), (1645, 300), (1635, 300))));
+        // A day with hardly any idle time says nothing either way.
+        Assert.Null(FanSetting.ChangedOn(Days((1640, 300), (1650, 300), (1100, 5), (1645, 300))));
+        // A new level is a setting once it has an hour of idle time behind it.
+        Assert.Null(FanSetting.ChangedOn(Days((1640, 300), (1650, 300), (1100, 30))));
+        Assert.NotNull(FanSetting.ChangedOn(Days((1640, 300), (1650, 300), (1100, 30), (1110, 40))));
+    }
+
+    [Fact]
+    public void A_setting_changed_twice_counts_from_the_last_change()
+    {
+        var days = Days((1640, 300), (1650, 300), (1100, 300), (1110, 300), (1900, 300), (1890, 300));
+        Assert.Equal(days[4].Day, FanSetting.ChangedOn(days));
+    }
 }
 
 /// <summary>The Temperatures page's "At rest" card: today's resting temperatures against the usual range on earlier days.</summary>

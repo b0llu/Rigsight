@@ -175,16 +175,16 @@
         <DockPanel Grid.Row="1" Margin="0,16,0,0" Height="36">
             <ComboBox AutomationProperties.Name="Show" ToolTip="Show one kind of change" MinWidth="190" VerticalAlignment="Center"
                       ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" />
-            <TextBlock Text="Group app updates" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
+            <TextBlock Text="Group" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By day"
-                                 ToolTip="Three or more app updates on a day are one line"
+                                 ToolTip="Day by day: three or more app updates on a day are one line"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Day}" />
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By month"
-                                 ToolTip="A month's app updates are one line at the top of the month"
+                                 ToolTip="A row a month: each kind of change in it is one line"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Month}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Off" ToolTip="Every app update on its own line"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Off" ToolTip="Day by day, every change on its own line"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Each}" />
                 </StackPanel>
             </Border>

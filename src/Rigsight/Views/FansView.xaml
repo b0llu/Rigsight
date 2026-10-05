@@ -244,6 +244,10 @@
                                 <TextBlock Text="{Binding Alert}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
                             </Border>
 
+                            <!-- Its speed setting changed during the period: the facts and the curve are of the setting since. -->
+                            <TextBlock Text="{Binding Detail.SettingNote}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"
+                                       Visibility="{Binding Detail.HasSettingNote, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+
                             <!-- Six facts, two rows of three. -->
                             <ItemsControl ItemsSource="{Binding Detail.Facts}" Margin="-5,12,-5,0" Focusable="False">
                                 <ItemsControl.ItemsPanel>

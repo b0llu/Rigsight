@@ -55,6 +55,10 @@ public sealed record FanDetail(
     public double? AverageRpm { get; init; }
     public double? FastestRpm { get; init; }
     public string FastestWhen { get; init; } = "";
+
+    /// <summary>Said above the facts when the fan's speed setting changed during the period (they are of the setting since).</summary>
+    public string SettingNote { get; init; } = "";
+    public bool HasSettingNote => SettingNote.Length > 0;
 }
 
 /// <summary>
@@ -385,7 +389,14 @@ public sealed partial class FansViewModel : ObservableObject
         foreach (var fans in rows)
         {
             var card = Fans.FirstOrDefault(c => c.Sensors.SequenceEqual(fans)) ?? NewCard(fans);
-            var each = fans.Select(x => FanAnalysis.Of(card.IsGpu, MinutesOf(x), minutes)).ToList();
+            var ids = fans.Select(x => bySensor.TryGetValue(x.Id, out var f) ? f : -1).Where(f => f >= 0).ToHashSet();
+            var fanDays = history.Days.Where(d => ids.Contains(d.Fan)).ToList();
+            // A fan given another speed or curve during the period: what it did since (the two together are an average it
+            // never ran at). A card's fans stand still or not with a degree of heat at idle: not looked at.
+            DateTime? changed = !card.IsGpu && !IsYear && FanSetting.ChangedOn(fanDays) is long day ? TimeUtil.FromUnix(day).Date : null;
+            long since = changed > from ? TimeUtil.ToUnix(changed.Value) : 0;
+            List<FanMinute> Current(SensorItem x) => since > 0 ? [.. MinutesOf(x).Where(m => m.Ts >= since)] : MinutesOf(x);
+            var each = fans.Select(x => FanAnalysis.Of(card.IsGpu, Current(x), minutes)).ToList();
             card.Facts = FanCard.Merge(each);
             card.FastestLine = card.Facts.Fastest is { } p
                 ? PeakWords.Line(p.Rpm, p.App is long a && apps.TryGetValue(a, out var app) ? NameOf(app, s) : null, p.Ts,
@@ -399,12 +410,10 @@ public sealed partial class FansViewModel : ObservableObject
                 : fans.Any(x => w.Text.StartsWith(x.Name + " on your motherboard", StringComparison.Ordinal)));
             card.Alert = warning?.Text ?? "";
             card.AlertIsHot = warning?.Tone == Core.Reports.InsightTone.Hot;
-            var ids = fans.Select(x => bySensor.TryGetValue(x.Id, out var f) ? f : -1).Where(f => f >= 0).ToHashSet();
-            card.MinutesOn = fans.Max(x => MinutesOf(x).Count);
-            var curveDays = history.CurveDays.Where(c => ids.Contains(c.Fan)).ToList();
-            var fanDays = history.Days.Where(d => ids.Contains(d.Fan)).ToList();
+            card.MinutesOn = fans.Max(x => Current(x).Count);
+            var curveDays = history.CurveDays.Where(c => ids.Contains(c.Fan) && (changed is null || TimeUtil.FromUnix(c.Day).Date >= changed)).ToList();
             card.Detail = IsYear ? YearOf(card, curveDays, fanDays, apps, s, from, to)
-                : DetailOf(card, [.. fans.Select(MinutesOf)], minutes, curveDays, fanDays, apps, s, from, to);
+                : DetailOf(card, [.. fans.Select(Current)], minutes, curveDays, fanDays, apps, s, from, to, changed);
             card.UpdateState(Live.CpuTemp?.Value, Live.GpuTemp?.Value);
             shown.Add(card);
         }
@@ -542,8 +551,11 @@ public sealed partial class FansViewModel : ObservableObject
     }
 
     /// <summary>A row's detail (see <see cref="FanDetail"/>) from its fans' minutes today and their days before.</summary>
+    /// <param name="changed">The first day of the speed setting the fan is on (see <see cref="FanSetting"/>), when it
+    /// changed: the minutes and daily curves given are from then on, and the days before it are another setting's.</param>
     internal static FanDetail DetailOf(FanCard card, IReadOnlyList<List<FanMinute>> fans, IReadOnlyDictionary<long, SystemMinute> minutes,
-        List<FanCurveDay> curveDays, List<FanDay> days, IReadOnlyDictionary<long, AppRow> apps, Core.Settings.RigsightSettings s, DateTime from, DateTime to)
+        List<FanCurveDay> curveDays, List<FanDay> days, IReadOnlyDictionary<long, AppRow> apps, Core.Settings.RigsightSettings s, DateTime from, DateTime to,
+        DateTime? changed = null)
     {
         var facts = card.Facts;
         var follows = facts?.Follows ?? FanFollows.Unknown;
@@ -616,7 +628,7 @@ public sealed partial class FansViewModel : ObservableObject
         {
             var ofDay = days.Where(x => TimeUtil.FromUnix(x.Day).Date == d).ToList();
             int n = ofDay.Sum(x => x.RpmN);
-            return new Controls.FanDayBar(d, n > 0 ? ofDay.Sum(x => x.RpmSum) / n : null, ofDay.Count > 0 ? ofDay.Max(x => x.RpmMax) : null);
+            return new Controls.FanDayBar(d, n > 0 ? ofDay.Sum(x => x.RpmSum) / n : null, ofDay.Count > 0 ? ofDay.Max(x => x.RpmMax) : null, d < changed);
         }).ToList();
 
         string still = facts is { StoppedMinutes: > 0 } f ? Units.Duration(f.StoppedMinutes * 60) : "Never";
@@ -644,10 +656,14 @@ public sealed partial class FansViewModel : ObservableObject
             new("Average while spinning", turning.Count > 0 ? Rpm(turning.Average()) : "—",
                 turning.Count > 0 ? $"Over {Units.Duration(turning.Count * 60)} of turning" : "It didn't turn"),
         };
-        var usual = days.Where(d => TimeUtil.FromUnix(d.Day).Date >= from.AddDays(-UsualDays) && TimeUtil.FromUnix(d.Day).Date < from).ToList();
+        // Usual: under the setting it's on. Days of an earlier one aren't its usual any more.
+        bool newSetting = changed > from.AddDays(-UsualDays);
+        var usual = days.Where(d => TimeUtil.FromUnix(d.Day).Date >= from.AddDays(-UsualDays) && TimeUtil.FromUnix(d.Day).Date < from
+            && !(TimeUtil.FromUnix(d.Day).Date < changed)).ToList();
         int usualN = usual.Sum(d => d.RpmN);
         var usualFact = new FanFact("Usual", usualN > 0 ? Rpm(usual.Sum(d => d.RpmSum) / usualN) : "—",
-            usualN > 0 ? $"Over the {UsualDays} days before" : "Nothing recorded before this");
+            newSetting ? $"{(usualN > 0 ? "Since" : "Nothing since")} its setting changed on {changed:d MMM}"
+            : usualN > 0 ? $"Over the {UsualDays} days before" : "Nothing recorded before this");
         if (steady)
         {
             more.Add(new("Range", turning.Count > 0 ? $"{turning.Min():N0} – {turning.Max():N0}" : "—", "Slowest to fastest while spinning, RPM"));
@@ -689,6 +705,7 @@ public sealed partial class FansViewModel : ObservableObject
             AverageRpm = turning.Count > 0 ? speed.Values.Average() : null,
             FastestRpm = facts?.Fastest?.Rpm,
             FastestWhen = card.FastestLine,
+            SettingNote = changed > from ? $"Its speed setting changed on {changed:ddd d MMM}. These are its speeds since then." : "",
         };
     }
 

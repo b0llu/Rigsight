@@ -102,6 +102,46 @@ public static class FanAnalysis
 }
 
 /// <summary>
+/// When a fan's speed setting last changed (a new speed or curve in the BIOS or a fan app), from its days: its speed
+/// while the PC sat idle is much the same day after day under one setting, and steps to another level under the next.
+/// Like for like, so a day of games against a day of desktop work isn't a change. The minutes of both settings together
+/// say nothing true about the fan (an average it never ran at, a curve it doesn't have), so the Fans page shows it since.
+/// </summary>
+public static class FanSetting
+{
+    /// <summary>A day counts with this many idle minutes, and a new setting once it has this many in all.</summary>
+    internal const int DayIdleMinutes = 20, SettingIdleMinutes = 60;
+
+    /// <summary>Idle speeds this far apart (the share of the faster, and at least so many rpm) are two settings.</summary>
+    internal const double StepShare = 0.15;
+    internal const int StepRpm = 150;
+
+    /// <summary>The first day (its start) of the setting the fan ended these days on; null when it kept one throughout.</summary>
+    public static long? ChangedOn(IEnumerable<FanDay> days)
+    {
+        var idle = days.Where(d => d.IdleN >= DayIdleMinutes).OrderBy(d => d.Day).Select(d => (d.Day, Rpm: d.IdleSum / d.IdleN, d.IdleN)).ToList();
+        static bool Apart(double a, double b) => Math.Abs(a - b) >= Math.Max(StepRpm, Math.Max(a, b) * StepShare);
+
+        // From the newest day back: the days at its level, to the first that isn't. One odd day among them (the days
+        // before it back at the level) is a day, not a setting.
+        var now = new List<double>();
+        int minutes = 0;
+        for (int i = idle.Count - 1; i >= 0; i--)
+        {
+            double level = now.Count == 0 ? idle[i].Rpm : now.Order().ElementAt(now.Count / 2);
+            if (now.Count > 0 && Apart(idle[i].Rpm, level))
+            {
+                if (i > 0 && !Apart(idle[i - 1].Rpm, level)) continue;
+                return minutes >= SettingIdleMinutes ? idle[i + 1].Day : null;
+            }
+            now.Add(idle[i].Rpm);
+            minutes += idle[i].IdleN;
+        }
+        return null;
+    }
+}
+
+/// <summary>
 /// A fan's speed at each temperature of the chip it follows, per app working that chip, under steady heavy load only
 /// (past the first minutes of a run: the chip still warming then, the fan still catching up), while turning: what two
 /// periods compare to say a fan turns slower at the same heat in the same game. Reports build it from their minutes, and

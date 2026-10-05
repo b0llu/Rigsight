@@ -99,6 +99,57 @@ public sealed class FansPageTests
     }
 
     [Fact]
+    public void A_card_list_at_its_end_hands_the_wheel_to_the_page()
+    {
+        // The wheel over a scrolling box in a card (Network's apps) stayed in the box once it reached its end.
+        Ui.Run(() =>
+        {
+            var rows = new System.Windows.Controls.StackPanel();
+            for (int i = 0; i < 40; i++) rows.Children.Add(new System.Windows.Controls.TextBlock { Text = $"Row {i}", Height = 20 });
+            var box = new System.Windows.Controls.ScrollViewer
+            {
+                Style = (System.Windows.Style)System.Windows.Application.Current.FindResource("CardScroll"), Height = 200, Content = rows,
+            };
+            var content = new System.Windows.Controls.StackPanel();
+            content.Children.Add(box);
+            content.Children.Add(new System.Windows.Controls.Border { Height = 1200 });
+            var page = new System.Windows.Controls.ScrollViewer { Content = content };
+            var window = new System.Windows.Window { Content = page, Left = -32000, Top = -32000, Width = 400, Height = 300, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                Ui.Pump(150);
+                void Wheel(int delta)
+                {
+                    var over = rows.Children[0];
+                    var preview = new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, delta) { RoutedEvent = System.Windows.UIElement.PreviewMouseWheelEvent };
+                    over.RaiseEvent(preview);
+                    if (!preview.Handled)
+                        over.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, delta) { RoutedEvent = System.Windows.UIElement.MouseWheelEvent });
+                    Ui.Pump(50);
+                }
+
+                // With room to go, the box scrolls and the page stays.
+                Wheel(-120);
+                Assert.True(box.VerticalOffset > 0);
+                Assert.Equal(0, page.VerticalOffset);
+
+                // At its end, the page takes over; and back up at its start.
+                box.ScrollToEnd();
+                Ui.Pump(50);
+                Wheel(-120);
+                Assert.Equal(box.ScrollableHeight, box.VerticalOffset, 1);
+                Assert.True(page.VerticalOffset > 0);
+                box.ScrollToTop();
+                Ui.Pump(50);
+                Wheel(120);
+                Assert.Equal(0, page.VerticalOffset);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void A_cards_fans_are_one_row_and_empty_headers_are_left_out()
     {
         var (vm, _) = Page();
@@ -289,6 +340,40 @@ public sealed class FansPageTests
         // Six facts: a set speed's range and its usual speed before, beside the three above.
         Assert.Equal(["Follows", "Stood still", "Steadiness", "Average while spinning", "Range", "Usual"], detail.Facts.Select(f => f.Label));
         Assert.Null(detail.SilentBelow);
+    }
+
+    [Fact]
+    public void A_fan_whose_setting_changed_shows_the_setting_since()
+    {
+        // A week: 1,640 rpm for three days, then set to 1,100. The minutes given are the ones since (as the page reads them).
+        var sensor = new Rigsight.Models.SensorItem(new Rigsight.Core.Protocol.SensorMeta { Id = "/lpc/x/fan/2", Name = "Fan #3", Kind = Rigsight.Core.SensorKind.Fan }, "Board", "SuperIO");
+        var card = new FanCard([sensor]);
+        DateTime from = DateTime.Today.AddDays(-6), changed = from.AddDays(3);
+        var days = Enumerable.Range(-5, 12).Select(i => from.AddDays(i)).Select(d =>
+            new Rigsight.Core.Data.FanDay(Rigsight.Core.Data.TimeUtil.ToUnix(d), 1, (d < changed ? 1640 : 1100) * 300.0, 300, d < changed ? 1731 : 1190, (d < changed ? 1640 : 1100) * 200.0, 200)).ToList();
+        Assert.Equal(Rigsight.Core.Data.TimeUtil.ToUnix(changed), Rigsight.Core.Reports.FanSetting.ChangedOn(days));
+
+        long t0 = Rigsight.Core.Data.TimeUtil.ToUnix(changed.AddHours(9));
+        var fan = Enumerable.Range(0, 120).Select(i => new Rigsight.Core.Data.FanMinute(t0 + i * 60, 1, 1100 + i % 20, 1190)).ToList();
+        var minutes = fan.ToDictionary(f => f.Ts, f => new Rigsight.Core.Data.SystemMinute { Ts = f.Ts, CpuTemp = 45 + f.Ts % 20, GpuTemp = 40 });
+        card.Facts = Rigsight.Core.Reports.FanAnalysis.Of(false, fan, minutes);
+        var detail = FansViewModel.DetailOf(card, [fan], minutes, [], days, new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), from, from.AddDays(7), changed);
+
+        Assert.True(detail.HasSettingNote);
+        Assert.Equal($"Its speed setting changed on {changed:ddd d MMM}. These are its speeds since then.", detail.SettingNote);
+        Assert.Equal("A set speed", detail.FollowsValue);
+        Assert.True(detail.Dots.All(d => d.Rpm < 1200));
+        // The days before it stay on the chart, faint; its usual speed isn't the old setting's.
+        Assert.Equal([true, true, true, false, false, false, false], detail.Days.Select(d => d.Earlier));
+        var usual = detail.Facts.Single(f => f.Label == "Usual");
+        Assert.Equal(("—", $"Nothing since its setting changed on {changed:d MMM}"), (usual.Value, usual.Note));
+
+        // A later day under the same setting: nothing to say, and its usual is the days since the change.
+        var later = FansViewModel.DetailOf(card, [fan], minutes, [], days, new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), changed.AddDays(2), changed.AddDays(3), changed);
+        Assert.False(later.HasSettingNote);
+        usual = later.Facts.Single(f => f.Label == "Usual");
+        Assert.Equal(("1100 RPM", $"Since its setting changed on {changed:d MMM}"), (usual.Value, usual.Note));
+        Assert.False(later.Days.Single().Earlier);
     }
 
     [Fact]

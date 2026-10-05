@@ -181,57 +181,78 @@ public sealed class TimelinePageTests
     }
 
     [Fact]
-    public void A_months_app_updates_can_be_one_line_at_the_top_of_the_month()
+    public void By_month_is_a_row_a_month_with_a_line_for_each_kind_of_change()
     {
         // Two months back, so nothing here depends on how far into this month today is.
         var first = new DateTime(Today.Year, Today.Month, 1).AddMonths(-2);
         var driver = Change(first.AddDays(9).AddHours(19), ChangeKind.Driver, "NVIDIA graphics driver 616.92");
         var (vm, _) = Page([Update(first.AddDays(2).AddHours(9), "Steam"), Update(first.AddDays(9).AddHours(10), "Chrome", "2.0"), Update(first.AddDays(20).AddHours(10), "Chrome", "3.0"),
             Update(first.AddDays(20).AddHours(11), "Discord"), driver,
-            Update(first.AddMonths(1).AddDays(3).AddHours(9), "Steam"), Update(first.AddMonths(1).AddDays(4).AddHours(9), "Edge")]); // two in the next month: too few to fold
+            Change(first.AddDays(4).AddHours(8), ChangeKind.WindowsUpdate, "Windows update KB1"), Change(first.AddDays(11).AddHours(8), ChangeKind.WindowsUpdate, "Windows update KB2"),
+            Update(first.AddMonths(1).AddDays(3).AddHours(9), "Steam"), Update(first.AddMonths(1).AddDays(4).AddHours(9), "Edge")],
+            [new(first.AddDays(10).AddHours(20), CrashKind.GpuDriverReset, "Graphics driver reset"), new(first.AddDays(12).AddHours(20), CrashKind.GpuDriverReset, "Graphics driver reset")]);
         Ui.Run(() =>
         {
             Assert.True(vm.GroupUpdates);
             vm.Grouping = "Month";
             Assert.True(vm.GroupUpdates);
 
-            // The later month keeps its two updates on their days; the earlier one opens with its four in one line.
-            Assert.Equal([first.AddMonths(1).AddDays(4), first.AddMonths(1).AddDays(3)], vm.Days.Take(2).Select(d => d.Day));
-            var month = vm.Days[2];
-            Assert.True(month.IsSummary);
-            Assert.Equal(("App updates", first.ToString("MMMM yyyy").ToUpper(), "FaintBrush"), (month.Title, month.Month, month.NodeBrush));
-            var line = Assert.Single(month.Entries);
-            Assert.Equal(("4 app updates", "Chrome ×2, Discord, Steam", "All month", true), (line.Title, line.Detail, line.TimeText, line.HasChildren));
+            // Only months: the later one, then the earlier one. No days.
+            Assert.Equal([first.AddMonths(1), first], vm.Days.Select(d => d.Day));
+            Assert.All(vm.Days, d => Assert.True(d.IsSummary));
+            var later = vm.Days[0];
+            Assert.Equal((first.AddMonths(1).ToString("MMMM"), "CpuBrush"), (later.Title, later.NodeBrush));
+            Assert.Equal(first.AddMonths(1).ToString("yyyy"), later.Month); // the year, above its first month shown
+            var two = Assert.Single(later.Entries);
+            Assert.Equal(("2 app updates", "Edge, Steam", $"4–{first.AddMonths(1).AddDays(4):d MMM}", "Show all"), (two.Title, two.Detail, two.TimeText, two.ToggleText));
+
+            // The earlier month: its problems, then a line for each kind (one of a kind is just that change, with its date).
+            var month = vm.Days[1];
+            Assert.Equal(first.Year == first.AddMonths(1).Year ? null : first.ToString("yyyy"), month.Month);
+            Assert.Equal(["2 graphics driver resets", "NVIDIA graphics driver 616.92", "2 Windows updates", "4 app updates"], month.Entries.Select(e => e.Title));
+            Assert.Equal([$"11–{first.AddDays(12):d MMM}", $"{first.AddDays(9):d MMM}", $"5–{first.AddDays(11):d MMM}", $"3–{first.AddDays(20):d MMM}"], month.Entries.Select(e => e.TimeText));
+            Assert.True(month.Entries[0].IsProblem);
+            Assert.Equal(first.AddDays(12), month.Entries[0].CrashDay);
+            Assert.False(month.Entries[1].HasChildren);
+            Assert.Equal(("Windows update KB2, Windows update KB1", true), (month.Entries[2].Detail, month.Entries[2].IsKey));
+            var line = month.Entries[3];
+            Assert.Equal(("Chrome ×2, Discord, Steam", true), (line.Detail, line.HasChildren));
             Assert.Equal(["Discord updated to 2.0", "Chrome updated to 3.0", "Chrome updated to 2.0", "Steam updated to 2.0"], line.Children.Select(c => c.Title));
             Assert.Equal($"{first.AddDays(20):d MMM} · was 1.0", line.Children[0].Detail);
 
-            // The days under it show what's left: the driver. The update-only days are gone, and the heading isn't repeated.
-            var rest = vm.Days.Skip(3).ToList();
-            var day = Assert.Single(rest);
-            Assert.Equal((first.AddDays(9), null, false), (day.Day, day.Month, day.IsSummary));
-            Assert.Equal("NVIDIA graphics driver 616.92", Assert.Single(day.Entries).Title);
-
-            // Its versions open and stay open; a month in the calendar goes to the top of that month.
+            // A line opens and stays open, by itself; the calendar still goes by the days, and a day or a month picked in it
+            // goes to that month's row.
             vm.ToggleVersionsCommand.Execute(line);
+            Assert.Equal("Hide", line.ToggleText);
             vm.Grouping = "Each";
             vm.Grouping = "Month";
-            Assert.True(vm.Days[2].Entries[0].IsExpanded);
+            Assert.Equal([false, true], vm.Days[1].Entries.Skip(2).Select(e => e.IsExpanded));
             TimelineDay? asked = null;
             vm.JumpRequested += d => asked = d;
             vm.OnTopDay(first);
+            Assert.Equal(first, vm.CalendarMonth);
+            Assert.True(vm.CalendarCells.Single(c => c.Day == first.AddDays(9)).HasAny);
+            Assert.True(vm.CalendarCells.Single(c => c.Day == first.AddDays(10)).OnlyProblems);
+            Assert.False(vm.CalendarCells.Single(c => c.Day == first.AddDays(1)).HasAny);
             vm.ZoomOutCommand.Execute(null);
             var cell = vm.CalendarMonths.Single(m => m.Month == first);
-            Assert.Equal(5, cell.Count); // the folded updates still count
+            Assert.Equal(9, cell.Count);
             vm.PickMonthCommand.Execute(cell);
-            Assert.True(asked!.IsSummary);
-            // A day of that month goes to the day, not the month's line.
+            Assert.Equal(first, asked!.Day);
+            asked = null;
             vm.JumpTo(first.AddDays(9));
-            Assert.Equal(first.AddDays(9), asked.Day);
+            Assert.Equal(first, asked!.Day);
 
-            // Back to days: every update is on its own day again.
+            // One kind at a time: its line alone in each month.
+            vm.Filter = vm.Filters.Single(f => f.Key == "windows");
+            Assert.Equal("2 Windows updates", Assert.Single(Assert.Single(vm.Days).Entries).Title);
+            vm.Filter = vm.Filters.Single(f => f.Key == "all");
+
+            // Back to days: everything is on its own day again.
             vm.Grouping = "Day";
             Assert.DoesNotContain(vm.Days, d => d.IsSummary);
-            Assert.Equal(5, vm.Days.Count); // five days hold the seven changes
+            vm.ShowMoreCommand.Execute(null);
+            Assert.Equal(9, vm.Days.Count); // nine days hold the nine changes and two problems
         });
     }
 
