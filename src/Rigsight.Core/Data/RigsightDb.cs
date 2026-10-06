@@ -96,6 +96,9 @@ public sealed partial class RigsightDb : IDisposable
         // The clocks (0.9.1), for spotting a chip slowing itself down when hot.
         if (!HasColumn("system_minute", "cpu_clock")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_clock REAL");
         if (!HasColumn("system_minute", "gpu_clock")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_clock REAL");
+        // Each minute's lowest temperatures: the temperature chart says a minute's average, highest and lowest.
+        if (!HasColumn("system_minute", "cpu_temp_min")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_temp_min REAL");
+        if (!HasColumn("system_minute", "gpu_temp_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_temp_min REAL");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -330,9 +333,11 @@ public sealed partial class RigsightDb : IDisposable
     {
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
-                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle)
+                cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
+                cpu_temp_min, gpu_temp_min)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl)
             """,
+            ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin),
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
             ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
@@ -789,6 +794,9 @@ public sealed partial class RigsightDb : IDisposable
     private bool? _hasLoadApps, _hasClocks, _hasFans, _hasBands;
     private bool HasLoadApps => _hasLoadApps ??= HasColumn("system_minute", "cpu_app");
     private bool HasClocks => _hasClocks ??= HasColumn("system_minute", "cpu_clock");
+    // …and each minute's lowest temperatures.
+    private bool? _hasTempLows;
+    private bool HasTempLows => _hasTempLows ??= HasColumn("system_minute", "cpu_temp_min");
     // The app reads a database the agent made, which may be an older one (0.9.0 or before) without the fans or the day bands.
     private bool HasFans => _hasFans ??= HasTable("fans");
     private bool HasBands => _hasBands ??= HasColumn("system_day", "idle_cpu_sum");
@@ -799,7 +807,8 @@ public sealed partial class RigsightDb : IDisposable
         using var cmd = Cmd($"""
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
                    cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
-                   {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")}
+                   {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")},
+                   {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -815,7 +824,7 @@ public sealed partial class RigsightDb : IDisposable
                 FgApp = r.IsDBNull(13) ? null : r.GetInt64(13),
                 ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
                 CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
-                CpuClock = D(r, 19), GpuClock = D(r, 20),
+                CpuClock = D(r, 19), GpuClock = D(r, 20), CpuTempMin = D(r, 21), GpuTempMin = D(r, 22),
             });
         }
         return list;

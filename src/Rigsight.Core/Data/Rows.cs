@@ -83,8 +83,11 @@ public sealed class SystemMinute
     public long Ts { get; set; }
     public double? CpuTemp { get; set; }
     public double? CpuTempMax { get; set; }
+    /// <summary>The minute's lowest reading (null in minutes from before it was kept).</summary>
+    public double? CpuTempMin { get; set; }
     public double? GpuTemp { get; set; }
     public double? GpuTempMax { get; set; }
+    public double? GpuTempMin { get; set; }
     public double? GpuHotMax { get; set; }
     public double? GpuMemMax { get; set; }
     public double? CpuLoad { get; set; }

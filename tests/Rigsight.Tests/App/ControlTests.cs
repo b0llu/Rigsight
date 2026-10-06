@@ -140,8 +140,96 @@ public sealed class ControlTests
         {
             var b = Draw.Buffer(100_000, Now, 10, i => i % 100);
             var g = Build(b, Now, Now + 1_000_000)!.Value;
-            // One point per pixel across 800 pixels, not 100 000.
-            Assert.InRange(Points(g.Line), 700, 900);
+            // One point for each two seconds (a pixel is 1.25 s) across 800 pixels, not 100 000.
+            Assert.InRange(Points(g.Line), 450, 550);
+            // Each the average of 0 to 99, twice over (the two at the ends are part groups).
+            Assert.All(PointsOf(g.Line)[1..^1], p => Assert.Equal(Plot.Bottom - 0.495 * Plot.Height, p.Y, 3));
+        });
+    }
+
+    private static List<Point> PointsOf(Geometry g) => [.. PathGeometry.CreateFromGeometry(g).Figures.SelectMany(f =>
+        f.Segments.SelectMany(s => s switch
+        {
+            PolyLineSegment p => p.Points.AsEnumerable(),
+            LineSegment l => [l.Point],
+            _ => [],
+        }).Prepend(f.StartPoint))];
+
+    /// <summary>A reading that jumps about from one second to the next (a laptop's processor), the same for the same second.</summary>
+    private static double Jumpy(long second) => 61 + (second * 2654435761L % 1000003 + 1000003) % 1000003 % 38;
+
+    [Fact]
+    public void Grouped_by_the_minute_there_is_one_point_for_each_minute_on_the_clock()
+    {
+        Ui.Run(() =>
+        {
+            // Ten minutes of readings from the start of a minute, each minute at its own level with a peak in it.
+            long start = Now / 60_000 * 60_000 - 600_000;
+            var b = Draw.Buffer(600, start, 1000, i => i / 60 * 5 + (i % 60 == 30 ? 60 : 0));
+            var points = PointsOf(ChartGeometry.Build(b, start, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000)!.Value.Line);
+            Assert.Equal(10, points.Count);
+            for (int minute = 0; minute < 10; minute++)
+            {
+                // In the middle of its readings (0 to 59 seconds), at their average: the peak is one reading in sixty.
+                Assert.Equal(Plot.Left + (minute * 60 + 29.5) / 600 * Plot.Width, points[minute].X, 6);
+                Assert.Equal(Plot.Bottom - (minute * 5 + 1) / 100.0 * Plot.Height, points[minute].Y, 6);
+            }
+            // A pixel that covers more than a minute still gets one point.
+            var day = PointsOf(ChartGeometry.Build(b, start + 600_000 - 86_400_000, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000)!.Value.Line);
+            Assert.InRange(day.Count, 5, 7);
+        });
+    }
+
+    [Fact]
+    public void The_first_point_of_a_buffer_is_where_older_history_joins_it()
+    {
+        Ui.Run(() =>
+        {
+            // Readings that begin 40 seconds into a minute: 20 seconds of 50, then a minute of 70.
+            long minute = Now / 60_000 * 60_000 - 600_000;
+            var b = Draw.Buffer(80, minute + 40_000, 1000, i => i < 20 ? 50 : 70);
+            long from = minute - 3_000_000, to = minute + 600_000;
+            Assert.Equal((minute + 49_500, 50.0), ChartGeometry.FirstPoint(b, from, to, Plot, 60_000));
+            // The same point the line starts with.
+            var first = PointsOf(ChartGeometry.Build(b, from, to, Plot, 0, 100, v => v, groupMs: 60_000)!.Value.Line)[0];
+            Assert.Equal(Plot.Left + (minute + 49_500 - from) / (double)(to - from) * Plot.Width, first.X, 6);
+            Assert.Equal(Plot.Bottom - 0.5 * Plot.Height, first.Y, 6);
+            Assert.Null(ChartGeometry.FirstPoint(new HistoryBuffer(4), from, to, Plot));
+            Assert.Null(ChartGeometry.FirstPoint(Draw.Buffer(3, minute, 1000, _ => double.NaN), from, to, Plot));
+        });
+    }
+
+    [Theory]
+    [InlineData(3600)]
+    [InlineData(21600)]
+    [InlineData(86400)]
+    public void Readings_that_jump_about_keep_their_shape_as_the_chart_moves_along(int seconds)
+    {
+        Ui.Run(() =>
+        {
+            // An hour of readings, one a second, seen through a window that ends a second later each time.
+            long start = Now / 1000 * 1000 - 3600_000;
+            var b = Draw.Buffer(3600, start, 1000, i => Jumpy(start / 1000 + i));
+            long span = seconds * 1000L;
+            double perSecond = Plot.Width / seconds;
+            List<Point>? first = null;
+            for (int moved = 0; moved < 30; moved++)
+            {
+                long to = start + 1800_000 + moved * 1000L;
+                // Where each point was in the first drawing: those from 25 to 5 minutes before its end, cut between two seconds (the
+                // newest group is still filling).
+                var shown = PointsOf(Build(b, to - span, to, until: to)!.Value.Line)
+                    .Select(p => new Point(p.X + moved * perSecond, p.Y))
+                    .Where(p => p.X > Plot.Right - 1500.5 * perSecond && p.X < Plot.Right - 300.5 * perSecond).ToList();
+                first ??= shown;
+                Assert.True(first.Count >= 10);
+                Assert.Equal(first.Count, shown.Count);
+                for (int i = 0; i < shown.Count; i++)
+                {
+                    Assert.Equal(first[i].X, shown[i].X, 6);
+                    Assert.Equal(first[i].Y, shown[i].Y, 6);
+                }
+            }
         });
     }
 
@@ -363,6 +451,37 @@ public sealed class ControlTests
             Draw.Set(chart, "_hoverX", null);
         });
         Ui.AssertNoProblems("line chart hover");
+    }
+
+    [Fact]
+    public void From_an_hour_up_the_hover_box_has_a_minutes_average_highest_and_lowest()
+    {
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            // The box alone: what hovering adds to the picture (with its guide line and dot).
+            int Box(LineChart chart, double x)
+            {
+                Draw.Set(chart, "_hoverX", null);
+                chart.InvalidateVisual();
+                int plain = Draw.Inked(Draw.Render(chart, 900, 300));
+                Draw.Set(chart, "_hoverX", x);
+                chart.InvalidateVisual();
+                return Draw.Inked(Draw.Again(chart)) - plain;
+            }
+            LineChart Chart(int window, SensorKind kind = SensorKind.Temperature) =>
+                new() { WindowSeconds = window, Kind = kind, Series = [Series("CPU", 600, 1440, i => 61 + i * 7 % 38)] };
+            int oneValue = Box(Chart(300), 500);
+            // Over the live readings (the last ten minutes) and over the minute history before them.
+            foreach (int window in new[] { 3600, 21600, 86400, 0 })
+            {
+                Assert.True(Box(Chart(window), 880) > oneValue * 1.5, $"no columns over the live readings at {window}");
+                Assert.True(Box(Chart(window), 300) > oneValue * 1.5, $"no columns over the minute history at {window}");
+            }
+            // Other readings (a fan's speed) keep the one value.
+            Assert.InRange(Box(Chart(3600, SensorKind.Fan), 880), 1, oneValue * 1.5);
+        });
+        Ui.AssertNoProblems("line chart hover by the minute");
     }
 
     [Fact]

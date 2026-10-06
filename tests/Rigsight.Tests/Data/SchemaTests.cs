@@ -20,7 +20,7 @@ public sealed class SchemaTests
         ["apps"] = ["id", "exe", "name", "path", "category", "first_seen"],
         ["system_minute"] = ["ts", "cpu_temp", "cpu_temp_max", "gpu_temp", "gpu_temp_max", "gpu_hot_max", "cpu_load", "gpu_load",
             "cpu_power", "gpu_power", "cpu_volt_max", "gpu_volt_max", "ram_used", "fg_app", "active_sec", "idle_sec", "gpu_mem_max", "cpu_app", "gpu_app",
-            "cpu_clock", "gpu_clock"],
+            "cpu_clock", "gpu_clock", "cpu_temp_min", "gpu_temp_min"],
         ["app_hour"] = ["ts", "app_id", .. HourValueColumns],
         ["app_month"] = ["month", "app_id", .. HourValueColumns],
         ["system_day"] = ["day", "minutes", "active_sec", "idle_sec", "cpu_temp_sum", "cpu_temp_n", "gpu_temp_sum", "gpu_temp_n",

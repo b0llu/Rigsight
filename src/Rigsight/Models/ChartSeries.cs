@@ -7,8 +7,11 @@ namespace Rigsight.Models;
 public sealed class ChartSeries
 {
     /// <param name="colorKey">The palette color ("CpuColor"…), so the line follows the dark or light theme.</param>
-    public ChartSeries(string label, SensorItem sensor, string colorKey, Func<SystemMinute, double?>? fromMinute = null)
+    /// <param name="minuteStats">A stored minute's average, highest and lowest, for the hover box (null: none kept).</param>
+    public ChartSeries(string label, SensorItem sensor, string colorKey, Func<SystemMinute, double?>? fromMinute = null,
+        Func<SystemMinute, (double? Avg, double? High, double? Low)>? minuteStats = null)
     {
+        MinuteStats = minuteStats;
         Label = label;
         Sensor = sensor;
         _colorKey = colorKey;
@@ -55,23 +58,51 @@ public sealed class ChartSeries
     /// <summary>Older history, one point per minute, for chart windows longer than the live buffer.</summary>
     public HistoryBuffer Minutes { get; } = new(24 * 60 + 60);
 
+    /// <summary>Picks a stored minute's average, highest and lowest (each null where the history doesn't have it).</summary>
+    public Func<SystemMinute, (double? Avg, double? High, double? Low)>? MinuteStats { get; }
+
+    // Beside Minutes, sample for sample: what the hover box says about each minute. Empty without MinuteStats.
+    private readonly HistoryBuffer _avg = new(24 * 60 + 60), _high = new(24 * 60 + 60), _low = new(24 * 60 + 60);
+
+    /// <summary>The average, highest and lowest of the minute at <paramref name="index"/> of <see cref="Minutes"/> (null: not kept for this line).</summary>
+    public (double? Avg, double? High, double? Low)? StatsAt(int index)
+    {
+        if (index < 0 || index >= _avg.Count || _avg.Count != Minutes.Count) return null;
+        static double? Kept(double v) => double.IsNaN(v) ? null : v;
+        return (Kept(_avg.ValueAt(index)), Kept(_high.ValueAt(index)), Kept(_low.ValueAt(index)));
+    }
+
     /// <summary>Replaces the minute history. Gaps (PC off or asleep) are kept as breaks in the line.</summary>
     public void LoadMinutes(IEnumerable<SystemMinute> minutes)
     {
-        if (FromMinute is null) Minutes.Clear();
-        else LoadPoints(minutes.Select(m => (m.Ts, FromMinute(m))));
+        if (FromMinute is null) LoadPoints([]);
+        else Load(minutes.Select(m => (m.Ts, FromMinute(m), MinuteStats?.Invoke(m))));
     }
 
     /// <summary>Replaces the minute history with other minutes (a fan's speeds), by each minute's start.</summary>
-    public void LoadPoints(IEnumerable<(long Ts, double? Value)> points)
+    public void LoadPoints(IEnumerable<(long Ts, double? Value)> points) =>
+        Load(points.Select(p => (p.Ts, p.Value, ((double? Avg, double? High, double? Low)?)null)));
+
+    private void Load(IEnumerable<(long Ts, double? Value, (double? Avg, double? High, double? Low)? Stats)> points)
     {
         Minutes.Clear();
+        _avg.Clear();
+        _high.Clear();
+        _low.Clear();
         long previous = 0;
-        foreach (var (ts, value) in points)
+        void Add(long t, double value, (double? Avg, double? High, double? Low)? stats)
+        {
+            Minutes.Add(t, value);
+            if (MinuteStats is null) return;
+            _avg.Add(t, stats?.Avg ?? double.NaN);
+            _high.Add(t, stats?.High ?? double.NaN);
+            _low.Add(t, stats?.Low ?? double.NaN);
+        }
+        foreach (var (ts, value, stats) in points)
         {
             long t = ts * 1000 + 30_000; // the middle of the minute
-            if (previous != 0 && t - previous > 150_000) Minutes.Add(previous + 60_000, double.NaN);
-            Minutes.Add(t, value ?? double.NaN);
+            if (previous != 0 && t - previous > 150_000) Add(previous + 60_000, double.NaN, null);
+            Add(t, value ?? double.NaN, stats);
             previous = t;
         }
     }

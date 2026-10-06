@@ -9,8 +9,9 @@ namespace Rigsight.Controls;
 
 /// <summary>
 /// Multi-series time chart with a labelled grid, used for temperature history. Recent time comes from each
-/// sensor's live buffer (one point a second); anything older from the minute history. Hovering shows the
-/// exact time and every series' value there.
+/// sensor's live buffer (one point a second); anything older from the minute history. From an hour up the
+/// whole line is one point for each minute, its average; hovering a minute says its average, highest and
+/// lowest. On a shorter window every reading is drawn, and hovering shows the exact time and each value there.
 /// </summary>
 public sealed class LineChart : FrameworkElement
 {
@@ -106,6 +107,16 @@ public sealed class LineChart : FrameworkElement
     private long LiveStart(ChartSeries s) =>
         _pastDay ? long.MaxValue
         : WindowSeconds is > 0 and < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
+
+    /// <summary>
+    /// From an hour up, the live readings are drawn as the minute history is: one point for each minute on the
+    /// clock, its average. The line is then the same kind of thing from end to end (a reading that jumps about
+    /// from second to second was a smooth line that ended in a jagged patch), and stays as it is while it moves
+    /// along; what the minute's readings reached is in the hover box.
+    /// </summary>
+    private bool ByMinute => WindowSeconds is 0 or >= 3600;
+
+    private double GroupMs => ByMinute ? 60_000 : 0;
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -210,23 +221,45 @@ public sealed class LineChart : FrameworkElement
         {
             long liveStart = LiveStart(s);
             if (from < liveStart)
-                Draw(s, s.Minutes, liveStart, s.Sensor.History.Count > 0 ? (s.Sensor.History.TimeAt(0), s.Sensor.History.ValueAt(0)) : null);
-            Draw(s, s.Sensor.History);
+                Draw(s, s.Minutes, liveStart, ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs));
+            Draw(s, s.Sensor.History, groupMs: GroupMs);
         }
         dc.Pop();
 
         if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
             DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
 
-        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null)
+        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null, double groupMs = 0)
         {
-            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo) is not { } g) return;
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo, groupMs) is not { } g) return;
             dc.DrawGeometry(s.Fill, null, g.Fill);
             dc.DrawGeometry(null, s.LinePen, g.Line);
         }
     }
 
-    /// <summary>A guide line at the pointer, a dot on each series, and a box with the time and values.</summary>
+    /// <summary>The average, highest and lowest of the live readings in the minute on the clock that <paramref name="t"/> is in.</summary>
+    private static (double Avg, double High, double Low)? LiveMinute(HistoryBuffer buffer, long t)
+    {
+        long start = t - t % 60_000;
+        double sum = 0, high = double.MinValue, low = double.MaxValue;
+        int n = 0;
+        for (int i = buffer.IndexAtOrAfter(start); i < buffer.Count && buffer.TimeAt(i) < start + 60_000; i++)
+        {
+            double v = buffer.ValueAt(i);
+            if (double.IsNaN(v)) continue;
+            sum += v;
+            high = Math.Max(high, v);
+            low = Math.Min(low, v);
+            n++;
+        }
+        return n == 0 ? null : (sum / n, high, low);
+    }
+
+    /// <summary>
+    /// A guide line at the pointer, a dot on each series, and a box with the time and values: each reading at
+    /// that second on a short window; from an hour up, the minute's average (where the line is), and for
+    /// temperatures its highest and lowest too.
+    /// </summary>
     private void DrawHover(DrawingContext dc, Rect plot, List<ChartSeries> series, long from, long to, double lo, double hi, double hx, double dpi)
     {
         long t = from + (long)((hx - plot.Left) / plot.Width * (to - from));
@@ -234,24 +267,35 @@ public sealed class LineChart : FrameworkElement
 
         long shownTime = t;
         bool fromMinutes = false;
-        var rows = new List<(ChartSeries Series, double? Value)>();
+        bool stats = ByMinute && IsTemp;
+        var rows = new List<(ChartSeries Series, double? Value, double? High, double? Low)>();
         foreach (var s in series)
         {
             // The live buffer covers recent time; before it starts, the minute history.
             bool useMinutes = t < LiveStart(s);
             var buffer = useMinutes ? s.Minutes : s.Sensor.History;
             int i = buffer.NearestIndex(t);
-            double? value = null;
+            double? value = null, high = null, low = null;
             // Only a sample near the pointer counts (none across a gap, e.g. while the PC was off).
             if (i >= 0 && Math.Abs(buffer.TimeAt(i) - t) <= (useMinutes ? 90_000 : 5_000) && !double.IsNaN(buffer.ValueAt(i)))
             {
                 value = buffer.ValueAt(i);
-                if (rows.Count == 0 || rows.All(r => r.Value is null)) shownTime = buffer.TimeAt(i);
-                fromMinutes |= useMinutes;
-                double y = plot.Bottom - (Shown(value.Value) - lo) / (hi - lo) * plot.Height;
+                long time = buffer.TimeAt(i);
+                // The dot goes where the line is: the minute's point.
+                double at = value.Value;
+                if (useMinutes && s.StatsAt(i) is { } kept) (value, high, low) = kept;
+                else if (!useMinutes && ByMinute && LiveMinute(buffer, t) is { } minute)
+                {
+                    (value, high, low) = minute;
+                    at = minute.Avg;
+                    time = t - t % 60_000;
+                }
+                if (rows.Count == 0 || rows.All(r => r.Value is null && r.High is null)) shownTime = time;
+                fromMinutes |= useMinutes || ByMinute;
+                double y = plot.Bottom - (Shown(at) - lo) / (hi - lo) * plot.Height;
                 dc.DrawEllipse(s.Brush, new Pen(HoverBack, 2), new Point(hx, Math.Clamp(y, plot.Top, plot.Bottom)), 4, 4);
             }
-            rows.Add((s, value));
+            rows.Add((s, value, high, low));
         }
 
         var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
@@ -259,14 +303,20 @@ public sealed class LineChart : FrameworkElement
             + local.ToString(fromMinutes ? "h:mm tt" : "h:mm:ss tt");
 
         var title = Text(when, HoverFont, 12, HoverText, dpi);
+        // One value a line, or three columns under their names: the minute's average, highest and lowest.
+        FormattedText Cell(double? v) => Text(Units.Format(Kind, v), HoverFont, 12, HoverText, dpi);
+        var heads = stats ? new[] { "Avg", "Highest", "Lowest" }.Select(c => Text(c, LabelFont, 11, HoverMuted, dpi)).ToArray() : [];
         var lines = rows.Select(r => (r.Series, Name: Text(r.Series.Label, LabelFont, 12, HoverMuted, dpi),
-            Value: Text(r.Value is double v ? Units.Format(Kind, v) : "—", HoverFont, 12, HoverText, dpi))).ToList();
+            Cells: stats ? new[] { Cell(r.Value), Cell(r.High), Cell(r.Low) } : [Cell(r.Value)])).ToList();
 
         const double pad = 10, dot = 14, gap = 16, lineH = 19;
         double nameW = lines.Count == 0 ? 0 : lines.Max(l => l.Name.Width);
-        double valueW = lines.Count == 0 ? 0 : lines.Max(l => l.Value.Width);
-        double w = Math.Max(title.Width, dot + nameW + gap + valueW) + pad * 2;
-        double h = pad * 2 + title.Height + 4 + lines.Count * lineH;
+        int columns = stats ? 3 : 1;
+        var widths = Enumerable.Range(0, columns)
+            .Select(c => Math.Max(stats ? heads[c].Width : 0, lines.Count == 0 ? 0 : lines.Max(l => l.Cells[c].Width))).ToArray();
+        double headH = stats ? lineH : 0;
+        double w = Math.Max(title.Width, dot + nameW + widths.Sum(cw => gap + cw)) + pad * 2;
+        double h = pad * 2 + title.Height + 4 + headH + lines.Count * lineH;
 
         // Beside the pointer, flipping to the other side near the right edge.
         double x = hx + 14 + w > plot.Right ? hx - 14 - w : hx + 14;
@@ -275,11 +325,18 @@ public sealed class LineChart : FrameworkElement
         dc.DrawRoundedRectangle(HoverBack, HoverBorder, box, 8, 8);
         dc.DrawText(title, new Point(box.Left + pad, box.Top + pad));
         double ly = box.Top + pad + title.Height + 4;
-        foreach (var (s, name, value) in lines)
+        // Columns from the right edge, each as wide as its widest text and right-aligned.
+        var rights = new double[columns];
+        for (int c = columns - 1; c >= 0; c--) rights[c] = c == columns - 1 ? box.Right - pad : rights[c + 1] - widths[c + 1] - gap;
+        for (int c = 0; c < heads.Length; c++)
+            dc.DrawText(heads[c], new Point(rights[c] - heads[c].Width, ly + (lineH - heads[c].Height) / 2));
+        ly += headH;
+        foreach (var (s, name, cells) in lines)
         {
             dc.DrawEllipse(s.Brush, null, new Point(box.Left + pad + 4, ly + lineH / 2), 4, 4);
             dc.DrawText(name, new Point(box.Left + pad + dot, ly + (lineH - name.Height) / 2));
-            dc.DrawText(value, new Point(box.Right - pad - value.Width, ly + (lineH - value.Height) / 2));
+            for (int c = 0; c < columns; c++)
+                dc.DrawText(cells[c], new Point(rights[c] - cells[c].Width, ly + (lineH - cells[c].Height) / 2));
             ly += lineH;
         }
     }

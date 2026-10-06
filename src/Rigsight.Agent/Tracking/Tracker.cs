@@ -37,6 +37,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         /// <summary>Each fan's speed over the minute, by sensor (see <see cref="FanReading"/>).</summary>
         public readonly Dictionary<string, FanAcc> Fans = [];
         public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
+        public double? CpuTempMin, GpuTempMin;
         /// <summary>The app working the CPU / GPU hardest in the minute before this minute's hottest reading (null: none clearly).</summary>
         public AppInfo? CpuApp, GpuApp;
     }
@@ -258,6 +259,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (k.GpuTemp is double gpuNow && (m.GpuTempMax is null || gpuNow > m.GpuTempMax)) m.GpuApp = Busiest(Load.Gpu);
         m.CpuTempMax = Max(m.CpuTempMax, k.CpuTemp);
         m.GpuTempMax = Max(m.GpuTempMax, k.GpuTemp);
+        m.CpuTempMin = Min(m.CpuTempMin, k.CpuTemp);
+        m.GpuTempMin = Min(m.GpuTempMin, k.GpuTemp);
         m.GpuHotMax = Max(m.GpuHotMax, k.GpuHotSpot);
         m.GpuMemMax = Max(m.GpuMemMax, k.GpuMemJunction);
         m.CpuVoltMax = Max(m.CpuVoltMax, k.CpuVoltage);
@@ -479,8 +482,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     Ts = _minuteTs,
                     CpuTemp = Avg(m.CpuTempSum, m.CpuTempN),
                     CpuTempMax = m.CpuTempMax,
+                    CpuTempMin = m.CpuTempMin,
                     GpuTemp = Avg(m.GpuTempSum, m.GpuTempN),
                     GpuTempMax = m.GpuTempMax,
+                    GpuTempMin = m.GpuTempMin,
                     GpuHotMax = m.GpuHotMax,
                     GpuMemMax = m.GpuMemMax,
                     CpuLoad = Avg(m.CpuLoadSum, m.CpuLoadN),
@@ -663,4 +668,5 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
     private static double? Avg(double sum, int n) => n > 0 ? sum / n : null;
     private static double? Max(double? a, double? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
+    private static double? Min(double? a, double? b) => a is null ? b : b is null ? a : Math.Min(a.Value, b.Value);
 }

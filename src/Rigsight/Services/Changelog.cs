@@ -59,6 +59,9 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.16.1", 10, 6,
+            better: ["Hover the temperature graph for each minute's average, highest and lowest."],
+            fixedBugs: ["Temperature spikes no longer shift around as the graph moves."]),
         V("0.16.0", 10, 6,
             feature: new("Riggy", "A helper in the corner you can ask about your PC.",
                 ["Ask why it crashed, how hot it got, what changed or where your time went.",

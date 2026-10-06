@@ -726,6 +726,35 @@ public sealed class LiveDataTests
         });
     }
 
+    [Fact]
+    public void Each_minute_keeps_its_average_highest_and_lowest_for_the_hover_box()
+    {
+        var (_, live) = Kit.Greeted();
+        long start = TimeUtil.ToUnix(DateTime.Now.AddHours(-1));
+        // A processor that jumps about: 72 on average over the minute, 98 at its hottest, 61 at its coolest. The last
+        // minute is from before the lowest was kept.
+        var minutes = Enumerable.Range(0, 3).Select(i => new SystemMinute
+        {
+            Ts = start + i * 60, CpuTemp = 72, CpuTempMax = 98, CpuTempMin = i < 2 ? 61 : null,
+            GpuTemp = 60, GpuTempMax = 66, GpuTempMin = i < 2 ? 58 : null, GpuHotMax = 80, GpuMemMax = 84,
+        }).ToList();
+        Ui.Run(() =>
+        {
+            live.LoadMinuteHistory(minutes);
+            // The line is the average…
+            Assert.Equal([72.0, 72.0, 72.0], Enumerable.Range(0, 3).Select(i => live.TempSeries[0].Minutes.ValueAt(i)));
+            // …and the rest is beside it.
+            Assert.Equal((72.0, 98.0, 61.0), live.TempSeries[0].StatsAt(0));
+            Assert.Equal((72.0, 98.0, (double?)null), live.TempSeries[0].StatsAt(2));
+            Assert.Equal((60.0, 66.0, 58.0), live.TempSeries[1].StatsAt(1));
+            // The hot spot and the memory are only kept as the minute's highest.
+            Assert.Equal(((double?)null, 80.0, (double?)null), live.TempSeries[2].StatsAt(0));
+            Assert.Equal(((double?)null, 84.0, (double?)null), live.TempSeries[3].StatsAt(0));
+            Assert.Null(live.TempSeries[0].StatsAt(3));
+            Assert.Null(live.TempSeries[0].StatsAt(-1));
+        });
+    }
+
     // ── All sensors page ─────────────────────────────────────────────────
 
     private static List<string> Headers(LiveData live) => [.. live.SensorRows.OfType<HardwareNode>().Select(n => n.Name)];

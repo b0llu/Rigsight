@@ -331,17 +331,19 @@ public sealed partial class LiveData : ObservableObject
 
         // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
         // hot spot and memory (only stored as the minute's highest) as that.
-        void AddSeries(string label, SensorItem? sensor, string colorKey, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute)
+        // Hovering a minute says its average, highest and lowest, as far as they were kept.
+        void AddSeries(string label, SensorItem? sensor, string colorKey, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute,
+            Func<Rigsight.Core.Data.SystemMinute, (double? Avg, double? High, double? Low)> stats)
         {
             if (sensor is null) return;
-            var series = new ChartSeries(label, sensor, colorKey, fromMinute);
+            var series = new ChartSeries(label, sensor, colorKey, fromMinute, stats);
             series.LoadMinutes(_minutes);
             TempSeries.Add(series);
         }
-        AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp);
-        AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp);
-        AddSeries("GPU hot spot", GpuHotSpot, "WarmColor", m => m.GpuHotMax);
-        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemMax);
+        AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+        AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
+        AddSeries("GPU hot spot", GpuHotSpot, "WarmColor", m => m.GpuHotMax, m => (null, m.GpuHotMax, null));
+        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemMax, m => (null, m.GpuMemMax, null));
 
         _byKey.Clear();
         if (hello.Keys is not null)

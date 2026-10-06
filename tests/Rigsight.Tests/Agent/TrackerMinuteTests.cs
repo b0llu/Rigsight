@@ -31,6 +31,29 @@ public class TrackerMinuteTests
     }
 
     [Fact]
+    public void A_minute_keeps_its_average_highest_and_lowest_temperatures()
+    {
+        using var rig = new TrackerRig();
+        rig.Keys = Typical with { CpuTemp = 61, GpuTemp = 50 };
+        rig.Use("code.exe", 20);
+        rig.Keys = Typical with { CpuTemp = 98, GpuTemp = 56 };
+        rig.Use("code.exe", 20);
+        rig.Keys = Typical with { CpuTemp = 72, GpuTemp = 53 };
+        rig.Use("code.exe", 19);
+        // A minute with no temperature sensors has none of the three.
+        rig.Keys = Typical with { CpuTemp = null, GpuTemp = null };
+        rig.Use("code.exe", 66);
+        var minutes = rig.Minutes();
+        Assert.Equal(2, minutes.Count);
+        Assert.Equal((98.0, 61.0), (minutes[0].CpuTempMax, minutes[0].CpuTempMin));
+        Assert.Equal((56.0, 50.0), (minutes[0].GpuTempMax, minutes[0].GpuTempMin));
+        Assert.InRange(minutes[0].CpuTemp!.Value, 62, 97);
+        Assert.Equal((null, null, null), (minutes[1].CpuTemp, minutes[1].CpuTempMax, minutes[1].CpuTempMin));
+        Assert.Equal((null, null), (minutes[1].GpuTempMax, minutes[1].GpuTempMin));
+        rig.AssertInvariants();
+    }
+
+    [Fact]
     public void A_day_keeps_its_temperatures_by_load_band()
     {
         // Idle minutes and heavy-load minutes added up apart, so months later "at idle" can still be compared.
