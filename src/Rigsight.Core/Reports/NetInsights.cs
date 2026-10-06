@@ -61,9 +61,11 @@ public static class NetInsights
             if (behind >= BackgroundDayBytes * scale && behind >= bg.Use.Down * BackgroundShare)
             {
                 bool away = bg.Use.AwayDown * 2 >= bg.Use.Down;
+                // The same figure twice ("15 GB today, 15 GB of it…") says less than "all of it".
+                string Part(long bytes) => Units.Data(bytes) == Units.Data(bg.Use.Down) ? "all" : Units.Data(bytes);
                 list.Add(new Insight(IconDown, away
-                        ? $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Units.Data(bg.Use.AwayDown)} of it while you were away."
-                        : $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Units.Data(behind)} of it in the background.",
+                        ? $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(bg.Use.AwayDown)} of it while you were away."
+                        : $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(behind)} of it in the background.",
                     InsightTone.Neutral, "net-background", 57,
                     $"In the background {Units.Data(bg.Use.BgDown)} · while you were away {Units.Data(bg.Use.AwayDown)}"));
             }
@@ -106,8 +108,18 @@ public static class NetInsights
             if (r.PreviousDown is long before && before >= 500 * MB)
             {
                 double ratio = (double)r.Down / before;
-                string last = r.Range switch { ReportRange.Day => "yesterday", ReportRange.Week => "last week", ReportRange.Month => "last month", _ => "last year" };
-                if (inProgress) last += " by now";
+                // "Yesterday" only from today: a day looked back on is set against the day before it.
+                string last = (r.Range, inProgress) switch
+                {
+                    (ReportRange.Day, true) => "yesterday by now",
+                    (ReportRange.Day, false) => "the day before",
+                    (ReportRange.Week, true) => "last week by now",
+                    (ReportRange.Week, false) => "the week before",
+                    (ReportRange.Month, true) => "last month by now",
+                    (ReportRange.Month, false) => "the month before",
+                    (_, true) => "last year by now",
+                    _ => "the year before",
+                };
                 against = ratio >= 1.25 ? $", {ratio:0.0}× {last}" : ratio <= 0.8 ? $", {(1 - ratio) * 100:0}% less than {last}" : $", about the same as {last}";
             }
             var top = r.Apps.FirstOrDefault();

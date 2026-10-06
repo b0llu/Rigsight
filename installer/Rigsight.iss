@@ -178,7 +178,7 @@ begin
   if CurStep <> ssPostInstall then exit;
   if WizardIsTaskSelected('pawnio') then
     Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading with winget. This can take a minute or two.',
-      ExpandConstant('{cmd}'), '/c winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements');
+      ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-pawnio');
   // Through the agent, which checks again that it isn't installed already, waits as long as the install makes
   // progress, brings a question from RivaTuner's installer to the front, and ends it only if it stops doing anything.
   if WizardIsTaskSelected('rtss') then

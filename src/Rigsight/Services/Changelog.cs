@@ -59,6 +59,20 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.4", 10, 6,
+            better: ["Small charts show the reading under your pointer.",
+                "The Crashes tile on a dashboard always covers the last 30 days.",
+                "Safer installing of RivaTuner and the sensor driver."],
+            fixedBugs: ["Pages left open overnight move on to the new day.",
+                "A game session is kept when the PC crashes or loses power mid-game.",
+                "Settings can no longer reset themselves after a bad shutdown.",
+                "A setting changed just before closing the window is kept.",
+                "The tray icon comes back after the taskbar restarts.",
+                "Comparisons leave out a week or month that was only partly recorded.",
+                "Fan history goes back further than three months.",
+                "Plugging in a USB drive is no longer listed as a hardware change.",
+                "Reports no longer go blank after a time zone change.",
+                "Time asleep isn't counted as apps being open."]),
         V("0.15.3", 10, 5,
             fixedBugs: ["Network use no longer stops being recorded without a sign."]),
         V("0.15.2", 10, 5,

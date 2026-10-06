@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.CustomPageView"
+﻿<UserControl x:Class="Rigsight.Views.CustomPageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
@@ -125,7 +125,7 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" Style="{StaticResource Big}" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
-                <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" />
+                <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" Kind="{Binding Sensor.Kind}" />
             </DockPanel>
         </DataTemplate>
 
@@ -302,22 +302,22 @@
             <DockPanel>
                 <UniformGrid DockPanel.Dock="Top" Columns="3">
                     <StackPanel>
-                        <TextBlock Text="{Binding Crashes.AppCrashCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="{Binding Crashes.Recent.AppCrashCount}" Style="{StaticResource Big}" />
                         <TextBlock Text="apps &amp; games" Style="{StaticResource Caption}" />
                     </StackPanel>
                     <StackPanel>
-                        <TextBlock Text="{Binding Crashes.DriverResetCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="{Binding Crashes.Recent.DriverResetCount}" Style="{StaticResource Big}" />
                         <TextBlock Text="driver resets" Style="{StaticResource Caption}" />
                     </StackPanel>
                     <StackPanel>
-                        <TextBlock Text="{Binding Crashes.SystemCount}" Style="{StaticResource Big}" />
+                        <TextBlock Text="{Binding Crashes.Recent.SystemCount}" Style="{StaticResource Big}" />
                         <TextBlock Text="PC crashes" Style="{StaticResource Caption}" />
                     </StackPanel>
                 </UniformGrid>
-                <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.HasCrashes, Converter={StaticResource Vis}}">
+                <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.Recent.HasCrashes, Converter={StaticResource Vis}}">
                     <TextBlock Text="LATEST" Style="{StaticResource Caption}" />
-                    <TextBlock Text="{Binding Crashes.Latest.Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                    <TextBlock Text="{Binding Crashes.Latest.TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
+                    <TextBlock Text="{Binding Crashes.Recent.Latest.Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding Crashes.Recent.Latest.TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
                 </StackPanel>
             </DockPanel>
         </DataTemplate>

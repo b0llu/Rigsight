@@ -46,6 +46,14 @@ public static class RigsightPaths
     public const string AgentExe = "Rigsight.Agent.exe";
     public const string AppExe = "Rigsight.exe";
 
+    /// <summary>
+    /// Windows' own programs by where they are, not by name: the agent runs with admin rights, and a bare "explorer.exe"
+    /// is looked for in the folder it was started from before Windows' own.
+    /// </summary>
+    public static string Explorer { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
+    public static string TaskScheduler { get; } = Path.Combine(Environment.SystemDirectory, "schtasks.exe");
+
     /// <summary>Finds a sibling executable (the agent and app are deployed side by side).</summary>
     public static string Sibling(string exeName) => Path.Combine(AppContext.BaseDirectory, exeName);
 }

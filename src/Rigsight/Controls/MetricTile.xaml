@@ -17,7 +17,7 @@
             <TextBlock Grid.Row="2" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}"
                        Margin="0,1,0,0" />
             <ctl:Sparkline Grid.Row="3" Height="26" Margin="0,8,0,0" VerticalAlignment="Bottom"
-                           Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}"
+                           Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Kind="{Binding Sensor.Kind}"
                            Stroke="{Binding Accent}" Minimum="{Binding SparkMinimum}" Maximum="{Binding SparkMaximum}" />
         </Grid>
     </Border>

@@ -85,11 +85,12 @@ public sealed class AgentClient(Dispatcher dispatcher, string? pipeName = null) 
 
     private async Task WriteAsync(Stream pipe, byte[] bytes)
     {
-        await _writeLock.WaitAsync();
+        // Off the UI thread from here on: Dispose waits there for a write on its way, and must not be what it waits for.
+        await _writeLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            await pipe.WriteAsync(bytes);
-            await pipe.FlushAsync();
+            await pipe.WriteAsync(bytes).ConfigureAwait(false);
+            await pipe.FlushAsync().ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException)
         {
@@ -109,6 +110,8 @@ public sealed class AgentClient(Dispatcher dispatcher, string? pipeName = null) 
 
     public void Dispose()
     {
+        // A message just queued (a setting changed as the window closed) gets a moment to leave before the pipe goes.
+        if (_writeLock.Wait(1000)) _writeLock.Release();
         _cts.Cancel();
         _pipe?.Dispose();
     }

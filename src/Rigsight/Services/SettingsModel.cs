@@ -49,6 +49,19 @@ public sealed class SettingsModel
         if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone() })) _dirty = false;
     }
 
+    /// <summary>
+    /// The window is closing: a change still waiting out the debounce is sent now (closing within a third of a second
+    /// of a change used to lose it). With no agent to take it (not running, its admin prompt declined) it's written
+    /// here instead: nobody else is writing the file then, and the change used to be gone at the next start.
+    /// </summary>
+    public void OnExit()
+    {
+        Flush();
+        if (!_dirty) return;
+        SettingsStore.Save(Current);
+        _dirty = false;
+    }
+
     /// <summary>The agent (re)connected: deliver a change made while it wasn't there.</summary>
     public void OnConnected()
     {

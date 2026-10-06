@@ -54,6 +54,63 @@ public sealed class ShellTests : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void At_midnight_a_page_on_today_moves_to_the_new_day_and_an_earlier_one_stays()
+    {
+        // The window as it stood before midnight: yesterday was "today" then.
+        var was = DateTime.Today.AddDays(-1);
+        var today = typeof(ShellViewModel).GetField("_today", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Ui.Run(() =>
+        {
+            Shell.Network.Unit = ReportRange.Day;
+            Shell.Network.Anchor = was;
+            Shell.Apps.Unit = ReportRange.Day;
+            Shell.Apps.Anchor = was;
+            Shell.ReportsPage.ShowDay(was);
+            Shell.Crashes.Unit = ReportRange.Month;
+            Shell.Crashes.Anchor = was;
+            Shell.Live.ChartDay = was;
+            Shell.Fans.Unit = ReportRange.Day;
+            Shell.Fans.Anchor = was.AddDays(-1); // looking at an earlier day
+            today.SetValue(Shell, was);
+
+            Shell.CheckNewDay();
+
+            Assert.Equal(DateTime.Today, Shell.Network.Anchor);
+            Assert.True(Shell.Network.IncludesToday);
+            Assert.Equal(DateTime.Today, Shell.Apps.Anchor);
+            Assert.Equal(DateTime.Today, Shell.ReportsPage.Anchor);
+            Assert.Equal(DateTime.Today, Shell.Crashes.Anchor);
+            Assert.Equal(DateTime.Today, Shell.Live.ChartDay);
+            Assert.False(Shell.Live.CanChartNextDay);
+            Assert.Equal(was.AddDays(-1), Shell.Fans.Anchor);
+
+            // Once per day: nothing moves again.
+            Shell.Fans.Anchor = was;
+            Shell.CheckNewDay();
+            Assert.Equal(was, Shell.Fans.Anchor);
+            Shell.Fans.Anchor = DateTime.Today;
+        });
+        Ui.Pump(300);
+    }
+
+    [Theory]
+    [InlineData(ReportRange.Day, 0, true)]
+    [InlineData(ReportRange.Day, -1, false)]
+    [InlineData(ReportRange.Week, 0, true)]
+    [InlineData(ReportRange.Month, 0, true)]
+    [InlineData(ReportRange.Year, 0, true)]
+    [InlineData(ReportRange.Month, -40, false)]
+    [InlineData(ReportRange.All, 0, false)]
+    [InlineData(ReportRange.Custom, 0, false)]
+    public void Only_a_period_that_held_the_day_that_ended_follows_into_the_new_one(ReportRange unit, int anchorOffset, bool follows)
+    {
+        // The last day of a week, a month and a year at once, so every unit's period ends with it.
+        var was = new DateTime(2023, 12, 31);
+        var anchor = was.AddDays(anchorOffset);
+        Assert.Equal(follows ? was.AddDays(1) : anchor, Controls.PeriodPicker.AfterMidnight(unit, anchor, was, was.AddDays(1)));
+    }
+
+    [Fact]
     public void Go_switches_pages_and_shows_the_right_view()
     {
         foreach (var page in new[] { "reports", "storage", "home" })

@@ -68,6 +68,7 @@ internal sealed class AgentContext : ApplicationContext
     private volatile bool _addressesChanged = true;
     private readonly ConnectionWatch _connection = new();
     private readonly TraceWatch _traceWatch = new();
+    private readonly SensorHealth _sensorHealth = new();
     private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
     private readonly Queue<NetLive> _netHistory = new();
     private readonly Lock _netHistoryLock = new();
@@ -362,6 +363,12 @@ internal sealed class AgentContext : ApplicationContext
                     // And those in the taskbar, which are always on show.
                     _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. WidgetSensorIds(_settings)]);
                     _sensors.Update(everything: live, now);
+                    if (_sensorHealth.Check(_sensors.Unwell, now))
+                    {
+                        Log.Write("sensors", "Some hardware has stopped answering (a driver updated, or a device unplugged): finding the sensors again");
+                        OpenSensors();
+                        _sensors.Update(everything: live, now);
+                    }
                     Measure("sensors", t0);
                     t0 = Stopwatch.GetTimestamp();
                     var keys = _sensors.ReadKeys();
@@ -392,7 +399,8 @@ internal sealed class AgentContext : ApplicationContext
                             Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
                             ExtremesDay = _extremes.Day,
                             ExtremesFull = full,
-                            Net = _netTrace is null ? null : _tracker.NetNow,
+                            // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
+                            Net = _netTrace is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
                         });
                     }
 
@@ -405,7 +413,7 @@ internal sealed class AgentContext : ApplicationContext
                 if (now >= nextProc || _procsNow)
                 {
                     _procsNow = false;
-                    double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : Math.Min((now - lastProc) / 1000.0, 60);
+                    double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : ProcessStep(lastProc, now, settings.Tracking.ProcessIntervalSeconds);
                     lastProc = now;
                     t0 = Stopwatch.GetTimestamp();
                     bool firstProcs = !_procsSampled;
@@ -518,6 +526,7 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         _sensors = host;
+        _gpuSampler.Reset(); // the graphics card may be a different one to Windows now (a driver update gives it a new identity)
         _sensorStatus = BuildSensorStatus(apps);
         var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
         string left = skip == SensorParts.None ? ""
@@ -582,6 +591,17 @@ internal sealed class AgentContext : ApplicationContext
         _safeMode = false;
         _stoppedForMemory = false;
         OpenSensors();
+    }
+
+    /// <summary>
+    /// Seconds an app was open since the last look at the processes. Far longer than the looks are apart means the PC was
+    /// asleep (or the agent held up): not counted, where it used to add a minute of "open in the background" to every
+    /// app with a window each time the PC woke.
+    /// </summary>
+    internal static double ProcessStep(long lastMs, long nowMs, int intervalSeconds)
+    {
+        double dt = (nowMs - lastMs) / 1000.0;
+        return dt > Math.Max(10, intervalSeconds * 2) ? 0 : dt;
     }
 
     /// <summary>Seconds to count since the last activity sample. A long gap means the PC was asleep: don't count it.</summary>
@@ -871,17 +891,23 @@ internal sealed class AgentContext : ApplicationContext
 
     private static string NetTraceName => "Rigsight Network" + RigsightPaths.InstanceSuffix;
 
+    private static readonly NetLive NotRecording = new() { Stalled = true };
+
     /// <summary>
     /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
     /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
     /// </summary>
     private void CheckNetworkTrace()
     {
-        if (_netTrace is not { } trace) return;
-        switch (_traceWatch.Check(TimeUtil.NowUnix(), NetAdapters.CardBytes(), trace.Events))
+        if (!_isAdmin) return;
+        long now = TimeUtil.NowUnix();
+        // No trace at all (Windows wouldn't start one, or ended it): there are no events to count, only the remedies.
+        var remedy = _netTrace is { Ended: false } trace ? _traceWatch.Check(now, NetAdapters.CardBytes(), trace.Events) : _traceWatch.Missing(now);
+        switch (remedy)
         {
             case TraceRemedy.Restart:
-                Log.Write("network", "App network use stopped coming in while the network was busy: reading it again");
+                Log.Write("network", _netTrace is { Ended: false } ? "App network use stopped coming in while the network was busy: reading it again"
+                    : "App network use isn't being read: starting it again");
                 RestartNetworkTrace();
                 break;
             case TraceRemedy.ClearOthers:
@@ -1237,7 +1263,7 @@ internal sealed class AgentContext : ApplicationContext
         try
         {
             // Launch through Explorer so the app runs with normal (non-admin) rights.
-            if (_isAdmin) Process.Start("explorer.exe", $"\"{exe}\"");
+            if (_isAdmin) Process.Start(RigsightPaths.Explorer, $"\"{exe}\"");
             else Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
         }
         catch (Exception ex)

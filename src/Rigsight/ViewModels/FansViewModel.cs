@@ -258,6 +258,17 @@ public sealed partial class FansViewModel : ObservableObject
     partial void OnUnitChanged(ReportRange value) => _ = RefreshAsync();
     partial void OnAnchorChanged(DateTime value) => _ = RefreshAsync();
 
+    /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
+    public void NewDay(DateTime was)
+    {
+        _loadedPast = null;
+        var anchor = Controls.PeriodPicker.AfterMidnight(Unit, Anchor, was, DateTime.Today);
+        if (anchor != Anchor) { Anchor = anchor; return; }
+        OnPropertyChanged(nameof(RangeNote));
+        OnPropertyChanged(nameof(PeriodCaption));
+        _ = RefreshAsync();
+    }
+
     // A past period doesn't change: read once, not again each minute.
     private (ReportRange Unit, DateTime From)? _loadedPast;
 
@@ -350,7 +361,11 @@ public sealed partial class FansViewModel : ObservableObject
     {
         var (from, to) = Period;
         // A past period is read once; the minute refresh only moves the live readings then.
-        if (!IncludesToday && _loadedPast == (Unit, from) && Fans.Count > 0) return;
+        if (!IncludesToday && _loadedPast == (Unit, from) && Fans.Count > 0)
+        {
+            _load++; // a read still on its way is for a period since left: it mustn't land on this one
+            return;
+        }
         int id = ++_load;
         var today = DateTime.Today;
         // A year: its days and daily curves, and today's minutes (what each fan follows, its state); otherwise the period's
@@ -362,8 +377,10 @@ public sealed partial class FansViewModel : ObservableObject
         // The period's fan warnings, as Home and Reports show them: on the row they're about.
         var warnings = (await _reports.BuildAsync(Unit, Anchor))?.Insights
             .Where(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older").ToList() ?? [];
+        // The first day there is, not the first of the days just read (those go back 90 at most, and the picker stopped there).
+        var first = await _reports.FirstFanDayAsync();
         if (id != _load) return;
-        FirstDay = history.Days.Count > 0 ? TimeUtil.FromUnix(history.Days.Min(d => d.Day)).Date : today;
+        FirstDay = first ?? today;
 
         var bySensor = history.Fans.ToDictionary(f => f.Sensor, f => f.Id);
         var spun = history.Days.Where(d => d.RpmMax >= FanCard.MinSpinRpm).Select(d => d.Fan).ToHashSet();
@@ -526,7 +543,8 @@ public sealed partial class FansViewModel : ObservableObject
         }
         StartsText = card is null || speed.Count == 0 ? null : starts == 1 ? "1 time" : $"{starts} times";
         int daysOn = speed.Select(x => TimeUtil.FromUnix(x.Ts).Date).Distinct().Count();
-        StartsNote = !IsDay && daysOn > 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each time the card warmed past its silent point"
+        // A rate only when there's one to give: twice in six days isn't "about 0 a day".
+        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each time the card warmed past its silent point"
             : "Each time the card warmed past its silent point";
         SilentText = best >= 5 ? Units.Duration(best * 60) : null;
         SilentNote = best < 5 ? ""
@@ -689,7 +707,7 @@ public sealed partial class FansViewModel : ObservableObject
                 }
                 int daysOn = speed.Keys.Select(t => TimeUtil.FromUnix(t).Date).Distinct().Count();
                 more.Add(new("Started up", starts == 1 ? "1 time" : $"{starts} times",
-                    daysOn > 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point" : "Each time the card warmed past its silent point"));
+                    daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point" : "Each time the card warmed past its silent point"));
             }
             else more.Add(usualFact);
         }

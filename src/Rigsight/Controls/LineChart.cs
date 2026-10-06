@@ -199,7 +199,7 @@ public sealed class LineChart : FrameworkElement
             {
                 double x = plot.Right - plot.Width * t / window;
                 string label = t == 0 ? "now"
-                    : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("t", CultureInfo.CurrentCulture)
+                    : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("h:mm tt") // as times are written everywhere else in the app
                     : t < 60 ? $"-{t}s" : $"-{t / 60}m";
                 DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: x - plot.Left > 1);
             }
@@ -256,7 +256,7 @@ public sealed class LineChart : FrameworkElement
 
         var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
         string when = (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture))
-            + local.ToString(fromMinutes ? "t" : "T", CultureInfo.CurrentCulture);
+            + local.ToString(fromMinutes ? "h:mm tt" : "h:mm:ss tt");
 
         var title = Text(when, HoverFont, 12, HoverText, dpi);
         var lines = rows.Select(r => (r.Series, Name: Text(r.Series.Label, LabelFont, 12, HoverMuted, dpi),

@@ -140,6 +140,9 @@ public sealed class ReportService(SettingsModel settings)
             db.GetFanCurveDays(TimeUtil.ToUnix(curvesFrom), TimeUtil.ToUnix(curvesTo)));
     });
 
+    /// <summary>The first day with fan speeds recorded (the Fans page's picker goes no further back).</summary>
+    public Task<DateTime?> FirstFanDayAsync() => Run(db => db.FirstFanDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
+
     /// <summary>Temperatures at rest per day, for today and the days before it (heat_day).</summary>
     public Task<List<HeatDay>?> RestDaysAsync(DateTime today) => Run(db =>
         db.GetHeatDays(TimeUtil.ToUnix(today.AddDays(-Core.Reports.RestTemps.LookBackDays)), TimeUtil.ToUnix(today.AddDays(1))));

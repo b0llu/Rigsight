@@ -27,6 +27,21 @@ public sealed class EventLogParsingTests
         Assert.Equal(DateTimeKind.Local, parsed!.Value.Kind);
     }
 
+    [Fact]
+    public void A_shutdown_time_read_the_wrong_way_round_is_put_right_by_when_it_was_found()
+    {
+        var found = new DateTime(2026, 6, 10, 9, 30, 0); // Windows wrote it up at the next start
+        // Read as 6 October (still to come): it was 10 June, the evening before.
+        Assert.Equal(new DateTime(2026, 6, 9, 23, 10, 0), CrashLogReader.ShutdownBefore(new DateTime(2026, 9, 6, 23, 10, 0), found));
+        // Read right: left as it is, though the other reading is earlier too.
+        Assert.Equal(new DateTime(2026, 6, 9, 23, 10, 0), CrashLogReader.ShutdownBefore(new DateTime(2026, 6, 9, 23, 10, 0), found));
+        // Nothing to turn round (the 25th), and before the start: as read.
+        Assert.Equal(new DateTime(2026, 5, 25, 8, 0, 0), CrashLogReader.ShutdownBefore(new DateTime(2026, 5, 25, 8, 0, 0), found));
+        // After the start whichever way it's read: not believed.
+        Assert.Null(CrashLogReader.ShutdownBefore(new DateTime(2026, 12, 25, 8, 0, 0), found));
+        Assert.Null(CrashLogReader.ShutdownBefore(new DateTime(2026, 11, 12, 8, 0, 0), found));
+    }
+
     [Theory]
     [InlineData("en-US", 5, 9)]
     [InlineData("en-GB", 9, 5)]
@@ -119,6 +134,18 @@ public sealed class EventLogParsingTests
             new(T0.AddHours(1), ChangeKind.Driver, "NVIDIA graphics driver 32.0.15.8097"),
         ]);
         Assert.Equal([ChangeKind.Driver], merged.Select(c => c.Kind));
+    }
+
+    [Fact]
+    public void An_NVIDIA_driver_from_Windows_Update_is_listed_once_though_its_own_entry_names_no_version()
+    {
+        var merged = ChangeLogReader.Merge(
+        [
+            new(T0, ChangeKind.WindowsUpdate, "NVIDIA display driver 32.0.15.8097 (from Windows Update)"),
+            new(T0.AddHours(1), ChangeKind.Driver, "NVIDIA graphics driver installed"),
+            new(T0.AddHours(1), ChangeKind.WindowsUpdate, "Realtek audio driver 6.0.9549.1 (from Windows Update)"), // someone else's: stays
+        ]);
+        Assert.Equal(["Realtek audio driver 6.0.9549.1 (from Windows Update)", "NVIDIA graphics driver installed"], merged.Select(c => c.Title).Order().Reverse());
     }
 
     [Theory]

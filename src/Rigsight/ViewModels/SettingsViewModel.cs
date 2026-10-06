@@ -334,7 +334,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public async Task LoadKnownAppsAsync()
     {
         TrackingSince = await reports.FirstDayAsync() is { } first
-            ? $"History goes back to {first:d MMMM yyyy} ({(int)(DateTime.Today - first).TotalDays + 1} days)."
+            ? $"History goes back to {first:d MMMM yyyy} ({Controls.PeriodPicker.Duration(TimeSpan.FromDays((int)(DateTime.Today - first).TotalDays + 1))})."
             : "Nothing recorded yet.";
         var apps = await reports.KnownAppsAsync() ?? [];
         KnownApps.Clear();

@@ -26,7 +26,13 @@ public sealed partial class RigsightDb : IDisposable
         conn.Open();
         var db = new RigsightDb(conn);
         db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
-        db.EnsureSchema();
+        // All of an upgrade or none of it: a step is "done" when its table or column exists, so an agent ended between
+        // making a table and filling it from the older history (the installer restarting it) left that table empty for good.
+        using (var upgrade = db.BeginTransaction())
+        {
+            db.EnsureSchema();
+            upgrade.Commit();
+        }
         return db;
     }
 
@@ -470,6 +476,14 @@ public sealed partial class RigsightDb : IDisposable
         return list;
     }
 
+    /// <summary>The first day with fan speeds recorded (its local midnight), or null.</summary>
+    public long? FirstFanDay()
+    {
+        if (!HasFans) return null;
+        using var cmd = Cmd("SELECT min(day) FROM fan_day");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
     public List<FanDay> GetFanDays(long from, long to)
     {
         if (!HasFans) return [];
@@ -516,15 +530,40 @@ public sealed partial class RigsightDb : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    public void InsertSession(SessionRow s)
+    public void InsertSession(SessionRow s) => SaveSession(s);
+
+    /// <summary>
+    /// Writes a session and returns its row: a new one, or (with <paramref name="id"/>) the same one brought up to date.
+    /// A session still going is saved each minute this way, so a PC that loses power mid-game keeps the session up to
+    /// its last minute. A row that's gone (its first save was rolled back) is written again.
+    /// </summary>
+    public long SaveSession(SessionRow s, long? id = null)
     {
-        using var cmd = Cmd("""
-            INSERT INTO sessions(app_id, start, end, active_sec, cpu_temp_max, gpu_temp_max, is_game)
-            VALUES($app, $start, $end, $act, $ct, $gt, $game)
-            """, ("$app", s.AppId), ("$start", s.Start), ("$end", s.End), ("$act", s.ActiveSec),
-            ("$ct", s.CpuTempMax), ("$gt", s.GpuTempMax), ("$game", s.IsGame ? 1 : 0));
-        cmd.ExecuteNonQuery();
-        long length = s.End - s.Start;
+        if (id is { } row)
+        {
+            using var update = Cmd("""
+                UPDATE sessions SET end = $end, active_sec = $act, cpu_temp_max = $ct, gpu_temp_max = $gt, is_game = $game
+                WHERE id = $id AND app_id = $app AND start = $start
+                """, ("$id", row), ("$app", s.AppId), ("$start", s.Start), ("$end", s.End), ("$act", s.ActiveSec),
+                ("$ct", s.CpuTempMax), ("$gt", s.GpuTempMax), ("$game", s.IsGame ? 1 : 0));
+            if (update.ExecuteNonQuery() == 0) id = null;
+        }
+        if (id is null)
+        {
+            using var cmd = Cmd("""
+                INSERT INTO sessions(app_id, start, end, active_sec, cpu_temp_max, gpu_temp_max, is_game)
+                VALUES($app, $start, $end, $act, $ct, $gt, $game);
+                SELECT last_insert_rowid();
+                """, ("$app", s.AppId), ("$start", s.Start), ("$end", s.End), ("$act", s.ActiveSec),
+                ("$ct", s.CpuTempMax), ("$gt", s.GpuTempMax), ("$game", s.IsGame ? 1 : 0));
+            id = (long)cmd.ExecuteScalar()!;
+        }
+        RaiseMaxSession(s.End - s.Start);
+        return id.Value;
+    }
+
+    private void RaiseMaxSession(long length)
+    {
         if (length > MaxSessionSec()) _maxSessionSec = length;
         // Raised against the stored value, not the cached one: a rolled-back transaction takes the stored bound back
         // with it, while the cache keeps the larger value.
@@ -1006,6 +1045,13 @@ public sealed partial class RigsightDb : IDisposable
             });
         }
         return list;
+    }
+
+    /// <summary>The last minute recorded before <paramref name="ts"/> (Unix seconds), or null.</summary>
+    public long? LastMinuteBefore(long ts)
+    {
+        using var cmd = Cmd("SELECT max(ts) FROM system_minute WHERE ts < $ts", ("$ts", ts));
+        return cmd.ExecuteScalar() is long v ? v : null;
     }
 
     /// <summary>Highest CPU and GPU temperature in the minutes before a moment (to spot heat-related crashes).</summary>

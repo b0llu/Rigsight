@@ -190,6 +190,20 @@ public sealed class InventoryTests
     }
 
     [Fact]
+    public void A_drive_is_on_USB_by_what_it_hangs_off_and_the_drive_windows_is_on_is_not()
+    {
+        Assert.False(Inventory.OnUsb(@"SCSI\Disk&Ven_Nobody&Prod_Not_A_Drive\0&0&0&000000")); // not a device at all
+        // This PC's own drives as Windows lists them: at least one is inside it (the one Windows runs from).
+        using var disks = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\disk\Enum");
+        int count = disks?.GetValue("Count") is int n ? n : 0;
+        var ids = Enumerable.Range(0, count).Select(i => disks!.GetValue(i.ToString()) as string).OfType<string>().ToList();
+        Assert.NotEmpty(ids);
+        Assert.Contains(ids, id => !Inventory.OnUsb(id));
+        // And one that says USB itself hangs off USB too (when one is plugged in).
+        Assert.All(ids.Where(id => id.StartsWith("USBSTOR", StringComparison.OrdinalIgnoreCase)), id => Assert.True(Inventory.OnUsb(id)));
+    }
+
+    [Fact]
     public void A_drive_moved_to_another_port_is_the_same_drive()
     {
         var before = Inventory.DiskItems([(@"SCSI\Disk&Ven_&Prod_KINGSTON\5&2b637674&0&050000", "KINGSTON SA400S37480G")]);

@@ -114,6 +114,15 @@ internal sealed unsafe class GpuSampler : IDisposable
         return result;
     }
 
+    /// <summary>The main GPU is looked for again at the next sample (the sensors were just found again: see SensorHealth).</summary>
+    public void Reset()
+    {
+        if (_nodes < 0) return;
+        _nodes = -1;
+        _lastTime = 0;
+        foreach (var p in _procs.Values) p.Running = null; // per-engine times of the card as it was
+    }
+
     /// <summary>Finds the main GPU and how many engines it has.</summary>
     private void Open()
     {

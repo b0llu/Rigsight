@@ -19,6 +19,7 @@ public partial class App : Application
     private Mutex? _mutex;
     private EventWaitHandle? _showEvent;
     private AgentClient? _client;
+    private SettingsModel? _settings;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -38,6 +39,7 @@ public partial class App : Application
 
         _client = new AgentClient(Dispatcher);
         var shell = new ShellViewModel(_client);
+        _settings = shell.Settings;
         ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent);
         Motion.ApplyDurations(Resources);
         var window = new MainWindow(shell);
@@ -116,6 +118,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _settings?.OnExit();
         _client?.Dispose();
         base.OnExit(e);
     }

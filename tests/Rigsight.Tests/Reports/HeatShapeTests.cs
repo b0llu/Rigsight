@@ -167,6 +167,28 @@ public sealed class HeatShapeTests
     }
 
     [Fact]
+    public void A_date_with_two_day_rows_after_a_time_zone_change_still_gives_a_report()
+    {
+        using var t = new TestDb();
+        var (game, _, _) = Apps(t);
+        DaysBefore(t, 40, back => back >= 5, back => Minute(U(Day.AddDays(-back).AddHours(12)), app: game));
+        for (int back = 4; back >= 1; back--)
+            for (int i = 0; i < 60; i++) t.Db.WriteMinute(Minute(U(Day.AddDays(-back).AddHours(12)) + i * 60, app: game));
+        for (int i = 0; i < 60; i++) t.Db.WriteMinute(Minute(T0 + i * 60, app: game));
+        // The PC's zone moved an hour during a day two days back: that date has a row from each zone's midnight.
+        t.Exec("""
+            CREATE TABLE moved AS SELECT * FROM system_day WHERE day = $day;
+            UPDATE moved SET day = day + 3600;
+            INSERT INTO system_day SELECT * FROM moved;
+            DROP TABLE moved;
+            """, ("$day", U(Day.AddDays(-2))));
+        Assert.Equal(2L, t.Scalar("SELECT count(*) FROM system_day WHERE day >= $a AND day < $b", ("$a", U(Day.AddDays(-2))), ("$b", U(Day.AddDays(-1)))));
+
+        var r = Build(t); // threw on the two rows for one date, and every day report for the next 40 days was blank
+        Assert.Equal(5, r.StreakDays);
+    }
+
+    [Fact]
     public void The_same_weekday_over_recent_weeks_is_your_usual_for_that_weekday()
     {
         using var t = new TestDb();

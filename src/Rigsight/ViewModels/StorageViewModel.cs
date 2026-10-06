@@ -130,24 +130,28 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     {
         if (string.IsNullOrEmpty(root)) return;
         _scanCts?.Cancel();
-        _scanCts = new CancellationTokenSource();
+        // A scan started while another runs takes over: the one it replaced ends without touching what's on screen
+        // (it used to say "Scan cancelled." and hide the progress and Cancel button of the scan still going).
+        var scan = _scanCts = new CancellationTokenSource();
         IsScanning = true;
         ScanStatus = $"Scanning {root}…";
-        var progress = new Progress<(long Files, long Bytes)>(p => ScanStatus = $"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}");
+        var progress = new Progress<(long Files, long Bytes)>(p => { if (_scanCts == scan) ScanStatus = $"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}"; });
         try
         {
-            Result = await StorageScanner.ScanAsync(root, progress, _scanCts.Token);
+            var result = await StorageScanner.ScanAsync(root, progress, scan.Token);
+            if (_scanCts != scan) return;
+            Result = result;
             Breadcrumbs.Clear();
             Open(Result.Root);
             ScanStatus = $"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s";
         }
         catch (OperationCanceledException)
         {
-            ScanStatus = "Scan cancelled.";
+            if (_scanCts == scan) ScanStatus = "Scan cancelled.";
         }
         finally
         {
-            IsScanning = false;
+            if (_scanCts == scan) IsScanning = false;
         }
     }
 

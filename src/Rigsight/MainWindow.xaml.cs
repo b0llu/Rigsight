@@ -45,6 +45,8 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }
         };
+        // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
+        StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };
         ThemeManager.Changed += RebuildPages;
         // Closing ends the app, except where another window takes over (the tests host several in turn).
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;

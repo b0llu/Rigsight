@@ -51,7 +51,7 @@ public static partial class CrashLogReader
                         });
                         break;
                     case 6008:
-                        if (ParseShutdownTime(record) is { } happened) shutdownTimes.Add((logged, happened));
+                        if (ParseShutdownTime(record) is { } read && ShutdownBefore(read, logged) is { } happened) shutdownTimes.Add((logged, happened));
                         break;
                     case 41:
                         var data = Named(record);
@@ -161,6 +161,20 @@ public static partial class CrashLogReader
     {
         // Properties: [0] time, [1] date, formatted for the PC's locale and sprinkled with direction marks.
         return ParseShutdownTime(Prop(record, 1), Prop(record, 0));
+    }
+
+    /// <summary>
+    /// When the PC went down, held against when Windows wrote it up (the next start, so always after). The date is text
+    /// in whoever-wrote-it's format, and "10/6" read the other way round is months off or still to come: of the two
+    /// readings, the one that falls before the next start and nearest to it; null when neither does (the next start's
+    /// time is used then).
+    /// </summary>
+    internal static DateTime? ShutdownBefore(DateTime read, DateTime logged)
+    {
+        var readings = new List<DateTime> { read };
+        if (read.Day <= 12 && read.Day != read.Month) readings.Add(new DateTime(read.Year, read.Day, read.Month, read.Hour, read.Minute, read.Second, read.Kind));
+        var before = readings.Where(r => r <= logged.AddMinutes(1)).ToList();
+        return before.Count == 0 ? null : before.Max();
     }
 
     internal static DateTime? ParseShutdownTime(string? rawDate, string? rawTime)

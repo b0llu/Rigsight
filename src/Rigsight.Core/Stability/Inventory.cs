@@ -246,12 +246,34 @@ public static partial class Inventory
         int count = disks?.GetValue("Count") is int n ? n : 0;
         for (int i = 0; i < count; i++)
         {
-            if (disks!.GetValue(i.ToString()) is not string id) continue;
+            if (disks!.GetValue(i.ToString()) is not string id || OnUsb(id)) continue;
             using var device = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{id}");
             names.Add($"{id}\n{device?.GetValue("FriendlyName") as string}");
         }
         return DiskItems(names.Select(x => (x.Split('\n')[0], x.Split('\n')[1])));
     }
+
+    /// <summary>
+    /// Whether a device is plugged in over USB, however it names itself: a modern USB SSD or enclosure shows up as a
+    /// "SCSI" disk like an internal one (only older ones say USBSTOR), and every plug and unplug was put down as a drive
+    /// added to or removed from the PC. Found by what it hangs off: a USB device somewhere above it.
+    /// </summary>
+    internal static bool OnUsb(string deviceId)
+    {
+        try
+        {
+            if (CM_Locate_DevNodeW(out uint node, deviceId, 0) != 0) return false;
+            var id = new char[512];
+            for (int up = 0; up < 8 && CM_Get_Parent(out node, node, 0) == 0; up++)
+                if (CM_Get_Device_IDW(node, id, id.Length, 0) == 0 && new string(id).StartsWith(@"USB\", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        catch (Exception ex) { Log.Error("inventory", ex); }
+        return false;
+    }
+
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)] private static extern int CM_Locate_DevNodeW(out uint node, string deviceId, int flags);
+    [DllImport("cfgmgr32.dll")] private static extern int CM_Get_Parent(out uint parent, uint node, int flags);
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)] private static extern int CM_Get_Device_IDW(uint node, [Out] char[] buffer, int length, int flags);
 
     /// <summary>
     /// The drives inside the PC, by name (a drive moved to another port is the same drive). USB drives and virtual

@@ -123,9 +123,11 @@ public static class NetReportBuilder
         }
         else
         {
-            var byDay = days.ToDictionary(d => TimeUtil.FromUnix(d.Day).Date);
+            // A date has two rows only where the PC's time zone changed during it (each zone's midnight began one): added up.
+            var byDay = days.GroupBy(d => TimeUtil.FromUnix(d.Day).Date)
+                .ToDictionary(g => g.Key, g => (Down: g.Sum(d => d.Down), Background: g.Sum(d => d.BgDown + d.AwayDown), Up: g.Sum(d => d.Up)));
             r.Bins = [.. Enumerable.Range(0, (int)(to - from).TotalDays).Select(i => from.AddDays(i)).Select(day =>
-                byDay.TryGetValue(day, out var d) ? new NetBin(day, d.Down, d.BgDown + d.AwayDown, d.Up) : new NetBin(day, 0, 0, 0))];
+                byDay.TryGetValue(day, out var d) ? new NetBin(day, d.Down, d.Background, d.Up) : new NetBin(day, 0, 0, 0))];
         }
 
         // The fastest steady download.
@@ -165,10 +167,15 @@ public static class NetReportBuilder
             var before = db.GetNetDays(TimeUtil.ToUnix(from.AddDays(-UsualDays)), f).Where(d => d.Minutes > 0).Select(d => d.Down).ToList();
             if (before.Count >= MinUsualDays) r.UsualDayDown = Median(before);
         }
-        if (ReportBuilder.PreviousPeriod(range, anchor, now) is { } p)
+        // Only a period recorded from its start: the one network recording began in holds part of what was used, and
+        // "less than last month" against it would be false.
+        if (ReportBuilder.PreviousPeriod(range, anchor, now) is { } p && db.FirstNetDay() is long firstDay && p.From > TimeUtil.FromUnix(firstDay))
         {
-            long pf = TimeUtil.ToUnix(p.From), pt = TimeUtil.ToUnix(p.To);
-            long previous = range == ReportRange.Day ? db.GetNetMinutes(pf, pt).Sum(m => m.Down) : db.GetNetDays(pf, pt).Sum(d => d.Down);
+            // Whole days from their totals, and the part of a day a period in progress ends in from its minutes (the
+            // day's total would set this week's Monday morning against the whole of last Monday).
+            long pf = TimeUtil.ToUnix(p.From), pt = TimeUtil.ToUnix(p.To), lastDay = TimeUtil.ToUnix(p.To.Date);
+            long previous = range == ReportRange.Day ? db.GetNetMinutes(pf, pt).Sum(m => m.Down)
+                : db.GetNetDays(pf, lastDay).Sum(d => d.Down) + (pt > lastDay ? db.GetNetMinutes(lastDay, pt).Sum(m => m.Down) : 0);
             if (previous > 0) r.PreviousDown = previous;
         }
 

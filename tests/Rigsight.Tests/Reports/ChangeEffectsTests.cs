@@ -136,7 +136,7 @@ public sealed class ChangeEffectsTests
         var bios = new SystemChange(Day.AddHours(19), ChangeKind.Firmware, "BIOS updated to F67") { Subject = "bios:bios", Was = "F66d", Now = "F67" };
         Assert.True(bios.IsApproximate);
         var pc = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(0, 19 - 5 / 60.0, CrashKind.SystemCrash).Problem(0, 18, CrashKind.SystemCrash);
-        Assert.Equal(["1 blue screen since over 18 h of use; 1 blue screen over 42 h before."], pc.Effect(bios)!.Lines);
+        Assert.Equal(["1 blue screen since over 21 h of use; 1 blue screen over 42 h before."], pc.Effect(bios)!.Lines);
         // The same change with its exact time from Windows' log: both came before it.
         var exact = bios with { Subject = "logged-bios:bios" };
         Assert.Equal(["No problems since; 2 blue screens in the 14 days before."], pc.Effect(exact)!.Lines);
@@ -146,8 +146,8 @@ public sealed class ChangeEffectsTests
     public void Problems_on_both_sides_are_given_with_the_hours_of_use()
     {
         var effect = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(-5, 10).Problem(2, 10).Effect()!;
-        Assert.Equal(["1 graphics driver reset since over 18 h of use; 1 graphics driver reset over 42 h before."], effect.Lines);
-        Assert.Equal(EffectTone.Same, effect.Tone); // one against one isn't a pattern
+        Assert.Equal(["1 graphics driver reset since over 21 h of use; 1 graphics driver reset over 42 h before."], effect.Lines);
+        Assert.Equal(EffectTone.Same, effect.Tone); // one against one isn't a pattern (21 h: the six days after and the day of the change itself)
     }
 
     [Fact]

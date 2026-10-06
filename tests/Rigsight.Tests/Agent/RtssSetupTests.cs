@@ -81,6 +81,58 @@ public sealed class RtssFindTests
     public void RivaTuner_is_started_with_admin_rights_only_from_program_files(string exe, bool trusted) =>
         Assert.Equal(trusted, RtssSetup.InTrustedFolder(exe, Folders));
 
+    private const string AppInstaller = @"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1.29.380.0_x64__8wekyb3d8bbwe\winget.exe";
+
+    [Theory]
+    [InlineData(AppInstaller, true)]
+    [InlineData(@"c:\program files\windowsapps\microsoft.desktopappinstaller_1.0.0.0_arm64__8wekyb3d8bbwe\WINGET.EXE", true)]
+    [InlineData(@"C:\Users\me\AppData\Local\Microsoft\WindowsApps\winget.exe", false)]   // the alias itself: anyone can replace it
+    [InlineData(@"C:\Users\me\tools\winget.exe", false)]                                  // something on PATH
+    [InlineData(@"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1.29.380.0_x64__8wekyb3d8bbwe\other.exe", false)]
+    [InlineData(@"C:\Program Files\WindowsApps\Some.Other.App_1.0.0.0_x64__abc\winget.exe", false)]
+    [InlineData(@"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1\..\..\..\Users\me\winget.exe", false)]   // climbs back out
+    [InlineData(@"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1\sub\winget.exe", false)]
+    [InlineData(@"C:\Program Files Evil\WindowsApps\Microsoft.DesktopAppInstaller_1\winget.exe", false)]
+    [InlineData(@"winget.exe", false)]
+    public void Winget_is_run_with_admin_rights_only_from_app_installers_own_folder(string exe, bool trusted) =>
+        Assert.Equal(trusted, Winget.IsAppInstallers(exe, Folders));
+
+    /// <summary>An alias's data as Windows writes it: tag, length, version, then the texts with a zero after each.</summary>
+    private static byte[] AliasData(uint tag, params string[] texts)
+    {
+        var text = System.Text.Encoding.Unicode.GetBytes(string.Concat(texts.Select(t => t + "\0")));
+        return [.. BitConverter.GetBytes(tag), .. BitConverter.GetBytes((ushort)(text.Length + 4)), 0, 0, .. BitConverter.GetBytes(3u), .. text];
+    }
+
+    [Fact]
+    public void An_alias_names_the_program_it_stands_for()
+    {
+        Assert.Equal(AppInstaller, Winget.TargetIn(AliasData(0x8000001B, "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe", "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe!winget", AppInstaller, "0")));
+        Assert.Null(Winget.TargetIn(AliasData(0xA000000C, "a", "b", AppInstaller, "0")));   // a symbolic link, not an app alias
+        Assert.Null(Winget.TargetIn(AliasData(0x8000001B, "a", "b")));                      // cut short
+        Assert.Null(Winget.TargetIn([1, 2, 3]));
+    }
+
+    [Fact]
+    public void A_plain_file_is_not_an_alias()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"rigsight-winget-{Guid.NewGuid():N}.exe");
+        File.WriteAllText(file, "not winget");
+        try { Assert.Null(Winget.AliasTarget(file)); }
+        finally { File.Delete(file); }
+        Assert.Null(Winget.AliasTarget(file)); // nor a missing one
+    }
+
+    [Fact]
+    public void This_pcs_winget_is_app_installers_own_file()
+    {
+        var alias = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\WindowsApps\winget.exe");
+        if (!File.Exists(alias)) { Assert.Null(Winget.Find()); return; }
+        var found = Winget.Find();
+        Assert.NotNull(found);
+        Assert.True(Winget.IsAppInstallers(found, Environment.GetFolderPath), found);
+    }
+
     [Fact]
     public void This_pcs_rivatuner_matches_what_windows_says() =>
         Assert.Equal(RtssSetup.Find() is not null, RtssSetup.IsInstalled() && (RtssSetup.Find() is not null || Process.GetProcessesByName("RTSS").Length > 0));

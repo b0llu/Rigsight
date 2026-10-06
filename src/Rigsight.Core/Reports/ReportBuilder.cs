@@ -65,6 +65,14 @@ public static class ReportBuilder
         return (pFrom, pTo);
     }
 
+    /// <summary>
+    /// Whether history was already being kept at <paramref name="start"/>. A period that recording began part-way
+    /// through holds only part of what happened in it: nothing is compared with it ("2 hours a day more than the month
+    /// before", when the month before has twelve recorded days, is false).
+    /// </summary>
+    internal static bool RecordedFrom(RigsightDb db, DateTime start) =>
+        db.FirstMinuteTime() is long first && TimeUtil.FromUnix(first).Date <= start.Date;
+
     /// <summary>A year or all time: built from the daily and monthly totals (see <see cref="BuildLong"/>).</summary>
     public static bool IsLong(ReportRange range) => range is ReportRange.Year or ReportRange.All;
 
@@ -110,7 +118,7 @@ public static class ReportBuilder
         var back = IsDayLike(ReportRange.Custom, from, to) ? TimeSpan.FromDays(Math.Ceiling((to - from).TotalDays)) : to - from;
         var (pFrom, pTo) = (from - back, to - back);
         if (from <= now && now < to) pTo = pFrom + (now - from);
-        var previous = Period(pFrom, pTo);
+        var previous = RecordedFrom(db, pFrom) ? Period(pFrom, pTo) : null;
 
         var usual = BuildRaw(db, ReportRange.Week, from.Date.AddDays(-7), from.Date, apps, settings);
         if (report.Crashes.Count > 0) report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
@@ -126,7 +134,7 @@ public static class ReportBuilder
         Report Period(DateTime f, DateTime t) => IsLong(range) ? BuildLong(db, range, f, t, apps, settings) : BuildRaw(db, range, f, t, apps, settings);
         var report = Period(from, to);
 
-        Report? previous = PreviousPeriod(range, anchor, DateTime.Now) is { } p ? Period(p.From, p.To) : null;
+        Report? previous = PreviousPeriod(range, anchor, DateTime.Now) is { } p && RecordedFrom(db, p.From) ? Period(p.From, p.To) : null;
 
         // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
@@ -273,7 +281,8 @@ public static class ReportBuilder
     {
         var rows = db.GetSystemDays(TimeUtil.ToUnix(day.AddDays(-40)), TimeUtil.ToUnix(day.AddDays(1)));
         if (rows is null) return 0;
-        var active = rows.ToDictionary(r => TimeUtil.FromUnix(r.Day).Date, r => r.ActiveSec);
+        // A date has two rows only where the PC's time zone changed during it (each zone's midnight began one): added up.
+        var active = rows.GroupBy(r => TimeUtil.FromUnix(r.Day).Date).ToDictionary(g => g.Key, g => g.Sum(r => r.ActiveSec));
         active[day.Date] = report.ActiveSec;
         int streak = 0;
         for (var d = day.Date; streak < 30; d = d.AddDays(-1))

@@ -109,8 +109,13 @@ public static partial class ChangeLogReader
     {
         // A driver delivered by Windows Update shows up in both logs: keep the driver entry.
         var drivers = list.Where(c => c.Kind == ChangeKind.Driver).ToList();
+        // NVIDIA's own entry carries no version to match by ("NVIDIA graphics driver installed"): by its name, then.
+        bool Same(SystemChange update, SystemChange driver, string version) => driver.Title.Contains(version)
+            || (driver.Title.StartsWith("NVIDIA graphics", StringComparison.Ordinal) && !Version().IsMatch(driver.Title)
+                && update.Title.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+                && update.Title.Contains("display", StringComparison.OrdinalIgnoreCase));
         list.RemoveAll(c => c.Kind == ChangeKind.WindowsUpdate && Version().Match(c.Title) is { Success: true } v &&
-                            drivers.Any(d => d.Title.Contains(v.Value) && Math.Abs((d.Time - c.Time).TotalHours) < 3));
+                            drivers.Any(d => Same(c, d, v.Value) && Math.Abs((d.Time - c.Time).TotalHours) < 3));
         return [.. list.OrderBy(c => c.Time)];
     }
 

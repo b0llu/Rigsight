@@ -179,7 +179,7 @@
                                          Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
                                          ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
                                 <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
-                                               Source="{Binding History}" Version="{Binding Version}"
+                                               Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
                                                Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                 <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
                                     <TextBlock.Style>

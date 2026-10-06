@@ -14,22 +14,53 @@ public static class SettingsStore
     public static RigsightSettings Load() => Load(RigsightPaths.SettingsFile);
 
     /// <summary>Reads the settings file at <paramref name="path"/>: <see cref="RigsightPaths.SettingsFile"/>, or a test's.</summary>
+    /// <remarks>
+    /// A file that's there but can't be read (cut short by a power loss, a hand edit gone wrong) must not turn into
+    /// defaults: the next save would write those over everything the user had set up. The copy from the save before is
+    /// used instead, and the unreadable file is kept beside it (".bad"). Only with neither does it start from defaults.
+    /// </remarks>
     public static RigsightSettings Load(string path)
     {
-        try
+        if (!File.Exists(path)) return Normalize(new RigsightSettings());
+        if (Read(path) is { } settings) return settings;
+        try { File.Copy(path, path + BadSuffix, overwrite: true); }
+        catch (Exception ex) { Log.Error("settings", ex); }
+        if (File.Exists(path + BackupSuffix) && Read(path + BackupSuffix) is { } previous)
         {
-            if (File.Exists(path))
-                return Normalize(Deserialize(File.ReadAllText(path)));
+            Log.Write("settings", "The settings file couldn't be read: using the copy from the save before (the unreadable one is kept as settings.json.bad)");
+            return previous;
         }
-        catch (Exception ex)
-        {
-            Log.Error("settings", ex);
-        }
+        Log.Write("settings", "The settings file couldn't be read and there's no earlier copy: starting from defaults (the unreadable one is kept as settings.json.bad)");
         return Normalize(new RigsightSettings());
+    }
+
+    internal const string BackupSuffix = ".bak";
+    internal const string BadSuffix = ".bad";
+
+    /// <summary>The settings in <paramref name="path"/>, or null when it can't be read. A file in use for a moment (being saved, scanned) is tried again.</summary>
+    private static RigsightSettings? Read(string path)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return Normalize(Deserialize(File.ReadAllText(path)));
+            }
+            catch (IOException) when (attempt < 5)
+            {
+                Thread.Sleep(60);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("settings", ex);
+                return null;
+            }
+        }
     }
 
     public static void Save(RigsightSettings settings) => Save(settings, RigsightPaths.SettingsFile);
 
+    /// <summary>Written whole to a file beside it, then swapped in; the file it replaces stays as the ".bak" copy (see <see cref="Load(string)"/>).</summary>
     public static void Save(RigsightSettings settings, string path)
     {
         try
@@ -37,6 +68,18 @@ public static class SettingsStore
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
             var tmp = path + ".tmp";
             File.WriteAllText(tmp, Serialize(settings));
+            if (File.Exists(path))
+            {
+                try
+                {
+                    File.Replace(tmp, path, path + BackupSuffix);
+                    return;
+                }
+                catch (IOException)
+                {
+                    // The copy can't be kept right now (in use): saving matters more.
+                }
+            }
             File.Move(tmp, path, overwrite: true);
         }
         catch (Exception ex)

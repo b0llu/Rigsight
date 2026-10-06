@@ -93,12 +93,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         get
         {
-            if (Report is null || Range is ReportRange.Day or ReportRange.Custom || TrackedDays <= 0) return null;
-            int days = (int)((Report.To > DateTime.Today ? DateTime.Today.AddDays(1) : Report.To) - Report.From).TotalDays;
-            if (TrackedDays >= days) return null;
-            var since = FirstDay ?? DateTime.Today.AddDays(-(TrackedDays - 1));
+            if (Report is null || Range is ReportRange.Day or ReportRange.Custom || FirstDay is not { } since) return null;
+            // The days of the period shown that history covers (not the days since history began: looking at last
+            // month, those said "this month has 17 days" of a September with 11).
+            bool inProgress = Report.To > DateTime.Today;
+            var end = inProgress ? DateTime.Today.AddDays(1) : Report.To;
+            if (since <= Report.From || since >= end) return null;
+            int days = (int)(end - since).TotalDays;
             string period = Range switch { ReportRange.Week => "week", ReportRange.Year => "year", _ => "month" };
-            return $"History starts on {since:d MMMM}, so this {period} has {TrackedDays} day{(TrackedDays == 1 ? "" : "s")} of data.";
+            return $"History starts on {since:d MMMM}, so {(inProgress ? "this" : "that")} {period} has {days} day{(days == 1 ? "" : "s")} of data.";
         }
     }
 
@@ -142,6 +145,18 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     partial void OnRangeChanged(ReportRange value) => _ = LoadAsync();
     partial void OnAnchorChanged(DateTime value) => _ = LoadAsync();
+    /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
+    public void NewDay(DateTime was)
+    {
+        var anchor = Controls.PeriodPicker.AfterMidnight(Range, Anchor, was, DateTime.Today);
+        if (anchor != Anchor) { Anchor = anchor; return; }
+        // The same report, in the new day's words ("Yesterday" is a date now).
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(InsightsTitle));
+        OnPropertyChanged(nameof(CoverageNote));
+    }
+
     partial void OnCustomFromChanged(DateTime value) => CustomChanged();
     partial void OnCustomToChanged(DateTime value) => CustomChanged();
 

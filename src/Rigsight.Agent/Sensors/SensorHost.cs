@@ -126,7 +126,10 @@ internal sealed class SensorHost
         Build(readFirst: [.. Tops()]);
 
         var nvidia = _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia).ToList();
-        if (nvidia.Count == 1 && NvidiaFastPath.TryCreate(nvidia[0]) is { } fast)
+        // Only when that card is the main one: the quick readings answer for every "gpu" reading, and on a PC whose
+        // main card is another maker's (an older NVIDIA card beside it) they'd be recorded as the main card's.
+        var gpuKeys = new[] { KeySensors.GpuTemp, KeySensors.GpuLoad }.Where(Keys.ContainsKey).Select(k => Keys[k]).ToList();
+        if (nvidia.Count == 1 && gpuKeys.Count > 0 && gpuKeys.All(i => _sensorHardware[i] == nvidia[0]) && NvidiaFastPath.TryCreate(nvidia[0]) is { } fast)
         {
             _fastGpu = fast;
             _fastGpuHardware = nvidia[0];
@@ -342,10 +345,14 @@ internal sealed class SensorHost
         // Drives are slow to read: a watched drive sensor every 10 s is plenty.
         bool watchedSlowDue = nowMs - _lastWatchedSlowMs >= 10_000;
         if (watchedSlowDue) _lastWatchedSlowMs = nowMs;
+        bool failed = false;
         if (_usingFastValues)
         {
             _fastValues.Clear();
             _fastGpu!.Read(_fastValues);
+            // No temperature from a card that gave one before: its driver has gone from under the handle.
+            if (_fastValues.GetValueOrDefault(KeySensors.GpuTemp) is not null) _fastWorked = true;
+            else if (_fastWorked) failed = true;
         }
         bool fansDue = nowMs - _lastFansMs >= FanIntervalMs;
         if (fansDue) _lastFansMs = nowMs;
@@ -362,10 +369,11 @@ internal sealed class SensorHost
                 Tier.Slow => slowDue,
                 _ => false,
             } || (_watched.Contains(hw) && (tier != Tier.Slow || watchedSlowDue)) || (fansDue && _fanHardware.Contains(hw));
+            // A read that failed left the old values in place: they aren't this moment's (not "fresh" below).
             if (update)
             {
-                SafeUpdate(hw);
-                _updatedNow.Add(hw);
+                if (SafeUpdate(hw)) _updatedNow.Add(hw);
+                else failed = true;
             }
         }
         if (_usingFastValues && fansDue && _fanHardware.Contains(_fastGpuHardware!))
@@ -375,10 +383,11 @@ internal sealed class SensorHost
             else if (nowMs - _lastGpuFansMs >= FullGpuFanIntervalMs)
             {
                 _lastGpuFansMs = nowMs;
-                SafeUpdate(_fastGpuHardware!);
-                _updatedNow.Add(_fastGpuHardware!);
+                if (SafeUpdate(_fastGpuHardware!)) _updatedNow.Add(_fastGpuHardware!);
+                else failed = true;
             }
         }
+        Unwell = failed;
         for (int i = 0; i < _fresh.Length; i++) _fresh[i] = _updatedNow.Contains(_sensorHardware[i]);
         // SMART health is read here, on the sampler thread, right after the drives were updated: the
         // library isn't thread-safe, so the app's connection thread only ever reads this cached copy.
@@ -515,10 +524,26 @@ internal sealed class SensorHost
         return list;
     }
 
-    private static void SafeUpdate(IHardware hw)
+    /// <summary>Some hardware didn't answer on the last <see cref="Update"/> (see <see cref="SensorHealth"/>).</summary>
+    public bool Unwell { get; private set; }
+
+    private bool _fastWorked;
+    private readonly HashSet<IHardware> _failedBefore = [];
+
+    /// <summary>Reads one device; false when it threw. One misbehaving device shouldn't stop the others.</summary>
+    private bool SafeUpdate(IHardware hw)
     {
-        try { hw.Update(); }
-        catch { /* One misbehaving device shouldn't stop the others. */ }
+        try
+        {
+            hw.Update();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Said once per device: it would otherwise be a line a second.
+            if (_failedBefore.Add(hw)) Log.Write("sensors", $"{hw.Name} couldn't be read: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
     }
 
     public void Close()

@@ -103,7 +103,7 @@ public sealed class NetReportTests : IDisposable
     {
         long steam = App("steam.exe", "Steam");
         Use(Day, null, (steam, 3 * GB, 0, 3 * GB, 0, 0));
-        Assert.Equal("Steam downloaded 3.0 GB that day, 3.0 GB of it in the background.", Said("net-background")?.Text);
+        Assert.Equal("Steam downloaded 3.0 GB that day, all of it in the background.", Said("net-background")?.Text);
     }
 
     [Theory]
@@ -262,9 +262,21 @@ public sealed class NetReportTests : IDisposable
     public void The_recap_line_sets_the_day_against_the_one_before()
     {
         long steam = App("steam.exe", "Steam"), chrome = App("chrome.exe", "Google Chrome");
+        Use(Day.AddDays(-2), null, (steam, GB / 4, 0, 0, 0, 0));
         Use(Day.AddDays(-1), null, (steam, GB, 0, 0, 0, 0));
         Use(Day, null, (steam, 3 * GB / 2, 0, 0, 0, 0), (chrome, GB / 2, 0, 0, 0, 0));
-        Assert.Equal("That day: 2.0 GB downloaded, 2.0× yesterday, mostly Steam.", Said("net-recap")?.Text);
+        // A day looked back on: against "the day before" ("yesterday" is only said of today).
+        Assert.Equal("That day: 2.0 GB downloaded, 2.0× the day before, mostly Steam.", Said("net-recap")?.Text);
+    }
+
+    [Fact]
+    public void The_day_network_use_began_being_recorded_is_not_one_to_compare_with()
+    {
+        // The first day holds only what came after recording began: "2× the day before" against it would be false.
+        long steam = App("steam.exe", "Steam");
+        Use(Day.AddDays(-1), null, (steam, GB, 0, 0, 0, 0));
+        Use(Day, null, (steam, 2 * GB, 0, 0, 0, 0));
+        Assert.Equal("That day: 2.0 GB downloaded, mostly Steam.", Said("net-recap")?.Text);
     }
 
     [Fact]

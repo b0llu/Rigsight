@@ -96,7 +96,10 @@ public static class ChangeEffects
             // Problems, counted from the moment of the change, against the hours the PC was used on each side.
             var before = problems.Where(p => p.Time >= from && p.Time < at).ToList();
             var since = problems.Where(p => p.Time >= at && p.Time < to).ToList();
-            double hoursBefore = Hours(from, day), hoursAfter = Hours(day.AddDays(1), to);
+            // The change's own day is known only as a whole: its hours go with "after", where its problems from the
+            // change on are counted. (Left out, three resets that evening were set against hours that didn't include
+            // the evening; counted this way a rate after can only come out lower, never falsely worse.)
+            double hoursBefore = Hours(from, day), hoursAfter = Hours(day, to);
             bool sameProblems = false;
             if (hoursBefore >= MinUseHours && hoursAfter >= MinUseHours)
             {

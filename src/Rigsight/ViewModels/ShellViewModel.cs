@@ -290,6 +290,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _tickCount++;
         try
         {
+            CheckNewDay();
             switch (CurrentPage)
             {
                 case "home": await Home.RefreshAsync(); break;
@@ -320,6 +321,30 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             _ticking = false;
         }
+    }
+
+    /// <summary>The window is back from the taskbar: what it shows is as old as when it was put away, so it's read now.</summary>
+    public Task RefreshOnRestoreAsync() => RefreshTickAsync();
+
+    private DateTime _today = DateTime.Today;
+
+    /// <summary>
+    /// Midnight passed with the window open: every page with a date picker took "today" when it was made. A page on
+    /// today (or this week, month, year) moves to the new day; one on an earlier period stays there, in the new day's
+    /// words. Pages not on screen too, so going to one doesn't find it a day behind.
+    /// </summary>
+    internal void CheckNewDay()
+    {
+        var was = _today;
+        if (DateTime.Today == was) return;
+        _today = DateTime.Today;
+        ReportsPage.NewDay(was);
+        Apps.NewDay(was);
+        Crashes.NewDay(was);
+        Fans.NewDay(was);
+        Network.NewDay(was);
+        Live.NewDay(was);
+        Controls.PeriodPicker.OnDayChanged();
     }
 
     /// <summary>An earlier day on the temperature chart never changes; anything else includes now.</summary>
@@ -437,6 +462,7 @@ public sealed partial class ShellViewModel : ObservableObject
         if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)
         {
+            if (wasConnected) Live.AgentGone();
             // Unknown until the agent says hello again; the sidebar already explains it isn't running.
             AgentIsAdmin = true;
             SettingsPage.AgentIsAdmin = true;

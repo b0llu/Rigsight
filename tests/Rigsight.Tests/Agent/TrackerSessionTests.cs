@@ -30,6 +30,31 @@ public class TrackerSessionTests
     }
 
     [Fact]
+    public void A_session_still_going_is_already_saved_so_a_crash_keeps_it()
+    {
+        using var rig = new TrackerRig(null, null, null, EldenRing);
+        long start = rig.Clock.Unix;
+        rig.Use("eldenring.exe", 1800, fullscreen: true);
+
+        // The PC loses power here: nothing was ended, and what's in the history is all there will be.
+        Assert.Empty(rig.Ended);
+        var saved = Assert.Single(rig.Sessions());
+        Assert.Equal(start, saved.Start);
+        Assert.InRange(saved.ActiveSec, 1700, 1800); // up to the last whole minute
+        Assert.True(saved.IsGame);
+
+        // It carries on instead: the same row grows, and ending it adds no second one.
+        rig.Use("eldenring.exe", 600, fullscreen: true);
+        long last = rig.Clock.Unix;
+        rig.Quit("eldenring.exe");
+        saved = Assert.Single(rig.Sessions());
+        Assert.Equal(start, saved.Start);
+        Assert.Equal(last, saved.End);
+        Assert.Equal(2400, saved.ActiveSec);
+        Assert.Single(rig.Ended);
+    }
+
+    [Fact]
     public void A_session_ends_once_whatever_happens_after()
     {
         using var rig = new TrackerRig(null, null, null, EldenRing);

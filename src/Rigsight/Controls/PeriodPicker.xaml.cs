@@ -28,7 +28,28 @@ public partial class PeriodPicker : UserControl
         FromDate.SelectedDateChanged += (_, _) => KeepInOrder();
         FromHour.SelectionChanged += (_, _) => KeepInOrder();
         ToDate.SelectedDateChanged += (_, _) => KeepInOrder();
-        Loaded += (_, _) => Refresh();
+        Loaded += (_, _) =>
+        {
+            DayChanged += Refresh;
+            Refresh();
+        };
+        Unloaded += (_, _) => DayChanged -= Refresh;
+    }
+
+    /// <summary>Midnight passed with the window open: "Today" on a picker is now yesterday, and there's a day to step to.</summary>
+    private static event Action? DayChanged;
+
+    public static void OnDayChanged() => DayChanged?.Invoke();
+
+    /// <summary>
+    /// Where a page's period goes when the day changes with the window open: one that held the day that ended (today,
+    /// this week…) moves on to the new day, as "Today" means; a period further back stays where it is.
+    /// </summary>
+    public static DateTime AfterMidnight(ReportRange unit, DateTime anchor, DateTime was, DateTime today)
+    {
+        if (unit is ReportRange.All or ReportRange.Custom) return anchor;
+        var (from, to) = ReportBuilder.Bounds(unit, anchor);
+        return from <= was && was < to ? today : anchor;
     }
 
     public static readonly DependencyProperty UnitProperty =
@@ -119,7 +140,7 @@ public partial class PeriodPicker : UserControl
         if (unit == ReportRange.Day) return from.ToString("dddd, d MMMM yyyy");
         var last = to.AddDays(-1) > today ? today : to.AddDays(-1);
         string text = from.Year == last.Year ? $"{from:d MMM} – {last:d MMM yyyy}" : $"{from:d MMM yyyy} – {last:d MMM yyyy}";
-        return unit == ReportRange.All && firstDay is not null ? $"{text} ({(int)(today - from).TotalDays + 1} days)" : text;
+        return unit == ReportRange.All && firstDay is not null ? $"{text} ({Duration(TimeSpan.FromDays((int)(today - from).TotalDays + 1))})" : text;
     }
 
     /// <summary>A length of time in words: "17 hours", "3 days and 4 hours".</summary>

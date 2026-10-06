@@ -135,6 +135,56 @@ public class TrackerDayTests
     public void A_long_gap_between_samples_is_sleep_and_counts_nothing(long last, long now, double expected) =>
         Assert.Equal(expected, AgentContext.ActivityStep(last, now), 9);
 
+    [Theory]
+    [InlineData(1000, 3000, 5, 2.0)]            // the app is open: looked at every 2 s
+    [InlineData(1000, 6000, 5, 5.0)]
+    [InlineData(1000, 11_000, 5, 10.0)]         // a slow pass still counts
+    [InlineData(1000, 61_000, 60, 60.0)]        // looked at once a minute by choice
+    [InlineData(1000, 13_000, 5, 0.0)]          // far longer than the looks are apart: asleep
+    [InlineData(0, 8 * 3_600_000, 5, 0.0)]      // a night's sleep adds nothing to the apps left open
+    [InlineData(0, 8 * 3_600_000, 60, 0.0)]
+    public void Time_asleep_is_not_time_an_app_was_open(long last, long now, int interval, double expected) =>
+        Assert.Equal(expected, AgentContext.ProcessStep(last, now, interval), 9);
+
+    [Fact]
+    public void Old_history_is_counted_back_from_the_last_day_recorded_not_from_a_clock_that_jumped()
+    {
+        var today = new DateTime(2026, 10, 6);
+        long Minute(DateTime t) => Rigsight.Core.Data.TimeUtil.ToUnix(t);
+        // An ordinary midnight: the last minute was yesterday's, so today it is.
+        Assert.Equal(today, Rigsight.Agent.Tracking.Tracker.PruneDay(today, Minute(today.AddMinutes(-2))));
+        Assert.Equal(today, Rigsight.Agent.Tracking.Tracker.PruneDay(today, null)); // nothing recorded yet
+        // The date is suddenly a year on: counted from the day after the last real minute, so nothing more goes.
+        Assert.Equal(today, Rigsight.Agent.Tracking.Tracker.PruneDay(today.AddYears(1), Minute(today.AddMinutes(-2))));
+        // Off for three weeks: the old days are kept one day longer, no more.
+        Assert.Equal(today.AddDays(-20), Rigsight.Agent.Tracking.Tracker.PruneDay(today, Minute(today.AddDays(-21).AddHours(22))));
+    }
+
+    [Fact]
+    public void Sensors_are_found_again_only_after_half_a_minute_of_failed_reads_and_not_for_ever()
+    {
+        var health = new Rigsight.Agent.Sensors.SensorHealth();
+        long now = 0;
+        bool Fails(int seconds) { bool said = false; for (int i = 0; i < seconds; i++) said |= health.Check(true, now += 1000); return said; }
+
+        Assert.False(health.Check(false, now += 1000));
+        Assert.False(Fails(20));                       // a blip
+        Assert.False(health.Check(false, now += 1000));
+        Assert.False(Fails(29));                       // counted from the first failure after the good read
+        Assert.True(Fails(2));                         // half a minute with no good read: find them again
+        Assert.False(Fails(120));                      // just scanned: not again so soon
+        now += Rigsight.Agent.Sensors.SensorHealth.BetweenScansMs;
+        Assert.True(Fails(31));
+        now += Rigsight.Agent.Sensors.SensorHealth.BetweenScansMs;
+        Assert.True(Fails(31));
+        now += Rigsight.Agent.Sensors.SensorHealth.BetweenScansMs;
+        Assert.False(Fails(600));                      // three scans didn't help: it stays as it is
+
+        // Well again for a good while, then a new problem: looked into afresh.
+        Assert.False(health.Check(false, now += Rigsight.Agent.Sensors.SensorHealth.BetweenScansMs));
+        Assert.True(Fails(31));
+    }
+
     [Fact]
     public void Sleep_leaves_no_minutes_and_no_time()
     {

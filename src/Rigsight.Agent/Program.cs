@@ -66,6 +66,29 @@ internal static class Program
             Environment.Exit(code);
         }
 
+        // Run by the installer (already elevated) when "Install the PawnIO sensor driver" is ticked: through here so
+        // winget is App Installer's own file, not whatever "winget" on PATH turns out to be (see Winget).
+        // Exit code: 0 winget finished, 1 it failed or was ended, 3 no winget.
+        if (args.Contains("--install-pawnio"))
+        {
+            int code;
+            try
+            {
+                code = RtssSetup.WingetInstall("namazso.PawnIO") switch
+                {
+                    null => 3,
+                    { Outcome: WatchOutcome.Exited, ExitCode: 0 } => 0,
+                    _ => 1,
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Error("install", ex);
+                code = 1;
+            }
+            Environment.Exit(code);
+        }
+
         // Run by the installer (already elevated): register "start with Windows" and start the agent
         // through the task, so the user never sees a separate UAC prompt.
         if (args.Contains("--register-startup"))

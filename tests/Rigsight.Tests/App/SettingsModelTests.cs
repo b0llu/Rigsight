@@ -67,6 +67,35 @@ public sealed class SettingsModelTests
     }
 
     [Fact]
+    public void A_change_made_as_the_window_closes_still_reaches_the_agent()
+    {
+        using var w = new Wired();
+        Ui.Run(() =>
+        {
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+            // Closed at once, inside the pause changes wait out: what the app does as it exits.
+            w.Settings.OnExit();
+            w.Client.Dispose();
+        });
+        Assert.True(Ui.WaitFor(() => w.Sent.Count == 1, 5000), "the change was lost");
+        Assert.Equal(ThemeManager.Light, w.Sent[0].Settings!.Theme);
+    }
+
+    [Fact]
+    public void A_change_made_with_no_agent_running_is_kept_for_the_next_start()
+    {
+        using var w = new Wired(connect: false);
+        Ui.Run(() =>
+        {
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+            w.Settings.OnExit();
+        });
+        // The next start reads the file (the agent too, when it runs again).
+        Assert.Equal(ThemeManager.Light, SettingsStore.Load().Theme);
+        SharedData.ResetSettings();
+    }
+
+    [Fact]
     public void Changes_go_to_the_agent_once_after_a_short_pause_as_the_whole_settings()
     {
         using var w = new Wired();

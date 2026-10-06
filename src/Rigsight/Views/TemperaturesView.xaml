@@ -248,7 +248,7 @@
                                         </StackPanel>
                                         <Border Grid.Column="1" Margin="12,0" Background="Transparent" ToolTip="Recent temperature, up to the last 6 hours">
                                             <ctl:Sparkline Height="34" Source="{Binding Temperature.History}" WindowSeconds="21600" FitToData="True"
-                                                           Version="{Binding Temperature.Version}" Stroke="{DynamicResource PurpleBrush}" />
+                                                           Version="{Binding Temperature.Version}" Stroke="{DynamicResource PurpleBrush}" Kind="{Binding Temperature.Kind}" />
                                         </Border>
                                         <TextBlock Grid.Column="2" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />

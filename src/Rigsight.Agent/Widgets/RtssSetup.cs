@@ -103,36 +103,29 @@ internal static class RtssSetup
             Log.Write("install", "RivaTuner is already installed");
             return RtssInstallResult.AlreadyInstalled;
         }
-        var winget = FindWinget();
-        if (winget is null)
+        if (WingetInstall("Guru3D.RTSS", watch ?? new InstallWatch { StateChanged = state }, ct) is not { } result)
         {
             Log.Write("install", "winget isn't available: RivaTuner can't be installed automatically");
             return RtssInstallResult.NoWinget;
         }
-
-        watch ??= new InstallWatch { StateChanged = state };
-        var start = new ProcessStartInfo(winget,
-            ["install", "--id", "Guru3D.RTSS", "-e", "--silent", "--accept-package-agreements", "--accept-source-agreements"])
-        // Its input is closed: a question winget itself asks gets no answer rather than waiting unseen.
-        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true };
-        var result = watch.Run(start, ct);
-        Log.Write("install", $"winget: {result.Outcome}, exit code {result.ExitCode?.ToString("X") ?? "-"}, after {result.Elapsed.TotalSeconds:0} s");
-
         if (IsInstalled()) return RtssInstallResult.Installed;
         return result.Outcome is WatchOutcome.Stuck or WatchOutcome.TooLong ? RtssInstallResult.Stuck : RtssInstallResult.Failed;
     }
 
-    /// <summary>winget.exe (an App Installer alias in the user's WindowsApps folder), or null.</summary>
-    private static string? FindWinget()
+    /// <summary>
+    /// Installs the winget package <paramref name="id"/> without a window, watched (see <see cref="InstallWatch"/>);
+    /// null when this PC has no winget (see <see cref="Winget.Find"/>). Also how setup installs the PawnIO sensor driver.
+    /// </summary>
+    internal static WatchResult? WingetInstall(string id, InstallWatch? watch = null, CancellationToken ct = default)
     {
-        var alias = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\WindowsApps\winget.exe");
-        if (File.Exists(alias)) return alias;
-        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var exe = Path.Combine(dir.Trim(), "winget.exe");
-            if (File.Exists(exe)) return exe;
-        }
-        return null;
+        if (Winget.Find() is not { } winget) return null;
+        var start = new ProcessStartInfo(winget,
+            ["install", "--id", id, "-e", "--silent", "--accept-package-agreements", "--accept-source-agreements"])
+        // Its input is closed: a question winget itself asks gets no answer rather than waiting unseen.
+        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true };
+        var result = (watch ?? new InstallWatch()).Run(start, ct);
+        Log.Write("install", $"winget {id}: {result.Outcome}, exit code {result.ExitCode?.ToString("X") ?? "-"}, after {result.Elapsed.TotalSeconds:0} s");
+        return result;
     }
 
     private static string? ReadRegistry(RegistryView view, string key, string value)

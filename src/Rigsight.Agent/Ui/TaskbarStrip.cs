@@ -140,8 +140,10 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         Unwatch();
         _trayWindow = tray;
         _trayMoved ??= (_, _, hwnd, idObject, _, _, _) => { if (hwnd == _trayWindow && idObject == OBJID_WINDOW) Follow(); };
-        GetWindowThreadProcessId(taskbar, out int explorer);
-        _hook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, _trayMoved, explorer, 0, WINEVENT_OUTOFCONTEXT);
+        // Only the thread the tray's window lives on: all of Explorer would send every move of every File Explorer
+        // window here, to be thrown away.
+        uint thread = GetWindowThreadProcessId(tray, out int explorer);
+        _hook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, _trayMoved, explorer, (int)thread, WINEVENT_OUTOFCONTEXT);
     }
 
     private void Unwatch()

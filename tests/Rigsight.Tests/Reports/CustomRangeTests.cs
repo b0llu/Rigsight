@@ -120,11 +120,27 @@ public sealed class CustomRangeTests
         var (t, app) = Db();
         using (t)
         {
-            // Four days, against the four days before them.
+            // Four days, against the four days before them (history going back further than those).
+            Use(t, app, Wed.AddDays(-9).AddHours(9), Wed.AddDays(-9).AddHours(10));
             Use(t, app, Wed.AddDays(-3).AddHours(9), Wed.AddDays(-3).AddHours(10));
             Use(t, app, Wed.AddHours(9), Wed.AddHours(12));
             var r = ReportBuilder.BuildCustom(t.Db, Wed, Wed.AddDays(4), Settings());
             Assert.Contains(r.Insights, i => i.Text == "That's 2h 00m more screen time than the same length of time just before.");
+        }
+    }
+
+    [Fact]
+    public void A_stretch_that_history_only_began_part_way_through_is_not_compared_with()
+    {
+        using var _ = Culture();
+        var (t, app) = Db();
+        using (t)
+        {
+            // The four days before start on the Saturday; history starts on the Sunday: part of them is all there is.
+            Use(t, app, Wed.AddDays(-3).AddHours(9), Wed.AddDays(-3).AddHours(10));
+            Use(t, app, Wed.AddHours(9), Wed.AddHours(12));
+            var r = ReportBuilder.BuildCustom(t.Db, Wed, Wed.AddDays(4), Settings());
+            Assert.DoesNotContain(r.Insights, i => i.Text.Contains("just before"));
         }
     }
 

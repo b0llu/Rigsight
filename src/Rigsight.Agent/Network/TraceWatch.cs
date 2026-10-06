@@ -44,6 +44,29 @@ internal sealed class TraceWatch
     /// <summary>The trace was started again: its event count starts from nothing.</summary>
     public void Restarted() => _eventsBefore = 0;
 
+    /// <summary>
+    /// There's no trace to watch: Windows wouldn't start one, or it ended by itself. The same remedies in the same order
+    /// (a full set of leftover test traces can be why Windows refuses another), a check apart, then later again; while it
+    /// stays that way nothing is recorded, so the Network page says so.
+    /// </summary>
+    /// <param name="now">Unix seconds.</param>
+    public TraceRemedy Missing(long now)
+    {
+        _cardBefore = null;
+        _quiet = 0;
+        if (now < _retryAt) return TraceRemedy.None;
+        switch (++_stage)
+        {
+            case 1: return TraceRemedy.Restart;
+            case 2: return TraceRemedy.ClearOthers;
+            default:
+                _stage = 0;
+                _retryAt = now + RetrySeconds;
+                Stalled = true;
+                return TraceRemedy.GiveUp;
+        }
+    }
+
     /// <param name="now">Unix seconds.</param>
     /// <param name="cardBytes">Bytes through the network cards since Windows started (null when they can't be read).</param>
     /// <param name="events">Events the trace has delivered since it started.</param>

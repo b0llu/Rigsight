@@ -53,6 +53,29 @@ public class TraceWatchTests
     }
 
     [Fact]
+    public void A_trace_that_could_not_be_started_is_tried_again_then_leftovers_cleared_then_said()
+    {
+        var watch = new TraceWatch();
+        long now = 1_790_000_000;
+        Assert.Equal(TraceRemedy.Restart, watch.Missing(now += 60));
+        Assert.Equal(TraceRemedy.ClearOthers, watch.Missing(now += 60));
+        Assert.False(watch.Stalled);
+        Assert.Equal(TraceRemedy.GiveUp, watch.Missing(now += 60));
+        Assert.True(watch.Stalled); // nothing is being recorded: the Network page says so
+
+        // Left alone until the wait is over, then the same again.
+        Assert.Equal(TraceRemedy.None, watch.Missing(now += 60));
+        Assert.Equal(TraceRemedy.None, watch.Missing(now + TraceWatch.RetrySeconds - 120));
+        Assert.Equal(TraceRemedy.Restart, watch.Missing(now += TraceWatch.RetrySeconds));
+
+        // That start worked and events arrive: recovered, and no longer said.
+        watch.Restarted();
+        Assert.Equal(TraceRemedy.Recovered, watch.Check(now += 60, 10 * MB, 400));
+        Assert.False(watch.Stalled);
+        Assert.Equal(TraceRemedy.None, watch.Check(now += 60, 20 * MB, 900));
+    }
+
+    [Fact]
     public void After_giving_up_it_tries_again_later()
     {
         var watch = new TraceWatch();

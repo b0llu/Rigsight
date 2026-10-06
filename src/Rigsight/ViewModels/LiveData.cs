@@ -144,6 +144,14 @@ public sealed partial class LiveData : ObservableObject
         }
     }
 
+    /// <summary>Midnight passed with the window open: a chart on today moves to the new day; an earlier day keeps its place.</summary>
+    public void NewDay(DateTime was)
+    {
+        if (_chartDay == was) { ChartDay = DateTime.Today; return; }
+        OnPropertyChanged(nameof(ChartDayLabel));
+        OnPropertyChanged(nameof(CanChartNextDay));
+    }
+
     /// <summary>First day with minute history (the date picker starts there).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
@@ -375,6 +383,21 @@ public sealed partial class LiveData : ObservableObject
         if (_netHistory.Count > 0 && _netHistory[^1].Time >= net.Time) return;
         _netHistory.Add(new NetLive { Time = net.Time, Down = net.Down, Up = net.Up });
         while (_netHistory.Count > NetHistorySeconds) _netHistory.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// The agent has gone (quit, crashed, restarting): the last readings aren't "right now" any more. Every reading
+    /// shows as none (a gap on its chart, as it is) and the internet's speeds and apps go, where they used to stay
+    /// frozen on whatever the last second happened to be.
+    /// </summary>
+    public void AgentGone()
+    {
+        Net = null;
+        _netHistory.Clear();
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var item in _flat) item.Push(now, null);
+        if (_flat.Count > 0) UpdateDerived();
+        Tick++;
     }
 
     public void ApplyTick(AgentMessage tick)

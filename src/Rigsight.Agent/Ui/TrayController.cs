@@ -15,6 +15,10 @@ internal sealed class TrayController : IDisposable
 
     public TrayController(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
+        // When Explorer restarts it tells every window there's a new, empty taskbar, and the icon puts itself back. But
+        // Rigsight runs as admin and Explorer doesn't: Windows drops that message on the way unless it's let through
+        // (the icon, its menu and every notification from it were gone until the agent restarted).
+        ChangeWindowMessageFilter(RegisterWindowMessage("TaskbarCreated"), 1 /* MSGFLT_ADD */);
         _logo = new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
         _icon.ContextMenuStrip = BuildMenu(open, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
         _icon.Icon = _logo;
@@ -131,4 +135,7 @@ internal sealed class TrayController : IDisposable
         }
         _logo.Dispose();
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool ChangeWindowMessageFilter(int message, int flag);
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] private static extern int RegisterWindowMessage(string name);
 }

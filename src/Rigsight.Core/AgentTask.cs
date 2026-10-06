@@ -46,7 +46,7 @@ public static class AgentTask
         output = "";
         try
         {
-            var psi = new ProcessStartInfo("schtasks.exe")
+            var psi = new ProcessStartInfo(RigsightPaths.TaskScheduler)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,

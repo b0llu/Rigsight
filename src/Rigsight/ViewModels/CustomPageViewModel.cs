@@ -101,7 +101,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
     {
         var kinds = Tiles.Select(t => t.Kind).ToHashSet();
         if (kinds.Overlaps(["most-used", "insights", "yesterday"])) await Home.RefreshAsync();
-        if (kinds.Contains("crashes") && (!quiet || Crashes.IncludesToday)) await Crashes.LoadAsync(onlyIfChanged: quiet);
+        if (kinds.Contains("crashes")) await Crashes.Recent.LoadAsync();
     }
 
     // ── Adding, removing, resizing ────────────────────────────────────────

@@ -621,7 +621,24 @@ public sealed class CustomPageTests
         });
         Assert.True(Ui.WaitFor(() => d.Page.Home.Loaded, 15_000));
         Ui.Run(() => d.Page.AddTileCommand.Execute(Kind("crashes")));
-        Assert.True(Ui.WaitFor(() => d.Page.Crashes.Since is not null, 15_000));
+        Assert.True(Ui.WaitFor(() => d.Page.Crashes.Recent.Loaded, 15_000));
+    }
+
+    [Fact]
+    public void The_crashes_tile_is_the_last_30_days_whatever_the_crashes_page_shows()
+    {
+        var d = Make();
+        Ui.Run(() => d.Page.AddTileCommand.Execute(Kind("crashes")));
+        Assert.True(Ui.WaitFor(() => d.Page.Crashes.Recent.Loaded, 15_000));
+        var before = Ui.Run(() => (d.Page.Crashes.Recent.AppCrashCount, d.Page.Crashes.Recent.SystemCount, d.Page.Crashes.Recent.DriverResetCount, d.Page.Crashes.Recent.Latest?.Time));
+
+        // The Crashes page is left on one day long ago (as clicking a day on the Timeline does): the tile doesn't follow.
+        Ui.Run(() => d.Page.Crashes.ShowDay(DateTime.Today.AddDays(-200)));
+        Kit.Wait(() => d.Page.Crashes.LoadAsync());
+        Kit.Wait(() => d.Page.RefreshAsync(quiet: true));
+        var after = Ui.Run(() => (d.Page.Crashes.Recent.AppCrashCount, d.Page.Crashes.Recent.SystemCount, d.Page.Crashes.Recent.DriverResetCount, d.Page.Crashes.Recent.Latest?.Time));
+        Assert.Equal(before, after);
+        Ui.Run(() => Assert.All(new[] { d.Page.Crashes.Recent.Latest }.OfType<Rigsight.Models.CrashRow>(), row => Assert.True(row.Time >= DateTime.Today.AddDays(-(RecentCrashes.Days - 1)))));
     }
 
     // ── Layout rules on their own ────────────────────────────────────────

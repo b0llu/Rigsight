@@ -56,6 +56,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public double ActiveSec { get; set; }
         public double? CpuMax { get; set; }
         public double? GpuMax { get; set; }
+        /// <summary>Its row in the history, once saved (see <see cref="Tracker.SaveSession"/>).</summary>
+        public long? Row { get; set; }
     }
 
     private sealed class TodayState
@@ -465,6 +467,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     public void Flush(bool closeAllSessions)
     {
         long now = NowUnix();
+        bool saved = false;
         try
         {
             using var tx = db.BeginTransaction();
@@ -507,17 +510,20 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
             foreach (var session in _sessions.Values.ToList())
             {
-                if (!closeAllSessions && now - session.LastActive <= SessionBreakSeconds) continue;
-                CloseSession(session);
+                if (closeAllSessions || now - session.LastActive > SessionBreakSeconds) CloseSession(session);
+                // Still going: saved as far as it has got, so a PC that loses power or freezes mid-game keeps the
+                // session up to this minute (it used to exist only here until it ended).
+                else if (session.ActiveSec > 0) SaveSession(session);
             }
 
             if (LocalToday != _lastPrune)
             {
                 _lastPrune = LocalToday;
                 if (_settings.Tracking.KeepHistoryDays > 0)
-                    db.Prune(TimeUtil.ToUnix(LocalToday.AddDays(-_settings.Tracking.KeepHistoryDays)));
+                    db.Prune(TimeUtil.ToUnix(PruneDay(LocalToday, db.LastMinuteBefore(_minuteTs)).AddDays(-_settings.Tracking.KeepHistoryDays)));
             }
             tx.Commit();
+            saved = true;
         }
         catch (Exception ex)
         {
@@ -525,11 +531,25 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         }
 
         // The minute itself carries on until it ends (see RollMinute): saved early (Windows signing out), it's written
-        // again in full, not with only its last part. App times are added up, so those start again from zero.
-        _deltas.Clear();
+        // again in full, not with only its last part. App times are added up, so those start again from zero; when the
+        // save didn't go through (a full disk, a busy database) nothing of them was written, and they wait for the next.
+        if (saved) _deltas.Clear();
 
         if (LocalToday != _today.Day)
             _today = new TodayState { Day = LocalToday };
+    }
+
+    /// <summary>
+    /// The day old history is counted back from: today, but no later than the day after the last minute recorded before
+    /// this one. Deleting can't be undone and the clock can be wrong: a PC whose date jumps a year ahead (a flat clock
+    /// battery, a date set by hand) would otherwise lose a year of history within a minute, and stay without it once
+    /// the date was put right. A PC that was simply off for weeks only keeps the old days one day longer.
+    /// </summary>
+    internal static DateTime PruneDay(DateTime today, long? lastMinuteBefore)
+    {
+        if (lastMinuteBefore is not long last) return today;
+        var dayAfter = TimeUtil.FromUnix(last).Date.AddDays(1);
+        return dayAfter < today ? dayAfter : today;
     }
 
     /// <summary>Ends a session: saves it (however short) and tells listeners (for the summary notification).</summary>
@@ -537,7 +557,12 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         _sessions.Remove(session.App.Id);
         if (session.ActiveSec <= 0) return;
+        SessionEnded?.Invoke(SaveSession(session), session.App);
+    }
 
+    /// <summary>Writes a session as it stands: its row the first time, the same row from then on.</summary>
+    private SessionRow SaveSession(Session session)
+    {
         var row = new SessionRow
         {
             AppId = session.App.Id,
@@ -548,9 +573,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             GpuTempMax = session.GpuMax,
             IsGame = AppResolver.Category(session.App, _settings) == AppCategory.Game,
         };
-        try { db.InsertSession(row); }
+        try { session.Row = db.SaveSession(row, session.Row); }
         catch (Exception ex) { Log.Error("tracker", ex); }
-        SessionEnded?.Invoke(row, session.App);
+        return row;
     }
 
     private void LoadToday()

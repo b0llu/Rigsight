@@ -11,8 +11,48 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
+/// <summary>
+/// A dashboard's Crashes tile: the last 30 days and the latest problem, whatever the Crashes page happens to show (the
+/// tile used to read that page's counts, so it followed the period and filter the page was left on, with no label).
+/// Muted apps' crashes aren't counted, as on the page.
+/// </summary>
+public sealed partial class RecentCrashes(ReportService reports, SettingsModel settings) : ObservableObject
+{
+    public const int Days = 30;
+
+    [ObservableProperty] private int _appCrashCount;
+    [ObservableProperty] private int _systemCount;
+    [ObservableProperty] private int _driverResetCount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCrashes))]
+    private CrashRow? _latest;
+
+    public bool HasCrashes => Latest is not null;
+    public bool Loaded { get; private set; }
+
+    private int _load;
+
+    public async Task LoadAsync()
+    {
+        int id = ++_load;
+        var rows = await reports.CrashesAsync(DateTime.Today.AddDays(-(Days - 1)), DateTime.Now.AddMinutes(1)) ?? [];
+        if (id != _load) return;
+        var muted = settings.Current;
+        rows = [.. rows.Where(r => !muted.IsCrashMuted(r.Event.AppExe)).OrderByDescending(r => r.Time)];
+        AppCrashCount = rows.Count(c => c.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang);
+        SystemCount = rows.Count(c => c.Event.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown);
+        DriverResetCount = rows.Count(c => c.Event.Kind == CrashKind.GpuDriverReset);
+        Latest = rows.FirstOrDefault(); // a new row each time, so "Today, 3:10 PM" on it becomes "Yesterday" overnight
+        Loaded = true;
+    }
+}
+
 public sealed partial class CrashesViewModel(ReportService reports, SettingsModel settings) : ObservableObject
 {
+    /// <summary>What a dashboard's Crashes tile shows (see <see cref="RecentCrashes"/>).</summary>
+    public RecentCrashes Recent { get; } = new(reports, settings);
+
     /// <summary>The period shown (see <see cref="PeriodPicker"/>): this month unless picked otherwise.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IsDay), nameof(ShowTimeline), nameof(EmptyText), nameof(IncludesToday))]
@@ -76,6 +116,16 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         _limit = PageSize;
         if (Unit is not (Core.Reports.ReportRange.All or Core.Reports.ReportRange.Custom)) _ = LoadAsync();
+    }
+
+    /// <summary>Midnight passed with the window open (see <see cref="PeriodPicker.AfterMidnight"/>).</summary>
+    public void NewDay(DateTime was)
+    {
+        var anchor = PeriodPicker.AfterMidnight(Unit, Anchor, was, DateTime.Today);
+        if (anchor != Anchor) { Anchor = anchor; return; }
+        OnPropertyChanged(nameof(RangeNote));
+        OnPropertyChanged(nameof(IncludesToday));
+        _ = LoadAsync(); // "Today, 3:10 PM" on a row and "stable for N days" are read against the new day
     }
 
     [RelayCommand]

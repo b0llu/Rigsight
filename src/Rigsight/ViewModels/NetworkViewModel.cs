@@ -122,6 +122,17 @@ public sealed partial class NetworkViewModel : ObservableObject
     partial void OnUnitChanged(ReportRange value) => _ = RefreshAsync();
     partial void OnAnchorChanged(DateTime value) => _ = RefreshAsync();
 
+    /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
+    public void NewDay(DateTime was)
+    {
+        _loadedPast = null; // "Yesterday" and "Online all day" are read against the new day
+        var anchor = Controls.PeriodPicker.AfterMidnight(Unit, Anchor, was, DateTime.Today);
+        if (anchor != Anchor) { Anchor = anchor; return; }
+        OnPropertyChanged(nameof(RangeNote));
+        OnPropertyChanged(nameof(PeriodWord));
+        _ = RefreshAsync();
+    }
+
     private readonly ReportService _reports;
     private int _load;
     private (ReportRange Unit, DateTime From)? _loadedPast;
@@ -187,10 +198,10 @@ public sealed partial class NetworkViewModel : ObservableObject
         NobodyNow = UsingNow.Count == 0;
     }
 
-    private void ReadConnection(NetReport? report)
+    private async Task ReadConnectionAsync(NetReport? report)
     {
-        var c = NetAdapters.Current();
-        bool? online = NetAdapters.WindowsSeesInternet();
+        // Asking Windows about every adapter takes a moment on a PC with many (VPNs, virtual machines): not on the window's thread.
+        var (c, online) = await Task.Run(() => (NetAdapters.Current(), NetAdapters.WindowsSeesInternet()));
         Subtitle = c is null ? "Not connected" : string.Join(" · ", new[] { c.Kind, c.Adapter, c.Vpn is null ? null : $"through {c.Vpn}" }.OfType<string>());
         Facts =
         [
@@ -247,7 +258,8 @@ public sealed partial class NetworkViewModel : ObservableObject
         // A past period is read once; the minute refresh only moves the live parts then.
         if (!IncludesToday && _loadedPast == (Unit, from) && _report is not null)
         {
-            ReadConnection(_report);
+            _load++; // a read still on its way is for a period since left: it mustn't land on this one
+            await ReadConnectionAsync(_report);
             return;
         }
         int id = ++_load;
@@ -257,9 +269,9 @@ public sealed partial class NetworkViewModel : ObservableObject
         _loadedPast = IncludesToday ? null : (Unit, from);
         FirstDay = firstDay ?? DateTime.Today;
         Loaded = true;
-        ReadConnection(report);
         UpdateLive();
         Fill(report);
+        await ReadConnectionAsync(report);
     }
 
     private void Fill(NetReport? r)

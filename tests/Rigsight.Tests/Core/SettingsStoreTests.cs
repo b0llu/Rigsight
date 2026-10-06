@@ -383,6 +383,46 @@ public sealed class SettingsStoreTests
         Assert.Equal(SettingsStore.Serialize(SettingsStore.Deserialize("{}")), SettingsStore.Serialize(s));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("{ broken")]
+    [InlineData("\0\0\0\0")]
+    public void A_broken_file_falls_back_to_the_save_before_instead_of_defaults(string content)
+    {
+        var file = Path.Combine(TestEnvironment.NewFolder("settings"), "settings.json");
+        SettingsStore.Save(new RigsightSettings { UseFahrenheit = true, Theme = "light" }, file);
+        SettingsStore.Save(new RigsightSettings { UseFahrenheit = true, Theme = "grey" }, file); // the first is now the copy
+        File.WriteAllText(file, content); // cut short by a power loss, say
+
+        var s = SettingsStore.Load(file);
+        Assert.True(s.UseFahrenheit);
+        Assert.Equal("light", s.Theme);
+        Assert.Equal(content, File.ReadAllText(file + ".bad")); // kept for a look, not lost under the next save
+
+        // The next save is the user's settings again, not defaults.
+        SettingsStore.Save(s, file);
+        Assert.Equal("light", SettingsStore.Load(file).Theme);
+    }
+
+    [Fact]
+    public void A_broken_file_with_no_earlier_copy_is_kept_aside_before_defaults_replace_it()
+    {
+        var file = Path.Combine(TestEnvironment.NewFolder("settings"), "settings.json");
+        File.WriteAllText(file, "{ \"Theme\": \"light\", broken");
+        SettingsStore.Save(SettingsStore.Load(file), file);
+        Assert.Equal("{ \"Theme\": \"light\", broken", File.ReadAllText(file + ".bad"));
+    }
+
+    [Fact]
+    public void A_deleted_file_starts_fresh_even_with_an_earlier_copy_beside_it()
+    {
+        var file = Path.Combine(TestEnvironment.NewFolder("settings"), "settings.json");
+        SettingsStore.Save(new RigsightSettings { Theme = "light" }, file);
+        SettingsStore.Save(new RigsightSettings { Theme = "light" }, file);
+        File.Delete(file);
+        Assert.Equal("dark", SettingsStore.Load(file).Theme);
+    }
+
     [Fact]
     public void A_file_with_a_byte_order_mark_loads()
     {

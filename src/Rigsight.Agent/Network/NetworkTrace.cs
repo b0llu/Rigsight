@@ -45,6 +45,9 @@ internal sealed unsafe class NetworkTrace : IDisposable
     /// <summary>Events delivered since the trace started, counted or not (see <see cref="TraceWatch"/>).</summary>
     public long Events => Interlocked.Read(ref _events);
 
+    /// <summary>Windows ended the trace by itself (nobody stopped it): nothing more will come from this one.</summary>
+    public volatile bool Ended;
+
     private NetworkTrace(string name, Func<AddressBook> addresses)
     {
         _name = name;
@@ -125,7 +128,9 @@ internal sealed unsafe class NetworkTrace : IDisposable
         {
             ulong h = handle;
             int rc = ProcessTrace(&h, 1, IntPtr.Zero, IntPtr.Zero);
-            if (!_stopped) Log.Write("network", $"The network trace stopped ({rc})");
+            if (_stopped) return;
+            Log.Write("network", $"The network trace stopped ({rc})");
+            Ended = true;
         }) { IsBackground = true, Name = "Network trace" };
         _thread.Start();
         Log.Write("network", "Reading app network use");

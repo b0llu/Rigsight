@@ -155,6 +155,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
                 if (string.IsNullOrEmpty(trimmed)) s.AppNames.Remove(exe);
                 else s.AppNames[exe] = trimmed;
             });
+            _ = LoadAsync(); // the list's own row takes the new name now (a past period isn't re-read by the minute refresh)
         }
     }
 
@@ -195,6 +196,17 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     partial void OnAnchorChanged(DateTime value)
     {
         if (Unit is not (ReportRange.All or ReportRange.Custom)) _ = LoadAsync();
+    }
+
+    /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
+    public void NewDay(DateTime was)
+    {
+        var anchor = Controls.PeriodPicker.AfterMidnight(Unit, Anchor, was, DateTime.Today);
+        if (anchor != Anchor) { Anchor = anchor; return; }
+        OnPropertyChanged(nameof(RangeNote));
+        OnPropertyChanged(nameof(IncludesToday));
+        OnPropertyChanged(nameof(Summary));
+        if (Unit == ReportRange.All) _ = LoadAsync(); // all time runs up to today
     }
 
     partial void OnCustomFromChanged(DateTime value) => CustomChanged();
