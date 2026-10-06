@@ -59,6 +59,12 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.15.5", 10, 6,
+            better: ["Rigsight says so when its background agent is another version, and restarts it.",
+                "The Today and Now playing widgets use less CPU."],
+            fixedBugs: ["Custom ranges over three months add up the same in every part of the report.",
+                "A graphics driver install is no longer mistaken for the card being removed.",
+                "The frame rate no longer freezes on screen when RivaTuner is closed."]),
         V("0.15.4", 10, 6,
             better: ["Small charts show the reading under your pointer.",
                 "The Crashes tile on a dashboard always covers the last 30 days.",

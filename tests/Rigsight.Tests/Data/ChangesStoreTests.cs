@@ -153,6 +153,45 @@ public sealed class ChangesStoreTests
         Assert.Equal("Steam removed", Assert.Single(t.Db.ApplyInventory(Pc(("Visual Studio", "18.0")), "S-1-5-21-admin", T.AddHours(2))).Title);
     }
 
+    private static Dictionary<string, List<InventoryItem>> Cards(params (string Device, string Name, string Driver)[] cards)
+    {
+        var (items, drivers) = Inventory.GraphicsItems(cards.Select(c => (c.Device, c.Name, "NVIDIA", c.Driver, (string?)null)));
+        return new() { [Inventory.Gpu] = items, [Inventory.GpuDriver] = drivers };
+    }
+
+    private static readonly (string, string, string) Intel = (@"pci\ven_8086&dev_a780", "Intel UHD Graphics 770", "32.0.101.5972");
+
+    [Fact]
+    public void A_card_missing_from_one_reading_while_its_driver_installs_is_not_a_card_removed()
+    {
+        using var t = new TestDb();
+        t.Db.ApplyInventory(Cards(Intel, (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1047")), "me", T);
+        // The reading lands mid-install: only the other card is there (Windows runs this one on its stand-in driver).
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(10)));
+        Assert.Equal(2, t.Db.GetInventory().Count(i => i.Kind == Inventory.Gpu));
+        // Ten minutes on it's back with its new driver: one change, the driver.
+        var change = Assert.Single(t.Db.ApplyInventory(Cards(Intel, (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1692")), "me", T.AddMinutes(20)));
+        Assert.Equal(ChangeKind.Driver, change.Kind);
+        Assert.Contains("616.92", change.Title);
+        // And a later reading without it starts over: missed once, not gone.
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(30)));
+    }
+
+    [Fact]
+    public void A_card_missing_from_two_readings_running_was_removed_when_it_was_first_missed()
+    {
+        using var t = new TestDb();
+        t.Db.ApplyInventory(Cards(Intel, (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1047")), "me", T);
+        // Swapped for another: the new one is there at once, the old one's going is held for a reading.
+        (string, string, string) radeon = (@"pci\ven_1002&dev_7550", "Radeon RX 9070 XT", "32.0.21025.1024");
+        Assert.Equal("Graphics card added: Radeon RX 9070 XT", Assert.Single(t.Db.ApplyInventory(Cards(Intel, radeon), "me", T.AddMinutes(10))).Title);
+        var removed = Assert.Single(t.Db.ApplyInventory(Cards(Intel, radeon), "me", T.AddMinutes(20)));
+        Assert.Equal("Graphics card removed: RTX 3080 Ti", removed.Title);
+        Assert.Equal(T.AddMinutes(10), removed.Time); // when it was first missing, beside the card that replaced it
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel, radeon), "me", T.AddMinutes(30)));
+        Assert.Equal(2, t.Db.GetInventory().Count(i => i.Kind == Inventory.Gpu));
+    }
+
     [Fact]
     public void The_inventory_survives_the_agent_restarting()
     {

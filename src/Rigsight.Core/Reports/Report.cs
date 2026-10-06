@@ -310,6 +310,8 @@ public sealed class Report
         var lastDay = to.TimeOfDay == TimeSpan.Zero && to > from ? to.AddDays(-1).Date : to.Date;
         bool years = from.Year != DateTime.Today.Year || lastDay.Year != DateTime.Today.Year;
         string Day(DateTime t) => t.ToString(years ? "ddd d MMM yyyy" : "ddd d MMM");
+        // Over three months it's read in whole days (see ReportBuilder.WholeDaysWhenLong): the days, without hours.
+        if (to - from > ReportBuilder.LongLimit) return $"{Day(from)} – {Day(lastDay)}";
         return from.Date == lastDay
             ? $"{Day(from)}, {Hour(from)} – {Hour(to)}"
             : $"{Day(from)}, {Hour(from)} – {Day(to)}, {Hour(to)}";

@@ -173,6 +173,45 @@ public sealed class CustomRangeTests
     }
 
     [Fact]
+    public void A_long_custom_range_takes_in_its_first_and_last_days_whole_so_every_figure_covers_the_same_days()
+    {
+        var (t, app) = Db();
+        using (t)
+        {
+            // 15 Mar 2 PM to 10 Jul 9 AM, with use on the morning of the first day and the evening of the last.
+            var (from, to) = (new DateTime(2026, 3, 15, 14, 0, 0), new DateTime(2026, 7, 10, 9, 0, 0));
+            Use(t, app, from.Date.AddHours(9), from.Date.AddHours(11));    // before the 2 PM asked for
+            Use(t, app, new DateTime(2026, 5, 5, 9, 0, 0), new DateTime(2026, 5, 5, 12, 0, 0));
+            Use(t, app, to.Date.AddHours(20), to.Date.AddHours(21));       // after the 9 AM asked for
+            Use(t, app, to.Date.AddDays(10).AddHours(9), to.Date.AddDays(10).AddHours(13)); // later in July: outside
+            Use(t, app, from.Date.AddDays(-10).AddHours(9), from.Date.AddDays(-10).AddHours(14)); // earlier in March: outside
+
+            var r = ReportBuilder.BuildCustom(t.Db, from, to, Settings());
+            ReportCheck.NoBadNumbers(r);
+            Assert.Equal((from.Date, to.Date.AddDays(1)), (r.From, r.To));
+            // The time on (from the days) and the app's time (from its hours) are the same six hours.
+            Assert.Equal(6 * 3600, r.ActiveSec);
+            Assert.Equal(6 * 3600, Assert.Single(r.Apps).ActiveSec);
+            // A bar a month, each with what fell in the range: March and July only their part.
+            Assert.Equal([3, 4, 5, 6, 7], r.Days.Select(d => d.Day.Month));
+            Assert.Equal([2.0, 0, 3, 0, 1], r.Days.Select(d => d.ActiveSec / 3600));
+            Assert.Equal([2.0, 0, 3, 0, 1], r.Days.Select(d => d.ActiveByCategory.Values.Sum() / 3600));
+            Assert.Equal(["Game", null, "Game", null, "Game"], r.Days.Select(d => d.TopApp));
+        }
+    }
+
+    [Theory]
+    [InlineData(92, false)]
+    [InlineData(93, true)]
+    public void Only_a_range_of_more_than_three_months_is_widened_to_whole_days(int days, bool widened)
+    {
+        var (from, to) = (Wed.AddHours(14), Wed.AddDays(days).AddHours(9));
+        Assert.Equal(widened ? (Wed, Wed.AddDays(days + 1)) : (from, to), ReportBuilder.WholeDaysWhenLong(from, to));
+        // Already on midnights: as it is.
+        Assert.Equal((Wed, Wed.AddDays(200)), ReportBuilder.WholeDaysWhenLong(Wed, Wed.AddDays(200)));
+    }
+
+    [Fact]
     public void Hours_round_down_at_the_start_and_up_at_the_end()
     {
         Assert.Equal(Wed.AddHours(8), ReportBuilder.HourStart(Wed.AddHours(8).AddMinutes(59)));
@@ -186,8 +225,12 @@ public sealed class CustomRangeTests
         // Only the start's year would read as if the end came first ("Thu 25 Sep 2025 – Thu 17 Sep").
         using var c = Culture();
         var thisYear = DateTime.Today.Year;
-        var (from, to) = (new DateTime(thisYear - 1, 9, 25), new DateTime(thisYear, 9, 17, 11, 0, 0));
-        Assert.Equal($"{from:ddd} 25 Sep {thisYear - 1}, 12 AM – {to:ddd} 17 Sep {thisYear}, 11 AM", Report.CustomTitle(from, to));
+        var (from, to) = (new DateTime(thisYear - 1, 12, 25), new DateTime(thisYear, 1, 17, 11, 0, 0));
+        Assert.Equal($"{from:ddd} 25 Dec {thisYear - 1}, 12 AM – {to:ddd} 17 Jan {thisYear}, 11 AM", Report.CustomTitle(from, to));
+        // Over three months it's whole days: the days alone, the last one the day it ends in.
+        var (longFrom, longTo) = (new DateTime(thisYear - 1, 9, 25, 14, 0, 0), new DateTime(thisYear, 9, 17, 11, 0, 0));
+        Assert.Equal($"{longFrom:ddd} 25 Sep {thisYear - 1} – {longTo:ddd} 17 Sep {thisYear}", Report.CustomTitle(longFrom, longTo));
+        Assert.Equal($"{longFrom:ddd} 25 Sep {thisYear - 1} – {longTo:ddd} 17 Sep {thisYear}", Report.CustomTitle(longFrom.Date, longTo.Date.AddDays(1)));
         // A single earlier year: once, as the day is named once.
         var (a, b) = (new DateTime(2020, 3, 4, 8, 0, 0), new DateTime(2020, 3, 4, 17, 0, 0));
         Assert.Equal("Wed 4 Mar 2020, 8 AM – 5 PM", Report.CustomTitle(a, b));

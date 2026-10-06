@@ -110,6 +110,36 @@ public sealed class ShellTests : IClassFixture<AppHost>
         Assert.Equal(follows ? was.AddDays(1) : anchor, Controls.PeriodPicker.AfterMidnight(unit, anchor, was, was.AddDays(1)));
     }
 
+    [Theory]
+    [InlineData("0.15.4", "0.15.5", false, "0.15.4")]   // an update couldn't replace the running agent
+    [InlineData("0.16.0", "0.15.5", false, "0.16.0")]   // or a newer one is still running under an older window
+    [InlineData("0.15.5", "0.15.5", false, null)]
+    [InlineData(null, "0.15.5", false, null)]           // an agent too old to say: not guessed at
+    [InlineData("", "0.15.5", false, null)]
+    [InlineData("0.5.12", "0.15.5", true, null)]        // a test copy pairs with the agent it's given
+    public void An_agent_of_another_version_than_the_window_is_noticed(string? agent, string app, bool testCopy, string? other) =>
+        Assert.Equal(other, ShellViewModel.OtherVersion(agent, app, testCopy));
+
+    [Fact]
+    public void An_agent_of_another_version_is_said_in_the_sidebar_with_a_way_to_restart_it()
+    {
+        Ui.Run(() =>
+        {
+            Assert.True(Shell.IsConnected);
+            Assert.False(Shell.AgentOutOfDate); // the tests' own agent, whatever version its greeting carries
+            try
+            {
+                Shell.OtherAgentVersion = "0.15.3";
+                Assert.True(Shell.AgentOutOfDate);
+                Assert.True(Shell.ShowAgentWarning);
+                Assert.StartsWith("It's version 0.15.3 and this window is ", Shell.AgentHint);
+                Assert.Equal("Restart agent", Shell.AgentButtonText);
+            }
+            finally { Shell.OtherAgentVersion = null; }
+            Assert.False(Shell.AgentOutOfDate);
+        });
+    }
+
     [Fact]
     public void Go_switches_pages_and_shows_the_right_view()
     {

@@ -70,15 +70,27 @@ internal sealed class WidgetForm : Form
         Redraw();
     }
 
+    // What was last drawn, for the widgets that are only their text (see WidgetRenderer.ChangeKey).
+    private string? _drawn;
+
     public void UpdateData(WidgetData data)
     {
         _data = data;
-        if (Visible) Redraw();
+        if (!Visible)
+        {
+            _drawn = null; // shown again, it's drawn whatever it says
+            return;
+        }
+        // New readings that come to the same picture: nothing to draw. (A changed setting, the pointer over it and a
+        // changed screen scale all go through Redraw itself.)
+        if (WidgetRenderer.ChangeKey(Config, data) is { } key && key == _drawn) return;
+        Redraw();
     }
 
     public void Redraw()
     {
         if (!IsHandleCreated) return;
+        _drawn = WidgetRenderer.ChangeKey(Config, _data);
         float scale = DeviceDpi / 96f * (float)Config.Scale;
         using var bmp = WidgetRenderer.Render(Config, _data, scale, _hover, out _closeRect);
         if (Size != bmp.Size) Size = bmp.Size;

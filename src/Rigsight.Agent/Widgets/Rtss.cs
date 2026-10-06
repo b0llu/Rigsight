@@ -155,8 +155,11 @@ internal static unsafe class Rtss
             try
             {
                 if (_view is null && !Open()) return false;
-                // "RTSS" while live; RTSS marks the memory 0xDEAD when it's closing.
-                if (U(_memory, 0) != Signature || U(_memory, VersionAt) < 0x00020000)
+                // "RTSS" while live; RTSS marks the memory 0xDEAD when it's closing. Ended any other way (it crashed, was
+                // killed) it marks nothing, and the memory lives on for as long as anyone has it open: a hooked game,
+                // and us. So RivaTuner itself must still be running, or its last words would be read as live for ever
+                // (frozen frame rates, an overlay "shown" in a game where nothing draws it any more).
+                if (U(_memory, 0) != Signature || U(_memory, VersionAt) < 0x00020000 || !StillRunning())
                 {
                     Close();
                     _retryAfter = Environment.TickCount64 + RetryMs;
@@ -173,6 +176,30 @@ internal static unsafe class Rtss
                 return false;
             }
         }
+    }
+
+    private static Process? _process;
+
+    /// <summary>RivaTuner's own process is still there (asked of the process once found: no search each time).</summary>
+    private static bool StillRunning()
+    {
+        if (_process is { } known)
+        {
+            try
+            {
+                if (!known.HasExited) return true;
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
+            {
+                return true; // it can't be asked (it runs with more rights than we do): its memory's own mark has to do
+            }
+            known.Dispose();
+            _process = null;
+        }
+        var found = Process.GetProcessesByName("RTSS");
+        foreach (var other in found.Skip(1)) other.Dispose();
+        _process = found.FirstOrDefault();
+        return _process is not null;
     }
 
     private static bool Open()

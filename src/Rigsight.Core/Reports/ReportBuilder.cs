@@ -100,6 +100,15 @@ public static class ReportBuilder
         IsLong(range) || (range == ReportRange.Custom && to - from > LongLimit);
 
     /// <summary>
+    /// A custom range of more than three months, widened to whole days. Over that long it's read from each day's
+    /// totals, and a day can only be counted whole: with hours on its ends, the first day was left out of the time on
+    /// and the highs while the last was counted to midnight, so they disagreed with the apps (counted to the hour). The
+    /// hours stop mattering long before that, so the range takes in both days entire.
+    /// </summary>
+    public static (DateTime From, DateTime To) WholeDaysWhenLong(DateTime from, DateTime to) =>
+        to - from > LongLimit ? (from.Date, to.TimeOfDay == TimeSpan.Zero ? to : to.Date.AddDays(1)) : (from, to);
+
+    /// <summary>
     /// A custom range (whole hours, see <see cref="HourStart"/>), with insights. Up to two days it's compared with the same
     /// hours on the day before (two days before for a range longer than a day, so the two never overlap): an evening
     /// with the evening before, not with the afternoon it followed. Longer: with the same length of time just before it.
@@ -109,6 +118,7 @@ public static class ReportBuilder
     {
         (from, to) = (HourStart(from), HourEnd(to));
         if (to <= from) to = from.AddHours(1);
+        (from, to) = WholeDaysWhenLong(from, to);
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         Report Period(DateTime f, DateTime t) => IsLong(ReportRange.Custom, f, t)
             ? BuildLong(db, ReportRange.Custom, f, t, apps, settings) : BuildRaw(db, ReportRange.Custom, f, t, apps, settings);
@@ -633,7 +643,27 @@ public static class ReportBuilder
             bucket.CpuTempMax = Max(bucket.CpuTempMax, list.Max(h => h.CpuTempMax));
             bucket.GpuTempMax = Max(bucket.GpuTempMax, list.Max(h => h.GpuTempMax));
         }
-        foreach (var g in db.GetAppMonths(f, t).GroupBy(x => BucketOf(x.Month)))
+        // What each month's time went on: whole months from the monthly totals. A custom range can begin or end inside a
+        // month: that month from its hours within the range (its monthly total would show the whole month's time on a
+        // bar that covers ten days of it, and a month entered part-way had no total picked up at all).
+        var perMonth = new List<(long Month, long AppId, double FgSec)>();
+        long wholeFrom = f, wholeTo = t;
+        if (range == ReportRange.Custom)
+        {
+            var firstWhole = from == firstMonth ? from : firstMonth.AddMonths(1);
+            var lastStart = new DateTime(to.Year, to.Month, 1);
+            (wholeFrom, wholeTo) = (TimeUtil.ToUnix(firstWhole), TimeUtil.ToUnix(lastStart));
+            void Part(DateTime a, DateTime b, DateTime month)
+            {
+                if (b <= a) return;
+                perMonth.AddRange(db.GetAppHours(TimeUtil.ToUnix(a), TimeUtil.ToUnix(b)).GroupBy(h => h.AppId)
+                    .Select(g => (TimeUtil.ToUnix(month), g.Key, g.Sum(h => h.FgSec))).Where(x => x.Item3 > 0));
+            }
+            Part(from, firstWhole < to ? firstWhole : to, firstMonth);
+            if (lastStart >= firstWhole) Part(lastStart, to, lastStart);
+        }
+        if (wholeTo > wholeFrom) perMonth.AddRange(db.GetAppMonths(wholeFrom, wholeTo));
+        foreach (var g in perMonth.GroupBy(x => BucketOf(x.Month)))
         {
             if (g.Key is not { } bucket) continue;
             foreach (var (_, app, sec) in g)

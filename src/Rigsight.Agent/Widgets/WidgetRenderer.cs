@@ -112,6 +112,41 @@ internal static partial class WidgetRenderer
         }
     }
 
+    /// <summary>
+    /// Everything a widget would draw, as text, for the kinds that are nothing but their text and colours (one line of
+    /// readings, Now playing, Today): the same key means the same picture, so the widget isn't drawn and put on screen
+    /// again (about 2.5 ms each time, every reading, for a Today that changes once a minute). Null for the kinds that
+    /// draw more than their text (a gauge, a mini chart, a graph's lines): those are drawn every time.
+    /// </summary>
+    public static string? ChangeKey(WidgetConfig cfg, WidgetData? data)
+    {
+        var d = data ?? new WidgetData();
+        var p = For(cfg.Theme);
+        Gray = cfg.Grayscale;
+        try
+        {
+            switch (WidgetCatalog.LayoutOf(cfg))
+            {
+                case WidgetLayout.Bar:
+                    return $"{p.Light}|" + string.Join('|', WidgetCatalog.ItemsOf(cfg).Select(i => Read(i, d, p)).Select(r => $"{r.Label}={r.Text}#{r.ValueColor.ToArgb():X}"));
+                case WidgetLayout.NowPlaying:
+                    var a = d.Activity;
+                    return $"{p.Light}|{a.Paused}|{a.Name}|{a.Path}|{a.Category}|{a.Present}|{Units.Duration(a.SessionActiveSec)}"
+                        + $"|{Units.TempShort(a.SessionCpuMax)}#{TempColor(a.SessionCpuMax, p).ToArgb():X}|{Units.TempShort(a.SessionGpuMax)}#{TempColor(a.SessionGpuMax, p).ToArgb():X}";
+                case WidgetLayout.Today:
+                    var t = d.Today;
+                    return $"{p.Light}|{Units.Duration(t.ActiveSec)}|{Units.Duration(t.OnSec)}|{Units.Duration(t.IdleSec)}|{t.TopApp}|{Units.Duration(t.TopAppSec)}"
+                        + $"|{Units.TempShort(t.CpuPeak)}#{TempColor(t.CpuPeak, p).ToArgb():X}|{Units.TempShort(t.GpuPeak)}#{TempColor(t.GpuPeak, p).ToArgb():X}";
+                default:
+                    return null;
+            }
+        }
+        finally
+        {
+            Gray = false;
+        }
+    }
+
     // Grayscale: labels, dots and captions grey, readings white (temperatures too); see WidgetConfig.Grayscale.
     [ThreadStatic] private static bool Gray;
 

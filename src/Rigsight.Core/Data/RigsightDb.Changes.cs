@@ -66,9 +66,14 @@ public sealed partial class RigsightDb
         var changes = new List<SystemChange>();
 
         using var tx = BeginTransaction();
+        var goneSince = HoldMissingCards(now, known, before[Inventory.Gpu], at);
         foreach (var (kind, items) in now)
         {
-            if (known.Contains(kind)) changes.AddRange(Inventory.Diff(kind, before[kind], items, at));
+            if (known.Contains(kind))
+                foreach (var change in Inventory.Diff(kind, before[kind], items, at))
+                    // A card gone for a second reading was last there before the first: it's dated then.
+                    changes.Add(kind == Inventory.Gpu && goneSince.TryGetValue(change.Subject, out long since) && change.Title.StartsWith("Graphics card removed", StringComparison.Ordinal)
+                        ? change with { Time = TimeUtil.FromUnix(since) } : change);
             // A list is replaced whole; a fact that couldn't be read this time keeps its last value.
             if (Inventory.IsList(kind) || !known.Contains(kind))
             {
@@ -87,6 +92,40 @@ public sealed partial class RigsightDb
         SetMeta(InventoryOwnerKey, owner);
         tx.Commit();
         return changes;
+    }
+
+    private const string CardsGoneKey = "inventory_cards_gone";
+
+    /// <summary>
+    /// A graphics card isn't taken as removed the first time it's missing from a reading: while its driver is being
+    /// installed Windows runs it on a stand-in driver for a minute or two, and a reading that lands then doesn't see it
+    /// (on a PC with a second card, that was "Graphics card removed", then "added" ten minutes later). Missing once, it's
+    /// kept in the list as it was and only noted; missing again at the next reading, it's gone. Returns the cards now
+    /// taken as gone ("gpu:key") and when each was first missed (Unix seconds).
+    /// </summary>
+    private Dictionary<string, long> HoldMissingCards(Dictionary<string, List<InventoryItem>> now, HashSet<string> known, IEnumerable<InventoryItem> before, DateTime at)
+    {
+        var gone = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        if (!known.Contains(Inventory.Gpu) || !now.TryGetValue(Inventory.Gpu, out var cards)) return gone;
+
+        var missed = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in (GetMeta(CardsGoneKey) ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            if (entry.LastIndexOf('|') is > 0 and var bar && long.TryParse(entry[(bar + 1)..], out long ts)) missed[entry[..bar]] = ts;
+
+        var held = new List<string>();
+        foreach (var card in before.ToList())
+        {
+            if (cards.Any(c => c.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase))) continue;
+            if (missed.TryGetValue(card.Key, out long since))
+            {
+                gone[$"{Inventory.Gpu}:{card.Key}"] = since;
+                continue;
+            }
+            cards.Add(card);
+            held.Add($"{card.Key}|{TimeUtil.ToUnix(at)}");
+        }
+        SetMeta(CardsGoneKey, string.Join('\n', held));
+        return gone;
     }
 
     /// <summary>Until when the event logs were read for drivers and updates (Unix seconds), if ever.</summary>

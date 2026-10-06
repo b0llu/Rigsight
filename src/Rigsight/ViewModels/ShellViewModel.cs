@@ -200,8 +200,25 @@ public sealed partial class ShellViewModel : ObservableObject
     ];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText))]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
     private bool _isConnected;
+
+    /// <summary>
+    /// The running agent's version when it isn't this window's (null: the same, or not known). An update that couldn't
+    /// replace a running agent leaves the old one answering a newer window: what the newer one added arrives empty, and
+    /// pages looked blank with nothing to say why.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
+    private string? _otherAgentVersion;
+
+    public bool AgentOutOfDate => IsConnected && OtherAgentVersion is not null;
+
+    private static readonly string AppVersion = typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+
+    /// <summary>The agent's version if it differs from the app's. A test copy pairs with whatever agent the test gives it.</summary>
+    internal static string? OtherVersion(string? agent, string app, bool testCopy) =>
+        testCopy || string.IsNullOrWhiteSpace(agent) || agent == app ? null : agent;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText))]
@@ -212,14 +229,15 @@ public sealed partial class ShellViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(AgentHint))]
     private string _agentStatus = "";
 
-    public bool ShowAgentWarning => !IsConnected || !AgentIsAdmin;
+    public bool ShowAgentWarning => !IsConnected || !AgentIsAdmin || AgentOutOfDate;
 
     public string AgentHint =>
         !string.IsNullOrEmpty(AgentStatus) ? AgentStatus
+        : AgentOutOfDate ? $"It's version {OtherAgentVersion} and this window is {AppVersion}. Restart it so they match."
         : IsConnected ? "CPU temperatures, fans and voltages need admin rights."
         : "Tracking and some sensors need it.";
 
-    public string AgentButtonText => IsConnected ? "Restart with admin" : "Start agent";
+    public string AgentButtonText => !IsConnected ? "Start agent" : AgentOutOfDate ? "Restart agent" : "Restart with admin";
 
     /// <summary>Raised when the agent asks the app to come to the front.</summary>
     public event Action? ActivateRequested;
@@ -420,6 +438,14 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void StartAgent()
     {
+        // Another version than this window: it's asked to quit, and this install's own is started once it has gone.
+        if (AgentOutOfDate)
+        {
+            AgentStatus = "Restarting the agent…";
+            _startAfterQuit = true;
+            _client.SendCommand("quit");
+            return;
+        }
         // Running but without admin rights: ask it to restart elevated (Windows shows one UAC prompt).
         if (IsConnected && !AgentIsAdmin)
         {
@@ -453,6 +479,8 @@ public sealed partial class ShellViewModel : ObservableObject
         ? "The agent is running but not answering. Restart your PC, then open Rigsight again."
         : "The agent didn't start. Try again and accept the admin prompt. If it still won't, restart your PC.";
 
+    private bool _startAfterQuit;
+
     private void OnConnectionChanged(bool connected)
     {
         bool wasConnected = IsConnected;
@@ -462,10 +490,17 @@ public sealed partial class ShellViewModel : ObservableObject
         if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)
         {
+            OtherAgentVersion = null;
             if (wasConnected) Live.AgentGone();
             // Unknown until the agent says hello again; the sidebar already explains it isn't running.
             AgentIsAdmin = true;
             SettingsPage.AgentIsAdmin = true;
+            // It was asked to quit so this install's own could take its place (see StartAgent).
+            if (_startAfterQuit)
+            {
+                _startAfterQuit = false;
+                StartAgent();
+            }
         }
     }
 
@@ -482,6 +517,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             case "hello":
                 AgentIsAdmin = msg.IsAdmin;
+                OtherAgentVersion = OtherVersion(msg.Version, AppVersion, RigsightPaths.IsTestInstance);
                 // Without admin the agent can't read CPU temps, fans or voltages: offer the UAC prompt once per launch.
                 if (!msg.IsAdmin && !_elevationRequested && !RigsightPaths.IsTestInstance)
                 {

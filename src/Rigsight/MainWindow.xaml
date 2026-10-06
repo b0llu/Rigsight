@@ -317,6 +317,9 @@
                                             <DataTrigger Binding="{Binding IsConnected}" Value="True">
                                                 <Setter Property="Text" Value="Agent running without admin rights" />
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding AgentOutOfDate}" Value="True">
+                                                <Setter Property="Text" Value="Background agent is another version" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
