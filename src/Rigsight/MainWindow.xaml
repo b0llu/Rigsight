@@ -472,6 +472,9 @@
         <!-- Pages (created on first visit, then kept) -->
         <ContentControl x:Name="PageHost" Grid.Column="1" Focusable="False" />
 
+        <!-- Ask: Riggy's bubble in the corner of every page, and the chat that opens from it. -->
+        <views:AskBubble x:Name="AskBubble" Grid.Column="1" DataContext="{Binding Ask}" />
+
         <!-- What's new: once after an update, over the whole window. Closed with the x, Esc or a click outside; every update is in Settings. -->
         <!-- It fades in from code (MainWindow.xaml.cs): a style-triggered animation here kept closed pages in memory. -->
         <Grid x:Name="WhatsNewLayer" Grid.ColumnSpan="2" DataContext="{Binding WhatsNew}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">

@@ -14,6 +14,14 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
+/// <summary>A wording Riggy was taught, as Settings lists it: the wording, and the topic it is read as.</summary>
+public sealed record AskLearnedItem(Core.Ask.AskLearned Learned, string Topic)
+{
+    public string Text => Learned.Text;
+    /// <summary>The wording in quotes, tidied (taking the time out of a question can leave a space before its question mark).</summary>
+    public string Quoted => $"\u201C{Learned.Text.Replace(" ?", "?").Replace(" ,", ",").Trim()}\u201D";
+}
+
 /// <summary>A swatch in Settings' accent row.</summary>
 public sealed record AccentOption(string Key, string Name, System.Windows.Media.Brush Brush);
 
@@ -165,7 +173,19 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// The card Settings scrolls to when it opens, while it needs attention (null: stay at the top). Other cards can join
     /// by naming themselves here and in the view (Attention.Section).
     /// </summary>
-    public string? AttentionSection => SensorsNeedAttention ? "sensors" : null;
+    public string? AttentionSection => _goTo ?? (SensorsNeedAttention ? "sensors" : null);
+
+    private string? _goTo;
+
+    /// <summary>Asks for Settings to be shown at one part of it (Riggy's, from a link in its chat), this once.</summary>
+    public void GoTo(string section)
+    {
+        _goTo = section;
+        OnPropertyChanged(nameof(AttentionSection));
+    }
+
+    /// <summary>The view has scrolled to where it was asked to: the next visit opens as usual.</summary>
+    public void Arrived() => _goTo = null;
 
     /// <summary>
     /// What's left out and why, one part per program's hardware ("Fan hubs:iCUE") plus "safe" or "memory" for a problem.
@@ -297,6 +317,77 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>True until the agent reports otherwise, so no admin warning shows while it isn't connected.</summary>
     [ObservableProperty] private bool _agentIsAdmin = true;
     [ObservableProperty] private string? _statusMessage;
+    /// <summary>Riggy's bubble (Ask) is shown.</summary>
+    public bool ShowAsk
+    {
+        get => S.ShowAsk;
+        set => Set(s => s.ShowAsk = value);
+    }
+
+    public AskViewModel? Ask { get; set; }
+
+    public bool AskHasLearned => AskLearned.Count > 0;
+
+    /// <summary>The wordings Riggy was taught, newest first, each with what it is read as.</summary>
+    public IReadOnlyList<AskLearnedItem> AskLearned => Ask is null ? []
+        : [.. Ask.Learned.Reverse().Select(l => new AskLearnedItem(l, AskViewModel.Topics.FirstOrDefault(t => t.Intent == l.Intent)?.Label ?? l.Intent.ToString()))];
+
+    [RelayCommand]
+    private void ForgetAsk()
+    {
+        Ask?.Forget();
+        OnPropertyChanged(nameof(AskHasLearned));
+        OnPropertyChanged(nameof(AskLearned));
+    }
+
+    /// <summary>The Microsoft runtime Riggy's model needs is missing or old on this PC (see <see cref="AskEmbedder.RuntimeReady"/>).</summary>
+    public bool AskNeedsRuntime => S.ShowAsk && AskEmbedder.FilesPresent && !AskEmbedder.RuntimeReady;
+
+    /// <summary>
+    /// Has the browser fetch the add-on from Microsoft (its own link to the 64-bit Visual C++ Redistributable, the one
+    /// file needed; the page that lists every edition asked people to pick). Rigsight downloads nothing itself.
+    /// </summary>
+    [RelayCommand]
+    private static void GetAskRuntime()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://aka.ms/vs/17/release/vc_redist.x64.exe") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
+    }
+
+    /// <summary>Questions Riggy had no answer for, kept on this PC: to copy and send to whoever can add them.</summary>
+    public int AskUnansweredCount => Ask?.Unanswered.Count ?? 0;
+    public string AskUnansweredText => AskUnansweredCount == 1 ? "1 question, kept on this PC. Nothing is sent." : $"{AskUnansweredCount} questions, kept on this PC. Nothing is sent.";
+    [ObservableProperty] private string? _askCopied;
+
+    [RelayCommand]
+    private void CopyAskUnanswered()
+    {
+        if (Ask is not { Unanswered.Count: > 0 } ask) return;
+        try
+        {
+            System.Windows.Clipboard.SetText("Questions Riggy couldn't answer (Rigsight " + AppVersion + "):" + Environment.NewLine + string.Join(Environment.NewLine, ask.Unanswered.Select(q => "- " + q)));
+            AskCopied = "Copied. Paste it wherever you send feedback.";
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
+    }
+
+    [RelayCommand]
+    private void ForgetAskItem(AskLearnedItem item)
+    {
+        Ask?.Forget(item.Learned);
+        OnPropertyChanged(nameof(AskHasLearned));
+        OnPropertyChanged(nameof(AskLearned));
+    }
+
     public bool AutoUpdate
     {
         get => S.AutoUpdate;
@@ -376,6 +467,21 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         Directory.CreateDirectory(RigsightPaths.DataDir);
         Process.Start(new ProcessStartInfo(RigsightPaths.DataDir) { UseShellExecute = true });
+    }
+
+    /// <summary>Settings → About: opens the licences of what Rigsight includes (a text file installed next to the app).</summary>
+    [RelayCommand]
+    private static void OpenNotices()
+    {
+        string file = Path.Combine(AppContext.BaseDirectory, "THIRD-PARTY-NOTICES.txt");
+        try
+        {
+            if (File.Exists(file)) Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
     }
 
     /// <summary>Settings → About: opens the Buy Me a Coffee page in the browser; the app itself never contacts it.</summary>

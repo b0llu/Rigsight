@@ -84,6 +84,9 @@ public sealed class RigsightSettings
     /// </summary>
     public bool AutoUpdate { get; set; } = true;
 
+    /// <summary>Riggy's bubble in the corner of the window (Ask). Off hides it; nothing of Ask runs then.</summary>
+    public bool ShowAsk { get; set; } = true;
+
     /// <summary>
     /// While an RGB or fan-control app (iCUE, Gigabyte Control Center, Armoury Crate…) is running, don't read the
     /// hardware it controls (motherboard sensor chip, fan hubs, power supply), so the two never talk to it at once.

@@ -1,0 +1,97 @@
+namespace Rigsight.Core.Ask;
+
+/// <summary>
+/// Ways of asking, by what they ask for. A question is read as the intent of the example it sits closest to in
+/// meaning, so these don't have to cover every wording: one of each kind of phrasing is enough. They name no app and
+/// no time (the app in a question is swapped for "this app" or "this game" first, and the time taken out).
+/// </summary>
+public static class AskExamples
+{
+    /// <summary>An example, and whether asking this way asks for a cause.</summary>
+    public sealed record Example(AskIntent Intent, string Text, bool Why = false);
+
+    private static Example[] Of(AskIntent intent, bool why, params string[] texts) => [.. texts.Select(t => new Example(intent, t, why))];
+
+    public static readonly Example[] All =
+    [
+        .. Of(AskIntent.Crashes, true,
+            "why did my pc crash", "what caused the blue screen", "why did my game crash", "why did my computer shut down by itself",
+            "my pc restarted on its own, why", "why did the screen go black while gaming", "why does this game keep crashing",
+            "why did my pc freeze", "what went wrong when it crashed", "what is causing the crashes", "why did it turn off suddenly",
+            "explain the last crash", "what made windows crash", "this game keeps dying on me", "my computer just turned off",
+            "why did this app stop responding", "it just died", "my pc died on me", "the computer went off by itself"),
+        .. Of(AskIntent.Crashes, false,
+            "did my pc crash", "any crashes lately", "how many times did it crash", "show me the crashes", "has this game crashed before",
+            "when was the last crash", "were there any blue screens", "list the problems my pc had", "how often does it crash",
+            "when did it last blue screen", "is this app crashing a lot"),
+        .. Of(AskIntent.Changes, false,
+            "what changed on my pc", "what was installed recently", "did anything update", "which updates were installed",
+            "what did i install", "any new apps on my computer", "what was uninstalled", "when did i update my graphics driver",
+            "when was this app installed", "when did windows last update", "did my drivers change", "what starts with windows now",
+            "was the bios updated", "what is new on my computer", "has anything been removed from my pc", "when did i install this game",
+            "did a setting change", "what programs launch at startup"),
+        .. Of(AskIntent.Temps, false,
+            "how hot did my gpu get", "what was my cpu temperature", "what is the highest temperature", "is my pc overheating",
+            "are my temperatures ok", "how hot does this game make my pc", "is my gpu running hotter than before", "is my cpu too hot",
+            "what are my temps", "which game heats up my pc the most", "is it running warm", "max gpu temp", "is this temperature fine for my graphics card",
+            "are temps getting worse over time", "what was the hottest day", "which game runs hottest", "which game is the most demanding"),
+        .. Of(AskIntent.Usage, false,
+            "how long was i on my pc", "what is my screen time", "how many hours did i use the computer", "how much did i play",
+            "how long did i play this game", "how much time did i spend in this app", "when did i last play this game",
+            "when did i start using my pc", "how late was i up on the computer", "hours played", "have i been gaming more than usual",
+            "when was the last time i opened this app", "what time did i turn on my pc", "how much time do i waste on this app",
+            "time spent gaming", "did i play more", "was i on my pc more", "did i game less", "pc usage", "my usage", "usage",
+            "how many days did i use my pc", "what was my longest session", "which day was i on the most", "how long was this app open", "what time do i usually start", "when do i usually play"),
+        .. Of(AskIntent.TopApps, false,
+            "what did i use the most", "what are my most used apps", "which game did i play the most", "what do i spend my time on",
+            "what apps did i use", "what was i doing on my pc", "top games", "my most played games", "which apps took most of my time",
+            "what did i mostly do"),
+        .. Of(AskIntent.Slow, false,
+            "why is my pc slow", "why was it lagging", "my game is stuttering", "the computer feels sluggish", "why did my fps drop",
+            "what was hogging my cpu", "what is using all my pc's power", "why is everything taking so long",
+            "what was running in the background", "performance got worse", "what was heavy on my pc", "this game ran badly",
+            "something was eating my cpu", "why is this game so laggy"),
+        .. Of(AskIntent.Memory, false,
+            "what is using my ram", "how much memory is used", "which app uses the most memory", "am i running out of ram",
+            "do i need more ram", "memory usage", "what is eating all my memory", "is my ram enough for what i do",
+            "how much ram does this app use"),
+        .. Of(AskIntent.Network, false,
+            "how much data did i use", "what used the most internet", "what was downloading", "did my internet drop",
+            "how fast is my internet", "why is my internet slow", "how much did this app download", "which app is using my bandwidth",
+            "did the wifi disconnect", "how much did i upload", "download speed", "what is hogging the internet",
+            "was my internet cutting out", "how many gb did i download", "what was that big download"),
+        .. Of(AskIntent.Storage, false,
+            "how full is my drive", "how much space is left", "what is taking up space", "why is my disk filling up",
+            "how much free storage do i have", "is my ssd almost full", "disk space", "why is my c drive suddenly full",
+            "what ate my disk space"),
+        .. Of(AskIntent.Fans, false,
+            "are my fans working", "how fast are my fans spinning", "is a fan broken", "why are my fans so loud", "fan speed",
+            "did a fan stop", "is my cpu fan dead", "why is my pc so noisy", "gpu fan rpm"),
+        .. Of(AskIntent.Health, false,
+            "is my pc ok", "how is my pc doing", "is anything wrong with my computer", "anything i should worry about",
+            "give me a summary", "what happened", "how was it", "is my pc healthy", "anything unusual", "recap",
+            "everything alright with my rig", "any problems i should know about", "sum it up for me", "how did my pc do",
+            "is something broken", "is anything broken", "any issues"),
+        .. Of(AskIntent.Specs, false,
+            "what gpu do i have", "what are my pc specs", "which driver version am i on", "how much ram do i have",
+            "what windows version is this", "what is my bios version", "what processor is in this pc", "what graphics card do i have",
+            "which motherboard do i have", "which nvidia driver is installed", "how many apps are installed", "what drives do i have"),
+        .. Of(AskIntent.Help, false,
+            "what can you do", "what can i ask you", "help", "how do you work", "what kind of questions do you answer",
+            "what do you know", "give me some examples"),
+        .. Of(AskIntent.Hello, false, "hi", "hello", "hey there", "good morning", "yo", "sup", "good evening", "how are you", "what's up", "how is it going"),
+        .. Of(AskIntent.Thanks, false, "thanks", "thank you", "great, cheers", "nice one", "ok cool", "awesome", "perfect", "got it", "good bot", "well done",
+            "you are great", "that helped", "bye", "goodbye", "see you later"),
+        .. Of(AskIntent.Who, false,
+            "who are you", "what is your name", "are you an ai", "are you chatgpt", "is this sent to the internet",
+            "where does my data go", "do you use the cloud", "are you a real person", "is this private", "which model are you",
+            "are you gemini", "do you spy on me", "can you see my passwords", "what do you know about me", "who made you", "are you listening to me",
+            "do you send anything anywhere", "is my data safe", "can you read my files"),
+        .. Of(AskIntent.Other, false,
+            "what is the weather today", "write me a poem", "tell me a joke", "who is the president", "write some code for me",
+            "what is the capital of france", "translate this to spanish", "how do i overclock my cpu", "should i buy a new graphics card",
+            "what is the best game", "how do i install windows", "what is the meaning of life", "recommend a movie", "what time is it",
+            "solve this math problem", "who won the match", "what are the best settings for this game", "book me a flight",
+            "is this graphics card worth it", "how do i update my bios", "what should i eat", "play some music"),
+    ];
+}

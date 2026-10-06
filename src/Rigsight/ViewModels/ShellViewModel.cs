@@ -36,6 +36,7 @@ public sealed partial class ShellViewModel : ObservableObject
             Crashes.ShowDay(day);
             CurrentPage = "crashes";
         });
+        Ask = new AskViewModel(Settings, OpenFromAsk);
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
@@ -43,10 +44,11 @@ public sealed partial class ShellViewModel : ObservableObject
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
-        WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: page => CurrentPage = page, factFor: FeatureFactAsync);
+        WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
+        SettingsPage.Ask = Ask;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
@@ -68,6 +70,7 @@ public sealed partial class ShellViewModel : ObservableObject
             Widgets.Refresh();
             Overlay.Refresh();
             SettingsPage.Refresh();
+            Ask.Refresh();
             Sidebar.Refresh();
             UpdateSettingsAttention();
         };
@@ -104,6 +107,13 @@ public sealed partial class ShellViewModel : ObservableObject
         launchCheck.Start();
     }
 
+    /// <summary>A What's new feature's "Open" button: its page, or Riggy's chat over the page that is showing.</summary>
+    private void OpenFeature(string page)
+    {
+        if (page == "ask") Ask.IsOpen = true;
+        else CurrentPage = page;
+    }
+
     /// <summary>What a new feature's page already holds for this PC, for its What's new ("31 changes already found…").</summary>
     private async Task<string?> FeatureFactAsync(string page)
     {
@@ -120,6 +130,32 @@ public sealed partial class ShellViewModel : ObservableObject
     public AppsViewModel Apps { get; }
     public CrashesViewModel Crashes { get; }
     public TimelineViewModel Timeline { get; }
+    public AskViewModel Ask { get; }
+
+    /// <summary>A page an answer points to ("Open Crashes"), on its day when it names one. The chat stays open over it.</summary>
+    private void OpenFromAsk(Core.Ask.AskLink link)
+    {
+        if (link.Page == AskViewModel.SettingsRiggy)
+        {
+            SettingsPage.GoTo("riggy");
+            CurrentPage = "settings";
+            return;
+        }
+        if (link.Day is { } day)
+            switch (link.Page)
+            {
+                case "crashes": Crashes.ShowDay(day); break;
+                case "reports": ReportsPage.ShowDay(day); break;
+            }
+        CurrentPage = link.Page;
+        if (link is { Page: "timeline", Day: { } on }) _ = JumpTimelineAsync(on);
+    }
+
+    private async Task JumpTimelineAsync(DateTime day)
+    {
+        await Timeline.LoadAsync();
+        Timeline.JumpTo(day);
+    }
     public MemoryViewModel Memory { get; }
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }

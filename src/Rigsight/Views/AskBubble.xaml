@@ -1,0 +1,542 @@
+<UserControl x:Class="Rigsight.Views.AskBubble"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:ask="clr-namespace:Rigsight.Core.Ask;assembly=Rigsight.Core"
+             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+             Visibility="{Binding IsEnabled, Converter={StaticResource Vis}}">
+    <UserControl.Resources>
+        <!-- A suggestion to click: a question in a pill. -->
+        <Style x:Key="AskChip" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,6,6,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="13" Padding="11,6">
+                            <ContentPresenter>
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A page to open: filled, with an arrow. -->
+        <Style x:Key="AskLink" TargetType="Button" BasedOn="{StaticResource AskChip}">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource AccentSoftBrush}" CornerRadius="9" Padding="11,6">
+                            <StackPanel Orientation="Horizontal">
+                                <ContentPresenter VerticalAlignment="Center" />
+                                <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="9" Margin="6,1,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Text that is clicked like a link ("Not what I meant"). -->
+        <Style x:Key="AskTextButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Where a question is typed. A style of its own (not the theme's): the theme pads the text, which set the cursor
+             off from the placeholder. -->
+        <Style x:Key="AskBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="18" Padding="14,9">
+                            <Grid>
+                                <!-- 2 px in: where the text box itself starts its text. -->
+                                <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="2,0,0,0"
+                                           IsHitTestVisible="False" Visibility="Collapsed" />
+                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Padding="0" Margin="0" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A question offered while typing: a row, lit when the mouse or the arrow keys are on it. -->
+        <Style x:Key="AskSuggestion" TargetType="ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Padding="9,7">
+                            <DockPanel>
+                                <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE751;" FontFamily="{StaticResource IconFont}" FontSize="11" Foreground="{DynamicResource AccentBrush}"
+                                           VerticalAlignment="Center" Margin="8,1,0,0" Visibility="Hidden" />
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Go" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AskText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="LineHeight" Value="19" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <!-- What the user typed: on the right, in the accent colour. -->
+        <DataTemplate x:Key="UserMessage">
+            <Border HorizontalAlignment="Right" MaxWidth="330" Margin="40,14,0,0" Background="{DynamicResource AccentBrush}" CornerRadius="14,14,4,14" Padding="12,8">
+                <TextBlock Text="{Binding Text}" Style="{StaticResource AskText}" Foreground="{DynamicResource OnAccentBrush}" />
+            </Border>
+        </DataTemplate>
+
+        <!-- Riggy's answer: the verdict, what backs it, what to do, where to see more, what to ask next. -->
+        <DataTemplate x:Key="RiggyMessage">
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ctl:Riggy Width="26" Height="26" VerticalAlignment="Top" Margin="0,0,9,0" Mood="{Binding Mood}" />
+                <StackPanel Grid.Column="1">
+                    <!-- The time this answer is about, when it was carried over from earlier in the chat and isn't today. -->
+                    <WrapPanel Margin="0,0,0,6" Visibility="{Binding HasCarried, Converter={StaticResource Vis}}">
+                        <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="6" Padding="8,2,8,3" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE823;" FontFamily="{StaticResource IconFont}" FontSize="10" Foreground="{DynamicResource WarmBrush}" VerticalAlignment="Center" Margin="0,1,6,0" />
+                                <TextBlock Text="{Binding Answer.Carried}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Button Style="{StaticResource AskTextButton}" Content="Today instead" CommandParameter="{Binding Answer.CarriedInstead}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding DataContext.SuggestCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                ToolTip="Ask the same about today" />
+                    </WrapPanel>
+                    <TextBlock ctl:RichText.Text="{Binding Answer.Lead}" Style="{StaticResource AskText}" FontSize="13.5" LineHeight="20" />
+
+                    <ItemsControl ItemsSource="{Binding Answer.Paragraphs}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock ctl:RichText.Text="{Binding}" Style="{StaticResource AskText}" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- A name that matched no app: the nearest ones, to pick from. -->
+                    <ItemsControl ItemsSource="{Binding AppPicks}" Focusable="False" Margin="0,2,0,0" Visibility="{Binding HasAppPicks, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource AskChip}" Content="{Binding Choice.Name}" CommandParameter="{Binding}" Foreground="{DynamicResource TextBrush}"
+                                        Command="{Binding DataContext.PickAppCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Numbers worth a tile. -->
+                    <ItemsControl ItemsSource="{Binding Answer.Facts}" Focusable="False" Margin="0,4,0,0" Visibility="{Binding HasFacts, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="10,6" Margin="0,6,6,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Label}" FontSize="10.5" Foreground="{DynamicResource MutedBrush}" />
+                                        <TextBlock x:Name="Value" Text="{Binding Value}" FontSize="13.5" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" Margin="0,1,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Good}"><Setter TargetName="Value" Property="Foreground" Value="{DynamicResource GoodBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Warn}"><Setter TargetName="Value" Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Hot}"><Setter TargetName="Value" Property="Foreground" Value="{DynamicResource HotBrush}" /></DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- What was checked, each with a dot in its tone. -->
+                    <!-- Sorted by what it says about the cause ("Points to", "Can't rule out", "Ruled out") where the answer sorts it so. -->
+                    <ItemsControl ItemsSource="{Binding PointGroups}" Focusable="False" Visibility="{Binding HasPoints, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,11,0,0">
+                                    <TextBlock x:Name="Heading" Text="{Binding Title}" Style="{StaticResource Caption}" FontSize="10.5"
+                                               Visibility="{Binding Title, Converter={StaticResource Vis}}" Margin="0,0,0,2" />
+                                    <ItemsControl ItemsSource="{Binding Points}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,5,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="15" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Ellipse x:Name="Dot" Width="7" Height="7" Fill="{DynamicResource FaintBrush}" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="0,6,0,0" />
+                                                    <TextBlock Grid.Column="1" ctl:RichText.Text="{Binding Text}" Style="{StaticResource AskText}" Foreground="{DynamicResource MutedBrush}" />
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Good}"><Setter TargetName="Dot" Property="Fill" Value="{DynamicResource GoodBrush}" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Warn}"><Setter TargetName="Dot" Property="Fill" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Hot}"><Setter TargetName="Dot" Property="Fill" Value="{DynamicResource HotBrush}" /></DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Title}" Value="POINTS TO"><Setter TargetName="Heading" Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding Title}" Value="RULED OUT"><Setter TargetName="Heading" Property="Foreground" Value="{DynamicResource GoodBrush}" /></DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- What led up to it: the minutes before, in order, down a line. -->
+                    <StackPanel Visibility="{Binding HasTrail, Converter={StaticResource Vis}}" Margin="0,13,0,0">
+                        <TextBlock Text="{Binding TrailTitle}" Style="{StaticResource Caption}" FontSize="10.5" Margin="0,0,0,4" />
+                        <ItemsControl ItemsSource="{Binding Answer.Trail}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="58" />
+                                            <ColumnDefinition Width="17" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding When}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,3,0,3" />
+                                        <!-- The line the steps hang on, and each step's dot on it. -->
+                                        <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource StrokeBrush}" HorizontalAlignment="Left" Margin="3,0,0,0" />
+                                        <Ellipse x:Name="Dot" Grid.Column="1" Width="7" Height="7" Fill="{DynamicResource FaintBrush}" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="0,7,0,0" />
+                                        <TextBlock x:Name="What" Grid.Column="2" Text="{Binding Text}" Style="{StaticResource AskText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,3" />
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Warn}"><Setter TargetName="Dot" Property="Fill" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding Tone}" Value="{x:Static ask:AskTone.Hot}">
+                                            <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource HotBrush}" />
+                                            <Setter TargetName="What" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- What to do about it. -->
+                    <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="10" Padding="11,9" Margin="0,11,0,0"
+                            Visibility="{Binding Answer.Advice, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="&#xEA80;" FontFamily="{StaticResource IconFont}" FontSize="13" Foreground="{DynamicResource AccentBrush}" Margin="0,3,9,0" VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding Answer.Advice}" Style="{StaticResource AskText}" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- What it can't say. -->
+                    <TextBlock Text="{Binding Answer.Note}" Style="{StaticResource AskText}" FontSize="11.5" LineHeight="16" Foreground="{DynamicResource MutedBrush}" Margin="0,9,0,0"
+                               Visibility="{Binding Answer.Note, Converter={StaticResource Vis}}" />
+
+                    <!-- Taught just now. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,9,0,0" Visibility="{Binding Learned, Converter={StaticResource Vis}}">
+                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding Learned}" FontSize="11.5" Foreground="{DynamicResource GoodBrush}" />
+                    </StackPanel>
+
+                    <!-- Where to see more. -->
+                    <ItemsControl ItemsSource="{Binding Answer.Links}" Focusable="False" Margin="0,4,0,0" Visibility="{Binding HasLinks, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource AskLink}" Content="{Binding Text}" CommandParameter="{Binding}"
+                                        Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- How it was read, and the way to say it was read wrong. -->
+                    <DockPanel Margin="0,9,0,0" Visibility="{Binding CanCorrect, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource AskTextButton}" Content="Not what I meant" CommandParameter="{Binding}"
+                                Command="{Binding DataContext.CorrectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                ToolTip="Pick what you meant, and Riggy will read it that way next time" />
+                        <TextBlock Text="{Binding Answer.Read}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"
+                                   ToolTip="How your question was read" />
+                    </DockPanel>
+                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="11,8,5,11" Margin="0,7,0,0" Visibility="{Binding Correcting, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="What was it about?" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                            <ItemsControl ItemsSource="{Binding Choices}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource AskChip}" Content="{Binding Topic.Label}" CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.TeachCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- What to ask next. -->
+                    <ItemsControl ItemsSource="{Binding Answer.FollowUps}" Focusable="False" Margin="0,3,0,0" Visibility="{Binding HasFollowUps, Converter={StaticResource Vis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource AskChip}" CommandParameter="{Binding}"
+                                        Command="{Binding DataContext.SuggestCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <!-- The chat itself. It exists only while open (see the host at the end): kept in the window while closed, it
+             held on to closed pages after a theme change, as the What's new card did (a WPF quirk; MemoryLeakTests caught it). -->
+        <DataTemplate x:Key="ChatPanel">
+        <ctl:SmoothBorder x:Name="Panel" Width="450" Margin="0,0,10,80" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                  Height="{Binding PanelHeight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                                  AutomationProperties.Name="Ask Riggy"
+                                  Opacity="0" Loaded="Panel_Loaded">
+                <!-- Unseen until it is built, then it fades in (Panel_Loaded): shown at once, it flashed
+                     whole for a frame before the fade began. -->
+                <DockPanel>
+                    <!-- Who you're talking to. -->
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="16,12,10,12">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="Close" AutomationProperties.Name="Close chat">
+                                <TextBlock Text="&#xE711;" />
+                            </Button>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding ClearCommand}" ToolTip="Start over" AutomationProperties.Name="Start over"
+                                    Visibility="{Binding IsEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                <TextBlock Text="&#xE72C;" />
+                            </Button>
+                            <ctl:Riggy Width="34" Height="34" Mood="{Binding Mood}" Margin="0,0,11,0" />
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Riggy" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="5" Padding="6,1,6,2" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            ToolTip="Ask is new and still learning. Tell it when it reads a question wrong.">
+                                        <TextBlock Text="EXPERIMENTAL" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Ask about this PC" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- The model can't run on this PC: said once, at the top, with what would fix it. -->
+                <Border DockPanel.Dock="Top" Background="{DynamicResource WarmSoftBrush}" Padding="16,9" Visibility="{Binding SimpleModeNote, Converter={StaticResource Vis}}">
+                    <TextBlock FontSize="11.5" LineHeight="16" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}">
+                        <Run Text="{Binding SimpleModeNote, Mode=OneWay}" />
+                        <Hyperlink Command="{Binding GetRuntimeCommand}" Focusable="False" Foreground="{DynamicResource WarmBrush}">Get it in Settings</Hyperlink>
+                    </TextBlock>
+                </Border>
+
+                <!-- Where you type. -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,10">
+                        <!-- While typing: questions that fit, and that have an answer. Click one, or use the arrow keys and Enter. -->
+                        <!-- A card of its own, lifted off the chat by its fill, outline and heading, so it reads as a menu and not as more of the conversation. -->
+                        <Border Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="14" Padding="6,9,6,6" Margin="0,0,0,8"
+                                Visibility="{Binding Suggestions, Converter={StaticResource Vis}}">
+                            <StackPanel>
+                                <DockPanel Margin="9,0,9,5">
+                                    <TextBlock DockPanel.Dock="Right" Text="↑ ↓ to choose · Enter to ask" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="QUESTIONS I CAN ANSWER" Style="{StaticResource Caption}" FontSize="10" Foreground="{DynamicResource AccentBrush}" />
+                                </DockPanel>
+                                <ListBox x:Name="Suggestions" ItemsSource="{Binding Suggestions}" SelectedIndex="{Binding SelectedSuggestion}" ItemContainerStyle="{StaticResource AskSuggestion}"
+                                         Background="Transparent" BorderThickness="0" Padding="0" Focusable="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         PreviewMouseLeftButtonUp="Suggestions_Click" AutomationProperties.Name="Suggested questions">
+                                    <ListBox.Template>
+                                        <ControlTemplate TargetType="ListBox">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ListBox.Template>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock ctl:RichText.Text="{Binding Rich}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Command="{Binding SendCommand}" Width="36" Height="36" Margin="8,0,0,0" Cursor="Hand" Focusable="False"
+                                    ToolTip="Send" AutomationProperties.Name="Send">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{DynamicResource AccentBrush}" CornerRadius="18">
+                                            <TextBlock Text="&#xE724;" FontFamily="{StaticResource IconFont}" FontSize="14" Foreground="{DynamicResource OnAccentBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                            <TextBox x:Name="Box" Style="{StaticResource AskBox}" Text="{Binding Input, UpdateSourceTrigger=PropertyChanged}" MaxLength="300"
+                                     PreviewKeyDown="Box_KeyDown" Tag="Ask about your PC…" AutomationProperties.Name="Your question" />
+                        </DockPanel>
+                        <TextBlock Text="Answers come from this PC's own records. Nothing you type leaves it." FontSize="10.5" Foreground="{DynamicResource FaintBrush}"
+                                   HorizontalAlignment="Center" Margin="0,7,0,0" />
+                    </StackPanel>
+
+                    <!-- The conversation. -->
+                    <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="16,0,12,0">
+                        <StackPanel Margin="0,0,0,14">
+                            <!-- Before the first question: who Riggy is, and questions to start from. -->
+                            <StackPanel Margin="0,26,0,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                                <ctl:Riggy Width="76" Height="76" HorizontalAlignment="Center" Mood="Happy" />
+                                <TextBlock Text="Hi, I'm Riggy" FontSize="16" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                                <TextBlock Text="Ask me about this PC in your own words: crashes, heat, what changed, where your time went."
+                                           Style="{StaticResource AskText}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" TextAlignment="Center" Margin="18,6,18,0" />
+                                <TextBlock Text="TRY ASKING" Style="{StaticResource Caption}" FontSize="10.5" Margin="0,22,0,0" />
+                                <ItemsControl ItemsSource="{Binding Starters}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource AskChip}" CommandParameter="{Binding}"
+                                                    Command="{Binding DataContext.SuggestCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <ItemsControl x:Name="List" ItemsSource="{Binding Messages}" Focusable="False">
+                                <ItemsControl.ItemTemplateSelector>
+                                    <ctl:AskMessageTemplates User="{StaticResource UserMessage}" Riggy="{StaticResource RiggyMessage}" />
+                                </ItemsControl.ItemTemplateSelector>
+                            </ItemsControl>
+
+                            <!-- While the records are being read. -->
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0" Visibility="{Binding IsThinking, Converter={StaticResource Vis}}">
+                                <ctl:Riggy Width="26" Height="26" Mood="Thinking" Margin="0,0,9,0" />
+                                <TextBlock Text="Looking through the records…" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </ctl:SmoothBorder>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- The chat: opens above the bubble, and is built when it does. -->
+        <ContentControl x:Name="PanelHost" Focusable="False" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <!-- Nothing to show while closed: content without a template would be drawn as its type's name. -->
+                    <Setter Property="Content" Value="{x:Null}" />
+                    <Setter Property="ContentTemplate" Value="{x:Null}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                            <Setter Property="Content" Value="{Binding}" />
+                            <Setter Property="ContentTemplate" Value="{StaticResource ChatPanel}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+
+        <!-- It leans in from the window's bottom right corner, a third of it out of sight; comes out whole and upright when the mouse is
+             on the corner (or the chat is open), and opens the chat on a click. The button itself stays put and only the face
+             inside it moves: a button that slid out from under the mouse would lose it and slide back, over and over. -->
+        <Button x:Name="Bubble" Command="{Binding ToggleCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="84" Height="84" Cursor="Hand" Focusable="False"
+                ToolTip="Ask Riggy about this PC" AutomationProperties.Name="Ask Riggy" MouseEnter="Bubble_Hover" MouseLeave="Bubble_Hover">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+            <ctl:Riggy Width="66" Height="66" Mood="{Binding Mood}" IsHitTestVisible="False">
+                <!-- Kept as a small picture (twice its size, so it stays sharp at an angle): leaning in and out then moves
+                     the picture, where it would otherwise be drawn again from its shapes on every frame. -->
+                <ctl:Riggy.CacheMode>
+                    <BitmapCache RenderAtScale="2" />
+                </ctl:Riggy.CacheMode>
+                <ctl:Riggy.RenderTransform>
+                    <TransformGroup>
+                        <RotateTransform x:Name="Lean" Angle="-30" CenterX="33" CenterY="35" />
+                        <TranslateTransform x:Name="Peek" X="21" Y="23" />
+                    </TransformGroup>
+                </ctl:Riggy.RenderTransform>
+            </ctl:Riggy>
+        </Button>
+    </Grid>
+</UserControl>

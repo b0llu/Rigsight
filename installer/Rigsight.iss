@@ -39,6 +39,7 @@ SetupLogging=yes
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
 Name: "pawnio"; Description: "Install the PawnIO driver (needed for CPU and motherboard temperatures)"; GroupDescription: "Sensors:"; Check: not PawnIOInstalled
 Name: "rtss"; Description: "Install RivaTuner Statistics Server (shows the game overlay inside fullscreen games)"; GroupDescription: "Game overlay:"; Check: not RtssInstalled
+Name: "vcruntime"; Description: "Install the Microsoft Visual C++ runtime (Riggy needs it to understand questions)"; GroupDescription: "Riggy:"; Check: not VcRuntimeReady
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -121,6 +122,24 @@ begin
   if not Result then Result := RtssListed(HKLM32) or RtssListed(HKLM64);
 end;
 
+// One file of the Visual C++ runtime, there and recent enough (14.40 or later: older ones have crashed what Riggy runs on).
+function VcRuntimeFile(const Name: String): Boolean;
+var
+  MS, LS: Cardinal;
+begin
+  Result := GetVersionNumbers(ExpandConstant('{sys}\') + Name, MS, LS) and
+    (((MS shr 16) > 14) or (((MS shr 16) = 14) and ((MS and $FFFF) >= 40)));
+end;
+
+// The Visual C++ runtime that the part of Riggy which reads questions needs: Windows doesn't include it, though most
+// PCs have it from a game or another app. Without it Riggy still answers, reading questions by their words alone
+// (the app checks the same four files before it loads anything: see AskEmbedder.RuntimeReady).
+function VcRuntimeReady: Boolean;
+begin
+  Result := VcRuntimeFile('msvcp140.dll') and VcRuntimeFile('msvcp140_1.dll') and
+    VcRuntimeFile('vcruntime140.dll') and VcRuntimeFile('vcruntime140_1.dll');
+end;
+
 procedure StopRigsight;
 var
   Code: Integer;
@@ -171,11 +190,14 @@ begin
     if CompareText(ParamStr(I), '/RELAUNCH') = 0 then Result := True;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
+// What setup offers beside Rigsight itself, each only when it's ticked (and it's only offered where it's missing).
+procedure InstallExtras;
 var
   Code: Integer;
 begin
-  if CurStep <> ssPostInstall then exit;
+  if WizardIsTaskSelected('vcruntime') then
+    Code := RunStep('Installing the Microsoft Visual C++ runtime...', 'Downloading with winget. This can take a minute.',
+      ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-vcruntime');
   if WizardIsTaskSelected('pawnio') then
     Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading with winget. This can take a minute or two.',
       ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-pawnio');
@@ -184,6 +206,17 @@ begin
   if WizardIsTaskSelected('rtss') then
     RtssCode := RunStep('Installing RivaTuner Statistics Server...', 'Downloading with winget. This can take a few minutes.',
       ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-rtss');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
+begin
+  if CurStep <> ssPostInstall then exit;
+  // Only when someone runs setup themselves. An update installed without a window ("Restart" in the app, or by itself
+  // as Windows starts) only updates Rigsight: the extra minutes would look like something broke, and whatever was
+  // removed since the first install stays removed. The app says what's missing instead.
+  if not WizardSilent then InstallExtras;
   // Setup already has admin rights: use them to register "start with Windows" and start the agent,
   // so the user never sees a second UAC prompt. After RivaTuner, so the agent can start it.
   Code := RunStep('Starting the Rigsight background agent...', '',

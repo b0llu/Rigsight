@@ -34,19 +34,19 @@ public static class Motion
                 if (dictionary.Contains(key)) dictionary[key] = new Duration(TimeSpan.Zero);
     }
 
-    /// <summary>A card over the window opening: fades in and grows from just under its size.</summary>
+    /// <summary>
+    /// A card over the window opening: it fades in, in place. It doesn't grow or slide: text drawn while it moves or is
+    /// scaled is drawn soft, and stays so for a second or two after the animation before it is drawn sharp again
+    /// (measured: pictures of the chat at set moments after opening; with a fade alone the text is sharp throughout).
+    /// </summary>
     public static void PopIn(FrameworkElement element)
     {
         if (!Enabled) return;
-        var scale = new ScaleTransform(0.96, 0.96);
-        var original = element.RenderTransform;
-        element.RenderTransformOrigin = new Point(0.5, 0.5);
-        element.RenderTransform = scale;
-        var grow = new DoubleAnimation(0.96, 1, CardDuration) { EasingFunction = Ease, FillBehavior = FillBehavior.Stop };
-        grow.Completed += (_, _) => element.RenderTransform = original;
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow.Clone());
-        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, CardDuration) { EasingFunction = Ease, FillBehavior = FillBehavior.Stop });
+        var fade = new DoubleAnimation(0, 1, CardDuration) { EasingFunction = Ease, FillBehavior = FillBehavior.Stop };
+        // Taken off by hand when it ends: an ended fade stays attached until memory is next tidied, and for those few
+        // seconds the card is still drawn as a see-through layer, where text is soft (no ClearType) however solid it looks.
+        fade.Completed += (_, _) => element.BeginAnimation(UIElement.OpacityProperty, null);
+        element.BeginAnimation(UIElement.OpacityProperty, fade);
     }
 
     private static T Frozen<T>(T freezable) where T : Freezable

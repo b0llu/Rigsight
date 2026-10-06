@@ -43,7 +43,18 @@ public partial class MainWindow : Window
             {
                 _vm.WhatsNew.CloseCommand.Execute(null);
                 e.Handled = true;
+                return;
             }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Ask.IsOpen)
+            {
+                _vm.Ask.IsOpen = false;
+                e.Handled = true;
+            }
+        };
+        // A click anywhere outside the chat closes it (the click still does what it was for).
+        PreviewMouseDown += (_, e) =>
+        {
+            if (_vm.Ask.IsOpen && !AskBubble.Holds(e.OriginalSource as DependencyObject)) _vm.Ask.IsOpen = false;
         };
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };
@@ -64,7 +75,7 @@ public partial class MainWindow : Window
         ShowPage(_vm.CurrentPage);
     }
 
-    /// <summary>The What's new card fades in over the window and grows into place when it opens.</summary>
+    /// <summary>The What's new card fades in over the window when it opens.</summary>
     private void OnWhatsNewOpened(object? sender, PropertyChangedEventArgs e)
     {
         if (!_vm.WhatsNew.IsOpen || !Motion.Enabled) return;

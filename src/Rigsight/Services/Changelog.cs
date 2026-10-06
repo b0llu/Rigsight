@@ -27,7 +27,7 @@ public sealed record ReleaseSection(string Title, string Kind, string[] Items);
 /// do, and the page that opens it, so people see there is something new and go and try it.
 /// </summary>
 /// <param name="icon">An icon-font character, or "fan" / "network" for the drawn ones (as in the sidebar).</param>
-/// <param name="page">The page's navigation key ("timeline").</param>
+/// <param name="page">The page's navigation key ("timeline"), or "ask" for Riggy's chat, which opens over whatever page is showing.</param>
 public sealed partial class ReleaseFeature(string name, string pitch, string[] points, string page, string icon, bool isPage = true) : ObservableObject
 {
     public string Name { get; } = name;
@@ -37,7 +37,7 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
     public string Icon { get; } = icon;
 
     /// <summary>A page of its own ("NEW PAGE"), or something new on a page there already was ("NEW FEATURE").</summary>
-    public string Tag { get; } = isPage ? "NEW PAGE" : "NEW FEATURE";
+    public string Tag { get; init; } = isPage ? "NEW PAGE" : "NEW FEATURE";
 
     /// <summary>The button names the page it opens, which for a feature isn't always the feature's own name.</summary>
     public string OpenText { get; init; } = $"Open {name}";
@@ -59,6 +59,14 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.16.0", 10, 6,
+            feature: new("Riggy", "A helper in the corner you can ask about your PC.",
+                ["Ask why it crashed, how hot it got, what changed or where your time went.",
+                    "Answers come from your PC's own records. Nothing you type leaves it.",
+                    "Experimental and still learning: tell it when it reads you wrong.",
+                    "Not for you? Turn Riggy off in Settings."],
+                "ask", "\uE8BD", isPage: false) { Tag = "EXPERIMENTAL", OpenText = "Open Riggy" },
+            added: ["The licences of what Rigsight is built with, in Settings."]),
         V("0.15.5", 10, 6,
             better: ["Rigsight says so when its background agent is another version, and restarts it.",
                 "The Today and Now playing widgets use less CPU."],

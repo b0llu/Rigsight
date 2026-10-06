@@ -600,6 +600,9 @@ internal static class Program
                 _ when m.Key.Contains("cpu_pct") => b * 1.5 + 0.5,
                 _ when m.Key.Contains("cpu_ms") => b * 1.5 + 150,
                 _ when m.Key.EndsWith("_ms") => b * 1.5 + 500,
+                // Handles, GDI and USER objects are whole numbers over a few rounds: one late step of two is already 0.6
+                // a round, with nothing leaking (a real leak is one or more per page visit: fifteen a round and up).
+                _ when m.Key is "app.leak.handles_per_cycle" or "app.leak.gdi_per_cycle" or "app.leak.user_per_cycle" => Math.Max(b * 2, 0) + 1,
                 _ when m.Key.Contains("per_cycle") => Math.Max(b * 2, 0) + 0.5,
                 _ when m.Key.EndsWith("_mb") => b * 1.2 + 10,
                 _ => b * 1.2 + 20,

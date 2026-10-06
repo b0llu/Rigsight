@@ -29,8 +29,12 @@ public partial class SettingsView : UserControl
 
     private void ScrollToAttention()
     {
-        if (DataContext is not SettingsViewModel { AttentionSection: { } section }) return;
+        if (DataContext is not SettingsViewModel { AttentionSection: { } section } vm) return;
         // After layout, so the section's position is known.
-        Dispatcher.BeginInvoke(() => Attention.ScrollTo(Scroller, section), DispatcherPriority.Loaded);
+        Dispatcher.BeginInvoke(() =>
+        {
+            Attention.ScrollTo(Scroller, section);
+            vm.Arrived();
+        }, DispatcherPriority.Loaded);
     }
 }

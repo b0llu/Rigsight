@@ -30,6 +30,16 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- Ask: runs the small model that reads a question's meaning (see Services\AskEmbedder.cs). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The model Ask reads questions with (all-MiniLM-L6-v2, quantized; Apache 2.0) and its vocabulary. -->
+    <Content Include="..\..\assets\ask\model.onnx" Link="ask\model.onnx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\ask\vocab.txt" Link="ask\vocab.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The licences of what Rigsight includes, installed next to it (Settings > About opens it). -->
+    <Content Include="..\..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
