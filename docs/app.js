@@ -3,6 +3,41 @@
   const REPO = "b0llu/Rigsight";
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ── Groups of pages under one heading: pick one by name ──
+  // The page works without this (every page shows, one under the other); html.js is what turns the names on.
+  document.documentElement.classList.add("js");
+  document.querySelectorAll("[data-tabs]").forEach((group, g) => {
+    const tabs = [...group.querySelectorAll(".tab")];
+    const panes = [...group.querySelectorAll(".pane")];
+    const show = (i, focus) => {
+      tabs.forEach((tab, n) => {
+        tab.setAttribute("aria-selected", n === i ? "true" : "false");
+        tab.tabIndex = n === i ? 0 : -1;
+        panes[n].inert = n !== i;
+      });
+      if (focus) tabs[i].focus();
+      // A clip in a page that isn't showing doesn't play.
+      panes.forEach((pane, n) => pane.querySelectorAll("video").forEach(v => { if (n !== i) v.pause(); else if (v.dataset.on) v.play().catch(() => { }); }));
+    };
+    tabs.forEach((tab, i) => {
+      tab.id = `tab-${g}-${i}`;
+      panes[i].id = `pane-${g}-${i}`;
+      panes[i].setAttribute("role", "tabpanel");
+      panes[i].setAttribute("aria-labelledby", tab.id);
+      tab.setAttribute("aria-controls", panes[i].id);
+      tab.addEventListener("click", () => show(i));
+      tab.addEventListener("keydown", e => {
+        const to = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length
+          : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+        if (to < 0) return;
+        e.preventDefault();
+        show(to, true);
+      });
+    });
+    show(0);
+  });
+
+
   // ── Latest release: every Download button points straight at the newest installer ──
   // Buttons start as links to the Releases page, so they still work if this request fails.
   const CACHE_KEY = "rigsight-latest-release";
@@ -68,7 +103,7 @@
     const seen = new IntersectionObserver(entries => {
       for (const { target: v, isIntersecting } of entries) {
         v.dataset.on = isIntersecting ? "1" : "";
-        if (isIntersecting && !document.hidden) v.play().catch(() => { /* blocked: the poster stays */ });
+        if (isIntersecting && !document.hidden && !v.closest("[inert]")) v.play().catch(() => { /* blocked: the poster stays */ });
         else if (!v.paused) v.pause();
       }
     }, { threshold: 0.05 });
