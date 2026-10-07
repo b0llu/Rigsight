@@ -302,23 +302,24 @@ public sealed class KindBrushConverter : IValueConverter
     private static readonly Dictionary<(string Key, bool Soft), SolidColorBrush> Cache = [];
     private static int _cacheTheme = -1;
 
+    // A tag's colour says what kind of thing it is, so none is green, amber, orange or red (those say how a reading is doing).
     public static string ColorKey(object? value) => value switch
     {
-        SensorKind.Temperature => "OrangeColor",
+        SensorKind.Temperature => "MutedColor",
         SensorKind.Load => "CpuColor",
         SensorKind.Clock or SensorKind.Frequency or SensorKind.Timing => "PurpleColor",
-        SensorKind.Power or SensorKind.Energy or SensorKind.Current => "WarmColor",
+        SensorKind.Power or SensorKind.Energy or SensorKind.Current => "MutedColor",
         SensorKind.Voltage => "CoolColor",
-        SensorKind.Fan or SensorKind.Flow or SensorKind.Control => "GoodColor",
+        SensorKind.Fan or SensorKind.Flow or SensorKind.Control => "MutedColor",
         SensorKind.Data or SensorKind.SmallData or SensorKind.Throughput => "PinkColor",
         SensorKind => "MutedColor",
         "Cpu" => "CpuColor",
         "GpuNvidia" or "GpuAmd" or "GpuIntel" => "GpuColor",
         "Memory" => "PurpleColor",
         "Storage" => "CoolColor",
-        "Motherboard" or "SuperIO" or "EmbeddedController" => "OrangeColor",
-        "Cooler" => "GoodColor",
-        "Psu" or "Battery" => "WarmColor",
+        "Motherboard" or "SuperIO" or "EmbeddedController" => "MutedColor",
+        "Cooler" => "MutedColor",
+        "Psu" or "Battery" => "MutedColor",
         "Network" => "PinkColor",
         _ => "MutedColor",
     };

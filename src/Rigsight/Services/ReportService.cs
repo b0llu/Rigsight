@@ -120,6 +120,9 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>Minute-by-minute system history for [from, to) (Unix seconds).</summary>
     public Task<List<SystemMinute>?> MinutesAsync(long from, long to) => Run(db => db.GetMinutes(from, to));
 
+    /// <summary>Hour-by-hour (or day-by-day) temperatures for [from, to) (Unix seconds): each one's average, highest and lowest.</summary>
+    public Task<List<SystemMinute>?> TempHoursAsync(long from, long to, bool byDay = false) => Run(db => db.GetTempHours(from, to, byDay));
+
     public Task<List<AppRow>?> KnownAppsAsync() => Run(db => db.LoadApps());
 
     /// <summary>What the Fans page shows: the fans, their minutes and the PC's from <paramref name="from"/> (today), their

@@ -391,6 +391,47 @@ public sealed class ControlTests
         Ui.AssertNoProblems($"line chart, {window} s");
     }
 
+    [Theory]
+    [InlineData(604800)]
+    [InlineData(2592000)]
+    [InlineData(31536000)]
+    public void A_week_or_month_is_drawn_from_hours_alone(int window)
+    {
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            // Ten minutes of live readings (never drawn on these windows) and seventy days of hours (a year: 800 days).
+            bool year = window == 31536000;
+            int step = year ? 86400 : 3600, count = year ? 800 : 70 * 24;
+            ChartSeries Hours(string label, string color, double level)
+            {
+                var series = Series(label, 600, 0, i => level, color);
+                long start = Now / 1000 / 3600 * 3600 - (long)count * step;
+                series.LoadMinutes(Enumerable.Range(0, count).Select(h => new Rigsight.Core.Data.SystemMinute { Ts = start + (long)h * step, CpuTemp = level + h % 24 }), step);
+                return series;
+            }
+            // The week, or the month, that the day five weeks ago is in (the year: last year): all of it is in those hours.
+            var chart = new LineChart { WindowSeconds = window, Day = year ? DateTime.Today.AddYears(-1) : DateTime.Today.AddDays(-35), Series = [Hours("CPU", "CpuColor", 40), Hours("GPU", "GpuColor", 50)] };
+            int drawn = Draw.Inked(Draw.Render(chart, 900, 300));
+            Assert.True(drawn > 1000);
+            // Hovering says the hour.
+            Draw.Set(chart, "_hoverX", 500.0);
+            chart.InvalidateVisual();
+            Assert.True(Draw.Inked(Draw.Again(chart)) > drawn + 2000, "no hover box over the hours");
+            Draw.Set(chart, "_hoverX", null);
+
+            // Minutes left over from another range (the hours haven't arrived yet) aren't drawn as if they were hours.
+            var waiting = new LineChart { WindowSeconds = window, Series = [Series("CPU", 600, 1440, i => 40 + i % 30)] };
+            var empty = new LineChart { WindowSeconds = window, Series = [Series("CPU", 0, 0, i => 0)] };
+            Assert.Equal(Draw.Inked(Draw.Render(empty, 900, 300)), Draw.Inked(Draw.Render(waiting, 900, 300)));
+            // A week from before the hours begin says so.
+            var before = new LineChart { WindowSeconds = window, Day = DateTime.Today.AddYears(-5), Series = [Hours("CPU", "CpuColor", 40)] };
+            int said = Draw.Inked(Draw.Render(before, 900, 300));
+            Assert.True(said > 100 && said != drawn, "nothing said for a week with no hours");
+        });
+        Ui.AssertNoProblems($"line chart, {window} s");
+    }
+
     [Fact]
     public void Line_chart_with_nothing_says_it_is_collecting()
     {

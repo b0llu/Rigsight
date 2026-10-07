@@ -70,7 +70,7 @@
 
                             <TextBlock Text="{Binding Reason}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             <TextBlock Style="{StaticResource Line}">
-                                <Run Text="What to try: " FontWeight="SemiBold" Foreground="{DynamicResource GpuBrush}" /><Run Text="{Binding Advice, Mode=OneWay}" />
+                                <Run Text="What to try: " FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" /><Run Text="{Binding Advice, Mode=OneWay}" />
                             </TextBlock>
                             <DockPanel Margin="0,6,0,0" Visibility="{Binding ContextText, Converter={StaticResource Vis}}">
                                 <TextBlock Text="&#xE823;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Top" Margin="0,2,8,0" />
@@ -283,7 +283,7 @@
                     </DockPanel>
                     <ItemsControl ItemsSource="{Binding GroupsShown}" ItemTemplate="{StaticResource GroupTemplate}" />
                     <StackPanel HorizontalAlignment="Center" Margin="0,24" Visibility="{Binding HasCrashes, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" />
                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
                     </StackPanel>
                 </StackPanel>

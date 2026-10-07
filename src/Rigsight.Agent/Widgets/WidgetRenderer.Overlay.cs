@@ -340,7 +340,7 @@ internal static partial class WidgetRenderer
     /// <summary>A unit that starts with a number ("1% low") needs a space after the value; others sit close ("6.9ms" reads as "6.9 ms").</summary>
     private static string UnitText(Cell c) => char.IsDigit(c.Unit[0]) ? " " + c.Unit : c.Unit;
 
-    private static readonly Color Fps = Color.FromArgb(251, 191, 36);
+    private static readonly Color Fps = Color.FromArgb(244, 114, 182);
 
     /// <summary>Draws the overlay readout. Returns a tiny transparent bitmap when nothing is chosen.</summary>
     public static Bitmap RenderOverlay(OverlaySettings o, WidgetData? data, float scale)

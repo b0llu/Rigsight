@@ -59,6 +59,10 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.17.0", 10, 7,
+            added: ["Week, month and year on the temperature graph: pick any one."],
+            better: ["New GPU line colours: green, amber and red now only mean good, warm and hot.",
+                "The GPU hot spot and memory lines show the average, like the CPU and GPU lines."]),
         V("0.16.1", 10, 6,
             better: ["Hover the temperature graph for each minute's average, highest and lowest."],
             fixedBugs: ["Temperature spikes no longer shift around as the graph moves."]),

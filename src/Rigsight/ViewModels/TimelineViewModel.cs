@@ -319,7 +319,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             if (c == biggest)
             {
                 entry.Effect = _effects[day].Lines;
-                entry.EffectBrush = _effects[day].Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GpuBrush", _ => "MutedBrush" };
+                entry.EffectBrush = _effects[day].Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GoodBrush", _ => "MutedBrush" };
             }
             entries.Add((c.Time, entry));
         }

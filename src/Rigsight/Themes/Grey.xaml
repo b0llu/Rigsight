@@ -15,7 +15,7 @@
     <Color x:Key="AccentColor">#FFFFFF</Color>
     <Color x:Key="OnAccentColor">#1E1E1E</Color>
     <Color x:Key="CpuColor">#6B98FF</Color>
-    <Color x:Key="GpuColor">#3DDC97</Color>
+    <Color x:Key="GpuColor">#22D3EE</Color>
     <Color x:Key="WarmColor">#FBBF24</Color>
     <Color x:Key="HotColor">#F87171</Color>
     <Color x:Key="PurpleColor">#B18CFF</Color>
@@ -49,6 +49,7 @@
     <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentColor}" Opacity="0.14" />
     <SolidColorBrush x:Key="CpuSoftBrush" Color="{StaticResource CpuColor}" Opacity="0.16" />
     <SolidColorBrush x:Key="GpuSoftBrush" Color="{StaticResource GpuColor}" Opacity="0.16" />
+    <SolidColorBrush x:Key="GoodSoftBrush" Color="{StaticResource GoodColor}" Opacity="0.16" />
     <SolidColorBrush x:Key="HotSoftBrush" Color="{StaticResource HotColor}" Opacity="0.14" />
     <SolidColorBrush x:Key="WarmSoftBrush" Color="{StaticResource WarmColor}" Opacity="0.12" />
     <SolidColorBrush x:Key="PurpleSoftBrush" Color="{StaticResource PurpleColor}" Opacity="0.16" />

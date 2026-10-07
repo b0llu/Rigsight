@@ -254,11 +254,11 @@
                                 </StackPanel>
                                 <StackPanel Margin="0,0,6,0">
                                     <TextBlock Text="71°" FontWeight="SemiBold" FontSize="11" Foreground="#FBBF24" />
-                                    <TextBlock Text="GPU" FontWeight="Bold" FontSize="8.5" Foreground="#3DDC97" />
+                                    <TextBlock Text="GPU" FontWeight="Bold" FontSize="8.5" Foreground="#22D3EE" />
                                 </StackPanel>
                                 <StackPanel>
                                     <TextBlock Text="98%" FontWeight="SemiBold" FontSize="11" Foreground="White" />
-                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#3DDC97" Opacity="0.8" />
+                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#22D3EE" Opacity="0.8" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -272,7 +272,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <Rectangle Width="2" Height="14" Fill="#5B8CFF" Margin="0,0,2,0" />
                                 <TextBlock Text="62" FontWeight="Bold" FontSize="13" Foreground="#34D399" Margin="0,0,8,0" />
-                                <Rectangle Width="2" Height="14" Fill="#3DDC97" Margin="0,0,2,0" />
+                                <Rectangle Width="2" Height="14" Fill="#22D3EE" Margin="0,0,2,0" />
                                 <TextBlock Text="71" FontWeight="Bold" FontSize="13" Foreground="#FBBF24" Margin="0,0,8,0" />
                                 <Rectangle Width="2" Height="14" Fill="#5B8CFF" Margin="0,0,2,0" />
                                 <TextBlock Text="35" FontWeight="Bold" FontSize="13" Foreground="White" />
@@ -291,7 +291,7 @@
                                     <TextBlock Text="62" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#34D399" />
                                     <TextBlock Text="35" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />
                                 </StackPanel>
-                                <Rectangle Width="2" Height="22" Fill="#3DDC97" Margin="0,0,2,0" />
+                                <Rectangle Width="2" Height="22" Fill="#22D3EE" Margin="0,0,2,0" />
                                 <StackPanel>
                                     <TextBlock Text="71" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="#FBBF24" />
                                     <TextBlock Text="98" FontWeight="Bold" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" Foreground="White" />

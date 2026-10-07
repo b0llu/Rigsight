@@ -675,7 +675,7 @@ public sealed class CrashesPageTests
         {
             Assert.Equal("All clear", vm.StatusTitle);
             Assert.Equal("No blue screens in this period · no app crashes.", vm.StatusDetail);
-            Assert.Equal("GpuBrush", vm.StatusBrush);
+            Assert.Equal("GoodBrush", vm.StatusBrush);
         });
     }
 

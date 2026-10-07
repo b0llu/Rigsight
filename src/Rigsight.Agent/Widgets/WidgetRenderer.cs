@@ -39,7 +39,7 @@ internal static partial class WidgetRenderer
     private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light);
 
     private static readonly Color Cpu = Color.FromArgb(91, 140, 255);
-    private static readonly Color Gpu = Color.FromArgb(61, 220, 151);
+    private static readonly Color Gpu = Color.FromArgb(34, 211, 238);
     private static readonly Color Ram = Color.FromArgb(177, 140, 255);
 
     // Black and white, like the app's own dark and light themes.
@@ -363,7 +363,7 @@ internal static partial class WidgetRenderer
         }
     }
 
-    private static readonly Color HotSpotLine = Color.FromArgb(251, 146, 60);
+    private static readonly Color HotSpotLine = Color.FromArgb(177, 140, 255);
 
     /// <summary>A graph line's colour: its reading's, told apart where two share one (a load next to its temperature).</summary>
     private static Color LineColor(Reading r, Palette p, int index)
@@ -373,7 +373,7 @@ internal static partial class WidgetRenderer
         {
             OverlayMetric.GpuHotSpot => HotSpotLine,
             OverlayMetric.CpuLoad => Color.FromArgb(147, 197, 253),
-            OverlayMetric.GpuLoad => Color.FromArgb(134, 239, 172),
+            OverlayMetric.GpuLoad => Color.FromArgb(165, 243, 252),
             _ => r.Accent,
         };
     }

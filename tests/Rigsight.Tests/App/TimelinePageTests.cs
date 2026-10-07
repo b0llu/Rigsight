@@ -335,7 +335,7 @@ public sealed class TimelinePageTests
             vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Better, "No problems since; 2 blue screens in the 14 days before."), onlyIfChanged: true);
             line = vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA"));
             Assert.Equal(["No problems since; 2 blue screens in the 14 days before."], line.Effect);
-            Assert.Equal("GpuBrush", line.EffectBrush);
+            Assert.Equal("GoodBrush", line.EffectBrush);
             vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Same, "No problems since, as in the 14 days before."), onlyIfChanged: true);
             Assert.Equal("MutedBrush", vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA")).EffectBrush);
             vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Same), onlyIfChanged: true);

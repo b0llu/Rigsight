@@ -98,6 +98,48 @@ public sealed class DailyRecapTests
     }
 
     [Fact]
+    public void Temperatures_by_the_hour_give_each_hours_average_highest_and_lowest()
+    {
+        var path = Path.Combine(TestEnvironment.NewFolder("temp-hours"), "rigsight.db");
+        using var db = RigsightDb.OpenWriter(path);
+        var day = DateTime.Today.AddDays(-3);
+        long Unix(DateTime local) => TimeUtil.ToUnix(local);
+        // 2 PM: 20 minutes at 50 and 20 at 70 (with a lowest and a highest each); nothing at 3 PM; one minute at 4 PM
+        // from before the lowest was kept.
+        for (int m = 0; m < 40; m++)
+        {
+            double t = m < 20 ? 50 : 70;
+            db.WriteMinute(new SystemMinute { Ts = Unix(day.AddHours(14).AddMinutes(m)), CpuTemp = t, CpuTempMax = t + 8, CpuTempMin = t - 5, GpuTemp = 45, GpuTempMax = 46, GpuTempMin = 44, GpuHotMax = 60 + m, ActiveSec = 60 });
+        }
+        db.WriteMinute(new SystemMinute { Ts = Unix(day.AddHours(16).AddMinutes(10)), CpuTemp = 55, CpuTempMax = 61, GpuTemp = 47, GpuTempMax = 48, ActiveSec = 60 });
+        var hours = db.GetTempHours(Unix(day), Unix(day.AddDays(1)));
+        Assert.Equal([Unix(day.AddHours(14)), Unix(day.AddHours(16))], hours.Select(h => h.Ts));
+        Assert.Equal((60.0, 78.0, 45.0), (hours[0].CpuTemp, hours[0].CpuTempMax, hours[0].CpuTempMin));
+        Assert.Equal((45.0, 46.0, 44.0), (hours[0].GpuTemp, hours[0].GpuTempMax, hours[0].GpuTempMin));
+        Assert.Equal(99, hours[0].GpuHotMax);
+        Assert.Null(hours[0].GpuHotAvg); // none of its minutes kept the hot spot's average
+        // An hour whose minutes all kept it has the average of those.
+        for (int m = 0; m < 4; m++)
+            db.WriteMinute(new SystemMinute { Ts = Unix(day.AddHours(18).AddMinutes(m)), GpuTemp = 50, GpuHotMax = 70 + m, GpuHotAvg = 60 + m, GpuMemMax = 80, GpuMemAvg = m < 3 ? 75 : null, ActiveSec = 60 });
+        var evening = db.GetTempHours(Unix(day.AddHours(18)), Unix(day.AddHours(19))).Single();
+        Assert.Equal((61.5, 73.0), (evening.GpuHotAvg, evening.GpuHotMax));
+        Assert.Null(evening.GpuMemAvg); // one minute read the memory without keeping its average
+        hours = db.GetTempHours(Unix(day), Unix(day.AddHours(17)));
+        // An hour whose minutes didn't all keep their lowest has none (an average isn't a reading).
+        Assert.Equal((55.0, 61.0, (double?)null), (hours[1].CpuTemp, hours[1].CpuTempMax, hours[1].CpuTempMin));
+        db.WriteMinute(new SystemMinute { Ts = Unix(day.AddHours(16).AddMinutes(11)), CpuTemp = 57, CpuTempMax = 63, CpuTempMin = 51, ActiveSec = 60 });
+        Assert.Null(db.GetTempHours(Unix(day), Unix(day.AddDays(1)))[1].CpuTempMin);
+        Assert.Null(hours[1].GpuHotMax);
+        Assert.Empty(db.GetTempHours(Unix(day.AddDays(1)), Unix(day.AddDays(2))));
+        // Day by day (for a year): one row for the day, at its midnight.
+        var days = db.GetTempHours(Unix(day.AddDays(-2)), Unix(day.AddDays(2)), byDay: true);
+        Assert.Equal([Unix(day)], days.Select(d => d.Ts));
+        Assert.Equal(78, days[0].CpuTempMax);
+        Assert.InRange(days[0].CpuTemp!.Value, 59, 61);
+        Assert.Null(days[0].CpuTempMin); // one of its minutes kept no lowest
+    }
+
+    [Fact]
     public void The_last_day_used_skips_days_with_only_a_few_minutes()
     {
         var path = Path.Combine(TestEnvironment.NewFolder("last-used"), "rigsight.db");

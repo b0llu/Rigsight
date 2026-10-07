@@ -132,12 +132,13 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <!-- The day picker sits left of the ranges, so picking "Day" doesn't move them. -->
+                        <!-- The day (week, month) picker sits left of the ranges, so picking one doesn't move them. -->
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <ctl:DatePager Margin="0,0,10,0" Label="{Binding ChartDayLabel}" Date="{Binding ChartDay}" MinDate="{Binding ChartHistoryStart}"
                                        CanGoPrevious="{Binding CanChartPreviousDay}" CanGoNext="{Binding CanChartNextDay}"
                                        PreviousCommand="{Binding ChartPreviousDayCommand}" NextCommand="{Binding ChartNextDayCommand}"
-                                       Visibility="{Binding IsChartDay, Converter={StaticResource Vis}}" />
+                                       PickMonth="{Binding IsChartMonth}" PickYear="{Binding IsChartYear}"
+                                       Visibility="{Binding IsChartPaged, Converter={StaticResource Vis}}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="5 min"
@@ -150,6 +151,12 @@
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=86400}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="Day" ToolTip="One day: today, yesterday or any earlier date"
                                              IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=0}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="Week" ToolTip="One week, hour by hour: this week or any earlier one"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=604800}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="Month" ToolTip="One month, hour by hour: this month or any earlier one"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=2592000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartWindow" Content="Year" ToolTip="One year, day by day: this year or any earlier one"
+                                             IsChecked="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=31536000}" />
                             </StackPanel>
                         </Border>
                         </StackPanel>

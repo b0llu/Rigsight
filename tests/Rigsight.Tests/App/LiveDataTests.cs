@@ -645,6 +645,9 @@ public sealed class LiveDataTests
     [InlineData(21600)]
     [InlineData(86400)]
     [InlineData(0)]
+    [InlineData(604800)]
+    [InlineData(2592000)]
+    [InlineData(31536000)]
     public void Chart_window_is_saved_and_announced(int seconds)
     {
         var (settings, live) = Kit.Greeted();
@@ -656,9 +659,74 @@ public sealed class LiveDataTests
             Assert.Equal(seconds, settings.Current.ChartWindowSeconds);
             Assert.Equal(seconds, live.ChartWindowSeconds);
             Assert.Equal(seconds == 0, live.IsChartDay);
+            Assert.Equal(seconds > 86400, live.IsChartLong);
             Assert.Equal(1, raised);
             Assert.Contains(nameof(LiveData.ChartWindowSeconds), changed);
             Assert.Contains(nameof(LiveData.IsChartDay), changed);
+        });
+    }
+
+    [Fact]
+    public void A_week_or_a_month_is_picked_like_a_day()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            var today = DateTime.Today;
+            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+            Assert.False(live.IsChartPaged); // 5 minutes: it ends now
+            live.ChartWindowSeconds = 604800;
+            Assert.True(live.IsChartPaged);
+            Assert.Equal((monday, monday.AddDays(7)), live.ChartPeriod);
+            Assert.Equal("This week", live.ChartDayLabel);
+            Assert.False(live.CanChartNextDay);
+            int raised = 0;
+            live.ChartRangeChanged += () => raised++;
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal("Last week", live.ChartDayLabel);
+            Assert.Equal((monday.AddDays(-7), monday), live.ChartPeriod);
+            Assert.True(live.CanChartNextDay);
+            // Back as far as the week the history starts in, and no further.
+            live.ChartHistoryStart = monday.AddDays(-12);
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal((monday.AddDays(-14), monday.AddDays(-7)), live.ChartPeriod);
+            Assert.False(live.CanChartPreviousDay);
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal((monday.AddDays(-14), monday.AddDays(-7)), live.ChartPeriod);
+            Assert.Equal(2, raised);
+            // The month that day is in; forward ends on this month.
+            live.ChartHistoryStart = null;
+            live.ChartDay = today;
+            live.ChartWindowSeconds = 2592000;
+            var first = new DateTime(today.Year, today.Month, 1);
+            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
+            Assert.Equal("This month", live.ChartDayLabel);
+            Assert.False(live.CanChartNextDay);
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal((first.AddMonths(-1), first), live.ChartPeriod);
+            Assert.Equal("Last month", live.ChartDayLabel);
+            live.ChartNextDayCommand.Execute(null);
+            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
+            live.ChartNextDayCommand.Execute(null);
+            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
+            Assert.True(live.IsChartMonth); // the picker offers months, as on Reports
+            Assert.Equal(3600, live.ChartStepSeconds);
+            // The year: picked by year, drawn from days.
+            live.ChartWindowSeconds = 31536000;
+            Assert.True(live.IsChartYear && !live.IsChartMonth && live.IsChartPaged);
+            Assert.Equal((new DateTime(today.Year, 1, 1), new DateTime(today.Year + 1, 1, 1)), live.ChartPeriod);
+            Assert.Equal("This year", live.ChartDayLabel);
+            Assert.Equal(86400, live.ChartStepSeconds);
+            Assert.False(live.CanChartNextDay);
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal("Last year", live.ChartDayLabel);
+            live.ChartNextDayCommand.Execute(null);
+            Assert.Equal("This year", live.ChartDayLabel);
+            // A day again: the day itself.
+            live.ChartWindowSeconds = 0;
+            Assert.False(live.IsChartMonth || live.IsChartYear);
+            Assert.Equal(60, live.ChartStepSeconds);
+            Assert.Equal("Today", live.ChartDayLabel);
         });
     }
 
@@ -727,6 +795,55 @@ public sealed class LiveDataTests
     }
 
     [Fact]
+    public void A_week_or_month_is_loaded_as_hours()
+    {
+        var (_, live) = Kit.Greeted();
+        long start = TimeUtil.ToUnix(DateTime.Now.AddDays(-2)) / 3600 * 3600;
+        // Three hours, then the PC off for five, then one more.
+        var hours = new[] { 0, 1, 2, 8 }.Select(h => new SystemMinute { Ts = start + h * 3600, CpuTemp = 50 + h, CpuTempMax = 70 + h, CpuTempMin = 40 + h, GpuTemp = 45 }).ToList();
+        Ui.Run(() =>
+        {
+            live.LoadMinuteHistory(hours, 3600);
+            var cpu = live.TempSeries[0];
+            Assert.Equal(3600, cpu.StepSeconds);
+            // Each in the middle of its hour, with a break where the PC was off.
+            Assert.Equal(5, cpu.Minutes.Count);
+            Assert.Equal((start + 1800) * 1000, cpu.Minutes.TimeAt(0));
+            Assert.True(double.IsNaN(cpu.Minutes.ValueAt(3)));
+            Assert.Equal((start + 3 * 3600 + 1800) * 1000, cpu.Minutes.TimeAt(3));
+            Assert.Equal((58.0, 78.0, 48.0), cpu.StatsAt(4));
+            // Lines made later (a new sensor list) are hours too, and minutes again once minutes are loaded.
+            live.LoadHello(Pc.Hello("Test Board"));
+            Assert.Equal(3600, live.TempSeries[0].StepSeconds);
+            live.LoadMinuteHistory([new SystemMinute { Ts = start, CpuTemp = 50 }]);
+            Assert.Equal(60, live.TempSeries[0].StepSeconds);
+            Assert.Equal((start + 30) * 1000, live.TempSeries[0].Minutes.TimeAt(0));
+        });
+    }
+
+    [Fact]
+    public void A_month_of_hours_and_a_year_of_days_are_kept_whole()
+    {
+        // Times kept as milliseconds from the first one run out after 24 days: the start of a month was dropped.
+        var (_, live) = Kit.Greeted();
+        long start = TimeUtil.ToUnix(DateTime.Today.AddDays(-400));
+        Ui.Run(() =>
+        {
+            live.LoadMinuteHistory([.. Enumerable.Range(0, 31 * 24).Select(h => new SystemMinute { Ts = start + h * 3600L, CpuTemp = 50, CpuTempMax = 60 })], 3600);
+            var cpu = live.TempSeries[0];
+            Assert.Equal(31 * 24, cpu.Minutes.Count);
+            Assert.Equal((start + 1800) * 1000, cpu.Minutes.FirstTime);
+            Assert.Equal((start + 30 * 86400 + 23 * 3600 + 1800) * 1000, cpu.Minutes.LastTime);
+            Assert.Equal((50.0, 60.0, (double?)null), cpu.StatsAt(0));
+            live.LoadMinuteHistory([.. Enumerable.Range(0, 366).Select(d => new SystemMinute { Ts = start + d * 86400L, CpuTemp = 40 + d % 30 })], 86400);
+            Assert.Equal(366, cpu.Minutes.Count);
+            Assert.Equal((start + 43200) * 1000, cpu.Minutes.FirstTime);
+            Assert.Equal((start + 365 * 86400L + 43200) * 1000, cpu.Minutes.LastTime);
+            Assert.Equal(40 + 200 % 30, cpu.Minutes.ValueAt(200));
+        });
+    }
+
+    [Fact]
     public void Each_minute_keeps_its_average_highest_and_lowest_for_the_hover_box()
     {
         var (_, live) = Kit.Greeted();
@@ -747,9 +864,16 @@ public sealed class LiveDataTests
             Assert.Equal((72.0, 98.0, 61.0), live.TempSeries[0].StatsAt(0));
             Assert.Equal((72.0, 98.0, (double?)null), live.TempSeries[0].StatsAt(2));
             Assert.Equal((60.0, 66.0, 58.0), live.TempSeries[1].StatsAt(1));
-            // The hot spot and the memory are only kept as the minute's highest.
+            // The hot spot and the memory were only kept as the minute's highest: that is their line there.
             Assert.Equal(((double?)null, 80.0, (double?)null), live.TempSeries[2].StatsAt(0));
             Assert.Equal(((double?)null, 84.0, (double?)null), live.TempSeries[3].StatsAt(0));
+            Assert.Equal(80, live.TempSeries[2].Minutes.ValueAt(0));
+            // With their average kept, the line is the average, like the CPU's and the GPU's.
+            live.LoadMinuteHistory([new SystemMinute { Ts = start, GpuTemp = 60, GpuHotMax = 80, GpuHotAvg = 71.5, GpuMemMax = 84, GpuMemAvg = 77 }]);
+            Assert.Equal(71.5, live.TempSeries[2].Minutes.ValueAt(0));
+            Assert.Equal(77, live.TempSeries[3].Minutes.ValueAt(0));
+            Assert.Equal((71.5, 80.0, (double?)null), live.TempSeries[2].StatsAt(0));
+            live.LoadMinuteHistory(minutes);
             Assert.Null(live.TempSeries[0].StatsAt(3));
             Assert.Null(live.TempSeries[0].StatsAt(-1));
         });

@@ -40,12 +40,13 @@ public static class TrayParts
 
     /// <summary>
     /// The part's colour (red, green, blue), as on every Rigsight page, a shade deeper on a light taskbar so it holds
-    /// its own there; other parts are grey (drives too: a blue would pass for a cool temperature's colour).
+    /// its own there; other parts are grey (drives too: a blue would pass for a cool temperature's colour). None is
+    /// green, amber or red: those say how a reading is doing.
     /// </summary>
     public static (byte R, byte G, byte B) Color(TrayPart part, bool light = false) => part switch
     {
         TrayPart.Cpu => light ? ((byte)59, (byte)110, (byte)235) : ((byte)91, (byte)140, (byte)255),
-        TrayPart.Gpu => light ? ((byte)16, (byte)165, (byte)105) : ((byte)61, (byte)220, (byte)151),
+        TrayPart.Gpu => light ? ((byte)8, (byte)145, (byte)178) : ((byte)34, (byte)211, (byte)238),
         TrayPart.Ram => light ? ((byte)140, (byte)95, (byte)230) : ((byte)177, (byte)140, (byte)255),
         _ => light ? ((byte)128, (byte)128, (byte)128) : ((byte)148, (byte)148, (byte)148),
     };

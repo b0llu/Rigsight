@@ -329,7 +329,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
                 >= (int)CrashSeverity.Critical => ("", "HotBrush"),
                 >= (int)CrashSeverity.Serious => ("", "WarmBrush"),
                 >= (int)CrashSeverity.Minor => ("", "WarmBrush"),
-                _ => ("", "GpuBrush"),
+                _ => ("", "GoodBrush"),
             };
             return;
         }
@@ -353,8 +353,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
                 ($"Your PC shut off unexpectedly {Ago(lastSerious.Time)}", "", "HotBrush"),
             <= 7 when inIncidents.Contains(lastSerious!) => ($"Your PC froze {Ago(lastSerious.Time)}", "", "WarmBrush"),
             <= 7 => ($"Graphics trouble {Ago(lastSerious!.Time)}", "", "WarmBrush"),
-            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", "GpuBrush"),
-            _ => ($"Stable for {daysSince} days", "", "GpuBrush"),
+            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", "GoodBrush"),
+            _ => ($"Stable for {daysSince} days", "", "GoodBrush"),
         };
     }
 

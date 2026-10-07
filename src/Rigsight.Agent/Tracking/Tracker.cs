@@ -38,6 +38,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public readonly Dictionary<string, FanAcc> Fans = [];
         public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
         public double? CpuTempMin, GpuTempMin;
+        public double GpuHotSum, GpuMemSum;
+        public int GpuHotN, GpuMemN;
         /// <summary>The app working the CPU / GPU hardest in the minute before this minute's hottest reading (null: none clearly).</summary>
         public AppInfo? CpuApp, GpuApp;
     }
@@ -254,6 +256,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         Acc(k.RamUsed, ref m.RamSum, ref m.RamN);
         Acc(k.CpuClock, ref m.CpuClockSum, ref m.CpuClockN);
         Acc(k.GpuClock, ref m.GpuClockSum, ref m.GpuClockN);
+        Acc(k.GpuHotSpot, ref m.GpuHotSum, ref m.GpuHotN);
+        Acc(k.GpuMemJunction, ref m.GpuMemSum, ref m.GpuMemN);
         // The minute's hottest reading so far: note who was working that part hardest just before it.
         if (k.CpuTemp is double cpuNow && (m.CpuTempMax is null || cpuNow > m.CpuTempMax)) m.CpuApp = Busiest(Load.Cpu);
         if (k.GpuTemp is double gpuNow && (m.GpuTempMax is null || gpuNow > m.GpuTempMax)) m.GpuApp = Busiest(Load.Gpu);
@@ -488,6 +492,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     GpuTempMin = m.GpuTempMin,
                     GpuHotMax = m.GpuHotMax,
                     GpuMemMax = m.GpuMemMax,
+                    GpuHotAvg = Avg(m.GpuHotSum, m.GpuHotN),
+                    GpuMemAvg = Avg(m.GpuMemSum, m.GpuMemN),
                     CpuLoad = Avg(m.CpuLoadSum, m.CpuLoadN),
                     GpuLoad = Avg(m.GpuLoadSum, m.GpuLoadN),
                     CpuPower = Avg(m.CpuPowerSum, m.CpuPowerN),

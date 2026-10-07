@@ -4,20 +4,30 @@ namespace Rigsight.Models;
 /// Ring buffer of timestamped samples, up to a fixed number. NaN marks a missing reading.
 /// Every sensor has one, so it is kept small: storage grows as samples arrive (a window open for a few minutes
 /// holds a few minutes, not a full hour of empty slots), values are floats (far finer than anything shown),
-/// and times are 32-bit millisecond offsets from a base (re-based long before they could overflow).
+/// and times are 32-bit offsets from a base (re-based long before they could overflow): in milliseconds, which
+/// holds a little over three weeks, or in whole seconds for history that goes back further (a month of hours, a
+/// year of days).
 /// </summary>
 public sealed class HistoryBuffer
 {
     private const int InitialSize = 64;
-    // Offsets stay well below int.MaxValue (~24.8 days); the newest sample is never more than this past the base.
-    private const long RebaseAfterMs = 1L << 30; // ~12.4 days
+    // Offsets stay well below int.MaxValue (~24.8 days in milliseconds); the newest sample is never more than this past the base.
+    private const long RebaseAfter = 1L << 30; // ~12.4 days in milliseconds
+
+    // What one step of an offset is, in milliseconds (1, or 1000 for times kept to the second).
+    private readonly int _unit;
 
     private float[] _values = [];
     private int[] _offsets = [];
     private long _base;
     private int _start;
 
-    public HistoryBuffer(int capacity) => Capacity = capacity;
+    /// <param name="wholeSeconds">Times are kept to the second (anything finer is dropped), so the samples can span years.</param>
+    public HistoryBuffer(int capacity, bool wholeSeconds = false)
+    {
+        Capacity = capacity;
+        _unit = wholeSeconds ? 1000 : 1;
+    }
 
     /// <summary>The most samples kept; older ones are dropped.</summary>
     public int Capacity { get; }
@@ -29,12 +39,12 @@ public sealed class HistoryBuffer
     public void Add(long timeMs, double value)
     {
         if (Count == 0) _base = timeMs;
-        else if (timeMs - _base > RebaseAfterMs)
+        else if (timeMs - _base > RebaseAfter * _unit)
         {
             Rebase(TimeAt(0));
             // Still too far: the oldest sample is itself weeks old (a PC that slept for weeks with the window open).
-            // Start afresh rather than overflow the offsets; no chart looks back that far.
-            if (timeMs - _base > int.MaxValue)
+            // Start afresh rather than overflow the offsets; no chart of live readings looks back that far.
+            if (timeMs - _base > (long)int.MaxValue * _unit)
             {
                 Clear();
                 _base = timeMs;
@@ -45,7 +55,7 @@ public sealed class HistoryBuffer
         {
             // Not full yet (storage never wraps before it has reached Capacity, so _start is 0 here).
             _values[Count] = (float)value;
-            _offsets[Count] = (int)(timeMs - _base);
+            _offsets[Count] = (int)((timeMs - _base) / _unit);
             Count++;
         }
         else if (_values.Length < Capacity)
@@ -56,7 +66,7 @@ public sealed class HistoryBuffer
         else
         {
             _values[_start] = (float)value;
-            _offsets[_start] = (int)(timeMs - _base);
+            _offsets[_start] = (int)((timeMs - _base) / _unit);
             _start = (_start + 1) % Capacity;
         }
     }
@@ -81,7 +91,7 @@ public sealed class HistoryBuffer
     }
 
     public double ValueAt(int i) => _values[Slot(i)];
-    public long TimeAt(int i) => _base + _offsets[Slot(i)];
+    public long TimeAt(int i) => _base + (long)_offsets[Slot(i)] * _unit;
 
     /// <summary>Index of the first sample at or after <paramref name="timeMs"/> (binary search; samples are time-ordered).</summary>
     public int IndexAtOrAfter(long timeMs)
@@ -112,8 +122,8 @@ public sealed class HistoryBuffer
     /// <summary>Moves the base to <paramref name="newBase"/> (the oldest sample), shrinking every offset.</summary>
     private void Rebase(long newBase)
     {
-        int delta = (int)(newBase - _base);
+        int delta = (int)((newBase - _base) / _unit);
         for (int i = 0; i < Count; i++) _offsets[Slot(i)] -= delta;
-        _base = newBase;
+        _base += (long)delta * _unit;
     }
 }

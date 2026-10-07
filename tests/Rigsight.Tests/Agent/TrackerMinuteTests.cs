@@ -34,11 +34,11 @@ public class TrackerMinuteTests
     public void A_minute_keeps_its_average_highest_and_lowest_temperatures()
     {
         using var rig = new TrackerRig();
-        rig.Keys = Typical with { CpuTemp = 61, GpuTemp = 50 };
+        rig.Keys = Typical with { CpuTemp = 61, GpuTemp = 50, GpuHotSpot = 60, GpuMemJunction = 70 };
         rig.Use("code.exe", 20);
-        rig.Keys = Typical with { CpuTemp = 98, GpuTemp = 56 };
+        rig.Keys = Typical with { CpuTemp = 98, GpuTemp = 56, GpuHotSpot = 90, GpuMemJunction = 82 };
         rig.Use("code.exe", 20);
-        rig.Keys = Typical with { CpuTemp = 72, GpuTemp = 53 };
+        rig.Keys = Typical with { CpuTemp = 72, GpuTemp = 53, GpuHotSpot = 66, GpuMemJunction = 73 };
         rig.Use("code.exe", 19);
         // A minute with no temperature sensors has none of the three.
         rig.Keys = Typical with { CpuTemp = null, GpuTemp = null };
@@ -48,6 +48,11 @@ public class TrackerMinuteTests
         Assert.Equal((98.0, 61.0), (minutes[0].CpuTempMax, minutes[0].CpuTempMin));
         Assert.Equal((56.0, 50.0), (minutes[0].GpuTempMax, minutes[0].GpuTempMin));
         Assert.InRange(minutes[0].CpuTemp!.Value, 62, 97);
+        // The hot spot and the memory: their highest as before, and now their average beside it.
+        Assert.Equal((90.0, 82.0), (minutes[0].GpuHotMax, minutes[0].GpuMemMax));
+        Assert.InRange(minutes[0].GpuHotAvg!.Value, 61, 89);
+        Assert.InRange(minutes[0].GpuMemAvg!.Value, 71, 81);
+        Assert.Equal(Math.Round(minutes[0].GpuHotAvg!.Value, 1), minutes[0].GpuHotAvg!.Value); // kept to a tenth
         Assert.Equal((null, null, null), (minutes[1].CpuTemp, minutes[1].CpuTempMax, minutes[1].CpuTempMin));
         Assert.Equal((null, null), (minutes[1].GpuTempMax, minutes[1].GpuTempMin));
         rig.AssertInvariants();

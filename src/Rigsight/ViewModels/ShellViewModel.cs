@@ -357,12 +357,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
                 case "fans": await Fans.RefreshAsync(); break;
                 case "network": await Network.RefreshAsync(); break;
-                case "temperatures": if (ChartShowsNow) await LoadTemperatureHistoryAsync(); break;
+                case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
                 default:
                     if (FindCustomPage(CurrentPage) is { } custom)
                     {
                         await custom.RefreshAsync(quiet: true);
-                        if (ChartShowsNow) await LoadTemperatureHistoryAsync();
+                        if (ChartDueNow) await LoadTemperatureHistoryAsync();
                     }
                     break;
             }
@@ -401,14 +401,22 @@ public sealed partial class ShellViewModel : ObservableObject
         Controls.PeriodPicker.OnDayChanged();
     }
 
-    /// <summary>An earlier day on the temperature chart never changes; anything else includes now.</summary>
-    private bool ChartShowsNow => !(Live.IsChartDay && Live.ChartDay < DateTime.Today);
+    /// <summary>An earlier day, week or month on the temperature chart never changes; anything else includes now.</summary>
+    private bool ChartShowsNow => !(Live.IsChartPaged && Live.ChartPeriod.To <= DateTime.Today);
+
+    /// <summary>
+    /// Whether this minute's tick reads the chart's history again. Minutes: every minute. A week or a month of hours
+    /// only gains a little in its last hour, and reading it adds up to 45,000 minutes: every five minutes. A year of
+    /// days adds up every minute of the year (0.14 s for a year of evenings, 0.9 s for a PC that never sleeps, measured):
+    /// every half hour. Changing the range or the period always reads at once.
+    /// </summary>
+    private bool ChartDueNow => ChartShowsNow && (!Live.IsChartLong || _tickCount % (Live.IsChartYear ? 30 : 5) == 0);
 
     private int _historyLoad;
 
     /// <summary>
     /// Minute history for the temperature chart: the last 24 hours (1-hour to 24-hour windows, and today),
-    /// or the whole of an earlier day picked in day mode.
+    /// or the whole of an earlier day picked in day mode; for a week or a month, its hours instead.
     /// </summary>
     private async Task LoadTemperatureHistoryAsync()
     {
@@ -419,8 +427,13 @@ public sealed partial class ShellViewModel : ObservableObject
         var (from, to) = Live.IsChartDay && day < DateTime.Today
             ? (Core.Data.TimeUtil.ToUnix(day), Core.Data.TimeUtil.ToUnix(day.AddDays(1)))
             : (now - 24 * 3600, now + 60);
-        var minutes = await Reports.MinutesAsync(from, to);
-        if (id == _historyLoad && minutes is not null) Live.LoadMinuteHistory(minutes);
+        int window = Live.ChartWindowSeconds;
+        var (periodFrom, periodTo) = Live.ChartPeriod;
+        var minutes = Live.IsChartLong
+            ? await Reports.TempHoursAsync(Core.Data.TimeUtil.ToUnix(periodFrom), Math.Min(Core.Data.TimeUtil.ToUnix(periodTo), now + 60), byDay: Live.IsChartYear)
+            : await Reports.MinutesAsync(from, to);
+        // Not if the range was changed again while this was read (the next load is on its way).
+        if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
     }
 

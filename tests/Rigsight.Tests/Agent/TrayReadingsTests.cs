@@ -136,7 +136,10 @@ public class TrayReadingsTests
     public void Parts_have_rigsights_colours_and_the_others_share_grey()
     {
         Assert.Equal(((byte)91, (byte)140, (byte)255), TrayParts.Color(TrayPart.Cpu));
-        Assert.Equal(((byte)61, (byte)220, (byte)151), TrayParts.Color(TrayPart.Gpu));
+        Assert.Equal(((byte)34, (byte)211, (byte)238), TrayParts.Color(TrayPart.Gpu));
+        // No part is green, amber or red (those say how a reading is doing): blue is always the strongest of the three.
+        Assert.All(new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram }.SelectMany(p => new[] { TrayParts.Color(p), TrayParts.Color(p, light: true) }),
+            c => Assert.True(c.B > c.R && c.B > c.G, $"{c} isn't a blue, cyan or purple"));
         Assert.NotEqual(TrayParts.Color(TrayPart.Cpu), TrayParts.Color(TrayPart.Cpu, light: true)); // deeper on a light taskbar
         Assert.Equal(TrayParts.Color(TrayPart.Drive), TrayParts.Color(TrayPart.Other));
         Assert.Equal(3, new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram }.Select(p => TrayParts.Color(p)).Distinct().Count());

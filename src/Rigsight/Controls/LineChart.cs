@@ -12,6 +12,8 @@ namespace Rigsight.Controls;
 /// sensor's live buffer (one point a second); anything older from the minute history. From an hour up the
 /// whole line is one point for each minute, its average; hovering a minute says its average, highest and
 /// lowest. On a shorter window every reading is drawn, and hovering shows the exact time and each value there.
+/// A week or a month (the one <see cref="Day"/> is in, whole, on the calendar) is drawn from hours (each hour's
+/// average), and hovering says the hour's three; a year from days, in the same way.
 /// </summary>
 public sealed class LineChart : FrameworkElement
 {
@@ -105,7 +107,7 @@ public sealed class LineChart : FrameworkElement
     /// only: one averaged point a minute, joined by straight lines, would look like real readings there.
     /// </summary>
     private long LiveStart(ChartSeries s) =>
-        _pastDay ? long.MaxValue
+        _pastDay || Long ? long.MaxValue
         : WindowSeconds is > 0 and < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
 
     /// <summary>
@@ -115,6 +117,26 @@ public sealed class LineChart : FrameworkElement
     /// along; what the minute's readings reached is in the hover box.
     /// </summary>
     private bool ByMinute => WindowSeconds is 0 or >= 3600;
+
+    /// <summary>A week or a month: drawn from the hours loaded for it alone (the live readings are an hour at most).</summary>
+    private bool Long => WindowSeconds > 86400;
+
+    private Core.Reports.ReportRange LongUnit => WindowSeconds switch
+    {
+        604800 => Core.Reports.ReportRange.Week,
+        31536000 => Core.Reports.ReportRange.Year,
+        _ => Core.Reports.ReportRange.Month,
+    };
+
+    /// <summary>How long each point of the older history must stand for on this window: a minute, an hour, or a day for a year.</summary>
+    private int Step => !Long ? 60 : LongUnit == Core.Reports.ReportRange.Year ? 86400 : 3600;
+
+    /// <summary>
+    /// The series' older history, when it is the kind this window draws (minutes, hours for a week or month, days for a
+    /// year): for the moment between the range being changed and its history arriving, another kind isn't drawn as if
+    /// it were.
+    /// </summary>
+    private HistoryBuffer? Older(ChartSeries s) => s.StepSeconds == Step ? s.Minutes : null;
 
     private double GroupMs => ByMinute ? 60_000 : 0;
 
@@ -126,12 +148,16 @@ public sealed class LineChart : FrameworkElement
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var series = Series?.ToList() ?? [];
 
-        long to = series.Count == 0 ? 0 : series.Max(s => Math.Max(s.Sensor.History.LastTime, s.Minutes.LastTime));
+        long to = series.Count == 0 ? 0 : series.Max(s => Math.Max(s.Sensor.History.LastTime, Older(s)?.LastTime ?? 0));
         // WindowSeconds 0 is one calendar day: today from midnight to now, or an earlier day in full.
         bool dayMode = WindowSeconds == 0;
         var day = Day == default ? DateTime.Today : Day.Date;
         _pastDay = dayMode && day < DateTime.Today;
         long from = dayMode ? new DateTimeOffset(day).ToUnixTimeMilliseconds() : to - WindowSeconds * 1000L;
+        // A week (Monday to Sunday) or a month: all of it, from its first midnight, also while it's still in progress
+        // (the days to come stay empty), so the same day is in the same place whichever week is looked at.
+        var (periodFrom, periodTo) = Long ? Core.Reports.ReportBuilder.Bounds(LongUnit, day) : default;
+        if (Long) (from, to) = (new DateTimeOffset(periodFrom).ToUnixTimeMilliseconds(), new DateTimeOffset(periodTo).ToUnixTimeMilliseconds());
         if (_pastDay) to = new DateTimeOffset(day.AddDays(1)).ToUnixTimeMilliseconds();
         else if (dayMode && to - from < 300_000) to = from + 300_000;
         int window = (int)((to - from) / 1000);
@@ -146,13 +172,16 @@ public sealed class LineChart : FrameworkElement
         }
         foreach (var s in series)
         {
-            Widen(ChartGeometry.Range(s.Sensor.History, from, Shown));
-            if (from < LiveStart(s)) Widen(ChartGeometry.Range(s.Minutes, from, Shown, LiveStart(s)));
+            if (!Long) Widen(ChartGeometry.Range(s.Sensor.History, from, Shown));
+            if (from < LiveStart(s) && Older(s) is { } older) Widen(ChartGeometry.Range(older, from, Shown, LiveStart(s)));
         }
 
         if (lo > hi)
         {
-            DrawText(dc, _pastDay ? (IsTemp ? "No temperatures recorded on this day" : "Nothing recorded on this day") : "Collecting data…", new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
+            string nothing = Long ? (IsTemp ? "No temperatures recorded in this " : "Nothing recorded in this ")
+                    + LongUnit switch { Core.Reports.ReportRange.Week => "week", Core.Reports.ReportRange.Year => "year", _ => "month" }
+                : _pastDay ? (IsTemp ? "No temperatures recorded on this day" : "Nothing recorded on this day") : "Collecting data…";
+            DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }
 
@@ -201,6 +230,33 @@ public sealed class LineChart : FrameworkElement
                 DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: hr > 0);
             }
         }
+        else if (Long && LongUnit == Core.Reports.ReportRange.Year)
+        {
+            // Its months, at their first days ("Jan", "Feb"…), as many as fit.
+            int every = 1;
+            while (plot.Width / 12 * every < 44) every++;
+            for (int m = 0; m < 12; m += every)
+            {
+                double x = plot.Left + plot.Width * (new DateTimeOffset(periodFrom.AddMonths(m)).ToUnixTimeMilliseconds() - from) / (to - from);
+                DrawText(dc, periodFrom.AddMonths(m).ToString("MMM", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: m > 0);
+            }
+        }
+        else if (Long)
+        {
+            // Its days, at their midnights ("Mon 5" through a week, "1 Oct" every few days of a month), as many as fit.
+            double perDay = plot.Width * 86400 / window;
+            int every = LongUnit == Core.Reports.ReportRange.Week ? 1 : 5;
+            while (perDay * every < 56) every++;
+            int n = 0;
+            for (var midnight = periodFrom; midnight < periodTo; midnight = midnight.AddDays(1), n++)
+            {
+                double x = plot.Left + plot.Width * (new DateTimeOffset(midnight).ToUnixTimeMilliseconds() - from) / (to - from);
+                if (plot.Right - x < 28) break; // a label there would run past the edge
+                // The first starts at the chart's left edge (see the day's hours above).
+                if (n % every == 0)
+                    DrawText(dc, midnight.ToString(every == 1 ? "ddd d" : "d MMM", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: n > 0);
+            }
+        }
         else
         {
             int step = window switch { <= 60 => 15, <= 300 => 60, <= 900 => 180, <= 3600 => 900, <= 21600 => 3600, _ => 4 * 3600 };
@@ -220,9 +276,9 @@ public sealed class LineChart : FrameworkElement
         foreach (var s in series)
         {
             long liveStart = LiveStart(s);
-            if (from < liveStart)
-                Draw(s, s.Minutes, liveStart, ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs));
-            Draw(s, s.Sensor.History, groupMs: GroupMs);
+            if (from < liveStart && Older(s) is { } older)
+                Draw(s, older, liveStart, Long ? null : ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs));
+            if (!Long) Draw(s, s.Sensor.History, groupMs: GroupMs);
         }
         dc.Pop();
 
@@ -273,14 +329,15 @@ public sealed class LineChart : FrameworkElement
         {
             // The live buffer covers recent time; before it starts, the minute history.
             bool useMinutes = t < LiveStart(s);
-            var buffer = useMinutes ? s.Minutes : s.Sensor.History;
-            int i = buffer.NearestIndex(t);
+            var buffer = useMinutes ? Older(s) : s.Sensor.History;
+            int i = buffer?.NearestIndex(t) ?? -1;
             double? value = null, high = null, low = null;
             // Only a sample near the pointer counts (none across a gap, e.g. while the PC was off).
-            if (i >= 0 && Math.Abs(buffer.TimeAt(i) - t) <= (useMinutes ? 90_000 : 5_000) && !double.IsNaN(buffer.ValueAt(i)))
+            if (buffer is not null && i >= 0 && Math.Abs(buffer.TimeAt(i) - t) <= (useMinutes ? s.StepSeconds * 1500L : 5_000) && !double.IsNaN(buffer.ValueAt(i)))
             {
                 value = buffer.ValueAt(i);
-                long time = buffer.TimeAt(i);
+                // An hour is named by its start ("3 PM" is 3 to 4), a day by its date.
+                long time = Long ? buffer.TimeAt(i) - s.StepSeconds * 500L : buffer.TimeAt(i);
                 // The dot goes where the line is: the minute's point.
                 double at = value.Value;
                 if (useMinutes && s.StatsAt(i) is { } kept) (value, high, low) = kept;
@@ -299,8 +356,8 @@ public sealed class LineChart : FrameworkElement
         }
 
         var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
-        string when = (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture))
-            + local.ToString(fromMinutes ? "h:mm tt" : "h:mm:ss tt");
+        string when = Long ? local.ToString(Step == 86400 ? "ddd d MMM yyyy" : "ddd d MMM, h tt", CultureInfo.CurrentCulture)
+            : (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture)) + local.ToString(fromMinutes ? "h:mm tt" : "h:mm:ss tt");
 
         var title = Text(when, HoverFont, 12, HoverText, dpi);
         // One value a line, or three columns under their names: the minute's average, highest and lowest.

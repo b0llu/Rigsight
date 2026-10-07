@@ -41,7 +41,7 @@ public sealed partial class DriveSummary : ObservableObject
     {
         "Bad" => "HotBrush",
         "Caution" => "WarmBrush",
-        _ => "GpuBrush",
+        _ => "GoodBrush",
     });
 
     /// <summary>"No bad sectors" / "3 reallocated sectors"… for drives that report them (SATA).</summary>

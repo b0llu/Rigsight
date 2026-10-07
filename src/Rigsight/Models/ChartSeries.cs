@@ -56,13 +56,13 @@ public sealed class ChartSeries
     public Func<SystemMinute, double?>? FromMinute { get; }
 
     /// <summary>Older history, one point per minute, for chart windows longer than the live buffer.</summary>
-    public HistoryBuffer Minutes { get; } = new(24 * 60 + 60);
+    public HistoryBuffer Minutes { get; } = new(24 * 60 + 60, wholeSeconds: true); // a month of hours or a year of days too
 
     /// <summary>Picks a stored minute's average, highest and lowest (each null where the history doesn't have it).</summary>
     public Func<SystemMinute, (double? Avg, double? High, double? Low)>? MinuteStats { get; }
 
     // Beside Minutes, sample for sample: what the hover box says about each minute. Empty without MinuteStats.
-    private readonly HistoryBuffer _avg = new(24 * 60 + 60), _high = new(24 * 60 + 60), _low = new(24 * 60 + 60);
+    private readonly HistoryBuffer _avg = new(24 * 60 + 60, true), _high = new(24 * 60 + 60, true), _low = new(24 * 60 + 60, true);
 
     /// <summary>The average, highest and lowest of the minute at <paramref name="index"/> of <see cref="Minutes"/> (null: not kept for this line).</summary>
     public (double? Avg, double? High, double? Low)? StatsAt(int index)
@@ -72,19 +72,26 @@ public sealed class ChartSeries
         return (Kept(_avg.ValueAt(index)), Kept(_high.ValueAt(index)), Kept(_low.ValueAt(index)));
     }
 
-    /// <summary>Replaces the minute history. Gaps (PC off or asleep) are kept as breaks in the line.</summary>
-    public void LoadMinutes(IEnumerable<SystemMinute> minutes)
+    /// <summary>How long each point of <see cref="Minutes"/> stands for: a minute, or an hour on the chart's week and month.</summary>
+    public int StepSeconds { get; private set; } = 60;
+
+    /// <summary>
+    /// Replaces the minute history. Gaps (PC off or asleep) are kept as breaks in the line. With
+    /// <paramref name="stepSeconds"/> 3600 the rows are hours (their average, highest and lowest), for the week and month.
+    /// </summary>
+    public void LoadMinutes(IEnumerable<SystemMinute> minutes, int stepSeconds = 60)
     {
         if (FromMinute is null) LoadPoints([]);
-        else Load(minutes.Select(m => (m.Ts, FromMinute(m), MinuteStats?.Invoke(m))));
+        else Load(minutes.Select(m => (m.Ts, FromMinute(m), MinuteStats?.Invoke(m))), stepSeconds);
     }
 
     /// <summary>Replaces the minute history with other minutes (a fan's speeds), by each minute's start.</summary>
     public void LoadPoints(IEnumerable<(long Ts, double? Value)> points) =>
         Load(points.Select(p => (p.Ts, p.Value, ((double? Avg, double? High, double? Low)?)null)));
 
-    private void Load(IEnumerable<(long Ts, double? Value, (double? Avg, double? High, double? Low)? Stats)> points)
+    private void Load(IEnumerable<(long Ts, double? Value, (double? Avg, double? High, double? Low)? Stats)> points, int stepSeconds = 60)
     {
+        StepSeconds = stepSeconds;
         Minutes.Clear();
         _avg.Clear();
         _high.Clear();
@@ -100,8 +107,8 @@ public sealed class ChartSeries
         }
         foreach (var (ts, value, stats) in points)
         {
-            long t = ts * 1000 + 30_000; // the middle of the minute
-            if (previous != 0 && t - previous > 150_000) Add(previous + 60_000, double.NaN, null);
+            long t = ts * 1000 + stepSeconds * 500L; // the middle of the minute (or hour)
+            if (previous != 0 && t - previous > stepSeconds * 2500L) Add(previous + stepSeconds * 1000L, double.NaN, null);
             Add(t, value ?? double.NaN, stats);
             previous = t;
         }

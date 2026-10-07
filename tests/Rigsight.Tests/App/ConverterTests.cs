@@ -340,17 +340,24 @@ public sealed class ConverterTests
 
     public static TheoryData<object?, string> Kinds => new()
     {
-        { SensorKind.Temperature, "OrangeColor" }, { SensorKind.Load, "CpuColor" }, { SensorKind.Clock, "PurpleColor" },
-        { SensorKind.Frequency, "PurpleColor" }, { SensorKind.Timing, "PurpleColor" }, { SensorKind.Power, "WarmColor" },
-        { SensorKind.Energy, "WarmColor" }, { SensorKind.Current, "WarmColor" }, { SensorKind.Voltage, "CoolColor" },
-        { SensorKind.Fan, "GoodColor" }, { SensorKind.Flow, "GoodColor" }, { SensorKind.Control, "GoodColor" },
+        { SensorKind.Temperature, "MutedColor" }, { SensorKind.Load, "CpuColor" }, { SensorKind.Clock, "PurpleColor" },
+        { SensorKind.Frequency, "PurpleColor" }, { SensorKind.Timing, "PurpleColor" }, { SensorKind.Power, "MutedColor" },
+        { SensorKind.Energy, "MutedColor" }, { SensorKind.Current, "MutedColor" }, { SensorKind.Voltage, "CoolColor" },
+        { SensorKind.Fan, "MutedColor" }, { SensorKind.Flow, "MutedColor" }, { SensorKind.Control, "MutedColor" },
         { SensorKind.Data, "PinkColor" }, { SensorKind.SmallData, "PinkColor" }, { SensorKind.Throughput, "PinkColor" },
         { SensorKind.Level, "MutedColor" }, { SensorKind.Factor, "MutedColor" }, { SensorKind.Noise, "MutedColor" },
         { "Cpu", "CpuColor" }, { "GpuNvidia", "GpuColor" }, { "GpuAmd", "GpuColor" }, { "GpuIntel", "GpuColor" },
-        { "Memory", "PurpleColor" }, { "Storage", "CoolColor" }, { "Motherboard", "OrangeColor" }, { "SuperIO", "OrangeColor" },
-        { "EmbeddedController", "OrangeColor" }, { "Cooler", "GoodColor" }, { "Psu", "WarmColor" }, { "Battery", "WarmColor" },
+        { "Memory", "PurpleColor" }, { "Storage", "CoolColor" }, { "Motherboard", "MutedColor" }, { "SuperIO", "MutedColor" },
+        { "EmbeddedController", "MutedColor" }, { "Cooler", "MutedColor" }, { "Psu", "MutedColor" }, { "Battery", "MutedColor" },
         { "Network", "PinkColor" }, { "Toaster", "MutedColor" }, { null, "MutedColor" }, { 3, "MutedColor" },
     };
+
+    [Fact]
+    public void No_kind_or_hardware_colour_is_one_that_says_how_a_reading_is_doing()
+    {
+        // Green, amber, orange and red are for good / warm / serious / hot; a tag in one of them read as a verdict.
+        Assert.All(Kinds, row => Assert.DoesNotContain(row.Data.Item2, new[] { "GoodColor", "WarmColor", "OrangeColor", "HotColor" }));
+    }
 
     [Theory]
     [MemberData(nameof(Kinds))]

@@ -304,9 +304,9 @@
                                         <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="24" Height="24" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
-                                            <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{DynamicResource GpuSoftBrush}"
+                                            <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{DynamicResource GoodSoftBrush}"
                                                     Visibility="{Binding IsGame, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="GAME" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GpuBrush}" />
+                                                <TextBlock Text="GAME" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Style="{StaticResource Muted}" VerticalAlignment="Center">

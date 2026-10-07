@@ -109,7 +109,7 @@
                                                                                         <Setter Property="Background" Value="{DynamicResource CpuSoftBrush}" />
                                                                                     </DataTrigger>
                                                                                     <DataTrigger Binding="{Binding Kind}" Value="better">
-                                                                                        <Setter Property="Background" Value="{DynamicResource GpuSoftBrush}" />
+                                                                                        <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
                                                                                     </DataTrigger>
                                                                                 </Style.Triggers>
                                                                             </Style>
@@ -123,7 +123,7 @@
                                                                                             <Setter Property="Foreground" Value="{DynamicResource CpuBrush}" />
                                                                                         </DataTrigger>
                                                                                         <DataTrigger Binding="{Binding Kind}" Value="better">
-                                                                                            <Setter Property="Foreground" Value="{DynamicResource GpuBrush}" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                                                                         </DataTrigger>
                                                                                     </Style.Triggers>
                                                                                 </Style>

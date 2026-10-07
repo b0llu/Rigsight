@@ -610,11 +610,15 @@ public sealed class ShellTests : IClassFixture<AppHost>
             Shell.Live.ChartDay = DateTime.Today.AddDays(-1);
         });
         Assert.True(Ui.WaitFor(() => Shell.Live.TempSeries[0].Minutes is { Count: > 0 } m && m.FirstTime < new DateTimeOffset(DateTime.Today).ToUnixTimeMilliseconds(), 15_000));
+        // A week loads hours, and going back to a shorter range loads minutes again.
+        Ui.Run(() => Shell.Live.ChartWindowSeconds = 604800);
+        Assert.True(Ui.WaitFor(() => Shell.Live.TempSeries[0] is { StepSeconds: 3600, Minutes.Count: > 0 }, 15_000));
         Ui.Run(() =>
         {
             Shell.Live.ChartDay = DateTime.Today;
             Shell.Live.ChartWindowSeconds = 300;
-            Shell.CurrentPage = "home";
         });
+        Assert.True(Ui.WaitFor(() => Shell.Live.TempSeries[0].StepSeconds == 60, 15_000));
+        Ui.Run(() => Shell.CurrentPage = "home");
     }
 }

@@ -99,6 +99,9 @@ public sealed partial class RigsightDb : IDisposable
         // Each minute's lowest temperatures: the temperature chart says a minute's average, highest and lowest.
         if (!HasColumn("system_minute", "cpu_temp_min")) Exec("ALTER TABLE system_minute ADD COLUMN cpu_temp_min REAL");
         if (!HasColumn("system_minute", "gpu_temp_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_temp_min REAL");
+        // …and the average of the GPU's hot spot and memory, so their lines on that chart are averages like the others.
+        if (!HasColumn("system_minute", "gpu_hot_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_hot_avg REAL");
+        if (!HasColumn("system_minute", "gpu_mem_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_avg REAL");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -334,10 +337,10 @@ public sealed partial class RigsightDb : IDisposable
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
-                cpu_temp_min, gpu_temp_min)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl)
+                cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma)
             """,
-            ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin),
+            ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin), ("$gha", Tenth(m.GpuHotAvg)), ("$gma", Tenth(m.GpuMemAvg)),
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
             ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
             ("$cv", m.CpuVoltMax), ("$gv", m.GpuVoltMax), ("$ram", m.RamUsed), ("$fg", m.FgApp),
@@ -795,8 +798,12 @@ public sealed partial class RigsightDb : IDisposable
     private bool HasLoadApps => _hasLoadApps ??= HasColumn("system_minute", "cpu_app");
     private bool HasClocks => _hasClocks ??= HasColumn("system_minute", "cpu_clock");
     // …and each minute's lowest temperatures.
-    private bool? _hasTempLows;
+    private bool? _hasTempLows, _hasHotAvgs;
     private bool HasTempLows => _hasTempLows ??= HasColumn("system_minute", "cpu_temp_min");
+    private bool HasHotAvgs => _hasHotAvgs ??= HasColumn("system_minute", "gpu_hot_avg");
+
+    // An average to a tenth of a degree: nothing shows more, and the row isn't made longer by digits nobody reads.
+    private static double? Tenth(double? v) => v is double d ? Math.Round(d, 1) : null;
     // The app reads a database the agent made, which may be an older one (0.9.0 or before) without the fans or the day bands.
     private bool HasFans => _hasFans ??= HasTable("fans");
     private bool HasBands => _hasBands ??= HasColumn("system_day", "idle_cpu_sum");
@@ -808,7 +815,7 @@ public sealed partial class RigsightDb : IDisposable
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
                    cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
                    {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")},
-                   {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}
+                   {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}, {(HasHotAvgs ? "gpu_hot_avg, gpu_mem_avg" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -824,7 +831,45 @@ public sealed partial class RigsightDb : IDisposable
                 FgApp = r.IsDBNull(13) ? null : r.GetInt64(13),
                 ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
                 CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
-                CpuClock = D(r, 19), GpuClock = D(r, 20), CpuTempMin = D(r, 21), GpuTempMin = D(r, 22),
+                CpuClock = D(r, 19), GpuClock = D(r, 20), CpuTempMin = D(r, 21), GpuTempMin = D(r, 22), GpuHotAvg = D(r, 23), GpuMemAvg = D(r, 24),
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// The temperatures of [from, to) hour by hour, for the temperature chart's week and month (or, with
+    /// <paramref name="byDay"/>, day by day for its year): each hour's average, its
+    /// highest and its lowest reading, as a row whose <see cref="SystemMinute.Ts"/> is the start of the hour on the
+    /// local clock (of the day: its local midnight). The same for the hot spot's and the memory's average: only when
+    /// every minute that read them kept one (else the chart draws that hour from its highest, as it always did). An hour has a lowest only when every one of its minutes kept one (minutes from before that have
+    /// only their average, and the lowest of those would pass for a reading that was never that low). Hours with
+    /// nothing recorded are left out.
+    /// </summary>
+    public List<SystemMinute> GetTempHours(long from, long to, bool byDay = false)
+    {
+        _hasGpuMem ??= HasColumn("system_minute", "gpu_mem_max");
+        // Hours as the clock shows them: a zone half an hour off (India) would otherwise get hours from :30 to :30.
+        long offset = (long)TimeZoneInfo.Local.GetUtcOffset(DateTimeOffset.FromUnixTimeSeconds(to)).TotalSeconds;
+        using var cmd = Cmd($"""
+            SELECT {(byDay ? DayOf("ts") : "(ts + $off) / 3600 * 3600 - $off")}, avg(cpu_temp), max(cpu_temp_max),
+                   {(HasTempLows ? "CASE WHEN count(cpu_temp_min) = count(cpu_temp) THEN min(cpu_temp_min) END" : "NULL")},
+                   avg(gpu_temp), max(gpu_temp_max), {(HasTempLows ? "CASE WHEN count(gpu_temp_min) = count(gpu_temp) THEN min(gpu_temp_min) END" : "NULL")},
+                   max(gpu_hot_max), {(_hasGpuMem.Value ? "max(gpu_mem_max)" : "NULL")},
+                   {(HasHotAvgs ? "CASE WHEN count(gpu_hot_avg) = count(gpu_hot_max) THEN avg(gpu_hot_avg) END" : "NULL")},
+                   {(HasHotAvgs && _hasGpuMem.Value ? "CASE WHEN count(gpu_mem_avg) = count(gpu_mem_max) THEN avg(gpu_mem_avg) END" : "NULL")}
+            FROM system_minute WHERE ts >= $from AND ts < $to GROUP BY 1 ORDER BY 1
+            """, ("$from", from), ("$to", to), ("$off", offset));
+        using var r = cmd.ExecuteReader();
+        var list = new List<SystemMinute>();
+        while (r.Read())
+        {
+            list.Add(new SystemMinute
+            {
+                Ts = r.GetInt64(0),
+                CpuTemp = D(r, 1), CpuTempMax = D(r, 2), CpuTempMin = D(r, 3),
+                GpuTemp = D(r, 4), GpuTempMax = D(r, 5), GpuTempMin = D(r, 6), GpuHotMax = D(r, 7), GpuMemMax = D(r, 8),
+                GpuHotAvg = D(r, 9), GpuMemAvg = D(r, 10),
             });
         }
         return list;

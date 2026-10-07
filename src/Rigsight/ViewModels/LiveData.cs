@@ -112,7 +112,11 @@ public sealed partial class LiveData : ObservableObject
         if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu));
     }
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
-    /// <summary>300, 3600, 21600 or 86400 seconds up to now, or 0 for one calendar day (<see cref="ChartDay"/>).</summary>
+    /// <summary>
+    /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), or the week
+    /// (604800), month (2592000) or year (31536000) that day is in: a week and a month are drawn hour by hour, a year
+    /// day by day.
+    /// </summary>
     public int ChartWindowSeconds
     {
         get => _settings.Current.ChartWindowSeconds;
@@ -121,15 +125,50 @@ public sealed partial class LiveData : ObservableObject
             _settings.Update(s => s.ChartWindowSeconds = value);
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsChartDay));
+            OnPropertyChanged(nameof(IsChartLong));
+            OnPropertyChanged(nameof(IsChartPaged));
+            OnPropertyChanged(nameof(IsChartMonth));
+            OnPropertyChanged(nameof(IsChartYear));
+            OnPropertyChanged(nameof(ChartDayLabel));
+            OnPropertyChanged(nameof(CanChartNextDay));
+            OnPropertyChanged(nameof(CanChartPreviousDay));
             ChartRangeChanged?.Invoke();
         }
     }
 
     public bool IsChartDay => ChartWindowSeconds == 0;
 
+    /// <summary>A week, a month or a year: the chart is drawn from hours (a year: from days), not minutes.</summary>
+    public bool IsChartLong => ChartWindowSeconds > 86400;
+
+    /// <summary>The picker offers months (or years) to choose from, as on Reports, not days.</summary>
+    public bool IsChartMonth => ChartUnit == Core.Reports.ReportRange.Month;
+    public bool IsChartYear => ChartUnit == Core.Reports.ReportRange.Year;
+
+    /// <summary>How long one point of the chart's older history stands for: a minute, an hour (week, month) or a day (year).</summary>
+    public int ChartStepSeconds => ChartUnit switch { Core.Reports.ReportRange.Year => 86400, Core.Reports.ReportRange.Day => 60, _ => 3600 };
+
+    /// <summary>A day, a week, a month or a year: one on the calendar, picked with the arrows and the date (the others end now).</summary>
+    public bool IsChartPaged => IsChartDay || IsChartLong;
+
+    /// <summary>What the arrows step by: the day, the Monday-to-Sunday week, the month or the year <see cref="ChartDay"/> is in.</summary>
+    public Core.Reports.ReportRange ChartUnit => ChartWindowSeconds switch
+    {
+        604800 => Core.Reports.ReportRange.Week,
+        2592000 => Core.Reports.ReportRange.Month,
+        31536000 => Core.Reports.ReportRange.Year,
+        _ => Core.Reports.ReportRange.Day,
+    };
+
+    /// <summary>The day, week or month the chart shows, from its first midnight to the one after its last day.</summary>
+    public (DateTime From, DateTime To) ChartPeriod => Core.Reports.ReportBuilder.Bounds(ChartUnit, ChartDay);
+
     private DateTime _chartDay = DateTime.Today;
 
-    /// <summary>The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day).</summary>
+    /// <summary>
+    /// The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day); for a week or
+    /// a month, a day in the one shown.
+    /// </summary>
     public DateTime ChartDay
     {
         get => _chartDay;
@@ -157,20 +196,23 @@ public sealed partial class LiveData : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
     private DateTime? _chartHistoryStart;
 
-    public string ChartDayLabel => ReportsViewModel.PeriodText(Core.Reports.ReportRange.Day, ChartDay);
-    public bool CanChartNextDay => ChartDay < DateTime.Today;
-    public bool CanChartPreviousDay => ChartHistoryStart is not { } f || ChartDay > f;
+    /// <summary>"Today", "Yesterday", "Last week", "5–11 Oct", "September 2026"…</summary>
+    public string ChartDayLabel => ReportsViewModel.PeriodText(ChartUnit, ChartDay);
+    // Forward while the one shown is over; back while it began after the history did.
+    public bool CanChartNextDay => ChartPeriod.To <= DateTime.Today;
+    public bool CanChartPreviousDay => ChartHistoryStart is not { } f || ChartPeriod.From > f;
 
     [RelayCommand]
     private void ChartPreviousDay()
     {
-        if (CanChartPreviousDay) ChartDay = ChartDay.AddDays(-1);
+        if (CanChartPreviousDay) ChartDay = Core.Reports.ReportBuilder.Previous(ChartUnit, ChartDay);
     }
 
     [RelayCommand]
     private void ChartNextDay()
     {
-        if (CanChartNextDay) ChartDay = ChartDay.AddDays(1);
+        // Never past today (the 31st of last month steps to today, in this month).
+        if (CanChartNextDay) ChartDay = Core.Reports.ReportBuilder.Next(ChartUnit, ChartDay);
     }
 
     /// <summary>The chart needs different minute history (another day, or back to the last 24 hours).</summary>
@@ -329,6 +371,8 @@ public sealed partial class LiveData : ObservableObject
             foreach (var t in n.Sensors.Where(x => x.Kind == SensorKind.Temperature)) BoardTemps.Add(t);
         }
 
+        // A line's colour says which part it is, so none is green, amber or red: those say how a reading is doing (the
+        // numbers above the chart), and a green or amber line under them read as "good" or "warning".
         // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
         // hot spot and memory (only stored as the minute's highest) as that.
         // Hovering a minute says its average, highest and lowest, as far as they were kept.
@@ -337,13 +381,14 @@ public sealed partial class LiveData : ObservableObject
         {
             if (sensor is null) return;
             var series = new ChartSeries(label, sensor, colorKey, fromMinute, stats);
-            series.LoadMinutes(_minutes);
+            series.LoadMinutes(_minutes, _minuteStep);
             TempSeries.Add(series);
         }
         AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
         AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
-        AddSeries("GPU hot spot", GpuHotSpot, "WarmColor", m => m.GpuHotMax, m => (null, m.GpuHotMax, null));
-        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemMax, m => (null, m.GpuMemMax, null));
+        // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
+        AddSeries("GPU hot spot", GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, null));
+        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, null));
 
         _byKey.Clear();
         if (hello.Keys is not null)
@@ -437,13 +482,18 @@ public sealed partial class LiveData : ObservableObject
     }
 
     private List<Rigsight.Core.Data.SystemMinute> _minutes = [];
+    private int _minuteStep = 60;
     private List<DriveHealthInfo> _driveHealth = [];
 
-    /// <summary>The last day of minute history, for the temperature chart's longer windows.</summary>
-    public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes)
+    /// <summary>
+    /// The last day of minute history, for the temperature chart's longer windows; or, with
+    /// <paramref name="stepSeconds"/> 3600, the hours of its week or month.
+    /// </summary>
+    public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes, int stepSeconds = 60)
     {
         _minutes = minutes;
-        foreach (var series in TempSeries) series.LoadMinutes(minutes);
+        _minuteStep = stepSeconds;
+        foreach (var series in TempSeries) series.LoadMinutes(minutes, stepSeconds);
         Tick++;
     }
 

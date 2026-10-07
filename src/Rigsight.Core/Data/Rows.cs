@@ -90,6 +90,9 @@ public sealed class SystemMinute
     public double? GpuTempMin { get; set; }
     public double? GpuHotMax { get; set; }
     public double? GpuMemMax { get; set; }
+    /// <summary>The minute's average hot spot and memory temperature (null in minutes from before they were kept: those have only the highest).</summary>
+    public double? GpuHotAvg { get; set; }
+    public double? GpuMemAvg { get; set; }
     public double? CpuLoad { get; set; }
     public double? GpuLoad { get; set; }
     public double? CpuPower { get; set; }

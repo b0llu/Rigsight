@@ -227,8 +227,9 @@ public static class SettingsStore
             _ => 0,
         };
         s.LiveRefreshMs = Math.Clamp(s.LiveRefreshMs, 250, 10_000);
-        // The temperature chart offers 5 minutes, 1 hour, 6 hours, 24 hours and today (0: since midnight).
-        if (s.ChartWindowSeconds is not (0 or 300 or 3600 or 21600 or 86400))
+        // The temperature chart offers 5 minutes, 1 hour, 6 hours, 24 hours, a day (0: today since midnight, or an
+        // earlier one), a week, a month and a year (604800, 2592000 and 31536000 stand for those: one on the calendar).
+        if (s.ChartWindowSeconds is not (0 or 300 or 3600 or 21600 or 86400 or 604800 or 2592000 or 31536000))
             s.ChartWindowSeconds = s.ChartWindowSeconds <= 300 ? 300 : 3600;
 
         foreach (var page in s.CustomPages)

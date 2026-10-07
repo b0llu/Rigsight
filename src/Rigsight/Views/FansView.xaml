@@ -75,7 +75,7 @@
                             <TextBlock Text="{Binding StatusText}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource TileBig}">
-                                        <Setter Property="Foreground" Value="{DynamicResource GpuBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding StatusOk}" Value="False">
                                                 <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
@@ -172,7 +172,7 @@
                                             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding State}" Value="Spinning">
-                                                    <Setter Property="Background" Value="{DynamicResource GpuSoftBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding State}" Value="StoppedHot">
                                                     <Setter Property="Background" Value="{DynamicResource HotSoftBrush}" />
@@ -186,7 +186,7 @@
                                                 <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding State}" Value="Spinning">
-                                                        <Setter Property="Foreground" Value="{DynamicResource GpuBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding State}" Value="StoppedHot">
                                                         <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />

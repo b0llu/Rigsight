@@ -385,10 +385,10 @@ public sealed class SensorModelTests
     }
 
     [Theory]
-    [InlineData("Good", "GpuBrush", "Good")]
+    [InlineData("Good", "GoodBrush", "Good")]
     [InlineData("Caution", "WarmBrush", "Caution")]
     [InlineData("Bad", "HotBrush", "Bad")]
-    [InlineData("Unknown", "GpuBrush", "Unknown")]
+    [InlineData("Unknown", "GoodBrush", "Unknown")]
     public void A_hard_drive_shows_its_smart_status(string status, string brush, string text)
     {
         Ui.Run(() =>
@@ -581,7 +581,7 @@ public sealed class ServiceTests
         [
             "BgColor", "TextColor", "MutedColor", "FaintColor", "StrokeColor", "Surface2Color", "TooltipColor", "CpuColor", "GpuColor",
             "CoolColor", "GoodColor", "WarmColor", "OrangeColor", "HotColor", "PurpleColor", "PinkColor",
-            "HotBrush", "WarmBrush", "GpuBrush", "CpuBrush", "PurpleBrush", "AccentBrush", "MutedBrush", "StrokeBrush", "FaintBrush", "HoverBrush",
+            "HotBrush", "WarmBrush", "GoodBrush", "GoodSoftBrush", "GpuBrush", "CpuBrush", "PurpleBrush", "AccentBrush", "MutedBrush", "StrokeBrush", "FaintBrush", "HoverBrush",
         ];
         try
         {
