@@ -327,6 +327,10 @@
                                              IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.25}" />
                                 <RadioButton Style="{StaticResource Segment}" Content="XL" GroupName="size"
                                              IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.5}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="2XL" GroupName="size"
+                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=2}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="3XL" GroupName="size"
+                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=2.5}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

@@ -23,6 +23,9 @@ public static partial class Inventory
 
     public const string On = "on", Off = "off";
 
+    /// <summary>The setting that isn't on or off: which power plan Windows is on, by name.</summary>
+    public const string PowerPlan = "power-plan";
+
     /// <summary>How often the agent reads the inventory: a change found by it happened within this long before.</summary>
     public const int ScanMinutes = 10;
 
@@ -319,7 +322,33 @@ public static partial class Inventory
         Add("game-mode", "Game Mode", (Number(Registry.CurrentUser, @"Software\Microsoft\GameBar", "AutoGameModeEnabled") ?? 1) != 0);
         Add("memory-integrity", "Memory integrity",
             (Number(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled") ?? 0) != 0);
+
+        // The power plan in use: other programs switch it (a game booster, a maker's tool, a driver install), and nothing says so.
+        const string plans = @"SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes";
+        if (Machine(plans, "ActivePowerScheme") is { Length: > 0 } active && PlanName(active, Machine($@"{plans}\{active}", "FriendlyName")) is { } plan)
+            list.Add(new(Setting, PowerPlan, "Power plan", plan));
         return list;
+    }
+
+    /// <summary>
+    /// A power plan's name from what the registry holds for it: Windows' own are a pointer into a file with the English
+    /// name after it ("@%SystemRoot%\system32\powrprof.dll,-13,High performance"), a maker's or the user's own is just
+    /// the name. Without one, the plans every PC has are known by their id.
+    /// </summary>
+    internal static string? PlanName(string id, string? friendly)
+    {
+        string name = friendly?.Trim() ?? "";
+        if (name.StartsWith('@')) name = name.Split(',', 3) is { Length: 3 } parts ? parts[2].Trim() : "";
+        if (name.EndsWith(" (recommended)", StringComparison.OrdinalIgnoreCase)) name = name[..^" (recommended)".Length];
+        if (name.Length > 0) return name;
+        return id.ToLowerInvariant() switch
+        {
+            "381b4222-f694-41f0-9685-ff5bb260df2e" => "Balanced",
+            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => "High performance",
+            "a1841308-3541-4fab-bc81-f71556f20b4a" => "Power saver",
+            "e9a42b02-d5df-448d-aa00-03f14749eb61" => "Ultimate Performance",
+            _ => null,
+        };
     }
 
     private static string? Machine(string key, string value)
@@ -372,6 +401,7 @@ public static partial class Inventory
                 case Board: Add(ChangeKind.Hardware, item, $"Motherboard changed to {item.Value}", old.Value, item.Value); break;
                 case Bios: Add(ChangeKind.Firmware, item, $"BIOS updated to {item.Value}", old.Value, item.Value); break;
                 case Windows: Add(ChangeKind.Windows, item, $"{item.Name} updated to {item.Value}", old.Value, item.Value); break;
+                case Setting when item.Key == PowerPlan: Add(ChangeKind.Setting, item, $"{item.Name} changed to {item.Value}", old.Value, item.Value); break;
                 case Setting: Add(ChangeKind.Setting, item, $"{item.Name} turned {item.Value}"); break;
             }
         }

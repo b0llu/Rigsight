@@ -271,7 +271,11 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         _groups = CrashGroup.Build(_all, groupRepeats: Grouped);
         foreach (var g in _groups)
             if (open.TryGetValue(KeyOf(g), out var state)) (g.IsExpanded, g.ShowDetails) = state;
-        foreach (var g in _groups) g.ChangesText = ChangesBefore(g);
+        foreach (var g in _groups)
+        {
+            g.ChangesText = DriverSwap(g) ?? ChangesBefore(g);
+            g.ChangesTip = DriverSwap(g) is not null ? SwapTip : BeforeTip;
+        }
     }
 
     /// <summary>Re-applies mute state, counts, timeline, status and the visible list.</summary>
@@ -389,6 +393,23 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     }
 
     // ── What changed before ─────────────────────────────────────────────
+
+    private const string BeforeTip = "Drivers and Windows updates installed shortly before. A new driver is a common cause of new crashes; rolling it back or installing the next version often helps.";
+    private const string SwapTip = "Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.";
+
+    /// <summary>
+    /// An app that crashed while a graphics driver was being put in: that explains it by itself, whatever the crash
+    /// was in. The driver's time is its last part's (NVIDIA's sound part is logged ten seconds after the card comes
+    /// back), so it can read as just after the crash. Only for a time read from Windows' logs.
+    /// </summary>
+    private string? DriverSwap(CrashGroup g)
+    {
+        if (g.IsIncident || g.Latest.Event.Kind is not (CrashKind.AppCrash or CrashKind.AppHang)) return null;
+        var when = g.Latest.Time;
+        if (_changes.FirstOrDefault(c => c.IsGraphicsDriver && !c.IsApproximate && Math.Abs((c.Time - when).TotalMinutes) <= 2) is not { } driver) return null;
+        string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
+        return $"{(g.Count > 1 ? "Last time: " : "")}{name} was being installed at that moment";
+    }
 
     private string? ChangesBefore(CrashGroup g)
     {

@@ -560,13 +560,14 @@ public sealed class TimelinePageTests
                 new(Inventory.GpuDriver, "pci", "NVIDIA graphics driver", "616.92"),
                 new(Inventory.Bios, Inventory.Bios, "BIOS", "F66d"),
                 new(Inventory.Ram, Inventory.Ram, "Memory", "16 GB"),
+                new(Inventory.Setting, "game-mode", "Game Mode", Inventory.On), new(Inventory.Setting, Inventory.PowerPlan, "Power plan", "Balanced"),
                 new(Inventory.App, "steam", "Steam", "2.10"), new(Inventory.App, "discord", "Discord", "1.0"),
                 new(Inventory.Startup, "steam", "Steam", Inventory.On), new(Inventory.Startup, "onedrive", "OneDrive", Inventory.Off),
             ]);
         Ui.Run(() =>
         {
-            Assert.Equal(["Windows", "Graphics driver", "BIOS", "Memory", "Apps installed", "Start with Windows"], vm.Now.Select(f => f.Label));
-            Assert.Equal(["11 25H2", "616.92", "F66d", "16 GB", "2", "1"], vm.Now.Select(f => f.Value));
+            Assert.Equal(["Windows", "Graphics driver", "BIOS", "Memory", "Power plan", "Apps installed", "Start with Windows"], vm.Now.Select(f => f.Label));
+            Assert.Equal(["11 25H2", "616.92", "F66d", "16 GB", "Balanced", "2", "1"], vm.Now.Select(f => f.Value));
             Assert.Null(vm.Now[0].Since); // no Windows version change seen
             Assert.Equal(driverDay.Year == Today.Year ? $"since {driverDay:d MMM}" : $"since {driverDay:d MMM yyyy}", vm.Now[1].Since);
             Assert.Equal($"since {Today.AddYears(-1).AddDays(-3):d MMM yyyy}", vm.Now[2].Since); // another year: with the year

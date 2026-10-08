@@ -827,4 +827,26 @@ public sealed class CrashesPageTests
             Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "own-bug.exe").ChangesText);
         });
     }
+
+    [Fact]
+    public void An_app_that_crashed_while_a_graphics_driver_was_being_installed_says_so()
+    {
+        // 7 Oct 2026: two apps went down as an NVIDIA driver was swapped; its log entry is from seconds after.
+        var (vm, _) = Page();
+        var t = DateTime.Today.AddDays(-1).AddHours(17).AddMinutes(40).AddSeconds(29);
+        var changes = new List<SystemChange>
+        {
+            new(t.AddSeconds(2), ChangeKind.Driver, "NVIDIA graphics driver 617.42"),
+            new(t.AddHours(-5), ChangeKind.Driver, "Realtek audio driver"),
+        };
+        Show(vm, [Crashes.App(t, "swapped.exe"), Crashes.App(t.AddMinutes(-10), "earlier.exe"), Crashes.App(t.AddMinutes(10), "later.exe")], changes);
+        Ui.Run(() =>
+        {
+            var swapped = vm.GroupsShown.Single(g => g.AppExe == "swapped.exe");
+            Assert.Equal("NVIDIA graphics driver 617.42 was being installed at that moment", swapped.ChangesText);
+            Assert.StartsWith("Apps that are open can crash while a graphics driver is replaced", swapped.ChangesTip);
+            Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "earlier.exe").ChangesText);
+            Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "later.exe").ChangesText);
+        });
+    }
 }

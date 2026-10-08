@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Rigsight.Core;
 using Rigsight.Agent.Widgets;
@@ -182,8 +183,34 @@ internal static class Program
         Application.ThreadException += (_, e) => Log.Error("agent", e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error("agent", (Exception)e.ExceptionObject);
 
-        Log.Write("agent", $"Starting (admin: {isAdmin}, process {Environment.ProcessId})");
+        // Should the agent ever crash, Windows starts it again (only one that had run for a minute, so never round and round).
+        try { RegisterApplicationRestart(CrashRestartLine(args, TestDataDir), RestartNoPatch | RestartNoReboot); } catch (Exception ex) { Log.Error("agent", ex); }
+
+        Log.Write("agent", $"Starting (admin: {isAdmin}, process {Environment.ProcessId}{(args.Contains(AfterCrash) ? ", after a crash" : "")})");
         Application.Run(new AgentContext(args, isAdmin));
         GC.KeepAlive(mutex);
     }
+
+    private const string AfterCrash = "--after-crash";
+    private const int RestartNoPatch = 4, RestartNoReboot = 8;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern int RegisterApplicationRestart(string? commandLine, int flags);
+
+    // A test copy's data folder is said outright: what Windows starts after a crash doesn't get our environment.
+    private static string? TestDataDir => RigsightPaths.IsTestInstance ? RigsightPaths.DataDir : null;
+
+    /// <summary>What a copy that carries on from this one is started with: as this one was, without what was only for its own start.</summary>
+    internal static List<string> RestartArgs(string[] args) => RestartArgs(args, TestDataDir);
+
+    internal static List<string> RestartArgs(string[] args, string? testDataDir)
+    {
+        var list = args.Where(a => a is not ("--open" or "--replace" or AfterCrash)).ToList();
+        if (testDataDir is not null && !list.Contains("--data-dir")) list.AddRange(["--data-dir", testDataDir]);
+        return list;
+    }
+
+    /// <summary>The same as one command line, for Windows to start the agent with after a crash.</summary>
+    internal static string CrashRestartLine(string[] args, string? testDataDir) =>
+        string.Join(' ', RestartArgs(args, testDataDir).Append(AfterCrash)
+            .Select(a => a.Contains(' ') ? '"' + Path.TrimEndingDirectorySeparator(a) + '"' : a));
 }

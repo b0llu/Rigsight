@@ -11,8 +11,31 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-public sealed record VolumeRow(string Root, string Label, long Total, long Free, string Growth, bool GrowthIsUp)
+public sealed record VolumeRow(string Root, string Label, long Total, long Free, string Growth, bool GrowthIsUp) : System.ComponentModel.INotifyPropertyChanged
 {
+    private string? _scanText;
+
+    /// <summary>While this drive is being scanned: how far along, going by the space it has in use ("40%"). Null otherwise.</summary>
+    public string? ScanText
+    {
+        get => _scanText;
+        set
+        {
+            if (_scanText == value) return;
+            bool was = IsScanning;
+            _scanText = value;
+            PropertyChanged?.Invoke(this, new(nameof(ScanText)));
+            if (was != IsScanning) PropertyChanged?.Invoke(this, new(nameof(IsScanning)));
+        }
+    }
+
+    public bool IsScanning => _scanText is not null;
+
+    /// <summary>What a scan that has read <paramref name="bytes"/> shows: never 100 before it's done (some files can't be read, so it may never add up).</summary>
+    public string ScanProgress(long bytes) => $"{(Used > 0 ? Math.Clamp(100 * bytes / Used, 0, 99) : 0)}%";
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     public long Used => Total - Free;
     public double UsedPercent => Total > 0 ? 100.0 * Used / Total : 0;
     public string Title => string.IsNullOrWhiteSpace(Label) ? $"Local disk ({Root.TrimEnd('\\')})" : $"{Label} ({Root.TrimEnd('\\')})";
@@ -125,17 +148,35 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         return list.OrderByDescending(i => i.Size).ToList();
     }
 
+    /// <summary>
+    /// A scan the user asked for is done: the page goes to what it found, which is below the drives (a user who pressed
+    /// "See what's inside" saw nothing happen and thought the app had crashed). Until then the drive's own card says how
+    /// far along it is. Not for the Refresh button's scan, nor one that was cancelled or replaced.
+    /// </summary>
+    public event Action? ScanDone;
+    private bool _refreshing;
+
     [RelayCommand]
     private async Task Scan(string? root)
     {
         if (string.IsNullOrEmpty(root)) return;
         _scanCts?.Cancel();
+        bool asked = !_refreshing;
         // A scan started while another runs takes over: the one it replaced ends without touching what's on screen
         // (it used to say "Scan cancelled." and hide the progress and Cancel button of the scan still going).
         var scan = _scanCts = new CancellationTokenSource();
         IsScanning = true;
         ScanStatus = $"Scanning {root}…";
-        var progress = new Progress<(long Files, long Bytes)>(p => { if (_scanCts == scan) ScanStatus = $"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}"; });
+        // A drive's own card says so too (the drives may be read again meanwhile: the card is found by its drive each time).
+        VolumeRow? Card() => Volumes.FirstOrDefault(v => string.Equals(v.Root, root, StringComparison.OrdinalIgnoreCase));
+        foreach (var v in Volumes) v.ScanText = null;
+        Card()?.ScanText = "0%";
+        var progress = new Progress<(long Files, long Bytes)>(p =>
+        {
+            if (_scanCts != scan) return;
+            ScanStatus = $"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}";
+            if (Card() is { } card) card.ScanText = card.ScanProgress(p.Bytes);
+        });
         try
         {
             var result = await StorageScanner.ScanAsync(root, progress, scan.Token);
@@ -144,6 +185,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             Breadcrumbs.Clear();
             Open(Result.Root);
             ScanStatus = $"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s";
+            if (asked) ScanDone?.Invoke();
         }
         catch (OperationCanceledException)
         {
@@ -151,7 +193,11 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         }
         finally
         {
-            if (_scanCts == scan) IsScanning = false;
+            if (_scanCts == scan)
+            {
+                IsScanning = false;
+                foreach (var v in Volumes) v.ScanText = null;
+            }
         }
     }
 
@@ -215,7 +261,9 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         var again = Result is { } r && !IsScanning ? (Root: r.Root.Path, Folder: Current?.Path) : default;
         await Task.WhenAll(LoadVolumesAsync(), LoadCleanupAsync());
         if (again.Root is null) return;
-        await Scan(again.Root);
+        _refreshing = true;
+        try { await Scan(again.Root); }
+        finally { _refreshing = false; }
         if (again.Folder is not null && Find(Result?.Root, again.Folder) is { } folder) Open(folder);
     }
 

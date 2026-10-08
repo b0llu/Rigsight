@@ -211,7 +211,8 @@ public sealed class SettingsNormalizeTests
     [InlineData(0.6, 0.6)]
     [InlineData(1.25, 1.25)]
     [InlineData(2, 2)]
-    [InlineData(2.01, 2)]
+    [InlineData(2.5, 2.5)]
+    [InlineData(2.51, 2.5)]
     [InlineData(-3, 0.6)]
     public void Scale_is_clamped(double value, double expected)
     {

@@ -305,6 +305,41 @@
                         </ctl:SmoothBorder>
                     </StackPanel>
 
+                    <!-- The agent is being started: said quietly, with nothing to press. The warning below is for when it didn't come. -->
+                    <ctl:SmoothBorder CornerRadius="12" Padding="12,10" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                            Visibility="{Binding ShowAgentStarting, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Path DockPanel.Dock="Left" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,10,0"
+                                  Data="M 6,0.75 A 5.25,5.25 0 1 1 0.75,6" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform />
+                                </Path.RenderTransform>
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowAgentStarting}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard x:Name="AgentSpin">
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                                                             From="0" To="360" Duration="0:0:0.8" RepeatBehavior="Forever" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="AgentSpin" />
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+                            <TextBlock Text="{Binding AgentStatus}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </ctl:SmoothBorder>
+
                     <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
                             BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                             Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}">
@@ -365,7 +400,8 @@
 
                 <!-- Navigation (scrolls if there are many dashboards on a short screen). The groups' order and hidden pages
                      come from Settings; DASHBOARDS, HARDWARE and ON SCREEN fold away with a click on their heading. -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <!-- Its bar sits in the sidebar's right margin, clear of the items (it used to lie on their edge). -->
+                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <StackPanel DataContext="{Binding Sidebar}">
                     <StackPanel.Resources>
                         <DataTemplate x:Key="NavEntry">

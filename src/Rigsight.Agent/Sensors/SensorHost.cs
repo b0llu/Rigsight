@@ -25,13 +25,15 @@ internal sealed class SensorHost
     private readonly Computer _computer;
 
     /// <param name="skip">Hardware not to touch at all: not even detected (see <see cref="HardwareApps"/> and <see cref="ScanGuard"/>).</param>
-    public SensorHost(SensorParts skip = SensorParts.None)
+    /// <param name="gpus">False while a graphics driver is being changed (see <see cref="DisplayDriverWatch"/>): the cards aren't even looked for.</param>
+    public SensorHost(SensorParts skip = SensorParts.None, bool gpus = true)
     {
         Skipped = skip;
+        _gpusPaused = !gpus;
         _computer = new Computer
         {
             IsCpuEnabled = true,
-            IsGpuEnabled = true,
+            IsGpuEnabled = gpus,
             IsMotherboardEnabled = !skip.HasFlag(SensorParts.Motherboard),
             // Opened later, in the background (see OpenMemory): finding the RAM sticks takes seconds.
             IsMemoryEnabled = false,
@@ -58,6 +60,14 @@ internal sealed class SensorHost
     private IHardware? _fastGpuHardware;
     private readonly Dictionary<string, double?> _fastValues = [];
     private bool _usingFastValues;
+
+    // A graphics card's driver is going or coming (see DisplayDriverWatch): no card is asked anything from here on.
+    private bool _gpusPaused;
+
+    /// <summary>Sampler thread: leaves the graphics cards alone from now on; their readings are "none" until the agent starts again.</summary>
+    public void PauseGpus() => _gpusPaused = true;
+
+    private static bool IsGpu(IHardware hw) => hw.HardwareType is HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel;
 
     private Dictionary<string, int> _indexById = [];
 
@@ -341,7 +351,7 @@ internal sealed class SensorHost
         DrivesUpdated = slowDue;
 
         // The quick NVIDIA readings only cover the key GPU sensors; a GPU sensor on the overlay needs the full read.
-        _usingFastValues = !everything && _fastGpu is not null && !_watchesFastGpu;
+        _usingFastValues = !_gpusPaused && !everything && _fastGpu is not null && !_watchesFastGpu;
         // Drives are slow to read: a watched drive sensor every 10 s is plenty.
         bool watchedSlowDue = nowMs - _lastWatchedSlowMs >= 10_000;
         if (watchedSlowDue) _lastWatchedSlowMs = nowMs;
@@ -362,6 +372,7 @@ internal sealed class SensorHost
         foreach (var (hw, tier) in _hardware)
         {
             if (_usingFastValues && hw == _fastGpuHardware) continue;
+            if (_gpusPaused && IsGpu(hw)) continue;
             bool update = tier switch
             {
                 Tier.Fast => true,
@@ -415,7 +426,7 @@ internal sealed class SensorHost
         if (!_indexById.TryGetValue(id, out int i)) return null;
         var s = _sensors[i];
         var kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor;
-        double? value = s.Value is float f && float.IsFinite(f) ? f : null;
+        double? value = s.Value is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? f : null;
         // Without driver access some temperature sensors report 0 instead of nothing.
         if (kind == SensorKind.Temperature && value <= 0) value = null;
         return (value, kind, s.Name, s.Hardware.HardwareType.ToString(), s.Hardware.Name);
@@ -427,7 +438,7 @@ internal sealed class SensorHost
         for (int i = 0; i < values.Length; i++)
         {
             var v = _sensors[i].Value;
-            values[i] = v is float f && float.IsFinite(f) ? MathF.Round(f, 3) : null;
+            values[i] = v is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? MathF.Round(f, 3) : null;
         }
         return values;
     }
@@ -436,7 +447,7 @@ internal sealed class SensorHost
     {
         if (_usingFastValues && key.StartsWith("gpu", StringComparison.Ordinal))
             return _fastValues.GetValueOrDefault(key);
-        if (!Keys.TryGetValue(key, out var i)) return null;
+        if (!Keys.TryGetValue(key, out var i) || (_gpusPaused && IsGpu(_sensorHardware[i]))) return null;
         var v = _sensors[i].Value;
         if (v is not float f || !float.IsFinite(f)) return null;
         // Without driver access some temperature sensors report 0 instead of nothing.

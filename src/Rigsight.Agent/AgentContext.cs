@@ -69,6 +69,9 @@ internal sealed class AgentContext : ApplicationContext
     private readonly ConnectionWatch _connection = new();
     private readonly TraceWatch _traceWatch = new();
     private readonly SensorHealth _sensorHealth = new();
+    private readonly DisplayDriverWatch _displayWatch = new();
+    private bool _gpusPaused, _restarting; // sampler thread
+    private readonly string[] _args;
     private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
     private readonly Queue<NetLive> _netHistory = new();
     private readonly Lock _netHistoryLock = new();
@@ -124,6 +127,7 @@ internal sealed class AgentContext : ApplicationContext
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
         _ui = SynchronizationContext.Current!;
         _isAdmin = isAdmin;
+        _args = args;
         MemoryAt("starting");
 
         _settings = SettingsStore.Load();
@@ -197,6 +201,7 @@ internal sealed class AgentContext : ApplicationContext
             _startupEnabled = StartupTask.Enable();
         }
 
+        _displayWatch.Start();
         _sampler = new Thread(SamplerLoop) { IsBackground = true, Name = "Sampler", Priority = ThreadPriority.BelowNormal };
         _sampler.Start();
 
@@ -362,6 +367,7 @@ internal sealed class AgentContext : ApplicationContext
                     // Sensors on the overlay stay live in games (the app is usually closed then).
                     // And those in the taskbar, which are always on show.
                     _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. WidgetSensorIds(_settings)]);
+                    CheckDisplayDriver();
                     _sensors.Update(everything: live, now);
                     if (_sensorHealth.Check(_sensors.Unwell, now))
                     {
@@ -486,6 +492,24 @@ internal sealed class AgentContext : ApplicationContext
     }
 
     /// <summary>
+    /// Sampler thread, before each read: a graphics card's driver that is going or coming (see <see cref="DisplayDriverWatch"/>)
+    /// stops the cards being read at once, and once it has settled the agent starts again to read them through the new driver.
+    /// </summary>
+    private void CheckDisplayDriver()
+    {
+        if (!_displayWatch.Changed) return;
+        _sensors.PauseGpus();
+        if (!_gpusPaused)
+        {
+            _gpusPaused = true;
+            Log.Write("sensors", "A graphics card's driver is changing: leaving the graphics cards alone, and starting again once it has settled");
+        }
+        if (_restarting || !_displayWatch.Settled(Environment.TickCount64)) return;
+        _restarting = true;
+        _ui.Post(_ => Restart("a graphics driver that changed"), null);
+    }
+
+    /// <summary>
     /// Sampler thread: scans the hardware (again), leaving alone what an RGB or fan-control program is driving right now
     /// (see <see cref="HardwareApps"/>) and, after a scan that never finished or ran Windows' kernel memory up, the risky
     /// parts altogether (see <see cref="ScanGuard"/>). Nothing reads sensors meanwhile: this runs on the sampler thread.
@@ -500,7 +524,7 @@ internal sealed class AgentContext : ApplicationContext
 
         _sensorsReady = false;
         _sensors.Close();
-        var host = new SensorHost(skip);
+        var host = new SensorHost(skip, gpus: !_displayWatch.Changed);
         var scan = Stopwatch.StartNew();
         using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
         {
@@ -1284,6 +1308,8 @@ internal sealed class AgentContext : ApplicationContext
         Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
+        // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
+        Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
         Note("widgets on", before.Widgets.Count(w => w.Enabled), after.Widgets.Count(w => w.Enabled));
         Note("apps left out of tracking", before.Tracking.ExcludedApps.Count, after.Tracking.ExcludedApps.Count);
     }
@@ -1410,6 +1436,22 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    /// <summary>Starts a new copy that takes over (with the same rights, so nothing to accept), then exits.</summary>
+    private void Restart(string why)
+    {
+        if (_stopping || Environment.ProcessPath is not { } exe) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe, [.. Program.RestartArgs(_args), "--replace"]) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("agent", ex);
+            return;
+        }
+        Quit(why);
+    }
+
     /// <summary>Stops the agent, saying why in the log (a copy that's simply gone can then be traced).</summary>
     private void Quit(string why)
     {
@@ -1419,6 +1461,7 @@ internal sealed class AgentContext : ApplicationContext
         SystemEvents.TimeChanged -= OnTimeChanged;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _quitWait?.Unregister(null);
+        _displayWatch.Dispose();
         _stopping = true;
         _updateTimer?.Dispose();
         _wake.Set();

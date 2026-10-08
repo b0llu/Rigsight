@@ -97,12 +97,16 @@ public sealed partial class ShellViewModel : ObservableObject
         };
         if (!RigsightPaths.IsTestInstance) updateCheck.Start(); // a test copy never looks for updates by itself
 
-        // If the agent isn't running a moment after startup, start it.
-        var launchCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        // If the agent isn't connected a moment after startup, start it: at once when there's no agent at all, after
+        // giving one that is running the time to answer.
+        bool none = !RigsightPaths.IsTestInstance && !AgentLauncher.IsRunning();
+        var launchCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(none ? 0.3 : 2.5) };
         launchCheck.Tick += (_, _) =>
         {
             launchCheck.Stop();
-            if (!IsConnected && !RigsightPaths.IsTestInstance) StartAgent(); // the tests start their own agent
+            if (IsConnected) return;
+            if (!RigsightPaths.IsTestInstance) StartAgent(); // the tests start their own agent
+            else AgentPending = false;
         };
         launchCheck.Start();
     }
@@ -236,8 +240,29 @@ public sealed partial class ShellViewModel : ObservableObject
     ];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowAgentStarting), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
     private bool _isConnected;
+
+    /// <summary>
+    /// The agent is on its way: the window has just opened, the agent is being started, or it went a moment ago and may
+    /// be straight back (it starts again by itself after a graphics driver changes). Nothing to warn about yet: the
+    /// sidebar used to say "not running" with a Start button the moment the window opened, then "Starting…" with the
+    /// button still there.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowAgentStarting))]
+    private bool _agentPending = true;
+
+    /// <summary>How long an agent that went is given to come back before the sidebar says it isn't running.</summary>
+    private static readonly TimeSpan AgentGrace = TimeSpan.FromSeconds(5);
+    private DispatcherTimer? _graceTimer;
+
+    /// <summary>The agent that went a moment ago hasn't come back (and nothing is starting it): say so.</summary>
+    internal void EndAgentGrace()
+    {
+        _graceTimer?.Stop();
+        if (!IsConnected && string.IsNullOrEmpty(AgentStatus)) AgentPending = false;
+    }
 
     /// <summary>
     /// The running agent's version when it isn't this window's (null: the same, or not known). An update that couldn't
@@ -262,10 +287,13 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Progress of the last start attempt; empty when there is nothing to report.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AgentHint))]
+    [NotifyPropertyChangedFor(nameof(AgentHint), nameof(ShowAgentStarting))]
     private string _agentStatus = "";
 
-    public bool ShowAgentWarning => !IsConnected || !AgentIsAdmin || AgentOutOfDate;
+    public bool ShowAgentWarning => IsConnected ? !AgentIsAdmin || AgentOutOfDate : !AgentPending;
+
+    /// <summary>The agent is being started: a quiet line saying so, with no button to press meanwhile.</summary>
+    public bool ShowAgentStarting => !IsConnected && AgentPending && !string.IsNullOrEmpty(AgentStatus);
 
     public string AgentHint =>
         !string.IsNullOrEmpty(AgentStatus) ? AgentStatus
@@ -502,10 +530,12 @@ public sealed partial class ShellViewModel : ObservableObject
             _client.SendCommand("restart-elevated");
             return;
         }
-        AgentStatus = "Starting the Rigsight agent…";
+        AgentPending = true;
+        AgentStatus = "Starting the background agent…";
         if (!AgentLauncher.Start())
         {
             AgentStatus = "Couldn't start the agent. Try again, and accept the admin prompt.";
+            AgentPending = false;
             return;
         }
 
@@ -515,7 +545,9 @@ public sealed partial class ShellViewModel : ObservableObject
         _startTimeout.Tick += (_, _) =>
         {
             _startTimeout.Stop();
-            if (!IsConnected) AgentStatus = NotStartedText(AgentLauncher.IsRunning());
+            if (IsConnected) return;
+            AgentStatus = NotStartedText(AgentLauncher.IsRunning());
+            AgentPending = false;
         };
         _startTimeout.Start();
     }
@@ -535,6 +567,15 @@ public sealed partial class ShellViewModel : ObservableObject
         bool wasConnected = IsConnected;
         IsConnected = connected;
         AgentStatus = "";
+        _graceTimer?.Stop();
+        if (connected) AgentPending = false;
+        else if (wasConnected && !_startAfterQuit)
+        {
+            AgentPending = true;
+            _graceTimer = new DispatcherTimer { Interval = AgentGrace };
+            _graceTimer.Tick += (_, _) => EndAgentGrace();
+            _graceTimer.Start();
+        }
         // The agent may have just created the database (first run): load the page now rather than in a minute.
         if (connected && !wasConnected) _ = RefreshCurrentPageAsync();
         if (!connected)

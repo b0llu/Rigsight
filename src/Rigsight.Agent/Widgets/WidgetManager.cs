@@ -145,7 +145,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(contentOpacity);
 
         var size = new ToolStripMenuItem("Size");
-        foreach (var (label, s) in new[] { ("Small", 0.8), ("Normal", 1.0), ("Large", 1.25), ("Extra large", 1.5) })
+        foreach (var (label, s) in new[] { ("Small", 0.8), ("Normal", 1.0), ("Large", 1.25), ("Extra large", 1.5), ("2XL", 2.0), ("3XL", 2.5) })
             size.DropDownItems.Add(Check(label, Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Id, c => c.Scale = s)));
         menu.Items.Add(size);
 

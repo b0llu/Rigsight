@@ -81,7 +81,7 @@
                             <DockPanel Margin="0,6,0,0" Visibility="{Binding ChangesText, Converter={StaticResource Vis}}">
                                 <TextBlock Text="&#xE895;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource CpuBrush}" VerticalAlignment="Top" Margin="0,2,8,0" />
                                 <TextBlock Text="{Binding ChangesText}" FontSize="12" Foreground="{DynamicResource CpuBrush}" TextWrapping="Wrap"
-                                           ToolTip="Drivers and Windows updates installed shortly before. A new driver is a common cause of new crashes; rolling it back or installing the next version often helps." />
+                                           ToolTip="{Binding ChangesTip}" />
                             </DockPanel>
 
                             <!-- Actions -->

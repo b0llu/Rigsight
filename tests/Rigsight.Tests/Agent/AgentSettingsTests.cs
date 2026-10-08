@@ -129,7 +129,7 @@ public class AgentSettingsTests
         Assert.Equal("dark", merged.Theme);
         Assert.Equal(500, merged.Tracking.SensorIntervalMs);
         Assert.Equal(WidgetCatalog.BuiltIn.Count, merged.Widgets.Count);
-        Assert.Equal(2.0, merged.Widgets.Single(w => w.Style == WidgetStyle.Pill).Scale);
+        Assert.Equal(2.5, merged.Widgets.Single(w => w.Style == WidgetStyle.Pill).Scale);
     }
 
     [Fact]

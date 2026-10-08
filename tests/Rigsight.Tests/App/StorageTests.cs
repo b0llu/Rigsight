@@ -39,6 +39,44 @@ public sealed class StorageTests
     }
 
     [Fact]
+    public void A_scan_the_user_started_says_when_its_done_and_the_refresh_buttons_doesnt()
+    {
+        // The page goes to what the scan found, below the drives (a user thought the app had crashed); Refresh scans where they already are.
+        var root = Tree();
+        var vm = Page();
+        int done = 0;
+        bool hadResult = false;
+        vm.ScanDone += () => { done++; hadResult = vm.Result is not null; };
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
+        Assert.Equal(1, done);
+        Assert.True(hadResult); // said once there is something to show
+        Kit.Wait(() => vm.RefreshAllCommand.ExecuteAsync(null));
+        Assert.Equal(1, done);
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(null)); // nothing to scan
+        Assert.Equal(1, done);
+    }
+
+    [Fact]
+    public void A_drives_card_says_how_far_its_scan_is_by_the_space_in_use()
+    {
+        var drive = new VolumeRow(@"C:\", "", Total: 1000, Free: 600, "", false); // 400 in use
+        var said = new List<string?>();
+        drive.PropertyChanged += (_, e) => said.Add(e.PropertyName);
+        Assert.False(drive.IsScanning);
+        Assert.Equal("0%", drive.ScanProgress(0));
+        Assert.Equal("40%", drive.ScanProgress(160));
+        Assert.Equal("99%", drive.ScanProgress(400)); // never 100 before it's done
+        Assert.Equal("99%", drive.ScanProgress(5000));
+        Assert.Equal("0%", new VolumeRow(@"D:\", "", 0, 0, "", false).ScanProgress(10)); // an empty or unread drive
+
+        drive.ScanText = "0%";
+        drive.ScanText = "40%";
+        drive.ScanText = null;
+        Assert.False(drive.IsScanning);
+        Assert.Equal(["ScanText", "IsScanning", "ScanText", "ScanText", "IsScanning"], said);
+    }
+
+    [Fact]
     public void Scanning_a_folder_totals_every_level()
     {
         var root = Tree();

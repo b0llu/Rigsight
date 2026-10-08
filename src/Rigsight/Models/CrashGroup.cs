@@ -43,6 +43,9 @@ public sealed partial class CrashGroup : ObservableObject
     /// <summary>"Started 2 days after: NVIDIA graphics driver installed (9 Aug)", set once changes are loaded.</summary>
     [ObservableProperty] private string? _changesText;
 
+    /// <summary>What that line means, on hover.</summary>
+    [ObservableProperty] private string? _changesTip;
+
     [ObservableProperty] private bool _isMuted;
 
     /// <summary>Briefly true after "Copy report", to confirm it worked.</summary>

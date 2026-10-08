@@ -247,6 +247,35 @@ public sealed class InventoryTests
         Assert.False(change.IsSystemLevel);
     }
 
+    [Fact]
+    public void The_power_plan_switched_says_which_to_and_what_it_was()
+    {
+        // A user's plan kept going from High performance to Balanced by itself (Oct 2026): when, is the first thing to know.
+        InventoryItem Plan(string name) => new(Inventory.Setting, Inventory.PowerPlan, "Power plan", name);
+        var change = Assert.Single(Inventory.Diff(Inventory.Setting, [Plan("High performance")], [Plan("Balanced")], At));
+        Assert.Equal((ChangeKind.Setting, "Power plan changed to Balanced", "High performance", "Balanced", "Was High performance"),
+            (change.Kind, change.Title, change.Was, change.Now, change.Detail));
+        Assert.Equal("setting:power-plan", change.Subject);
+        Assert.Empty(Inventory.Diff(Inventory.Setting, [Plan("Balanced")], [Plan("Balanced")], At));
+        Assert.Empty(Inventory.Diff(Inventory.Setting, [], [Plan("Balanced")], At)); // read for the first time: not a change
+    }
+
+    [Theory]
+    // Windows' own: a pointer into a file, then the English name.
+    [InlineData("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", @"@%SystemRoot%\system32\powrprof.dll,-13,High performance", "High performance")]
+    [InlineData("381b4222-f694-41f0-9685-ff5bb260df2e", @"@%SystemRoot%\system32\powrprof.dll,-15,Balanced (recommended)", "Balanced")]
+    // A maker's or the user's own: just the name (commas and all).
+    [InlineData("9897998c-92de-4669-853f-b7cd3ecb2790", "AMD Ryzen\u2122 Balanced", "AMD Ryzen\u2122 Balanced")]
+    [InlineData("11111111-2222-3333-4444-555555555555", " Quiet, cool ", "Quiet, cool")]
+    // No name kept: the plans every PC has are known by id, any other isn't shown.
+    [InlineData("8C5E7FDA-E8BF-4A96-9A85-A6E23A8C635C", null, "High performance")]
+    [InlineData("381b4222-f694-41f0-9685-ff5bb260df2e", "@%SystemRoot%\\system32\\powrprof.dll,-15", "Balanced")]
+    [InlineData("a1841308-3541-4fab-bc81-f71556f20b4a", "", "Power saver")]
+    [InlineData("e9a42b02-d5df-448d-aa00-03f14749eb61", null, "Ultimate Performance")]
+    [InlineData("11111111-2222-3333-4444-555555555555", null, null)]
+    public void A_power_plans_name(string id, string? friendly, string? name) =>
+        Assert.Equal(name, Inventory.PlanName(id, friendly));
+
     [Theory]
     [InlineData(Inventory.Cpu)]
     [InlineData(Inventory.Ram)]

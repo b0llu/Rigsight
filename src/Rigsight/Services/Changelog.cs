@@ -59,6 +59,14 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.17.1", 10, 8,
+            added: ["Your power plan on the Timeline, with every switch recorded.",
+                "2XL and 3XL sizes for widgets and the overlay."],
+            better: ["Scanning a drive shows how far along it is on the drive's card.",
+                "Crashes says when a graphics driver was being installed at that moment.",
+                "No warning while the background agent is still starting."],
+            fixedBugs: ["Rigsight keeps running through a graphics driver update.",
+                "The sidebar's scrollbar no longer sits on the menu."]),
         V("0.17.0", 10, 7,
             added: ["Week, month and year on the temperature graph: pick any one."],
             better: ["New GPU line colours: green, amber and red now only mean good, warm and hot.",

@@ -190,13 +190,13 @@ public static class SettingsStore
             if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
             w.BackgroundOpacity = Math.Clamp(w.BackgroundOpacity, 0, 1.0);
             w.ContentOpacity = Math.Clamp(w.ContentOpacity, 0.2, 1.0);
-            w.Scale = Math.Clamp(w.Scale, 0.6, 2.0);
+            w.Scale = Math.Clamp(w.Scale, 0.6, 2.5);
         }
 
         var o = s.Overlay ??= new OverlaySettings { Grayscale = true };
         o.BackgroundOpacity = Math.Clamp(o.BackgroundOpacity, 0, 1.0);
         o.ContentOpacity = Math.Clamp(o.ContentOpacity, 0.2, 1.0);
-        o.Scale = Math.Clamp(o.Scale, 0.6, 2.0);
+        o.Scale = Math.Clamp(o.Scale, 0.6, 2.5);
         // Before 0.8 the overlay went in one of four corners: no anchor means that corner's (see OverlayPlacement.AnchorOf).
         if (o.Anchor is int anchor) o.Anchor = Math.Clamp(anchor, 0, 8);
         o.OffsetX = double.IsFinite(o.OffsetX) ? Math.Clamp(o.OffsetX, -1, 1) : 0;

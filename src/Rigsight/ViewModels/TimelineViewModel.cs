@@ -616,6 +616,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (items[Inventory.Bios].FirstOrDefault() is { } bios)
             facts.Add(new("BIOS", bios.Value, Since(c => c.Kind == ChangeKind.Firmware)));
         if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new("Memory", ram.Value, null));
+        if (items[Inventory.Setting].FirstOrDefault(i => i.Key == Inventory.PowerPlan) is { } plan)
+            facts.Add(new("Power plan", plan.Value, Since(c => c.Subject == $"{Inventory.Setting}:{Inventory.PowerPlan}")));
         if (items[Inventory.App].Any()) facts.Add(new("Apps installed", items[Inventory.App].Count().ToString("N0"), null));
         if (items[Inventory.Startup].Any()) facts.Add(new("Start with Windows", items[Inventory.Startup].Count(i => i.Value == Inventory.On).ToString("N0"), null));
         return facts;

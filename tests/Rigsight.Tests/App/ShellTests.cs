@@ -462,7 +462,13 @@ public sealed class ShellTests : IClassFixture<AppHost>
         host.RestartAgent(() => Ui.Run(() =>
         {
             Assert.False(Shell.IsConnected);
+            // Gone a moment ago: it may be straight back, so nothing is said yet (no warning, no "starting" either).
+            Assert.True(Shell.AgentPending);
+            Assert.False(Shell.ShowAgentWarning);
+            Assert.False(Shell.ShowAgentStarting);
+            Shell.EndAgentGrace(); // still not back after a few seconds
             Assert.True(Shell.ShowAgentWarning);
+            Assert.False(Shell.ShowAgentStarting);
             Assert.True(Shell.AgentIsAdmin); // unknown until it says hello again
             Assert.Equal("Tracking and some sensors need it.", Shell.AgentHint);
             Assert.Equal("Start agent", Shell.AgentButtonText);
@@ -473,6 +479,8 @@ public sealed class ShellTests : IClassFixture<AppHost>
         {
             Assert.True(Shell.IsConnected);
             Assert.False(Shell.ShowAgentWarning);
+            Assert.False(Shell.ShowAgentStarting);
+            Assert.False(Shell.AgentPending);
         });
     }
 
