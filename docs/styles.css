@@ -513,3 +513,9 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   .js .pane, .js .pane[inert] { transition: none; }
 }
+
+/* ── The idea's picture: a past day, right under the line ── */
+.idea-sub { margin: 18px auto 0; max-width: 620px; }
+.idea-shot { max-width: 1000px; margin: 48px auto 0; }
+/* On a phone the picture shows its right half first: the chart under the pointer, and the hottest moments. */
+@media (max-width: 640px) { .idea-shot { margin-top: 32px; } .idea-shot.win img { margin-left: -100%; } }
