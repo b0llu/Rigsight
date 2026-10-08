@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Rigsight — Know your rig</title>
-  <meta name="description" content="Free Windows app that records your PC's temperatures, fans, app usage, internet use and crashes all day, and keeps them as history. In-game overlay, desktop widgets, ~0.02% CPU." />
+  <title>Rigsight: Free PC Monitoring App for Windows That Keeps History</title>
+  <meta name="description" content="Free PC monitoring app for Windows. Rigsight records CPU and GPU temperatures, app usage and screen time, internet use and crashes all day, with reports for any day, week or month." />
   <meta name="theme-color" content="#000000" />
   <link rel="canonical" href="https://b0llu.github.io/Rigsight/" />
   <link rel="icon" type="image/png" href="img/logo.png" />
@@ -13,33 +13,138 @@
   <!-- Link previews (Discord, WhatsApp, X, Reddit…) -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Rigsight" />
-  <meta property="og:title" content="Rigsight — Know your rig" />
-  <meta property="og:description" content="Your PC's temperatures, app usage, internet use and crashes, recorded all day and kept as history. Free for Windows." />
+  <meta property="og:title" content="Rigsight: Free PC Monitoring App for Windows That Keeps History" />
+  <meta property="og:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day and keeps them as history." />
   <meta property="og:url" content="https://b0llu.github.io/Rigsight/" />
   <meta property="og:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Rigsight's Temperatures page: live CPU and GPU gauges and a day of temperature history" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Rigsight — Know your rig" />
-  <meta name="twitter:description" content="Your PC's temperatures, app usage, internet use and crashes, recorded all day and kept as history. Free for Windows." />
+  <meta name="twitter:title" content="Rigsight: Free PC Monitoring App for Windows That Keeps History" />
+  <meta name="twitter:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day and keeps them as history." />
   <meta name="twitter:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
 
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="styles.css?v=0.17.1" />
+  <link rel="stylesheet" href="styles.css?v=0.18.0" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Rigsight",
-    "description": "Free Windows app that records your PC's temperatures, fans, app usage, internet use and crashes all day, and keeps them as history.",
+    "alternateName": "Rigsight PC monitor",
+    "description": "Free PC monitoring app for Windows. Rigsight records CPU and GPU temperatures, app usage and screen time, internet use and crashes all day, with reports for any day, week or month.",
     "operatingSystem": "Windows 10, Windows 11",
     "applicationCategory": "UtilitiesApplication",
+    "applicationSubCategory": "PC monitoring, hardware monitor, screen time tracker",
+    "softwareVersion": "0.18.0",
+    "featureList": [
+      "CPU and GPU temperature history",
+      "App usage and screen time reports",
+      "Crash history explained in plain words",
+      "Per-app internet use",
+      "Fan speeds and drive health",
+      "In-game overlay and desktop widgets"
+    ],
     "url": "https://b0llu.github.io/Rigsight/",
     "downloadUrl": "https://github.com/b0llu/Rigsight/releases/latest",
     "image": "https://b0llu.github.io/Rigsight/img/og.png",
+    "screenshot": "https://b0llu.github.io/Rigsight/img/temperatures.webp",
     "license": "https://opensource.org/licenses/MIT",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How is it different from HWiNFO or MSI Afterburner?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what your PC is doing right now. Rigsight reads the same kind of sensors but records them all day, so you can open any past day and see how hot it ran, which game was running and what crashed. You can use it alongside them."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can it show how long I use each app?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Rigsight is also a screen time and app usage tracker for Windows: it reports how long each app and game was in use, in the background or minimized, for any day, week, month or year."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is it really free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Rigsight is free and open source under the MIT license. No trial, no premium tier, no ads."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work with AMD and Intel?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Will the overlay get me banned?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Will it slow my games down?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. In the background Rigsight uses around 0.02% of your CPU and runs at low priority, so your games always come first."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What does it record, exactly?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It also counts how much each app downloads and uploads. It never records window titles, keystrokes, screenshots, file contents or the websites you visit, and none of it is sent anywhere."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I update it?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You don't have to. New versions download quietly in the background and install the next time you start your PC. Want it sooner? Click Restart in the app and you're on the new version in seconds."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How much history does it keep?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 35 MB."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I uninstall it?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in %LocalAppData%\\Rigsight until you delete the folder."
+        }
+      }
+    ]
   }
   </script>
 </head>
@@ -86,7 +191,7 @@
       <div class="wrap hero-copy">
         <img class="hero-logo reveal" src="img/logo.png" width="64" height="64" alt="" />
         <h1 class="reveal">Rigsight</h1>
-        <p class="lead reveal">Know your rig. Your PC's temperatures, app time, internet use and crashes, recorded all day and kept as history.</p>
+        <p class="lead reveal">Know your rig. A free PC monitor for Windows that records your temperatures, app time, internet use and crashes all day, and keeps them as history.</p>
         <div class="cta-row reveal">
           <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
@@ -121,7 +226,7 @@
       <p class="eyebrow reveal">Why Rigsight</p>
       <h2 class="reveal">Most monitors forget.<br /><span class="dim">Rigsight remembers.</span></h2>
       <p class="sub idea-sub reveal">Pick any day and it's all still there: what was running, how hot it got, and the minute it happened.</p>
-      <figure class="shot win idea-shot reveal" data-zoom><img src="img/remembers.webp" srcset="img/remembers-720.webp 720w, img/remembers.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 1000px" width="1440" height="932" loading="lazy" alt="A day from weeks ago in Rigsight: a minute-by-minute timeline of apps with CPU and GPU temperature, the pointer on 1:59 PM showing Counter-Strike 2 at CPU 67° and GPU 69°, and that day's hottest moments with their times" /></figure>
+      <figure class="shot win idea-shot reveal" data-zoom tabindex="0"><img src="img/remembers.webp" srcset="img/remembers-720.webp 720w, img/remembers.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 1000px" width="1440" height="932" loading="lazy" alt="A day from weeks ago in Rigsight: a minute-by-minute timeline of apps with CPU and GPU temperature, the pointer on 1:59 PM showing Counter-Strike 2 at CPU 67° and GPU 69°, and that day's hottest moments with their times" /></figure>
       <div class="compare">
         <div class="cmp cmp-old reveal">
           <h3>A normal hardware monitor</h3>
@@ -162,11 +267,12 @@
               <p>Live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, clocks, power and voltages. Each shows today's low and high, recorded even when the window is closed.</p>
               <ul class="checks">
                 <li>History from the last 5 minutes to any day, week, month or year</li>
-                <li>Hover the chart for the time, with the average, highest and lowest</li>
+                <li>Draw each minute's average, highest or lowest, and hover for all three</li>
+                <li>Shows where nothing was recorded, and why: PC off, asleep or a crash</li>
                 <li>Alerts that ignore one-second spikes and only fire when it stays hot</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/temperatures.webp" srcset="img/temperatures-720.webp 720w, img/temperatures.webp 1440w" width="1440" height="932" sizes="(max-width: 900px) calc(100vw - 32px), 680px" alt="Temperatures page: CPU and GPU gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high, and six unbroken hours of temperature history with a game session in the middle" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/temperatures.webp" srcset="img/temperatures-720.webp 720w, img/temperatures.webp 1440w" width="1440" height="932" sizes="(max-width: 900px) calc(100vw - 32px), 680px" alt="Temperatures page: CPU and GPU gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high, and six unbroken hours of temperature history with a game session in the middle" /></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -179,7 +285,7 @@
                 <li>Temperatures compared with your usual, idle with idle and load with load, this week and months ago</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/reports.webp" srcset="img/reports-720.webp 720w, img/reports.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="A week's report: active time, time each day by kind of app, what stood out and the hottest moments with the game behind each" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/reports.webp" srcset="img/reports-720.webp 720w, img/reports.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="A week's report: active time, time each day by kind of app, what stood out and the hottest moments with the game behind each" /></figure>
           </div>
         </div>
       </div>
@@ -203,10 +309,10 @@
               <ul class="checks">
                 <li>The temperatures and game right before each crash</li>
                 <li>"What changed before": drivers and updates installed in the days before</li>
-                <li>Patterns, one-click reports to paste in a forum, and mute for noisy apps</li>
+                <li>Search by app or error, patterns, one-click reports to paste in a forum, and mute for noisy apps</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/crashes.webp" srcset="img/crashes-720.webp 720w, img/crashes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Crashes page: a month of crashes on a timeline, patterns, and each crash explained in plain words" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/crashes.webp" srcset="img/crashes-720.webp 720w, img/crashes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Crashes page: a month of crashes on a timeline, patterns, and each crash explained in plain words" /></figure>
           </div>
           <div class="feature pane flip">
             <div class="f-copy">
@@ -216,10 +322,10 @@
               <ul class="checks">
                 <li>After a driver or an update: whether problems went up or down since</li>
                 <li>A calendar to jump to any day, with problem days marked</li>
-                <li>By day, or a whole month in one row</li>
+                <li>Search for any app, driver or version; by day, or a whole month in one row</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/timeline.webp" srcset="img/timeline-720.webp 720w, img/timeline.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Timeline page: app updates, a setting switched, an app installed and a Windows update listed day by day, with a calendar and the PC's current Windows version, graphics driver and BIOS" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/timeline.webp" srcset="img/timeline-720.webp 720w, img/timeline.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Timeline page: app updates, a setting switched, an app installed and a Windows update listed day by day, with a calendar and the PC's current Windows version, graphics driver and BIOS" /></figure>
           </div>
         </div>
       </div>
@@ -238,7 +344,7 @@
           </div>
         </header>
         <div class="panes reveal">
-          <div class="feature pane flip">
+          <div class="feature pane">
             <div class="f-copy">
               <span class="tag tag-purple">Apps</span>
               <h3 class="f-title">Where your time and heat go.</h3>
@@ -249,9 +355,9 @@
                 <li>Rename apps, set categories, or never track one</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/apps.webp" srcset="img/apps-720.webp 720w, img/apps.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/apps.webp" srcset="img/apps-720.webp 720w, img/apps.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
           </div>
-          <div class="feature pane flip">
+          <div class="feature pane">
             <div class="f-copy">
               <span class="tag tag-cyan">Network</span>
               <h3 class="f-title">Where your internet goes.</h3>
@@ -262,9 +368,9 @@
                 <li>Notices when your connection drops, or downloads get slower than usual</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/network.webp" srcset="img/network-720.webp 720w, img/network.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Network page: a month of downloads and uploads, each day on a chart, and every app's use with how much ran in the background" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/network.webp" srcset="img/network-720.webp 720w, img/network.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Network page: a month of downloads and uploads, each day on a chart, and every app's use with how much ran in the background" /></figure>
           </div>
-          <div class="feature pane flip">
+          <div class="feature pane">
             <div class="f-copy">
               <span class="tag tag-amber">Fans</span>
               <h3 class="f-title">Every fan, and what wakes it up.</h3>
@@ -275,9 +381,9 @@
                 <li>A heads-up when a fan stops or turns slower than it used to</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/fans.webp" srcset="img/fans-720.webp 720w, img/fans.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Fans page: every fan's speed, when the GPU fans start spinning, how long they stood still and which game made them work hardest" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/fans.webp" srcset="img/fans-720.webp 720w, img/fans.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Fans page: every fan's speed, when the GPU fans start spinning, how long they stood still and which game made them work hardest" /></figure>
           </div>
-          <div class="feature pane flip">
+          <div class="feature pane">
             <div class="f-copy">
               <span class="tag tag-purple">Memory</span>
               <h3 class="f-title">What's filling your RAM.</h3>
@@ -285,11 +391,12 @@
               <ul class="checks">
                 <li>The heaviest apps stand out at a glance</li>
                 <li>Today's biggest memory users, with their peaks</li>
+                <li>Search the live list for any app</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/memory.webp" srcset="img/memory-720.webp 720w, img/memory.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/memory.webp" srcset="img/memory-720.webp 720w, img/memory.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
           </div>
-          <div class="feature pane flip">
+          <div class="feature pane">
             <div class="f-copy">
               <span class="tag tag-blue">Storage</span>
               <h3 class="f-title">How full, and how healthy.</h3>
@@ -300,7 +407,7 @@
                 <li>Nothing is deleted for you: it shows where the space is, and you decide</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/storage.webp" srcset="img/storage-720.webp 720w, img/storage.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Storage page: how full each drive is and how fast it is filling, each drive's health, and the space that could be freed" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/storage.webp" srcset="img/storage-720.webp 720w, img/storage.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Storage page: how full each drive is and how fast it is filling, each drive's health, and the space that could be freed" /></figure>
           </div>
         </div>
       </div>
@@ -347,7 +454,7 @@
                 <li>They step aside while you play</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/widgets.webp" srcset="img/widgets-720.webp 720w, img/widgets.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Desktop widgets page: built-in widgets such as FPS, Compact and Slim bar, each with a preview and a switch, and a widget made by hand" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/widgets.webp" srcset="img/widgets-720.webp 720w, img/widgets.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Desktop widgets page: built-in widgets such as FPS, Compact and Slim bar, each with a preview and a switch, and a widget made by hand" /></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -360,7 +467,7 @@
                 <li>Pick any readings and put them in your order</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom><img loading="lazy" src="img/taskbar.webp" srcset="img/taskbar-720.webp 720w, img/taskbar.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Taskbar page: a preview of CPU, GPU and RAM readings beside the clock, three styles to choose from, colour or grayscale, and the list of readings shown" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/taskbar.webp" srcset="img/taskbar-720.webp 720w, img/taskbar.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Taskbar page: a preview of CPU, GPU and RAM readings beside the clock, three styles to choose from, colour or grayscale, and the list of readings shown" /></figure>
           </div>
         </div>
       </div>
@@ -470,6 +577,8 @@
     <section id="faq" class="faq wrap">
       <h2 class="reveal">Questions</h2>
       <div class="faq-list">
+        <details class="reveal"><summary>How is it different from HWiNFO or MSI Afterburner?</summary><p>Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what your PC is doing right now. Rigsight reads the same kind of sensors but records them all day, so you can open any past day and see how hot it ran, which game was running and what crashed. You can use it alongside them.</p></details>
+        <details class="reveal"><summary>Can it show how long I use each app?</summary><p>Yes. Rigsight is also a screen time and app usage tracker for Windows: it reports how long each app and game was in use, in the background or minimized, for any day, week, month or year.</p></details>
         <details class="reveal"><summary>Is it really free?</summary><p>Yes. Rigsight is free and open source under the MIT license. No trial, no premium tier, no ads.</p></details>
         <details class="reveal"><summary>Does it work with AMD and Intel?</summary><p>Yes. Hardware is read through LibreHardwareMonitor, which supports NVIDIA, AMD and Intel graphics cards and Intel and AMD processors. NVIDIA cards also get an extra-light fast path.</p></details>
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
@@ -513,7 +622,7 @@
   <div class="lightbox" id="lightbox" hidden><img alt="" /></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=0.17.1" defer></script>
+  <script src="app.js?v=0.18.0" defer></script>
   <!-- Visit counts for this website only (GoatCounter: no cookies, nothing that says who you are). The app itself sends nothing. -->
   <script data-goatcounter="https://rigsight.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>

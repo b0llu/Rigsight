@@ -165,12 +165,15 @@
   const lb = document.getElementById("lightbox");
   const lbImg = lb.querySelector("img");
   document.querySelectorAll("[data-zoom] img").forEach(img => {
-    img.addEventListener("click", () => {
+    const open = () => {
       lbImg.src = img.src; // the full-size shot, whatever size the page shows
       lbImg.alt = img.alt;
       lb.hidden = false;
       document.body.style.overflow = "hidden";
-    });
+    };
+    img.addEventListener("click", open);
+    // The picture's frame takes the keyboard (on a phone it scrolls sideways, so arrow keys move it): Enter opens it too.
+    img.closest("[data-zoom]").addEventListener("keydown", e => { if (e.key === "Enter") open(); });
   });
   const closeLb = () => { lb.hidden = true; document.body.style.overflow = ""; };
   lb.addEventListener("click", closeLb);
