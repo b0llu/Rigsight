@@ -68,6 +68,11 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.18.1", 10, 8,
+            better: ["Coming back to Network, Memory, Reports or the Timeline no longer freezes for a moment.",
+                "A change found just after the PC started is timed from then, not from last night."],
+            fixedBugs: ["Check for updates no longer downloads an update it only offered.",
+                "The recap's internet line no longer starts with \"That day\"."]),
         V("0.18.0", 10, 8,
             feature: new("Riggy is gone", "It looked like an AI assistant, but it wasn't one.",
                 ["Its answers were written in advance for about 17 kinds of question, not thought up.",

@@ -54,6 +54,17 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     /// </summary>
     public DateTime? NoticedFrom { get; init; }
 
+    /// <summary>
+    /// When the PC was on again, if it was off or asleep for part of the time since the check before (a check at
+    /// midnight, the next at 7:20 after a start at 7:18): the change is from those two minutes, short of one made in
+    /// the last minutes before the PC went down. Null when it was on throughout. For saying when; what is set against
+    /// other things is <see cref="Earliest"/>.
+    /// </summary>
+    public DateTime? OnFrom { get; init; }
+
+    /// <summary>The earliest it is likely to have happened: not while the PC was off.</summary>
+    public DateTime Likely => OnFrom is { } on && on > Earliest && on < Time ? on : Earliest;
+
     /// <summary>The earliest it can have happened.</summary>
     public DateTime Earliest => !IsApproximate ? Time : NoticedFrom is { } from && from < Time ? from : Time.AddMinutes(-Inventory.ScanMinutes);
 

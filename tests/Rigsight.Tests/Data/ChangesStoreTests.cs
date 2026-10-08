@@ -38,6 +38,33 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
+    public void A_change_found_after_the_PC_was_off_is_from_after_it_started()
+    {
+        using var t = new TestDb();
+        // Checked at 12:04, recorded until 12:06, off until 7:18, found by the check at 7:20.
+        var night = T.Date.AddMinutes(4);
+        var found = new SystemChange(T.Date.AddHours(7).AddMinutes(20), ChangeKind.AppUpdated, "Discord updated to 2") { Subject = "app:discord", NoticedFrom = night };
+        // On throughout: the same long wait between two checks, with every minute recorded.
+        var awake = found with { Time = found.Time.AddDays(1), NoticedFrom = night.AddDays(1), Title = "Discord updated to 3" };
+        // Nothing recorded at all (the minutes were cleared, or the first one isn't written yet).
+        var bare = found with { Time = found.Time.AddDays(2), NoticedFrom = night.AddDays(2), Title = "Discord updated to 4" };
+        void Minutes(DateTime from, DateTime to)
+        {
+            for (var m = from; m <= to; m = m.AddMinutes(1)) t.Exec($"INSERT INTO system_minute(ts) VALUES({TimeUtil.ToUnix(m)})");
+        }
+        Minutes(T.Date, T.Date.AddMinutes(6));
+        Minutes(T.Date.AddHours(7).AddMinutes(18), T.Date.AddHours(8));
+        Minutes(night.AddDays(1), awake.Time);
+        t.Db.InsertChanges([found, awake, bare]);
+
+        var read = t.Db.GetChanges(0, long.MaxValue / 2);
+        Assert.Equal([T.Date.AddHours(7).AddMinutes(18), null, null], read.Select(c => c.OnFrom));
+        Assert.Equal([T.Date.AddHours(7).AddMinutes(18), night.AddDays(1), night.AddDays(2)], read.Select(c => c.Likely));
+        // What it is set against other things by stays the widest it can be.
+        Assert.Equal(night, read[0].Earliest);
+    }
+
+    [Fact]
     public void When_the_check_before_ran_is_kept_with_a_change_found_by_a_check()
     {
         using var t = new TestDb();

@@ -27,21 +27,24 @@ public sealed partial class NetLiveRow : ObservableObject
 /// <summary>One app in the period's list: what it moved, how much of it in the background, and (opened) when and how.</summary>
 public sealed partial class NetAppRow : ObservableObject
 {
-    public required NetAppStat Stat { get; init; }
+    public required NetAppStat Stat { get; set; }
     public string Name => Stat.Name;
     public string? Path => Stat.Path;
     public string CategoryText => AppCatalog.Label(Stat.Category);
 
     /// <summary>What the row's numbers count: all of it, or only what moved while it wasn't in front.</summary>
-    public required bool BackgroundOnly { get; init; }
+    public required bool BackgroundOnly { get; set; }
     public long Down => BackgroundOnly ? Stat.Use.BgDown + Stat.Use.AwayDown : Stat.Use.Down;
     public long Up => BackgroundOnly ? Stat.Use.BgUp + Stat.Use.AwayUp : Stat.Use.Up;
     public string DownText => Units.Data(Down);
     public string UpText => Units.Data(Up);
 
     /// <summary>The bars' lengths, against the biggest app in the list (0–100).</summary>
-    public double DownBar { get; init; }
-    public double UpBar { get; init; }
+    public double DownBar { get; set; }
+    public double UpBar { get; set; }
+
+    /// <summary>The row was given new figures: everything it shows is read again (the row itself stays where it is).</summary>
+    public void Changed() => OnPropertyChanged(string.Empty);
 
     public int BackgroundPercent => Stat.Use.Total > 0 ? (int)Math.Round(100.0 * Stat.Use.Background / Stat.Use.Total) : 0;
     public string BackgroundText => $"{BackgroundPercent}% background";
@@ -56,8 +59,8 @@ public sealed partial class NetAppRow : ObservableObject
     public string BgText => $"Background {Percent(BgShare)}";
     public string AwayText => $"While you were away {Percent(AwayShare)}";
 
-    public required string BusiestLabel { get; init; }
-    public required string BusiestText { get; init; }
+    public required string BusiestLabel { get; set; }
+    public required string BusiestText { get; set; }
     public string FastestText => Stat.Fastest is double f ? $"{Units.Speed(f)} ({Units.Mbps(f)})" : "No big downloads";
     public string LocalText => Stat.Use.Lan > 0 ? Units.Data(Stat.Use.Lan) : "None";
 
@@ -203,7 +206,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         // Asking Windows about every adapter takes a moment on a PC with many (VPNs, virtual machines): not on the window's thread.
         var (c, online) = await Task.Run(() => (NetAdapters.Current(), NetAdapters.WindowsSeesInternet()));
         Subtitle = c is null ? "Not connected" : string.Join(" · ", new[] { c.Kind, c.Adapter, c.Vpn is null ? null : $"through {c.Vpn}" }.OfType<string>());
-        Facts =
+        Facts = Models.Kept.Or(Facts,
         [
             new("Connection", c?.Kind ?? "None"),
             new("Link speed", c is { LinkBitsPerSecond: > 0 } ? Units.Mbps(c.LinkBitsPerSecond / 8.0) : "—"),
@@ -211,7 +214,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             new("IP address", c?.IPv4 ?? "—"),
             new("Internet", online switch { true => "Connected", false => "Not reachable", _ => "—" }),
             new("Local network", report is { HasData: true } ? Units.Data(report.Lan) : "—", PeriodWord),
-        ];
+        ]);
     }
 
     // ── The period ──
@@ -295,7 +298,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             return;
         }
         bool now = IncludesToday;
-        Insights = [.. r.Insights.OrderByDescending(i => i.Priority)];
+        Insights = Models.Kept.Or(Insights, [.. r.Insights.OrderByDescending(i => i.Priority)]);
 
         DownText = Units.Data(r.Down);
         DownNote = r.Range == ReportRange.Day && r.UsualDayDown is long usual
@@ -318,7 +321,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             SpeedNote = "No big downloads";
         }
 
-        Bins = r.Bins;
+        Bins = Models.Kept.Or(Bins, r.Bins);
         ChartTitle = r.Range switch
         {
             ReportRange.Day => "Each hour",
@@ -329,27 +332,33 @@ public sealed partial class NetworkViewModel : ObservableObject
         FillApps();
 
         AwayText = Units.Data(r.AwayDown);
-        AwayApps = [.. r.Apps.Where(a => a.Use.AwayDown >= 1 << 20).OrderByDescending(a => a.Use.AwayDown).Take(4)
-            .Select(a => new NetAmountRow(a.Name, a.Path, Units.Data(a.Use.AwayDown)))];
+        AwayApps = Models.Kept.Or(AwayApps, [.. r.Apps.Where(a => a.Use.AwayDown >= 1 << 20).OrderByDescending(a => a.Use.AwayDown).Take(4)
+            .Select(a => new NetAmountRow(a.Name, a.Path, Units.Data(a.Use.AwayDown)))]);
 
         DownloadsTitle = $"Biggest downloads {PeriodWord}";
-        Downloads = [.. r.Downloads.Select(d => new NetDownloadRow(d.App, d.Path,
+        Downloads = Models.Kept.Or(Downloads, [.. r.Downloads.Select(d => new NetDownloadRow(d.App, d.Path,
             r.Range == ReportRange.Day ? d.Start.ToString("h:mm tt") : d.Start.ToString("ddd d MMM, h:mm tt"),
-            $"{Took(d.Took)} at {Units.Speed(d.Speed)}", Units.Data(d.Bytes)))];
+            $"{Took(d.Took)} at {Units.Speed(d.Speed)}", Units.Data(d.Bytes)))]);
 
         FillDrops(r);
     }
 
     private void FillApps()
     {
-        Apps.Clear();
-        if (_report is not { } r) return;
+        if (_report is not { } r)
+        {
+            Apps.Clear();
+            return;
+        }
         var open = _openApp;
         var stats = r.Apps.Select(a => (Stat: a, Down: BackgroundOnly ? a.Use.BgDown + a.Use.AwayDown : a.Use.Down, Up: BackgroundOnly ? a.Use.BgUp + a.Use.AwayUp : a.Use.Up))
             .Where(x => x.Down + x.Up >= 1 << 20).OrderByDescending(x => x.Down + x.Up).ToList();
         double max = stats.Count > 0 ? stats.Max(x => x.Down + x.Up) : 1;
-        foreach (var (stat, down, up) in stats)
+        // An app still at its place in the list keeps its row and is given the new figures: a list made anew has every
+        // row of it built and laid out again, on each visit and each minute.
+        for (int i = 0; i < stats.Count; i++)
         {
+            var (stat, down, up) = stats[i];
             var row = new NetAppRow
             {
                 Stat = stat, BackgroundOnly = BackgroundOnly, DownBar = down / max * 100, UpBar = up / max * 100,
@@ -359,8 +368,18 @@ public sealed partial class NetworkViewModel : ObservableObject
                     : "—",
                 IsOpen = stat.Id == open,
             };
-            Apps.Add(row);
+            if (i >= Apps.Count) Apps.Add(row);
+            else if (Apps[i] is { } kept && kept.Stat.Id == stat.Id)
+            {
+                if (Models.Kept.Values(kept.Stat, stat) && kept.BackgroundOnly == row.BackgroundOnly && kept.DownBar == row.DownBar && kept.UpBar == row.UpBar
+                    && kept.BusiestLabel == row.BusiestLabel && kept.BusiestText == row.BusiestText && kept.IsOpen == row.IsOpen) continue;
+                (kept.Stat, kept.BackgroundOnly, kept.DownBar, kept.UpBar, kept.BusiestLabel, kept.BusiestText) = (stat, row.BackgroundOnly, row.DownBar, row.UpBar, row.BusiestLabel, row.BusiestText);
+                kept.IsOpen = row.IsOpen;
+                kept.Changed();
+            }
+            else Apps[i] = row;
         }
+        while (Apps.Count > stats.Count) Apps.RemoveAt(Apps.Count - 1);
         HasApps = Apps.Count > 0;
     }
 
@@ -409,7 +428,7 @@ public sealed partial class NetworkViewModel : ObservableObject
                 if (q.Date == r.From.Date) strip[(q.Hour * 60 + q.Minute) / 15] = NetQuarter.Dropped;
         }
         var day = r.From.Date;
-        Strip = [.. strip.Select((state, i) =>
+        Strip = Models.Kept.Or(Strip, [.. strip.Select((state, i) =>
         {
             var (from, to) = (day.AddMinutes(i * 15), day.AddMinutes(i * 15 + 15));
             string what = state switch
@@ -420,7 +439,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             };
             string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
             return new NetStripCell(state, $"{span} · {what}");
-        })];
+        })]);
     }
 
     private static string LastWord(ReportRange range, bool now) => (range switch

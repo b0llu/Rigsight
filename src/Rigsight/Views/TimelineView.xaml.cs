@@ -29,8 +29,12 @@ public partial class TimelineView : UserControl
                 _vm.JumpRequested -= OnJump;
                 _vm.Days.CollectionChanged -= OnDaysChanged;
             }
+            // As many as fill the window and the screen ahead of it: fewer, and coming back would build the rest again.
+            int keep = 0;
+            for (double y = 0; _vm is not null && keep < _vm.Days.Count && y <= Scroller.ViewportHeight + Ahead; keep++)
+                y += (List.ItemContainerGenerator.ContainerFromIndex(keep) as FrameworkElement)?.ActualHeight ?? 0;
             Scroller.ScrollToTop();
-            _vm?.ShowFirstPage();
+            _vm?.ShowFirstPage(keep);
             _vm = null;
         };
     }

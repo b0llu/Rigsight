@@ -224,7 +224,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Effects.OrderBy(e => e.Key).SelectMany(e => e.Value.Lines))}";
         bool same = signature == _signature;
         _signature = signature;
-        Now = BuildNow(data);
+        Now = Models.Kept.Or(Now, BuildNow(data));
         if (same && (onlyIfChanged || Loaded)) return;
 
         _changes = data.Changes;
@@ -313,9 +313,10 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private void ShowMore() => AddDays(PageSize);
 
     /// <summary>Back to the newest days, when more were built by scrolling (leaving the page).</summary>
-    public void ShowFirstPage()
+    /// <param name="keep">The days to keep when a page of them isn't enough to fill the window: what it would only ask for again.</param>
+    public void ShowFirstPage(int keep = PageSize)
     {
-        while (Days.Count > PageSize) Days.RemoveAt(Days.Count - 1);
+        while (Days.Count > Math.Max(PageSize, keep)) Days.RemoveAt(Days.Count - 1);
         OnPropertyChanged(nameof(HasMore));
     }
 
@@ -484,7 +485,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         c.Kind == ChangeKind.Storage ? "All day" : c.IsApproximate ? $"~{c.Time:h:mm tt}" : c.Time.ToString("h:mm tt");
 
     private static string? TipOf(SystemChange c) => c.Kind == ChangeKind.Storage ? "The space in use at the end of this day against the day before"
-        : c.IsApproximate ? $"Between {Moment(c.Earliest, c.Time)} and {c.Time:h:mm tt}" : null;
+        : c.IsApproximate ? $"Between {Moment(c.Likely, c.Time)} and {c.Time:h:mm tt}" : null;
 
     /// <summary>A time of the same day, or with its day when the check before was on an earlier one (the PC was off overnight).</summary>
     private static string Moment(DateTime t, DateTime sameDayAs) => t.Date == sameDayAs.Date ? t.ToString("h:mm tt") : t.ToString("ddd d MMM, h:mm tt");

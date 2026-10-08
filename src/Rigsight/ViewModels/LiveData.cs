@@ -581,7 +581,8 @@ public sealed partial class LiveData : ObservableObject
     {
         if (ProcsView is not ICollectionViewLiveShaping { CanChangeLiveSorting: true } live || live.IsLiveSorting == on) return;
         live.IsLiveSorting = on;
-        if (on) ProcsView.Refresh();
+        // Sorted again only if the order moved while it wasn't kept (reading the list anew rebuilds every row on screen).
+        if (on && !ProcsView.Cast<ProcRow>().Select(p => p.MemMB).SequenceEqual(ProcsView.Cast<ProcRow>().Select(p => p.MemMB).OrderDescending())) ProcsView.Refresh();
     }
 
     /// <summary>

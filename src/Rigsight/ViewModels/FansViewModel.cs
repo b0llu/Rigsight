@@ -447,8 +447,12 @@ public sealed partial class FansViewModel : ObservableObject
             card.AlertIsHot = warning?.Tone == Core.Reports.InsightTone.Hot;
             card.MinutesOn = fans.Max(x => Current(x).Count);
             var curveDays = history.CurveDays.Where(c => ids.Contains(c.Fan) && (changed is null || TimeUtil.FromUnix(c.Day).Date >= changed)).ToList();
-            card.Detail = IsYear ? YearOf(card, curveDays, fanDays, apps, s, from, to)
-                : DetailOf(card, [.. fans.Select(Current)], minutes, curveDays, fanDays, apps, s, from, to, changed);
+            // Worked out off the window's thread (a day of minutes for each fan: a tenth of a second for a PC with five).
+            var current = fans.Select(Current).ToList();
+            var detail = IsYear ? YearOf(card, curveDays, fanDays, apps, s, from, to)
+                : await Task.Run(() => DetailOf(card, current, minutes, curveDays, fanDays, apps, s, from, to, changed));
+            if (id != _load) return;
+            card.Detail = detail;
             card.UpdateState(Live.CpuTemp?.Value, Live.GpuTemp?.Value);
             shown.Add(card);
         }

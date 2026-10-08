@@ -615,7 +615,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 Live.ApplyTick(msg);
                 break;
             case "procs":
-                if (msg.Procs is not null) Live.ApplyProcs(msg.Procs);
+                if (msg.Procs is not null) _ = ApplyProcsAsync(msg.Procs);
                 break;
             case "settings":
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
@@ -647,6 +647,19 @@ public sealed partial class ShellViewModel : ObservableObject
                 SettingsPage.OnHistoryCleared();
                 break;
         }
+    }
+
+    private int _procsRead;
+
+    /// <summary>
+    /// The running apps, once the icons of any not seen before have been read (off the window's thread: the first list
+    /// of a session names dozens). A list overtaken by a newer one meanwhile is dropped.
+    /// </summary>
+    private async Task ApplyProcsAsync(List<Core.Protocol.ProcInfo> procs)
+    {
+        int id = ++_procsRead;
+        if (procs.Any(p => !Services.IconCache.Has(p.Path))) await Task.Run(() => Services.IconCache.Warm(procs.Select(p => p.Path)));
+        if (id == _procsRead) Live.ApplyProcs(procs);
     }
 
     private TaskCompletionSource? _scanned;

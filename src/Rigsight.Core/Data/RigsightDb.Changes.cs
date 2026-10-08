@@ -160,7 +160,35 @@ public sealed partial class RigsightDb
                 NoticedFrom = r.IsDBNull(7) ? null : TimeUtil.FromUnix(r.GetInt64(7)),
             });
         }
+        r.Close();
+        // A check that came long after the one before it: the PC was most likely off or asleep in between.
+        for (int i = 0; i < list.Count; i++)
+            if (list[i] is { IsApproximate: true, NoticedFrom: { } noticed } c && c.Time - noticed > TimeSpan.FromMinutes(2 * Inventory.ScanMinutes)
+                && RecordingSince(TimeUtil.ToUnix(noticed), TimeUtil.ToUnix(c.Time)) is long on)
+                list[i] = c with { OnFrom = TimeUtil.FromUnix(on) };
         return list;
+    }
+
+    /// <summary>
+    /// The first minute of the unbroken run of recorded minutes that reaches <paramref name="to"/>, when there is a
+    /// stretch with nothing recorded between it and <paramref name="from"/> (null: recorded throughout, or nothing
+    /// recorded near <paramref name="to"/>).
+    /// </summary>
+    private long? RecordingSince(long from, long to)
+    {
+        const int Break = 150; // as on the graphs: minutes more than two and a half apart have a gap between them
+        using var cmd = Cmd("SELECT ts FROM system_minute WHERE ts > $from AND ts <= $to ORDER BY ts DESC", ("$from", from - 60), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        long start = to;
+        bool any = false;
+        while (r.Read())
+        {
+            long ts = r.GetInt64(0);
+            if (start - ts > Break) return any ? start : null;
+            start = ts;
+            any = true;
+        }
+        return any && start - from > Break ? start : null;
     }
 
     /// <summary>The PC as last read: its apps, startup programs, hardware and settings.</summary>

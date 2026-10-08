@@ -211,9 +211,19 @@ public sealed partial class UpdateViewModel : ObservableObject
             return;
         }
         IsChecking = false;
+        // GitHub has been asked today, whoever asked: the day's own check, due a few seconds after the window opens,
+        // doesn't come after a "Check for updates" pressed before it and start the download that press only offered.
+        _checkedDay = DateTime.Today;
         // "Check for updates" only says what it found; downloading is the next click.
+        if (!quiet) _offered = latest?.Version;
         await ApplyAsync(latest, autoDownload: quiet);
     }
+
+    /// <summary>
+    /// The version "Check for updates" found and offered with a Download button. It's the user's to start from then
+    /// on: nothing that comes later by itself (the day's check, the agent finding the same version) downloads it.
+    /// </summary>
+    private Version? _offered;
 
     /// <summary>The agent found (or downloaded) a new version while the app is open.</summary>
     public void OnAgentMessage(AgentMessage msg)
@@ -266,7 +276,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (downloaded && attempt is not null && attempt.Version == latest!.Version && DateTime.Now - attempt.At > TimeSpan.FromMinutes(5))
             Fail("The update didn't install.");
         else if (downloaded) AskOrWait();
-        else if (autoDownload && _autoUpdate()) await DownloadAsync(automatic: true);
+        else if (autoDownload && _autoUpdate() && latest!.Version != _offered) await DownloadAsync(automatic: true);
         else State = UpdateState.Available;
         RefreshTexts();
     }

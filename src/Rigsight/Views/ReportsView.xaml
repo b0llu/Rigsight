@@ -126,7 +126,7 @@
                     <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="{Binding InsightsTitle}" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                            <ItemsControl ItemsSource="{Binding Report.Insights}">
+                            <ItemsControl ItemsSource="{Binding Insights}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <DockPanel Margin="0,6" ToolTip="{Binding DetailOrNull}">

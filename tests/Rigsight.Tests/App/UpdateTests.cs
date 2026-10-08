@@ -284,6 +284,28 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void What_check_for_updates_offered_is_not_downloaded_by_anything_that_comes_after()
+    {
+        // Automatic updates are on. "Check for updates" is pressed right after the window opens and offers the download...
+        _auto = true;
+        var vm = Make();
+        Act(vm);
+        Assert.Equal(UpdateState.Available, Ui.Run(() => vm.State));
+        // ...then the day's own check comes due (eight seconds after opening), and the agent says it found the same version.
+        Kit.Wait(() => vm.CheckIfDueAsync());
+        Ui.Run(() => vm.OnAgentMessage(new AgentMessage { T = "update", UpdateStatus = "found" }));
+        Ui.Pump(500);
+        Assert.Equal(UpdateState.Available, Ui.Run(() => vm.State));
+        Assert.Equal("Download", Ui.Run(() => vm.ActionText));
+        Assert.Equal(0, _server.SetupRequests);
+        Assert.Equal(1, _server.FeedRequests); // and GitHub wasn't asked a second time
+        // The click is still what downloads it.
+        Act(vm);
+        Assert.Equal(UpdateState.Ready, Ui.Run(() => vm.State));
+        Assert.Equal(1, _server.SetupRequests);
+    }
+
+    [Fact]
     public void Automatic_updates_download_by_themselves()
     {
         _auto = true;

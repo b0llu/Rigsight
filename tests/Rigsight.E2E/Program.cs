@@ -46,7 +46,17 @@ internal static class Program
         string data = Path.Combine(Path.GetTempPath(), "rigsight-e2e", stamp);
         string output = Path.GetFullPath(Arg("--out") ?? Path.Combine(RepoRoot(), "TestResults", "e2e", stamp));
         // With admin rights the agent reads every sensor (like an installed one), so it's measured against its own baseline.
-        string baselineFile = Path.Combine(RepoRoot(), "tests", "Rigsight.E2E", admin ? "baseline-admin.json" : "baseline.json");
+        // On a copy of this PC's own history (--real-data) the pages hold what they really hold: measured against a
+        // baseline of its own. (A year of made-up history passed with page switches of 15 ms while the real pages froze
+        // the window for a fifth of a second.) The made-up year stays for what a long history costs.
+        string realDb = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rigsight", "rigsight.db");
+        bool real = args.Contains("--real-data");
+        if (real && !File.Exists(realDb))
+        {
+            Console.WriteLine("  --real-data: no history of this PC's own was found; using the made-up year.");
+            real = false;
+        }
+        string baselineFile = Path.Combine(RepoRoot(), "tests", "Rigsight.E2E", $"baseline{(real ? "-real" : "")}{(admin ? "-admin" : "")}.json");
 
         // Before anything reads RigsightPaths: this process shares the test copy's names (to signal its agent to quit).
         Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", data);
@@ -76,10 +86,20 @@ internal static class Program
         Process? agent = null, app = null;
         try
         {
-            Step("Generating a year of history");
+            Step(real ? "Copying this PC's own history (the copy is deleted after the run)" : "Generating a year of history");
             var sw = Stopwatch.StartNew();
             Directory.CreateDirectory(data);
-            SeedData.Generate(RigsightPaths.Database, SeedProfile.Typical);
+            if (real)
+            {
+                // A whole copy as of now, taken while the installed agent goes on writing to the real one.
+                using var conn = new SqliteConnection($"Data Source={realDb};Mode=ReadOnly;Pooling=False");
+                conn.Open();
+                using var copy = conn.CreateCommand();
+                copy.CommandText = "VACUUM INTO $to";
+                copy.Parameters.AddWithValue("$to", RigsightPaths.Database);
+                copy.ExecuteNonQuery();
+            }
+            else SeedData.Generate(RigsightPaths.Database, SeedProfile.Typical);
             var settings = SeedData.QuietSettings();
             settings.CustomPages.Add(Dashboard());
             SettingsStore.Save(settings);

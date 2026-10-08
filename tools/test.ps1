@@ -22,9 +22,10 @@
 #
 # Stages: build (Debug) -> which tests (unless -Full) -> tests, while the Release build is made exactly as the
 # installer makes it -> Release checks (version; it can't be pointed at a test update server) -> end-to-end: that
-# Release build runs as an isolated test copy on a year of generated history (startup, CPU, memory, handles, leaks,
-# clean shutdown, the log; against budgets and the baseline). Nothing here touches the installed Rigsight or its data.
-param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild)
+# Release build runs as an isolated test copy on a copy of this PC's own history (-Seeded: a made-up year; a full gate
+# also runs that one, quick) (startup, CPU, memory, handles, leaks,
+# clean shutdown, the log; against budgets and the baseline). Nothing here touches the installed Rigsight; its history is only read, to copy it.
+param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild, [switch]$Seeded)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 # From the repository, wherever it's started from: dotnet reads global.json (the test runner) from the current folder.
@@ -120,12 +121,23 @@ else {
     $short = $Quick -or $e2eMode -eq 'quick'
     Stage "End-to-end: the Release build as an isolated test copy$(if ($short) { ' (quick)' })"
     $e2eArgs = @('--bin', $publish, '--out', (Join-Path $results 'e2e'))
+    # On a copy of this PC's own history unless -Seeded: what the pages really hold is what has to be quick.
+    if (-not $Seeded) { $e2eArgs += '--real-data' }
     if ($short) { $e2eArgs += '--quick' }
     if ($UpdateBaseline) { $e2eArgs += '--update-baseline' }
     if ($Installed) { $e2eArgs += '--installed' }
     if ($Admin) { $e2eArgs += '--admin'; Write-Host '  (a Windows admin prompt will appear for the test agent: accept it)' -ForegroundColor Yellow }
     dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release -- @e2eArgs
     if ($LASTEXITCODE) { Failed 'end-to-end (see the report in the results folder)' }
+
+    # A full gate also takes the made-up year (quick): what a long history costs, which this PC's own doesn't show yet.
+    if ($level -eq 'full' -and -not $short -and -not $Seeded) {
+        Stage 'End-to-end: a year of made-up history (quick)'
+        $yearArgs = @('--bin', $publish, '--out', (Join-Path $results 'e2e-year'), '--quick')
+        if ($Admin) { $yearArgs += '--admin' }
+        dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release --no-build -- @yearArgs
+        if ($LASTEXITCODE) { Failed 'end-to-end on a year of history' }
+    }
 
     if ($InstalledBuild) {
         Stage 'End-to-end: the installed program files as an isolated test copy'

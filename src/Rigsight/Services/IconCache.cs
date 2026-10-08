@@ -10,7 +10,19 @@ namespace Rigsight.Services;
 /// <summary>Extracts and caches app icons from executables.</summary>
 public static class IconCache
 {
-    private static readonly Dictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the icons a page is about to show, where its data is read (not on the window's thread): reading a program's
+    /// icon from its file takes a few milliseconds each, and a page of thirty apps held the window up for as long.
+    /// </summary>
+    public static void Warm(IEnumerable<string?> exePaths)
+    {
+        foreach (var path in exePaths) Get(path);
+    }
+
+    /// <summary>Whether an icon has been read already (or found to have none).</summary>
+    public static bool Has(string? exePath) => string.IsNullOrEmpty(exePath) || Cache.ContainsKey(exePath);
 
     /// <summary>Windows' plain program icon, for processes without an icon of their own.</summary>
     public static ImageSource? Program => _program ??= StockIcon(SiidApplication);

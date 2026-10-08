@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Apps), nameof(Peaks), nameof(TopSessions), nameof(HasData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -38,9 +38,18 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [NotifyPropertyChangedFor(nameof(CoverageNote))]
     private int _trackedDays;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Apps))]
-    private bool _showBackgroundApps;
+    [ObservableProperty] private bool _showBackgroundApps;
+
+    // The report is read again on every visit and every minute, and most of it comes back the same: lists that say
+    // the same stay the ones the page has, so their rows aren't built again (see Kept).
+    partial void OnReportChanged(Report? value) => SyncApps();
+    partial void OnShowBackgroundAppsChanged(bool value) => SyncApps();
+
+    private void SyncApps() => Kept.Sync(Apps, Report is null ? []
+        : [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))], Kept.Values);
+
+    private List<Insight> _insights = [];
+    public List<Insight> Insights => _insights = Kept.Or(_insights, Report?.Insights ?? []);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText))]
@@ -51,7 +60,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private const int CrashesPage = 5;
     private int _crashLimit = CrashesPage;
 
-    public List<CrashRow> CrashesShown => [.. Crashes.Take(_crashLimit)];
+    private List<CrashRow> _crashesShown = [];
+    public List<CrashRow> CrashesShown => _crashesShown = Kept.Or(_crashesShown, [.. Crashes.Take(_crashLimit)],
+        (a, b) => a.Event == b.Event && a.TimeText == b.TimeText && a.CpuBefore == b.CpuBefore && a.GpuBefore == b.GpuBefore && a.FrontApp == b.FrontApp);
     public bool HasMoreCrashes => Crashes.Count > _crashLimit;
     public string MoreCrashesText => $"Show {Math.Min(20, Crashes.Count - _crashLimit)} more ({Crashes.Count - _crashLimit} not shown)";
 
@@ -108,8 +119,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private static bool UsedActively(AppStat a) => a.ActiveSec >= 30;
 
     /// <summary>Apps you actually used; background-only apps are added when the toggle is on.</summary>
-    public List<AppStat> Apps => Report is null ? [] :
-        [.. Report.Apps.Where(a => UsedActively(a) || (ShowBackgroundApps && a.OpenSec >= 30))];
+    public System.Collections.ObjectModel.ObservableCollection<AppStat> Apps { get; } = [];
 
     public int BackgroundOnlyCount => Report?.Apps.Count(a => !UsedActively(a) && a.OpenSec >= 30) ?? 0;
 
@@ -118,11 +128,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public double MaxActive => Math.Max(1, Report?.Apps.FirstOrDefault()?.ActiveSec ?? 1);
 
     // Windows' own parts and Rigsight itself aren't what anyone means by a session.
-    public List<SessionInfo> TopSessions => Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [];
+    private List<SessionInfo> _topSessions = [];
+    public List<SessionInfo> TopSessions => _topSessions = Kept.Or(_topSessions,
+        Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [], Kept.Values);
 
-    public List<PeakRow> Peaks
+    private List<PeakRow> _peaks = [];
+    public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks());
+
+    private List<PeakRow> BuildPeaks()
     {
-        get
         {
             var r = Report;
             if (r is null) return [];

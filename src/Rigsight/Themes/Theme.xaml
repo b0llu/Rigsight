@@ -340,6 +340,8 @@
     <!-- ── Sidebar navigation ──────────────────────────────────────────── -->
     <Style x:Key="NavItem" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <!-- The text brightens in step with the shade behind it (see NavInk), not at once by a trigger. -->
+        <Setter Property="ctl:NavInk.Follows" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Margin" Value="0,0,0,4" />
         <Setter Property="GroupName" Value="Nav" />
@@ -399,14 +401,6 @@
                             </Grid>
                         </Border>
                     </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

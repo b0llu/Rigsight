@@ -27,21 +27,28 @@ public sealed class ReportService(SettingsModel settings)
     public Task<Report?> BuildAsync(ReportRange range, DateTime anchor)
     {
         var s = Snapshot();
-        return Run(db => ReportBuilder.Build(db, range, anchor, s));
+        return Run(db => Warmed(ReportBuilder.Build(db, range, anchor, s)));
     }
 
     /// <summary>A custom range's report (whole hours; see <see cref="ReportBuilder.BuildCustom"/>).</summary>
     public Task<Report?> BuildCustomAsync(DateTime from, DateTime to)
     {
         var s = Snapshot();
-        return Run(db => ReportBuilder.BuildCustom(db, from, to, s));
+        return Run(db => Warmed(ReportBuilder.BuildCustom(db, from, to, s)));
     }
 
     /// <summary>Per-app totals and session counts for a range (Apps page, Memory page, CSV export), summed by the database.</summary>
     public Task<Report?> BuildRangeAsync(DateTime from, DateTime to)
     {
         var s = Snapshot();
-        return Run(db => ReportBuilder.BuildAppTotals(db, from, to, db.LoadApps().ToDictionary(a => a.Id), s));
+        return Run(db => Warmed(ReportBuilder.BuildAppTotals(db, from, to, db.LoadApps().ToDictionary(a => a.Id), s)));
+    }
+
+    /// <summary>The report with its apps' icons read already, here where it is built (see <see cref="IconCache.Warm"/>).</summary>
+    private static Report Warmed(Report report)
+    {
+        IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Sessions.Select(x => x.Path)));
+        return report;
     }
 
     /// <summary>One app's most recent sessions (a minute or longer) in the range, newest first.</summary>
@@ -110,6 +117,7 @@ public sealed class ReportService(SettingsModel settings)
             var apps = db.LoadApps().ToDictionary(a => a.Id);
             var (from, to) = ReportBuilder.Bounds(range, anchor);
             var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s));
+            IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Downloads.Select(d => d.Path)));
             return (report, db.FirstNetDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
         });
     }

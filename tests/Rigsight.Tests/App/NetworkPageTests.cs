@@ -52,6 +52,40 @@ public sealed class NetworkPageTests
     }
 
     [Fact]
+    public void Coming_back_to_the_page_keeps_the_rows_it_has()
+    {
+        // Read again on every visit and every minute: with nothing new to say, no list is given to the page anew (each
+        // one would have its rows built and laid out again: a fifth of a second on a real PC's Network page).
+        var (vm, _) = Page();
+        var before = Ui.Run(() => (Apps: vm.Apps.ToList(), vm.Insights, vm.Strip, vm.Downloads, vm.AwayApps, vm.Bins, vm.Facts));
+        Kit.Wait(vm.RefreshAsync);
+        Ui.Run(() =>
+        {
+            Assert.NotEmpty(before.Apps);
+            Assert.Equal(before.Apps.Count, vm.Apps.Count);
+            Assert.All(before.Apps.Zip(vm.Apps), x => Assert.Same(x.First, x.Second));
+            Assert.Same(before.Insights, vm.Insights);
+            Assert.Same(before.Strip, vm.Strip);
+            Assert.Same(before.Downloads, vm.Downloads);
+            Assert.Same(before.AwayApps, vm.AwayApps);
+            Assert.Same(before.Bins, vm.Bins);
+            Assert.Same(before.Facts, vm.Facts);
+
+            // What does change is said by the row that was there: counting only the background gives each app new figures.
+            var steam = vm.Apps.First(r => r.Name == "Steam");
+            string all = steam.DownText;
+            var told = new List<string?>();
+            steam.PropertyChanged += (_, e) => told.Add(e.PropertyName);
+            vm.BackgroundOnly = true;
+            Assert.Same(steam, vm.Apps.First(r => r.Name == "Steam"));
+            Assert.True(steam.BackgroundOnly);
+            Assert.Contains("", told); // every figure of the row is read again
+            vm.BackgroundOnly = false;
+            Assert.Equal(all, steam.DownText);
+        });
+    }
+
+    [Fact]
     public void Todays_drop_shows_on_the_strip()
     {
         var (vm, _) = Page();

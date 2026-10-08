@@ -103,7 +103,6 @@ public static class NetInsights
         // 7. The period in a line, against the one before.
         if (r.Down >= 100 * MB)
         {
-            string head = Capitalize(period);
             string against = "";
             if (r.PreviousDown is long before && before >= 500 * MB)
             {
@@ -124,7 +123,7 @@ public static class NetInsights
             }
             var top = r.Apps.FirstOrDefault();
             string mostly = top is not null && top.Use.Down >= r.Down * 0.4 ? $", mostly {top.Name}" : "";
-            list.Add(new Insight(IconRecap, $"{head}: {Units.Data(r.Down)} downloaded{against}{mostly}.", InsightTone.Neutral, "net-recap", 45));
+            list.Add(new Insight(IconRecap, $"{Units.Data(r.Down)} downloaded{(inProgress ? " " + period : "")}{against}{mostly}.", InsightTone.Neutral, "net-recap", 45));
         }
 
         // 8. The internet dropping more than usual.
@@ -223,5 +222,4 @@ public static class NetInsights
 
     private static string Span(int days) => days switch { 30 => "a month", 90 => "three months", _ => "a year" };
 
-    private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 }

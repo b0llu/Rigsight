@@ -266,7 +266,7 @@ public sealed class NetReportTests : IDisposable
         Use(Day.AddDays(-1), null, (steam, GB, 0, 0, 0, 0));
         Use(Day, null, (steam, 3 * GB / 2, 0, 0, 0, 0), (chrome, GB / 2, 0, 0, 0, 0));
         // A day looked back on: against "the day before" ("yesterday" is only said of today).
-        Assert.Equal("That day: 2.0 GB downloaded, 2.0× the day before, mostly Steam.", Said("net-recap")?.Text);
+        Assert.Equal("2.0 GB downloaded, 2.0× the day before, mostly Steam.", Said("net-recap")?.Text);
     }
 
     [Fact]
@@ -276,7 +276,7 @@ public sealed class NetReportTests : IDisposable
         long steam = App("steam.exe", "Steam");
         Use(Day.AddDays(-1), null, (steam, GB, 0, 0, 0, 0));
         Use(Day, null, (steam, 2 * GB, 0, 0, 0, 0));
-        Assert.Equal("That day: 2.0 GB downloaded, mostly Steam.", Said("net-recap")?.Text);
+        Assert.Equal("2.0 GB downloaded, mostly Steam.", Said("net-recap")?.Text);
     }
 
     [Fact]
