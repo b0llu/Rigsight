@@ -281,7 +281,9 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .lock { width: 96px; height: 96px; border-radius: 26px; display: grid; place-items: center; background: var(--brand); color: #000; box-shadow: 0 20px 60px -15px rgba(66,208,168,.6); }
 .lock svg { width: 46px; height: 46px; }
 .never { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: var(--faint); font-size: 14px; }
-.never em { font-style: normal; color: #d4d4d4; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--stroke-2); text-decoration: line-through; text-decoration-color: rgba(248,113,113,.8); }
+.never span { color: var(--text); font-weight: 600; }
+.never em { font-style: normal; color: var(--muted); padding: 5px 12px 5px 10px; border-radius: 999px; border: 1px solid rgba(248,113,113,.28); background: rgba(248,113,113,.06); }
+.never em::before { content: "\2715"; color: #f87171; font-size: 11px; font-weight: 700; margin-right: 8px; }
 
 /* ── Install ────────────────────────────────────────────── */
 .install { padding: 160px 0 0; text-align: center; }
@@ -327,7 +329,10 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
 .term-big { display: flex; margin-top: 4px; padding: 9px; }
 .term-big code { flex: 1; font-size: 15px; }
 .cli-card { margin: 44px auto 0; max-width: 900px; display: grid; gap: 18px; text-align: left; padding: 28px; border-radius: var(--radius);
-  background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--brand) border-box; border: 1px solid transparent; }
+  background: var(--surface); border: 1px solid var(--stroke); }
+.install-cta { margin-top: 36px; }
+.install-cta + .steps { margin-top: 28px; }
+.or + .cli-card { margin-top: 18px; }
 .cli-card h3 { margin-bottom: 8px; }
 .cli-card p { color: var(--muted); font-size: 15px; }
 .cli-big { margin: 0; display: flex; padding-left: 18px; }
@@ -478,13 +483,13 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 
 .js .tabs {
   display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 30px; padding: 5px;
-  border: 1px solid var(--stroke); border-radius: 14px; background: var(--surface);
+  border: 1px solid var(--stroke-2); border-radius: 14px; background: var(--surface);
 }
 .tab {
-  font: inherit; font-size: 15px; font-weight: 600; color: var(--muted); background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 15px; font-weight: 600; color: #e5e5e5; background: rgba(255,255,255,.05); border: 0; cursor: pointer;
   padding: 9px 18px; border-radius: 10px; transition: color .2s, background .2s;
 }
-.tab:hover { color: var(--text); }
+.tab:hover { color: var(--text); background: rgba(255,255,255,.1); }
 .tab[aria-selected="true"] { color: #000; background: #fff; }
 .tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .js .panes { gap: 0; }
@@ -517,3 +522,9 @@ details p { padding: 0 22px 22px; color: var(--muted); }
 .idea-shot { max-width: 1000px; margin: 48px auto 0; }
 /* On a phone the picture shows its right half first: the chart under the pointer, and the hottest moments. */
 @media (max-width: 640px) { .idea-shot { margin-top: 32px; } .idea-shot.win img { margin-left: -100%; } }
+
+/* The first screen's command box is the second way in: no glow, no colour, so the Download button leads. */
+.hero .term { background: #0b0b0b; border-color: var(--stroke-2); box-shadow: none; }
+.hero .term-badge { background: #1f1f1f; color: var(--muted); }
+.hero .t-cmd, .hero .t-op { color: var(--muted); }
+.hero .t-url { color: var(--muted); }
