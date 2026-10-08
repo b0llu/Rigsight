@@ -162,7 +162,33 @@
                         </StackPanel>
                         <TextBlock Text="Temperature history" Style="{StaticResource H2}" />
                     </DockPanel>
-                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding TempSeries}" Margin="0,0,0,12">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <!-- What the line is, from an hour up (under that every reading is drawn): a short spike is in a minute's
+                         highest and hardly moves its average. -->
+                    <!-- Hidden, not gone, on the 5 minute view: its place is kept, so the chart doesn't jump when it comes and goes. -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CanChartPlot}" Value="False">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="{Binding ChartPlotLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <Border Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Average"
+                                             IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Highest"
+                                             IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Lowest"
+                                             IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding TempSeries}" VerticalAlignment="Center">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel />
@@ -178,7 +204,9 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}" />
+                    </DockPanel>
+                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
+                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" />
                 </DockPanel>
             </ctl:SmoothBorder>
 

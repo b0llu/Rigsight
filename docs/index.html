@@ -224,24 +224,8 @@
         </div>
       </div>
 
-      <!-- Riggy: new, and experimental. -->
-      <article class="feature wrap riggy">
-        <div class="f-copy reveal">
-          <span class="tag tag-green">Riggy</span><span class="tag tag-plain">Experimental</span>
-          <h2>Or just ask.</h2>
-          <p>Riggy is a helper in the corner of the window. Ask in your own words why a game crashed, how hot it runs, what changed this week or where your time went, and it answers from your PC's own records.</p>
-          <ul class="checks">
-            <li>Runs on your PC. Nothing you type leaves it</li>
-            <li>Every number is read from what Rigsight recorded, never guessed</li>
-            <li>Still learning: tell it what you meant and it remembers your wording</li>
-            <li>Not for you? Turn it off in Settings</li>
-          </ul>
-        </div>
-        <figure class="shot win reveal" data-zoom><img loading="lazy" src="img/riggy.webp" srcset="img/riggy-720.webp 720w, img/riggy.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Riggy's chat open over the Home page: asked how hot Counter-Strike 2 gets, it answers with the GPU and CPU temperatures over the last 30 days and offers follow-up questions" /></figure>
-      </article>
-
       <!-- Each part of the PC has its page. -->
-      <div class="group wrap flip" data-tabs>
+      <div class="group wrap" data-tabs>
         <header class="g-head reveal">
           <p class="eyebrow">Part by part</p>
           <h2>Every part of your PC, on its own page.</h2>
@@ -491,7 +475,6 @@
         <details class="reveal"><summary>Will the overlay get me banned?</summary><p>Rigsight never hooks into games. Over borderless and windowed games its overlay is an ordinary always-on-top window. For exclusive fullscreen it uses RivaTuner Statistics Server, the long-established tool behind MSI Afterburner's overlay, which anti-cheat systems accept.</p></details>
         <details class="reveal"><summary>Will it slow my games down?</summary><p>No. In the background Rigsight uses around 0.02% of your CPU and runs at low priority, so your games always come first.</p></details>
         <details class="reveal"><summary>What does it record, exactly?</summary><p>Which app is in front and for how long, and how hard your hardware is working: temperatures, loads, clocks, power, fans, memory and drives. It also counts how much each app downloads and uploads. It never records window titles, keystrokes, screenshots, file contents or the websites you visit, and none of it is sent anywhere.</p></details>
-        <details class="reveal"><summary>What is Riggy?</summary><p>A helper in the corner of the window that answers questions about your PC, such as why a game crashed or how hot it ran, from what Rigsight has recorded. It runs entirely on your PC, so nothing you type is sent anywhere. It is experimental and still learning, and you can turn it off in Settings.</p></details>
         <details class="reveal"><summary>How do I update it?</summary><p>You don't have to. New versions download quietly in the background and install the next time you start your PC. Want it sooner? Click <b>Restart</b> in the app and you're on the new version in seconds.</p></details>
         <details class="reveal"><summary>How much history does it keep?</summary><p>As much as you like, from three months to forever. Temperatures, app time, sessions and crashes all go back equally far, so any day you look back on is complete. A year of history takes about 35 MB.</p></details>
         <details class="reveal"><summary>How do I uninstall it?</summary><p>Settings → Apps → Rigsight → Uninstall. That removes the program and its startup task. Your history stays in <code>%LocalAppData%\Rigsight</code> until you delete the folder.</p></details>

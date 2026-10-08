@@ -208,7 +208,9 @@ public sealed record FanCurveDay(long Day, long Fan, long App, int Temp, int N, 
 
 public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN, double CpuSum, int CpuN, double PowerSum, int PowerN);
 
-public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec);
+/// <param name="NoReadings">Nothing at all was recorded in the five minutes before it, though recording had begun by then
+/// (not the same as a temperature that wasn't read in a recorded minute).</param>
+public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec, bool NoReadings = false);
 
 /// <summary>
 /// One minute of internet use, all apps together (net_minute), in bytes: downloaded and uploaded, the part by apps that

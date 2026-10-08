@@ -28,7 +28,7 @@
             <!-- Header -->
             <DockPanel>
                 <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False"
-                                  Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                  IsBusy="{Binding IsLoading}" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />

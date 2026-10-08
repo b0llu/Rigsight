@@ -38,6 +38,49 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
         Ui.Pump(200);
     }
 
+    [Fact]
+    public void Whats_new_draws_a_removal_without_error_and_says_nothing_about_another_page_on_it()
+    {
+        Ui.TakeProblems();
+        host.Show("home", 900);
+        Ui.Run(() => host.Shell.WhatsNew.SeeAllCommand.Execute(null));
+        Ui.Pump(600);
+        Ui.Run(() =>
+        {
+            var removal = host.Shell.WhatsNew.Shown.Select(r => r.Feature).First(f => f is { IsRemoval: true })!;
+            // It opens no page of its own, so no page's "already found on this PC" line belongs on it.
+            Assert.Null(removal.Fact);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "whatsnew-removal.png"));
+            host.Shell.WhatsNew.CloseCommand.Execute(null);
+        });
+        Ui.AssertNoProblems("what's new");
+    }
+
+    // The one in the Refresh button, where it takes the icon's place (the search box has its own).
+    private Controls.Spinner RefreshSpinner() =>
+        Visuals.Descendants<Controls.Spinner>(host.Window.PageHost).Single(s => s.Parent is System.Windows.Controls.Grid);
+
+    [Fact]
+    public void The_timelines_refresh_button_turns_while_the_pc_is_looked_over()
+    {
+        Ui.TakeProblems();
+        host.Show("timeline", 900);
+        Ui.Run(() =>
+        {
+            Assert.False(RefreshSpinner().IsVisible);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "timeline-refresh.png"));
+            host.Shell.Timeline.IsRefreshing = true;
+        });
+        Ui.Pump(150);
+        Ui.Run(() =>
+        {
+            Assert.True(RefreshSpinner().IsVisible);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "timeline-refreshing.png"));
+            host.Shell.Timeline.IsRefreshing = false;
+        });
+        Ui.AssertNoProblems("timeline refresh");
+    }
+
     [Theory]
     [InlineData(1140, 680)] // the window's minimum size
     [InlineData(1600, 1000)]

@@ -30,7 +30,6 @@ It records quietly in the background using about **0.02% of your CPU**, and ever
 - **🌐 Where your internet goes.** What each app downloads and uploads, what moves in the background or while you're away, your biggest downloads, your top speed, and a heads-up when your internet slows down or keeps dropping.
 - **🧩 Where your time and heat go.** Time per app, how hot each game runs your PC, and how that changes over time.
 - **💥 Crashes, explained in plain words.** App crashes, freezes, driver resets, blue screens and sudden shutdowns, with what probably happened, what to try, and what changed before it started.
-- **💬 Ask Riggy (experimental).** A helper in the corner of the window you can ask in your own words: why it crashed, how hot it got, what changed, where your time went. It answers from your PC's own records, nothing you type leaves your PC, and you can turn it off in Settings.
 - **🕒 Everything that changed.** A timeline of your PC, day by day: drivers, Windows updates, apps, startup programs, hardware and settings, and whether it ran hotter or less stable afterwards.
 - **🎮 Your numbers, inside the game.** Press `Alt+Shift+O` for a small overlay with FPS, temperatures, load and anything else you pick, in colour or grayscale, anywhere on the screen. It works in fullscreen games too and is safe with anti-cheat.
 - **🧱 Your own dashboards.** Start from a preset made for your PC's sensors, or build pages from tiles and arrange them however you like.

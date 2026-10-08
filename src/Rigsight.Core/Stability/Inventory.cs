@@ -87,9 +87,12 @@ public static partial class Inventory
 
     private const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 
-    private static List<InventoryItem> ReadApps()
+    private static List<InventoryItem> ReadApps() => AppItems(ListedApps().Select(a => (a.Name, a.Version)));
+
+    /// <summary>The apps Windows lists as installed, as they're written there, with the folder each says it's in ("" for none).</summary>
+    private static List<(string Name, string Version, string Folder)> ListedApps()
     {
-        var found = new List<(string Name, string Version)>();
+        var found = new List<(string Name, string Version, string Folder)>();
         foreach (var (hive, view) in new[] { (RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.LocalMachine, RegistryView.Registry32),
                      (RegistryHive.CurrentUser, RegistryView.Default) })
         {
@@ -103,10 +106,87 @@ public static partial class Inventory
                 string display = app.GetValue("DisplayName") as string ?? "";
                 // Parts of Windows and of other apps, and their patches, aren't apps of their own.
                 if (display.Length == 0 || app.GetValue("SystemComponent") is 1 || app.GetValue("ParentKeyName") is string { Length: > 0 }) continue;
-                found.Add((display, app.GetValue("DisplayVersion") as string ?? ""));
+                found.Add((display, app.GetValue("DisplayVersion") as string ?? "", app.GetValue("InstallLocation") as string ?? ""));
             }
         }
-        return AppItems(found);
+        return found;
+    }
+
+    /// <summary>Where each app's files are, by the app's key, for the apps that say (a drive on its own is no answer).</summary>
+    internal static Dictionary<string, List<string>> AppFolders(IEnumerable<(string Name, string Version, string Folder)> listed)
+    {
+        var folders = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (display, version, raw) in listed)
+        {
+            string folder = raw.Trim().Trim('"').TrimEnd('\\', '/');
+            string key = SplitName(display, version).Name.ToLowerInvariant();
+            if (folder.Length < 4 || key.Length == 0) continue;
+            if (!folders.TryGetValue(key, out var list)) folders[key] = list = [];
+            list.Add(folder + '\\');
+        }
+        return folders;
+    }
+
+    /// <summary>
+    /// An update that's only waiting isn't one yet. Apps that update themselves (Discord, Chrome) put the new version
+    /// beside the running one and tell Windows at once, then go on running the old one until they're next started: a
+    /// user's Discord was "updated to 1.0.9261" at 7:20 while it ran 1.0.9260, with its own "install update" button
+    /// lit, until 8:05. While a program in the app's folder is still the version the app is leaving, the app stays in
+    /// the reading as it was, so the update is found, and dated, by the first reading after the old one has gone.
+    /// An app that isn't running, doesn't say where it is, or whose programs carry another number than the one
+    /// Windows lists is taken as updated straight away, as before.
+    /// </summary>
+    /// <param name="running">The programs running now, by their full path; only asked for when an app's version changed.</param>
+    public static void HoldRunningUpdates(Dictionary<string, List<InventoryItem>> now, IEnumerable<InventoryItem> before, Func<IEnumerable<string>> running)
+    {
+        if (!now.TryGetValue(App, out var apps)) return;
+        HoldRunningUpdates(apps, before, () => AppFolders(ListedApps()),
+            () => running().Distinct(StringComparer.OrdinalIgnoreCase).SelectMany(path => FileVersions(path).Select(version => (path, version))));
+    }
+
+    internal static void HoldRunningUpdates(List<InventoryItem> apps, IEnumerable<InventoryItem> before, Func<Dictionary<string, List<string>>> folders,
+        Func<IEnumerable<(string Path, string Version)>> running)
+    {
+        var was = before.Where(i => i.Kind == App).ToDictionary(i => i.Key, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, List<string>>? where = null;
+        List<(string Path, string Version)>? programs = null;
+        for (int i = 0; i < apps.Count; i++)
+        {
+            var app = apps[i];
+            if (!was.TryGetValue(app.Key, out var old) || string.Equals(old.Value, app.Value, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!(where ??= folders()).TryGetValue(app.Key, out var dirs)) continue;
+            var leaving = old.Value.Split(", ").Except(app.Value.Split(", "), StringComparer.OrdinalIgnoreCase).ToList();
+            programs ??= [.. running()];
+            if (programs.Any(p => dirs.Any(d => p.Path.StartsWith(d, StringComparison.OrdinalIgnoreCase)) && leaving.Any(v => SameVersion(v, p.Version))))
+                apps[i] = old;
+        }
+    }
+
+    /// <summary>The version a program file carries, both ways it can be written there.</summary>
+    private static IEnumerable<string> FileVersions(string path)
+    {
+        System.Diagnostics.FileVersionInfo info;
+        try { info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path); }
+        catch { yield break; } // gone meanwhile
+        if (!string.IsNullOrWhiteSpace(info.ProductVersion)) yield return info.ProductVersion;
+        if (!string.IsNullOrWhiteSpace(info.FileVersion) && info.FileVersion != info.ProductVersion) yield return info.FileVersion;
+    }
+
+    /// <summary>The same numbers, however they're padded or followed: "1.0.9260" is "1.0.9260.0" and "1.0.9260+a1b2c3".</summary>
+    internal static bool SameVersion(string a, string b)
+    {
+        var (x, y) = (Numbers(a), Numbers(b));
+        return x.Length > 0 && x.SequenceEqual(y);
+
+        static string[] Numbers(string s)
+        {
+            s = s.Trim().TrimStart('v', 'V');
+            int end = 0;
+            while (end < s.Length && (char.IsAsciiDigit(s[end]) || s[end] == '.')) end++;
+            var parts = s[..end].Split('.', StringSplitOptions.RemoveEmptyEntries).Select(p => p.TrimStart('0')).ToList();
+            while (parts.Count > 0 && parts[^1].Length == 0) parts.RemoveAt(parts.Count - 1);
+            return [.. parts];
+        }
     }
 
     /// <summary>

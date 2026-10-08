@@ -252,6 +252,9 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     private NetReport? _report;
 
+    /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
+    [ObservableProperty] private bool _isLoading;
+
     public async Task RefreshAsync()
     {
         var (from, _) = Period;
@@ -259,12 +262,15 @@ public sealed partial class NetworkViewModel : ObservableObject
         if (!IncludesToday && _loadedPast == (Unit, from) && _report is not null)
         {
             _load++; // a read still on its way is for a period since left: it mustn't land on this one
+            IsLoading = false;
             await ReadConnectionAsync(_report);
             return;
         }
         int id = ++_load;
+        IsLoading = true;
         var (report, firstDay) = await _reports.NetworkAsync(Unit, Anchor);
         if (id != _load) return;
+        IsLoading = false;
         _report = report;
         _loadedPast = IncludesToday ? null : (Unit, from);
         FirstDay = firstDay ?? DateTime.Today;

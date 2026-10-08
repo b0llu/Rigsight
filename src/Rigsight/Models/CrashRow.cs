@@ -11,6 +11,9 @@ public sealed class CrashRow
     public double? CpuBefore { get; init; }
     public double? GpuBefore { get; init; }
 
+    /// <summary>Nothing was recorded in the five minutes before it: said, so no temperatures doesn't read as a cool PC.</summary>
+    public bool NoReadingsBefore { get; init; }
+
     /// <summary>App in front just before (when Rigsight was recording).</summary>
     public string? FrontApp { get; init; }
 
@@ -60,6 +63,8 @@ public sealed class CrashRow
             if (CpuBefore is not null || GpuBefore is not null)
                 parts.Add($"CPU {Core.Units.TempShort(CpuBefore)}, GPU {Core.Units.TempShort(GpuBefore)}" +
                           (GpuBefore >= 83 || CpuBefore >= 88 ? " (running hot)" : ""));
+            else if (NoReadingsBefore)
+                parts.Add("no readings recorded");
             return parts.Count == 0 ? null : string.Join("  ·  ", parts);
         }
     }

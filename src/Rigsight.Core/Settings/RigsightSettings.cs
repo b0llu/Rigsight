@@ -24,6 +24,9 @@ public sealed class RigsightSettings
 
     public int ChartWindowSeconds { get; set; } = 300;
 
+    /// <summary>What the temperature graph's line is from an hour up: each minute's average ("Avg"), highest ("High") or lowest ("Low").</summary>
+    public string ChartPlot { get; set; } = "Avg";
+
     public TrackingSettings Tracking { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
     public List<WidgetConfig> Widgets { get; set; } = WidgetConfig.Defaults();
@@ -83,9 +86,6 @@ public sealed class RigsightSettings
     /// says when there's a new version.
     /// </summary>
     public bool AutoUpdate { get; set; } = true;
-
-    /// <summary>Riggy's bubble in the corner of the window (Ask). Off hides it; nothing of Ask runs then.</summary>
-    public bool ShowAsk { get; set; } = true;
 
     /// <summary>
     /// While an RGB or fan-control app (iCUE, Gigabyte Control Center, Armoury Crate…) is running, don't read the

@@ -362,6 +362,68 @@ public sealed class ControlTests
         });
     }
 
+    [Fact]
+    public void A_group_can_be_drawn_at_its_highest_or_its_lowest_reading_instead_of_its_average()
+    {
+        Ui.Run(() =>
+        {
+            // Ten minutes, each at its own level with one reading 60 above it (a spike of a second) and one 3 below.
+            long start = Now / 60_000 * 60_000 - 600_000;
+            var b = Draw.Buffer(600, start, 1000, i => 20 + i / 60 * 2 + (i % 60 == 30 ? 60 : i % 60 == 10 ? -3 : 0));
+            double Y(double value) => Plot.Bottom - value / 100.0 * Plot.Height;
+            var high = PointsOf(ChartGeometry.Build(b, start, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000, pick: 1)!.Value.Line);
+            var low = PointsOf(ChartGeometry.Build(b, start, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000, pick: -1)!.Value.Line);
+            var avg = PointsOf(ChartGeometry.Build(b, start, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000)!.Value.Line);
+            Assert.Equal((10, 10, 10), (high.Count, low.Count, avg.Count));
+            for (int minute = 0; minute < 10; minute++)
+            {
+                Assert.Equal(Y(80 + minute * 2), high[minute].Y, 6); // the spike is the minute's highest
+                Assert.Equal(Y(17 + minute * 2), low[minute].Y, 6);
+                Assert.Equal(Y(20 + minute * 2 + 57 / 60.0), avg[minute].Y, 6); // and hardly moves its average
+                Assert.Equal(avg[minute].X, high[minute].X, 6); // the same place along the chart, whichever is drawn
+            }
+            // Where a pixel covers several minutes, the point is the highest of all of them.
+            var day = PointsOf(ChartGeometry.Build(b, start + 600_000 - 86_400_000, start + 600_000, Plot, 0, 100, v => v, groupMs: 60_000, pick: 1)!.Value.Line);
+            Assert.Equal(Y(98), day.Min(p => p.Y), 6);
+            // The first point (where older history is joined on) is the same kind of thing.
+            Assert.Equal(80.0, ChartGeometry.FirstPoint(b, start, start + 600_000, Plot, 60_000, pick: 1)!.Value.Value);
+            Assert.Equal(17.0, ChartGeometry.FirstPoint(b, start, start + 600_000, Plot, 60_000, pick: -1)!.Value.Value);
+        });
+    }
+
+    [Fact]
+    public void A_series_older_history_is_each_minutes_highest_or_lowest_where_they_were_kept()
+    {
+        var sensor = new SensorItem(new SensorMeta { Id = "/t/cpu", Name = "CPU", Kind = SensorKind.Temperature }, "CPU", "Cpu");
+        var series = new ChartSeries("CPU", sensor, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+        long start = Now / 1000 / 60 * 60 - 3600;
+        series.LoadMinutes(
+        [
+            new() { Ts = start, CpuTemp = 60.5, CpuTempMax = 73.5, CpuTempMin = 49.75 }, // the user's 10:03: a spike in a cool minute
+            new() { Ts = start + 60, CpuTemp = 55 }, // from before highest and lowest were kept: no point on those lines
+            new() { Ts = start + 600, CpuTemp = 50, CpuTempMax = 52, CpuTempMin = 48 }, // after a gap
+        ]);
+        HistoryBuffer avg = series.MinutesFor(0), high = series.MinutesFor(1), low = series.MinutesFor(-1);
+        Assert.Same(series.Minutes, avg);
+        Assert.Equal((4, 4, 4), (avg.Count, high.Count, low.Count));
+        Assert.Equal((60.5, 73.5, 49.75), (avg.ValueAt(0), high.ValueAt(0), low.ValueAt(0)));
+        Assert.Equal(55.0, avg.ValueAt(1));
+        Assert.True(double.IsNaN(high.ValueAt(1)) && double.IsNaN(low.ValueAt(1)));
+        // The gap breaks every one of the lines at the same place.
+        Assert.True(double.IsNaN(avg.ValueAt(2)) && double.IsNaN(high.ValueAt(2)) && double.IsNaN(low.ValueAt(2)));
+        Assert.Equal((52.0, 48.0), (high.ValueAt(3), low.ValueAt(3)));
+        Assert.Equal(avg.TimeAt(3), high.TimeAt(3));
+
+        // The ten minutes with nothing recorded are a gap, from the end of the last minute before to the start of the next.
+        var gap = Assert.Single(series.Gaps);
+        Assert.Equal(((start + 120) * 1000L, (start + 600) * 1000L), gap);
+
+        // A line with nothing kept beside its value (a fan's speed) is the same whatever is asked for.
+        var plain = new ChartSeries("Fan", sensor, "CpuColor");
+        plain.LoadPoints([(start, 900.0)]);
+        Assert.Same(plain.Minutes, plain.MinutesFor(1));
+    }
+
     // ── Line chart ───────────────────────────────────────────────────────
 
     private static ChartSeries Series(string label, int live, int minutes, Func<int, double> value, string color = "CpuColor")

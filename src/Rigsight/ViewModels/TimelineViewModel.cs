@@ -114,7 +114,8 @@ public sealed record NowFact(string Label, string Value, string? Since);
 /// The Timeline page: what changed on the PC day by day (drivers, Windows, apps, startup programs, hardware, settings,
 /// drive space) with the problems that happened in between, a calendar to jump around in, and the PC as it is now.
 /// </summary>
-public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes) : ObservableObject
+/// <param name="scan">Has the agent look for new changes and problems now; done when it has (or it can't be reached).</param>
+public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null) : ObservableObject
 {
     /// <summary>
     /// Days built at a time: the newest first (about a screenful, so opening the page or changing the filter is quick),
@@ -180,10 +181,42 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     partial void OnGroupingChanged(string value) => Rebuild(keepPlace: false);
 
+    /// <summary>
+    /// What's typed in the search box: only the changes (and problems) that say it are listed, over all of the history
+    /// and within the kind picked. An app's name, a version old or new, a word of the line.
+    /// </summary>
+    [ObservableProperty] private string _search = "";
+
+    partial void OnSearchChanged(string value) => Rebuild(keepPlace: false);
+
     /// <param name="onlyIfChanged">The minute refresh: leave the page alone unless something new was recorded.</param>
     public async Task LoadAsync(bool onlyIfChanged = false)
     {
         if (await reports.TimelineAsync() is { } data) Apply(data, onlyIfChanged);
+    }
+
+    /// <summary>The refresh button was pressed and the PC is being looked over.</summary>
+    [ObservableProperty] private bool _isRefreshing;
+
+    /// <summary>
+    /// Looks for changes now: the PC is otherwise checked every ten minutes, so something just installed isn't here yet.
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshAsync()
+    {
+        IsRefreshing = true;
+        try
+        {
+            // Seen turning for a moment even when the check is over at once and finds nothing: something did happen.
+            var seen = Task.Delay(600);
+            if (scan is not null) await scan();
+            await LoadAsync();
+            await seen;
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
     }
 
     internal void Apply(TimelineData data, bool onlyIfChanged = false)
@@ -235,6 +268,12 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var changes = all ? _changes : [.. _changes.Where(c => kinds.Contains(c.Kind))];
         // Problems are context for everything together; a list of one kind is just that kind.
         var problems = all ? _problems : [];
+        var words = Core.TextMatch.Words(Search);
+        if (words.Length > 0)
+        {
+            changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now))];
+            problems = [.. problems.Where(p => Core.TextMatch.Has(words, p.Title))];
+        }
 
         _onDay = [];
         foreach (var c in changes) DayOf(c.Time.Date).Changes.Add(c);
@@ -250,8 +289,10 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         AddDays(shown);
 
         IsEmpty = _dayOrder.Count == 0;
-        EmptyText = all ? "No changes yet" : "Nothing of this kind has changed";
-        CountText = changes.Count == 0 ? "" : $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} since {changes.Min(c => c.Time):d MMM yyyy}";
+        EmptyText = words.Length > 0 ? "Nothing matches" : all ? "No changes yet" : "Nothing of this kind has changed";
+        CountText = changes.Count == 0 ? ""
+            : words.Length > 0 ? $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} match{(changes.Count == 1 ? "es" : "")}"
+            : $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} since {changes.Min(c => c.Time):d MMM yyyy}";
 
         if (!keepPlace)
         {

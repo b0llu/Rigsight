@@ -223,7 +223,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     public bool HasCrashes => GroupsShown.Count > 0;
 
-    public string EmptyText => Unit == Core.Reports.ReportRange.Day ? "No crashes on this day" : Filter switch
+    public string EmptyText => Core.TextMatch.Words(SearchText).Length > 0 ? "Nothing matches"
+        : Unit == Core.Reports.ReportRange.Day ? "No crashes on this day" : Filter switch
     {
         "Apps" => "No app or game crashes in this period",
         "Pc" => "No PC crashes, driver resets or sudden shutdowns in this period",
@@ -231,6 +232,19 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     };
 
     partial void OnFilterChanged(string value) { _limit = PageSize; ApplyView(); }
+
+    /// <summary>
+    /// What's typed in the search box: the list shows the problems that say it (the app, what went wrong, the file it
+    /// crashed in, the error's code). The tiles and the timeline above stay the whole period's.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EmptyText))]
+    private string _searchText = "";
+
+    partial void OnSearchTextChanged(string value) { _limit = PageSize; ApplyView(); }
+
+    private static bool Says(CrashRow r, string[] words) =>
+        Core.TextMatch.Has(words, r.Title, r.AppName, r.Event.AppExe, r.Event.Module, r.Event.Code, r.Explanation.Reason);
     partial void OnShowMutedChanged(bool value) { _limit = PageSize; ApplyView(); }
     partial void OnUnitChanged(Core.Reports.ReportRange value) { _limit = PageSize; _ = LoadAsync(); }
 
@@ -240,6 +254,22 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     public async Task LoadAsync(bool onlyIfChanged = false)
     {
         int id = ++_loadId;
+        IsLoading = true;
+        try
+        {
+            await ReadAsync(id, onlyIfChanged);
+        }
+        finally
+        {
+            if (id == _loadId) IsLoading = false;
+        }
+    }
+
+    /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
+    [ObservableProperty] private bool _isLoading;
+
+    private async Task ReadAsync(int id, bool onlyIfChanged)
+    {
         var since = await reports.FirstCrashDayAsync();
         var all = Unit == Core.Reports.ReportRange.All;
         var (from, to) = all ? (DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1)) : Bounds;
@@ -297,7 +327,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             "Pc" => g.IsIncident || g.Latest.IsSystem,
             _ => true,
         };
-        _matching = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g))];
+        var words = Core.TextMatch.Words(SearchText);
+        _matching = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g) && (words.Length == 0 || g.Rows.Any(r => Says(r, words))))];
         ShowPage();
         Crashes = [.. counted.Where(Matches).SelectMany(g => g.Rows).OrderByDescending(r => r.Time)];
         Days = IsDay ? [] : CrashStrip.BuildDays(From, Bounds.To, counted, _changes);

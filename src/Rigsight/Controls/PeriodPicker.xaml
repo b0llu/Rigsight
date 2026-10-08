@@ -17,6 +17,9 @@
         </Border>
         <ctl:DatePager x:Name="Pager" Margin="12,0,0,0"
                        Date="{Binding Anchor, ElementName=Root, Mode=TwoWay}" MinDate="{Binding MinDate, ElementName=Root}" />
+        <!-- The period picked is still being read (a year of history takes a moment). It takes no room of its own, so
+             nothing moves when it shows. -->
+        <ctl:Spinner x:Name="Busy" Margin="10,0,-22,0" Visibility="Collapsed" />
 
         <!-- Custom: from a date and hour to another (whole hours: history per app is kept by the hour). -->
         <Popup x:Name="RangePopup" PlacementTarget="{Binding ElementName=Pager}" Placement="Custom"

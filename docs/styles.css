@@ -507,8 +507,6 @@ details p { padding: 0 22px 22px; color: var(--muted); }
   .js .tabs { display: flex; flex-wrap: nowrap; justify-content: flex-start; max-width: 100%; overflow-x: auto; scrollbar-width: none; margin-top: 22px; }
   .js .tabs::-webkit-scrollbar { display: none; }
   .tab { white-space: nowrap; padding: 9px 14px; font-size: 14.5px; }
-  /* Riggy's chat is on the right of its picture: start there (these pictures show twice as large and swipe). */
-  .riggy .shot.win img { margin-left: -100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .js .pane, .js .pane[inert] { transition: none; }

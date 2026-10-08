@@ -9,7 +9,11 @@
                 <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
                         AutomationProperties.Name="Refresh" ToolTip="Check the drives, the cleanup list and the scan again">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                        <Grid Width="12" Margin="0,0,8,0">
+                                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
+                                               Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <ctl:Spinner Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}}" />
+                                </Grid>
                         <TextBlock Text="Refresh" />
                     </StackPanel>
                 </Button>
@@ -142,8 +146,24 @@
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Space you could free" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                        <TextBlock Text="Looking for temporary files and caches…" Style="{StaticResource Muted}"
-                                   Visibility="{Binding CleanupLoading, Converter={StaticResource Vis}}" />
+                        <!-- Said only the first time, while there's no list yet to push down; read again later, the page's
+                             Refresh button is what turns. -->
+                        <TextBlock Text="Looking for temporary files and caches…">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding CleanupLoading}" Value="True" />
+                                                <Condition Binding="{Binding Cleanup.Count}" Value="0" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <ItemsControl ItemsSource="{Binding Cleanup}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

@@ -990,13 +990,15 @@ public sealed partial class RigsightDb : IDisposable
               (SELECT max(gpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
               (SELECT fg_app FROM system_minute m WHERE m.ts <= c.ts AND m.ts > c.ts - 180 AND fg_app IS NOT NULL ORDER BY m.ts DESC LIMIT 1),
               (SELECT s.active_sec FROM sessions s WHERE s.app_id = (SELECT a.id FROM apps a WHERE a.exe = c.app_exe)
-                 AND s.start >= c.ts - $maxSession - 601 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1)
+                 AND s.start >= c.ts - $maxSession - 601 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1),
+              NOT EXISTS (SELECT 1 FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts)
+                 AND c.ts - 300 >= (SELECT min(ts) FROM system_minute)
             FROM crashes c WHERE c.ts >= $from AND c.ts < $to
             """, ("$from", from), ("$to", to), ("$maxSession", MaxSessionSec()));
         using var r = cmd.ExecuteReader();
         var map = new Dictionary<long, CrashContext>();
         while (r.Read())
-            map[r.GetInt64(0)] = new CrashContext(D(r, 1), D(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), D(r, 4));
+            map[r.GetInt64(0)] = new CrashContext(D(r, 1), D(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), D(r, 4), !r.IsDBNull(5) && r.GetInt64(5) != 0);
         return map;
     }
 

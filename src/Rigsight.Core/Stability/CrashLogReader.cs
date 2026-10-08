@@ -19,6 +19,45 @@ public static partial class CrashLogReader
         "*[System[(EventID=41 and Provider[@Name='Microsoft-Windows-Kernel-Power']) or " +
         "(EventID=6008 and Provider[@Name='EventLog']) or (EventID=4101 and Provider[@Name='Display'])]]";
 
+    private const string PowerQuery =
+        "*[System[(EventID=12 and Provider[@Name='Microsoft-Windows-Kernel-General']) or " +
+        "((EventID=41 or EventID=42 or EventID=107) and Provider[@Name='Microsoft-Windows-Kernel-Power']) or " +
+        "(EventID=1 and Provider[@Name='Microsoft-Windows-Power-Troubleshooter'])]]";
+
+    /// <summary>
+    /// When the PC started, went to sleep and woke since <paramref name="since"/>, oldest first, with what Windows noted
+    /// at a start about how it had gone down (see <see cref="PowerLog"/>). Null when the log couldn't be read.
+    /// </summary>
+    public static List<PowerEvent>? ReadPower(DateTime since)
+    {
+        try
+        {
+            var events = new List<PowerEvent>();
+            foreach (var record in Query("System", PowerQuery, since))
+            {
+                using (record)
+                {
+                    if (record.TimeCreated is not { } time) continue;
+                    PowerEventKind? kind = record.Id switch
+                    {
+                        12 => PowerEventKind.Started,
+                        41 => uint.TryParse(Named(record).GetValueOrDefault("BugcheckCode"), out var bugcheck) && bugcheck != 0 ? PowerEventKind.Crashed : PowerEventKind.ShutOff,
+                        42 => PowerEventKind.Sleep,
+                        107 or 1 => PowerEventKind.Wake,
+                        _ => null,
+                    };
+                    if (kind is { } k) events.Add(new PowerEvent(time, k));
+                }
+            }
+            return [.. events.OrderBy(e => e.Time)];
+        }
+        catch (Exception ex)
+        {
+            Log.Error("crashes", ex);
+            return null;
+        }
+    }
+
     /// <summary>All crashes logged since <paramref name="since"/> (oldest first).</summary>
     public static List<CrashEvent> ReadSince(DateTime since)
     {

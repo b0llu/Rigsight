@@ -156,7 +156,7 @@ public sealed class NetAppLive
 /// <summary>Agent → app.</summary>
 public sealed class AgentMessage
 {
-    /// <summary>hello · tick · procs · settings · navigate · overlay · update</summary>
+    /// <summary>hello · tick · procs · settings · navigate · overlay · update · scanned (the answer to "scan-now") · history-cleared</summary>
     public string T { get; set; } = "";
 
     // hello
@@ -213,7 +213,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update …</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update · scan-now …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

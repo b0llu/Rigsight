@@ -45,16 +45,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (e.Key == System.Windows.Input.Key.Escape && _vm.Ask.IsOpen)
-            {
-                _vm.Ask.IsOpen = false;
-                e.Handled = true;
-            }
-        };
-        // A click anywhere outside the chat closes it (the click still does what it was for).
-        PreviewMouseDown += (_, e) =>
-        {
-            if (_vm.Ask.IsOpen && !AskBubble.Holds(e.OriginalSource as DependencyObject)) _vm.Ask.IsOpen = false;
         };
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };

@@ -31,6 +31,7 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        ForgetRiggy();
         if (RigsightPaths.IsTestInstance)
         {
             LogBindingErrors();
@@ -114,6 +115,16 @@ public partial class App : Application
     {
         public override void Write(string? message) { }
         public override void WriteLine(string? message) => Log.Write("binding", message ?? "");
+    }
+
+    /// <summary>
+    /// Riggy (0.16.0 to 0.17.1) kept the wordings it was taught and the questions it couldn't answer in a file of its
+    /// own. It was removed in 0.18.0, and what it kept goes with it.
+    /// </summary>
+    private static void ForgetRiggy()
+    {
+        try { File.Delete(Path.Combine(RigsightPaths.DataDir, "ask.json")); }
+        catch (Exception ex) { Log.Error("app", ex); }
     }
 
     protected override void OnExit(ExitEventArgs e)

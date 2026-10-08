@@ -80,6 +80,67 @@ public sealed class InventoryTests
         Assert.Empty(Inventory.Diff(Inventory.App, apps, Inventory.AppItems([("Discord", "1.0.9260"), ("steam", "2.10")]), At));
     }
 
+    // ---- An update that's waiting for the app to be started again ----
+
+    private const string DiscordFolder = @"C:\Users\me\AppData\Local\Discord";
+
+    private static List<InventoryItem> Held(string was, string now, params (string Path, string Version)[] running)
+    {
+        var apps = Inventory.AppItems([("Discord", now), ("Steam", "2.10")]);
+        Inventory.HoldRunningUpdates(apps, Inventory.AppItems([("Discord", was), ("Steam", "2.10")]),
+            () => Inventory.AppFolders([("Discord", now, DiscordFolder), ("Steam", "2.10", @"C:\Program Files (x86)\Steam\")]), () => running);
+        return apps;
+    }
+
+    [Fact]
+    public void An_update_waits_while_the_app_still_runs_the_version_its_leaving()
+    {
+        // Discord at 7:20: 1.0.9261 downloaded and listed, 1.0.9260 running with its "install update" button lit.
+        var apps = Held("1.0.9260", "1.0.9261", (DiscordFolder + @"\app-1.0.9260\Discord.exe", "1.0.9260"), (@"C:\Windows\explorer.exe", "10.0.26100.1"));
+        Assert.Equal("1.0.9260", apps.Single(a => a.Name == "Discord").Value);
+        Assert.Empty(Inventory.Diff(Inventory.App, Inventory.AppItems([("Discord", "1.0.9260"), ("Steam", "2.10")]), apps, At));
+    }
+
+    [Fact]
+    public void The_update_is_found_once_the_app_runs_the_new_version_or_isnt_running()
+    {
+        // 8:05: started again, from the new folder.
+        var restarted = Held("1.0.9260", "1.0.9261", (DiscordFolder + @"\app-1.0.9261\Discord.exe", "1.0.9261"));
+        Assert.Equal("1.0.9261", restarted.Single(a => a.Name == "Discord").Value);
+        Assert.Equal("1.0.9261", Held("1.0.9260", "1.0.9261").Single(a => a.Name == "Discord").Value);
+        var change = Assert.Single(Inventory.Diff(Inventory.App, Inventory.AppItems([("Discord", "1.0.9260"), ("Steam", "2.10")]), restarted, At));
+        Assert.Equal("Discord updated to 1.0.9261", change.Title);
+    }
+
+    [Fact]
+    public void Only_the_apps_own_programs_carrying_the_old_number_hold_an_update()
+    {
+        // Another app's program with the same number, and the app's own with a number Windows doesn't list.
+        Assert.Equal("1.0.9261", Held("1.0.9260", "1.0.9261", (@"C:\Tools\Other\other.exe", "1.0.9260")).Single(a => a.Name == "Discord").Value);
+        Assert.Equal("1.0.9261", Held("1.0.9260", "1.0.9261", (DiscordFolder + @"\Update.exe", "2.0.1")).Single(a => a.Name == "Discord").Value);
+        // A folder whose name only starts the same isn't the app's.
+        Assert.Equal("1.0.9261", Held("1.0.9260", "1.0.9261", (DiscordFolder + @"PTB\app\Discord.exe", "1.0.9260")).Single(a => a.Name == "Discord").Value);
+    }
+
+    [Fact]
+    public void Nothing_is_looked_up_when_no_app_changed_version()
+    {
+        var apps = Inventory.AppItems([("Discord", "1.0.9260"), ("OBS Studio", "32.1.2")]);
+        Inventory.HoldRunningUpdates(apps, Inventory.AppItems([("Discord", "1.0.9260")]), () => throw new InvalidOperationException(), () => throw new InvalidOperationException());
+        Assert.Equal(2, apps.Count);
+    }
+
+    [Theory]
+    [InlineData("1.0.9260", "1.0.9260", true)]
+    [InlineData("1.0.9260", "1.0.9260.0", true)]
+    [InlineData("154.0.8037.95", "154.0.8037.95+a1b2c3", true)]
+    [InlineData("v1.7.3", "1.7.3", true)]
+    [InlineData("1.0.9260", "1.0.9261", false)]
+    [InlineData("1.0.9260", "1.0.92600", false)]
+    [InlineData("", "", false)]
+    [InlineData("beta", "beta", false)]
+    public void Versions_are_the_same_by_their_numbers(string a, string b, bool same) => Assert.Equal(same, Inventory.SameVersion(a, b));
+
     // ---- Startup programs ----
 
     [Theory]

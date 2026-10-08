@@ -64,6 +64,18 @@ public sealed class ChartSeries
     // Beside Minutes, sample for sample: what the hover box says about each minute. Empty without MinuteStats.
     private readonly HistoryBuffer _avg = new(24 * 60 + 60, true), _high = new(24 * 60 + 60, true), _low = new(24 * 60 + 60, true);
 
+    // Beside Minutes too: the line when it's drawn from each minute's highest or lowest. A minute that didn't keep the
+    // one asked for (lowest readings are kept since 0.16.1, and never for the hot spot or the memory) has no point
+    // there: the line stops rather than pass an average off as a lowest.
+    private readonly HistoryBuffer _plotHigh = new(24 * 60 + 60, true), _plotLow = new(24 * 60 + 60, true);
+
+    /// <summary>
+    /// The older history as the chart draws it: each minute's (hour's, day's) average, or with <paramref name="pick"/>
+    /// 1 its highest, with -1 its lowest.
+    /// </summary>
+    public HistoryBuffer MinutesFor(int pick) =>
+        MinuteStats is null || _plotHigh.Count != Minutes.Count ? Minutes : pick > 0 ? _plotHigh : pick < 0 ? _plotLow : Minutes;
+
     /// <summary>The average, highest and lowest of the minute at <paramref name="index"/> of <see cref="Minutes"/> (null: not kept for this line).</summary>
     public (double? Avg, double? High, double? Low)? StatsAt(int index)
     {
@@ -71,6 +83,14 @@ public sealed class ChartSeries
         static double? Kept(double v) => double.IsNaN(v) ? null : v;
         return (Kept(_avg.ValueAt(index)), Kept(_high.ValueAt(index)), Kept(_low.ValueAt(index)));
     }
+
+    /// <summary>
+    /// The stretches of the older history with nothing recorded at all (the PC was off or asleep, or nothing was
+    /// recording), each from the end of the last minute before it to the start of the first one after, in Unix
+    /// milliseconds. Not the same as a reading that's missing from a recorded minute (a sensor that wasn't read).
+    /// </summary>
+    public IReadOnlyList<(long From, long To)> Gaps => _gaps;
+    private readonly List<(long From, long To)> _gaps = [];
 
     /// <summary>How long each point of <see cref="Minutes"/> stands for: a minute, or an hour on the chart's week and month.</summary>
     public int StepSeconds { get; private set; } = 60;
@@ -96,6 +116,9 @@ public sealed class ChartSeries
         _avg.Clear();
         _high.Clear();
         _low.Clear();
+        _plotHigh.Clear();
+        _plotLow.Clear();
+        _gaps.Clear();
         long previous = 0;
         void Add(long t, double value, (double? Avg, double? High, double? Low)? stats)
         {
@@ -104,11 +127,17 @@ public sealed class ChartSeries
             _avg.Add(t, stats?.Avg ?? double.NaN);
             _high.Add(t, stats?.High ?? double.NaN);
             _low.Add(t, stats?.Low ?? double.NaN);
+            _plotHigh.Add(t, double.IsNaN(value) ? value : stats?.High ?? double.NaN);
+            _plotLow.Add(t, double.IsNaN(value) ? value : stats?.Low ?? double.NaN);
         }
         foreach (var (ts, value, stats) in points)
         {
             long t = ts * 1000 + stepSeconds * 500L; // the middle of the minute (or hour)
-            if (previous != 0 && t - previous > stepSeconds * 2500L) Add(previous + stepSeconds * 1000L, double.NaN, null);
+            if (previous != 0 && t - previous > stepSeconds * 2500L)
+            {
+                Add(previous + stepSeconds * 1000L, double.NaN, null);
+                _gaps.Add((previous + stepSeconds * 500L, t - stepSeconds * 500L));
+            }
             Add(t, value ?? double.NaN, stats);
             previous = t;
         }

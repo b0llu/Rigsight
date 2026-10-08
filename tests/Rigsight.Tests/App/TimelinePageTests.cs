@@ -54,6 +54,56 @@ public sealed class TimelinePageTests
     }
 
     [Fact]
+    public void Refresh_has_the_pc_looked_over_and_says_its_busy_until_thats_done()
+    {
+        var looking = new TaskCompletionSource();
+        int asked = 0;
+        var vm = Ui.Run(() => new TimelineViewModel(new ReportService(Kit.OfflineSettings()), _ => { }, scan: () =>
+        {
+            asked++;
+            return looking.Task;
+        }));
+        Ui.Run(() =>
+        {
+            Assert.False(vm.IsRefreshing);
+            vm.RefreshCommand.Execute(null);
+            Assert.True(vm.IsRefreshing);
+            // Pressed again meanwhile: still the one look.
+            Assert.False(vm.RefreshCommand.CanExecute(null));
+        });
+        looking.SetResult();
+        Assert.True(Ui.WaitFor(() => !vm.IsRefreshing));
+        Ui.Run(() => Assert.True(vm.RefreshCommand.CanExecute(null)));
+        Assert.Equal(1, asked);
+    }
+
+    [Fact]
+    public void Searching_lists_only_what_says_the_words_over_all_of_the_history()
+    {
+        var (changes, problems) = Story();
+        var (vm, _) = Page(changes, problems);
+        Ui.Run(() =>
+        {
+            vm.Search = "nvidia 616";
+            Assert.Equal(["NVIDIA graphics driver 616.92"], vm.Days.SelectMany(d => d.Entries).Select(e => e.Title));
+            Assert.Equal("1 change matches", vm.CountText);
+
+            // A problem is found by its own words, and a version by the one it had before.
+            vm.Search = "blue screen";
+            Assert.Equal(["Windows crashed (blue screen)"], vm.Days.SelectMany(d => d.Entries).Select(e => e.Title));
+            vm.Search = "610.47";
+            Assert.Single(vm.Days.SelectMany(d => d.Entries));
+
+            vm.Search = "no such thing";
+            Assert.True(vm.IsEmpty);
+            Assert.Equal("Nothing matches", vm.EmptyText);
+
+            vm.Search = "";
+            Assert.Equal(4, vm.Days.Count);
+        });
+    }
+
+    [Fact]
     public void Days_run_newest_first_with_what_happened_on_each()
     {
         var (changes, problems) = Story();

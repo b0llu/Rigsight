@@ -33,7 +33,7 @@ public sealed partial class LiveData : ObservableObject
         ProcsView.SortDescriptions.Add(new SortDescription(nameof(ProcRow.MemMB), ListSortDirection.Descending));
         if (ProcsView is ICollectionViewLiveShaping live && live.CanChangeLiveSorting)
             live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
-        ProcsView.Filter = o => !OnlyWindowedApps || o is ProcRow { HasWindow: true };
+        ProcsView.Filter = o => o is ProcRow p && Listed(p);
     }
 
     public ObservableCollection<HardwareNode> Hardware { get; } = [];
@@ -112,6 +112,27 @@ public sealed partial class LiveData : ObservableObject
         if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu));
     }
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
+
+    /// <summary>
+    /// What the temperature graph's line is drawn from: each minute's average ("Avg"), its highest reading ("High") or
+    /// its lowest ("Low").
+    /// </summary>
+    public string ChartPlot
+    {
+        get => _settings.Current.ChartPlot is "High" or "Low" ? _settings.Current.ChartPlot : "Avg";
+        set
+        {
+            if (value == ChartPlot) return;
+            _settings.Update(s => s.ChartPlot = value);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour on a week or a month, a day on a year.</summary>
+    public string ChartPlotLabel => IsChartYear ? "Each day's" : IsChartLong ? "Each hour's" : "Each minute's";
+
+    /// <summary>There's a choice to make: under an hour every reading is drawn as it was.</summary>
+    public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600;
     /// <summary>
     /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), or the week
     /// (604800), month (2592000) or year (31536000) that day is in: a week and a month are drawn hour by hour, a year
@@ -124,6 +145,8 @@ public sealed partial class LiveData : ObservableObject
         {
             _settings.Update(s => s.ChartWindowSeconds = value);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(CanChartPlot));
+            OnPropertyChanged(nameof(ChartPlotLabel));
             OnPropertyChanged(nameof(IsChartDay));
             OnPropertyChanged(nameof(IsChartLong));
             OnPropertyChanged(nameof(IsChartPaged));
@@ -230,10 +253,34 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private List<ProcRow> _topMemory = [];
     public ICollectionView ProcsView { get; }
     [ObservableProperty] private bool _onlyWindowedApps;
+
+    /// <summary>What's typed in the Memory page's search box: the live list shows the apps it matches.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoProcsMatch))]
+    private string _procSearch = "";
+    private string[] _procWords = [];
+
+    /// <summary>Something is searched for and no app running matches it.</summary>
+    public bool NoProcsMatch => _procWords.Length > 0 && !Procs.Any(Listed);
+
+    /// <summary>Whether an app is in the live list: by the switch, and by what's searched for (its name, its program's
+    /// name, or one of its processes where those are open).</summary>
+    private bool Listed(ProcRow p) => (!OnlyWindowedApps || p.HasWindow)
+        && (_procWords.Length == 0 || Core.TextMatch.Has(_procWords, [p.Name, p.Exe, .. p.Children.Select(c => c.Label)]));
+
+    partial void OnProcSearchChanged(string value)
+    {
+        _procWords = Core.TextMatch.Words(value);
+        ProcsView.Refresh();
+        UpdateBars();
+        OnPropertyChanged(nameof(NoProcsMatch));
+    }
+
     partial void OnOnlyWindowedAppsChanged(bool value)
     {
         ProcsView.Refresh();
         UpdateBars();
+        OnPropertyChanged(nameof(NoProcsMatch));
     }
 
     // ── Sensors page filters ──────────────────────────────────────────────
@@ -489,6 +536,23 @@ public sealed partial class LiveData : ObservableObject
     /// The last day of minute history, for the temperature chart's longer windows; or, with
     /// <paramref name="stepSeconds"/> 3600, the hours of its week or month.
     /// </summary>
+    private IReadOnlyList<Core.Stability.PowerEvent>? _power;
+
+    /// <summary>
+    /// Why a stretch of the temperature graph has nothing recorded (its ends in Unix milliseconds), from what Windows
+    /// logged about the PC starting, going down and sleeping. Unknown until that has been read, and where it doesn't say.
+    /// </summary>
+    public Func<long, long, Core.Stability.GapReason> ChartGapReason => (from, to) => Core.Stability.PowerLog.Reason(
+        DateTimeOffset.FromUnixTimeMilliseconds(from).LocalDateTime, DateTimeOffset.FromUnixTimeMilliseconds(to).LocalDateTime, _power,
+        TimeSpan.FromSeconds(Math.Max(120, _minuteStep)));
+
+    /// <summary>What Windows logged about the PC's power over the time the graph shows (null: couldn't be read).</summary>
+    public void LoadPowerEvents(IReadOnlyList<Core.Stability.PowerEvent>? events)
+    {
+        _power = events;
+        Tick++;
+    }
+
     public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes, int stepSeconds = 60)
     {
         _minutes = minutes;
@@ -574,7 +638,11 @@ public sealed partial class LiveData : ObservableObject
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
         double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
         foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
-        if (OnlyWindowedApps) ProcsView.Refresh();
+        if (OnlyWindowedApps || _procWords.Length > 0)
+        {
+            ProcsView.Refresh();
+            OnPropertyChanged(nameof(NoProcsMatch));
+        }
         UpdateBars();
     }
 
@@ -584,7 +652,7 @@ public sealed partial class LiveData : ObservableObject
     /// </summary>
     private void UpdateBars()
     {
-        double biggest = Procs.Where(p => !OnlyWindowedApps || p.HasWindow).Select(p => p.MemMB).DefaultIfEmpty(0).Max();
+        double biggest = Procs.Where(Listed).Select(p => p.MemMB).DefaultIfEmpty(0).Max();
         foreach (var p in Procs) p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
     }
 

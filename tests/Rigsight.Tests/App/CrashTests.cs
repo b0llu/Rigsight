@@ -279,6 +279,11 @@ public sealed class CrashModelTests
             Assert.EndsWith("(running hot)", Crashes.Row(CrashKind.AppCrash, Noon, cpu: 88).ContextText);
             Assert.Equal("CPU —, GPU 50°", Crashes.Row(CrashKind.AppCrash, Noon, gpu: 50).ContextText);
 
+            // Nothing was recorded before it: said, so the missing temperatures don't read as a PC that stayed cool.
+            var e = Crashes.App(Noon).Event;
+            var unrecorded = new CrashRow { Event = e, Explanation = CrashExplainer.Explain(e, "Game"), AppName = "Game", NoReadingsBefore = true };
+            Assert.Equal("no readings recorded", unrecorded.ContextText);
+
             var playing = Crashes.Row(CrashKind.AppCrash, Noon, "game.exe", "Crimson Desert", session: 4320, game: true, front: "Discord", cpu: 60, gpu: 78);
             Assert.Equal("1h 12m into playing Crimson Desert  ·  CPU 60°, GPU 78°", playing.ContextText);
             var using_ = Crashes.Row(CrashKind.AppCrash, Noon, "code.exe", "VS Code", session: 120);

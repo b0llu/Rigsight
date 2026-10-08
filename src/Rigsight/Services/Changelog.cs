@@ -27,7 +27,7 @@ public sealed record ReleaseSection(string Title, string Kind, string[] Items);
 /// do, and the page that opens it, so people see there is something new and go and try it.
 /// </summary>
 /// <param name="icon">An icon-font character, or "fan" / "network" for the drawn ones (as in the sidebar).</param>
-/// <param name="page">The page's navigation key ("timeline"), or "ask" for Riggy's chat, which opens over whatever page is showing.</param>
+/// <param name="page">The page's navigation key ("timeline").</param>
 public sealed partial class ReleaseFeature(string name, string pitch, string[] points, string page, string icon, bool isPage = true) : ObservableObject
 {
     public string Name { get; } = name;
@@ -38,6 +38,15 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
 
     /// <summary>A page of its own ("NEW PAGE"), or something new on a page there already was ("NEW FEATURE").</summary>
     public string Tag { get; init; } = isPage ? "NEW PAGE" : "NEW FEATURE";
+
+    /// <summary>The card is this page's own arrival (so what the page already holds for this PC belongs on it).</summary>
+    public bool IsPage { get; } = isPage;
+
+    /// <summary>
+    /// The card says something was taken away, with why. It's drawn plain and grey, with no button: the colours of the
+    /// other cards say "something new is here", which this isn't.
+    /// </summary>
+    public bool IsRemoval => Tag == "REMOVED";
 
     /// <summary>The button names the page it opens, which for a feature isn't always the feature's own name.</summary>
     public string OpenText { get; init; } = $"Open {name}";
@@ -59,6 +68,21 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.18.0", 10, 8,
+            feature: new("Riggy is gone", "It looked like an AI assistant, but it wasn't one.",
+                ["Its answers were written in advance for about 17 kinds of question, not thought up.",
+                    "A real AI needs a download of around 1 GB, or your PC's history sent to a server.",
+                    "Rigsight never sends your data anywhere, and an AI in the cloud would break that.",
+                    "So it's gone: the download is 20 MB smaller, and three pages gain a search box."],
+                "timeline", "\uE711", isPage: false) { Tag = "REMOVED", OpenText = "Open Timeline" },
+            added: ["Search on Memory, Timeline and Crashes.",
+                "Draw the temperature graph from each minute's average, highest or lowest.",
+                "A Refresh button on the Timeline."],
+            better: ["The temperature graph shows where nothing was recorded, and why: off, asleep or a crash.",
+                "Anything that takes a moment shows that it's working.",
+                "The live list on Memory keeps a useful height in a small window.",
+                "An app's update is on the Timeline once the app is running it, not when it was downloaded."],
+            fixedBugs: ["Clear all history says it's done only when it is."]),
         V("0.17.1", 10, 8,
             added: ["Your power plan on the Timeline, with every switch recorded.",
                 "2XL and 3XL sizes for widgets and the overlay."],
@@ -75,13 +99,8 @@ public static class Changelog
             better: ["Hover the temperature graph for each minute's average, highest and lowest."],
             fixedBugs: ["Temperature spikes no longer shift around as the graph moves."]),
         V("0.16.0", 10, 6,
-            feature: new("Riggy", "A helper in the corner you can ask about your PC.",
-                ["Ask why it crashed, how hot it got, what changed or where your time went.",
-                    "Answers come from your PC's own records. Nothing you type leaves it.",
-                    "Experimental and still learning: tell it when it reads you wrong.",
-                    "Not for you? Turn Riggy off in Settings."],
-                "ask", "\uE8BD", isPage: false) { Tag = "EXPERIMENTAL", OpenText = "Open Riggy" },
-            added: ["The licences of what Rigsight is built with, in Settings."]),
+            added: ["Riggy, an experimental helper you could ask about your PC (removed in 0.18.0).",
+                "The licences of what Rigsight is built with, in Settings."]),
         V("0.15.5", 10, 6,
             better: ["Rigsight says so when its background agent is another version, and restarts it.",
                 "The Today and Now playing widgets use less CPU."],

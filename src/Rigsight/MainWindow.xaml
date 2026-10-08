@@ -45,23 +45,50 @@
                                                         <TextBlock Text="{Binding Short}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
                                                     </DockPanel>
                                                     <!-- The release's headline feature: big, in colour, with what it does and a way straight to it. -->
-                                                    <Border CornerRadius="14" Padding="22,20,22,22" Margin="0,16,0,4" BorderThickness="1" Visibility="{Binding Converter={StaticResource Vis}}"
-                                                            DataContext="{Binding Feature}" AutomationProperties.Name="New feature">
-                                                        <Border.Background>
-                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1" Opacity="0.30">
-                                                                <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
-                                                                <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
-                                                            </LinearGradientBrush>
-                                                        </Border.Background>
-                                                        <Border.BorderBrush>
-                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1" Opacity="0.75">
-                                                                <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
-                                                                <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
-                                                            </LinearGradientBrush>
-                                                        </Border.BorderBrush>
+                                                    <!-- The feature is the card's data from here in; the card itself is the border inside, so what it looks
+                                                         like can depend on the feature (a style on this one would be read before the feature is its data). -->
+                                                    <Grid Margin="0,16,0,4" Visibility="{Binding Converter={StaticResource Vis}}" DataContext="{Binding Feature}">
+                                                    <Border CornerRadius="14" Padding="22,20,22,22" BorderThickness="1" AutomationProperties.Name="{Binding Tag}">
+                                                        <!-- Something new is in colour. Something taken away is plain and grey: colour says "new". -->
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background">
+                                                                    <Setter.Value>
+                                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1" Opacity="0.30">
+                                                                            <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
+                                                                            <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
+                                                                        </LinearGradientBrush>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                                <Setter Property="BorderBrush">
+                                                                    <Setter.Value>
+                                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1" Opacity="0.75">
+                                                                            <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
+                                                                            <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
+                                                                        </LinearGradientBrush>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsRemoval}" Value="True">
+                                                                        <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
                                                         <StackPanel>
                                                             <DockPanel>
-                                                                <Border DockPanel.Dock="Left" Width="52" Height="52" CornerRadius="14" Margin="0,0,16,0" Background="{DynamicResource CpuBrush}">
+                                                                <Border DockPanel.Dock="Left" Width="52" Height="52" CornerRadius="14" Margin="0,0,16,0">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="{DynamicResource CpuBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsRemoval}" Value="True">
+                                                                                    <Setter Property="Background" Value="{DynamicResource FaintBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
                                                                     <!-- The page's own icon as in the sidebar (a font character, or the drawn fan), larger. -->
                                                                     <Viewbox Width="26" Height="26">
                                                                         <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False"
@@ -69,7 +96,17 @@
                                                                     </Viewbox>
                                                                 </Border>
                                                                 <StackPanel VerticalAlignment="Center">
-                                                                    <Border CornerRadius="5" Padding="7,2" HorizontalAlignment="Left" Background="{DynamicResource CpuBrush}">
+                                                                    <Border CornerRadius="5" Padding="7,2" HorizontalAlignment="Left">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="{DynamicResource CpuBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsRemoval}" Value="True">
+                                                                                    <Setter Property="Background" Value="{DynamicResource FaintBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
                                                                         <TextBlock Text="{Binding Tag}" FontSize="10" FontWeight="Bold" Foreground="White" />
                                                                     </Border>
                                                                     <TextBlock Text="{Binding Name}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,4,0,0" />
@@ -80,10 +117,19 @@
                                                                 <ItemsControl.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <DockPanel Margin="0,9,0,0">
-                                                                            <TextBlock DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,3,10,0"
-                                                                                       Foreground="{DynamicResource CpuBrush}" />
+                                                                            <!-- A tick for what something new can do; a plain dot for a reason. -->
+                                                                            <Grid DockPanel.Dock="Left" Width="13" Margin="0,3,10,0" VerticalAlignment="Top">
+                                                                                <TextBlock x:Name="Tick" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource CpuBrush}" />
+                                                                                <Ellipse x:Name="Dot" Width="5" Height="5" Margin="0,5,0,0" VerticalAlignment="Top" Fill="{DynamicResource FaintBrush}" Visibility="Collapsed" />
+                                                                            </Grid>
                                                                             <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource TextBrush}" />
                                                                         </DockPanel>
+                                                                        <DataTemplate.Triggers>
+                                                                            <DataTrigger Binding="{Binding DataContext.IsRemoval, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                                                                                <Setter TargetName="Tick" Property="Visibility" Value="Collapsed" />
+                                                                                <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                        </DataTemplate.Triggers>
                                                                     </DataTemplate>
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>
@@ -91,10 +137,22 @@
                                                             <TextBlock Text="{Binding Fact}" FontSize="13" FontWeight="SemiBold"
                                                                        TextWrapping="Wrap" Foreground="{DynamicResource CpuBrush}" Margin="0,16,0,0"
                                                                        Visibility="{Binding Fact, Converter={StaticResource Vis}}" />
-                                                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Content="{Binding OpenText}"
-                                                                    Command="{Binding DataContext.OpenFeatureCommand, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" CommandParameter="{Binding}" />
+                                                            <!-- Something new has a way straight to it; something gone has nowhere to send you. -->
+                                                            <Button HorizontalAlignment="Left" Margin="0,16,0,0" Content="{Binding OpenText}"
+                                                                    Command="{Binding DataContext.OpenFeatureCommand, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" CommandParameter="{Binding}">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsRemoval}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                            </Button>
                                                         </StackPanel>
                                                     </Border>
+                                                    </Grid>
                                                     <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
@@ -507,9 +565,6 @@
 
         <!-- Pages (created on first visit, then kept) -->
         <ContentControl x:Name="PageHost" Grid.Column="1" Focusable="False" />
-
-        <!-- Ask: Riggy's bubble in the corner of every page, and the chat that opens from it. -->
-        <views:AskBubble x:Name="AskBubble" Grid.Column="1" DataContext="{Binding Ask}" />
 
         <!-- What's new: once after an update, over the whole window. Closed with the x, Esc or a click outside; every update is in Settings. -->
         <!-- It fades in from code (MainWindow.xaml.cs): a style-triggered animation here kept closed pages in memory. -->

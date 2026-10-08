@@ -365,9 +365,26 @@ public sealed partial class FansViewModel : ObservableObject
         if (!IncludesToday && _loadedPast == (Unit, from) && Fans.Count > 0)
         {
             _load++; // a read still on its way is for a period since left: it mustn't land on this one
+            IsLoading = false;
             return;
         }
         int id = ++_load;
+        IsLoading = true;
+        try
+        {
+            await ReadAsync(id, from, to);
+        }
+        finally
+        {
+            if (id == _load) IsLoading = false;
+        }
+    }
+
+    /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
+    [ObservableProperty] private bool _isLoading;
+
+    private async Task ReadAsync(int id, DateTime from, DateTime to)
+    {
         var today = DateTime.Today;
         // A year: its days and daily curves, and today's minutes (what each fan follows, its state); otherwise the period's
         // minutes, its days, and the month before it for the usual curve.

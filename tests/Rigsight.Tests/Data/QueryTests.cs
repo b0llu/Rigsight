@@ -280,6 +280,29 @@ public sealed class QueryTests
     }
 
     [Fact]
+    public void A_crash_with_nothing_recorded_before_it_is_told_from_one_whose_temperature_wasnt_read()
+    {
+        using var t = new TestDb();
+        // Recording began an hour before T0. Minutes up to T0, then nothing for an hour (the PC was off), then again.
+        t.Db.WriteMinute(new SystemMinute { Ts = T0 - 3600, CpuTemp = 50, CpuTempMax = 52 });
+        t.Db.WriteMinute(new SystemMinute { Ts = T0 - 60, CpuTemp = 60, CpuTempMax = 71, GpuTemp = 55, GpuTempMax = 58 });
+        t.Db.WriteMinute(new SystemMinute { Ts = T0 + 3600 - 60 }); // a recorded minute whose sensors weren't read
+        t.Db.InsertCrashes([
+            new CrashEvent { Ts = T0, Kind = CrashKind.AppCrash, AppExe = "a.exe" }, // readings just before
+            new CrashEvent { Ts = T0 + 1800, Kind = CrashKind.UnexpectedShutdown }, // in the gap
+            new CrashEvent { Ts = T0 + 3600, Kind = CrashKind.AppCrash, AppExe = "b.exe" }, // recorded, no temperatures
+            new CrashEvent { Ts = T0 - 7200, Kind = CrashKind.SystemCrash }, // from before anything was recorded
+        ]);
+        var ctx = t.Db.GetCrashContext(T0 - 10_000, T0 + 10_000);
+        var byTs = t.Db.GetCrashes(T0 - 10_000, T0 + 10_000).ToDictionary(c => c.Ts, c => ctx[c.Id]);
+        Assert.Equal((71.0, 58.0, false), (byTs[T0].CpuBefore, byTs[T0].GpuBefore, byTs[T0].NoReadings));
+        Assert.Equal((null, true), (byTs[T0 + 1800].CpuBefore, byTs[T0 + 1800].NoReadings));
+        Assert.Equal((null, false), (byTs[T0 + 3600].CpuBefore, byTs[T0 + 3600].NoReadings));
+        // Nothing was being recorded yet: not a gap in the recording.
+        Assert.False(byTs[T0 - 7200].NoReadings);
+    }
+
+    [Fact]
     public void Rereading_a_shutdown_puts_its_moment_right_without_counting_it_as_new()
     {
         using var t = new TestDb();

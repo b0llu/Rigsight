@@ -16,9 +16,10 @@ internal static class ChartGeometry
     /// <paramref name="groupMs"/>, each group is at least that long (60 000: one point for each minute on the
     /// clock). Samples after <paramref name="until"/> are left out (another source covers them).
     /// </summary>
+    /// <param name="pick">What a group's point is: its average (0), its highest sample (1) or its lowest (-1).</param>
     public static (StreamGeometry Line, StreamGeometry Fill)? Build(
         HistoryBuffer buffer, long from, long to, Rect plot, double min, double max, Func<double, double> transform, long until = long.MaxValue,
-        (long Time, double Value)? joinTo = null, double groupMs = 0)
+        (long Time, double Value)? joinTo = null, double groupMs = 0, int pick = 0)
     {
         if (buffer.Count == 0 || to <= from || max <= min) return null;
 
@@ -31,17 +32,18 @@ internal static class ChartGeometry
         // a group keeps its average while it slides out of view.
         int start = Math.Max(0, buffer.IndexAtOrAfter((long)(Math.Floor(from / groupMs) * groupMs)) - 1);
         long group = long.MinValue;
-        double sum = 0, timeSum = 0;
+        double sum = 0, timeSum = 0, high = double.MinValue, low = double.MaxValue;
         int n = 0;
 
-        // One point for the group: its average, in the middle of its samples.
+        // One point for the group: its average (or its highest or lowest), in the middle of its samples.
         void Flush()
         {
             if (n == 0) return;
-            double y = plot.Bottom - (transform(sum / n) - min) / (max - min) * plot.Height;
+            double value = pick > 0 ? high : pick < 0 ? low : sum / n;
+            double y = plot.Bottom - (transform(value) - min) / (max - min) * plot.Height;
             run ??= [];
             run.Add(new Point(plot.Left + (timeSum / n) / span * plot.Width, Math.Clamp(y, plot.Top, plot.Bottom)));
-            (sum, timeSum, n) = (0, 0, 0);
+            (sum, timeSum, n, high, low) = (0, 0, 0, double.MinValue, double.MaxValue);
         }
 
         for (int i = start; i < buffer.Count; i++)
@@ -66,6 +68,8 @@ internal static class ChartGeometry
                 group = g;
             }
             sum += value;
+            high = Math.Max(high, value);
+            low = Math.Min(low, value);
             // From the window's start: the sum of a few thousand clock times would lose its last digits.
             timeSum += time - from;
             n++;
@@ -124,7 +128,7 @@ internal static class ChartGeometry
     /// longer. A pixel's time is taken in whole seconds from a second up, so a day still in progress (its span
     /// grows every second) keeps the same groups too.
     /// </summary>
-    private static double GroupMs(long from, long to, Rect plot, double atLeast)
+    internal static double GroupMs(long from, long to, Rect plot, double atLeast)
     {
         double pixelMs = (to - from) / plot.Width;
         if (pixelMs >= 1000) pixelMs = Math.Ceiling(pixelMs / 1000) * 1000;
@@ -135,22 +139,24 @@ internal static class ChartGeometry
     /// The first point <see cref="Build"/> draws for a buffer shown from its first sample: where the line
     /// before it (older history) is joined to. Null when the buffer is empty or starts with a gap.
     /// </summary>
-    public static (long Time, double Value)? FirstPoint(HistoryBuffer buffer, long from, long to, Rect plot, double groupMs = 0)
+    public static (long Time, double Value)? FirstPoint(HistoryBuffer buffer, long from, long to, Rect plot, double groupMs = 0, int pick = 0)
     {
         if (buffer.Count == 0 || to <= from) return null;
         groupMs = GroupMs(from, to, plot, groupMs);
         long first = buffer.TimeAt(0), group = (long)Math.Floor(first / groupMs);
-        double sum = 0, timeSum = 0;
+        double sum = 0, timeSum = 0, high = double.MinValue, low = double.MaxValue;
         int n = 0;
         for (int i = 0; i < buffer.Count && (long)Math.Floor(buffer.TimeAt(i) / groupMs) == group; i++)
         {
             double value = buffer.ValueAt(i);
             if (double.IsNaN(value)) break;
             sum += value;
+            high = Math.Max(high, value);
+            low = Math.Min(low, value);
             timeSum += buffer.TimeAt(i) - first;
             n++;
         }
-        return n == 0 ? null : (first + (long)(timeSum / n), sum / n);
+        return n == 0 ? null : (first + (long)(timeSum / n), pick > 0 ? high : pick < 0 ? low : sum / n);
     }
 
     /// <summary>Range of finite values in [from, to], or null when there are none.</summary>

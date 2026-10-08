@@ -55,7 +55,11 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
                                Foreground="{DynamicResource WarmBrush}" VerticalAlignment="Top" />
                     <StackPanel>
-                        <TextBlock Text="{Binding RtssTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding RtssTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                            <!-- Being installed (a minute or so) or started (a few seconds) -->
+                            <ctl:Spinner Margin="10,0,0,0" Stroke="{DynamicResource WarmBrush}" Visibility="{Binding IsRtssBusy, Converter={StaticResource Vis}}" />
+                        </StackPanel>
                         <TextBlock Text="{Binding RtssStatus}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}">
                             <Button Style="{StaticResource AccentButton}" Content="Install RivaTuner" Command="{Binding InstallRtssCommand}" />

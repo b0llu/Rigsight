@@ -57,9 +57,9 @@
             <TextBlock Text="How your fans are doing, what makes them spin, and how quiet your PC stays." Style="{StaticResource Muted}" Margin="0,4,0,14" />
             <!-- The period the whole page shows (the live readings and "Fans: All OK" are always now). -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
-                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock Text="No fan speeds reported. Most motherboards share them only with the agent running as admin."

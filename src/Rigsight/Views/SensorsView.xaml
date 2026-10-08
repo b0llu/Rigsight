@@ -49,7 +49,7 @@
                 <Button Style="{StaticResource GhostButton}" Content="Unhide all" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
             </StackPanel>
             <TextBox DockPanel.Dock="Left" Style="{StaticResource SearchBox}" Tag="Search sensors…" Width="240"
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                     ctl:Debounce.Text="{Binding SearchText}" />
             <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="12,0,0,0">
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="All"

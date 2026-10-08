@@ -131,6 +131,7 @@ internal sealed class AgentContext : ApplicationContext
         MemoryAt("starting");
 
         _settings = SettingsStore.Load();
+        ForgetRiggySetting();
         Units.Fahrenheit = _settings.UseFahrenheit;
         DarkMenuRenderer.Theme = _settings.Theme;
         // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
@@ -1098,7 +1099,9 @@ internal sealed class AgentContext : ApplicationContext
             bool first = _db.ChangesScanned is null;
             var since = _db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned).AddHours(-1) : now.AddYears(-2);
             var logged = ChangeLogReader.Read(since, now);
-            var found = _db.ApplyInventory(Inventory.Read(), Inventory.Owner(), now);
+            var reading = Inventory.Read();
+            Inventory.HoldRunningUpdates(reading, _db.GetInventory(), RunningPaths);
+            var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
 
             // A graphics driver is followed by its version in the inventory (the logs often don't name it); the
             // log entry only says when. Before the first inventory the logs are all there is.
@@ -1117,6 +1120,58 @@ internal sealed class AgentContext : ApplicationContext
         {
             Log.Error("changes", ex);
         }
+    }
+
+    /// <summary>
+    /// Riggy (0.16.0 to 0.17.1) had a switch in the settings file. Settings no longer have it, but the file keeps the
+    /// line until it's next written, and its backup copy one writing longer: written twice now, neither has it.
+    /// </summary>
+    private void ForgetRiggySetting()
+    {
+        try
+        {
+            string file = RigsightPaths.SettingsFile;
+            if (!File.Exists(file) || !File.ReadAllText(file).Contains("\"ShowAsk\"", StringComparison.Ordinal)) return;
+            SettingsStore.Save(_settings);
+            SettingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
+    }
+
+    /// <summary>The full path of every program running now (a few milliseconds; asked for when an app's version changed).</summary>
+    private static List<string> RunningPaths()
+    {
+        var paths = new List<string>();
+        foreach (var p in Process.GetProcesses())
+        {
+            try
+            {
+                if (Win32.ProcessPath(p.Id) is { } path) paths.Add(path);
+            }
+            catch
+            {
+                // Exited meanwhile.
+            }
+            finally
+            {
+                p.Dispose();
+            }
+        }
+        return paths;
+    }
+
+    /// <summary>
+    /// The Timeline's refresh button: looks for new problems and changes now instead of at the next ten-minute check,
+    /// and says when it's done so the page can read them.
+    /// </summary>
+    private void ScanNow()
+    {
+        ScanCrashes();
+        ScanChanges();
+        _pipe.Broadcast(new AgentMessage { T = "scanned" });
     }
 
     /// <summary>Shows an example of each notification so the user can judge them (Settings → Notifications).</summary>
@@ -1196,7 +1251,11 @@ internal sealed class AgentContext : ApplicationContext
                 });
                 break;
             case "clear-history":
-                RunOnSampler(() => _tracker.ClearHistory());
+                RunOnSampler(() =>
+                {
+                    _tracker.ClearHistory();
+                    _pipe.Broadcast(new AgentMessage { T = "history-cleared" });
+                });
                 break;
             case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance:
                 _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
@@ -1211,6 +1270,9 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "sensors-retry":
                 RunOnSampler(RetryAllSensors);
+                break;
+            case "scan-now":
+                RunOnSampler(ScanNow);
                 break;
             case "quit":
                 _ui.Post(_ => Quit("the app"), null);

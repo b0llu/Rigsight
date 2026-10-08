@@ -136,10 +136,10 @@ public sealed class WhatsNewTests
                 Assert.InRange(p.Length, 10, 90);
                 Assert.EndsWith(".", p);
             });
-            Assert.True(f.Page == "ask" || Pages.Contains(f.Page), f.Page); // a page that exists, or Riggy's chat
+            Assert.Contains(f.Page, Pages); // a page that exists
             Assert.StartsWith("Open ", f.OpenText);
             Assert.True(f.Icon.Length == 1 || f.Icon is "fan" or "network");
-            Assert.Contains(f.Tag, new[] { "NEW PAGE", "NEW FEATURE", "EXPERIMENTAL" });
+            Assert.Contains(f.Tag, new[] { "NEW PAGE", "NEW FEATURE", "EXPERIMENTAL", "REMOVED" });
         });
         // A page of its own opens by its name; a feature opens the page it lives on.
         var timeline = Changelog.Releases.Single(r => r.Version == new Version(0, 15, 0)).Feature!;

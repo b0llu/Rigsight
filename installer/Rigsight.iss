@@ -39,7 +39,15 @@ SetupLogging=yes
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
 Name: "pawnio"; Description: "Install the PawnIO driver (needed for CPU and motherboard temperatures)"; GroupDescription: "Sensors:"; Check: not PawnIOInstalled
 Name: "rtss"; Description: "Install RivaTuner Statistics Server (shows the game overlay inside fullscreen games)"; GroupDescription: "Game overlay:"; Check: not RtssInstalled
-Name: "vcruntime"; Description: "Install the Microsoft Visual C++ runtime (Riggy needs it to understand questions)"; GroupDescription: "Riggy:"; Check: not VcRuntimeReady
+
+[InstallDelete]
+; Riggy (0.16.0 to 0.17.1) was removed in 0.18.0: its model and the library that ran it, left by an update otherwise.
+Type: filesandordirs; Name: "{app}\ask"
+Type: files; Name: "{app}\onnxruntime.dll"
+Type: files; Name: "{app}\onnxruntime.lib"
+Type: files; Name: "{app}\onnxruntime_providers_shared.dll"
+Type: files; Name: "{app}\onnxruntime_providers_shared.lib"
+Type: files; Name: "{app}\Microsoft.ML.OnnxRuntime.dll"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -122,24 +130,6 @@ begin
   if not Result then Result := RtssListed(HKLM32) or RtssListed(HKLM64);
 end;
 
-// One file of the Visual C++ runtime, there and recent enough (14.40 or later: older ones have crashed what Riggy runs on).
-function VcRuntimeFile(const Name: String): Boolean;
-var
-  MS, LS: Cardinal;
-begin
-  Result := GetVersionNumbers(ExpandConstant('{sys}\') + Name, MS, LS) and
-    (((MS shr 16) > 14) or (((MS shr 16) = 14) and ((MS and $FFFF) >= 40)));
-end;
-
-// The Visual C++ runtime that the part of Riggy which reads questions needs: Windows doesn't include it, though most
-// PCs have it from a game or another app. Without it Riggy still answers, reading questions by their words alone
-// (the app checks the same four files before it loads anything: see AskEmbedder.RuntimeReady).
-function VcRuntimeReady: Boolean;
-begin
-  Result := VcRuntimeFile('msvcp140.dll') and VcRuntimeFile('msvcp140_1.dll') and
-    VcRuntimeFile('vcruntime140.dll') and VcRuntimeFile('vcruntime140_1.dll');
-end;
-
 procedure StopRigsight;
 var
   Code: Integer;
@@ -195,9 +185,6 @@ procedure InstallExtras;
 var
   Code: Integer;
 begin
-  if WizardIsTaskSelected('vcruntime') then
-    Code := RunStep('Installing the Microsoft Visual C++ runtime...', 'Downloading with winget. This can take a minute.',
-      ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-vcruntime');
   if WizardIsTaskSelected('pawnio') then
     Code := RunStep('Installing the PawnIO sensor driver...', 'Downloading with winget. This can take a minute or two.',
       ExpandConstant('{app}\Rigsight.Agent.exe'), '--install-pawnio');

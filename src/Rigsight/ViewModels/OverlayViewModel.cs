@@ -276,8 +276,29 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     /// <summary>running · stopped · missing · installing · install-failed (from the agent; empty until it says).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowRtssWarning), nameof(RtssTitle), nameof(RtssStatus), nameof(CanInstallRtss), nameof(CanStartRtss))]
+    [NotifyPropertyChangedFor(nameof(ShowRtssWarning), nameof(RtssTitle), nameof(RtssStatus), nameof(CanInstallRtss), nameof(CanStartRtss), nameof(IsRtssBusy))]
     private string _rtssState = "";
+
+    // The agent has news of RivaTuner: whatever was asked for has been answered.
+    partial void OnRtssStateChanged(string value) => RtssAsked = false;
+
+    /// <summary>"Install" or "Start" was pressed and the agent hasn't said how it went yet.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRtssBusy))]
+    private bool _rtssAsked;
+
+    /// <summary>RivaTuner is being installed, or was just asked for: something is going on.</summary>
+    public bool IsRtssBusy => RtssAsked || RtssState == "installing";
+
+    /// <summary>Sends what was pressed to the agent and says it's being seen to until the agent answers (or a while has passed).</summary>
+    private async void AskRtss(string command)
+    {
+        if (!_client.IsConnected) return;
+        _client.SendCommand(command);
+        RtssAsked = true;
+        await Task.Delay(TimeSpan.FromSeconds(10));
+        RtssAsked = false;
+    }
 
     /// <summary>Fullscreen games need RivaTuner; say so only when it isn't ready.</summary>
     public bool ShowRtssWarning => RtssState is not ("" or "running");
@@ -295,10 +316,10 @@ public sealed partial class OverlayViewModel : ObservableObject
     };
 
     [RelayCommand]
-    private void StartRtss() => _client.SendCommand("start-rtss");
+    private void StartRtss() => AskRtss("start-rtss");
 
     [RelayCommand]
-    private void InstallRtss() => _client.SendCommand("install-rtss");
+    private void InstallRtss() => AskRtss("install-rtss");
 
     [RelayCommand]
     private static void OpenRtssDownload() =>

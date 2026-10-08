@@ -210,6 +210,7 @@ public sealed class ReportService(SettingsModel settings)
                     AppName = name,
                     CpuBefore = cpu,
                     GpuBefore = gpu,
+                    NoReadingsBefore = ctx?.NoReadings == true,
                     FrontApp = frontApp,
                     SessionSec = sessionSec,
                     IsGame = isGame,

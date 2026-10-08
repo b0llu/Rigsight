@@ -35,7 +35,9 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
         foreach (var feature in features)
         {
             feature.Fact = null;
-            if (factFor is null) continue;
+            // Only on a page's own arrival, and only while that's the news (the newest card shown): on an older card,
+            // or one about something else that merely opens the page, the line had nothing to do with what the card says.
+            if (factFor is null || feature != features[0] || !feature.IsPage) continue;
             try { feature.Fact = await factFor(feature.Page); }
             catch (Exception ex) { Core.Log.Error("whatsnew", ex); }
             if (feature == features[0]) FeatureFact = feature.Fact;

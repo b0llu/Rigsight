@@ -266,13 +266,18 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     private int _loadId;
 
+    /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
+    [ObservableProperty] private bool _isLoading;
+
     public async Task LoadAsync()
     {
         int id = ++_loadId;
+        IsLoading = true;
         var (from, to) = Period;
         var first = await reports.FirstDayAsync();
         var report = await reports.BuildRangeAsync(from, to);
         if (id != _loadId) return; // a newer range or day was picked meanwhile
+        IsLoading = false;
         FirstDay = first;
         _report = report;
         (_from, _to) = (from, to);

@@ -67,16 +67,15 @@ internal static class Program
             Environment.Exit(code);
         }
 
-        // Run by the installer (already elevated) when "Install the PawnIO sensor driver" or "Install the Microsoft
-        // Visual C++ runtime" (what Riggy's model runs on) is ticked: through here so winget is App Installer's own
-        // file, not whatever "winget" on PATH turns out to be (see Winget).
+        // Run by the installer (already elevated) when "Install the PawnIO sensor driver" is ticked: through here so
+        // winget is App Installer's own file, not whatever "winget" on PATH turns out to be (see Winget).
         // Exit code: 0 winget finished, 1 it failed or was ended, 3 no winget.
-        if (args.Contains("--install-pawnio") || args.Contains("--install-vcruntime"))
+        if (args.Contains("--install-pawnio"))
         {
             int code;
             try
             {
-                code = RtssSetup.WingetInstall(args.Contains("--install-pawnio") ? "namazso.PawnIO" : "Microsoft.VCRedist.2015+.x64") switch
+                code = RtssSetup.WingetInstall("namazso.PawnIO") switch
                 {
                     null => 3,
                     { Outcome: WatchOutcome.Exited, ExitCode: 0 } => 0,

@@ -5,46 +5,34 @@ Rigsight is released under the MIT licence (see LICENSE). It includes the softwa
 own licence. The licence texts they require to be passed along follow the list.
 
 
-1. all-MiniLM-L6-v2 (the model Ask reads questions with)
-   ask\model.onnx, ask\vocab.txt
-   From the sentence-transformers project: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
-   In the quantized ONNX form published at https://huggingface.co/Xenova/all-MiniLM-L6-v2 (not modified by Rigsight).
-   Licence: Apache License 2.0 (text below).
-
-2. ONNX Runtime (runs that model)
-   onnxruntime.dll, onnxruntime_providers_shared.dll, Microsoft.ML.OnnxRuntime.dll
-   https://github.com/microsoft/onnxruntime
-   Licence: MIT (text below). ONNX Runtime's own third-party notices:
-   https://github.com/microsoft/onnxruntime/blob/main/ThirdPartyNotices.txt
-
-3. LibreHardwareMonitor (reads the hardware sensors)
+1. LibreHardwareMonitor (reads the hardware sensors)
    LibreHardwareMonitorLib.dll and the files it brings with it
    https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
    Licence: Mozilla Public License 2.0, https://www.mozilla.org/MPL/2.0/
    Used unmodified; its source code is available at the address above.
 
-4. Microsoft.Data.Sqlite, System.Diagnostics.EventLog and the .NET runtime and desktop libraries
+2. Microsoft.Data.Sqlite, System.Diagnostics.EventLog and the .NET runtime and desktop libraries
    https://github.com/dotnet/efcore, https://github.com/dotnet/runtime, https://github.com/dotnet/wpf, https://github.com/dotnet/winforms
    Copyright (c) .NET Foundation and Contributors
    Licence: MIT.
 
-5. CommunityToolkit.Mvvm
+3. CommunityToolkit.Mvvm
    https://github.com/CommunityToolkit/dotnet
    Copyright (c) .NET Foundation and Contributors
    Licence: MIT.
 
-6. SQLitePCLRaw and SQLite (the database)
+4. SQLitePCLRaw and SQLite (the database)
    https://github.com/ericsink/SQLitePCL.raw (Apache License 2.0, text below)
    SQLite itself is in the public domain: https://www.sqlite.org/copyright.html
 
-7. PawnIO modules (how the sensor library reads the CPU and the motherboard through the PawnIO driver)
+5. PawnIO modules (how the sensor library reads the CPU and the motherboard through the PawnIO driver)
    Inside LibreHardwareMonitorLib.dll, as LibreHardwareMonitor ships them (not modified by Rigsight)
    https://github.com/namazso/PawnIO.Modules
    Licence: GNU Lesser General Public License 2.1 (text below). Their source code is available at the address above.
 
 Not included, but installed for you by setup if you choose it:
 
-8. PawnIO (the sensor driver)
+6. PawnIO (the sensor driver)
    Downloaded from its own publisher by Windows' package manager (winget, package namazso.PawnIO); Rigsight does not
    contain or redistribute it.
    https://pawnio.eu, source: https://github.com/namazso/PawnIO
@@ -54,34 +42,7 @@ Not included, but installed for you by setup if you choose it:
 
 
 ------------------------------------------------------------------------------------------------------------------
-ONNX Runtime: licence
-------------------------------------------------------------------------------------------------------------------
-
-MIT License
-
-Copyright (c) Microsoft Corporation
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
-------------------------------------------------------------------------------------------------------------------
-MIT License (items 4 and 5, each with the copyright line given above)
+MIT License (items 2 and 3, each with the copyright line given above)
 ------------------------------------------------------------------------------------------------------------------
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -99,7 +60,7 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 
 
 ------------------------------------------------------------------------------------------------------------------
-Apache License 2.0 (items 1 and 6)
+Apache License 2.0 (item 4)
 ------------------------------------------------------------------------------------------------------------------
 
                                  Apache License
@@ -306,7 +267,7 @@ Apache License 2.0 (items 1 and 6)
 
 
 ------------------------------------------------------------------------------------------------------------------
-GNU Lesser General Public License 2.1 (item 7)
+GNU Lesser General Public License 2.1 (item 5)
 ------------------------------------------------------------------------------------------------------------------
 
                   GNU LESSER GENERAL PUBLIC LICENSE
@@ -814,7 +775,7 @@ That's all there is to it!
 
 
 ------------------------------------------------------------------------------------------------------------------
-PawnIO: its own licence notice (item 8)
+PawnIO: its own licence notice (item 6)
 ------------------------------------------------------------------------------------------------------------------
 
 PawnIO - Input-output driver

@@ -97,80 +97,6 @@
                 </StackPanel>
             </ctl:SmoothBorder>
 
-            <!-- Riggy: the chat in the corner of the window, and the wordings it was taught. -->
-            <TextBlock Text="RIGGY" Style="{StaticResource Section}" />
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" ctl:Attention.Section="riggy">
-                <StackPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowAsk}" Margin="0,10">
-                        <StackPanel>
-                            <TextBlock Text="Show Riggy" Style="{StaticResource Title}" />
-                            <TextBlock Text="A chat about this PC, in the bottom right corner of the window. Experimental." Style="{StaticResource Hint}" />
-                        </StackPanel>
-                    </CheckBox>
-                    <!-- The model can't run here: what is missing, what Riggy does meanwhile, and where to get it. -->
-                    <DockPanel Style="{StaticResource Row}" Visibility="{Binding AskNeedsRuntime, Converter={StaticResource Vis}}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Download from Microsoft" Command="{Binding GetAskRuntimeCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Download the Visual C++ runtime from Microsoft" />
-                        <StackPanel>
-                            <TextBlock Text="Riggy needs a free Microsoft add-on to work better" Style="{StaticResource Title}" Foreground="{DynamicResource WarmBrush}" />
-                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Without it, Riggy only picks up key words and understands less. Download it, run it, then restart Rigsight." />
-                        </StackPanel>
-                    </DockPanel>
-                    <StackPanel Margin="0,10" Visibility="{Binding ShowAsk, Converter={StaticResource Vis}}">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Forget all" Command="{Binding ForgetAskCommand}" VerticalAlignment="Center"
-                                    Margin="12,0,0,0" AutomationProperties.Name="Forget everything Riggy was taught"
-                                    Visibility="{Binding AskHasLearned, Converter={StaticResource Vis}}" />
-                            <StackPanel>
-                                <TextBlock Text="Your ways of asking" Style="{StaticResource Title}" />
-                                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                           Text="When Riggy doesn't understand a question and you tell it what you meant, it remembers your wording for next time. Kept on this PC only." />
-                            </StackPanel>
-                        </DockPanel>
-                        <TextBlock Text="Nothing taught yet." Style="{StaticResource Hint}" Margin="0,8,0,0" Visibility="{Binding AskHasLearned, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <!-- Each wording taught, what it is read as, and a way to take that one back. -->
-                        <ItemsControl ItemsSource="{Binding AskLearned}" Focusable="False" Margin="0,6,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- What you said, an arrow, and what Riggy takes it to mean (as a tag, right beside it: the two belong together). -->
-                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="14,9,8,9" Margin="0,6,0,0">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Forget" CommandParameter="{Binding}" VerticalAlignment="Center"
-                                                    Command="{Binding DataContext.ForgetAskItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    AutomationProperties.Name="{Binding Text, StringFormat='Forget {0}'}" />
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="WHEN YOU ASK" Style="{StaticResource Caption}" FontSize="9.5" />
-                                                <WrapPanel Margin="0,3,0,0">
-                                                    <TextBlock Text="{Binding Quoted}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="12,1,12,0" />
-                                                    <TextBlock Text="Riggy answers about" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                                    <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="6" Padding="8,2,8,3" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Topic}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
-                                                    </Border>
-                                                </WrapPanel>
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                    <!-- What it couldn't answer, to pass on. -->
-                    <DockPanel Style="{StaticResource Row}" Visibility="{Binding AskUnansweredCount, Converter={StaticResource Vis}}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Copy" Command="{Binding CopyAskUnansweredCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Copy the questions Riggy couldn't answer" />
-                        <StackPanel>
-                            <TextBlock Text="Questions Riggy couldn't answer" Style="{StaticResource Title}" />
-                            <TextBlock Text="{Binding AskUnansweredText}" Style="{StaticResource Hint}" />
-                            <TextBlock Text="{Binding AskCopied}" Style="{StaticResource Hint}" Margin="0,4,0,0" Foreground="{DynamicResource GoodBrush}"
-                                       Visibility="{Binding AskCopied, Converter={StaticResource Vis}}" />
-                        </StackPanel>
-                    </DockPanel>
-                </StackPanel>
-            </ctl:SmoothBorder>
-
-
             <!-- Appearance -->
             <TextBlock Text="APPEARANCE" Style="{StaticResource Section}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
@@ -334,6 +260,8 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Try again" Command="{Binding RetrySensorsCommand}"
                                     VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Try reading all sensors again" />
+                            <!-- The hardware is being read again: a few seconds. -->
+                            <ctl:Spinner DockPanel.Dock="Right" Margin="12,0,0,0" Visibility="{Binding IsRetryingSensors, Converter={StaticResource Vis}}" />
                             <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource WarmBrush}"
                                        VerticalAlignment="Top" Margin="0,2,12,0" />
                             <StackPanel>
@@ -509,7 +437,11 @@
                     <WrapPanel Margin="0,10,0,12">
                         <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,8">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                <Grid Width="12" Margin="0,0,8,0">
+                                    <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
+                                               Visibility="{Binding IsExporting, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <ctl:Spinner Visibility="{Binding IsExporting, Converter={StaticResource Vis}}" />
+                                </Grid>
                                 <TextBlock Text="Export app usage (CSV)" />
                             </StackPanel>
                         </Button>
@@ -521,7 +453,11 @@
                         </Button>
                         <Button Style="{StaticResource GhostButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,8">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{DynamicResource HotBrush}" />
+                                <Grid Width="12" Margin="0,0,8,0">
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource HotBrush}"
+                                               Visibility="{Binding IsClearing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <ctl:Spinner Visibility="{Binding IsClearing, Converter={StaticResource Vis}}" />
+                                </Grid>
                                 <TextBlock Text="Clear all history…" Foreground="{DynamicResource HotBrush}" />
                             </StackPanel>
                         </Button>
@@ -535,6 +471,7 @@
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ctl:Spinner Margin="0,0,12,0" Visibility="{Binding Update.IsBusy, Converter={StaticResource Vis}}" />
                             <Button Style="{StaticResource GhostButton}" Content="Download page" Command="{Binding Update.OpenDownloadPageCommand}" Margin="0,0,8,0"
                                     ToolTip="Get the latest installer from the Rigsight website"
                                     Visibility="{Binding Update.ShowFailed, Converter={StaticResource Vis}}" />
@@ -617,7 +554,7 @@
                         <StackPanel>
                             <TextBlock Text="Open-source notices" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Riggy reads questions with the all-MiniLM-L6-v2 model (Apache 2.0), run by ONNX Runtime (MIT). Licences of everything Rigsight includes." />
+                                       Text="Licences of everything Rigsight includes." />
                         </StackPanel>
                     </DockPanel>
                     <StackPanel Margin="0,10">

@@ -36,6 +36,28 @@ public sealed class LineChart : FrameworkElement
 
     public SensorKind Kind { get => (SensorKind)GetValue(KindProperty); set => SetValue(KindProperty, value); }
 
+    /// <summary>
+    /// From an hour up the line is one point a minute (an hour, a day on the longer ones): that minute's average
+    /// ("Avg", the default), its highest reading ("High") or its lowest ("Low"). A spike of a few seconds is in the
+    /// highest and hardly moves the average: a day whose highest was 74° drew a line that never passed 68°.
+    /// </summary>
+    public static readonly DependencyProperty PlotProperty = DependencyProperty.Register(
+        nameof(Plot), typeof(string), typeof(LineChart), new FrameworkPropertyMetadata("Avg", FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public string Plot { get => (string)GetValue(PlotProperty); set => SetValue(PlotProperty, value); }
+
+    /// <summary>
+    /// Says why a stretch has nothing recorded (its ends in Unix milliseconds): the PC was off, asleep, went down
+    /// without shutting down... Unset, or where it isn't known, the stretch is only said to be not recorded.
+    /// </summary>
+    public static readonly DependencyProperty GapReasonProperty = DependencyProperty.Register(
+        nameof(GapReason), typeof(Func<long, long, Core.Stability.GapReason>), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public Func<long, long, Core.Stability.GapReason>? GapReason { get => (Func<long, long, Core.Stability.GapReason>?)GetValue(GapReasonProperty); set => SetValue(GapReasonProperty, value); }
+
+    /// <summary>What a point is on this window: 1 its highest, -1 its lowest, 0 its average (and always on a short window, where every reading is drawn).</summary>
+    private int Pick => !ByMinute ? 0 : Plot == "High" ? 1 : Plot == "Low" ? -1 : 0;
+
     private bool IsTemp => Kind == SensorKind.Temperature;
 
     /// <summary>A stored value as drawn: a temperature in the user's unit, anything else as it is.</summary>
@@ -136,7 +158,7 @@ public sealed class LineChart : FrameworkElement
     /// year): for the moment between the range being changed and its history arriving, another kind isn't drawn as if
     /// it were.
     /// </summary>
-    private HistoryBuffer? Older(ChartSeries s) => s.StepSeconds == Step ? s.Minutes : null;
+    private HistoryBuffer? Older(ChartSeries s) => s.StepSeconds == Step ? s.MinutesFor(Pick) : null;
 
     private double GroupMs => ByMinute ? 60_000 : 0;
 
@@ -272,25 +294,112 @@ public sealed class LineChart : FrameworkElement
             }
         }
 
+        // Where nothing was recorded: a thin strip along the foot of the chart, so an empty stretch reads as "no readings",
+        // not as a PC that stayed cool. (Shaded from top to bottom, the empty stretches were what the eye went to, not the lines.)
+        var gaps = GapsShown(series, from, to);
+        foreach (var (gapFrom, gapTo) in gaps)
+        {
+            double left = plot.Left + plot.Width * (Math.Max(gapFrom, from) - from) / (to - from), right = plot.Left + plot.Width * (Math.Min(gapTo, to) - from) / (to - from);
+            if (right - left >= 1) dc.DrawRectangle(GapFill, null, new Rect(left, plot.Bottom - 3, right - left, 3));
+            // Where the PC went down without shutting down (power lost, a blue screen): a small red mark on the strip at
+            // that moment, the last one with readings.
+            if (gapFrom >= from && GapReason?.Invoke(gapFrom, gapTo) is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed)
+            {
+                double x = Math.Round(left) + 0.5;
+                dc.DrawGeometry(ChartPaint.Hot, null, Frozen(new PathGeometry([new PathFigure(new Point(x - 5, plot.Bottom),
+                    [new LineSegment(new Point(x + 5, plot.Bottom), false), new LineSegment(new Point(x, plot.Bottom - 8), false)], true)])));
+            }
+        }
+
         dc.PushClip(new RectangleGeometry(new Rect(plot.Left, plot.Top - 2, plot.Width, plot.Height + 4)));
         foreach (var s in series)
         {
             long liveStart = LiveStart(s);
             if (from < liveStart && Older(s) is { } older)
-                Draw(s, older, liveStart, Long ? null : ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs));
+                Draw(s, older, liveStart, Long ? null : ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs, Pick));
             if (!Long) Draw(s, s.Sensor.History, groupMs: GroupMs);
         }
         dc.Pop();
 
         if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
-            DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
+        {
+            long at = from + (long)((hx - plot.Left) / plot.Width * (to - from));
+            if (gaps.FirstOrDefault(g => at >= g.From && at < g.To) is { To: > 0 } gap) DrawGapHover(dc, plot, gap, hx, dpi);
+            else DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
+        }
 
         void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null, double groupMs = 0)
         {
-            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo, groupMs) is not { } g) return;
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo, groupMs, Pick) is not { } g) return;
             dc.DrawGeometry(s.Fill, null, g.Fill);
             dc.DrawGeometry(null, s.LinePen, g.Line);
         }
+    }
+
+    private static Brush GapFill => _gapFill?.Color == ChartPaint.Res("TextColor", 0x80) ? _gapFill
+        : _gapFill = Frozen(new SolidColorBrush(ChartPaint.Res("TextColor", 0x80)) { Opacity = 0.28 });
+    private static SolidColorBrush? _gapFill;
+
+    /// <summary>
+    /// The stretches of the window with nothing recorded (see <see cref="ChartSeries.Gaps"/>): the same for every line,
+    /// so from the first one that has the older history this window draws. None on a window of live readings only.
+    /// </summary>
+    private List<(long From, long To)> GapsShown(List<ChartSeries> series, long from, long to)
+    {
+        var s = series.FirstOrDefault(x => Older(x) is not null && from < LiveStart(x));
+        if (s is null) return [];
+        long until = LiveStart(s);
+        return [.. s.Gaps.Where(g => g.To > from && g.From < Math.Min(to, until))];
+    }
+
+    /// <summary>Over a stretch with nothing recorded: from when to when, and that nothing was (no row of dashes for each line).</summary>
+    private void DrawGapHover(DrawingContext dc, Rect plot, (long From, long To) gap, double hx, double dpi)
+    {
+        dc.DrawLine(HoverLine, new Point(Math.Round(hx) + 0.5, plot.Top), new Point(Math.Round(hx) + 0.5, plot.Bottom));
+        DateTime start = DateTimeOffset.FromUnixTimeMilliseconds(gap.From).LocalDateTime, end = DateTimeOffset.FromUnixTimeMilliseconds(gap.To).LocalDateTime;
+        string Moment(DateTime t) => Long ? t.ToString(Step == 86400 ? "d MMM" : "ddd d MMM, h tt", CultureInfo.CurrentCulture)
+            : (t.Date == DateTime.Today ? "" : t.ToString("ddd ", CultureInfo.CurrentCulture)) + t.ToString("h:mm tt", CultureInfo.CurrentCulture);
+        // Why, where Windows' log says; otherwise only that nothing was.
+        var reason = GapReason?.Invoke(gap.From, gap.To) ?? Core.Stability.GapReason.Unknown;
+        string? why = Core.Stability.PowerLog.Words(reason);
+        bool down = reason is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed;
+        var title = Text(why ?? "Not recorded", HoverFont, 12, down ? ChartPaint.Hot : HoverText, dpi);
+        var when = Text($"{(why is null ? "" : "Not recorded  ·  ")}{Moment(start)} to {Moment(end)}", LabelFont, 12, HoverMuted, dpi);
+        const double pad = 10;
+        double w = Math.Max(title.Width, when.Width) + pad * 2, h = pad * 2 + title.Height + 4 + when.Height;
+        double x = hx + 14 + w > plot.Right ? hx - 14 - w : hx + 14;
+        var box = new Rect(Math.Max(plot.Left, x), plot.Top + 4, w, h);
+        dc.DrawRoundedRectangle(HoverBack, HoverBorder, box, 8, 8);
+        dc.DrawText(title, new Point(box.Left + pad, box.Top + pad));
+        dc.DrawText(when, new Point(box.Left + pad, box.Top + pad + title.Height + 4));
+    }
+
+    /// <summary>
+    /// The stored minutes that share a point of the line with <paramref name="t"/> (the group <see cref="ChartGeometry.Build"/>
+    /// puts them in), as one: the average of their averages, the highest of their highest, the lowest of their lowest,
+    /// and where the line is for them. Null with one minute or none (the minute's own figures stand).
+    /// </summary>
+    private (double? Avg, double? High, double? Low, double At)? Group(ChartSeries s, HistoryBuffer buffer, long t, double groupMs)
+    {
+        if (groupMs <= 60_000) return null;
+        long start = (long)(Math.Floor(t / groupMs) * groupMs);
+        double sum = 0, drawnSum = 0, drawnHigh = double.MinValue, drawnLow = double.MaxValue;
+        double? high = null, low = null;
+        int n = 0, averaged = 0;
+        for (int i = buffer.IndexAtOrAfter(start); i < buffer.Count && buffer.TimeAt(i) < start + groupMs; i++)
+        {
+            double drawn = buffer.ValueAt(i);
+            if (double.IsNaN(drawn) || s.StatsAt(i) is not { } m) continue;
+            n++;
+            drawnSum += drawn;
+            drawnHigh = Math.Max(drawnHigh, drawn);
+            drawnLow = Math.Min(drawnLow, drawn);
+            if (m.Avg is { } a) { sum += a; averaged++; }
+            if (m.High is { } h) high = Math.Max(high ?? h, h);
+            if (m.Low is { } l) low = Math.Min(low ?? l, l);
+        }
+        if (n < 2) return null;
+        return (averaged > 0 ? sum / averaged : null, high, low, Pick > 0 ? drawnHigh : Pick < 0 ? drawnLow : drawnSum / n);
     }
 
     /// <summary>The average, highest and lowest of the live readings in the minute on the clock that <paramref name="t"/> is in.</summary>
@@ -340,11 +449,17 @@ public sealed class LineChart : FrameworkElement
                 long time = Long ? buffer.TimeAt(i) - s.StepSeconds * 500L : buffer.TimeAt(i);
                 // The dot goes where the line is: the minute's point.
                 double at = value.Value;
-                if (useMinutes && s.StatsAt(i) is { } kept) (value, high, low) = kept;
+                if (useMinutes && s.StatsAt(i) is { } kept)
+                {
+                    (value, high, low) = kept;
+                    // On a day, a point of the line stands for a few minutes: the box says all of them (their highest
+                    // is in it wherever the pointer is; said for the nearest minute alone, some could never be reached).
+                    if (!Long && Group(s, buffer, t, ChartGeometry.GroupMs(from, to, plot, 60_000)) is { } all) (value, high, low, at) = (all.Avg, all.High, all.Low, all.At);
+                }
                 else if (!useMinutes && ByMinute && LiveMinute(buffer, t) is { } minute)
                 {
                     (value, high, low) = minute;
-                    at = minute.Avg;
+                    at = Pick > 0 ? minute.High : Pick < 0 ? minute.Low : minute.Avg;
                     time = t - t % 60_000;
                 }
                 if (rows.Count == 0 || rows.All(r => r.Value is null && r.High is null)) shownTime = time;

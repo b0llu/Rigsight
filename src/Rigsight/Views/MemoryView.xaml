@@ -2,11 +2,16 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
-    <Grid Margin="32,26,32,24">
+    <!-- The live list takes what the window has left under the cards above it, but never less than its MinHeight (it
+         was down to a few rows on a small window): then the page scrolls. Its height is set in the code-behind, from
+         the height given here: with none to start from, the list was first laid out with every app's row at once
+         (the page's first opening took three times the processor time). -->
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid x:Name="Layout" Margin="32,26,32,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel>
@@ -130,11 +135,13 @@
         </Grid>
 
         <!-- Live list -->
-        <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12">
+        <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5"
                               IsChecked="{Binding Live.OnlyWindowedApps}" />
+                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="Search apps…" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
+                             AutomationProperties.Name="Search the apps using memory" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
                     <TextBlock Text="Using memory right now" Style="{StaticResource H2}" />
                 </DockPanel>
                 <Grid DockPanel.Dock="Top" Margin="0,0,20,6">
@@ -148,6 +155,8 @@
                     <TextBlock Grid.Column="2" Text="MEMORY" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="3" Text="CPU" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                 </Grid>
+                <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                           Visibility="{Binding Live.NoProcsMatch, Converter={StaticResource Vis}}" />
                 <!-- An app with more than one process opens (click) to list each of them underneath. -->
                 <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True">
                     <ListBox.ItemTemplate>
@@ -238,4 +247,5 @@
             </DockPanel>
         </ctl:SmoothBorder>
     </Grid>
+    </ScrollViewer>
 </UserControl>

@@ -163,8 +163,8 @@
                 </StackPanel>
             </DockPanel>
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
-                <ctl:PeriodPicker Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding Since}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center" />
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding Since}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- Status and counts -->
@@ -253,6 +253,8 @@
                 <StackPanel>
                     <DockPanel Margin="0,0,0,14">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <TextBox Style="{StaticResource SearchBox}" Tag="Search crashes…" Width="220" Margin="0,0,14,0" VerticalAlignment="Center"
+                                     AutomationProperties.Name="Search the crashes" ctl:Debounce.Text="{Binding SearchText}" />
                             <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" GroupName="CrashView" Content="List"

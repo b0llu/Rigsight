@@ -54,12 +54,49 @@ public partial class PeriodPicker : UserControl
 
     public static readonly DependencyProperty UnitProperty =
         DependencyProperty.Register(nameof(Unit), typeof(ReportRange), typeof(PeriodPicker),
-            new FrameworkPropertyMetadata(ReportRange.Day, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+            new FrameworkPropertyMetadata(ReportRange.Day, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).PeriodChanged()));
 
     /// <summary>Any day in the period shown.</summary>
     public static readonly DependencyProperty AnchorProperty =
         DependencyProperty.Register(nameof(Anchor), typeof(DateTime), typeof(PeriodPicker),
-            new FrameworkPropertyMetadata(DateTime.Today, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+            new FrameworkPropertyMetadata(DateTime.Today, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).PeriodChanged()));
+
+    /// <summary>
+    /// The page is reading the period. A turning arc after the picker says so, but only for a period just picked (the
+    /// page reading the same one again every minute says nothing) and only once it has taken a moment (most are there at once).
+    /// </summary>
+    public static readonly DependencyProperty IsBusyProperty =
+        DependencyProperty.Register(nameof(IsBusy), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(false, (d, _) => ((PeriodPicker)d).BusyChanged()));
+
+    public bool IsBusy { get => (bool)GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
+
+    private static readonly TimeSpan BusyAfter = TimeSpan.FromMilliseconds(300);
+    private System.Windows.Threading.DispatcherTimer? _busyDelay;
+    private long _pickedAt = long.MinValue;
+
+    private void PeriodChanged()
+    {
+        _pickedAt = Environment.TickCount64;
+        Refresh();
+        BusyChanged();
+    }
+
+    private void BusyChanged()
+    {
+        if (!IsBusy)
+        {
+            _busyDelay?.Stop();
+            Busy.Visibility = Visibility.Collapsed;
+            return;
+        }
+        if (Busy.Visibility == Visibility.Visible || _busyDelay?.IsEnabled == true || Environment.TickCount64 - _pickedAt > 500) return;
+        _busyDelay ??= new System.Windows.Threading.DispatcherTimer(BusyAfter, System.Windows.Threading.DispatcherPriority.Normal, (_, _) =>
+        {
+            _busyDelay!.Stop();
+            if (IsBusy) Busy.Visibility = Visibility.Visible;
+        }, Dispatcher);
+        _busyDelay.Start();
+    }
 
     /// <summary>The first day with history: nothing before it to step back to or pick.</summary>
     public static readonly DependencyProperty MinDateProperty =
@@ -78,12 +115,12 @@ public partial class PeriodPicker : UserControl
     /// <summary>Start of a custom range (whole hours).</summary>
     public static readonly DependencyProperty CustomFromProperty =
         DependencyProperty.Register(nameof(CustomFrom), typeof(DateTime), typeof(PeriodPicker),
-            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).PeriodChanged()));
 
     /// <summary>End of a custom range (whole hours; not included).</summary>
     public static readonly DependencyProperty CustomToProperty =
         DependencyProperty.Register(nameof(CustomTo), typeof(DateTime), typeof(PeriodPicker),
-            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).Refresh()));
+            new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, _) => ((PeriodPicker)d).PeriodChanged()));
 
     public DateTime CustomFrom { get => (DateTime)GetValue(CustomFromProperty); set => SetValue(CustomFromProperty, value); }
     public DateTime CustomTo { get => (DateTime)GetValue(CustomToProperty); set => SetValue(CustomToProperty, value); }

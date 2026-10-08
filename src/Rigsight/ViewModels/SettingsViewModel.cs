@@ -14,14 +14,6 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>A wording Riggy was taught, as Settings lists it: the wording, and the topic it is read as.</summary>
-public sealed record AskLearnedItem(Core.Ask.AskLearned Learned, string Topic)
-{
-    public string Text => Learned.Text;
-    /// <summary>The wording in quotes, tidied (taking the time out of a question can leave a space before its question mark).</summary>
-    public string Quoted => $"\u201C{Learned.Text.Replace(" ?", "?").Replace(" ,", ",").Trim()}\u201D";
-}
-
 /// <summary>A swatch in Settings' accent row.</summary>
 public sealed record AccentOption(string Key, string Name, System.Windows.Media.Brush Brush);
 
@@ -177,7 +169,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     private string? _goTo;
 
-    /// <summary>Asks for Settings to be shown at one part of it (Riggy's, from a link in its chat), this once.</summary>
+    /// <summary>Asks for Settings to be shown at one part of it, this once.</summary>
     public void GoTo(string section)
     {
         _goTo = section;
@@ -263,7 +255,37 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     private void RetrySensors()
     {
         Set(s => s.SensorNoticeSeen = Acknowledge(s.SensorNoticeSeen, SensorStatus, problems: true));
+        if (!client.IsConnected) return;
         client.SendCommand("sensors-retry");
+        _ = BusyUntilAsync(() => IsRetryingSensors, v => IsRetryingSensors = v, seconds: 30);
+    }
+
+    /// <summary>The agent is reading the hardware again after "Try again": over when it says what it found.</summary>
+    [ObservableProperty] private bool _isRetryingSensors;
+
+    /// <summary>The agent is deleting the history: over when it says it has.</summary>
+    [ObservableProperty] private bool _isClearing;
+
+    /// <summary>The usage file is being put together and written.</summary>
+    [ObservableProperty] private bool _isExporting;
+
+    /// <summary>
+    /// Says something is going on until the agent's answer turns it off, and gives up after a while if no answer comes
+    /// (an agent that went away meanwhile), so nothing turns for ever.
+    /// </summary>
+    private static async Task BusyUntilAsync(Func<bool> get, Action<bool> set, int seconds)
+    {
+        set(true);
+        for (int i = 0; i < seconds * 4 && get(); i++) await Task.Delay(250);
+        set(false);
+    }
+
+    /// <summary>The agent has deleted the history.</summary>
+    public void OnHistoryCleared()
+    {
+        if (!IsClearing) return;
+        IsClearing = false;
+        StatusMessage = "History cleared.";
     }
 
     /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name).</summary>
@@ -317,77 +339,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>True until the agent reports otherwise, so no admin warning shows while it isn't connected.</summary>
     [ObservableProperty] private bool _agentIsAdmin = true;
     [ObservableProperty] private string? _statusMessage;
-    /// <summary>Riggy's bubble (Ask) is shown.</summary>
-    public bool ShowAsk
-    {
-        get => S.ShowAsk;
-        set => Set(s => s.ShowAsk = value);
-    }
-
-    public AskViewModel? Ask { get; set; }
-
-    public bool AskHasLearned => AskLearned.Count > 0;
-
-    /// <summary>The wordings Riggy was taught, newest first, each with what it is read as.</summary>
-    public IReadOnlyList<AskLearnedItem> AskLearned => Ask is null ? []
-        : [.. Ask.Learned.Reverse().Select(l => new AskLearnedItem(l, AskViewModel.Topics.FirstOrDefault(t => t.Intent == l.Intent)?.Label ?? l.Intent.ToString()))];
-
-    [RelayCommand]
-    private void ForgetAsk()
-    {
-        Ask?.Forget();
-        OnPropertyChanged(nameof(AskHasLearned));
-        OnPropertyChanged(nameof(AskLearned));
-    }
-
-    /// <summary>The Microsoft runtime Riggy's model needs is missing or old on this PC (see <see cref="AskEmbedder.RuntimeReady"/>).</summary>
-    public bool AskNeedsRuntime => S.ShowAsk && AskEmbedder.FilesPresent && !AskEmbedder.RuntimeReady;
-
-    /// <summary>
-    /// Has the browser fetch the add-on from Microsoft (its own link to the 64-bit Visual C++ Redistributable, the one
-    /// file needed; the page that lists every edition asked people to pick). Rigsight downloads nothing itself.
-    /// </summary>
-    [RelayCommand]
-    private static void GetAskRuntime()
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo("https://aka.ms/vs/17/release/vc_redist.x64.exe") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Log.Error("settings", ex);
-        }
-    }
-
-    /// <summary>Questions Riggy had no answer for, kept on this PC: to copy and send to whoever can add them.</summary>
-    public int AskUnansweredCount => Ask?.Unanswered.Count ?? 0;
-    public string AskUnansweredText => AskUnansweredCount == 1 ? "1 question, kept on this PC. Nothing is sent." : $"{AskUnansweredCount} questions, kept on this PC. Nothing is sent.";
-    [ObservableProperty] private string? _askCopied;
-
-    [RelayCommand]
-    private void CopyAskUnanswered()
-    {
-        if (Ask is not { Unanswered.Count: > 0 } ask) return;
-        try
-        {
-            System.Windows.Clipboard.SetText("Questions Riggy couldn't answer (Rigsight " + AppVersion + "):" + Environment.NewLine + string.Join(Environment.NewLine, ask.Unanswered.Select(q => "- " + q)));
-            AskCopied = "Copied. Paste it wherever you send feedback.";
-        }
-        catch (Exception ex)
-        {
-            Log.Error("settings", ex);
-        }
-    }
-
-    [RelayCommand]
-    private void ForgetAskItem(AskLearnedItem item)
-    {
-        Ask?.Forget(item.Learned);
-        OnPropertyChanged(nameof(AskHasLearned));
-        OnPropertyChanged(nameof(AskLearned));
-    }
-
     public bool AutoUpdate
     {
         get => S.AutoUpdate;
@@ -502,6 +453,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         };
         if (dialog.ShowDialog() != true) return;
 
+        IsExporting = true;
         var report = await reports.BuildRangeAsync(DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1));
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         var sb = new StringBuilder("App,Exe,Category,Active hours,Background hours,Minimized hours,Away hours,Sessions,Avg CPU °C,Peak CPU °C,Avg GPU °C,Peak GPU °C,Peak memory MB\n");
@@ -522,6 +474,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         {
             StatusMessage = "Export failed: " + ex.Message;
         }
+        finally
+        {
+            IsExporting = false;
+        }
 
         static string Csv(string v) => v.Contains(',') || v.Contains('"') ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
     }
@@ -533,8 +489,14 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             "This permanently deletes all recorded activity, temperatures and reports. Settings are kept.\n\nDelete all history?",
             "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
+        // The agent keeps the history and deletes it: nothing is cleared until it says so.
+        if (!client.IsConnected)
+        {
+            StatusMessage = "The history wasn't cleared: the agent isn't running.";
+            return;
+        }
         client.SendCommand("clear-history");
-        StatusMessage = "History cleared.";
+        _ = BusyUntilAsync(() => IsClearing, v => IsClearing = v, seconds: 60);
     }
 
     [RelayCommand]

@@ -35,8 +35,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Crashes.ShowDay(day);
             CurrentPage = "crashes";
-        });
-        Ask = new AskViewModel(Settings, OpenFromAsk);
+        }, scan: ScanNowAsync);
         Memory = new MemoryViewModel(Reports, Live);
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
@@ -48,7 +47,6 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
-        SettingsPage.Ask = Ask;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
@@ -70,7 +68,6 @@ public sealed partial class ShellViewModel : ObservableObject
             Widgets.Refresh();
             Overlay.Refresh();
             SettingsPage.Refresh();
-            Ask.Refresh();
             Sidebar.Refresh();
             UpdateSettingsAttention();
         };
@@ -111,12 +108,8 @@ public sealed partial class ShellViewModel : ObservableObject
         launchCheck.Start();
     }
 
-    /// <summary>A What's new feature's "Open" button: its page, or Riggy's chat over the page that is showing.</summary>
-    private void OpenFeature(string page)
-    {
-        if (page == "ask") Ask.IsOpen = true;
-        else CurrentPage = page;
-    }
+    /// <summary>A What's new feature's "Open" button: its page.</summary>
+    private void OpenFeature(string page) => CurrentPage = page;
 
     /// <summary>What a new feature's page already holds for this PC, for its What's new ("31 changes already found…").</summary>
     private async Task<string?> FeatureFactAsync(string page)
@@ -134,27 +127,6 @@ public sealed partial class ShellViewModel : ObservableObject
     public AppsViewModel Apps { get; }
     public CrashesViewModel Crashes { get; }
     public TimelineViewModel Timeline { get; }
-    public AskViewModel Ask { get; }
-
-    /// <summary>A page an answer points to ("Open Crashes"), on its day when it names one. The chat stays open over it.</summary>
-    private void OpenFromAsk(Core.Ask.AskLink link)
-    {
-        if (link.Page == AskViewModel.SettingsRiggy)
-        {
-            SettingsPage.GoTo("riggy");
-            CurrentPage = "settings";
-            return;
-        }
-        if (link.Day is { } day)
-            switch (link.Page)
-            {
-                case "crashes": Crashes.ShowDay(day); break;
-                case "reports": ReportsPage.ShowDay(day); break;
-            }
-        CurrentPage = link.Page;
-        if (link is { Page: "timeline", Day: { } on }) _ = JumpTimelineAsync(on);
-    }
-
     private async Task JumpTimelineAsync(DateTime day)
     {
         await Timeline.LoadAsync();
@@ -462,6 +434,13 @@ public sealed partial class ShellViewModel : ObservableObject
             : await Reports.MinutesAsync(from, to);
         // Not if the range was changed again while this was read (the next load is on its way).
         if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);
+        // Why its empty stretches are empty, from Windows' own log (a year would mean reading all of it: those just say "Not recorded").
+        if (id == _historyLoad && !Live.IsChartYear)
+        {
+            var since = (Live.IsChartLong ? periodFrom : Core.Data.TimeUtil.FromUnix(from)).AddDays(-2);
+            var power = await Task.Run(() => Core.Stability.CrashLogReader.ReadPower(since));
+            if (id == _historyLoad) Live.LoadPowerEvents(power);
+        }
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
     }
 
@@ -619,6 +598,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 if (msg.Hardware is not null)
                 {
                     SettingsPage.SensorStatus = msg.SensorStatus;
+                    SettingsPage.IsRetryingSensors = false;
                     UpdateSettingsAttention();
                 }
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
@@ -660,7 +640,27 @@ public sealed partial class ShellViewModel : ObservableObject
             case "update":
                 Update.OnAgentMessage(msg);
                 break;
+            case "scanned":
+                _scanned?.TrySetResult();
+                break;
+            case "history-cleared":
+                SettingsPage.OnHistoryCleared();
+                break;
         }
+    }
+
+    private TaskCompletionSource? _scanned;
+
+    /// <summary>
+    /// Has the agent look for new changes and problems now and waits until it has. Without an agent, or with one that
+    /// doesn't answer (an older one, or a long first read of Windows' logs), it's given up on after a while.
+    /// </summary>
+    private async Task ScanNowAsync()
+    {
+        if (!IsConnected) return;
+        var scanned = _scanned = new TaskCompletionSource();
+        _client.SendCommand("scan-now");
+        await Task.WhenAny(scanned.Task, Task.Delay(TimeSpan.FromSeconds(20)));
     }
 }
 
