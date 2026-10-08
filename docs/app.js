@@ -3,6 +3,12 @@
   const REPO = "b0llu/Rigsight";
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ── Counting what gets clicked (GoatCounter, loaded after this file; nothing happens if it's blocked) ──
+  const count = name => { try { window.goatcounter?.count?.({ path: name, title: name, event: true }); } catch { /* counting never gets in the way */ } };
+  const where = el => el.closest(".nav") ? "top bar" : el.closest(".hero") ? "first screen" : el.closest(".install") ? "install steps" : el.closest(".footer") ? "footer" : "end";
+  document.querySelectorAll("[data-download]").forEach(a => a.addEventListener("click", () => count(`Download (${where(a)})`)));
+  document.querySelectorAll('a[href*="buymeacoffee.com"]').forEach(a => a.addEventListener("click", () => count(`Buy me a coffee (${where(a)})`)));
+
   // ── Groups of pages under one heading: pick one by name ──
   // The page works without this (every page shows, one under the other); html.js is what turns the names on.
   document.documentElement.classList.add("js");
@@ -25,7 +31,7 @@
       panes[i].setAttribute("role", "tabpanel");
       panes[i].setAttribute("aria-labelledby", tab.id);
       tab.setAttribute("aria-controls", panes[i].id);
-      tab.addEventListener("click", () => show(i));
+      tab.addEventListener("click", () => { show(i); count(`Tab: ${tab.textContent.trim()}`); });
       tab.addEventListener("keydown", e => {
         const to = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length
           : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
@@ -178,6 +184,7 @@
         btn.classList.add("done");
         setTimeout(() => btn.classList.remove("done"), 1800);
         showToast("Copied. Paste it into PowerShell.");
+        count(`Copy the PowerShell command (${where(btn)})`);
       } catch { /* clipboard blocked */ }
     });
   });
@@ -192,6 +199,7 @@
   }
   document.getElementById("copy-link").addEventListener("click", async () => {
     const url = location.href.split("#")[0];
+    count("Phone: copy the link");
     try {
       if (navigator.share) { await navigator.share({ title: "Rigsight", text: "Rigsight — know your rig", url }); return; }
       await navigator.clipboard.writeText(url);
