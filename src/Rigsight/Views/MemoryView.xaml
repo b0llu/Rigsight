@@ -7,7 +7,7 @@
          the height given here: with none to start from, the list was first laid out with every app's row at once
          (the page's first opening took three times the processor time). -->
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid x:Name="Layout" Margin="32,26,32,24">
+    <Grid x:Name="Layout" Margin="32,26,32,24" MaxWidth="{StaticResource PageWidth}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -70,12 +70,9 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid Width="190" Height="190" VerticalAlignment="Center">
+                    <!-- The gauge beside its tiles; above them where the card is too narrow for both (see SideOrStack). -->
+                    <ctl:SideOrStack>
+                        <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <ctl:ArcGauge Value="{Binding Live.RamLoad.Value}" Maximum="100" Thickness="13" Brush="{DynamicResource PurpleBrush}" />
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
@@ -85,7 +82,7 @@
                                            HorizontalAlignment="Center" Margin="0,4,0,0" />
                             </StackPanel>
                         </Grid>
-                        <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                        <UniformGrid Columns="2">
                             <ctl:MetricTile Label="IN USE" Sensor="{Binding Live.RamUsed}" Accent="{DynamicResource PurpleBrush}" />
                             <ctl:MetricTile Label="FREE" Sensor="{Binding Live.RamAvailable}" Accent="{DynamicResource PurpleBrush}" />
                             <ctl:MetricTile Label="COMPRESSED" Sensor="{Binding Live.Compressed}" Accent="{DynamicResource PurpleBrush}"
@@ -93,7 +90,7 @@
                             <ctl:MetricTile Label="VIRTUAL MEMORY" Sensor="{Binding Live.VirtualLoad}" Accent="{DynamicResource PurpleBrush}" SparkMinimum="0" SparkMaximum="100"
                                             ToolTip="How much of Windows' memory limit (your RAM plus the page file) is promised to apps." />
                         </UniformGrid>
-                    </Grid>
+                    </ctl:SideOrStack>
                 </DockPanel>
             </ctl:SmoothBorder>
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">

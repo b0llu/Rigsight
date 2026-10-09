@@ -316,6 +316,110 @@ public sealed class QueryTests
         Assert.Equal(PowerMoment.Running, t.Db.GetCrashes(T0 + 5, T0 + 6).Single().Moment);
     }
 
+    // ── When the PC went down: Windows' time, or the last minute recorded ──
+
+    /// <summary>A PC going down as read from Windows' log: its (early) time for it, and the start it was written up at.</summary>
+    private static CrashEvent Shutdown(long windowsTs, long nextStart, CrashKind kind = CrashKind.UnexpectedShutdown) =>
+        new() { Ts = windowsTs, NextStart = nextStart, Kind = kind, Detail = "Found at next startup" };
+
+    [Fact]
+    public void A_shutdown_is_stored_at_the_last_minute_recorded_before_the_next_start()
+    {
+        using var t = new TestDb();
+        // Recording from T0 for half an hour; Windows' own time for the shutdown is a minute into that, and it started again ten minutes after the last one.
+        for (int i = 0; i <= 30; i++) t.Db.WriteMinute(Minute(T0 + i * 60));
+        long last = T0 + 30 * 60, start = last + 600;
+        var e = Shutdown(T0 + 61, start);
+        Assert.Same(e, Assert.Single(t.Db.InsertCrashes([e])));
+        // The end of the last recorded minute; Windows' time is kept beside it.
+        Assert.Equal((last + 60, T0 + 61), (e.Ts, e.WindowsTs!.Value));
+        var stored = Assert.Single(t.Db.GetCrashes(0, long.MaxValue / 2));
+        Assert.Equal((last + 60, T0 + 61), (stored.Ts, stored.WindowsTs!.Value));
+        // What was going on just before is read from the minutes it now follows.
+        Assert.False(t.Db.GetCrashContext(0, long.MaxValue / 2)[stored.Id].NoReadings);
+
+        // Read again, at every later start and by the same event read afresh: the same row, nothing new.
+        Assert.Empty(t.Db.InsertCrashes([e]));
+        Assert.Empty(t.Db.InsertCrashes([Shutdown(T0 + 61, start)]));
+        Assert.Equal(last + 60, Assert.Single(t.Db.GetCrashes(0, long.MaxValue / 2)).Ts);
+    }
+
+    [Fact]
+    public void A_shutdown_stored_under_windows_time_is_moved_and_not_counted_as_new()
+    {
+        using var t = new TestDb();
+        for (int i = 0; i <= 30; i++) t.Db.WriteMinute(Minute(T0 + i * 60));
+        // As versions before 0.19.1 stored it: Windows' time, nothing beside it. And an app's crash at that same second.
+        t.Exec($"INSERT INTO crashes(ts, kind, detail, during_sleep) VALUES({T0 + 61}, 'UnexpectedShutdown', 'Found at next startup', 1)");
+        t.Db.InsertCrashes([new CrashEvent { Ts = T0 + 61, Kind = CrashKind.AppCrash, AppExe = "a.exe" }]);
+        long id = t.Db.GetCrashes(0, long.MaxValue / 2).Single(c => c.Kind == CrashKind.UnexpectedShutdown).Id;
+
+        var read = Shutdown(T0 + 61, T0 + 40 * 60);
+        read.Moment = PowerMoment.ShuttingDown;
+        Assert.Empty(t.Db.InsertCrashes([read]));
+        var all = t.Db.GetCrashes(0, long.MaxValue / 2);
+        Assert.Equal(2, all.Count);
+        var moved = all.Single(c => c.Kind == CrashKind.UnexpectedShutdown);
+        // The same row (what was muted or opened stays that), at its new time, its moment put right as before.
+        Assert.Equal((id, T0 + 31 * 60, T0 + 61, PowerMoment.ShuttingDown), (moved.Id, moved.Ts, moved.WindowsTs!.Value, moved.Moment));
+        // An app's crash is timed by Windows as it happens: never moved.
+        Assert.Equal(T0 + 61, all.Single(c => c.Kind == CrashKind.AppCrash).Ts);
+        Assert.Null(all.Single(c => c.Kind == CrashKind.AppCrash).WindowsTs);
+
+        // With the minutes around it no longer kept, it stays where it was put: never back to Windows' time, never twice.
+        t.Exec("DELETE FROM system_minute");
+        Assert.Empty(t.Db.InsertCrashes([Shutdown(T0 + 61, T0 + 40 * 60)]));
+        Assert.Equal(T0 + 31 * 60, t.Db.GetCrashes(0, long.MaxValue / 2).Single(c => c.Kind == CrashKind.UnexpectedShutdown).Ts);
+        Assert.Equal(2, t.Count("crashes"));
+    }
+
+    [Fact]
+    public void A_shutdown_keeps_windows_time_where_nothing_was_recorded_after_it()
+    {
+        using var t = new TestDb();
+        // Nothing recorded at all.
+        var none = Shutdown(T0, T0 + 3600);
+        t.Db.InsertCrashes([none]);
+        Assert.Equal((T0, T0), (none.Ts, none.WindowsTs!.Value));
+        // Recording stopped an hour before Windows' time (the last minutes belong to an earlier run of the PC).
+        for (int i = 0; i < 10; i++) t.Db.WriteMinute(Minute(T0 + 7200 + i * 60));
+        var earlier = Shutdown(T0 + 7200 + 3600, T0 + 7200 + 7200, CrashKind.SystemCrash);
+        t.Db.InsertCrashes([earlier]);
+        Assert.Equal(T0 + 7200 + 3600, earlier.Ts);
+        // A blue screen's moment stays as stored when it is read again (only an unexpected shutdown's is put right).
+        t.Exec("UPDATE crashes SET during_sleep = 1 WHERE kind = 'SystemCrash'");
+        t.Db.InsertCrashes([Shutdown(T0 + 7200 + 3600, T0 + 7200 + 7200, CrashKind.SystemCrash)]);
+        Assert.Equal(PowerMoment.Asleep, t.Db.GetCrashes(0, long.MaxValue / 2).Single(c => c.Kind == CrashKind.SystemCrash).Moment);
+        // The minute the PC started again in has a row too, written after the start: it is no sign of life before it.
+        long start = T0 + 20000 + 90;
+        t.Db.WriteMinute(Minute(T0 + 20000));
+        t.Db.WriteMinute(Minute(T0 + 20000 + 60));
+        Assert.Equal(T0 + 20000 + 60, t.Db.LastSeenRunning(T0 + 19000, start));
+        Assert.Equal(T0 + 20000 + 120, t.Db.LastSeenRunning(T0 + 19000, start + 30));
+    }
+
+    [Fact]
+    public void Putting_stored_shutdowns_right_adds_none()
+    {
+        using var t = new TestDb();
+        for (int i = 0; i <= 30; i++) t.Db.WriteMinute(Minute(T0 + i * 60));
+        t.Exec($"INSERT INTO crashes(ts, kind) VALUES({T0 + 61}, 'UnexpectedShutdown')");
+        // Read from far back in Windows' log, once: the stored one is moved, one that was never stored stays out.
+        Assert.Empty(t.Db.InsertCrashes([Shutdown(T0 + 61, T0 + 40 * 60), Shutdown(T0 - 86400, T0 - 80000), new CrashEvent { Ts = T0, Kind = CrashKind.GpuDriverReset }], knownOnly: true));
+        Assert.Equal(T0 + 31 * 60, Assert.Single(t.Db.GetCrashes(0, long.MaxValue / 2)).Ts);
+    }
+
+    [Fact]
+    public void Crashes_read_from_a_database_without_windows_time()
+    {
+        using var t = new TestDb();
+        t.Db.InsertCrashes([new CrashEvent { Ts = T0, Kind = CrashKind.UnexpectedShutdown }]);
+        // As the app finds it when an agent from before 0.19.1 made the database.
+        t.Exec("ALTER TABLE crashes DROP COLUMN ts_windows");
+        using var older = t.Reader();
+        Assert.Null(Assert.Single(older.GetCrashes(0, long.MaxValue / 2)).WindowsTs);
+    }
+
     [Fact]
     public void A_crash_kind_this_version_does_not_know_reads_as_an_app_crash()
     {

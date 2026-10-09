@@ -588,6 +588,110 @@ public sealed class ControlTests
     }
 
     [Fact]
+    public void A_line_says_its_highest_reading_in_a_period()
+    {
+        Ui.Run(() =>
+        {
+            // From the stored minutes: the highest in the period asked for, named by the middle of its minute.
+            var stored = Series("CPU", 0, 1440, i => i == 700 ? 91 : 40 + i % 30);
+            long start = (Now / 1000 - 24 * 3600) * 1000;
+            var all = stored.Highest(start, Now);
+            Assert.Equal((91, start + 700 * 60_000L + 30_000, true), (all!.Value.Value, all.Value.At, all.Value.Stored));
+            Assert.Equal(69, stored.Highest(start, start + 600 * 60_000L)!.Value.Value);
+            Assert.Null(stored.Highest(start - 7_200_000, start - 3_600_000));
+            // A live reading above every stored minute of the period is the highest, at its own second.
+            var live = Series("CPU", 60, 1440, i => i == 30 ? 95 : 50);
+            var recent = live.Highest(Now - 120_000, Now + 1);
+            Assert.Equal((95, Now - 30_000, false), (recent!.Value.Value, recent.Value.At, recent.Value.Stored));
+            // The average of the stored minutes; of the live readings where there are none.
+            Assert.Equal(50, live.Average(start + 3_600_000, start + 7_200_000));
+            Assert.Null(stored.Average(start - 7_200_000, start - 3_600_000));
+            // No lowest where the minutes kept none (these keep only one value each): better none than the wrong one.
+            Assert.Null(stored.Lowest(start, Now));
+            Assert.Equal(50, live.Lowest(Now + 2 - 20_000, Now + 1)!.Value.Value);
+        });
+    }
+
+    [Fact]
+    public void All_sensors_drops_columns_on_a_narrow_window_and_never_cuts_them()
+    {
+        // The page at the window's default width (1,400 less the sidebar) has everything.
+        Assert.Equal((true, true, true), Rigsight.Views.SensorsView.Fits(1160));
+        // At the window's smallest (1,140 less the sidebar): the pane stays, the lowest, highest and average go.
+        Assert.Equal((true, false, true), Rigsight.Views.SensorsView.Fits(900));
+        // Narrower still (the sidebar wider, a larger text size): the last minute's line goes, then the pane.
+        Assert.Equal((true, false, false), Rigsight.Views.SensorsView.Fits(850));
+        Assert.Equal((false, false, true), Rigsight.Views.SensorsView.Fits(780));
+        // Whatever is shown fits beside what else is.
+        for (double w = 400; w < 1600; w += 7)
+        {
+            var (pane, stats, spark) = Rigsight.Views.SensorsView.Fits(w);
+            double list = w - Rigsight.Views.SensorsView.Sides - (pane ? Rigsight.Views.SensorsView.PaneWidth : 0);
+            Assert.True(!stats || list >= Rigsight.Views.SensorsView.FullRow);
+            Assert.True(!stats || spark);
+        }
+    }
+
+    // ── Window sizes: a narrow card, a tall window ──
+
+    [Fact]
+    public void A_gauge_and_its_tiles_stack_when_the_card_is_too_narrow_for_both()
+    {
+        Ui.Run(() =>
+        {
+            var gauge = new Border { Width = 190, Height = 190 };
+            var tiles = new Border { MinHeight = 120 };
+            var panel = new SideOrStack { Children = { gauge, tiles } };
+            // Room for both (a card at the window's usual size): side by side, the tiles in what the gauge leaves.
+            panel.Measure(new Size(500, 400));
+            panel.Arrange(new Rect(0, 0, 500, 400));
+            Assert.Equal(new Rect(204, 0, 296, 400), new Rect(tiles.TranslatePoint(default, panel), tiles.RenderSize));
+            // At the window's smallest a card is about 370 wide: the tiles go under the gauge and have the whole width.
+            panel.Measure(new Size(370, double.PositiveInfinity));
+            Assert.Equal(190 + 14 + 120, panel.DesiredSize.Height);
+            panel.Arrange(new Rect(0, 0, 370, panel.DesiredSize.Height));
+            Assert.Equal(new Rect(0, 204, 370, 120), new Rect(tiles.TranslatePoint(default, panel), tiles.RenderSize));
+            // Asked how wide it would like to be (no limit): side by side.
+            panel.Measure(new Size(double.PositiveInfinity, 400));
+            Assert.Equal(190, panel.DesiredSize.Height);
+        });
+    }
+
+    [Fact]
+    public void Charts_and_lists_grow_with_a_taller_window_and_never_shrink()
+    {
+        Ui.Run(() =>
+        {
+            try
+            {
+                Roomy.Fit(920);
+                var chart = new Border();
+                var list = new Border();
+                Roomy.SetHeight(chart, 230);
+                Roomy.SetMaxHeight(list, 430);
+                Assert.Equal((230, 430), (chart.Height, list.MaxHeight));
+                // Maximised on a large screen: half as tall again, both.
+                Roomy.Fit(1392);
+                Assert.Equal((Math.Round(230 * 1.5), Math.Round(430 * 1.5)), (chart.Height, list.MaxHeight));
+                // No more than 1.6 times, however tall; and at the smallest window, what was given.
+                Roomy.Fit(4000);
+                Assert.Equal(Math.Round(230 * 1.6), chart.Height);
+                Roomy.Fit(680);
+                Assert.Equal((230, 430), (chart.Height, list.MaxHeight));
+                // One made while the window is tall starts out tall.
+                Roomy.Fit(1392);
+                var later = new Border();
+                Roomy.SetHeight(later, 200);
+                Assert.Equal(300, later.Height);
+            }
+            finally
+            {
+                Roomy.Fit(920);
+            }
+        });
+    }
+
+    [Fact]
     public void Line_chart_in_fahrenheit()
     {
         try

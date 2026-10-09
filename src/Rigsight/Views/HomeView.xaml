@@ -12,7 +12,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding DateText}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
 

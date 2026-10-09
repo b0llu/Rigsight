@@ -66,7 +66,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <TextBlock Text="Network" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,14" TextTrimming="CharacterEllipsis" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
@@ -79,11 +79,9 @@
                  connection and every app's speed; the page itself is about what was used. ── -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,11" Margin="0,0,0,18">
                 <DockPanel>
-                    <!-- "Right now" already says it's live: an arrow at the end is all that says it opens. -->
-                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding ToggleLiveCommand}" ToolTip="{Binding LiveButtonText}"
-                            AutomationProperties.Name="Live details" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <TextBlock Text="{Binding LiveGlyph}" />
-                    </Button>
+                    <!-- "Right now" already says it's live: the button says only that it opens, in a word (an arrow alone went unseen). -->
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ToggleLiveCommand}" Content="{Binding LiveButtonText}"
+                            AutomationProperties.Name="Live details" VerticalAlignment="Center" Margin="14,0,0,0" MinWidth="86" />
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Right now" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock FontSize="13" Margin="20,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
@@ -247,7 +245,7 @@
                 <Grid Margin="-9,0,-9,18">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.55*" />
-                        <ColumnDefinition Width="*" MinWidth="300" />
+                        <ColumnDefinition Width="*" MinWidth="344" />
                     </Grid.ColumnDefinitions>
                     <ctl:SmoothBorder x:Name="ChartCard" Style="{StaticResource RowCard}" VerticalAlignment="Top">
                         <StackPanel>
@@ -263,7 +261,7 @@
                                 </Border>
                                 <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                             </DockPanel>
-                            <ctl:NetBarsChart Height="{x:Static views:NetworkView.ChartHeight}" Bins="{Binding Bins}" Unit="{Binding Unit}" Mode="{Binding ChartMode}"
+                            <ctl:NetBarsChart ctl:Roomy.Height="{x:Static views:NetworkView.ChartHeight}" Bins="{Binding Bins}" Unit="{Binding Unit}" Mode="{Binding ChartMode}"
                                               ColorApps="{Binding ColorApps}" AppNames="{Binding AppNames}" Selected="{Binding SelectedBin}"
                                               AutomationProperties.Name="Usage chart" />
                             <ItemsControl ItemsSource="{Binding Legend}" Margin="0,10,0,0" Focusable="False">

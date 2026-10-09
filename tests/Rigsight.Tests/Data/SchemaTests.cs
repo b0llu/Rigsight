@@ -34,7 +34,7 @@ public sealed class SchemaTests
         ["fan_day"] = ["day", "fan", "rpm_sum", "rpm_n", "rpm_max", "idle_sum", "idle_n"],
         ["heat_day"] = ["day", "app", "n", "gpu_sum", "gpu_n", "cpu_sum", "cpu_n", "power_sum", "power_n"],
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
-        ["crashes"] = ["id", "ts", "kind", "app_exe", "app_path", "module", "code", "detail", "during_sleep"],
+        ["crashes"] = ["id", "ts", "kind", "app_exe", "app_path", "module", "code", "detail", "during_sleep", "ts_windows"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
         ["net_minute"] = ["ts", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "steady", "app"],
         ["net_day"] = ["day", "minutes", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "best", "best_ts"],

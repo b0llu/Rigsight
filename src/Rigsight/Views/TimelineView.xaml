@@ -161,16 +161,20 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Margin="32,26,32,0">
+    <Grid Margin="32,26,32,0" MaxWidth="{StaticResource PageWidth}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <StackPanel>
-            <TextBlock Text="Timeline" Style="{StaticResource H1}" />
-            <TextBlock Text="What was installed, updated, removed or switched on this PC, day by day." Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
-        </StackPanel>
+        <DockPanel>
+            <!-- How many, since when: at the title's right. At the end of the row below it slid under the search box on a small window. -->
+            <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" VerticalAlignment="Bottom" Margin="16,0,0,1" />
+            <StackPanel>
+                <TextBlock Text="Timeline" Style="{StaticResource H1}" />
+                <TextBlock Text="What was installed, updated, removed or switched on this PC, day by day." Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </DockPanel>
 
         <!-- What to show -->
         <DockPanel Grid.Row="1" Margin="0,16,0,0" Height="36">
@@ -202,8 +206,7 @@
                 </StackPanel>
             </Border>
             <TextBox Style="{StaticResource SearchBox}" Tag="Search changes…" Width="220" Margin="22,0,0,0" VerticalAlignment="Center"
-                     AutomationProperties.Name="Search the timeline" ctl:Debounce.Text="{Binding Search}" />
-            <TextBlock Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                     AutomationProperties.Name="Search the timeline" ctl:Debounce.Text="{Binding Search}" HorizontalAlignment="Left" />
         </DockPanel>
 
         <Grid Grid.Row="2" Margin="0,18,0,0">

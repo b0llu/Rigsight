@@ -1069,6 +1069,7 @@ internal sealed class AgentContext : ApplicationContext
     }
 
     private bool _crashesScanned;
+    private const string ShutdownTimesKey = "shutdown_times_placed";
 
     /// <summary>Sampler thread: copies new crash records from the Windows event logs into the database.</summary>
     private void ScanCrashes()
@@ -1076,6 +1077,15 @@ internal sealed class AgentContext : ApplicationContext
         try
         {
             var since = _crashesScanned ? DateTime.Now.AddMinutes(-30) : DateTime.Now.AddDays(-90);
+            // Once: the PC going down, stored under Windows' time (often half an hour early) by versions before 0.19.1,
+            // is put at the time it was last known to be running. The scan below does that for the last 90 days; this
+            // is for the ones stored from before, as far back as Windows' log still has them.
+            if (_db.GetMeta(ShutdownTimesKey) is null)
+            {
+                if (_db.FirstCrashTime() is long first && TimeUtil.FromUnix(first) < since)
+                    _db.InsertCrashes(CrashLogReader.ReadSince(TimeUtil.FromUnix(first).AddDays(-1), systemOnly: true).Where(e => e.NextStart is not null), knownOnly: true);
+                _db.SetMeta(ShutdownTimesKey, "1");
+            }
             var added = _db.InsertCrashes(CrashLogReader.ReadSince(since));
             bool firstScan = !_crashesScanned;
             _crashesScanned = true;

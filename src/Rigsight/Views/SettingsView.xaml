@@ -50,6 +50,8 @@
     </UserControl.Resources>
 
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <!-- On a wide window the page is centred like the others, and this column is at its left. -->
+        <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,40" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0"
@@ -529,21 +531,21 @@
                         <TextBlock Text="What's new" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
-                        <!-- The button itself says "Copied" for a moment: no line of text appears under the row. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding ReportBugText}" Command="{Binding ReportBugCommand}"
                                 VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Report a bug" />
                         <StackPanel>
                             <TextBlock Text="Report a bug" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Copies the logs and opens a form in your browser to paste them into. Rigsight itself sends nothing." />
+                                       Text="Opens a form in your browser. Rigsight itself sends nothing." />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
+                        <!-- The button itself says "Copied" for a moment: no line of text appears under the row. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding CopyLogsText}" Command="{Binding CopyProblemReportCommand}"
                                 VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Copy logs" />
                         <StackPanel>
                             <TextBlock Text="Logs" Style="{StaticResource Title}" />
-                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="Rigsight's recent log, with its version and your hardware, to paste wherever you ask for help." />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="Rigsight's recent log, with its version and your hardware, to paste into the bug form or wherever you ask for help." />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -572,5 +574,6 @@
                 </StackPanel>
             </ctl:SmoothBorder>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </UserControl>

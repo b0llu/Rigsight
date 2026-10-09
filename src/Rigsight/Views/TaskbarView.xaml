@@ -112,6 +112,8 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <!-- On a wide window the page is centred like the others, and this column is at its left. -->
+        <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,32" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Taskbar" Style="{StaticResource H1}" />
             <TextBlock Text="Readings next to the clock, always in view. In color, each part has its own: blue for the CPU, green for the GPU, purple for RAM."
@@ -430,5 +432,6 @@
                 </StackPanel>
             </ctl:SmoothBorder>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </UserControl>

@@ -127,6 +127,8 @@ public sealed partial class LiveData : ObservableObject
             if (value == ChartPlot) return;
             _settings.Update(s => s.ChartPlot = value);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(ChartLegendLabel));
+            UpdatePeaks();
         }
     }
 
@@ -157,6 +159,7 @@ public sealed partial class LiveData : ObservableObject
             OnPropertyChanged(nameof(ChartDayLabel));
             OnPropertyChanged(nameof(CanChartNextDay));
             OnPropertyChanged(nameof(CanChartPreviousDay));
+            UpdatePeaks();
             ChartRangeChanged?.Invoke();
         }
     }
@@ -204,6 +207,7 @@ public sealed partial class LiveData : ObservableObject
             OnPropertyChanged(nameof(ChartDayLabel));
             OnPropertyChanged(nameof(CanChartNextDay));
             OnPropertyChanged(nameof(CanChartPreviousDay));
+            UpdatePeaks();
             ChartRangeChanged?.Invoke();
         }
     }
@@ -442,6 +446,7 @@ public sealed partial class LiveData : ObservableObject
         // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
         AddSeries("GPU hot spot", GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, null));
         AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, null));
+        UpdatePeaks();
 
         _byKey.Clear();
         if (hello.Keys is not null)
@@ -514,6 +519,7 @@ public sealed partial class LiveData : ObservableObject
             foreach (var node in Hardware) node.RefreshKeys();
             UpdateGlance();
             UpdateDerived();
+            RaisePeaks(tick.Time);
         }
         if (tick.Today is not null) Today = tick.Today;
         if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
@@ -566,7 +572,60 @@ public sealed partial class LiveData : ObservableObject
         _minutes = minutes;
         _minuteStep = stepSeconds;
         foreach (var series in TempSeries) series.LoadMinutes(minutes, stepSeconds);
+        UpdatePeaks();
         Tick++;
+    }
+
+    /// <summary>
+    /// What the temperature graph's legend says of each line over the day, week, month or year shown: the same thing
+    /// the graph's points are (<see cref="ChartPlot"/>), for the whole period. Its highest and when ("HIGHEST  CPU
+    /// 84.2 °C  Sat 12 Sep, 9 PM"), its lowest and when, or its average: finding a month's highest meant hovering along
+    /// the whole graph. None on a window that ends now (the legend says the reading now), nor while the history loaded
+    /// is still another range's.
+    /// </summary>
+    private void UpdatePeaks()
+    {
+        var (from, to) = ChartPeriod;
+        long fromMs = new DateTimeOffset(from).ToUnixTimeMilliseconds(), toMs = new DateTimeOffset(to).ToUnixTimeMilliseconds();
+        foreach (var series in TempSeries)
+        {
+            if (!IsChartPaged || series.StepSeconds != ChartStepSeconds) SetPeak(series, null);
+            else if (ChartPlot == "Avg") SetPeak(series, series.Average(fromMs, toMs) is { } average ? (average, 0, 0) : null);
+            // A stored point is named by its start ("9 PM" is 9 to 10), as the hover box names it.
+            else SetPeak(series, (ChartPlot == "High" ? series.Highest(fromMs, toMs) : series.Lowest(fromMs, toMs)) is { } b
+                ? (b.Value, b.At, b.Stored ? b.At - series.StepSeconds * 500L : b.At) : null);
+        }
+    }
+
+    /// <summary>The word in front of the legend's figures: what they are, as the graph's choice goes.</summary>
+    public string ChartLegendLabel => ChartPlot switch { "High" => "HIGHEST", "Low" => "LOWEST", _ => "AVERAGE" };
+
+    private void SetPeak(ChartSeries series, (double Value, long At, long Named)? peak)
+    {
+        series.Peak = peak is { } p ? (p.Value, p.At) : null;
+        series.PeakText = Units.Format(SensorKind.Temperature, peak?.Value);
+        if (peak is not { At: > 0 } at) { series.PeakWhen = ""; return; }
+        var local = DateTimeOffset.FromUnixTimeMilliseconds(at.Named).LocalDateTime;
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        series.PeakWhen = IsChartYear ? local.ToString("ddd d MMM", culture)
+            : IsChartLong ? local.ToString("ddd d MMM, h tt", culture)
+            : local.ToString("h:mm tt", culture);
+    }
+
+    /// <summary>
+    /// A reading that has just arrived, in a period still going on: the highest (lowest) so far if it passes it. An
+    /// average waits for the history to be read again.
+    /// </summary>
+    private void RaisePeaks(long time)
+    {
+        if (!IsChartPaged || ChartPlot == "Avg" || ChartPeriod.To <= DateTime.Now) return;
+        bool high = ChartPlot == "High";
+        foreach (var series in TempSeries)
+        {
+            if (series.Sensor.Value is not double v || series.StepSeconds != ChartStepSeconds) continue;
+            // With no lowest yet there may be none to say (a line whose lowest readings aren't kept).
+            if (series.Peak is { } peak ? (high ? v > peak.Value : v < peak.Value) : high) SetPeak(series, (v, time, time));
+        }
     }
 
     /// <summary>Asks the agent for each process of these apps (exe names joined by "|", or null for none).</summary>

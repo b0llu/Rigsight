@@ -177,11 +177,10 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     /// <summary>Whether the live part is open under its line: the minute's chart, the connection, each app's speed.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LiveButtonText), nameof(LiveGlyph))]
+    [NotifyPropertyChangedFor(nameof(LiveButtonText))]
     private bool _showLive;
-    public string LiveButtonText => ShowLive ? "Hide live" : "Show live";
-    /// <summary>The arrow at the line's end: down to open, up to close (icon font).</summary>
-    public string LiveGlyph => ShowLive ? "\uE70E" : "\uE70D";
+    /// <summary>The button at the line's end, in a word.</summary>
+    public string LiveButtonText => ShowLive ? "Collapse" : "Expand";
 
     [RelayCommand]
     private void ToggleLive() => ShowLive = !ShowLive;

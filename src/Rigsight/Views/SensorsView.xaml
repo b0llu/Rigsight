@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:m="clr-namespace:Rigsight.Models"
-             xmlns:vm="clr-namespace:Rigsight.ViewModels">
+             xmlns:vm="clr-namespace:Rigsight.ViewModels"
+             xmlns:v="clr-namespace:Rigsight.Views">
     <UserControl.Resources>
         <Style x:Key="ColHeader" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -14,9 +15,44 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
+        <!-- A narrow window drops columns, not their right ends: first the lowest, highest and average (and each card's
+             count), then the last minute's line. The cells have the widths and their columns are Auto, so a dropped one
+             takes no room and the heading row stays in step with the rows. -->
+        <Style x:Key="Stat" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+            <Setter Property="Width" Value="76" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="StatHeader" TargetType="TextBlock" BasedOn="{StaticResource ColHeader}">
+            <Setter Property="Width" Value="76" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="WithStats" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowStats, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="WithSpark" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowSpark, RelativeSource={RelativeSource AncestorType={x:Type v:SensorsView}}}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="32,26,32,0">
+    <DockPanel Margin="32,26,32,0" MaxWidth="{StaticResource PageWidth}">
         <!-- Header -->
         <DockPanel DockPanel.Dock="Top">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -77,15 +113,15 @@
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
                           VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
                 <ItemsControl.Template>
                     <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer CanContentScroll="True" Focusable="False"
-                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <!-- The scrollbar has its own strip beside the cards: laid over them, it covered their right edge. -->
+                        <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" CanContentScroll="True">
                             <ItemsPresenter Margin="0,0,0,32" />
                         </ScrollViewer>
                     </ControlTemplate>
@@ -105,7 +141,9 @@
                                         MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
                                         ToolTip="Click to collapse or expand. Drag to change the order.">
                                     <DockPanel>
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
+                                        <Grid DockPanel.Dock="Right" Style="{StaticResource WithStats}">
+                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
+                                        </Grid>
                                         <!-- What the part is doing, in two or three readings: a folded card still says something. -->
                                         <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Keys}" Focusable="False" VerticalAlignment="Center" Margin="0,0,0,3">
                                             <ItemsControl.ItemsPanel>
@@ -145,27 +183,29 @@
                                         <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
                                             <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                         </Border>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
                                     </DockPanel>
                                 </Border>
                                 <Grid x:Name="Columns" Margin="0,20,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="58" />
                                         <ColumnDefinition Width="*" MinWidth="130" />
-                                        <ColumnDefinition Width="104" />
-                                        <ColumnDefinition Width="96" />
-                                        <ColumnDefinition Width="84" />
-                                        <ColumnDefinition Width="84" />
-                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="36" />
                                         <ColumnDefinition Width="30" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
-                                    <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+                                    <Grid Grid.Column="2" Width="92" Style="{StaticResource WithSpark}">
+                                        <TextBlock Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+                                    </Grid>
                                     <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" ToolTip="Lowest today, since midnight" />
-                                    <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" ToolTip="Highest today, since midnight" />
-                                    <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" ToolTip="Average since you opened this window" />
+                                    <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource StatHeader}" ToolTip="Lowest today, since midnight" />
+                                    <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource StatHeader}" ToolTip="Highest today, since midnight" />
+                                    <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource StatHeader}" ToolTip="Average since you opened this window" />
                                 </Grid>
                             </StackPanel>
                         </ctl:SmoothBorder>
@@ -205,11 +245,11 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="58" />
                                         <ColumnDefinition Width="*" MinWidth="130" />
-                                        <ColumnDefinition Width="104" />
-                                        <ColumnDefinition Width="96" />
-                                        <ColumnDefinition Width="84" />
-                                        <ColumnDefinition Width="84" />
-                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="36" />
                                         <ColumnDefinition Width="30" />
                                     </Grid.ColumnDefinitions>
@@ -221,9 +261,11 @@
                                     <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
                                              Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
                                              ToolTip="{Binding NameTip}" KeyDown="RenameBox_KeyDown" />
-                                    <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
-                                                   Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
-                                                   Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
+                                    <Grid Grid.Column="2" Width="92" Style="{StaticResource WithSpark}">
+                                        <ctl:Sparkline Height="22" Margin="12,0"
+                                                       Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
+                                                       Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
+                                    </Grid>
                                     <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
@@ -244,9 +286,9 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
-                                    <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
-                                    <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
+                                    <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Stat}" />
+                                    <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Stat}" />
+                                    <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Stat}" />
                                     <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
                                             Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
@@ -277,7 +319,9 @@
             </ItemsControl>
 
             <!-- What stands out right now, read from every sensor: nothing to pick. A line jumps to its sensor in the list. -->
-            <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="18,0,0,0" AutomationProperties.Name="Right now">
+            <!-- As tall as what it says and never taller than the window: past that it scrolls by itself (it ran off the
+                 window's foot, and the fans and the power under them couldn't be reached). -->
+            <ctl:SmoothBorder x:Name="Pane" Grid.Column="1" Width="302" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="18,0,0,24" AutomationProperties.Name="Right now">
                 <ctl:SmoothBorder.Resources>
                     <DataTemplate DataType="{x:Type vm:GlanceRow}">
                         <Button Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
@@ -322,8 +366,11 @@
                         <Setter Property="Margin" Value="0,18,0,4" />
                     </Style>
                 </ctl:SmoothBorder.Resources>
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Right now" Style="{StaticResource H2}" />
+                    <!-- Its scrollbar has its own strip, most of it in the card's right padding: laid over the rows, it sat on the figures. -->
+                    <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" Margin="0,0,-14,0" ctl:WheelChain.Enabled="True">
                 <StackPanel>
-                    <TextBlock Text="Right now" Style="{StaticResource H2}" />
                     <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Text="nearest its limit" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
@@ -347,6 +394,8 @@
                         <ItemsControl ItemsSource="{Binding PowerDraw}" Focusable="False" />
                     </StackPanel>
                 </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
             </ctl:SmoothBorder>
         </Grid>
     </DockPanel>

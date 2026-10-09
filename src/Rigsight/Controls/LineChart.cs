@@ -297,6 +297,7 @@ public sealed class LineChart : FrameworkElement
         // Where nothing was recorded: a thin strip along the foot of the chart, so an empty stretch reads as "no readings",
         // not as a PC that stayed cool. (Shaded from top to bottom, the empty stretches were what the eye went to, not the lines.)
         var gaps = GapsShown(series, from, to);
+        var marks = new List<(double X, (long From, long To) Gap)>();
         foreach (var (gapFrom, gapTo) in gaps)
         {
             double left = plot.Left + plot.Width * (Math.Max(gapFrom, from) - from) / (to - from), right = plot.Left + plot.Width * (Math.Min(gapTo, to) - from) / (to - from);
@@ -306,6 +307,7 @@ public sealed class LineChart : FrameworkElement
             if (gapFrom >= from && GapReason?.Invoke(gapFrom, gapTo) is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed)
             {
                 double x = Math.Round(left) + 0.5;
+                marks.Add((x, (gapFrom, gapTo)));
                 dc.DrawGeometry(ChartPaint.Hot, null, Frozen(new PathGeometry([new PathFigure(new Point(x - 5, plot.Bottom),
                     [new LineSegment(new Point(x + 5, plot.Bottom), false), new LineSegment(new Point(x, plot.Bottom - 8), false)], true)])));
             }
@@ -324,7 +326,10 @@ public sealed class LineChart : FrameworkElement
         if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
         {
             long at = from + (long)((hx - plot.Left) / plot.Width * (to - from));
-            if (gaps.FirstOrDefault(g => at >= g.From && at < g.To) is { To: > 0 } gap) DrawGapHover(dc, plot, gap, hx, dpi);
+            // On a red mark (the pointer on any part of it, also its half before the stretch begins): why it is there.
+            if (marks.Where(m => Math.Abs(m.X - hx) <= MarkReach).OrderBy(m => Math.Abs(m.X - hx)).Select(m => ((long From, long To)?)m.Gap).FirstOrDefault() is { } marked)
+                DrawGapHover(dc, plot, marked, hx, dpi);
+            else if (gaps.FirstOrDefault(g => at >= g.From && at < g.To) is { To: > 0 } gap) DrawGapHover(dc, plot, gap, hx, dpi);
             else DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
         }
 
@@ -335,6 +340,9 @@ public sealed class LineChart : FrameworkElement
             dc.DrawGeometry(null, s.LinePen, g.Line);
         }
     }
+
+    /// <summary>How far to either side of a red mark's tip the pointer still counts as on it (the mark is 10 px wide).</summary>
+    private const double MarkReach = 7;
 
     private static Brush GapFill => _gapFill?.Color == ChartPaint.Res("TextColor", 0x80) ? _gapFill
         : _gapFill = Frozen(new SolidColorBrush(ChartPaint.Res("TextColor", 0x80)) { Opacity = 0.28 });
@@ -433,14 +441,14 @@ public sealed class LineChart : FrameworkElement
         long shownTime = t;
         bool fromMinutes = false;
         bool stats = ByMinute && IsTemp;
-        var rows = new List<(ChartSeries Series, double? Value, double? High, double? Low)>();
+        var rows = new List<(ChartSeries Series, double? Value, double? High, double? Low, double? At)>();
         foreach (var s in series)
         {
             // The live buffer covers recent time; before it starts, the minute history.
             bool useMinutes = t < LiveStart(s);
             var buffer = useMinutes ? Older(s) : s.Sensor.History;
             int i = buffer?.NearestIndex(t) ?? -1;
-            double? value = null, high = null, low = null;
+            double? value = null, high = null, low = null, drawn = null;
             // Only a sample near the pointer counts (none across a gap, e.g. while the PC was off).
             if (buffer is not null && i >= 0 && Math.Abs(buffer.TimeAt(i) - t) <= (useMinutes ? s.StepSeconds * 1500L : 5_000) && !double.IsNaN(buffer.ValueAt(i)))
             {
@@ -464,11 +472,15 @@ public sealed class LineChart : FrameworkElement
                 }
                 if (rows.Count == 0 || rows.All(r => r.Value is null && r.High is null)) shownTime = time;
                 fromMinutes |= useMinutes || ByMinute;
+                drawn = at;
                 double y = plot.Bottom - (Shown(at) - lo) / (hi - lo) * plot.Height;
                 dc.DrawEllipse(s.Brush, new Pen(HoverBack, 2), new Point(hx, Math.Clamp(y, plot.Top, plot.Bottom)), 4, 4);
             }
-            rows.Add((s, value, high, low));
+            rows.Add((s, value, high, low, drawn));
         }
+        // The box lists the lines as they stand at the pointer, top one first (a line with nothing there goes last):
+        // a fixed order had the lowest line's name above the highest's.
+        rows = [.. rows.OrderByDescending(r => r.At ?? double.NegativeInfinity)];
 
         var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
         string when = Long ? local.ToString(Step == 86400 ? "ddd d MMM yyyy" : "ddd d MMM, h tt", CultureInfo.CurrentCulture)

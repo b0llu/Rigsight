@@ -62,7 +62,7 @@ public sealed class CrashModelTests
         Assert.Same(rows[0], g.Latest);
         Assert.Same(rows[1], g.First);
         Assert.Equal("×3", g.CountText);
-        Assert.Equal($"Last: {rows[0].TimeText} · first {rows[1].Time:d MMM}", g.WhenText);
+        Assert.Equal($"First: {rows[1].Time:d MMM} · Last: {rows[0].TimeText}", g.WhenText);
         Assert.Equal("Last time, just before: ", g.ContextLabel);
         Assert.Equal(CrashSeverity.Minor, g.Severity);
         Assert.Equal("game.exe", g.AppExe);
@@ -299,8 +299,25 @@ public sealed class CrashModelTests
     public void Technical_details_leave_out_what_is_missing()
     {
         var full = Crashes.Row(CrashKind.SystemCrash, Noon, "x.exe", module: "ntoskrnl.exe", code: "0x124", detail: "WHEA", dump: @"C:\d.dmp");
-        Assert.Equal(@"x.exe  ·  module ntoskrnl.exe  ·  code 0x124  ·  WHEA  ·  dump C:\d.dmp", full.TechnicalText);
-        Assert.Equal("", Crashes.Power(Noon).TechnicalText);
+        Assert.Equal(@"x.exe  ·  module ntoskrnl.exe  ·  code 0x124  ·  WHEA  ·  time from Windows' log, which is often earlier than the moment itself  ·  dump C:\d.dmp", full.TechnicalText);
+        Assert.Equal("", Crashes.Reset(Noon).TechnicalText.Replace("module nvlddmkm", ""));
+    }
+
+    [Fact]
+    public void A_shutdown_moved_off_windows_time_says_what_windows_log_has()
+    {
+        // Stored at the last minute recorded (12:00), where Windows' log has 11:25: both are said, for anyone who looks there.
+        var moved = Crashes.Power(Noon);
+        moved.Event.WindowsTs = TimeUtil.ToUnix(Noon.AddMinutes(-35));
+        Assert.Equal("Windows' log says 11:25 AM, readings were recorded until 12:00 PM", moved.TechnicalText);
+        // Windows' time from the day before says its day.
+        moved.Event.WindowsTs = TimeUtil.ToUnix(Noon.AddHours(-13));
+        Assert.StartsWith($"Windows' log says {Noon.AddHours(-13):ddd d MMM}, 11:00 PM, readings", moved.TechnicalText);
+        // The same time (nothing was recorded after Windows' own), or none kept: it is Windows' time, and that is said.
+        moved.Event.WindowsTs = moved.Event.Ts;
+        Assert.Equal("time from Windows' log, which is often earlier than the moment itself", moved.TechnicalText);
+        Assert.Equal(moved.TechnicalText, Crashes.Power(Noon).TechnicalText);
+        Assert.Null(Crashes.Reset(Noon).WindowsTimeNote);
     }
 
     [Fact]

@@ -44,6 +44,8 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <!-- On a wide window the page is centred like the others, and this column is at its left. -->
+        <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,32" MaxWidth="980" HorizontalAlignment="Left">
             <TextBlock Text="Game overlay" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,18" />
@@ -371,5 +373,6 @@
                 </DockPanel>
             </ctl:SmoothBorder>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </UserControl>

@@ -38,7 +38,7 @@ public class ProblemReportTests
     }
 
     [Fact]
-    public void Report_a_bug_copies_the_report_and_opens_the_form_and_sends_nothing_itself()
+    public void Report_a_bug_only_opens_the_form_and_Copy_only_copies()
     {
         var settings = Kit.OfflineSettings();
         Ui.Run(() =>
@@ -50,31 +50,26 @@ public class ProblemReportTests
 
             Assert.Equal(("Report a bug", "Copy"), (vm.ReportBugText, vm.CopyLogsText));
             vm.ReportBugCommand.Execute(null);
-            Assert.StartsWith("Rigsight ", copied);
             Assert.Equal(ProblemReport.BugFormUrl, opened);
             // The address is the form and nothing else: no part of the report rides along in it.
             Assert.StartsWith("https://docs.google.com/forms/", opened);
             Assert.DoesNotContain("?", opened);
-            // The button says what happened, for a moment; the other one is left alone.
-            Assert.Equal(("Copied", "Copy"), (vm.ReportBugText, vm.CopyLogsText));
-            vm.ResetReportButtons();
-            Assert.Equal("Report a bug", vm.ReportBugText);
+            // It copies nothing (that is the other button) and so never says "Copied": the form opening is the answer.
+            Assert.Null(copied);
+            Assert.Equal(("Report a bug", "Copy"), (vm.ReportBugText, vm.CopyLogsText));
 
             // Copy logs only copies: nothing opens, and its own button says so.
             (copied, opened) = (null, null);
             vm.CopyProblemReportCommand.Execute(null);
-            Assert.NotNull(copied);
+            Assert.StartsWith("Rigsight ", copied);
             Assert.Null(opened);
             Assert.Equal(("Report a bug", "Copied"), (vm.ReportBugText, vm.CopyLogsText));
             // It goes back to its name by itself.
             Ui.Pump((int)SettingsViewModel.ButtonSaysFor.TotalMilliseconds + 400);
             Assert.Equal("Copy", vm.CopyLogsText);
 
-            // The clipboard held by another program: the form still opens, and the button says the copy failed.
+            // The clipboard held by another program: the button says the copy failed.
             vm.SetClipboard = _ => throw new System.Runtime.InteropServices.COMException("busy");
-            vm.ReportBugCommand.Execute(null);
-            Assert.Equal(ProblemReport.BugFormUrl, opened);
-            Assert.Equal("Couldn't copy", vm.ReportBugText);
             vm.CopyProblemReportCommand.Execute(null);
             Assert.Equal("Couldn't copy", vm.CopyLogsText);
             // No browser to open it with: said on the button, not thrown.

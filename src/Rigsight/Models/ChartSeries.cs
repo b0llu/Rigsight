@@ -4,8 +4,80 @@ using Rigsight.Core.Data;
 namespace Rigsight.Models;
 
 /// <summary>One line on a history chart.</summary>
-public sealed class ChartSeries
+public sealed partial class ChartSeries : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    /// <summary>
+    /// What the legend says of the line over the period the chart shows (a day, week, month or year): its highest
+    /// or lowest reading and when (Unix milliseconds), or its average (no time), as the graph's own choice of
+    /// average, highest or lowest goes. Null on a window that ends now, or with nothing recorded.
+    /// </summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private (double Value, long At)? _peak;
+
+    /// <summary><see cref="Peak"/> in words: "84.2 °C" and "Sat 12 Sep, 9 PM" (no time for an average).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private string _peakText = "—";
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private string _peakWhen = "";
+
+    /// <summary>
+    /// The highest reading from <paramref name="from"/> up to <paramref name="to"/> (Unix milliseconds): each stored
+    /// minute's (hour's, day's) highest, or its one value where no highest was kept, and the live readings in that
+    /// time. <c>Stored</c>: it is a stored point, whose time is the middle of its minute (hour, day).
+    /// </summary>
+    public (double Value, long At, bool Stored)? Highest(long from, long to)
+    {
+        (double Value, long At, bool Stored)? best = null;
+        bool stats = _high.Count == Minutes.Count;
+        for (int i = Minutes.IndexAtOrAfter(from); i < Minutes.Count && Minutes.TimeAt(i) < to; i++)
+        {
+            double v = stats && !double.IsNaN(_high.ValueAt(i)) ? _high.ValueAt(i) : Minutes.ValueAt(i);
+            if (!double.IsNaN(v) && (best is not { } b || v > b.Value)) best = (v, Minutes.TimeAt(i), true);
+        }
+        var live = Sensor.History;
+        for (int i = live.IndexAtOrAfter(from); i < live.Count && live.TimeAt(i) < to; i++)
+        {
+            double v = live.ValueAt(i);
+            if (!double.IsNaN(v) && (best is not { } b || v > b.Value)) best = (v, live.TimeAt(i), false);
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// The lowest reading in that time, in the same way. Null too where a stored minute (hour, day) of it kept no
+    /// lowest (none is kept for the hot spot or the memory): the lowest of the rest would pass for the period's.
+    /// </summary>
+    public (double Value, long At, bool Stored)? Lowest(long from, long to)
+    {
+        (double Value, long At, bool Stored)? best = null;
+        bool stats = _low.Count == Minutes.Count;
+        for (int i = Minutes.IndexAtOrAfter(from); i < Minutes.Count && Minutes.TimeAt(i) < to; i++)
+        {
+            if (double.IsNaN(Minutes.ValueAt(i))) continue;
+            if (!stats || double.IsNaN(_low.ValueAt(i))) return null;
+            double v = _low.ValueAt(i);
+            if (best is not { } b || v < b.Value) best = (v, Minutes.TimeAt(i), true);
+        }
+        var live = Sensor.History;
+        for (int i = live.IndexAtOrAfter(from); i < live.Count && live.TimeAt(i) < to; i++)
+        {
+            double v = live.ValueAt(i);
+            if (!double.IsNaN(v) && (best is not { } b || v < b.Value)) best = (v, live.TimeAt(i), false);
+        }
+        return best;
+    }
+
+    /// <summary>The average over that time: of the stored minutes (hours, days), or with none of them of the live readings.</summary>
+    public double? Average(long from, long to)
+    {
+        double sum = 0;
+        int n = 0;
+        foreach (var buffer in new[] { Minutes, Sensor.History })
+        {
+            for (int i = buffer.IndexAtOrAfter(from); i < buffer.Count && buffer.TimeAt(i) < to; i++)
+                if (!double.IsNaN(buffer.ValueAt(i))) { sum += buffer.ValueAt(i); n++; }
+            if (n > 0) break;
+        }
+        return n == 0 ? null : sum / n;
+    }
+
     /// <param name="colorKey">The palette color ("CpuColor"…), so the line follows the dark or light theme.</param>
     /// <param name="minuteStats">A stored minute's average, highest and lowest, for the hover box (null: none kept).</param>
     public ChartSeries(string label, SensorItem sensor, string colorKey, Func<SystemMinute, double?>? fromMinute = null,

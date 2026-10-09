@@ -58,14 +58,17 @@ public static partial class CrashLogReader
         }
     }
 
-    /// <summary>All crashes logged since <paramref name="since"/> (oldest first).</summary>
-    public static List<CrashEvent> ReadSince(DateTime since)
+    /// <summary>
+    /// All crashes logged since <paramref name="since"/> (oldest first); with <paramref name="systemOnly"/>, without
+    /// the apps' (the PC going down and graphics driver resets alone).
+    /// </summary>
+    public static List<CrashEvent> ReadSince(DateTime since, bool systemOnly = false)
     {
         var events = new List<CrashEvent>();
         var shutdownTimes = new List<(DateTime Logged, DateTime Happened)>();
         var kernelPower = new List<(DateTime Logged, uint Bugcheck, PowerMoment Moment)>();
 
-        foreach (var record in Query("Application", AppQuery, since))
+        foreach (var record in systemOnly ? [] : Query("Application", AppQuery, since))
         {
             using (record)
             {
@@ -101,7 +104,8 @@ public static partial class CrashLogReader
             }
         }
 
-        // Kernel-Power 41 is logged at the *next* boot; event 6008 says when the PC actually went down.
+        // Kernel-Power 41 is logged at the *next* boot; event 6008 says when the PC went down, as far as Windows knows:
+        // the last time it happened to note while running, which can be half an hour before (see CrashEvent.NextStart).
         foreach (var (logged, bugcheck, moment) in kernelPower)
         {
             var match = shutdownTimes.Where(s => Math.Abs((s.Logged - logged).TotalMinutes) < 5).Select(s => (DateTime?)s.Happened).FirstOrDefault();
@@ -112,6 +116,7 @@ public static partial class CrashLogReader
                 AppExe = "",
                 Code = bugcheck != 0 ? $"0x{bugcheck:X}" : null,
                 Moment = moment,
+                NextStart = TimeUtil.ToUnix(logged),
                 Detail = match is null ? $"Noticed at startup {logged:g}" : $"Found at next startup ({logged:g})",
             });
         }

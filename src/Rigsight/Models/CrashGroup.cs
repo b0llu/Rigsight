@@ -86,9 +86,9 @@ public sealed partial class CrashGroup : ObservableObject
 
     public string CountText => $"×{Count}";
 
-    /// <summary>"Yesterday, 12:32 PM" or, for repeats, "Last: yesterday, 12:32 PM · first 25 Jun".</summary>
+    /// <summary>"Yesterday, 12:32 PM" or, for repeats, "First: 25 Jun · Last: yesterday, 12:32 PM" (a bare "first 25 Jun" at the end wasn't understood).</summary>
     public string WhenText => Count == 1 ? Latest.TimeText
-        : $"Last: {Latest.TimeText} · first {First.Time:d MMM}";
+        : $"First: {First.Time:d MMM} · Last: {Latest.TimeText}";
 
     public string ExpandText => IsExpanded ? "Hide times" : $"All {Count} times";
     partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(ExpandText));

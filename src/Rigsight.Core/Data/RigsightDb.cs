@@ -103,6 +103,9 @@ public sealed partial class RigsightDb : IDisposable
         if (!HasColumn("system_minute", "gpu_hot_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_hot_avg REAL");
         if (!HasColumn("system_minute", "gpu_mem_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_avg REAL");
 
+        // Windows' own time for a PC going down, beside the one shown (0.19.1, see InsertCrashes).
+        if (!HasColumn("crashes", "ts_windows")) Exec("ALTER TABLE crashes ADD COLUMN ts_windows INTEGER");
+
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
         Exec("CREATE INDEX IF NOT EXISTS ix_sessions_app ON sessions(app_id, start)");
@@ -601,17 +604,66 @@ public sealed partial class RigsightDb : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>Stores crashes; ones already recorded are ignored. Returns the newly added ones.</summary>
-    public List<CrashEvent> InsertCrashes(IEnumerable<CrashEvent> crashes)
+    /// <summary>
+    /// When a PC that went down was last known to be running (Unix seconds). Windows' own time for it
+    /// (<paramref name="windowsTs"/>) is the last one it happened to note, which on this PC was 5 to 35 minutes before
+    /// the minutes recorded here stopped; so it is the end of the last minute recorded before Windows next started
+    /// (<paramref name="nextStart"/>), where that is later. Windows' time stands where nothing was recorded after it
+    /// (nothing was recording, or those minutes are no longer kept).
+    /// </summary>
+    public long LastSeenRunning(long windowsTs, long nextStart)
+    {
+        // A minute that ended before that start: the minute the PC started in can have a row too, written after it.
+        using var cmd = Cmd("SELECT max(ts) FROM system_minute WHERE ts <= $before", ("$before", nextStart - 60));
+        return cmd.ExecuteScalar() is long minute && minute + 60 > windowsTs ? minute + 60 : windowsTs;
+    }
+
+    /// <summary>
+    /// A PC going down, read from Windows' log with the start it was written up at: given the time it was last known
+    /// to be running, and if it is stored already (under Windows' time, as before 0.19.1, or under the one it was given
+    /// since) that row is moved there, never back. True when it was stored already.
+    /// </summary>
+    private bool PlaceShutdown(CrashEvent e, long nextStart)
+    {
+        long windows = e.WindowsTs ?? e.Ts;
+        e.WindowsTs = windows;
+        e.Ts = LastSeenRunning(windows, nextStart);
+        long? id = null;
+        long storedTs = 0;
+        using (var find = Cmd("SELECT id, ts FROM crashes WHERE kind = $kind AND app_exe = $exe AND (ts_windows = $w OR ts = $w OR ts = $ts) ORDER BY ts_windows IS NULL LIMIT 1",
+                   ("$kind", e.Kind.ToString()), ("$exe", e.AppExe ?? ""), ("$w", windows), ("$ts", e.Ts)))
+        using (var r = find.ExecuteReader())
+            if (r.Read()) (id, storedTs) = (r.GetInt64(0), r.GetInt64(1));
+        if (id is null) return false;
+        // Never back: with the minutes around it gone (history is only kept so long), Windows' time is all there is to
+        // work out again, and the stored one was worked out while they were there.
+        e.Ts = Math.Max(e.Ts, storedTs);
+        // An unexpected shutdown's moment is put right too, as before (older versions read it wrongly); a blue screen's
+        // says nothing anyone is shown, and stays as stored.
+        using var move = Cmd($"UPDATE OR IGNORE crashes SET ts = $ts, ts_windows = $w{(e.Kind == CrashKind.UnexpectedShutdown ? ", during_sleep = $sleep" : "")} WHERE id = $id",
+            ("$ts", e.Ts), ("$w", windows), ("$sleep", (int)e.Moment), ("$id", id.Value));
+        move.ExecuteNonQuery();
+        return true;
+    }
+
+    /// <summary>
+    /// Stores crashes; ones already recorded are ignored. Returns the newly added ones. A PC going down is stored at the
+    /// time it was last known to be running, and one stored before under Windows' time is moved there (see
+    /// <see cref="LastSeenRunning"/>); its event comes back with that time. With <paramref name="knownOnly"/> nothing
+    /// is added: stored ones are put right, the rest left out.
+    /// </summary>
+    public List<CrashEvent> InsertCrashes(IEnumerable<CrashEvent> crashes, bool knownOnly = false)
     {
         var added = new List<CrashEvent>();
         foreach (var e in crashes)
         {
+            if (e.NextStart is long nextStart && PlaceShutdown(e, nextStart)) continue;
+            if (knownOnly) continue;
             using var cmd = Cmd("""
-                INSERT OR IGNORE INTO crashes(ts, kind, app_exe, app_path, module, code, detail, during_sleep)
-                VALUES($ts, $kind, $exe, $path, $module, $code, $detail, $sleep)
+                INSERT OR IGNORE INTO crashes(ts, kind, app_exe, app_path, module, code, detail, during_sleep, ts_windows)
+                VALUES($ts, $kind, $exe, $path, $module, $code, $detail, $sleep, $windows)
                 """, ("$ts", e.Ts), ("$kind", e.Kind.ToString()), ("$exe", e.AppExe ?? ""), ("$path", e.AppPath),
-                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", (int)e.Moment));
+                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", (int)e.Moment), ("$windows", e.WindowsTs));
             if (cmd.ExecuteNonQuery() > 0) added.Add(e);
             else if (e.Kind == CrashKind.UnexpectedShutdown)
             {
@@ -1081,10 +1133,15 @@ public sealed partial class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
+    // crashes.ts_windows is added by the agent (0.19.1); the app may read an older database first, and goes on reading
+    // it after the agent has added the column.
+    private bool _hasWindowsTs;
+
     public List<CrashEvent> GetCrashes(long from, long to)
     {
-        using var cmd = Cmd("""
-            SELECT id, ts, kind, app_exe, app_path, module, code, detail, during_sleep
+        _hasWindowsTs = _hasWindowsTs || HasColumn("crashes", "ts_windows");
+        using var cmd = Cmd($"""
+            SELECT id, ts, kind, app_exe, app_path, module, code, detail, during_sleep, {(_hasWindowsTs ? "ts_windows" : "NULL")}
             FROM crashes WHERE ts >= $from AND ts < $to ORDER BY ts DESC
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -1098,6 +1155,7 @@ public sealed partial class RigsightDb : IDisposable
                 AppExe = r.GetString(3), AppPath = r.IsDBNull(4) ? null : r.GetString(4),
                 Module = r.IsDBNull(5) ? null : r.GetString(5), Code = r.IsDBNull(6) ? null : r.GetString(6),
                 Detail = r.IsDBNull(7) ? null : r.GetString(7), Moment = (PowerMoment)Math.Clamp(r.GetInt64(8), 0, 2),
+                WindowsTs = r.IsDBNull(9) ? null : r.GetInt64(9),
             });
         }
         return list;

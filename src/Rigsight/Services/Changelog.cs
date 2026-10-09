@@ -68,6 +68,20 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.19.1", 10, 9,
+            better: ["An unexpected shutdown is timed by the last minute recorded, not Windows' earlier time.",
+                "Past shutdowns are moved to that time too, and say what was running just before.",
+                "Temperatures says each part's average, highest or lowest for the day, week, month or year.",
+                "Hovering a red mark on the temperature graph says why it is there.",
+                "The temperature graph's hover box lists the hottest part first.",
+                "All sensors fits a small window: columns drop out instead of being cut off.",
+                "Maximised on a big screen, pages keep a readable width and charts grow taller."],
+            fixedBugs: ["Readings on Temperatures and Memory are no longer cut off in a small window.",
+                "Small-window fixes on Crashes, Reports, Apps, Timeline, Network and Widgets.",
+                "Report a bug only opens the form now. Copy is the button that copies the logs.",
+                "The Right now pane on All sensors no longer runs off the bottom of the window.",
+                "Scrollbars on All sensors no longer sit on top of the readings.",
+                "The menu button at the end of a sensor's row is no longer cut off."]),
         V("0.19.0", 10, 9,
             added: ["The Network page is about usage now: who used your internet, hour by hour.",
                 "Click a bar on the Network chart to see that hour's apps.",

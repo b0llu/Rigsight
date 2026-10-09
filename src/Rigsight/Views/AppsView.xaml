@@ -11,7 +11,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="32,26,32,24">
+    <Grid Margin="32,26,32,24" MaxWidth="{StaticResource PageWidth}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -196,27 +196,29 @@
                     <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                         <StackPanel>
                             <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                            <ctl:DailyBars Height="170" Days="{Binding SelectedChart}" />
+                            <ctl:DailyBars ctl:Roomy.Height="170" Days="{Binding SelectedChart}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
 
                     <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding SelectedSessions.Count, Converter={StaticResource Vis}}">
                         <StackPanel>
                             <TextBlock Text="Recent sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                            <ItemsControl ItemsSource="{Binding SelectedSessions}">
+                            <!-- When, how long, how warm: the last two are as wide as their widest (the same on every row), and
+                                 the time has the rest. Two set widths cut the time off on a small window with room to spare beside it. -->
+                            <ItemsControl ItemsSource="{Binding SelectedSessions}" Grid.IsSharedSizeScope="True">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid Margin="0,5">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="90" />
-                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="SessionLength" />
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="SessionHeat" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Style="{StaticResource Body}">
+                                            <TextBlock Style="{StaticResource Body}" TextTrimming="CharacterEllipsis">
                                                 <Run Text="{Binding Start, StringFormat='{}{0:ddd d MMM, h:mm tt}', Mode=OneWay}" /><Run Text=" – " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding End, StringFormat='{}{0:h:mm tt}', Mode=OneWay}" />
                                             </TextBlock>
-                                            <TextBlock Grid.Column="1" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold" />
-                                            <TextBlock Grid.Column="2" Style="{StaticResource Muted}" HorizontalAlignment="Right">
+                                            <TextBlock Grid.Column="1" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="16,0,0,0" MinWidth="52" />
+                                            <TextBlock Grid.Column="2" Style="{StaticResource Muted}" HorizontalAlignment="Right" Margin="22,0,0,0">
                                                 <Run Text="CPU" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   GPU" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                             </TextBlock>
                                         </Grid>

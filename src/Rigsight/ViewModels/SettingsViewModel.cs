@@ -291,8 +291,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name).</summary>
     public Func<IReadOnlyList<(string, string)>>? GetHardware { get; set; }
 
-    /// <summary>What the two buttons say: their name, and for a moment after a press what happened ("Copied").
-    /// The button is where the answer is: no line of text appears under the row.</summary>
+    /// <summary>What the two buttons say: their name, and for a moment after a press what happened ("Copied" on Copy,
+    /// "Couldn't open" on Report a bug). The button is where the answer is: no line of text appears under the row.</summary>
     [ObservableProperty] private string _reportBugText = "Report a bug";
     [ObservableProperty] private string _copyLogsText = "Copy";
 
@@ -340,17 +340,16 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     private void CopyProblemReport() => SayOnButtons(null, CopyReport() ? "Copied" : "Couldn't copy");
 
     /// <summary>
-    /// Report a bug: the report is copied and the bug form opens in the browser, with one box to paste it into. The app
-    /// sends nothing itself: what reaches anyone is what the person pastes and submits.
+    /// Report a bug: the bug form opens in the browser, and that is all (copying is the Logs row's Copy: a button that
+    /// opened a form and said "Copied" read as the wrong button). The app sends nothing itself: what reaches anyone is
+    /// what the person pastes and submits.
     /// </summary>
     [RelayCommand]
     private void ReportBug()
     {
-        bool copied = CopyReport();
         try
         {
             OpenInBrowser(ProblemReport.BugFormUrl);
-            SayOnButtons(copied ? "Copied" : "Couldn't copy", null);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {

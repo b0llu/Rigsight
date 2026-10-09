@@ -13,6 +13,36 @@ public partial class SensorsView : UserControl
         DataContextChanged += OnDataContextChanged;
         Unloaded += (_, _) => { if (_live is not null) _live.Revealed -= ScrollTo; };
         Loaded += (_, _) => { if (_live is not null) { _live.Revealed -= ScrollTo; _live.Revealed += ScrollTo; } };
+        SizeChanged += (_, e) => Fit(e.NewSize.Width);
+    }
+
+    // ── A narrow window: fewer columns, then no pane, never rows cut off at the right ──
+
+    /// <summary>The rows' lowest, highest and average columns (and each card's count of sensors) have room.</summary>
+    public static readonly DependencyProperty ShowStatsProperty = DependencyProperty.Register(nameof(ShowStats), typeof(bool), typeof(SensorsView), new PropertyMetadata(true));
+    public bool ShowStats { get => (bool)GetValue(ShowStatsProperty); set => SetValue(ShowStatsProperty, value); }
+
+    /// <summary>The rows' last-minute line has room.</summary>
+    public static readonly DependencyProperty ShowSparkProperty = DependencyProperty.Register(nameof(ShowSpark), typeof(bool), typeof(SensorsView), new PropertyMetadata(true));
+    public bool ShowSpark { get => (bool)GetValue(ShowSparkProperty); set => SetValue(ShowSparkProperty, value); }
+
+    // The page's side margins; the pane with its gap; a row with every column and the list's scrollbar strip; the same
+    // without the three figures; the least the list is left beside the pane.
+    internal const double Sides = 64, PaneWidth = 320, FullRow = 728, RowWithSpark = 500, LeastList = 420;
+
+    /// <summary>What a page this wide shows: the pane while the list keeps a readable width beside it, and the columns the list then has room for.</summary>
+    internal static (bool Pane, bool Stats, bool Spark) Fits(double width)
+    {
+        bool pane = width - Sides - PaneWidth >= LeastList;
+        double list = width - Sides - (pane ? PaneWidth : 0);
+        return (pane, list >= FullRow, list >= RowWithSpark);
+    }
+
+    private void Fit(double width)
+    {
+        var (pane, stats, spark) = Fits(width);
+        Pane.Visibility = pane ? Visibility.Visible : Visibility.Collapsed;
+        (ShowStats, ShowSpark) = (stats, spark);
     }
 
     // ── A group's header: click to collapse or expand, drag to move the group ──

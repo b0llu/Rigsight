@@ -58,7 +58,7 @@
     <Grid>
         <!-- The widgets -->
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="32,26,32,32">
+            <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
                 <DockPanel>
                     <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding CreateCommand}" VerticalAlignment="Top"
                             Margin="16,4,0,0" AutomationProperties.Name="Create widget">
@@ -75,12 +75,12 @@
                 </DockPanel>
 
                 <TextBlock Text="BUILT IN" Style="{StaticResource Section}" Margin="0,22,0,10" />
-                <ScrollViewer x:Name="BuiltInRow" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                <ScrollViewer x:Name="BuiltInRow" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
                               PreviewMouseWheel="BuiltInRow_PreviewMouseWheel">
                     <ItemsControl ItemsSource="{Binding BuiltIn}" ItemTemplate="{StaticResource WidgetCardTemplate}" Margin="0,0,0,4">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <WrapPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>

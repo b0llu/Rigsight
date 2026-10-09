@@ -24,7 +24,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <!-- Header -->
             <DockPanel>
                 <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False" BusyOnLeft="True"
@@ -107,9 +107,9 @@
                                 <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                             </Grid>
                         </DockPanel>
-                        <ctl:DayTimeline Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
+                        <ctl:DayTimeline ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
                                          Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                        <ctl:DailyBars Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
+                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                         <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
                                    Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details."
                                    Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
@@ -182,9 +182,9 @@
                         </DockPanel>
                         <Grid Margin="10,0,10,6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="2.1*" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="1.3*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
@@ -203,7 +203,7 @@
                             <TextBlock Grid.Column="8" Text="PEAK RAM" Style="{StaticResource Col}" />
                         </Grid>
                         <!-- Every app, in a box of a set height that scrolls (a month can list hundreds; only the rows on screen are built). -->
-                        <ItemsControl ItemsSource="{Binding Apps}" MaxHeight="{x:Static views:ReportsView.AppsMaxHeight}" Focusable="False"
+                        <ItemsControl ItemsSource="{Binding Apps}" ctl:Roomy.MaxHeight="{x:Static views:ReportsView.AppsMaxHeight}" Focusable="False"
                                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
                                       ScrollViewer.CanContentScroll="True" AutomationProperties.Name="Apps you used">
                             <ItemsControl.Template>
@@ -223,9 +223,9 @@
                                     <Border x:Name="Row" CornerRadius="8" Padding="10,6" Background="Transparent">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="2.4*" />
+                                                <ColumnDefinition Width="2.1*" />
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="1.3*" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />

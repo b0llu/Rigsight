@@ -416,7 +416,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <DockPanel Margin="32,26,32,0">
+    <DockPanel Margin="32,26,32,0" MaxWidth="{StaticResource PageWidth}">
         <!-- Header -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">

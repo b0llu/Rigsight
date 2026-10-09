@@ -52,7 +52,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <TextBlock Text="Fans" Style="{StaticResource H1}" />
             <TextBlock Text="How your fans are doing, what makes them spin, and how quiet your PC stays." Style="{StaticResource Muted}" Margin="0,4,0,14" />
             <!-- The period the whole page shows (the live readings and "Fans: All OK" are always now). -->
@@ -282,7 +282,7 @@
                         <!-- A day: minute by minute. A week, a month: each day's average and fastest. A year: each month's. -->
                         <StackPanel Visibility="{Binding DataContext.IsDay, ElementName=Page, Converter={StaticResource Vis}}">
                             <TextBlock Text="SPEED THROUGH THE DAY" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                            <ctl:LineChart Height="220" Kind="{x:Static core:SensorKind.Fan}" WindowSeconds="0"
+                            <ctl:LineChart ctl:Roomy.Height="220" Kind="{x:Static core:SensorKind.Fan}" WindowSeconds="0"
                                            Day="{Binding DataContext.DayOfChart, ElementName=Page}"
                                            Series="{Binding DataContext.ChartSeries, ElementName=Page}"
                                            Version="{Binding DataContext.Live.Tick, ElementName=Page}" />
@@ -308,11 +308,11 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </DockPanel>
-                            <ctl:FanDaysChart Height="220" Days="{Binding Detail.Days}" Monthly="{Binding Detail.Monthly}" Brush="{Binding Series[0].Brush}" />
+                            <ctl:FanDaysChart ctl:Roomy.Height="220" Days="{Binding Detail.Days}" Monthly="{Binding Detail.Monthly}" Brush="{Binding Series[0].Brush}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="{Binding Detail.CurveTitle}" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                            <ctl:FanCurveChart Height="220" Dots="{Binding Detail.Dots}" Bins="{Binding Detail.Bins}" Line="{Binding Detail.Line}" LineLabel="{Binding Detail.LineLabel}"
+                            <ctl:FanCurveChart ctl:Roomy.Height="220" Dots="{Binding Detail.Dots}" Bins="{Binding Detail.Bins}" Line="{Binding Detail.Line}" LineLabel="{Binding Detail.LineLabel}"
                                                SilentBelow="{Binding Detail.SilentBelow}" Brush="{Binding Series[0].Brush}" />
                         </StackPanel>
                     </Grid>
@@ -325,7 +325,7 @@
                         <StackPanel>
                             <TextBlock Text="{Binding Selected.Detail.TrendTitle}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
                             <TextBlock Text="The same heat each month: lower bars mean a slower fan." Style="{StaticResource TileNote}" Margin="0,0,0,10" />
-                            <ctl:FanDaysChart Height="180" Days="{Binding Selected.Detail.Trend}" Monthly="True" ValueLabel="{Binding Selected.Detail.TrendLabel}"
+                            <ctl:FanDaysChart ctl:Roomy.Height="180" Days="{Binding Selected.Detail.Trend}" Monthly="True" ValueLabel="{Binding Selected.Detail.TrendLabel}"
                                               Brush="{Binding Selected.Series[0].Brush}" />
                         </StackPanel>
                     </ctl:SmoothBorder>

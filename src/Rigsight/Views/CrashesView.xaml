@@ -146,7 +146,7 @@
 
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                   ctl:InfiniteScroll.LoadMore="{Binding ShowMoreCommand}">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding OpenEventViewerCommand}" VerticalAlignment="Top"
@@ -181,26 +181,26 @@
                             <TextBlock Text="{Binding StatusIcon}" Style="{StaticResource Icon}" FontSize="17" HorizontalAlignment="Center" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}" />
                         </Border>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding StatusTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}" />
+                            <TextBlock Text="{Binding StatusTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}" />
                             <TextBlock Text="{Binding StatusDetail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource Tile}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="APP &amp; GAME CRASHES" Style="{StaticResource Caption}" />
+                        <TextBlock Text="APP &amp; GAME CRASHES" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                         <TextBlock Text="{Binding AppCrashCount}" Style="{StaticResource StatValue}" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource Tile}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="GPU DRIVER RESETS" Style="{StaticResource Caption}" />
+                        <TextBlock Text="GPU DRIVER RESETS" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                         <TextBlock Text="{Binding DriverResetCount}" Style="{StaticResource StatValue}" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="3" Style="{StaticResource Tile}" Margin="5">
                     <StackPanel>
-                        <TextBlock Text="BLUE SCREENS &amp; SHUTDOWNS" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+                        <TextBlock Text="BLUE SCREENS &amp; SHUTDOWNS" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                    ToolTip="Blue screens, and times the PC turned off without shutting down (including losing power while asleep)" />
                         <TextBlock Text="{Binding SystemCount}" Style="{StaticResource StatValue}" />
                     </StackPanel>

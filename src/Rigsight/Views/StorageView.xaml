@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel Margin="0,0,0,18">
                 <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
                 <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
@@ -264,7 +264,7 @@
                         </DockPanel>
 
                         <!-- Map -->
-                        <ctl:Treemap x:Name="Map" Height="420" Items="{Binding CurrentItems}"
+                        <ctl:Treemap x:Name="Map" ctl:Roomy.Height="420" Items="{Binding CurrentItems}"
                                      Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=Map}" />
 
                         <!-- List -->

@@ -69,12 +69,23 @@ public sealed class CrashRow
         }
     }
 
+    /// <summary>
+    /// Where the time shown isn't Windows' own (a PC going down is put at the last minute recorded before it, see
+    /// <see cref="Core.Data.RigsightDb.LastSeenRunning"/>): what Windows' log says, so the two can be told apart by
+    /// anyone who looks there. And where it is Windows' own (nothing was recorded then to check it by), that it can be
+    /// early: the two kinds sit in one list, and only this tells them apart.
+    /// </summary>
+    public string? WindowsTimeNote => Event.Kind is not (CrashKind.SystemCrash or CrashKind.UnexpectedShutdown) ? null
+        : Event.WindowsTs is not long w || Math.Abs(w - Event.Ts) < 60 ? "time from Windows' log, which is often earlier than the moment itself"
+        : $"Windows' log says {Core.Data.TimeUtil.FromUnix(w).ToString(Core.Data.TimeUtil.FromUnix(w).Date == Time.Date ? "h:mm tt" : "ddd d MMM, h:mm tt")}, readings were recorded until {Time:h:mm tt}";
+
     public string TechnicalText => string.Join("  ·  ", new[]
     {
         string.IsNullOrEmpty(Event.AppExe) ? null : Event.AppExe,
         Event.Module is null ? null : $"module {Event.Module}",
         Event.Code is null ? null : $"code {Event.Code}",
         Event.Detail,
+        WindowsTimeNote,
         DumpPath is null ? null : $"dump {DumpPath}",
     }.Where(s => !string.IsNullOrEmpty(s)));
 }

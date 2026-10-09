@@ -55,6 +55,21 @@ public sealed class CrashEvent
     public PowerMoment Moment { get; set; }
 
     /// <summary>The PC was asleep or waking up when it went down.</summary>
+    /// <summary>
+    /// Only on a PC going down (a blue screen, an unexpected shutdown) as just read from Windows' log: when Windows next
+    /// started and wrote it up (Unix seconds). Windows' own time for the moment itself is the last one it happened to
+    /// note while running, often half an hour early; storing it, the database puts it after the last minute recorded
+    /// before that start (see <see cref="Data.RigsightDb.InsertCrashes"/>). Not stored.
+    /// </summary>
+    public long? NextStart { get; set; }
+
+    /// <summary>
+    /// The time Windows' log gives for a PC going down (Unix seconds), kept beside <see cref="Ts"/> (crashes.ts_windows):
+    /// what the stored crash is found again by, and what the page can say it was moved from. Null on anything else, and
+    /// on one stored before this was kept.
+    /// </summary>
+    public long? WindowsTs { get; set; }
+
     public bool DuringSleep
     {
         get => Moment == PowerMoment.Asleep;

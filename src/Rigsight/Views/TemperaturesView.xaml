@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <TextBlock Text="Temperatures" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding SystemSummary}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
 
@@ -43,12 +43,9 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid Width="190" Height="190" VerticalAlignment="Center">
+                        <!-- The gauge beside its tiles; above them where the card is too narrow for both (see SideOrStack). -->
+                        <ctl:SideOrStack>
+                            <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <ctl:ArcGauge Value="{Binding CpuTemp.Value}" Maximum="100" Thickness="13"
                                               Brush="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -58,13 +55,13 @@
                                     <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
-                            <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                            <UniformGrid Columns="2">
                                 <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{DynamicResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
                                 <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{DynamicResource CpuBrush}" />
                                 <ctl:MetricTile Label="AVG CLOCK" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
                                 <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
                             </UniformGrid>
-                        </Grid>
+                        </ctl:SideOrStack>
                     </DockPanel>
                 </ctl:SmoothBorder>
 
@@ -100,12 +97,9 @@
                             </DockPanel>
                         </StackPanel>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid Width="190" Height="190" VerticalAlignment="Center">
+                        <!-- The gauge beside its tiles; above them where the card is too narrow for both (see SideOrStack). -->
+                        <ctl:SideOrStack>
+                            <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <ctl:ArcGauge Value="{Binding SelectedGpu.Temp.Value}" Maximum="100" Thickness="13"
                                               Brush="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -115,7 +109,7 @@
                                     <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
-                            <UniformGrid Grid.Column="1" Columns="2" Margin="14,0,0,0">
+                            <UniformGrid Columns="2">
                                 <ctl:MetricTile Label="LOAD" Sensor="{Binding SelectedGpu.Load}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
                                 <ctl:MetricTile Label="POWER" Sensor="{Binding SelectedGpu.Power}" Accent="{DynamicResource GpuBrush}" />
                                 <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding SelectedGpu.HotSpot}" Accent="{DynamicResource GpuBrush}"
@@ -123,7 +117,7 @@
                                 <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding SelectedGpu.MemJunction}" Accent="{DynamicResource GpuBrush}"
                                                 ValueBrush="{Binding SelectedGpu.MemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
                             </UniformGrid>
-                        </Grid>
+                        </ctl:SideOrStack>
                     </DockPanel>
                 </ctl:SmoothBorder>
             </Grid>
@@ -160,7 +154,7 @@
                             </StackPanel>
                         </Border>
                         </StackPanel>
-                        <TextBlock Text="Temperature history" Style="{StaticResource H2}" />
+                        <TextBlock Text="History" Style="{StaticResource H2}" />
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <!-- What the line is, from an hour up (under that every reading is drawn): a short spike is in a minute's
@@ -188,6 +182,11 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                    <!-- On a day, week, month or year the legend says of each line what the choice on the right makes the
+                         graph's points: its average over the period, or its highest (lowest) in it and when. On a window
+                         that ends now, the reading now. -->
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding ChartLegendLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,14,0"
+                               Visibility="{Binding IsChartPaged, Converter={StaticResource Vis}}" />
                     <ItemsControl ItemsSource="{Binding TempSeries}" VerticalAlignment="Center">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -199,13 +198,22 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,0,22,0">
                                     <Ellipse Width="8" Height="8" Fill="{Binding Brush}" VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                    <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock x:Name="Now" Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock x:Name="Peak" Text="{Binding PeakText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Visibility="Collapsed" />
+                                    <TextBlock x:Name="When" Text="{Binding PeakWhen}" Margin="6,0,0,0" FontSize="12" Foreground="{DynamicResource FaintBrush}" Visibility="Collapsed" />
                                 </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.IsChartPaged, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                                        <Setter TargetName="Now" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Peak" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="When" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     </DockPanel>
-                    <ctl:LineChart Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
+                    <ctl:LineChart ctl:Roomy.Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
                                    Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" />
                 </DockPanel>
             </ctl:SmoothBorder>

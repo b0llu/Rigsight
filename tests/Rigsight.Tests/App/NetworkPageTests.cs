@@ -246,12 +246,10 @@ public sealed class NetworkPageTests
         Ui.Run(() =>
         {
             Assert.False(vm.ShowLive);
-            Assert.Equal("Show live", vm.LiveButtonText);
-            Assert.Equal("\uE70D", vm.LiveGlyph); // an arrow down: it opens
+            Assert.Equal("Expand", vm.LiveButtonText);
             vm.ToggleLiveCommand.Execute(null);
             Assert.True(vm.ShowLive);
-            Assert.Equal("Hide live", vm.LiveButtonText);
-            Assert.Equal("\uE70E", vm.LiveGlyph);
+            Assert.Equal("Collapse", vm.LiveButtonText);
         });
     }
 
