@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData), nameof(ShowEmpty),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -93,6 +93,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public string InsightsTitle => Report is { } r && r.From <= DateTime.Now && DateTime.Now < r.To ? "What stands out so far" : "What stood out";
     public bool HasData => Report is { HasData: true };
+
+    /// <summary>The first period has been read: until then the page says it's loading, not that nothing was recorded.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    private bool _ready;
+
+    public bool ShowEmpty => Ready && !HasData;
 
     public string Title => Report?.Title ?? "";
 
@@ -215,6 +222,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Report = report;
         Crashes = crashes;
         IsLoading = false;
+        Ready = true;
     }
 
     public void ShowDay(DateTime day)

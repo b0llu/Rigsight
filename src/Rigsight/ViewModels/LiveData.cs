@@ -495,6 +495,19 @@ public sealed partial class LiveData : ObservableObject
     /// shows as none (a gap on its chart, as it is) and the internet's speeds and apps go, where they used to stay
     /// frozen on whatever the last second happened to be.
     /// </summary>
+    /// <summary>
+    /// The first readings are still on their way from the agent: a box that shows them says so with a loader, not with
+    /// dashes or an empty space. Over once they arrive, or when no agent is there to send them (<see cref="StopWaiting"/>),
+    /// so nothing turns for ever.
+    /// </summary>
+    [ObservableProperty] private bool _readingsPending = true;
+
+    /// <summary>The same for the first list of running apps, which arrives by itself a moment after the readings.</summary>
+    [ObservableProperty] private bool _appsPending = true;
+
+    /// <summary>Nothing more to wait for: the agent isn't there, or hasn't sent anything for too long.</summary>
+    public void StopWaiting() => ReadingsPending = AppsPending = false;
+
     public void AgentGone()
     {
         Net = null;
@@ -520,6 +533,7 @@ public sealed partial class LiveData : ObservableObject
             UpdateGlance();
             UpdateDerived();
             RaisePeaks(tick.Time);
+            ReadingsPending = false;
         }
         if (tick.Today is not null) Today = tick.Today;
         if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
@@ -676,6 +690,7 @@ public sealed partial class LiveData : ObservableObject
         var compressed = procs.FirstOrDefault(p => p.Exe is "Memory Compression" or "MemCompression");
         Compressed.Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), compressed is null ? null : (float)(compressed.MemMB / 1024));
         UpdateMemorySplit();
+        AppsPending = false;
         procs = [.. procs.Where(p => p.Exe.Contains('.'))];
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in procs)

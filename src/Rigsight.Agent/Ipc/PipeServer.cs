@@ -14,7 +14,8 @@ namespace Rigsight.Agent.Ipc;
 /// client can never stall the agent.
 /// </summary>
 /// <param name="pipeName">The pipe to serve on: <see cref="RigsightPaths.PipeName"/>, or a test's own.</param>
-internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage> onMessage, string? pipeName = null) : IDisposable
+/// <param name="onConnected">Called once an app has its hello and gets the broadcasts from here on.</param>
+internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage> onMessage, string? pipeName = null, Action? onConnected = null) : IDisposable
 {
     private sealed class Client(NamedPipeServerStream pipe)
     {
@@ -90,6 +91,7 @@ internal sealed class PipeServer(Func<AgentMessage> buildHello, Action<UiMessage
                 if (_cts.IsCancellationRequested) throw new OperationCanceledException();
                 _clients.Add(client);
             }
+            onConnected?.Invoke();
             using var reader = new StreamReader(client.Pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
             var line = new StringBuilder();
             var buffer = new char[4096];

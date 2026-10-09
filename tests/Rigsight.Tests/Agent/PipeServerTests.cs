@@ -233,6 +233,32 @@ public sealed class PipeServerTests : IDisposable
     }
 
     [Fact]
+    public void A_newly_connected_app_is_announced_once_it_gets_the_broadcasts()
+    {
+        // The agent reads the sensors and the running apps at once for a window that has just opened; what it sends
+        // then must reach that window, so the word comes only after the window has joined the broadcasts.
+        int connected = 0, clientsThen = -1;
+        string name = Wait.PipeName();
+        PipeServer? server = null;
+        server = new PipeServer(() => new AgentMessage { T = "hello" }, _ => { }, name, onConnected: () =>
+        {
+            clientsThen = server!.ClientCount;
+            Interlocked.Increment(ref connected);
+        });
+        using var _ = server;
+        server.Start();
+        using var a = RawClient.Connect(name);
+        Assert.Equal("hello", a.Read().T);
+        Assert.True(Wait.For(() => Volatile.Read(ref connected) == 1));
+        Assert.Equal(1, clientsThen);
+        server.Broadcast(Tick(3));
+        Assert.Equal(3, a.Read().Time);
+        using var b = RawClient.Connect(name);
+        b.Read();
+        Assert.True(Wait.For(() => Volatile.Read(ref connected) == 2));
+    }
+
+    [Fact]
     public void A_failing_message_handler_doesnt_drop_the_app()
     {
         int calls = 0;

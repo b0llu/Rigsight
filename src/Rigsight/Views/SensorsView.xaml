@@ -371,6 +371,8 @@
                     <!-- Its scrollbar has its own strip, most of it in the card's right padding: laid over the rows, it sat on the figures. -->
                     <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" Margin="0,0,-14,0" ctl:WheelChain.Enabled="True">
                 <StackPanel>
+                    <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,26"
+                                 Visibility="{Binding ReadingsPending, Converter={StaticResource Vis}}" />
                     <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Text="nearest its limit" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />

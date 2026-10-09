@@ -156,10 +156,15 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     public LiveData Live { get; }
 
-    [ObservableProperty] private bool _loaded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    private bool _loaded;
 
     /// <summary>Anything recorded for the period: the page's history shows, or a line saying why not.</summary>
     [ObservableProperty] private bool _hasData;
+
+    /// <summary>The line saying nothing was recorded: only once the period has been read (a loader until then).</summary>
+    public bool ShowEmpty => Loaded && !HasData;
 
     // ── Right now ──
 
@@ -337,6 +342,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     private void Fill(NetReport? r)
     {
         HasData = r is { HasData: true };
+        OnPropertyChanged(nameof(ShowEmpty));
         if (r is null || !r.HasData)
         {
             Insights = [];

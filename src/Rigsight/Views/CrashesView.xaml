@@ -284,7 +284,9 @@
                         <TextBlock Text="What went wrong" Style="{StaticResource H2}" VerticalAlignment="Center" />
                     </DockPanel>
                     <ItemsControl ItemsSource="{Binding GroupsShown}" ItemTemplate="{StaticResource GroupTemplate}" />
-                    <StackPanel HorizontalAlignment="Center" Margin="0,24" Visibility="{Binding HasCrashes, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40"
+                                 Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <StackPanel HorizontalAlignment="Center" Margin="0,24" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" />
                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
                     </StackPanel>

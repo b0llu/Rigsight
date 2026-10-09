@@ -220,6 +220,8 @@
             <ScrollViewer x:Name="Scroller" Style="{StaticResource GutterScroll}" ScrollChanged="Scroller_ScrollChanged">
                 <StackPanel Margin="2,2,0,24">
                     <ItemsControl x:Name="List" ItemsSource="{Binding Days}" ItemTemplate="{StaticResource DayTemplate}" />
+                    <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                                 Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <StackPanel HorizontalAlignment="Center" Margin="0,48,0,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
                         <TextBlock Text="&#xE81C;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                         <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />

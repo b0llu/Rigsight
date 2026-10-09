@@ -42,9 +42,40 @@ public sealed class Spinner : Shape
         RenderTransform = _turn;
         SetResourceReference(StrokeProperty, "AccentBrush");
         IsVisibleChanged += (_, _) =>
-            _turn.BeginAnimation(RotateTransform.AngleProperty, IsVisible
-                ? new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.8)) { RepeatBehavior = RepeatBehavior.Forever }
-                : null);
+        {
+            Turn(IsVisible);
+            if (Late && !ShowAll) BeginAnimation(OpacityProperty, IsVisible ? ComeIn() : null);
+        };
+    }
+
+    private AnimationClock? _clock;
+
+    /// <summary>
+    /// Starts or stops the turning. The clock is held so it can be taken off WPF's timeline when the arc goes: an
+    /// animation that repeats for ever and is only replaced by nothing stays on it until the next garbage collection,
+    /// and the window meanwhile never comes to rest (seconds of it after an arc that showed for a moment).
+    /// </summary>
+    private void Turn(bool on)
+    {
+        _clock?.Controller?.Remove();
+        _clock = on ? new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.8)) { RepeatBehavior = RepeatBehavior.Forever }.CreateClock() : null;
+        _turn.ApplyAnimationClock(RotateTransform.AngleProperty, _clock);
+    }
+
+    /// <summary>
+    /// For a box whose content is on its way (a list being read, readings not in yet): the arc comes in after a moment,
+    /// so content that arrives at once never flashes it.
+    /// </summary>
+    public bool Late { get; set; }
+
+    private static DoubleAnimationUsingKeyFrames ComeIn()
+    {
+        var fade = new DoubleAnimationUsingKeyFrames();
+        fade.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        fade.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(250))));
+        fade.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(400))));
+        fade.Freeze();
+        return fade;
     }
 
     /// <summary>Three quarters of a circle, from the top round to the left.</summary>

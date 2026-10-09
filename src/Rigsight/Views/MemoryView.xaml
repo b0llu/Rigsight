@@ -126,7 +126,9 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="Collecting data — check back in a few minutes." Style="{StaticResource Muted}"
-                               Visibility="{Binding TodayTop.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                               Visibility="{Binding ShowCollecting, Converter={StaticResource Vis}}" />
+                    <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,110,0,0"
+                                 Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 </StackPanel>
             </ctl:SmoothBorder>
         </Grid>
@@ -155,6 +157,10 @@
                 <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
                            Visibility="{Binding Live.NoProcsMatch, Converter={StaticResource Vis}}" />
                 <!-- An app with more than one process opens (click) to list each of them underneath. -->
+                <Grid>
+                <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
+                <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
+                             Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
                 <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -241,6 +247,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                </Grid>
             </DockPanel>
         </ctl:SmoothBorder>
     </Grid>

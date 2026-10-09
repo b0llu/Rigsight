@@ -312,8 +312,14 @@ public sealed partial class FansViewModel : ObservableObject
         var n => $"{n} fan headers free",
     };
 
-    [ObservableProperty] private bool _loaded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNoFans), nameof(ShowLoading))]
+    private bool _loaded;
     public bool HasFans => Fans.Count > 0;
+
+    /// <summary>"No fan speeds reported": only once the agent's readings are in and the period is read (a loader until then).</summary>
+    public bool ShowNoFans => Loaded && !HasFans && !Live.ReadingsPending;
+    public bool ShowLoading => !HasFans && !ShowNoFans;
 
     // The row of answers at the top.
 
@@ -354,6 +360,11 @@ public sealed partial class FansViewModel : ObservableObject
 
     private void OnLiveChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(LiveData.ReadingsPending))
+        {
+            OnPropertyChanged(nameof(ShowNoFans));
+            OnPropertyChanged(nameof(ShowLoading));
+        }
         if (e.PropertyName != nameof(LiveData.Tick)) return;
         foreach (var f in Fans) f.UpdateState(Live.CpuTemp?.Value, Live.GpuTemp?.Value);
     }
@@ -474,6 +485,8 @@ public sealed partial class FansViewModel : ObservableObject
             Fans.Clear();
             foreach (var c in shown) Fans.Add(c);
             OnPropertyChanged(nameof(HasFans));
+            OnPropertyChanged(nameof(ShowNoFans));
+            OnPropertyChanged(nameof(ShowLoading));
         }
         EmptyHeaders = empty;
         Summarise();

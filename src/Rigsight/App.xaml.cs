@@ -43,10 +43,12 @@ public partial class App : Application
         _settings = shell.Settings;
         ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent);
         Motion.ApplyDurations(Resources);
+        // The agent is asked for its readings now, before the window is built: they are on their way while that
+        // takes its few tenths of a second, not only once the window is up. (What it sends waits its turn on this thread.)
+        _client.Start();
         var window = new MainWindow(shell);
         MainWindow = window;
         window.Show();
-        _client.Start();
     }
 
     /// <summary>

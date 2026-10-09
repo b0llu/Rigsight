@@ -86,7 +86,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [ObservableProperty] private double _maxValue = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary))]
     private AppStat? _selected;
 
     [ObservableProperty] private AppListRow? _selectedRow;
@@ -130,6 +130,13 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     }
 
     public bool HasSelection => Selected is not null;
+
+    /// <summary>The first period has been read: until then the page says it's loading, not that nothing was recorded.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    private bool _ready;
+
+    public bool ShowEmpty => Ready && !HasSelection;
 
     /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
     [ObservableProperty] private List<SessionInfo> _selectedSessions = [];
@@ -293,6 +300,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             Selected = null;
         }
         if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
+        Ready = true;
         OnPropertyChanged(nameof(Summary));
         if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected));
     }

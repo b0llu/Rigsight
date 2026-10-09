@@ -101,7 +101,9 @@
         <!-- Detail -->
         <ScrollViewer Grid.Row="1" Grid.Column="2" Style="{StaticResource GutterScroll}">
             <StackPanel>
-                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                             Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                     <TextBlock Text="Nothing recorded yet for this period. Use your PC for a bit and come back." Style="{StaticResource Muted}" />
                 </ctl:SmoothBorder>
 

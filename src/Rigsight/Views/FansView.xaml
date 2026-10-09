@@ -64,7 +64,9 @@
 
             <TextBlock Text="No fan speeds reported. Most motherboards share them only with the agent running as admin."
                        Style="{StaticResource Muted}" TextWrapping="Wrap"
-                       Visibility="{Binding HasFans, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                       Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}" />
+            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                         Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
 
             <StackPanel Visibility="{Binding HasFans, Converter={StaticResource Vis}}">
                 <!-- ── The answers first: four even tiles ── -->

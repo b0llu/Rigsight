@@ -166,8 +166,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     [ObservableProperty] private bool _isEmpty;
     [ObservableProperty] private List<NowFact> _now = [];
 
-    /// <summary>Loaded once: later visits only rebuild if something changed.</summary>
-    public bool Loaded { get; private set; }
+    /// <summary>Loaded once: later visits only rebuild if something changed. Until then the list says it's loading.</summary>
+    [ObservableProperty] private bool _loaded;
 
     /// <summary>Raised to scroll the list to a day (already built), or to the top (null).</summary>
     public event Action<TimelineDay?>? JumpRequested;

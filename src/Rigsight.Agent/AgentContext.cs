@@ -171,7 +171,9 @@ internal sealed class AgentContext : ApplicationContext
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
 
-        _pipe = new PipeServer(BuildHello, OnUiMessage);
+        // A window that has just opened gets its readings and the running apps now, not at their next turn (readings
+        // are two seconds apart and the apps five while no window is open: its pages stood empty that long).
+        _pipe = new PipeServer(BuildHello, OnUiMessage, onConnected: () => RunOnSampler(() => _sensorsNow = _procsNow = true));
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);

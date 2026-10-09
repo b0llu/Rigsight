@@ -188,7 +188,9 @@
 
             <TextBlock Text="Nothing recorded for this period yet. Internet use is recorded while the agent runs as admin."
                        Style="{StaticResource Muted}" TextWrapping="Wrap"
-                       Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                       Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}" />
+            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                         Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
 
             <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
                 <!-- The period's network insights, as Home and Reports say them. -->

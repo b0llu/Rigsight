@@ -229,6 +229,16 @@ public sealed partial class ShellViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowAgentStarting))]
     private bool _agentPending = true;
 
+    /// <summary>No agent after all (it didn't start, or went and stayed away): the boxes waiting for its readings stop saying so.</summary>
+    partial void OnAgentPendingChanged(bool value)
+    {
+        if (!value && !IsConnected) Live.StopWaiting();
+    }
+
+    /// <summary>How long a connected agent is given to send its first readings before the boxes stop saying they're loading.</summary>
+    private static readonly TimeSpan FirstReadings = TimeSpan.FromSeconds(10);
+    private DispatcherTimer? _waitTimer;
+
     /// <summary>How long an agent that went is given to come back before the sidebar says it isn't running.</summary>
     private static readonly TimeSpan AgentGrace = TimeSpan.FromSeconds(5);
     private DispatcherTimer? _graceTimer;
@@ -551,7 +561,19 @@ public sealed partial class ShellViewModel : ObservableObject
         IsConnected = connected;
         AgentStatus = "";
         _graceTimer?.Stop();
-        if (connected) AgentPending = false;
+        if (connected)
+        {
+            AgentPending = false;
+            // An agent that is still finding the hardware (the PC has just started) sends readings a few seconds later.
+            _waitTimer?.Stop();
+            _waitTimer = new DispatcherTimer { Interval = FirstReadings };
+            _waitTimer.Tick += (_, _) =>
+            {
+                _waitTimer.Stop();
+                Live.StopWaiting();
+            };
+            _waitTimer.Start();
+        }
         else if (wasConnected && !_startAfterQuit)
         {
             AgentPending = true;

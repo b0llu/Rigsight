@@ -1501,4 +1501,37 @@ public sealed class LiveDataTests
             Assert.All(live.Fans, f => Assert.True(f.Value > 0 || f.Max > 0));
         });
     }
+
+    // ── Waiting for the agent ────────────────────────────────────────────
+
+    [Fact]
+    public void Boxes_wait_for_the_first_readings_and_the_first_list_of_apps_and_no_longer()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            // The hello names the sensors; their readings and the running apps come after it.
+            Assert.True(live.ReadingsPending);
+            Assert.True(live.AppsPending);
+            live.ApplyTick(new AgentMessage { T = "tick", Time = T0 }); // today's totals only, sent before the hardware is found
+            Assert.True(live.ReadingsPending);
+            live.ApplyTick(Pc.Tick(T0 + 1000));
+            Assert.False(live.ReadingsPending);
+            Assert.True(live.AppsPending);
+            live.ApplyProcs([Kit.Proc("game.exe", 900)]);
+            Assert.False(live.AppsPending);
+        });
+    }
+
+    [Fact]
+    public void With_no_agent_to_wait_for_nothing_says_it_is_loading()
+    {
+        var live = Kit.Live(Kit.OfflineSettings());
+        Ui.Run(() =>
+        {
+            Assert.True(live.ReadingsPending && live.AppsPending);
+            live.StopWaiting();
+            Assert.False(live.ReadingsPending || live.AppsPending);
+        });
+    }
 }

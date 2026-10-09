@@ -68,6 +68,11 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.19.2", 10, 9,
+            better: ["Readings and the list of running apps show up right after the window opens.",
+                "A box that is still loading shows a loader, not an empty space."],
+            fixedBugs: ["Pages no longer say nothing was recorded while they are still loading.",
+                "The window settles at once after a loader has shown."]),
         V("0.19.1", 10, 9,
             better: ["An unexpected shutdown is timed by the last minute recorded, not Windows' earlier time.",
                 "Past shutdowns are moved to that time too, and say what was running just before.",

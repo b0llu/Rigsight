@@ -161,7 +161,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     /// <summary>Problems as they're listed: repeats and bursts grouped, newest first.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(EmptyText))]
+    [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(EmptyText), nameof(ShowEmpty))]
     private List<CrashGroup> _groupsShown = [];
 
     // Years of history can hold thousands of crashes: build the newest cards, and more as the page scrolls.
@@ -291,7 +291,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     }
 
     /// <summary>Loaded once: a later visit only needs a rebuild if the crashes changed.</summary>
-    public bool Loaded { get; private set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    private bool _loaded;
+
+    /// <summary>"No crashes in this period": only once the period has been read (a loader until then).</summary>
+    public bool ShowEmpty => Loaded && !HasCrashes;
 
     private void Regroup()
     {

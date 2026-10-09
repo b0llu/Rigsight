@@ -39,7 +39,9 @@
                        Visibility="{Binding CoverageNote, Converter={StaticResource Vis}}" />
 
             <!-- Empty state -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding HasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                         Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="Nothing recorded for this period" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
