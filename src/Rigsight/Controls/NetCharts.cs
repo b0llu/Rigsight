@@ -53,10 +53,19 @@ public abstract class NetChartBase : FanChartBase
     }
 }
 
+/// <summary>How the bars of the usage chart are split.</summary>
+public enum NetBarsMode
+{
+    /// <summary>By app: the few with a colour of their own, then every other app together.</summary>
+    App,
+    /// <summary>The app in front, and what moved in the background (or with nobody at the PC).</summary>
+    Background,
+}
+
 /// <summary>
-/// The period's internet use in bars: per hour (a day), day (a week or month) or month (a year). Each bar is the
-/// download, the part downloaded in the background a darker part of it, and the upload a slim bar beside it. Hover a
-/// bar for its numbers.
+/// The period's internet use in bars: per hour (a day), day (a week or month) or month (a year). Each bar is everything
+/// that moved in it, download and upload together, split by app or by in front and background. Hover a bar for its
+/// numbers; click it to pick it (the page then lists that bar's apps), click it again to let go.
 /// </summary>
 public sealed class NetBarsChart : NetChartBase
 {
@@ -64,64 +73,174 @@ public sealed class NetBarsChart : NetChartBase
         nameof(Bins), typeof(IReadOnlyList<NetBin>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty UnitProperty = DependencyProperty.Register(
         nameof(Unit), typeof(ReportRange), typeof(NetBarsChart), new FrameworkPropertyMetadata(ReportRange.Day, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty ModeProperty = DependencyProperty.Register(
+        nameof(Mode), typeof(NetBarsMode), typeof(NetBarsChart), new FrameworkPropertyMetadata(NetBarsMode.App, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty ColorAppsProperty = DependencyProperty.Register(
+        nameof(ColorApps), typeof(IReadOnlyList<long>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty AppNamesProperty = DependencyProperty.Register(
+        nameof(AppNames), typeof(IReadOnlyDictionary<long, string>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty SelectedProperty = DependencyProperty.Register(
+        nameof(Selected), typeof(int), typeof(NetBarsChart),
+        new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    public NetBarsChart() => Cursor = System.Windows.Input.Cursors.Hand;
 
     public IReadOnlyList<NetBin>? Bins { get => (IReadOnlyList<NetBin>?)GetValue(BinsProperty); set => SetValue(BinsProperty, value); }
     public ReportRange Unit { get => (ReportRange)GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
+    public NetBarsMode Mode { get => (NetBarsMode)GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
+    /// <summary>The apps with a colour of their own, in the order of <see cref="AppBrushKeys"/>.</summary>
+    public IReadOnlyList<long>? ColorApps { get => (IReadOnlyList<long>?)GetValue(ColorAppsProperty); set => SetValue(ColorAppsProperty, value); }
+    /// <summary>Each app's name, for the hover box.</summary>
+    public IReadOnlyDictionary<long, string>? AppNames { get => (IReadOnlyDictionary<long, string>?)GetValue(AppNamesProperty); set => SetValue(AppNamesProperty, value); }
+    /// <summary>The bar picked by a click (-1: none).</summary>
+    public int Selected { get => (int)GetValue(SelectedProperty); set => SetValue(SelectedProperty, value); }
+
+    /// <summary>The colours apps are told apart by, in order: none of them one that says how a reading is doing.</summary>
+    public static readonly string[] AppBrushKeys = ["CpuBrush", "PinkBrush", "GpuBrush", "PurpleBrush"];
+    /// <summary>Every other app together.</summary>
+    public const string OtherBrushKey = "FaintBrush";
+
+    private Brush Res(string key) => TryFindResource(key) as Brush ?? MutedBrush;
+
+    private Rect PlotArea => new(AxisWidth + 12, Top, Math.Max(1, ActualWidth - AxisWidth - 12 - 2), Math.Max(1, ActualHeight - AxisHeight - Top));
+
+    /// <summary>The bar under <paramref name="x"/> (null outside the plot).</summary>
+    internal int? BarAt(double x)
+    {
+        var plot = PlotArea;
+        int count = Bins?.Count ?? 0;
+        if (count == 0 || x < plot.Left || x >= plot.Right) return null;
+        return Math.Min(count - 1, (int)((x - plot.Left) / (plot.Width / count)));
+    }
+
+    protected override void OnMouseLeftButtonUp(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (BarAt(e.GetPosition(this).X) is int i) Pick(i);
+    }
+
+    /// <summary>A click on bar <paramref name="i"/>: picks it, or lets go of it when it is the one picked. An empty bar
+    /// has no apps to list, so clicking one lets go too.</summary>
+    internal void Pick(int i)
+    {
+        if (Bins is not { } bins || i < 0 || i >= bins.Count) return;
+        SetCurrentValue(SelectedProperty, i == Selected || bins[i].Total == 0 ? -1 : i);
+    }
+
+    /// <summary>A bar's pieces, bottom first, each with its colour: what <see cref="OnRender"/> stacks.</summary>
+    internal IReadOnlyList<(Brush Brush, long Bytes)> Pieces(NetBin b)
+    {
+        if (Mode == NetBarsMode.Background)
+        {
+            long behind = Math.Min(b.Background, b.Total);
+            return [(DownBrush, b.Total - behind), (Faded(DownBrush, 0.45), behind)];
+        }
+        var pieces = new List<(Brush, long)>();
+        long named = 0;
+        var colored = ColorApps ?? [];
+        for (int i = 0; i < colored.Count && i < AppBrushKeys.Length; i++)
+        {
+            long bytes = Math.Min(b.Apps.FirstOrDefault(a => a.App == colored[i])?.Total ?? 0, b.Total - named);
+            named += bytes;
+            pieces.Add((Res(AppBrushKeys[i]), bytes));
+        }
+        pieces.Add((Res(OtherBrushKey), Math.Max(0, b.Total - named)));
+        return pieces;
+    }
 
     protected override void OnRender(DrawingContext dc)
     {
         var bins = Bins ?? [];
-        double top = NiceTop(bins.Select(b => (double)Math.Max(b.Down, b.Up)).DefaultIfEmpty(0).Max());
+        double top = NiceTop(bins.Select(b => (double)b.Total).DefaultIfEmpty(0).Max());
         var plot = Grid(dc, top, v => Units.Data(v));
         if (bins.Count == 0) return;
 
-        double slot = plot.Width / bins.Count, bar = Math.Min(slot * 0.7, 42);
-        var bg = Faded(DownBrush, 0.45);
+        double slot = plot.Width / bins.Count, bar = Math.Min(slot * 0.72, 42);
         double Y(double v) => plot.Bottom - plot.Height * Math.Min(v, top) / top;
-        int? hover = HoverX is double hx && hx >= plot.Left && hx < plot.Right ? (int)((hx - plot.Left) / slot) : null;
-        if (hover is int h && h < bins.Count)
+        int? hover = HoverX is double hx ? BarAt(hx) : null;
+        int selected = Selected >= 0 && Selected < bins.Count ? Selected : -1;
+        if (hover is int h)
             dc.DrawRoundedRectangle(Faded(MutedBrush, 0.12), null, new Rect(plot.Left + h * slot, plot.Top, slot, plot.Height), 4, 4);
 
         for (int i = 0; i < bins.Count; i++)
         {
             var b = bins[i];
-            double x = plot.Left + i * slot + (slot - bar) / 2, dw = bar * 0.66, uw = bar * 0.28;
-            if (b.Down > 0)
+            double x = plot.Left + i * slot + (slot - bar) / 2;
+            if (b.Total > 0)
             {
-                // The background part at the bottom in a paler shade, the part in front on top of it in full.
-                long behind = Math.Min(b.BgDown, b.Down);
-                var bar0 = new Rect(x, Y(b.Down), dw, Math.Max(1, plot.Bottom - Y(b.Down)));
-                var clip = new RectangleGeometry(bar0, 2, 2);
+                // One rounded bar, its pieces stacked inside it with a hairline of the card between them. With a bar
+                // picked, the others step back.
+                var whole = new Rect(x, Y(b.Total), bar, Math.Max(1, plot.Bottom - Y(b.Total)));
+                var clip = new RectangleGeometry(whole, 2.5, 2.5);
                 clip.Freeze();
                 dc.PushClip(clip);
-                if (behind > 0) dc.DrawRectangle(bg, null, new Rect(x, Y(behind), dw, plot.Bottom - Y(behind)));
-                if (b.Down > behind) dc.DrawRectangle(DownBrush, null, new Rect(x, Y(b.Down), dw, Math.Max(1, Y(behind) - Y(b.Down))));
+                bool back = selected >= 0 && i != selected;
+                if (back) dc.PushOpacity(0.3);
+                double from = 0;
+                foreach (var (brush, bytes) in Pieces(b))
+                {
+                    if (bytes <= 0) continue;
+                    double y1 = Y(from), y2 = Y(from + bytes), gap = from > 0 && y1 - y2 > 3 ? 1.5 : 0;
+                    dc.DrawRectangle(brush, null, new Rect(x, y2, bar, Math.Max(0.5, y1 - y2 - gap)));
+                    from += bytes;
+                }
+                if (back) dc.Pop();
                 dc.Pop();
             }
-            if (b.Up > 0) dc.DrawRoundedRectangle(UpBrush, null, new Rect(x + dw + bar * 0.06, Y(b.Up), uw, Math.Max(1, plot.Bottom - Y(b.Up))), 1.5, 1.5);
+            // Time that wasn't recorded: a grey line under the bar (what it shows is only part), and for a bar with
+            // nothing at all a dashed outline in its place, so it isn't read as "nothing used".
+            if (b.UnrecordedMinutes >= MinUnrecorded)
+            {
+                var grey = Faded(MutedBrush, 0.7);
+                dc.DrawRoundedRectangle(grey, null, new Rect(x, plot.Bottom + 2, bar, 3), 1.5, 1.5);
+                if (b.Total == 0)
+                {
+                    var dashed = new Pen(grey, 1) { DashStyle = new DashStyle([3, 3], 0) };
+                    dashed.Freeze();
+                    dc.DrawRoundedRectangle(null, dashed, new Rect(x + 0.5, plot.Bottom - 28.5, bar - 1, 28), 2.5, 2.5);
+                }
+            }
             if (AxisLabel(b.Start, i) is { } text) Label(dc, text, new Point(plot.Left + i * slot + slot / 2, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, center: true);
         }
 
-        if (hover is int k && k < bins.Count)
+        if (hover is int k) Hover(dc, plot, plot.Left + k * slot + slot / 2, Title(bins[k].Start), HoverLines(bins[k]));
+    }
+
+    /// <summary>The fewest unrecorded minutes in a bar for it to be marked.</summary>
+    public const int MinUnrecorded = 15;
+
+    /// <summary>What hovering a bar says: its total, then its biggest apps or its in front / background split.</summary>
+    internal IReadOnlyList<string> HoverLines(NetBin b)
+    {
+        string? missing = b.UnrecordedMinutes >= MinUnrecorded
+            ? $"Not recorded for {(b.UnrecordedMinutes >= 60 ? $"{b.UnrecordedMinutes / 60} h {b.UnrecordedMinutes % 60} min" : $"{b.UnrecordedMinutes} min")}" : null;
+        if (b.Total == 0) return [missing ?? "Nothing"];
+        var lines = new List<string> { $"Total {Units.Data(b.Total)}" };
+        if (missing is not null) lines.Add(missing);
+        if (Mode == NetBarsMode.Background)
         {
-            var b = bins[k];
-            var lines = b.Down + b.Up == 0 ? new[] { "Nothing" } : new[]
-            {
-                $"Downloaded {Units.Data(b.Down)}", $"In the background {Units.Data(b.BgDown)}", $"Uploaded {Units.Data(b.Up)}",
-            };
-            Hover(dc, plot, plot.Left + k * slot + slot / 2, Title(b.Start), lines);
+            long behind = Math.Min(b.Background, b.Total), away = Math.Min(b.Away, behind);
+            lines.Add($"In front {Units.Data(b.Total - behind)}");
+            lines.Add($"In the background {Units.Data(behind - away)}");
+            if (away > 0) lines.Add($"While you were away {Units.Data(away)}");
         }
+        else
+        {
+            foreach (var a in b.Apps.Take(5))
+                lines.Add($"{(AppNames is { } names && names.TryGetValue(a.App, out var name) ? name : "Unknown")} {Units.Data(a.Total)}");
+        }
+        return lines;
     }
 
     private string? AxisLabel(DateTime t, int i) => Unit switch
     {
-        ReportRange.Day => i % 6 == 0 ? t.ToString("h tt") : null,
+        ReportRange.Day => i % 3 == 0 ? t.ToString("h tt") : null,
         ReportRange.Week => t.ToString("ddd"),
         ReportRange.Year => t.ToString("MMM"),
         _ => i % 5 == 0 ? t.ToString("d MMM") : null,
     };
 
-    private string Title(DateTime t) => Unit switch
+    internal string Title(DateTime t) => Unit switch
     {
         ReportRange.Day => $"{t:h tt} – {t.AddHours(1):h tt}",
         ReportRange.Year => t.ToString("MMMM yyyy"),

@@ -4,7 +4,7 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              x:Name="Root">
     <!-- [Day · Week · Month · Year · All time · Custom]  ‹ This month ▾ ›   The same on every page that looks back in time. -->
-    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+    <StackPanel x:Name="Bar" Orientation="Horizontal" VerticalAlignment="Center">
         <Border Style="{StaticResource SegmentHost}">
             <StackPanel x:Name="UnitButtons" Orientation="Horizontal">
                 <RadioButton Style="{StaticResource Segment}" Content="Day" Tag="Day" Checked="Unit_Checked" />

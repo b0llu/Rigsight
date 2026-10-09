@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
-             xmlns:m="clr-namespace:Rigsight.Models">
+             xmlns:m="clr-namespace:Rigsight.Models"
+             xmlns:vm="clr-namespace:Rigsight.ViewModels">
     <UserControl.Resources>
         <Style x:Key="ColHeader" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -32,10 +33,7 @@
                     </StackPanel>
                 </Button>
             </StackPanel>
-            <StackPanel>
-                <TextBlock Text="All sensors" Style="{StaticResource H1}" />
-                <TextBlock Text="{Binding HiddenHint}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
-            </StackPanel>
+            <TextBlock Text="All sensors" Style="{StaticResource H1}" />
         </DockPanel>
 
         <!-- Filters -->
@@ -70,151 +68,286 @@
             </Border>
         </DockPanel>
 
+        <TextBlock DockPanel.Dock="Top" Text="{Binding SensorsEmptyText}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                   Visibility="{Binding SensorsEmptyText, Converter={StaticResource Vis}}" />
+
         <!-- One flat, virtualized list: only the rows on screen are built, the rest as you scroll.
              Each card is a header item, its sensor rows, and an end item, drawn so they join up. Rows aren't
              recycled: a row reused for another kind of item briefly binds the old template to the new item. -->
-        <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
-                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
-                      VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
-            <ItemsControl.Template>
-                <ControlTemplate TargetType="ItemsControl">
-                    <ScrollViewer CanContentScroll="True" Focusable="False"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <ItemsPresenter Margin="0,0,0,32" />
-                    </ScrollViewer>
-                </ControlTemplate>
-            </ItemsControl.Template>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.Resources>
-                <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
-                <DataTemplate DataType="{x:Type m:HardwareNode}">
-                    <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
-                            BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
-                        <StackPanel>
-                            <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="10"
-                                    MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
-                                    ToolTip="Click to collapse or expand. Drag to change the order.">
-                                <DockPanel>
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,0,4" />
-                                    <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
-                                    <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
-                                        <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
-                                    </Border>
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" />
-                                </DockPanel>
-                            </Border>
-                            <Grid x:Name="Columns" Margin="0,20,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="64" />
-                                    <ColumnDefinition Width="*" MinWidth="160" />
-                                    <ColumnDefinition Width="130" />
-                                    <ColumnDefinition Width="110" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="40" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
-                                <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
-                                <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" ToolTip="Lowest today, since midnight" />
-                                <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" ToolTip="Highest today, since midnight" />
-                                <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" ToolTip="Average since you opened this window" />
-                            </Grid>
-                        </StackPanel>
-                    </ctl:SmoothBorder>
-                    <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                            <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
-                            <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsBeingMoved}" Value="True">
-                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
-                        </DataTrigger>
-                        <!-- While a group is being dragged, every group is just its header. -->
-                        <DataTrigger Binding="{Binding DataContext.IsReordering, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
-                            <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
-                            <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-
-                <!-- Card bottom -->
-                <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
-                    <ctl:SmoothBorder x:Name="Card" Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
-                            BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
-                    <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding Owner.IsBeingMoved}" Value="True">
-                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-
-                <!-- One sensor -->
-                <DataTemplate DataType="{x:Type m:SensorItem}">
-                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
-                            BorderThickness="1,0,1,0" Padding="20,0">
-                        <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="64" />
-                                    <ColumnDefinition Width="*" MinWidth="160" />
-                                    <ColumnDefinition Width="130" />
-                                    <ColumnDefinition Width="110" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="40" />
-                                </Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
-                                        HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
-                                    <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
-                                               Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl x:Name="SensorList" ItemsSource="{Binding SensorRows}" AllowDrop="True" DragOver="List_DragOver" Drop="List_Drop"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
+                          VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer CanContentScroll="True" Focusable="False"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsPresenter Margin="0,0,0,32" />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Resources>
+                    <!-- Card top: clickable title (collapses/expands) and, when open, the column headings -->
+                    <DataTemplate DataType="{x:Type m:HardwareNode}">
+                        <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
+                            <StackPanel>
+                                <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="10"
+                                        MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
+                                        ToolTip="Click to collapse or expand. Drag to change the order.">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
+                                        <!-- What the part is doing, in two or three readings: a folded card still says something. -->
+                                        <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Keys}" Focusable="False" VerticalAlignment="Center" Margin="0,0,0,3">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type m:HardwareKey}">
+                                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="9,3" Margin="6,0,0,0"
+                                                            Visibility="{Binding IsShown, Converter={StaticResource Vis}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock x:Name="Value" Text="{Binding Sensor.ShortValue}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                                       Visibility="{Binding Sensor, Converter={StaticResource Vis}}" />
+                                                            <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                       Visibility="{Binding Label, Converter={StaticResource Vis}}" />
+                                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource TextBrush}"
+                                                                       Visibility="{Binding Text, Converter={StaticResource Vis}}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Sensor.HasTempScale}" Value="True">
+                                                            <Setter TargetName="Value" Property="Foreground">
+                                                                <Setter.Value>
+                                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                        <Binding Path="Sensor.Value" />
+                                                                        <Binding Path="Sensor.TempScale" />
+                                                                    </MultiBinding>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
+                                            <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" />
+                                    </DockPanel>
                                 </Border>
-                                <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
-                                         Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
-                                         ToolTip="{Binding Name}" KeyDown="RenameBox_KeyDown" />
-                                <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
-                                               Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
-                                               Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
-                                <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
-                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Kind}" Value="Temperature">
-                                                    <Setter Property="Foreground" Value="{Binding Value, Converter={StaticResource TempBrush}}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
-                                <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
-                                <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
-                                <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
-                                        Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
-                                    <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
-                                </Button>
-                            </Grid>
+                                <Grid x:Name="Columns" Margin="0,20,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="58" />
+                                        <ColumnDefinition Width="*" MinWidth="130" />
+                                        <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="30" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
+                                    <TextBlock Grid.Column="2" Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+                                    <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
+                                    <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource ColHeader}" ToolTip="Lowest today, since midnight" />
+                                    <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource ColHeader}" ToolTip="Highest today, since midnight" />
+                                    <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource ColHeader}" ToolTip="Average since you opened this window" />
+                                </Grid>
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                                <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsBeingMoved}" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                            </DataTrigger>
+                            <!-- While a group is being dragged, every group is just its header. -->
+                            <DataTrigger Binding="{Binding DataContext.IsReordering, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+                                <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                                <Setter TargetName="Columns" Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+
+                    <!-- Card bottom -->
+                    <DataTemplate DataType="{x:Type m:SensorGroupEnd}">
+                        <ctl:SmoothBorder x:Name="Card" Height="16" Margin="0,0,0,16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1,0,1,1" CornerRadius="0,0,16,16" />
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Owner.IsBeingMoved}" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+
+                    <!-- One sensor -->
+                    <DataTemplate DataType="{x:Type m:SensorItem}">
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1,0,1,0" Padding="20,0">
+                            <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="58" />
+                                        <ColumnDefinition Width="*" MinWidth="130" />
+                                        <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="84" />
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="30" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
+                                            HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
+                                        <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
+                                                   Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
+                                    </Border>
+                                    <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
+                                             Text="{Binding Label, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="{Binding NameTip}" KeyDown="RenameBox_KeyDown" />
+                                    <ctl:Sparkline Grid.Column="2" Height="22" Margin="12,0"
+                                                   Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}"
+                                                   Stroke="{Binding Kind, Converter={StaticResource KindBrush}}" />
+                                    <TextBlock Grid.Column="3" Text="{Binding FormattedValue}" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                <Style.Triggers>
+                                                    <!-- Coloured by its own part's steps; a fixed limit stays plain. -->
+                                                    <DataTrigger Binding="{Binding HasTempScale}" Value="True">
+                                                        <Setter Property="Foreground">
+                                                            <Setter.Value>
+                                                                <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                    <Binding Path="Value" />
+                                                                    <Binding Path="TempScale" />
+                                                                </MultiBinding>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Grid.Column="4" Text="{Binding FormattedMin}" Style="{StaticResource Num}" />
+                                    <TextBlock Grid.Column="5" Text="{Binding FormattedMax}" Style="{StaticResource Num}" />
+                                    <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Num}" />
+                                    <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
+                                            Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
+                                        <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
+                                    </Button>
+                                    <!-- Where it is shown, copying its value, hiding it. -->
+                                    <Button Grid.Column="8" Style="{StaticResource IconButton}" HorizontalAlignment="Right" Click="More_Click"
+                                            ToolTip="Show it on the taskbar, the overlay, a widget or a dashboard" AutomationProperties.Name="More">
+                                        <TextBlock Text="&#xE712;" />
+                                    </Button>
+                                </Grid>
+                            </Border>
                         </Border>
-                    </Border>
-                    <DataTemplate.Triggers>
-                        <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
-                        </Trigger>
-                        <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                            <Setter TargetName="Row" Property="Opacity" Value="0.45" />
-                            <Setter TargetName="EyeGlyph" Property="Text" Value="&#xED1A;" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-            </ItemsControl.Resources>
-        </ItemsControl>
+                        <DataTemplate.Triggers>
+                            <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="EyeGlyph" Property="Text" Value="&#xED1A;" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.Resources>
+            </ItemsControl>
+
+            <!-- What stands out right now, read from every sensor: nothing to pick. A line jumps to its sensor in the list. -->
+            <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="18,0,0,0" AutomationProperties.Name="Right now">
+                <ctl:SmoothBorder.Resources>
+                    <DataTemplate DataType="{x:Type vm:GlanceRow}">
+                        <Button Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                Cursor="Hand" FocusVisualStyle="{x:Null}" HorizontalAlignment="Stretch" ToolTip="Show it in the list"
+                                AutomationProperties.Name="{Binding Sensor.DisplayName}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="8" Padding="8,6" Margin="-8,0">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <TextBlock x:Name="Value" DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue}" FontSize="13.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" />
+                                                <TextBlock Text="{Binding Sensor.DisplayName}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Note}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                            <Grid Height="4" Margin="0,5,0,0" Visibility="{Binding HasBar, Converter={StaticResource Vis}}">
+                                                <Border CornerRadius="2" Background="{DynamicResource Surface2Brush}" />
+                                                <ctl:BarPair x:Name="Bar" DownShare="{Binding Bar, Converter={StaticResource Scale}, ConverterParameter=100}" UpShare="0" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding Sensor.HasTempScale}" Value="True">
+                                            <Setter TargetName="Value" Property="Foreground">
+                                                <Setter.Value>
+                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                        <Binding Path="Sensor.Value" />
+                                                        <Binding Path="Sensor.TempScale" />
+                                                    </MultiBinding>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </DataTemplate>
+                    <Style x:Key="GlanceTitle" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                        <Setter Property="Margin" Value="0,18,0,4" />
+                    </Style>
+                </ctl:SmoothBorder.Resources>
+                <StackPanel>
+                    <TextBlock Text="Right now" Style="{StaticResource H2}" />
+                    <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="nearest its limit" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock Text="WARMEST" Style="{StaticResource GlanceTitle}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding Warmest}" Focusable="False" />
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding Hardest.Count, Converter={StaticResource Vis}}">
+                        <TextBlock Text="WORKING HARDEST" Style="{StaticResource GlanceTitle}" />
+                        <ItemsControl ItemsSource="{Binding Hardest}" Focusable="False" />
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding FastestFans.Count, Converter={StaticResource Vis}}">
+                        <TextBlock Text="FANS" Style="{StaticResource GlanceTitle}" />
+                        <ItemsControl ItemsSource="{Binding FastestFans}" Focusable="False" />
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding PowerDraw.Count, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding PowerNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock Text="DRAWING POWER" Style="{StaticResource GlanceTitle}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding PowerDraw}" Focusable="False" />
+                    </StackPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </Grid>
     </DockPanel>
 </UserControl>

@@ -54,6 +54,14 @@ public sealed class RigsightSettings
     /// <summary>The order the user dragged the All sensors groups into (by name); groups not listed follow in their usual order.</summary>
     public List<string> HardwareOrder { get; set; } = [];
 
+    /// <summary>
+    /// The apps (exe) that have a colour of their own on the Network page's chart, in the order of the colours, so an app
+    /// overtaking another never makes the two trade colours. Remembered once there is a week of history; an app that
+    /// hasn't used the internet for a month gives its place to the biggest user that has none.
+    /// </summary>
+    public List<string> NetColorApps { get; set; } = [];
+    public const int MaxNetColorApps = 4;
+
     /// <summary>Sensors shown as numbers in the taskbar's notification area, in this order (by sensor id).</summary>
     public List<string> TraySensors { get; set; } = [];
 

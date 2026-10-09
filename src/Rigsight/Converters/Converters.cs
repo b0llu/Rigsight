@@ -56,6 +56,17 @@ public sealed class TempToBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
+/// <summary>A temperature's colour by steps that come with the reading (All sensors: each part has its own): the value, then "45,70,85".</summary>
+public sealed class ScaledTempBrushConverter : IMultiValueConverter
+{
+    private static readonly TempToBrushConverter Temp = new();
+
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values is [var value, var scale, ..] ? Temp.Convert(value, targetType, scale as string, culture) : TempToBrushConverter.None;
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
+}
+
 /// <summary>A reading as the taskbar shows it ("62", "1.2k"): bind the sensor's Kind, then its Value.</summary>
 public sealed class TrayTextConverter : IMultiValueConverter
 {

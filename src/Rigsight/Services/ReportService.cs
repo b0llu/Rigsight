@@ -109,10 +109,10 @@ public sealed class ReportService(SettingsModel settings)
     });
 
     /// <summary>The Network page: the period's internet use (with its insights), and the first day any was recorded.</summary>
-    public Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor)
+    public async Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor)
     {
         var s = Snapshot();
-        return Run(db =>
+        var result = await Run(db =>
         {
             var apps = db.LoadApps().ToDictionary(a => a.Id);
             var (from, to) = ReportBuilder.Bounds(range, anchor);
@@ -120,6 +120,10 @@ public sealed class ReportService(SettingsModel settings)
             IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Downloads.Select(d => d.Path)));
             return (report, db.FirstNetDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
         });
+        // An app given a colour on the chart keeps it: remembered, so the next report hands out the same ones.
+        if (result.Item1 is { ColorsSettled: true, ColorExes.Count: > 0 } built && !built.ColorExes.SequenceEqual(settings.Current.NetColorApps, StringComparer.OrdinalIgnoreCase))
+            settings.Update(x => x.NetColorApps = [.. built.ColorExes]);
+        return result;
     }
 
     public Task<List<DriveDay>?> DriveHistoryAsync(int days) =>

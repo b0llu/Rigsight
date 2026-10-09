@@ -455,6 +455,27 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void A_temperature_with_its_own_steps_is_coloured_by_them()
+    {
+        Ui.Run(() =>
+        {
+            var brush = new ScaledTempBrushConverter();
+            object Of(params object[] v) => brush.Convert(v, typeof(Brush), null, CultureInfo.InvariantCulture);
+            // 55 degrees: fine for a CPU, warm for a drive.
+            Assert.Same(TempToBrushConverter.Good, Of(55.0, "45,70,85"));
+            Assert.Same(TempToBrushConverter.Warm, Of(55.0, "35,50,65"));
+            Assert.Same(TempToBrushConverter.Cool, Of(30.0, "35,50,65"));
+            Assert.Same(TempToBrushConverter.Hot, Of(70.0, "35,50,65"));
+            // No steps given: the usual ones. No reading, or nothing bound yet: faint.
+            Assert.Same(TempToBrushConverter.Hot, Of(88.0, null!));
+            Assert.Same(TempToBrushConverter.None, Of(null!, "35,50,65"));
+            Assert.Same(TempToBrushConverter.None, Of(DependencyProperty.UnsetValue, DependencyProperty.UnsetValue));
+            Assert.Same(TempToBrushConverter.None, Of(55.0));
+            Assert.Empty(brush.ConvertBack(Brushes.White, [typeof(double)], null, CultureInfo.InvariantCulture));
+        });
+    }
+
+    [Fact]
     public void Sidebar_icons_are_font_characters_or_the_drawn_fan()
     {
         Ui.Run(() =>
@@ -482,7 +503,7 @@ public sealed class ConverterTests
             typeof(DurationConverter), typeof(TempShortConverter), typeof(MegabytesConverter), typeof(BytesConverter), typeof(IconConverter),
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
-            typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter),
+            typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

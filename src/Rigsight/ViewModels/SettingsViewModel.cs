@@ -291,20 +291,70 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name).</summary>
     public Func<IReadOnlyList<(string, string)>>? GetHardware { get; set; }
 
-    [ObservableProperty] private string? _reportStatus;
+    /// <summary>What the two buttons say: their name, and for a moment after a press what happened ("Copied").
+    /// The button is where the answer is: no line of text appears under the row.</summary>
+    [ObservableProperty] private string _reportBugText = "Report a bug";
+    [ObservableProperty] private string _copyLogsText = "Copy";
 
-    [RelayCommand]
-    private void CopyProblemReport()
+    /// <summary>How long a button says what happened before it says its name again.</summary>
+    internal static readonly TimeSpan ButtonSaysFor = TimeSpan.FromSeconds(2.5);
+    private System.Windows.Threading.DispatcherTimer? _buttonsBack;
+
+    private void SayOnButtons(string? bug, string? copy)
+    {
+        if (bug is not null) ReportBugText = bug;
+        if (copy is not null) CopyLogsText = copy;
+        _buttonsBack ??= new System.Windows.Threading.DispatcherTimer(ButtonSaysFor, System.Windows.Threading.DispatcherPriority.Normal, (_, _) => ResetReportButtons(),
+            System.Windows.Threading.Dispatcher.CurrentDispatcher);
+        _buttonsBack.Stop();
+        _buttonsBack.Start();
+    }
+
+    /// <summary>The buttons say their names again.</summary>
+    internal void ResetReportButtons()
+    {
+        _buttonsBack?.Stop();
+        (ReportBugText, CopyLogsText) = ("Report a bug", "Copy");
+    }
+
+    /// <summary>Puts text on the clipboard, and opens a web address in the browser (tests replace both).</summary>
+    internal Action<string> SetClipboard { get; set; } = Clipboard.SetText;
+    internal Action<string> OpenInBrowser { get; set; } = url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+
+    private bool CopyReport()
     {
         string report = ProblemReport.ForThisPc(AppVersion, client.IsConnected, AgentIsAdmin, GetHardware?.Invoke() ?? [], SensorStatus);
         try
         {
-            Clipboard.SetText(report);
-            ReportStatus = "Copied. Paste it wherever you're asking for help.";
+            SetClipboard(report);
+            return true;
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
-            ReportStatus = "Couldn't reach the clipboard. Try again.";
+            return false;
+        }
+    }
+
+    /// <summary>Logs, Copy: the report on the clipboard, to paste wherever help is asked for (a forum, a chat).</summary>
+    [RelayCommand]
+    private void CopyProblemReport() => SayOnButtons(null, CopyReport() ? "Copied" : "Couldn't copy");
+
+    /// <summary>
+    /// Report a bug: the report is copied and the bug form opens in the browser, with one box to paste it into. The app
+    /// sends nothing itself: what reaches anyone is what the person pastes and submits.
+    /// </summary>
+    [RelayCommand]
+    private void ReportBug()
+    {
+        bool copied = CopyReport();
+        try
+        {
+            OpenInBrowser(ProblemReport.BugFormUrl);
+            SayOnButtons(copied ? "Copied" : "Couldn't copy", null);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            SayOnButtons("Couldn't open", null);
         }
     }
 

@@ -40,6 +40,23 @@ internal sealed class ConnectionWatch
     /// <summary>The PC is going to sleep: whatever was going on is part of that, not a drop.</summary>
     public void Suspend() => _open = null;
 
+    /// <summary>How long a drop must have lasted to be written down while it still goes on.</summary>
+    public const int MinOngoingSeconds = 60;
+
+    /// <summary>
+    /// The drop going on now, as far as it has got, once it has lasted a minute with next to nothing coming in: written
+    /// down as it goes (each time over the last, it has one start), so one that ends with the PC put to sleep, switched
+    /// off or losing power is kept (written only when the internet came back, it was lost with the PC).
+    /// </summary>
+    public NetDrop? Ongoing(long now)
+    {
+        if (_open is not { } drop) return null;
+        long length = now - drop.Start;
+        if (length < MinOngoingSeconds) return null;
+        if (drop.Measured && drop.Bytes / length >= MaxBytesWhileDown) return null;
+        return new NetDrop(drop.Start, now, drop.CardDown * 2 >= drop.Seconds ? NetDropKind.Link : NetDropKind.Internet);
+    }
+
     /// <summary>
     /// One look, about once a second: whether Windows sees the internet (null: it can't tell), whether a network card is
     /// connected, and how much came in from the internet since the last look (null without the trace). Returns a drop

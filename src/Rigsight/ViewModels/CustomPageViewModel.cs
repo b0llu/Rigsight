@@ -19,8 +19,9 @@ public sealed partial class CustomPageViewModel : ObservableObject
     private Dictionary<TileViewModel, (int X, int Y)>? _dragHome;
 
     public CustomPageViewModel(CustomPageConfig config, SettingsModel settings, LiveData live, HomeViewModel home,
-        CrashesViewModel crashes, Action<CustomPageViewModel> open, Action<CustomPageViewModel> delete)
+        CrashesViewModel crashes, Action<CustomPageViewModel> open, Action<CustomPageViewModel> delete, NetTodayViewModel? net = null)
     {
+        Net = net;
         _settings = settings;
         _open = open;
         _delete = delete;
@@ -63,6 +64,8 @@ public sealed partial class CustomPageViewModel : ObservableObject
     public LiveData Live { get; }
     public HomeViewModel Home { get; }
     public CrashesViewModel Crashes { get; }
+    /// <summary>The internet right now and today, for the internet tiles (none in a page made on its own, as tests do).</summary>
+    public NetTodayViewModel? Net { get; }
 
     public ObservableCollection<TileViewModel> Tiles { get; } = [];
     public bool IsEmpty => !Tiles.Any(t => !t.IsPlaceholder);
@@ -102,6 +105,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
         var kinds = Tiles.Select(t => t.Kind).ToHashSet();
         if (kinds.Overlaps(["most-used", "insights", "yesterday"])) await Home.RefreshAsync();
         if (kinds.Contains("crashes")) await Crashes.Recent.LoadAsync();
+        if (Net is not null && kinds.Any(k => k.StartsWith("net-", StringComparison.Ordinal))) await Net.RefreshAsync();
     }
 
     // ── Adding, removing, resizing ────────────────────────────────────────

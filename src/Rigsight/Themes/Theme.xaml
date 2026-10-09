@@ -48,6 +48,7 @@
 
     <!-- ── Converters ──────────────────────────────────────────────────── -->
     <conv:TempToBrushConverter x:Key="TempBrush" />
+    <conv:ScaledTempBrushConverter x:Key="ScaledTempBrush" />
     <conv:TrayTextConverter x:Key="TrayText" />
     <conv:TrayBrushConverter x:Key="TrayBrush" />
     <conv:EqualsConverter x:Key="Equals" />

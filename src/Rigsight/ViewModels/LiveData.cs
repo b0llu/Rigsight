@@ -39,7 +39,9 @@ public sealed partial class LiveData : ObservableObject
     public ObservableCollection<HardwareNode> Hardware { get; } = [];
 
     /// <summary>What the All sensors page lists: per card, a header, the rows that pass the filters, and an end marker.</summary>
-    [ObservableProperty] private List<object> _sensorRows = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SensorsEmptyText))]
+    private List<object> _sensorRows = [];
 
     [ObservableProperty] private bool _hasHardware;
     [ObservableProperty] private long _tick;
@@ -340,9 +342,12 @@ public sealed partial class LiveData : ObservableObject
         TempSeries.Clear();
 
         var s = _settings.Current;
+        var named = new Dictionary<string, int>();
         foreach (var hw in hello.Hardware!)
         {
-            var node = new HardwareNode(hw.Name, hw.Type) { IsExpanded = !s.CollapsedHardware.Contains(hw.Name) };
+            int nth = named[hw.Name] = named.GetValueOrDefault(hw.Name) + 1;
+            string key = nth == 1 ? hw.Name : $"{hw.Name} #{nth}";
+            var node = new HardwareNode(hw.Name, hw.Type) { Key = key, IsExpanded = !s.CollapsedHardware.Contains(key) };
             foreach (var meta in hw.Sensors)
             {
                 var item = new SensorItem(meta, hw.Name, hw.Type)
@@ -354,6 +359,7 @@ public sealed partial class LiveData : ObservableObject
                 node.Sensors.Add(item);
                 _flat.Add(item);
             }
+            node.BuildKeys();
             Hardware.Add(node);
         }
 
@@ -505,6 +511,8 @@ public sealed partial class LiveData : ObservableObject
         {
             for (int i = 0; i < values.Length; i++)
                 _flat[i].Push(tick.Time, values[i]);
+            foreach (var node in Hardware) node.RefreshKeys();
+            UpdateGlance();
             UpdateDerived();
         }
         if (tick.Today is not null) Today = tick.Today;
@@ -730,29 +738,196 @@ public sealed partial class LiveData : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowHiddenText), nameof(HiddenHint))]
+    [NotifyPropertyChangedFor(nameof(ShowHiddenText))]
     private int _hiddenCount;
 
     public string ShowHiddenText => HiddenCount == 1 ? "Show 1 hidden sensor" : $"Show {HiddenCount} hidden sensors";
 
-    public string HiddenHint => HiddenCount == 0
-        ? "Click a name to rename it. Click the eye to hide a sensor you don't care about."
-        : $"{HiddenCount} sensor{(HiddenCount == 1 ? " is" : "s are")} hidden. Turn on “{ShowHiddenText}” to see {(HiddenCount == 1 ? "it" : "them")} dimmed, then click the eye again to bring {(HiddenCount == 1 ? "it" : "them")} back.";
+    /// <summary>The sensors a widget, a dashboard, the overlay or the taskbar offers to add: all but the hidden ones
+    /// (one already added stays where it is).</summary>
+    [ObservableProperty] private IReadOnlyList<SensorItem> _pickableSensors = [];
+
+    /// <summary>What the page says in place of an empty list; nothing while there are rows.</summary>
+    public string? SensorsEmptyText =>
+        SensorRows.Count > 0 ? null
+        : _flat.Count == 0 ? "No sensors yet"
+        : Core.TextMatch.Words(SearchText).Length > 0 ? "No sensors match"
+        : TypeFilter != "All" ? "No sensors of this kind"
+        : "Every sensor is hidden";
+
+    // ── What stands out right now: the pane beside the list, read from every sensor, nothing to pick ──
+
+    /// <summary>The most rows a part of the pane shows.</summary>
+    internal const int GlanceRows = 4;
+
+    /// <summary>The warmest parts, each by the reading of its that is nearest its limit, nearest first.</summary>
+    public ObservableCollection<GlanceRow> Warmest { get; } = [];
+    /// <summary>The main loads (CPU, GPU, video memory, memory), busiest first.</summary>
+    public ObservableCollection<GlanceRow> Hardest { get; } = [];
+    /// <summary>The fans that are spinning, fastest first.</summary>
+    public ObservableCollection<GlanceRow> FastestFans { get; } = [];
+    /// <summary>What the CPU and the graphics card draw, and (two of them) the sum.</summary>
+    public ObservableCollection<GlanceRow> PowerDraw { get; } = [];
+    [ObservableProperty] private string _powerNote = "";
+
+    private void UpdateGlance()
+    {
+        // Warmest: a temperature is set against the limit its own part reports where it reports one (a drive's
+        // "Warning Temperature"), else against the step it turns red at here. One reading a part, the nearest its
+        // limit. A board chip's readings ("Temperature #3") aren't ranked unless given a name: nobody knows what an
+        // unnamed one measures.
+        var warm = new List<(SensorItem Sensor, double Share, string Note)>();
+        foreach (var node in Hardware)
+        {
+            bool board = node.Badge == "BOARD";
+            double? reported = node.Sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && x.Name.Contains("Warning", StringComparison.OrdinalIgnoreCase))?.Value;
+            (SensorItem Sensor, double Share, string Note)? best = null;
+            foreach (var sensor in node.Sensors)
+            {
+                if (!sensor.HasTempScale || sensor.IsHidden || sensor.Value is not double v || v <= 0) continue;
+                if (board && sensor.CustomLabel is null) continue;
+                double limit = reported is > 0 ? reported.Value : double.Parse(sensor.TempScale!.Split(',')[2], System.Globalization.CultureInfo.InvariantCulture);
+                if (best is null || v / limit > best.Value.Share)
+                    best = (sensor, v / limit, reported is > 0 ? $"{node.Name} · its limit is {Units.TempShort(reported)}" : node.Name);
+            }
+            if (best is { } found) warm.Add(found);
+        }
+        Fill(Warmest, warm.OrderByDescending(x => x.Share).Take(GlanceRows).Select(x => (x.Sensor, (double?)x.Share, x.Note)));
+        Fill(Hardest, new[] { CpuLoad, GpuLoad, GpuVramLoad, RamLoad }.Where(x => x?.Value is not null && !x.IsHidden).Select(x => x!)
+            .OrderByDescending(x => x.Value).Select(x => (x, (double?)(x.Value!.Value / 100), x.HardwareName)));
+        Fill(FastestFans, _flat.Where(x => x.Kind == SensorKind.Fan && !x.IsHidden && x.Value > 0).OrderByDescending(x => x.Value).Take(GlanceRows)
+            .Select(x => (x, (double?)null, x.HardwareName)));
+        var power = new[] { CpuPower, GpuPower }.Where(x => x?.Value is > 0 && !x.IsHidden).Select(x => x!).OrderByDescending(x => x.Value).ToList();
+        Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareName)));
+        PowerNote = power.Count > 1 ? $"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together" : "";
+    }
+
+    /// <summary>Rows kept and given what they now show (a list made anew each second would be built anew each second).</summary>
+    private static void Fill(ObservableCollection<GlanceRow> rows, IEnumerable<(SensorItem Sensor, double? Bar, string Note)> items)
+    {
+        int i = 0;
+        foreach (var (sensor, bar, note) in items)
+        {
+            if (i >= rows.Count) rows.Add(new GlanceRow());
+            var row = rows[i++];
+            row.Sensor = sensor;
+            row.Bar = Math.Clamp(bar ?? 0, 0, 1);
+            row.HasBar = bar is not null;
+            row.Note = note;
+        }
+        while (rows.Count > i) rows.RemoveAt(rows.Count - 1);
+    }
+
+    /// <summary>A line of the pane was clicked: the list shows that sensor (its part opened, any search let go) and
+    /// the page scrolls to its row, which stays lit.</summary>
+    public event Action<SensorItem>? Revealed;
+
+    private SensorItem? _lit;
+
+    [RelayCommand]
+    private void Reveal(GlanceRow? row)
+    {
+        if (row?.Sensor is not { } sensor || GroupOf(sensor) is not { } node) return;
+        if (SearchText.Length > 0) SearchText = "";
+        if (TypeFilter != "All") TypeFilter = "All";
+        if (!node.IsExpanded)
+        {
+            node.IsExpanded = true;
+            SaveCollapsed();
+            RebuildRows();
+        }
+        if (_lit is not null) _lit.IsSelected = false;
+        (_lit = sensor).IsSelected = true;
+        Revealed?.Invoke(sensor);
+    }
+
+    // ── A sensor's menu (the "more" at the end of its row): where it is shown, copying its value ──
+
+    /// <summary>The user's dashboards, for "Show it on" (the shell gives them; none in a page shown on its own).</summary>
+    public Func<IReadOnlyList<CustomPageViewModel>>? Dashboards { get; set; }
+
+    /// <summary>Where <paramref name="sensor"/> can be shown, and whether it is: the taskbar, the overlay, each widget
+    /// that is on and takes its kind of reading, each dashboard.</summary>
+    public IReadOnlyList<SensorPlace> PlacesFor(SensorItem sensor)
+    {
+        var places = new List<SensorPlace>();
+        var set = _settings.Current;
+        places.Add(new SensorPlace("The taskbar", set.TraySensors.Contains(sensor.Id), true,
+            () => _settings.Update(x => { if (!x.TraySensors.Remove(sensor.Id)) x.TraySensors.Add(sensor.Id); })));
+        bool onOverlay = set.Overlay.Sensors.Any(o => o.Id == sensor.Id);
+        places.Add(new SensorPlace("The overlay", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
+            () => _settings.Update(x =>
+            {
+                if (x.Overlay.Sensors.RemoveAll(o => o.Id == sensor.Id) == 0 && x.Overlay.Sensors.Count < OverlaySettings.MaxSensors)
+                    x.Overlay.Sensors.Add(new OverlaySensor { Id = sensor.Id });
+            })));
+        // Each widget that is on and can show this kind of reading (a gauge takes temperatures and percentages).
+        foreach (var w in set.Widgets.Where(w => w.Enabled))
+        {
+            var layout = WidgetCatalog.LayoutOf(w);
+            if (!WidgetCatalog.AllowsSensor(layout, sensor.Kind)) continue;
+            string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
+            var items = WidgetCatalog.ItemsOf(w);
+            bool onWidget = items.Any(i => i.Id == item);
+            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", onWidget, onWidget || items.Count < WidgetCatalog.MaxItems(layout),
+                () => _settings.Update(x =>
+                {
+                    if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;
+                    // A built-in widget gets its own copy of its usual readings first, as on the Widgets page.
+                    var list = WidgetCatalog.ItemsOf(target).Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList();
+                    if (list.RemoveAll(i => i.Id == item) == 0) list.Add(new WidgetItem { Id = item });
+                    target.Items = list;
+                    WidgetCatalog.Clean(target);
+                })));
+        }
+        foreach (var page in Dashboards?.Invoke() ?? [])
+        {
+            places.Add(new SensorPlace($"Dashboard · {page.Name}", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
+            {
+                if (page.Tiles.FirstOrDefault(t => t.SensorRef == sensor.Id) is { } tile) page.Remove(tile);
+                else
+                {
+                    page.SensorToAdd = sensor;
+                    page.AddSensorTileCommand.Execute(null);
+                }
+            }));
+        }
+        return places;
+    }
+
+    /// <summary>Puts text on the clipboard (tests replace this).</summary>
+    internal Action<string> SetClipboard { get; set; } = text => System.Windows.Clipboard.SetText(text);
+
+    /// <summary>Copies a sensor's reading as it is shown ("49.0 °C"). False when the clipboard is held by another program.</summary>
+    public bool Copy(SensorItem sensor)
+    {
+        try
+        {
+            SetClipboard(sensor.FormattedValue);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     public void ApplyFilter()
     {
         HiddenCount = _flat.Count(s => s.IsHidden);
         if (HiddenCount == 0 && ShowHidden) ShowHidden = false;
-        var query = SearchText?.Trim() ?? "";
+        var pickable = _flat.Where(s => !s.IsHidden).ToList();
+        if (!pickable.SequenceEqual(PickableSensors)) PickableSensors = pickable;
+        // Every word typed must be in the sensor's name (the one given to it or its own), its part's name or its tag.
+        string[] words = Core.TextMatch.Words(SearchText);
         foreach (var node in Hardware)
         {
-            bool nodeMatches = query.Length > 0 && node.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
             bool any = false;
             foreach (var s in node.Sensors)
             {
                 bool show = (ShowHidden || !s.IsHidden)
                             && MatchesType(s.Kind)
-                            && (query.Length == 0 || nodeMatches || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase));
+                            && Core.TextMatch.Has(words, s.DisplayName, s.Name, node.Name, node.Badge);
                 s.IsShown = show;
                 any |= show;
             }
@@ -761,6 +936,7 @@ public sealed partial class LiveData : ObservableObject
             node.Summary = (node.Sensors.Count == 1 ? "1 sensor" : $"{node.Sensors.Count} sensors") + (hidden > 0 ? $"  ·  {hidden} hidden" : "");
         }
         RebuildRows();
+        UpdateGlance();
     }
 
     private void RebuildRows()
@@ -786,7 +962,7 @@ public sealed partial class LiveData : ObservableObject
     private List<HardwareNode> OrderedHardware()
     {
         var order = _settings.Current.HardwareOrder;
-        return [.. Hardware.Select((node, i) => (node, key: order.IndexOf(node.Name) is int k and >= 0 ? k : order.Count + i))
+        return [.. Hardware.Select((node, i) => (node, key: order.IndexOf(node.Key) is int k and >= 0 ? k : order.Count + i))
             .OrderBy(x => x.key).Select(x => x.node)];
     }
 
@@ -799,7 +975,7 @@ public sealed partial class LiveData : ObservableObject
         if (from < 0 || to < 0) return;
         list.RemoveAt(from);
         list.Insert(to, node);
-        _settings.Update(s => s.HardwareOrder = [.. list.Select(n => n.Name)]);
+        _settings.Update(s => s.HardwareOrder = [.. list.Select(n => n.Key)]);
         RebuildRows();
     }
 
@@ -831,7 +1007,7 @@ public sealed partial class LiveData : ObservableObject
     }
 
     private void SaveCollapsed() =>
-        _settings.Update(s => s.CollapsedHardware = [.. Hardware.Where(n => !n.IsExpanded).Select(n => n.Name)]);
+        _settings.Update(s => s.CollapsedHardware = [.. Hardware.Where(n => !n.IsExpanded).Select(n => n.Key)]);
 
     [RelayCommand]
     private void UnhideAll()
@@ -869,5 +1045,29 @@ public sealed partial class LiveData : ObservableObject
             if (match is not null) return match;
         }
         return null;
+    }
+}
+
+/// <summary>A line of the pane beside the All sensors list: a sensor, what is said under its name, and a bar (0 to 1).</summary>
+public sealed partial class GlanceRow : ObservableObject
+{
+    [ObservableProperty] private SensorItem? _sensor;
+    [ObservableProperty] private string _note = "";
+    [ObservableProperty] private double _bar;
+    [ObservableProperty] private bool _hasBar;
+}
+
+/// <summary>Somewhere a sensor can be shown (the taskbar, the overlay, a widget, a dashboard), and whether it is there now.</summary>
+public sealed partial class SensorPlace(string name, bool isShown, bool canToggle, Action toggle) : ObservableObject
+{
+    public string Name { get; } = name;
+    public bool IsShown { get; } = isShown;
+    /// <summary>False when it can't be added: the place is full.</summary>
+    public bool CanToggle { get; } = canToggle;
+
+    [RelayCommand]
+    private void Toggle()
+    {
+        if (CanToggle) toggle();
     }
 }

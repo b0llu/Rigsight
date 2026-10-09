@@ -48,6 +48,7 @@ public sealed partial class TileViewModel : ObservableObject
     public LiveData Live => Page.Live;
     public HomeViewModel Home => Page.Home;
     public CrashesViewModel Crashes => Page.Crashes;
+    public NetTodayViewModel? Net => Page.Net;
 
     [ObservableProperty] private int _x;
     [ObservableProperty] private int _y;

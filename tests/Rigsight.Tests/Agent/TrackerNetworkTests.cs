@@ -37,6 +37,33 @@ public class TrackerNetworkTests
     }
 
     [Fact]
+    public void An_agent_restarting_within_a_minute_keeps_what_the_minute_already_had()
+    {
+        // The minute is written whole: the agent that starts again (an update, a crash) used to write only its own part
+        // of it over what the one before had written.
+        using var rig = new TrackerRig();
+        rig.Net["steam.exe"] = new NetCounts { Down = MB, Up = 10_000 };
+        rig.Use("chrome.exe", 20);
+        rig.Restart();
+        rig.Use("chrome.exe", 20);
+        rig.Tracker.Flush(closeAllSessions: true);
+
+        var minute = Assert.Single(rig.Db.GetNetMinutes(0, long.MaxValue));
+        Assert.Equal(40 * MB, minute.Down);
+        Assert.Equal(40 * 10_000, minute.Up);
+        Assert.Equal(40 * MB, minute.BgDown);
+        Assert.Equal(40 * MB, Total(rig).Down);
+        Assert.Equal(40 * MB, Day(rig, "steam.exe").Down);
+
+        // Only the minute it started in: the next one starts from nothing.
+        rig.Use("chrome.exe", 60);
+        rig.Tracker.Flush(closeAllSessions: true);
+        var minutes = rig.Db.GetNetMinutes(0, long.MaxValue);
+        Assert.Equal(2, minutes.Count);
+        Assert.Equal(100 * MB, minutes.Sum(m => m.Down));
+    }
+
+    [Fact]
     public void The_app_in_front_downloading_is_not_background()
     {
         using var rig = new TrackerRig();

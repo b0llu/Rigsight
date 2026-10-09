@@ -13,7 +13,7 @@ public sealed class SettingsStoreTests
     public static TheoryData<string> NullableSections() =>
     [
         "Widgets", "Overlay", "Tracking", "Alerts", "CustomPages", "AppNames", "AppCategories", "SensorLabels",
-        "HiddenSensors", "CollapsedHardware", "HardwareOrder", "MutedCrashApps", "StartPage", "Theme",
+        "HiddenSensors", "CollapsedHardware", "HardwareOrder", "NetColorApps", "MutedCrashApps", "StartPage", "Theme",
     ];
 
     [Theory]
@@ -41,7 +41,7 @@ public sealed class SettingsStoreTests
               "SettingsVersion": {{version}}, "UseFahrenheit": true,
               "Widgets": null, "Overlay": null, "Tracking": null, "Alerts": null, "CustomPages": null, "AppNames": null,
               "AppCategories": null, "SensorLabels": null, "HiddenSensors": null, "CollapsedHardware": null,
-              "HardwareOrder": null, "MutedCrashApps": null
+              "HardwareOrder": null, "NetColorApps": null, "MutedCrashApps": null
             }
             """);
         Assert.True(s.UseFahrenheit);

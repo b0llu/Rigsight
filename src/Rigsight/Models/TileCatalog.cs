@@ -35,6 +35,14 @@ public static class TileCatalog
             new("sensor", "Video memory", "How much of the GPU's memory is in use.", "\uE964", 3, 2, MinW: 2, MinH: 2, Sensor: "key:" + KeySensors.GpuVramLoad),
             new("sensor", "RAM", "How much of your memory is in use.", "\uE964", 3, 2, MinW: 2, MinH: 2, Sensor: "key:" + KeySensors.RamLoad),
         ]),
+        new("INTERNET", [
+            new("net-speed", "Internet speed", "Download and upload right now, over the last minute.", "\uE839", 6, 4, MinW: 4, MinH: 3),
+            new("net-now", "Using the internet now", "The apps moving the most right now.", "\uE839", 6, 4, MinW: 4, MinH: 3),
+            new("net-today", "Internet today", "Everything used today: total, down, up and in the background.", "\uE839", 6, 2, MinW: 4, MinH: 2),
+            new("net-apps", "Top internet users today", "The apps that used the most internet today.", "\uE839", 6, 4, MinW: 4, MinH: 3),
+            new("net-chart", "Internet use by hour", "Each hour of today, split by app.", "\uE9D9", 12, 4, MinW: 6, MinH: 3),
+            new("net-drops", "Connection today", "Whether the internet dropped today.", "\uE839", 3, 2, MinW: 3, MinH: 2),
+        ]),
         new("YOUR DAY", [
             new("today", "Today so far", "Active time, PC on and away.", "\uE823", 6, 2, MinW: 4, MinH: 2),
             new("most-used", "Most used today", "Your top apps today.", "\uECA5", 6, 4, MinW: 4, MinH: 3),

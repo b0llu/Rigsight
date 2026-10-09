@@ -129,8 +129,11 @@
                                                         <Run Text="Full" /> <Run Text="{Binding UsedSpace.ShortValue, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                                     </TextBlock>
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding SectorsText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,3,0,0"
+                                                <TextBlock Text="{Binding SectorsText}" FontSize="11.5" Foreground="{Binding SectorsBrush}" Margin="0,3,0,0"
                                                            Visibility="{Binding SectorsText, Converter={StaticResource Vis}}" />
+                                                <!-- Why it isn't green, in the colour of the figure beside it. -->
+                                                <TextBlock Text="{Binding HealthReason}" FontSize="11.5" Foreground="{Binding HealthBrush}" Margin="0,3,0,0" TextWrapping="Wrap"
+                                                           Visibility="{Binding HealthReason, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>

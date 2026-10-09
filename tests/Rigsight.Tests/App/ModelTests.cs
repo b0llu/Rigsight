@@ -405,6 +405,53 @@ public sealed class SensorModelTests
         });
     }
 
+    [Theory]
+    [InlineData(97, "Good", "GoodBrush", null)]
+    [InlineData(11, "Good", "GoodBrush", null)]
+    [InlineData(10, "Good", "WarmBrush", "The drive reports almost all of its rated life used. Keep a backup of what's on it.")]
+    [InlineData(1, "Good", "WarmBrush", "The drive reports almost all of its rated life used. Keep a backup of what's on it.")]   // was green
+    [InlineData(1, "Unknown", "WarmBrush", "The drive reports almost all of its rated life used. Keep a backup of what's on it.")]
+    [InlineData(97, "Caution", "WarmBrush", "SMART reports early warning signs. Keep a backup.")]
+    [InlineData(1, "Caution", "WarmBrush", "SMART reports early warning signs. Keep a backup.")]
+    [InlineData(97, "Bad", "HotBrush", "SMART reports a failure. Back up what's on it now.")]
+    [InlineData(1, "Bad", "HotBrush", "SMART reports a failure. Back up what's on it now.")]
+    public void An_SSDs_colour_is_the_worse_of_its_status_and_the_life_it_has_left(double life, string status, string brush, string? reason)
+    {
+        Ui.Run(() =>
+        {
+            var sensor = Sensor(SensorKind.Level, "Storage", "Life");
+            var drive = new DriveSummary("SSD", null, sensor, null, null) { Health = new DriveHealthInfo { Name = "SSD", Status = status } };
+            var changed = Kit.Changes(drive, () => sensor.Push(1000, (float)life));
+            Assert.Contains(nameof(DriveSummary.HealthBrush), changed);
+            Assert.Contains(nameof(DriveSummary.HealthReason), changed);
+            Assert.Same(Application.Current.FindResource(brush), drive.HealthBrush);
+            Assert.Equal(reason, drive.HealthReason);
+        });
+    }
+
+    [Fact]
+    public void A_drive_marked_caution_for_bad_sectors_says_so_in_the_warnings_colour()
+    {
+        Ui.Run(() =>
+        {
+            // A hard drive with 71 reallocated sectors: "Caution" with nothing beside it left the reader asking why.
+            var drive = new DriveSummary("HDD", null, null, null, null);
+            drive.Health = new DriveHealthInfo { Status = "Caution", ReallocatedSectors = 71, PendingSectors = 0, UncorrectableSectors = 0 };
+            Assert.Equal("71 reallocated sectors", drive.SectorsText);
+            Assert.Same(Application.Current.FindResource("WarmBrush"), drive.SectorsBrush);
+            Assert.Same(Application.Current.FindResource("WarmBrush"), drive.HealthBrush);
+            Assert.Equal("Bad sectors are an early warning. Keep a backup, and watch whether the count grows.", drive.HealthReason);
+            // A healthy one: no reason, and its sector line is plain.
+            var changed = Kit.Changes(drive, () => drive.Health = new DriveHealthInfo { Status = "Good", ReallocatedSectors = 0, PendingSectors = 0, UncorrectableSectors = 0 });
+            Assert.Contains(nameof(DriveSummary.HealthReason), changed);
+            Assert.Contains(nameof(DriveSummary.SectorsBrush), changed);
+            Assert.Null(drive.HealthReason);
+            Assert.Same(Application.Current.FindResource("FaintBrush"), drive.SectorsBrush);
+            drive.Health = new DriveHealthInfo { Status = "Bad", UncorrectableSectors = 8 };
+            Assert.Same(Application.Current.FindResource("HotBrush"), drive.SectorsBrush);
+        });
+    }
+
     [Fact]
     public void Bad_sectors_are_counted_in_words()
     {

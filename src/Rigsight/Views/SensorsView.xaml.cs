@@ -7,7 +7,13 @@ namespace Rigsight.Views;
 
 public partial class SensorsView : UserControl
 {
-    public SensorsView() => InitializeComponent();
+    public SensorsView()
+    {
+        InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        Unloaded += (_, _) => { if (_live is not null) _live.Revealed -= ScrollTo; };
+        Loaded += (_, _) => { if (_live is not null) { _live.Revealed -= ScrollTo; _live.Revealed += ScrollTo; } };
+    }
 
     // ── A group's header: click to collapse or expand, drag to move the group ──
 
@@ -60,6 +66,73 @@ public partial class SensorsView : UserControl
     }
 
     private void List_Drop(object sender, DragEventArgs e) => e.Handled = true;
+
+    // ── A sensor's menu: where it is shown (each a tick to switch), copying its value, hiding it ──
+
+    private void More_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: Models.SensorItem item } button || DataContext is not ViewModels.LiveData live) return;
+        var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        menu.Items.Add(new MenuItem { Header = "Show it on", IsEnabled = false });
+        foreach (var place in live.PlacesFor(item))
+        {
+            var entry = new MenuItem { Header = place.CanToggle ? place.Name : place.Name + " (full)", IsCheckable = true, IsChecked = place.IsShown, IsEnabled = place.CanToggle };
+            entry.Click += (_, _) => place.ToggleCommand.Execute(null);
+            menu.Items.Add(entry);
+        }
+        menu.Items.Add(new Separator());
+        var copy = new MenuItem { Header = "Copy value" };
+        copy.Click += (_, _) => live.Copy(item);
+        menu.Items.Add(copy);
+        var hide = new MenuItem { Header = item.IsHidden ? "Show in the list" : "Hide" };
+        hide.Click += (_, _) => item.ToggleHidden();
+        menu.Items.Add(hide);
+        menu.IsOpen = true;
+    }
+
+    // ── A line of the "Right now" pane was clicked: scroll the list to that sensor's row ──
+
+    private ViewModels.LiveData? _live;
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_live is not null) _live.Revealed -= ScrollTo;
+        _live = DataContext as ViewModels.LiveData;
+        if (_live is not null) _live.Revealed += ScrollTo;
+    }
+
+    private void ScrollTo(Models.SensorItem item)
+    {
+        if (_live is null) return;
+        int index = _live.SensorRows.IndexOf(item);
+        if (index < 0) return;
+        // The list builds only the rows on screen: its panel is asked for the row by its place in the list.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (Find<VirtualizingStackPanel>(SensorList) is not { } panel) return;
+            panel.BringIndexIntoViewPublic(index);
+            // That puts the row at the nearest edge (the bottom, coming from above). Once it is built, move it to the
+            // middle of the list, where the eye lands.
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (SensorList.ItemContainerGenerator.ContainerFromIndex(index) is not FrameworkElement row
+                    || Find<ScrollViewer>(SensorList) is not { } scroll || !row.IsDescendantOf(scroll)) return;
+                double top = row.TransformToAncestor(scroll).Transform(new Point(0, 0)).Y;
+                scroll.ScrollToVerticalOffset(scroll.VerticalOffset + top - (scroll.ViewportHeight - row.ActualHeight) / 2);
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private static T? Find<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T found) return found;
+            if (Find<T>(child) is { } deeper) return deeper;
+        }
+        return null;
+    }
 
     private void RenameBox_KeyDown(object sender, KeyEventArgs e)
     {

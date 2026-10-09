@@ -10,8 +10,8 @@ public static class NetInsights
 {
     private const long MB = 1L << 20, GB = 1L << 30;
 
-    // Icons (Segoe Fluent): download, upload, speed, no connection, a trophy for records, the recap's chart.
-    private const string IconDown = "", IconUp = "", IconSpeed = "", IconDrop = "", IconRecord = "", IconRecap = "";
+    // Icons (Segoe Fluent): download, upload, no connection, a trophy for records, the recap's chart.
+    private const string IconDown = "", IconUp = "", IconDrop = "", IconRecord = "", IconRecap = "";
 
     /// <summary>An app downloading this much in the background in a day (scaled for a week or month) is worth a line…</summary>
     internal const long BackgroundDayBytes = 2 * GB;
@@ -25,13 +25,6 @@ public static class NetInsights
     /// <summary>An app uploading at least this much, and this many times its usual day, is worth a line.</summary>
     internal const long UploadBytes = GB;
     internal const double UploadTimes = 4;
-
-    /// <summary>The speed check: the best steady download of the last 7 days against the 30 days before…</summary>
-    internal const int SpeedDays = 7, SpeedUsualDays = 30;
-    /// <summary>…with at least this many days of big downloads in each…</summary>
-    internal const int SpeedMinDays = 3, SpeedMinUsualDays = 5;
-    /// <summary>…and the week's best at most this share of the usual.</summary>
-    internal const double SpeedDrop = 0.75;
 
     /// <summary>Downloading behind a game: worth a line from this much.</summary>
     internal const long GameBytes = 500 * MB;
@@ -81,12 +74,9 @@ public static class NetInsights
         // 3. An app uploading far more than it usually does: a backup or sync running wild, or something sending files out.
         if (isDay) UnusualUpload(db, r, list, period);
 
-        // 4. The connection slower than it was, by the best big download of the week against the month before.
-        if (isDay && SpeedDropped(db, r.From) is { } drop && SpeedDropped(db, r.From.AddDays(-1)) is null)
-            list.Add(new Insight(IconSpeed,
-                $"Your downloads topped out at {Units.Speed(drop.Week)} ({Units.Mbps(drop.Week)}) over the last 7 days, down from your usual {Units.Speed(drop.Usual)} ({Units.Mbps(drop.Usual)}).",
-                InsightTone.Warn, "net-speed", 75,
-                $"The fastest steady download each day, all apps together: {drop.WeekDays} days lately, {drop.UsualDays} in the 30 before"));
+        // (4 was "your downloads topped out lower than usual". Taken out: a day's fastest download says what was downloaded
+        // that day, a game from Steam or a film in a browser, more than what the line can do. On one unchanged 100 Mbps
+        // line the days' bests ran from 4 to 95 Mbps. It comes back only when it can compare like for like.)
 
         // 5. Downloading behind a game.
         if (isDay && r.Apps.MaxBy(a => a.Use.GameDown) is { } behindGame && behindGame.Use.GameDown >= GameBytes)
@@ -162,23 +152,6 @@ public static class NetInsights
                 $"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"));
             return;
         }
-    }
-
-    /// <summary>
-    /// The 7 days up to <paramref name="day"/> against the 30 before them: the fastest steady download of the week (all apps
-    /// together, so two downloads sharing the line still count as one full line) at most 75% of the usual day's best.
-    /// The week's best, not its average: one slow server doesn't make a slow line.
-    /// </summary>
-    internal static (long Week, long Usual, int WeekDays, int UsualDays)? SpeedDropped(RigsightDb db, DateTime day)
-    {
-        var start = day.Date.AddDays(-(SpeedDays - 1));
-        var rows = db.GetNetDays(TimeUtil.ToUnix(start.AddDays(-SpeedUsualDays)), TimeUtil.ToUnix(day.Date.AddDays(1)));
-        long weekFrom = TimeUtil.ToUnix(start);
-        var week = rows.Where(d => d.Day >= weekFrom && d.Best is not null).Select(d => d.Best!.Value).ToList();
-        var usual = rows.Where(d => d.Day < weekFrom && d.Best is not null).Select(d => d.Best!.Value).ToList();
-        if (week.Count < SpeedMinDays || usual.Count < SpeedMinUsualDays) return null;
-        long best = week.Max(), typical = NetReportBuilder.Median(usual);
-        return best <= typical * SpeedDrop ? (best, typical, week.Count, usual.Count) : null;
     }
 
     /// <summary>The longest window (30, 90 or 365 days) whose every day this one beats, with history enough to say so.</summary>

@@ -20,6 +20,7 @@ public sealed partial class SensorItem : ObservableObject
         Kind = meta.Kind;
         HardwareName = hardwareName;
         HardwareType = hardwareType;
+        TempScale = Kind == SensorKind.Temperature ? ScaleFor(hardwareType, Name) : null;
     }
 
     public string Id { get; }
@@ -28,6 +29,32 @@ public sealed partial class SensorItem : ObservableObject
     public string HardwareName { get; }
     public string HardwareType { get; }
     public HistoryBuffer History { get; } = new(HistoryCapacity);
+
+    /// <summary>
+    /// Where this temperature turns from cool to good to warm to hot ("45,70,85"), the same steps its part has on
+    /// Temperatures and Storage. None for a limit the part reports (a drive's "Critical Temperature"), which never
+    /// moves, and for parts with no known steps: those are shown in the plain text colour.
+    /// </summary>
+    public string? TempScale { get; }
+    public bool HasTempScale => TempScale is not null;
+
+    private static readonly string[] FixedTemperatures = ["Warning", "Critical", "Limit", "Threshold", "Distance", "TjMax", "Shutdown"];
+
+    private static string? ScaleFor(string hardwareType, string name)
+    {
+        if (FixedTemperatures.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase))) return null;
+        return hardwareType switch
+        {
+            "Cpu" => "45,70,85",
+            "GpuNvidia" or "GpuAmd" or "GpuIntel" =>
+                name.Contains("Hot Spot", StringComparison.OrdinalIgnoreCase) ? "50,80,95"
+                : name.Contains("Junction", StringComparison.OrdinalIgnoreCase) ? "55,85,100"
+                : "45,70,83",
+            "Storage" => "35,50,65",
+            "Motherboard" or "SuperIO" or "EmbeddedController" => "40,60,80",
+            _ => null,
+        };
+    }
 
     /// <summary>Raised when the user renames or hides/unhides the sensor, so settings can be saved.</summary>
     public event Action<SensorItem>? UserPreferenceChanged;
@@ -41,15 +68,21 @@ public sealed partial class SensorItem : ObservableObject
     [ObservableProperty] private long _version;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayName), nameof(Label))]
+    [NotifyPropertyChangedFor(nameof(DisplayName), nameof(Label), nameof(NameTip))]
     private string? _customLabel;
 
     [ObservableProperty] private bool _isHidden;
+
+    /// <summary>The one just jumped to from the pane beside the All sensors list: its row is lit until another is.</summary>
+    [ObservableProperty] private bool _isSelected;
 
     /// <summary>Whether the row passes the current filter on the Sensors page.</summary>
     [ObservableProperty] private bool _isShown = true;
 
     public string DisplayName => string.IsNullOrWhiteSpace(CustomLabel) ? Name : CustomLabel!;
+
+    /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
+    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? "Click to rename" : $"{Name}  ·  click to rename";
 
     /// <summary>Two-way bindable name used by the inline rename box. Empty resets to the original name.</summary>
     public string Label

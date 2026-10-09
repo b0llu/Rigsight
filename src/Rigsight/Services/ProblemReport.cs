@@ -7,12 +7,28 @@ using Rigsight.Core.Protocol;
 namespace Rigsight.Services;
 
 /// <summary>
-/// A plain-text report someone can paste where they ask for help: the version, whether the agent runs, the hardware,
-/// what isn't being read and why, and the end of the log. Only ever copied to the clipboard by the user; nothing is sent.
+/// A plain-text report someone can paste where they ask for help or report a bug: the version, whether the agent runs,
+/// the hardware, what isn't being read and why, and the end of the log. Only ever copied to the clipboard by the user;
+/// the app sends nothing. The user's folder name is taken out of every path in it (see <see cref="Scrub"/>).
 /// </summary>
 public static class ProblemReport
 {
     public const int LogLines = 150;
+
+    /// <summary>Where a bug is reported: a form in the browser, which the report is pasted into. The app only opens it.</summary>
+    public const string BugFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSeatRubFiR1Jtjf1yIVL5dimhPVogILB8W3fucdiddmNfCIjA/viewform";
+
+    /// <summary>
+    /// Takes who it is out of a report before it leaves the PC in someone's paste: the folder under C:\Users in any
+    /// path becomes "(user)". Only paths are touched. That folder is where the name is (a log line is a path far more
+    /// often than a sentence), and it isn't always the Windows user name; and swapping a name wherever its letters
+    /// appear would damage the report: a user called Sam would send "(user)sung SSD 980", one called Max "CPU Core (user)".
+    /// </summary>
+    public static string Scrub(string text) => UsersFolder.Replace(text, "$1(user)");
+
+    private static readonly System.Text.RegularExpressions.Regex UsersFolder =
+        // The folder up to the next slash, spaces included ("Sam Smith"), so no part of a name is left behind.
+        new(@"([\\/]Users[\\/])[^\\/""'<>|:*?\r\n]+", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
 
     public sealed record Facts(
         string AppVersion,
@@ -73,5 +89,5 @@ public static class ProblemReport
 
     /// <summary>The report for this PC, with the log from <see cref="RigsightPaths.LogFile"/>.</summary>
     public static string ForThisPc(string appVersion, bool connected, bool admin, IReadOnlyList<(string, string)> hardware, SensorStatus? sensors) =>
-        Build(new Facts(appVersion, connected, admin, WindowsVersion(), hardware, sensors, ReadLogTail(RigsightPaths.LogFile)));
+        Scrub(Build(new Facts(appVersion, connected, admin, WindowsVersion(), hardware, sensors, ReadLogTail(RigsightPaths.LogFile))));
 }

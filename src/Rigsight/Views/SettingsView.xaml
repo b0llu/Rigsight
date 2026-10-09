@@ -529,14 +529,21 @@
                         <TextBlock Text="What's new" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Copy" Command="{Binding CopyProblemReportCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Copy a problem report" />
+                        <!-- The button itself says "Copied" for a moment: no line of text appears under the row. -->
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding ReportBugText}" Command="{Binding ReportBugCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Report a bug" />
                         <StackPanel>
-                            <TextBlock Text="Problem report" Style="{StaticResource Title}" />
+                            <TextBlock Text="Report a bug" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Your Rigsight version, hardware and recent log, to paste wherever you ask for help. Nothing is sent." />
-                            <TextBlock Text="{Binding ReportStatus}" Style="{StaticResource Hint}" Margin="0,4,0,0" Foreground="{DynamicResource GoodBrush}"
-                                       Visibility="{Binding ReportStatus, Converter={StaticResource Vis}}" />
+                                       Text="Copies the logs and opens a form in your browser to paste them into. Rigsight itself sends nothing." />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding CopyLogsText}" Command="{Binding CopyProblemReportCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Copy logs" />
+                        <StackPanel>
+                            <TextBlock Text="Logs" Style="{StaticResource Title}" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="Rigsight's recent log, with its version and your hardware, to paste wherever you ask for help." />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">

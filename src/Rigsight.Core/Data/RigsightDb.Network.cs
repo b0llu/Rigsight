@@ -133,6 +133,46 @@ public sealed partial class RigsightDb
         return list;
     }
 
+    /// <summary>
+    /// The stretches from <paramref name="from"/> to <paramref name="to"/> in which the PC was on (its minutes are there)
+    /// and no internet use was written for <paramref name="minMinutes"/> minutes or more on end: the reading of it had
+    /// stopped (a quiet trace, an agent without admin rights), or there was no internet at all. A PC that is online moves
+    /// something nearly every minute, so a quarter hour of nothing is never an ordinary quiet spell. Nothing from before
+    /// internet use was first recorded.
+    /// </summary>
+    public List<(long Start, long End)> GetNetUnrecorded(long from, long to, int minMinutes = 15)
+    {
+        var list = new List<(long, long)>();
+        if (!HasNetwork) return list;
+        using (var first = Cmd("SELECT min(ts) FROM net_minute"))
+        {
+            if (first.ExecuteScalar() is not long began) return list;
+            from = Math.Max(from, began);
+        }
+        using var cmd = Cmd("""
+            SELECT s.ts FROM system_minute s WHERE s.ts >= $from AND s.ts < $to
+              AND NOT EXISTS (SELECT 1 FROM net_minute n WHERE n.ts = s.ts) ORDER BY s.ts
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        long start = 0, last = 0;
+        void Close()
+        {
+            if (start != 0 && last + 60 - start >= minMinutes * 60) list.Add((start, last + 60));
+        }
+        while (r.Read())
+        {
+            long ts = r.GetInt64(0);
+            if (start == 0 || ts != last + 60)
+            {
+                Close();
+                start = ts;
+            }
+            last = ts;
+        }
+        Close();
+        return list;
+    }
+
     public List<NetDay> GetNetDays(long from, long to)
     {
         if (!HasNetwork) return [];

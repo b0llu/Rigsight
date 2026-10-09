@@ -39,6 +39,14 @@ public sealed partial class NetAppRow : ObservableObject
     public string DownText => Units.Data(Down);
     public string UpText => Units.Data(Up);
 
+    /// <summary>The figure the list is sorted by, as the row's one big number.</summary>
+    public required string Amount { get; set; }
+    /// <summary>The colour the app has on the chart (a brush's name), or the one all other apps share.</summary>
+    public required string DotKey { get; set; }
+    /// <summary>"↓ 3.1 GB   ↑ 102 MB   12% in the background". Nothing about the background means none of it was.</summary>
+    public string SubText => $"↓ {DownText}   ↑ {UpText}" + (BackgroundOnly ? "   background only"
+        : Stat.Use.Background >= 1 << 20 && BackgroundPercent >= 1 ? $"   {BackgroundPercent}% in the background" : "");
+
     /// <summary>The bars' lengths, against the biggest app in the list (0–100).</summary>
     public double DownBar { get; set; }
     public double UpBar { get; set; }
@@ -61,21 +69,20 @@ public sealed partial class NetAppRow : ObservableObject
 
     public required string BusiestLabel { get; set; }
     public required string BusiestText { get; set; }
-    public string FastestText => Stat.Fastest is double f ? $"{Units.Speed(f)} ({Units.Mbps(f)})" : "No big downloads";
     public string LocalText => Stat.Use.Lan > 0 ? Units.Data(Stat.Use.Lan) : "None";
 
     private double Share(long part) => Stat.Use.Total > 0 ? Math.Clamp((double)part / Stat.Use.Total, 0, 1) : 0;
     private static string Percent(double share) => $"{Math.Round(share * 100):0}%";
 }
 
-/// <summary>An app and an amount, for the short lists (while you were away).</summary>
-public sealed record NetAmountRow(string Name, string? Path, string Amount);
+/// <summary>A colour of the chart and what it stands for.</summary>
+public sealed record NetLegend(string BrushKey, string Text, double Opacity = 1);
 
-/// <summary>A big download as the card lists it.</summary>
+/// <summary>Something big that came in in one go, as the card lists it.</summary>
 public sealed record NetDownloadRow(string Name, string? Path, string When, string How, string Size);
 
 /// <summary>A quarter hour of the connection strip: online, a drop, or nothing (the PC was off, or it's still to come).</summary>
-public enum NetQuarter { Online, Dropped, None }
+public enum NetQuarter { Online, Dropped, None, Unrecorded }
 
 /// <summary>A quarter hour on the strip and what hovering it says ("2:00 – 2:15 PM · Online").</summary>
 public sealed record NetStripCell(NetQuarter State, string Tip);
@@ -122,13 +129,13 @@ public sealed partial class NetworkViewModel : ObservableObject
         var other => other,
     };
 
-    partial void OnUnitChanged(ReportRange value) => _ = RefreshAsync();
-    partial void OnAnchorChanged(DateTime value) => _ = RefreshAsync();
+    partial void OnUnitChanged(ReportRange value) { SelectedBin = -1; _ = RefreshAsync(); }
+    partial void OnAnchorChanged(DateTime value) { SelectedBin = -1; _ = RefreshAsync(); }
 
     /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
     public void NewDay(DateTime was)
     {
-        _loadedPast = null; // "Yesterday" and "Online all day" are read against the new day
+        _loadedPast = null; // "Yesterday" is read against the new day
         var anchor = Controls.PeriodPicker.AfterMidnight(Unit, Anchor, was, DateTime.Today);
         if (anchor != Anchor) { Anchor = anchor; return; }
         OnPropertyChanged(nameof(RangeNote));
@@ -165,6 +172,20 @@ public sealed partial class NetworkViewModel : ObservableObject
     public ObservableCollection<NetLiveRow> UsingNow { get; } = [];
     [ObservableProperty] private bool _nobodyNow;
 
+    /// <summary>The slim line's last part: the apps moving the most right now ("Google Chrome, Discord, Steam").</summary>
+    [ObservableProperty] private string _usingNowText = "";
+
+    /// <summary>Whether the live part is open under its line: the minute's chart, the connection, each app's speed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LiveButtonText), nameof(LiveGlyph))]
+    private bool _showLive;
+    public string LiveButtonText => ShowLive ? "Hide live" : "Show live";
+    /// <summary>The arrow at the line's end: down to open, up to close (icon font).</summary>
+    public string LiveGlyph => ShowLive ? "\uE70E" : "\uE70D";
+
+    [RelayCommand]
+    private void ToggleLive() => ShowLive = !ShowLive;
+
     /// <summary>The connection: Ethernet or Wi-Fi, its link, any VPN, the PC's address, whether the internet is there.</summary>
     [ObservableProperty] private IReadOnlyList<NetFact> _facts = [];
     [ObservableProperty] private string _subtitle = "";
@@ -199,6 +220,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             row.UpText = "↑ " + Units.Speed(a.Up);
         }
         NobodyNow = UsingNow.Count == 0;
+        UsingNowText = string.Join(", ", apps.Take(3).Select(a => a.Name));
     }
 
     private async Task ReadConnectionAsync(NetReport? report)
@@ -227,23 +249,53 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _upNote = "";
     [ObservableProperty] private string _backgroundText = "—";
     [ObservableProperty] private string _backgroundNote = "";
-    [ObservableProperty] private string _speedText = "—";
-    [ObservableProperty] private string _speedNote = "";
+    [ObservableProperty] private string _totalText = "—";
+    [ObservableProperty] private string _totalNote = "";
 
     [ObservableProperty] private IReadOnlyList<NetBin> _bins = [];
-    [ObservableProperty] private string _chartTitle = "Each hour";
+    [ObservableProperty] private string _chartTitle = "Usage each hour";
 
-    /// <summary>Whether the apps list counts only what moved in the background.</summary>
+    /// <summary>How the chart's bars are split: by app, or by in front and background.</summary>
+    [ObservableProperty] private string _chartMode = "App";
+    partial void OnChartModeChanged(string value) => FillLegend();
+
+    /// <summary>The apps with a colour of their own on the chart, and every app's name for its hover box.</summary>
+    [ObservableProperty] private IReadOnlyList<long> _colorApps = [];
+    [ObservableProperty] private IReadOnlyDictionary<long, string> _appNames = new Dictionary<long, string>();
+    [ObservableProperty] private IReadOnlyList<NetLegend> _legend = [];
+
+    /// <summary>The bar picked on the chart (-1: none): the apps list then shows that hour's (or day's) apps.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    private int _selectedBin = -1;
+    public bool HasSelection => SelectedBin >= 0;
+    partial void OnSelectedBinChanged(int value) => FillApps();
+
+    [RelayCommand]
+    private void ClearSelection() => SelectedBin = -1;
+
+    [ObservableProperty] private string _appsTitle = "Apps";
+
+    /// <summary>What the apps list is sorted by, and what each row's figure is: Total, Download, Upload or Background.</summary>
+    [ObservableProperty] private string _sort = "Total";
+    partial void OnSortChanged(string value)
+    {
+        if (BackgroundOnly != (value == "Background")) BackgroundOnly = value == "Background";
+        else FillApps();
+    }
+
+    /// <summary>Whether the apps list counts only what moved in the background (the Background sort).</summary>
     [ObservableProperty] private bool _backgroundOnly;
-    partial void OnBackgroundOnlyChanged(bool value) => FillApps();
+    partial void OnBackgroundOnlyChanged(bool value)
+    {
+        if (value != (Sort == "Background")) Sort = value ? "Background" : "Total";
+        else FillApps();
+    }
 
     public ObservableCollection<NetAppRow> Apps { get; } = [];
     [ObservableProperty] private bool _hasApps;
 
-    [ObservableProperty] private string _awayText = "—";
-    [ObservableProperty] private IReadOnlyList<NetAmountRow> _awayApps = [];
-
-    [ObservableProperty] private string _downloadsTitle = "Biggest downloads";
+    [ObservableProperty] private string _downloadsTitle = "Biggest hours";
     [ObservableProperty] private IReadOnlyList<NetDownloadRow> _downloads = [];
     public bool HasDownloads => Downloads.Count > 0;
     partial void OnDownloadsChanged(IReadOnlyList<NetDownloadRow> value) => OnPropertyChanged(nameof(HasDownloads));
@@ -292,14 +344,16 @@ public sealed partial class NetworkViewModel : ObservableObject
             Apps.Clear();
             HasApps = false;
             Bins = [];
+            SelectedBin = -1;
             Downloads = [];
-            AwayApps = [];
             Strip = [];
             return;
         }
         bool now = IncludesToday;
         Insights = Models.Kept.Or(Insights, [.. r.Insights.OrderByDescending(i => i.Priority)]);
 
+        TotalText = Units.Data(r.Down + r.Up);
+        TotalNote = r.Apps.Count == 1 ? "download and upload · 1 app" : $"download and upload · {r.Apps.Count} apps";
         DownText = Units.Data(r.Down);
         DownNote = r.Range == ReportRange.Day && r.UsualDayDown is long usual
             ? $"vs {Units.Data(usual)} on a usual day"
@@ -308,40 +362,48 @@ public sealed partial class NetworkViewModel : ObservableObject
         var topUp = r.Apps.Where(a => a.Use.Up > 0).MaxBy(a => a.Use.Up);
         UpNote = topUp is null ? "" : $"{topUp.Name} the most";
         BackgroundText = Units.Data(r.Background);
-        BackgroundNote = r.Down + r.Up > 0 ? $"{Math.Round(100.0 * r.Background / (r.Down + r.Up)):0}% of all use" : "";
-        if (r.TopSpeed is long speed)
-        {
-            SpeedText = Units.Speed(speed);
-            string when = r.TopSpeedAt is { } at ? (r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"{at:ddd d MMM}") : "";
-            SpeedNote = string.Join(" · ", new[] { Units.Mbps(speed), when, r.TopSpeedApp }.Where(x => !string.IsNullOrEmpty(x)));
-        }
-        else
-        {
-            SpeedText = "—";
-            SpeedNote = "No big downloads";
-        }
+        long away = r.AwayDown + r.AwayUp;
+        BackgroundNote = r.Down + r.Up > 0
+            ? $"{Math.Round(100.0 * r.Background / (r.Down + r.Up)):0}% of all use" + (away >= 50 << 20 ? $" · {Units.Data(away)} while you were away" : "")
+            : "";
 
         Bins = Models.Kept.Or(Bins, r.Bins);
+        if (SelectedBin >= Bins.Count) SelectedBin = -1;
         ChartTitle = r.Range switch
         {
-            ReportRange.Day => "Each hour",
-            ReportRange.Year => "Each month",
-            _ => "Each day",
+            ReportRange.Day => "Usage each hour",
+            ReportRange.Year => "Usage each month",
+            _ => "Usage each day",
         };
+        ColorApps = Models.Kept.Or(ColorApps, r.ColorApps);
+        var names = r.Apps.ToDictionary(a => a.Id, a => a.Name);
+        if (!names.OrderBy(kv => kv.Key).SequenceEqual(AppNames.OrderBy(kv => kv.Key))) AppNames = names;
+        FillLegend();
 
         FillApps();
 
-        AwayText = Units.Data(r.AwayDown);
-        AwayApps = Models.Kept.Or(AwayApps, [.. r.Apps.Where(a => a.Use.AwayDown >= 1 << 20).OrderByDescending(a => a.Use.AwayDown).Take(4)
-            .Select(a => new NetAmountRow(a.Name, a.Path, Units.Data(a.Use.AwayDown)))]);
-
-        DownloadsTitle = $"Biggest downloads {PeriodWord}";
+        // Each app's biggest hours (a day) or days (longer), everything it moved then.
+        DownloadsTitle = r.Range == ReportRange.Day ? $"Biggest hours {PeriodWord}" : $"Biggest days {PeriodWord}";
         Downloads = Models.Kept.Or(Downloads, [.. r.Downloads.Select(d => new NetDownloadRow(d.App, d.Path,
-            r.Range == ReportRange.Day ? d.Start.ToString("h:mm tt") : d.Start.ToString("ddd d MMM, h:mm tt"),
-            $"{Took(d.Took)} at {Units.Speed(d.Speed)}", Units.Data(d.Bytes)))]);
+            r.Range == ReportRange.Day ? $"{d.Start:h tt} – {d.End:h tt}" : d.Start.ToString("ddd d MMM"), "", Units.Data(d.Bytes)))]);
 
         FillDrops(r);
     }
+
+    /// <summary>The colours' names under the chart: the apps with their own, or in front and background.</summary>
+    private void FillLegend()
+    {
+        IReadOnlyList<NetLegend> legend = ChartMode == "Background"
+            ? [new("CoolBrush", "The app in front"), new("CoolBrush", "In the background, or while you were away", 0.45)]
+            : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => new NetLegend(Controls.NetBarsChart.AppBrushKeys[i], AppNames.GetValueOrDefault(id, "Unknown")))
+                    .Where(l => l.Text != "Unknown"),
+               new(Controls.NetBarsChart.OtherBrushKey, "Every other app")];
+        if (Bins.Any(b => b.UnrecordedMinutes >= Controls.NetBarsChart.MinUnrecorded)) legend = [.. legend, new NetLegend("MutedBrush", "Not recorded", 0.7)];
+        Legend = Models.Kept.Or(Legend, legend);
+    }
+
+    private string DotKey(long app) => ColorApps.ToList().IndexOf(app) is int i and >= 0 && i < Controls.NetBarsChart.AppBrushKeys.Length
+        ? Controls.NetBarsChart.AppBrushKeys[i] : Controls.NetBarsChart.OtherBrushKey;
 
     private void FillApps()
     {
@@ -351,17 +413,35 @@ public sealed partial class NetworkViewModel : ObservableObject
             return;
         }
         var open = _openApp;
-        var stats = r.Apps.Select(a => (Stat: a, Down: BackgroundOnly ? a.Use.BgDown + a.Use.AwayDown : a.Use.Down, Up: BackgroundOnly ? a.Use.BgUp + a.Use.AwayUp : a.Use.Up))
-            .Where(x => x.Down + x.Up >= 1 << 20).OrderByDescending(x => x.Down + x.Up).ToList();
-        double max = stats.Count > 0 ? stats.Max(x => x.Down + x.Up) : 1;
+        // The whole period, or only the bar picked on the chart (each app as it was in that hour or day).
+        var picked = SelectedBin >= 0 && SelectedBin < r.Bins.Count ? r.Bins[SelectedBin] : null;
+        AppsTitle = picked is null ? "Apps" : "Apps · " + (r.Range switch
+        {
+            ReportRange.Day => $"{picked.Start:h tt} – {picked.Start.AddHours(1):h tt}",
+            ReportRange.Year => picked.Start.ToString("MMMM"),
+            _ => picked.Start.ToString("ddd d MMM"),
+        });
+        var byId = r.Apps.ToDictionary(a => a.Id);
+        IEnumerable<NetAppStat> source = picked is null ? r.Apps
+            : picked.Apps.Where(u => byId.ContainsKey(u.App)).Select(u => byId[u.App] is var whole
+                ? new NetAppStat { Id = whole.Id, Exe = whole.Exe, Name = whole.Name, Path = whole.Path, Category = whole.Category, Use = u, BusiestAt = whole.BusiestAt, BusiestBytes = whole.BusiestBytes }
+                : null!);
+        var stats = source.Select(a => (Stat: a, Down: BackgroundOnly ? a.Use.BgDown + a.Use.AwayDown : a.Use.Down, Up: BackgroundOnly ? a.Use.BgUp + a.Use.AwayUp : a.Use.Up))
+            .Select(x => (x.Stat, x.Down, x.Up, Key: Sort switch { "Download" => x.Down, "Upload" => x.Up, _ => x.Down + x.Up }))
+            .Where(x => x.Key >= 1 << 20).OrderByDescending(x => x.Key).ToList();
+        double max = stats.Count > 0 ? stats.Max(x => x.Key) : 1;
         // An app still at its place in the list keeps its row and is given the new figures: a list made anew has every
         // row of it built and laid out again, on each visit and each minute.
         for (int i = 0; i < stats.Count; i++)
         {
-            var (stat, down, up) = stats[i];
+            var (stat, down, up, key) = stats[i];
+            // The bar is as long as the figure sorted by, in the download's and the upload's colours as they share it.
+            double length = key / max * 100, both = Math.Max(1, Sort == "Download" ? down : Sort == "Upload" ? up : down + up);
             var row = new NetAppRow
             {
-                Stat = stat, BackgroundOnly = BackgroundOnly, DownBar = down / max * 100, UpBar = up / max * 100,
+                Stat = stat, BackgroundOnly = BackgroundOnly,
+                DownBar = Sort == "Upload" ? 0 : length * down / both, UpBar = Sort == "Download" ? 0 : length * up / both,
+                Amount = Units.Data(key), DotKey = DotKey(stat.Id),
                 BusiestLabel = r.Range == ReportRange.Day ? "Busiest hour" : "Busiest day",
                 BusiestText = stat.BusiestAt is { } at
                     ? $"{(r.Range == ReportRange.Day ? $"{at:h tt} – {at.AddHours(1):h tt}" : $"{at:ddd d MMM}")} · {Units.Data(stat.BusiestBytes)}"
@@ -372,8 +452,10 @@ public sealed partial class NetworkViewModel : ObservableObject
             else if (Apps[i] is { } kept && kept.Stat.Id == stat.Id)
             {
                 if (Models.Kept.Values(kept.Stat, stat) && kept.BackgroundOnly == row.BackgroundOnly && kept.DownBar == row.DownBar && kept.UpBar == row.UpBar
+                    && kept.Amount == row.Amount && kept.DotKey == row.DotKey
                     && kept.BusiestLabel == row.BusiestLabel && kept.BusiestText == row.BusiestText && kept.IsOpen == row.IsOpen) continue;
                 (kept.Stat, kept.BackgroundOnly, kept.DownBar, kept.UpBar, kept.BusiestLabel, kept.BusiestText) = (stat, row.BackgroundOnly, row.DownBar, row.UpBar, row.BusiestLabel, row.BusiestText);
+                (kept.Amount, kept.DotKey) = (row.Amount, row.DotKey);
                 kept.IsOpen = row.IsOpen;
                 kept.Changed();
             }
@@ -397,49 +479,76 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     private void FillDrops(NetReport r)
     {
-        var drops = r.Drops;
         DropsWarn = r.Insights.Any(i => i.Key == "net-drops");
-        DropsTitle = drops.Count switch
-        {
-            0 => IncludesToday && r.Range == ReportRange.Day ? "Online all day" : "No drops",
-            1 => "Dropped once",
-            2 => "Dropped twice",
-            var n => $"Dropped {n} times",
-        };
-        if (drops.Count > 0)
-        {
-            var longest = drops.MaxBy(d => d.Seconds)!;
-            var at = TimeUtil.FromUnix(longest.Start);
-            DropsNote = $"Longest {Took(TimeSpan.FromSeconds(longest.Seconds))} {(r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"on {at:ddd d MMM}")}";
-        }
-        else DropsNote = r.Range == ReportRange.Day ? "" : $"The internet stayed up {PeriodWord}";
-
+        (DropsTitle, DropsNote) = DropsText(r, PeriodWord);
         if (r.Range != ReportRange.Day || r.Quarters.Length != 96)
         {
             Strip = [];
             return;
         }
-        var strip = new NetQuarter[96];
-        for (int i = 0; i < 96; i++) strip[i] = r.Quarters[i] ? NetQuarter.Online : NetQuarter.None;
-        foreach (var d in drops)
-        {
-            var (start, end) = (TimeUtil.FromUnix(d.Start), TimeUtil.FromUnix(d.End));
-            for (var q = start; q <= end; q = q.AddMinutes(15))
-                if (q.Date == r.From.Date) strip[(q.Hour * 60 + q.Minute) / 15] = NetQuarter.Dropped;
-        }
         var day = r.From.Date;
-        Strip = Models.Kept.Or(Strip, [.. strip.Select((state, i) =>
+        Strip = Models.Kept.Or(Strip, [.. StripStates(r).Select((state, i) =>
         {
             var (from, to) = (day.AddMinutes(i * 15), day.AddMinutes(i * 15 + 15));
             string what = state switch
             {
                 NetQuarter.Online => "Online",
                 NetQuarter.Dropped => "Dropped",
+                NetQuarter.Unrecorded => "Not recorded",
                 _ => from > DateTime.Now ? "Still to come" : "No record",
             };
             string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
             return new NetStripCell(state, $"{span} · {what}");
         })]);
+    }
+
+    /// <summary>The Connection card's headline and the line under it.</summary>
+    internal static (string Title, string Note) DropsText(NetReport r, string periodWord)
+    {
+        var drops = r.Drops;
+        // "No drops", never "online all day": a day still going on, or one the PC was off for half of, wasn't that.
+        string title = drops.Count switch
+        {
+            0 => "No drops",
+            1 => "Dropped once",
+            2 => "Dropped twice",
+            var n => $"Dropped {n} times",
+        };
+        string note;
+        if (drops.Count > 0)
+        {
+            var longest = drops.MaxBy(d => d.Seconds)!;
+            var at = TimeUtil.FromUnix(longest.Start);
+            note = $"Longest {Took(TimeSpan.FromSeconds(longest.Seconds))} {(r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"on {at:ddd d MMM}")}";
+        }
+        else note = r.Range == ReportRange.Day ? "" : $"The internet stayed up {periodWord}";
+        // Time the PC was on with nothing written isn't time without drops: say how long, so "No drops" isn't read as the whole day.
+        if (r.Unrecorded.Count > 0)
+        {
+            string missing = $"{Took(TimeSpan.FromSeconds(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds)))} not recorded";
+            note = note.Length == 0 ? missing : $"{note} · {missing}";
+        }
+        return (title, note);
+    }
+
+    /// <summary>A day's 96 quarter hours: online where anything was used, then what wasn't recorded, then the drops.</summary>
+    internal static NetQuarter[] StripStates(NetReport r)
+    {
+        var day = r.From.Date;
+        var strip = new NetQuarter[96];
+        for (int i = 0; i < 96; i++) strip[i] = r.Quarters[i] ? NetQuarter.Online : NetQuarter.None;
+        // Every quarter hour a stretch touches, its last one too (a drop from 10:59 to 11:43 is in 11:30 to 11:45, which
+        // used to be left showing online).
+        void Mark(DateTime start, DateTime end, NetQuarter state, bool overOnline)
+        {
+            int first = (int)Math.Floor((start - day).TotalMinutes / 15), last = (int)Math.Ceiling((end - day).TotalMinutes / 15) - 1;
+            for (int i = Math.Max(0, first); i <= Math.Min(95, Math.Max(first, last)); i++)
+                if (overOnline || strip[i] != NetQuarter.Online) strip[i] = state;
+        }
+        // Not recorded only where nothing at all was: a quarter hour with any use in it is online.
+        foreach (var (start, end) in r.Unrecorded) Mark(start, end, NetQuarter.Unrecorded, overOnline: false);
+        foreach (var d in r.Drops) Mark(TimeUtil.FromUnix(d.Start), TimeUtil.FromUnix(d.End), NetQuarter.Dropped, overOnline: true);
+        return strip;
     }
 
     private static string LastWord(ReportRange range, bool now) => (range switch

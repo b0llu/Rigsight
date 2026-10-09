@@ -200,6 +200,99 @@
             </ItemsControl>
         </DataTemplate>
 
+        <!-- ── Internet tiles: right now and today (all from the page's Net) ── -->
+        <DataTemplate x:Key="Tile.net-speed">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,0,3"><Run Text="↓ " /></TextBlock>
+                    <TextBlock Text="{Binding Net.DownNow, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="18,0,0,3"><Run Text="↑ " /></TextBlock>
+                    <TextBlock Text="{Binding Net.UpNow, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Bottom" Text="Read while the agent runs as admin." Style="{StaticResource Row}" TextWrapping="Wrap"
+                           Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
+                <ctl:NetLiveChart Margin="0,8,0,0" MinHeight="40" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
+            </DockPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.net-now">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Net.UsingNow}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
+                                <TextBlock Grid.Column="1" ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="10,0" />
+                                <TextBlock Grid.Column="2" Text="{Binding DownText}" Style="{StaticResource RowValue}" Margin="0,0,12,0" />
+                                <TextBlock Grid.Column="3" Text="{Binding UpText}" Style="{StaticResource RowValue}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Nothing's moving right now." Style="{StaticResource Row}"
+                           Visibility="{Binding Net.NobodyNow, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                <TextBlock Text="Each app's speed shows here while the agent runs as admin." Style="{StaticResource Row}" TextWrapping="Wrap" VerticalAlignment="Top"
+                           Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.net-today">
+            <UniformGrid Columns="4" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="TOTAL" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Net.TotalText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="DOWN" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Net.DownText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="UP" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Net.UpText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="BACKGROUND" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Net.BackgroundText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+            </UniformGrid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.net-apps">
+            <Grid>
+                <ItemsControl ItemsSource="{Binding Net.Top}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,3">
+                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Amount}" Style="{StaticResource RowValue}" />
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="10,1,0,0" Fill="{Binding DotKey, Converter={StaticResource ResourceBrush}}" />
+                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="7,0,10,0" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Nothing recorded yet today." Style="{StaticResource Row}"
+                           Visibility="{Binding Net.Top.Count, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Visible}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.net-chart">
+            <ctl:NetBarsChart MinHeight="60" Bins="{Binding Net.Bins}" Unit="Day" ColorApps="{Binding Net.ColorApps}" AppNames="{Binding Net.AppNames}" Cursor="Arrow" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="Tile.net-drops">
+            <StackPanel VerticalAlignment="Top">
+                <TextBlock Text="{Binding Net.DropsTitle, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Net.DropsNote}" Style="{StaticResource Row}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate x:Key="Tile.today">
             <UniformGrid Columns="3" VerticalAlignment="Top">
                 <StackPanel>
@@ -487,7 +580,7 @@
 
                     <TextBlock Text="ANY SENSOR" Style="{StaticResource Caption}" Margin="0,18,0,6" />
                     <TextBlock Text="Pick any of your sensors (type to search)." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
-                    <ComboBox ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
+                    <ComboBox ItemsSource="{Binding Live.PickableSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
                               TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360">
                         <ComboBox.ItemsPanel>
                             <ItemsPanelTemplate>

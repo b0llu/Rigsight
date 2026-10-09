@@ -1,3 +1,4 @@
+using Rigsight.Core.Settings;
 using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
@@ -979,6 +980,359 @@ public sealed class LiveDataTests
     }
 
     [Fact]
+    public void Search_takes_words_in_any_order_from_the_sensor_its_part_or_its_tag()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            // A word from the part, a word from the sensor.
+            live.SearchText = "spot gpu";
+            Assert.Equal(["GPU Hot Spot"], live.SensorRows.OfType<SensorItem>().Select(s => s.Name));
+            live.SearchText = "board fan";
+            Assert.Equal(["Fan #1", "Fan #2", "Fan #3"], live.SensorRows.OfType<SensorItem>().Select(s => s.Name));
+            // The tag on the card ("DRIVE").
+            live.SearchText = "drive";
+            Assert.Equal(["Test SSD"], Headers(live));
+            // Every word has to be there.
+            live.SearchText = "gpu zzz";
+            Assert.Empty(live.SensorRows);
+        });
+    }
+
+    [Fact]
+    public void A_renamed_sensor_is_still_found_by_the_name_its_part_gives_it()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.CpuPower!.Label = "Wattage";
+            live.SearchText = "package cpu";
+            Assert.Same(live.CpuPower, Assert.Single(live.SensorRows.OfType<SensorItem>()));
+            Assert.Equal("Package  ·  click to rename", live.CpuPower.NameTip);
+            Assert.Equal("Click to rename", live.CpuTemp!.NameTip);
+        });
+    }
+
+    [Fact]
+    public void An_empty_list_says_why()
+    {
+        var settings = Kit.OfflineSettings();
+        var live = Kit.Live(settings);
+        Ui.Run(() =>
+        {
+            Assert.Equal("No sensors yet", live.SensorsEmptyText);
+            live.LoadHello(Pc.Hello("Test Board"));
+            Assert.Null(live.SensorsEmptyText);
+            var told = Kit.Changes(live, () => live.SearchText = "zzz");
+            Assert.Contains(nameof(LiveData.SensorsEmptyText), told);
+            Assert.Equal("No sensors match", live.SensorsEmptyText);
+            live.SearchText = "";
+            live.TypeFilter = "Fan";
+            Assert.Equal(["Test GPU"], Headers(live));
+            live.AllSensors.Single(s => s.Kind == SensorKind.Control).ToggleHidden();
+            Assert.Equal("No sensors of this kind", live.SensorsEmptyText);
+            live.TypeFilter = "All";
+            Assert.Null(live.SensorsEmptyText);
+            foreach (var s in live.AllSensors.Where(s => !s.IsHidden).ToList()) s.ToggleHidden();
+            Assert.Equal("Every sensor is hidden", live.SensorsEmptyText);
+            live.ShowHidden = true;
+            Assert.Null(live.SensorsEmptyText);
+        });
+    }
+
+    [Fact]
+    public void Each_temperature_is_coloured_by_its_own_parts_steps_and_a_limit_not_at_all()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            string? Scale(string id) => live.AllSensors.Single(s => s.Id == id).TempScale;
+            Assert.Equal("45,70,85", Scale("/cpu/temperature/0"));
+            Assert.Equal("45,70,83", Scale("/gpu/temperature/0"));
+            Assert.Equal("50,80,95", Scale("/gpu/temperature/1"));
+            Assert.Equal("55,85,100", Scale("/gpu/temperature/2"));
+            Assert.Equal("35,50,65", Scale("/nvme/0/temperature/0"));
+            Assert.Equal("40,60,80", Scale("/lpc/temperature/0"));
+            // A drive's "Warning Temperature" is a fixed limit, not a reading.
+            Assert.Null(Scale("/nvme/0/temperature/10"));
+            Assert.False(live.AllSensors.Single(s => s.Id == "/nvme/0/temperature/10").HasTempScale);
+            // Only temperatures have steps.
+            Assert.All(live.AllSensors.Where(s => s.Kind != SensorKind.Temperature), s => Assert.Null(s.TempScale));
+
+            // A drive at 48 degrees is "good" by a drive's steps (it would be the same colour as a hot CPU by the CPU's).
+            var brush = new Rigsight.Converters.ScaledTempBrushConverter();
+            object At(double value, string? scale) => brush.Convert([value, scale!], typeof(System.Windows.Media.Brush), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Same(Rigsight.Converters.TempToBrushConverter.Good, At(48, "35,50,65"));
+            Assert.Same(Rigsight.Converters.TempToBrushConverter.Warm, At(55, "35,50,65"));
+            Assert.Same(Rigsight.Converters.TempToBrushConverter.Good, At(55, "45,70,85"));
+            Assert.Same(Rigsight.Converters.TempToBrushConverter.None, At(double.NaN, "45,70,85"));
+        });
+    }
+
+    [Fact]
+    public void Two_parts_with_one_name_fold_and_move_each_on_its_own()
+    {
+        var hello = Pc.Hello();
+        var ssd = hello.Hardware!.Single(h => h.Name == "Test SSD");
+        hello.Hardware!.Add(new HardwareMeta
+        {
+            Name = ssd.Name, Type = ssd.Type,
+            Sensors = [.. ssd.Sensors.Select(s => new SensorMeta { Id = s.Id.Replace("/nvme/0/", "/nvme/1/"), Name = s.Name, Kind = s.Kind })],
+        });
+        var (settings, live) = Kit.Greeted(hello: hello);
+        Ui.Run(() =>
+        {
+            var first = live.Hardware[4];
+            var second = live.Hardware[^1];
+            Assert.Equal("Test SSD", first.Key);
+            Assert.Equal("Test SSD #2", second.Key);
+            Assert.Equal(first.Name, second.Name);
+
+            live.ToggleExpandedCommand.Execute(second);
+            Assert.True(first.IsExpanded);
+            Assert.Equal(["Test SSD #2"], settings.Current.CollapsedHardware);
+
+            live.MoveHardware(second, live.Hardware[0]); // the second drive to the top; the first stays put
+            Assert.Same(second, live.SensorRows[0]);
+            Assert.Equal(4, live.SensorRows.OfType<HardwareNode>().ToList().IndexOf(first) - 1);
+            Assert.Equal("Test SSD #2", settings.Current.HardwareOrder[0]);
+        });
+
+        // The same PC again: each drive is where it was left.
+        var (_, again) = Kit.Greeted(settings.Current, hello);
+        Ui.Run(() =>
+        {
+            Assert.False(again.Hardware[^1].IsExpanded);
+            Assert.True(again.Hardware[4].IsExpanded);
+            Assert.Same(again.Hardware[^1], again.SensorRows[0]);
+        });
+    }
+
+    [Fact]
+    public void A_hidden_sensor_is_not_offered_to_widgets_dashboards_the_overlay_or_the_taskbar()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            Assert.Equal(live.AllSensors, live.PickableSensors);
+            var told = Kit.Changes(live, () => live.CpuTemp!.ToggleHidden());
+            Assert.Contains(nameof(LiveData.PickableSensors), told);
+            Assert.DoesNotContain(live.CpuTemp, live.PickableSensors);
+            Assert.Equal(Pc.Count - 1, live.PickableSensors.Count);
+            // Still there for whatever already shows it.
+            Assert.Contains(live.CpuTemp, live.AllSensors);
+            // Searching the page doesn't change what is offered.
+            told = Kit.Changes(live, () => live.SearchText = "gpu");
+            Assert.DoesNotContain(nameof(LiveData.PickableSensors), told);
+            live.UnhideAllCommand.Execute(null);
+            Assert.Equal(live.AllSensors, live.PickableSensors);
+        });
+    }
+
+    [Fact]
+    public void A_folded_card_says_its_parts_key_readings()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.ApplyTick(Pc.Tick(1000, 40, ("/lpc/temperature/0", 38), ("/lpc/temperature/1", 61), ("/lpc/fan/2", 0)));
+            string Says(int card) => string.Join(" | ", live.Hardware[card].Keys.Where(k => k.IsShown)
+                .Select(k => k.Sensor is { } s ? (s.ShortValue + " " + k.Label).Trim() : k.Text));
+            // CPU: temperature, load, power. GPU the same. A drive: temperature and how full. Memory: in use.
+            Assert.Equal([live.CpuTemp, live.CpuLoad, live.CpuPower], live.Hardware[0].Keys.Select(k => k.Sensor));
+            Assert.Equal([live.GpuTemp, live.GpuLoad, live.GpuPower], live.Hardware[1].Keys.Select(k => k.Sensor));
+            Assert.EndsWith("load", live.Hardware[0].Keys[1].Label);
+            Assert.Equal("in use", Assert.Single(live.Hardware[2].Keys).Label);
+            Assert.Equal(["/nvme/0/temperature/0", "/nvme/0/load/30"], live.Hardware[4].Keys.Select(k => k.Sensor!.Id));
+            // A sensor chip's readings have no names worth showing: its warmest, and how many of its fans spin.
+            Assert.Equal("61° warmest | 2 fans spinning", Says(5));
+            // They follow the readings.
+            live.ApplyTick(Pc.Tick(2000, 40, ("/lpc/temperature/0", 70), ("/lpc/temperature/1", 61), ("/lpc/fan/2", 900)));
+            Assert.Equal("70° warmest | 3 fans spinning", Says(5));
+            // A reading with no value isn't shown as a dash; no fan spinning says nothing.
+            live.ApplyTick(Pc.Tick(3000, 40, ("/cpu/power/0", null), ("/lpc/fan/0", 0), ("/lpc/fan/1", 0), ("/lpc/fan/2", 0)));
+            Assert.False(live.Hardware[0].Keys[2].IsShown);
+            Assert.DoesNotContain("spinning", Says(5));
+        });
+    }
+
+    private static string Line(GlanceRow r) => $"{r.Sensor!.Id} | {r.Note}";
+
+    [Fact]
+    public void The_pane_ranks_the_warmest_parts_each_against_its_own_limit()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            // The drive reports its own limit (its "Warning Temperature" reads 81): 49 of 81. The CPU has none of its
+            // own, so the step it turns red at stands in: 60 of 85. The GPU's hot spot at 76 of 95 is its nearest.
+            live.ApplyTick(Pc.Tick(1000, 40, ("/nvme/0/temperature/0", 49), ("/nvme/0/temperature/10", 81), ("/cpu/temperature/0", 60), ("/cpu/temperature/1", 55),
+                ("/gpu/temperature/0", 50), ("/gpu/temperature/1", 76), ("/gpu/temperature/2", 70), ("/lpc/temperature/0", 79), ("/lpc/temperature/1", 78)));
+            Assert.Equal(["/gpu/temperature/1 | Test GPU", "/cpu/temperature/0 | Test CPU", "/nvme/0/temperature/0 | Test SSD · its limit is 81°"], Warm());
+            Assert.Equal(76.0 / 95, live.Warmest[0].Bar, 6);
+            Assert.Equal(49.0 / 81, live.Warmest[2].Bar, 6);
+            Assert.All(live.Warmest, r => Assert.True(r.HasBar));
+            // One reading a part; the limit a part reports is never itself ranked; a board chip's unnamed readings
+            // aren't either ("Temperature #3" at 79 would lead the list, and nobody knows what it measures).
+            Assert.DoesNotContain(live.Warmest, r => r.Sensor!.Id.StartsWith("/lpc/") || r.Sensor.Id == "/nvme/0/temperature/10");
+            // Given a name, a board reading is one the user knows: ranked, against the step boards turn red at.
+            live.AllSensors.Single(x => x.Id == "/lpc/temperature/0").Label = "VRM";
+            live.ApplyTick(Pc.Tick(2000, 40, ("/nvme/0/temperature/0", 49), ("/nvme/0/temperature/10", 81), ("/cpu/temperature/0", 60),
+                ("/gpu/temperature/1", 76), ("/lpc/temperature/0", 79)));
+            Assert.Equal("/lpc/temperature/0 | Test Board", Warm()[0]);
+            // The drive heats up: against its own 81 it stays behind a board at 79 of 80, where 65 would have put it first.
+            live.ApplyTick(Pc.Tick(3000, 40, ("/nvme/0/temperature/0", 70), ("/nvme/0/temperature/10", 81), ("/lpc/temperature/0", 79)));
+            Assert.Equal(["/lpc/temperature/0", "/nvme/0/temperature/0"], live.Warmest.Take(2).Select(r => r.Sensor!.Id));
+            // A hidden sensor isn't in the pane.
+            live.AllSensors.Single(x => x.Id == "/lpc/temperature/0").ToggleHidden();
+            Assert.DoesNotContain(live.Warmest, r => r.Sensor!.Id == "/lpc/temperature/0");
+
+            List<string> Warm() => [.. live.Warmest.Select(Line)];
+        });
+    }
+
+    [Fact]
+    public void The_pane_lists_the_main_loads_the_spinning_fans_and_the_power()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.ApplyTick(Pc.Tick(1000, 40, ("/cpu/load/0", 12), ("/gpu/load/0", 97), ("/gpu/load/1", 45), ("/ram/load/0", 64),
+                ("/lpc/fan/0", 1750), ("/lpc/fan/1", 0), ("/lpc/fan/2", 2250), ("/cpu/power/0", 88), ("/gpu/power/0", 285)));
+            Assert.Equal(["/gpu/load/0", "/ram/load/0", "/gpu/load/1", "/cpu/load/0"], live.Hardest.Select(r => r.Sensor!.Id));
+            Assert.Equal(0.97, live.Hardest[0].Bar, 6);
+            Assert.Equal("Test GPU", live.Hardest[0].Note);
+            // Fans that spin, fastest first; one standing still isn't listed.
+            Assert.Equal(["/lpc/fan/2", "/lpc/fan/0"], live.FastestFans.Select(r => r.Sensor!.Id));
+            Assert.All(live.FastestFans, r => Assert.False(r.HasBar));
+            Assert.Equal(["/gpu/power/0", "/cpu/power/0"], live.PowerDraw.Select(r => r.Sensor!.Id));
+            Assert.Equal(Units.Format(SensorKind.Power, 373) + " together", live.PowerNote);
+
+            // The rows stay the same objects from one second to the next (nothing is built again); only what they show moves.
+            var rows = live.Hardest.ToList();
+            live.ApplyTick(Pc.Tick(2000, 40, ("/cpu/load/0", 99), ("/gpu/load/0", 10), ("/gpu/load/1", 45), ("/ram/load/0", 64)));
+            Assert.Equal(rows, live.Hardest);
+            Assert.Equal("/cpu/load/0", live.Hardest[0].Sensor!.Id);
+
+            // A PC without a graphics card has no GPU lines, and one power figure is not "together".
+            live.LoadHello(Pc.Hello("Test GPU"));
+            live.ApplyTick(new Rigsight.Core.Protocol.AgentMessage { T = "tick", Time = 3000, Values = [.. live.AllSensors.Select(_ => (float?)30)] });
+            Assert.DoesNotContain(live.Hardest, r => r.Sensor!.Id.StartsWith("/gpu/"));
+            Assert.Single(live.PowerDraw);
+            Assert.Equal("", live.PowerNote);
+        });
+    }
+
+    [Fact]
+    public void A_line_of_the_pane_jumps_to_its_sensor_in_the_list()
+    {
+        var (settings, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.ApplyTick(Pc.Tick(1000, 40, ("/gpu/power/0", 285)));
+            // The GPU's card is folded and a search is on: the row isn't in the list.
+            live.ToggleExpandedCommand.Execute(live.Hardware[1]);
+            live.SearchText = "ssd";
+            live.TypeFilter = "Temperature";
+            Assert.DoesNotContain(live.GpuPower, live.SensorRows);
+            SensorItem? shown = null;
+            live.Revealed += s => shown = s;
+
+            live.RevealCommand.Execute(live.PowerDraw.First(r => r.Sensor == live.GpuPower));
+            Assert.Same(live.GpuPower, shown);
+            Assert.Contains(live.GpuPower, live.SensorRows);
+            Assert.Equal("", live.SearchText);
+            Assert.Equal("All", live.TypeFilter);
+            Assert.True(live.Hardware[1].IsExpanded);
+            Assert.DoesNotContain("Test GPU", settings.Current.CollapsedHardware);
+            // Its row stays lit until another is jumped to.
+            Assert.True(live.GpuPower!.IsSelected);
+            live.RevealCommand.Execute(live.PowerDraw.First(r => r.Sensor == live.CpuPower));
+            Assert.False(live.GpuPower.IsSelected);
+            Assert.True(live.CpuPower!.IsSelected);
+            live.RevealCommand.Execute(null); // nothing: nothing happens
+            Assert.True(live.CpuPower.IsSelected);
+        });
+    }
+
+    [Fact]
+    public void A_sensors_menu_adds_it_to_and_removes_it_from_the_taskbar_and_the_overlay()
+    {
+        var (settings, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            var sensor = live.GpuPower!;
+            string id = sensor.Id;
+            Assert.Equal(["The taskbar", "The overlay"], live.PlacesFor(sensor).Select(p => p.Name));
+            Assert.All(live.PlacesFor(sensor), p => Assert.False(p.IsShown));
+
+            live.PlacesFor(sensor)[0].ToggleCommand.Execute(null);
+            live.PlacesFor(sensor)[1].ToggleCommand.Execute(null);
+            Assert.Contains(id, settings.Current.TraySensors);
+            Assert.Contains(settings.Current.Overlay.Sensors, o => o.Id == id);
+            Assert.All(live.PlacesFor(sensor), p => Assert.True(p.IsShown));
+            // Another sensor has its own places.
+            Assert.All(live.PlacesFor(live.CpuLoad!), p => Assert.False(p.IsShown));
+
+            live.PlacesFor(sensor)[0].ToggleCommand.Execute(null);
+            live.PlacesFor(sensor)[1].ToggleCommand.Execute(null);
+            Assert.DoesNotContain(id, settings.Current.TraySensors);
+            Assert.DoesNotContain(settings.Current.Overlay.Sensors, o => o.Id == id);
+
+            // The overlay takes ten: full, it can't be added to (one already on it can still be taken off).
+            settings.Update(s => s.Overlay.Sensors = [.. live.AllSensors.Where(x => x.Id != id).Take(OverlaySettings.MaxSensors).Select(x => new OverlaySensor { Id = x.Id })]);
+            Assert.False(live.PlacesFor(sensor)[1].CanToggle);
+            live.PlacesFor(sensor)[1].ToggleCommand.Execute(null);
+            Assert.Equal(OverlaySettings.MaxSensors, settings.Current.Overlay.Sensors.Count);
+            var onIt = live.AllSensors.First(x => x.Id == settings.Current.Overlay.Sensors[0].Id);
+            Assert.True(live.PlacesFor(onIt)[1].CanToggle);
+            Assert.True(live.PlacesFor(onIt)[1].IsShown);
+        });
+    }
+
+    [Fact]
+    public void A_sensors_menu_offers_each_widget_that_is_on_and_can_show_it()
+    {
+        var start = SeedData.QuietSettings();
+        // Two widgets on: a custom one of gauges (temperatures and percentages only) and a custom one of tiles (anything).
+        start.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "custom-gauges", Name = "Dials", Layout = WidgetLayout.Gauges, Enabled = true, Items = [] });
+        start.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "custom-tiles", Name = "Numbers", Layout = WidgetLayout.Tiles, Enabled = true, Items = [] });
+        start.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "custom-off", Name = "Off", Layout = WidgetLayout.Tiles, Enabled = false, Items = [] });
+        var (settings, live) = Kit.Greeted(start);
+        Ui.Run(() =>
+        {
+            List<WidgetItem> Items(string id) => WidgetCatalog.ItemsOf(settings.Current.Widgets.Single(w => w.Id == id));
+            // A temperature fits both; a widget that is off isn't offered. Watts don't fit a gauge.
+            Assert.Equal(["The taskbar", "The overlay", "Widget · Dials", "Widget · Numbers"], live.PlacesFor(live.GpuTemp!).Select(p => p.Name));
+            Assert.Equal(["The taskbar", "The overlay", "Widget · Numbers"], live.PlacesFor(live.GpuPower!).Select(p => p.Name));
+
+            string item = WidgetCatalog.SensorPrefix + live.GpuPower!.Id;
+            live.PlacesFor(live.GpuPower)[2].ToggleCommand.Execute(null);
+            Assert.Contains(Items("custom-tiles"), i => i.Id == item);
+            Assert.True(live.PlacesFor(live.GpuPower)[2].IsShown);
+            live.PlacesFor(live.GpuPower)[2].ToggleCommand.Execute(null);
+            Assert.DoesNotContain(Items("custom-tiles"), i => i.Id == item);
+        });
+    }
+
+    [Fact]
+    public void Copying_a_sensor_copies_its_reading_as_shown()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            string? copied = null;
+            live.SetClipboard = text => copied = text;
+            live.ApplyTick(Pc.Tick(1000, 40, ("/gpu/power/0", 285.4f)));
+            Assert.True(live.Copy(live.GpuPower!));
+            Assert.Equal(live.GpuPower!.FormattedValue, copied);
+            // The clipboard held by another program: said by the answer, not thrown.
+            live.SetClipboard = _ => throw new System.Runtime.InteropServices.COMException("busy");
+            Assert.False(live.Copy(live.GpuPower));
+        });
+    }
+
+    [Fact]
     public void Renaming_a_sensor_saves_its_label_and_blank_or_original_resets_it()
     {
         var (settings, live) = Kit.Greeted();
@@ -1011,7 +1365,6 @@ public sealed class LiveDataTests
         Ui.Run(() =>
         {
             Assert.Equal(0, live.HiddenCount);
-            Assert.StartsWith("Click a name", live.HiddenHint);
             live.ToggleHiddenCommand.Execute(live.CpuTemp);
             live.ToggleHiddenCommand.Execute(live.Hardware[0]); // a recycled row bound to a header: ignored
             live.ToggleHiddenCommand.Execute(null);
@@ -1019,13 +1372,11 @@ public sealed class LiveDataTests
             Assert.Contains(live.CpuTemp.Id, settings.Current.HiddenSensors);
             Assert.Equal(1, live.HiddenCount);
             Assert.Equal("Show 1 hidden sensor", live.ShowHiddenText);
-            Assert.Contains("1 sensor is hidden", live.HiddenHint);
             Assert.DoesNotContain(live.CpuTemp, live.SensorRows);
             live.ShowHidden = true;
             Assert.Contains(live.CpuTemp, live.SensorRows);
             live.GpuTemp!.ToggleHidden();
             Assert.Equal("Show 2 hidden sensors", live.ShowHiddenText);
-            Assert.Contains("2 sensors are hidden", live.HiddenHint);
             live.UnhideAllCommand.Execute(null);
             Assert.Empty(settings.Current.HiddenSensors);
             Assert.All(live.AllSensors, s => Assert.False(s.IsHidden));

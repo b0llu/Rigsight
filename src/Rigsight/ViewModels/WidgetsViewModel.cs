@@ -139,7 +139,7 @@ public sealed partial class WidgetCard : ObservableObject
     /// <summary>The PC's sensors this layout can show (gauges: temperatures and percentages), not already on it.</summary>
     public IReadOnlyList<SensorItem> OfferedSensors =>
         _live is null || !WidgetCatalog.AllowsSensor(LayoutValue) ? []
-            : [.. _live.AllSensors.Where(s => WidgetCatalog.AllowsSensor(LayoutValue, s.Kind) && Items.All(i => i.Id != WidgetCatalog.SensorPrefix + s.Id))];
+            : [.. _live.PickableSensors.Where(s => WidgetCatalog.AllowsSensor(LayoutValue, s.Kind) && Items.All(i => i.Id != WidgetCatalog.SensorPrefix + s.Id))];
 
     public bool CanAddSensors => WidgetCatalog.AllowsSensor(LayoutValue) && _live is not null;
 

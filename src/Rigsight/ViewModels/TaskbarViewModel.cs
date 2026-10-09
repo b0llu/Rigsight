@@ -83,7 +83,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     }
 
     /// <summary>Every sensor on this PC, for the picker.</summary>
-    public IReadOnlyList<SensorItem> AllSensors => _live.AllSensors;
+    public IReadOnlyList<SensorItem> AllSensors => _live.PickableSensors;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddSensorCommand))]

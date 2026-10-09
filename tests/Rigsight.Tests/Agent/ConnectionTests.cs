@@ -103,6 +103,45 @@ public unsafe class ConnectionTests
     }
 
     [Fact]
+    public void A_drop_still_going_on_is_kept_as_far_as_it_has_got()
+    {
+        // The PC is switched off, or put to sleep, with the internet still down: the drop was only ever written when the
+        // internet came back, so it was lost.
+        var w = new ConnectionWatch();
+        Watch(w, 1000, (10, true, true, 50_000), (ConnectionWatch.MinOngoingSeconds - 1, false, true, 0));
+        Assert.Null(w.Ongoing(1010 + ConnectionWatch.MinOngoingSeconds - 1)); // not yet a minute
+        Watch(w, 1010 + ConnectionWatch.MinOngoingSeconds - 1, (120, false, true, 0));
+        long now = 1010 + ConnectionWatch.MinOngoingSeconds - 1 + 120;
+        var going = w.Ongoing(now);
+        Assert.Equal(new NetDrop(1011, now, NetDropKind.Internet), going);
+        // When it ends, it's the same drop (the same start), with its real end: written over the last.
+        var ended = Assert.Single(Watch(w, now, (30, false, true, 0), (1, true, true, 0)));
+        Assert.Equal(1011, ended.Start);
+        Assert.Equal(now + 31, ended.End);
+        Assert.Null(w.Ongoing(now + 32));
+    }
+
+    [Fact]
+    public void A_drop_going_on_with_apps_still_downloading_is_not_kept()
+    {
+        var w = new ConnectionWatch();
+        Watch(w, 1000, (10, true, true, 0), (180, false, true, 2_000_000));
+        Assert.Null(w.Ongoing(1190));
+    }
+
+    [Fact]
+    public void Nothing_is_kept_while_online_or_once_the_PC_sleeps()
+    {
+        var w = new ConnectionWatch();
+        Watch(w, 1000, (10, true, true, 0));
+        Assert.Null(w.Ongoing(1010));
+        Watch(w, 1010, (200, false, false, 0));
+        Assert.Equal(NetDropKind.Link, w.Ongoing(1210)?.Kind);
+        w.Suspend();
+        Assert.Null(w.Ongoing(1211));
+    }
+
+    [Fact]
     public void Windows_not_knowing_changes_nothing() =>
         Assert.Empty(Watch(new ConnectionWatch(), 1000, (10, true, true, 0), (60, null, true, 0), (5, true, true, 0)));
 }

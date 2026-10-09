@@ -24,7 +24,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _client = client;
         Settings = new SettingsModel(client);
         Reports = new ReportService(Settings);
-        Live = new LiveData(Settings);
+        Live = new LiveData(Settings) { Dashboards = () => CustomPages };
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Home = new HomeViewModel(Reports, Live);
@@ -162,7 +162,11 @@ public sealed partial class ShellViewModel : ObservableObject
     public CustomPageViewModel? FindCustomPage(string key) => CustomPages.FirstOrDefault(p => p.NavKey == key);
 
     private CustomPageViewModel CreateCustomPage(CustomPageConfig config) =>
-        new(config, Settings, Live, Home, Crashes, open: p => CurrentPage = p.NavKey, delete: DeleteCustomPage);
+        new(config, Settings, Live, Home, Crashes, open: p => CurrentPage = p.NavKey, delete: DeleteCustomPage, net: NetToday);
+
+    /// <summary>The internet right now and today, shared by every dashboard's internet tiles.</summary>
+    public NetTodayViewModel NetToday => _netToday ??= new NetTodayViewModel(Reports, Live);
+    private NetTodayViewModel? _netToday;
 
     /// <summary>A new dashboard from a preset (named after it; a blank one is "Dashboard"), or with the starter tiles when none is given.</summary>
     [RelayCommand]

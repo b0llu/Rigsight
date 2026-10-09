@@ -70,6 +70,23 @@ public partial class PeriodPicker : UserControl
 
     public bool IsBusy { get => (bool)GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
 
+    /// <summary>Where the loader shows: after the picker (the usual: the filters start at the left and there is room
+    /// after them), or before it, for a picker that ends at the page's right edge (Reports), where "after" would be
+    /// past the edge. There is one loader; it is put at the other end.</summary>
+    public bool BusyOnLeft
+    {
+        get => Bar.Children.IndexOf(Busy) == 0;
+        set
+        {
+            if (value == BusyOnLeft) return;
+            Bar.Children.Remove(Busy);
+            if (value) Bar.Children.Insert(0, Busy);
+            else Bar.Children.Add(Busy);
+            // It takes no room either way: it hangs off the end it is at.
+            Busy.Margin = value ? new Thickness(-26, 0, 10, 0) : new Thickness(10, 0, -22, 0);
+        }
+    }
+
     private static readonly TimeSpan BusyAfter = TimeSpan.FromMilliseconds(300);
     private System.Windows.Threading.DispatcherTimer? _busyDelay;
     private long _pickedAt = long.MinValue;

@@ -71,7 +71,7 @@ public sealed class CustomPageTests
     public void Catalog_tiles_fit_the_grid_and_are_unique()
     {
         var all = TileCatalog.Groups.SelectMany(g => g.Tiles).ToList();
-        Assert.Equal(["LIVE", "SINGLE READINGS", "YOUR DAY"], TileCatalog.Groups.Select(g => g.Name));
+        Assert.Equal(["LIVE", "SINGLE READINGS", "INTERNET", "YOUR DAY"], TileCatalog.Groups.Select(g => g.Name));
         Assert.Equal(all.Count, all.Select(t => (t.Kind, t.Sensor)).Distinct().Count());
         Assert.All(all, t =>
         {

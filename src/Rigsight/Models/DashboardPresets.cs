@@ -45,6 +45,11 @@ public static class DashboardPresets
              PresetTile.Reading(KeySensors.RamLoad), PresetTile.Reading(KeySensors.GpuLoad), PresetTile.Reading(KeySensors.GpuVramLoad),
              PresetTile.Reading(KeySensors.GpuPower), new("top-memory"), new("most-used")],
             []),
+        new("Network", "Your internet right now and today: speeds, who is using it, and each hour.", "\uE839",
+            // Three full rows, nothing left over: today's figures and the connection; each hour; then who used it, who is
+            // using it, and the speed.
+            [new("net-today", W: 8), new("net-drops", W: 4), new("net-chart"), new("net-apps", W: 4), new("net-now", W: 4), new("net-speed", W: 4)],
+            []),
         new("My day", "Time on the PC, the apps you used, what stood out and any crashes.", "\uE823",
             [new("today"), new("peaks"), new("most-used"), new("insights"), new("yesterday"), new("crashes")],
             []),

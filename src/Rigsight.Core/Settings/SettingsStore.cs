@@ -108,6 +108,7 @@ public static class SettingsStore
         s.HiddenSensors ??= [];
         s.CollapsedHardware ??= [];
         s.HardwareOrder ??= [];
+        s.NetColorApps = [.. (s.NetColorApps ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Take(RigsightSettings.MaxNetColorApps)];
         s.StartPage ??= "home";
 
         if (s.SettingsVersion < 2)

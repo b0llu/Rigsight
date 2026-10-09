@@ -57,6 +57,11 @@ internal sealed class NetTracker(RigsightDb db)
     private readonly Dictionary<long, long> _minAppDown = [];
     private readonly List<double> _rates = [];
 
+    // The minute the agent started in may hold what the agent before it wrote (a restart, an update): read once, at the
+    // first write, and added to, so that part of the minute isn't replaced by the rest of it.
+    private bool _resumed;
+    private long? _steadyBefore, _appBefore;
+
     private readonly Dictionary<long, Transfer> _transfers = [];
     private HashSet<string>? _carriers;
 
@@ -195,6 +200,7 @@ internal sealed class NetTracker(RigsightDb db)
     /// </summary>
     public void Write(long minute, long hour, bool closing)
     {
+        Resume(minute);
         FindCarriers();
         long down = _chunkOtherDown + _chunkOtherTunnelDown, up = _chunkOtherUp + _chunkOtherTunnelUp;
         long bgDown = _chunkOtherBgDown, bgUp = _chunkOtherBgUp, awayDown = _chunkOtherAwayDown, awayUp = _chunkOtherAwayUp, lan = _chunkOtherLan;
@@ -246,11 +252,33 @@ internal sealed class NetTracker(RigsightDb db)
                 var (app, bytes) = _minAppDown.MaxBy(kv => kv.Value);
                 if (bytes >= 1_000_000) top = app;
             }
-            db.WriteNetMinute(new NetMinute(minute, _minDown, _minUp, _minBgDown, _minBgUp, _minAwayDown, _minAwayUp, _minLan, Steady(), top));
+            db.WriteNetMinute(new NetMinute(minute, _minDown, _minUp, _minBgDown, _minBgUp, _minAwayDown, _minAwayUp, _minLan,
+                Steady() ?? _steadyBefore, top ?? _appBefore));
         }
 
         if (closing)
             foreach (var (id, t) in _transfers.ToList()) EndTransfer(id, t);
+    }
+
+    /// <summary>The first write since the agent started: what an agent before this one wrote for the same minute is kept
+    /// and added to (each app's hour and day add up by themselves; the minute is written whole).</summary>
+    private void Resume(long minute)
+    {
+        if (_resumed) return;
+        _resumed = true;
+        try
+        {
+            if (db.GetNetMinutes(minute, minute + 60).FirstOrDefault() is not { } before) return;
+            _minDown += before.Down;
+            _minUp += before.Up;
+            _minBgDown += before.BgDown;
+            _minBgUp += before.BgUp;
+            _minAwayDown += before.AwayDown;
+            _minAwayUp += before.AwayUp;
+            _minLan += before.Lan;
+            (_steadyBefore, _appBefore) = (before.Steady, before.App);
+        }
+        catch (Exception ex) { Log.Error("network", ex); }
     }
 
     /// <summary>A new minute starts: what was written stays written.</summary>
@@ -259,6 +287,8 @@ internal sealed class NetTracker(RigsightDb db)
         _minDown = _minUp = _minBgDown = _minBgUp = _minAwayDown = _minAwayUp = _minLan = 0;
         _minAppDown.Clear();
         _rates.Clear();
+        _resumed = true;
+        _steadyBefore = _appBefore = null;
     }
 
     /// <summary>The speed the download held for most of the minute: three seconds in four were at least this fast.</summary>

@@ -897,7 +897,12 @@ internal sealed class AgentContext : ApplicationContext
             _justTurnedOn = true;
             RunOnSampler(() => _connection.Settle(TimeUtil.NowUnix()));
         }
-        else if (e.Mode == PowerModes.Suspend) RunOnSampler(_connection.Suspend);
+        else if (e.Mode == PowerModes.Suspend)
+            RunOnSampler(() =>
+            {
+                KeepOngoingDrop();
+                _connection.Suspend();
+            });
     }
 
     // ── Internet ──────────────────────────────────────────────────────────
@@ -924,6 +929,7 @@ internal sealed class AgentContext : ApplicationContext
     /// </summary>
     private void CheckNetworkTrace()
     {
+        KeepOngoingDrop();
         if (!_isAdmin) return;
         long now = TimeUtil.NowUnix();
         // No trace at all (Windows wouldn't start one, or ended it): there are no events to count, only the remedies.
@@ -948,6 +954,13 @@ internal sealed class AgentContext : ApplicationContext
                 Log.Write("network", "App network use is coming in again");
                 break;
         }
+    }
+
+    /// <summary>Sampler thread, each minute and before sleep: a drop still going on is written as far as it has got, so
+    /// one the PC is switched off or put to sleep in isn't lost (see <see cref="ConnectionWatch.Ongoing"/>).</summary>
+    private void KeepOngoingDrop()
+    {
+        if (_connection.Ongoing(TimeUtil.NowUnix()) is { } drop) _tracker.OnDrop(drop);
     }
 
     private void RestartNetworkTrace()
