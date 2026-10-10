@@ -255,6 +255,27 @@
                         <TextBlock Text="{Binding SensorPausedText}" Style="{StaticResource Hint}" TextWrapping="Wrap" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextBrush}" />
                     </DockPanel>
+                    <!-- The driver CPU readings come through is missing, or installed and not running: said here with the
+                         way out. "Install" has the agent fetch it (a spinner meanwhile); "Not now" only stops Settings
+                         being pointed at. -->
+                    <Border Visibility="{Binding DriverTitle, Converter={StaticResource Vis}}" Margin="0,4,0,12" Padding="14,12"
+                            CornerRadius="10" Background="{DynamicResource WarmSoftBrush}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{Binding DriverButtonText}" Command="{Binding InstallDriverCommand}"
+                                    VerticalAlignment="Center" Margin="8,0,0,0" AutomationProperties.Name="Get the PawnIO driver"
+                                    Visibility="{Binding IsInstallingDriver, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Not now" Command="{Binding DismissDriverCommand}"
+                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Not now, leave the PawnIO driver"
+                                    Visibility="{Binding ShowDriverNotNow, Converter={StaticResource Vis}}" />
+                            <ctl:Spinner DockPanel.Dock="Right" Margin="12,0,0,0" Visibility="{Binding IsInstallingDriver, Converter={StaticResource Vis}}" />
+                            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource WarmBrush}"
+                                       VerticalAlignment="Top" Margin="0,2,12,0" />
+                            <StackPanel>
+                                <TextBlock Text="{Binding DriverTitle}" Style="{StaticResource Title}" />
+                                <TextBlock Text="{Binding DriverText}" Style="{StaticResource Hint}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
                     <!-- A separate matter from the switch above: the last hardware check went wrong, so the risky parts are
                          skipped whatever the switch says. "Try again" clears only this. -->
                     <Border Visibility="{Binding SensorSkippedText, Converter={StaticResource Vis}}" Margin="0,4,0,12" Padding="14,12"

@@ -185,7 +185,11 @@ internal static class Program
         // Should the agent ever crash, Windows starts it again (only one that had run for a minute, so never round and round).
         try { RegisterApplicationRestart(CrashRestartLine(args, TestDataDir), RestartNoPatch | RestartNoReboot); } catch (Exception ex) { Log.Error("agent", ex); }
 
-        Log.Write("agent", $"Starting (admin: {isAdmin}, process {Environment.ProcessId}{(args.Contains(AfterCrash) ? ", after a crash" : "")})");
+        // Every start says which version it is, where it runs from, on which Windows and in which language and time
+        // zone: a log read weeks later, or after an update or two, still says what each line was written by.
+        var offset = TimeZoneInfo.Local.GetUtcOffset(DateTime.Now);
+        Log.Write("agent", $"Starting {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)} (admin: {isAdmin}, process {Environment.ProcessId}{(args.Contains(AfterCrash) ? ", after a crash" : "")}"
+            + $", Windows {Environment.OSVersion.Version}, {System.Globalization.CultureInfo.CurrentCulture.Name}, UTC{(offset < TimeSpan.Zero ? "-" : "+")}{offset:hh\\:mm}, from {AppContext.BaseDirectory.TrimEnd('\\')})");
         Application.Run(new AgentContext(args, isAdmin));
         GC.KeepAlive(mutex);
     }

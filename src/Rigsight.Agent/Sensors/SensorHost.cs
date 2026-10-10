@@ -476,6 +476,91 @@ internal sealed class SensorHost
         RamAvailable = Read(KeySensors.RamAvailable),
     };
 
+    /// <summary>
+    /// For the log: every part found with its sensors counted by kind, "Cpu AMD Ryzen 5 4600H (13 load) · GpuNvidia
+    /// GTX 1650 (3 temperature, 5 load…)". A CPU with loads only is one read without its driver.
+    /// </summary>
+    public string Summary() => string.Join(" · ", Schema.Select(hw =>
+        $"{hw.Type} {hw.Name} ({string.Join(", ", hw.Sensors.GroupBy(s => s.Kind).Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}"))})"));
+
+    private static readonly (string Key, string Name, SensorKind Kind)[] CpuKeys =
+    [
+        (KeySensors.CpuTemp, "temperature", SensorKind.Temperature), (KeySensors.CpuLoad, "load", SensorKind.Load),
+        (KeySensors.CpuPower, "power", SensorKind.Power), (KeySensors.CpuClock, "clock", SensorKind.Clock),
+    ];
+
+    /// <summary>
+    /// For the log: what a PC like this one should have been found with and wasn't, part by part: "Cpu AMD Ryzen 5 4600H:
+    /// no temperature, power, clock", "no motherboard sensors (fans, voltages, board temperatures)". Each kind is one
+    /// every such part gives when it is read properly, so a line here is something to look into, not a guess.
+    /// </summary>
+    public List<string> NotFound() => NotFound(Schema);
+
+    internal static List<string> NotFound(IReadOnlyList<HardwareMeta> schema)
+    {
+        var missing = new List<string>();
+        void Part(HardwareMeta hw, params SensorKind[] expected)
+        {
+            var none = expected.Where(kind => hw.Sensors.All(s => s.Kind != kind)).Select(kind => kind.ToString().ToLowerInvariant()).ToList();
+            if (none.Count > 0) missing.Add($"{hw.Type} {hw.Name}: no {string.Join(", ", none)}");
+        }
+        foreach (var hw in schema)
+        {
+            switch (hw.Type)
+            {
+                case "Cpu": Part(hw, SensorKind.Temperature, SensorKind.Load, SensorKind.Power, SensorKind.Clock); break;
+                case "GpuNvidia": Part(hw, SensorKind.Temperature, SensorKind.Load, SensorKind.Power); break;
+                case "GpuAmd" or "GpuIntel": Part(hw, SensorKind.Load); break;
+                case "Storage": Part(hw, SensorKind.Temperature); break;
+            }
+        }
+        bool Any(Func<HardwareMeta, bool> which) => schema.Any(which);
+        if (!Any(hw => hw.Type == "Cpu")) missing.Add("no CPU found");
+        if (!Any(hw => hw.Type.StartsWith("Gpu", StringComparison.Ordinal))) missing.Add("no graphics card found");
+        if (!Any(hw => hw.Type == "Memory")) missing.Add("no memory readings");
+        if (!Any(hw => hw.Type == "Storage")) missing.Add("no drives found");
+        // A desktop's board chip gives the fans, voltages and board temperatures; a laptop (it has a battery) often has none to read.
+        if (!Any(hw => hw.Type == "Battery"))
+        {
+            if (!Any(hw => hw.Type is "SuperIO" or "EmbeddedController")) missing.Add("no motherboard sensors (fans, voltages, board temperatures)");
+            else if (!Any(hw => hw.Sensors.Any(s => s.Kind == SensorKind.Fan))) missing.Add("no fan speeds");
+        }
+        return missing;
+    }
+
+    /// <summary>
+    /// For the log: sensors that are listed and were read just now, and gave nothing, counted by part and kind with
+    /// the first names: "AMD Ryzen 5 4600H: 1 temperature (Core (Tctl/Tdie)), 6 clock (Core #1, Core #2…)". A
+    /// temperature or clock of 0 counts, and a CPU's power: that is what a chip read without its driver says.
+    /// </summary>
+    public List<string> Silent()
+    {
+        var silent = new List<(string Hardware, string Kind, string Name)>();
+        for (int i = 0; i < _sensors.Count; i++)
+        {
+            if (!IsFresh(i) || (_gpusPaused && IsGpu(_sensorHardware[i]))) continue;
+            var s = _sensors[i];
+            bool zeroIsNothing = s.SensorType is SensorType.Temperature or SensorType.Clock
+                || (s.SensorType == SensorType.Power && s.Hardware.HardwareType == HardwareType.Cpu);
+            if (s.Value is not float f || !float.IsFinite(f) || (zeroIsNothing && f <= 0))
+                silent.Add((s.Hardware.Name, s.SensorType.ToString().ToLowerInvariant(), s.Name));
+        }
+        return [.. silent.GroupBy(x => x.Hardware).Select(hw => $"{hw.Key}: " + string.Join(", ", hw.GroupBy(x => x.Kind).Select(kind =>
+            $"{kind.Count()} {kind.Key} ({string.Join(", ", kind.Take(2).Select(x => x.Name))}{(kind.Count() > 2 ? "…" : "")})")))];
+    }
+
+    /// <summary>
+    /// For the log: what the CPU reads right now, "temperature 52 °C, load 8%, power none, clock none", and the same
+    /// without the figures (which readings there are), so it is only said again when one comes or goes.
+    /// </summary>
+    public (string Text, string Shape) CpuReadings()
+    {
+        // A power or clock of nothing is no reading: what a CPU read without its driver gives.
+        var read = CpuKeys.Select(k => (k.Name, k.Kind, Value: Read(k.Key) is double v && (v > 0 || k.Kind == SensorKind.Load) ? v : (double?)null)).ToList();
+        return (string.Join(", ", read.Select(r => $"{r.Name} {(r.Value is null ? "none" : Units.Format(r.Kind, r.Value))}")),
+            string.Join(",", read.Select(r => r.Value is null ? "-" : "+")));
+    }
+
     /// <summary>Whether the last <see cref="Update"/> read the drives (they're read far less often than the rest).</summary>
     public bool DrivesUpdated { get; private set; }
 

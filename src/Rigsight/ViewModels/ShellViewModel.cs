@@ -53,7 +53,15 @@ public sealed partial class ShellViewModel : ObservableObject
         Sidebar.Changed += UpdateDashboardsInNav;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
-        SettingsPage.GetHardware = () => [.. Live.Hardware.Select(h => (h.Type, h.Name))];
+        // With its sensors counted by kind: a CPU listed with loads only is one read without its driver.
+        SettingsPage.GetHardware = () => [.. Live.Hardware.Select(h => (h.Type,
+            $"{h.Name} ({string.Join(", ", h.Sensors.GroupBy(s => s.Kind).Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}"))})"))];
+        SettingsPage.GetReadings = () =>
+        [
+            $"CPU ({Live.CpuName}): temperature {Reading(Live.CpuTemp)}, load {Reading(Live.CpuLoad)}, power {Reading(Live.CpuPower)}, clock {Reading(Live.CpuClock)}",
+            $"GPU ({Live.GpuName}): temperature {Reading(Live.GpuTemp)}, load {Reading(Live.GpuLoad)}, power {Reading(Live.GpuPower)}",
+            $"Memory: in use {Reading(Live.RamLoad)}",
+        ];
 
         // Open on the page the user picked (if it still exists).
         var start = Settings.Current.StartPage;
@@ -306,6 +314,9 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] private bool _settingsNeedAttention;
 
     private void UpdateSettingsAttention() => SettingsNeedAttention = SettingsPage.SensorsNeedAttention;
+
+    /// <summary>For the copied logs: a reading's figure, "none" for a sensor that gives nothing, "no sensor" where there isn't one.</summary>
+    internal static string Reading(Models.SensorItem? sensor) => sensor is null ? "no sensor" : sensor.Value is null ? "none" : sensor.FormattedValue;
 
     public async Task RefreshCurrentPageAsync()
     {
@@ -620,6 +631,7 @@ public sealed partial class ShellViewModel : ObservableObject
                     _client.SendCommand("restart-elevated");
                 }
                 SettingsPage.AgentIsAdmin = msg.IsAdmin;
+                SettingsPage.AgentVersion = msg.Version;
                 // The first hello comes before the hardware scan; the one with the hardware says what was left out.
                 if (msg.Hardware is not null)
                 {
@@ -651,6 +663,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 {
                     SettingsPage.StartupEnabled = enabled;
                     SettingsPage.Refresh();
+                }
+                // The driver was looked at again, or is being installed: Settings says what is so now.
+                if (msg.SensorStatus is not null)
+                {
+                    SettingsPage.SensorStatus = msg.SensorStatus;
+                    UpdateSettingsAttention();
                 }
                 break;
             case "previews":
