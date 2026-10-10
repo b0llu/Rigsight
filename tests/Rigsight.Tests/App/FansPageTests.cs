@@ -116,6 +116,10 @@ public sealed class FansPageTests
             var page = new System.Windows.Controls.ScrollViewer { Content = content };
             var window = new System.Windows.Window { Content = page, Left = -32000, Top = -32000, Width = 400, Height = 300, ShowActivated = false, ShowInTaskbar = false };
             window.Show();
+            // The box holds the wheel for a moment after it last moved (see WheelChainTests): the clock is the test's.
+            long clock = 1_000_000;
+            var realClock = Rigsight.Controls.WheelChain.Clock;
+            Rigsight.Controls.WheelChain.Clock = () => clock;
             try
             {
                 Ui.Pump(150);
@@ -137,6 +141,7 @@ public sealed class FansPageTests
                 // At its end, the page takes over; and back up at its start.
                 box.ScrollToEnd();
                 Ui.Pump(50);
+                clock += 1000;
                 Wheel(-120);
                 Assert.Equal(box.ScrollableHeight, box.VerticalOffset, 1);
                 Assert.True(page.VerticalOffset > 0);
@@ -145,7 +150,11 @@ public sealed class FansPageTests
                 Wheel(120);
                 Assert.Equal(0, page.VerticalOffset);
             }
-            finally { window.Close(); }
+            finally
+            {
+                Rigsight.Controls.WheelChain.Clock = realClock;
+                window.Close();
+            }
         });
     }
 
