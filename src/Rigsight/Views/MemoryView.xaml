@@ -254,7 +254,8 @@
                 <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
                 <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
                              Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
-                <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True">
+                <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True"
+                         ctl:WheelChain.Enabled="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,0,8,0">
