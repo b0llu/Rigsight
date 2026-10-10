@@ -50,6 +50,10 @@ public class TrackerMinuteTests
         Assert.InRange(minutes[0].CpuTemp!.Value, 62, 97);
         // The hot spot and the memory: their highest as before, and now their average beside it.
         Assert.Equal((90.0, 82.0), (minutes[0].GpuHotMax, minutes[0].GpuMemMax));
+        // …and their lowest, so the chart's lowest has all four lines.
+        Assert.Equal((60.0, 70.0), (minutes[0].GpuHotMin, minutes[0].GpuMemMin));
+        var hour = Assert.Single(rig.Db.GetTempHours(minutes[0].Ts, minutes[0].Ts + 60));
+        Assert.Equal((60.0, 70.0), (hour.GpuHotMin, hour.GpuMemMin));
         Assert.InRange(minutes[0].GpuHotAvg!.Value, 61, 89);
         Assert.InRange(minutes[0].GpuMemAvg!.Value, 71, 81);
         Assert.Equal(Math.Round(minutes[0].GpuHotAvg!.Value, 1), minutes[0].GpuHotAvg!.Value); // kept to a tenth

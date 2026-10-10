@@ -39,6 +39,73 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void The_question_before_ending_a_part_of_Windows_shows_over_the_window()
+    {
+        Ui.TakeProblems();
+        host.Show("processes", 600);
+        var layer = Ui.Run(() => (FrameworkElement)host.Window.FindName("EndQuestionLayer"));
+        List<System.Windows.Controls.Button> Buttons() => [.. Visuals.Descendants<System.Windows.Controls.Button>(layer).Where(b => b.IsVisible)];
+
+        // Windows can't run without it: the red button is off until the box is ticked, and Cancel is the one in front.
+        var asked = Ui.Run(() => host.Shell.Processes.Question.AskAsync(new ViewModels.EndQuestion
+        {
+            Title = "End Client Server Runtime Process?", Body = Rigsight.Core.Apps.EndRisks.Sentence(Rigsight.Core.Apps.EndRisk.Critical), NeedsTick = true,
+        }));
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Assert.True(layer.IsVisible);
+            Assert.True(host.Shell.Live.HoldProcs); // the list behind holds still meanwhile
+            Assert.Equal(["End anyway", "Cancel"], Buttons().Select(b => (string)b.Content));
+            Assert.False(Buttons()[0].IsEnabled);
+            Assert.True(Buttons()[1].IsDefault);
+            var tick = Visuals.Descendants<System.Windows.Controls.CheckBox>(layer).Single(c => c.IsVisible);
+            Assert.Equal("I understand that unsaved work may be lost", tick.Content);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "end-question-critical.png"));
+            tick.IsChecked = true;
+            Assert.True(Buttons()[0].IsEnabled);
+            Buttons()[1].Command.Execute(Buttons()[1].CommandParameter);
+            Assert.False(layer.IsVisible);
+            Assert.Equal(ViewModels.EndAnswer.Cancel, asked.Result);
+            Assert.False(host.Shell.Live.HoldProcs);
+        });
+
+        // Windows Explorer: it can be restarted instead, and that is the button in front.
+        var explorer = Ui.Run(() => host.Shell.Processes.Question.AskAsync(new ViewModels.EndQuestion
+        {
+            Title = "End Windows Explorer?", Body = Rigsight.Core.Apps.EndRisks.Sentence(Rigsight.Core.Apps.EndRisk.Explorer), CanRestart = true,
+        }));
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Assert.Equal(["End anyway", "Cancel", "Restart it"], Buttons().Select(b => (string)b.Content));
+            Assert.Equal([false, false, true], Buttons().Select(b => b.IsDefault));
+            Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.CheckBox>(layer), c => c.IsVisible);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "end-question-explorer.png"));
+            Buttons()[2].Command.Execute(Buttons()[2].CommandParameter);
+            Assert.Equal(ViewModels.EndAnswer.Restart, explorer.Result);
+        });
+
+        // Several picked, some of them parts of Windows: each of those with what ending it does.
+        var several = Ui.Run(() => host.Shell.Processes.Question.AskAsync(new ViewModels.EndQuestion
+        {
+            Title = "End 3 apps?", Intro = "One of them is part of Windows:",
+            Lines = [new("Desktop Window Manager", Rigsight.Core.Apps.EndRisks.Sentence(Rigsight.Core.Apps.EndRisk.WindowManager)!)],
+        }));
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Assert.Equal(["End anyway", "Cancel"], Buttons().Select(b => (string)b.Content));
+            Assert.True(Buttons()[0].IsEnabled);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "end-question-several.png"));
+            Buttons()[0].Command.Execute(Buttons()[0].CommandParameter);
+            Assert.Equal(ViewModels.EndAnswer.End, several.Result);
+            Assert.False(layer.IsVisible);
+        });
+        Ui.AssertNoProblems("the question before ending");
+    }
+
+    [Fact]
     public void Whats_new_draws_a_removal_without_error_and_says_nothing_about_another_page_on_it()
     {
         Ui.TakeProblems();
@@ -109,7 +176,7 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     [Fact]
     public void Pages_survive_a_minute_of_live_ticks_and_process_lists()
     {
-        foreach (var page in new[] { "home", "temperatures", "memory", "sensors", "custom:" + AppHost.DashboardId })
+        foreach (var page in new[] { "home", "temperatures", "memory", "processes", "sensors", "custom:" + AppHost.DashboardId })
         {
             host.Show(page);
             Ui.TakeProblems();

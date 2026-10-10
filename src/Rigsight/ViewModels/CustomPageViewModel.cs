@@ -82,7 +82,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
 
     [ObservableProperty] private bool _isEditing;
 
-    /// <summary>In the sidebar (a folded DASHBOARDS section shows only the one you're on).</summary>
+    /// <summary>In the sidebar: as its entry there is (hidden, or in a folded group, it shows only while it's the one you're on).</summary>
     [ObservableProperty] private bool _inNav = true;
 
     /// <summary>Bound to this page's sidebar button.</summary>

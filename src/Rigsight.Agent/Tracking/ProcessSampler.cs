@@ -14,11 +14,15 @@ internal sealed class AppUsage
     public double Cpu { get; set; }
     /// <summary>Private working set in MB (Task Manager's "Memory" column).</summary>
     public double MemMB { get; set; }
+    /// <summary>What its processes read and wrote since the last sample, in bytes a second.</summary>
+    public double Disk { get; set; }
+    /// <summary>When the earliest of its processes started (a Windows file time).</summary>
+    public long Created { get; set; }
     /// <summary>Each process on its own, only for the apps asked for (<see cref="ProcessSampler.Detail"/>).</summary>
     public List<ProcessUsage>? Processes { get; set; }
 }
 
-internal readonly record struct ProcessUsage(int Pid, long Created, double Cpu, double MemMB);
+internal readonly record struct ProcessUsage(int Pid, long Created, double Cpu, double MemMB, double Disk = 0);
 
 internal sealed class ProcessSnapshot
 {
@@ -28,6 +32,8 @@ internal sealed class ProcessSnapshot
     public List<(int Pid, long Created)> Processes { get; } = [];
     /// <summary>Share of the main GPU each app kept busy, 0–100, by exe (see <see cref="GpuSampler"/>); empty when unknown.</summary>
     public Dictionary<string, double> Gpu { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>What every process together (Windows' own "System" too) read and wrote since the last sample, in bytes a second.</summary>
+    public double Disk { get; set; }
 }
 
 /// <summary>
@@ -38,7 +44,9 @@ internal sealed unsafe class ProcessSampler
 {
     private IntPtr _buffer = Marshal.AllocHGlobal(1 << 20);
     private int _bufferSize = 1 << 20;
-    private Dictionary<(int Pid, long Created), long> _lastCpu = [];
+    // Each process's CPU time and bytes read and written at the last sample. Windows counts both since the process
+    // started, so what it is using now is the difference between two samples.
+    private Dictionary<(int Pid, long Created), (long Cpu, long Io)> _last = [];
     private long _lastSampleTime;
 
     /// <summary>Apps (exe names) whose processes are also listed one by one, for the Memory page.</summary>
@@ -55,52 +63,71 @@ internal sealed unsafe class ProcessSampler
             _buffer = Marshal.AllocHGlobal(_bufferSize);
         }
 
+        return status != 0 ? new ProcessSnapshot() : Read(_buffer, Stopwatch.GetTimestamp());
+    }
+
+    /// <summary>
+    /// Reads what Windows wrote into <paramref name="buffer"/> (one SYSTEM_PROCESS_INFORMATION after another), taken
+    /// at <paramref name="now"/> on the Stopwatch's clock. Apart from <see cref="Sample"/>, the tests call it with
+    /// processes of their own making.
+    /// </summary>
+    internal ProcessSnapshot Read(IntPtr buffer, long now)
+    {
         var snapshot = new ProcessSnapshot();
-        if (status != 0) return snapshot;
 
         // By the precise clock: a sample taken right after another (the Memory page asking for its details) is only
         // milliseconds later, where TickCount's 16 ms steps would make CPU use look several times too high.
-        long now = Stopwatch.GetTimestamp();
-        double elapsed100ns = Stopwatch.GetElapsedTime(_lastSampleTime, now).Ticks * (double)Environment.ProcessorCount;
+        double seconds = Stopwatch.GetElapsedTime(_lastSampleTime, now).TotalSeconds;
+        double elapsed100ns = seconds * TimeSpan.TicksPerSecond * Environment.ProcessorCount;
         bool haveBaseline = _lastSampleTime != 0 && elapsed100ns > 0;
-        var current = new Dictionary<(int, long), long>(_lastCpu.Count);
+        var current = new Dictionary<(int, long), (long, long)>(_last.Count);
         var detail = Detail;
 
-        byte* p = (byte*)_buffer;
+        byte* p = (byte*)buffer;
         while (true)
         {
             var info = (Win32.SYSTEM_PROCESS_INFORMATION*)p;
             int pid = (int)info->UniqueProcessId;
-            if (pid > 4 && info->ImageName.Buffer != IntPtr.Zero)
+            // "System" (4) is no app, but much of what apps write reaches the drive in its name: it counts in the total.
+            if (pid >= 4)
             {
-                var exe = new string((char*)info->ImageName.Buffer, 0, info->ImageName.Length / 2);
-                long cpuTime = info->UserTime + info->KernelTime;
+                long cpuTime = info->UserTime + info->KernelTime, io = info->ReadTransferCount + info->WriteTransferCount;
                 var key = (pid, info->CreateTime);
-                current[key] = cpuTime;
+                current[key] = (cpuTime, io);
 
-                double cpu = 0;
-                if (haveBaseline && _lastCpu.TryGetValue(key, out var before))
-                    cpu = Math.Clamp((cpuTime - before) / elapsed100ns * 100, 0, 100); // Windows counts CPU time in steps too
-
-                if (!snapshot.Apps.TryGetValue(exe, out var app))
+                double cpu = 0, disk = 0;
+                if (haveBaseline && _last.TryGetValue(key, out var before))
                 {
-                    app = new AppUsage { Exe = exe, FirstPid = pid };
-                    snapshot.Apps[exe] = app;
+                    cpu = Math.Clamp((cpuTime - before.Cpu) / elapsed100ns * 100, 0, 100); // Windows counts CPU time in steps too
+                    disk = Math.Max(0, io - before.Io) / seconds;
                 }
-                app.Count++;
-                app.Cpu = Math.Min(100, app.Cpu + cpu);
-                double mem = info->WorkingSetPrivateSize / (1024.0 * 1024.0);
-                app.MemMB += mem;
-                if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem));
-                snapshot.PidToExe[pid] = exe;
-                snapshot.Processes.Add(key);
+                snapshot.Disk += disk;
+
+                if (pid > 4 && info->ImageName.Buffer != IntPtr.Zero)
+                {
+                    var exe = new string((char*)info->ImageName.Buffer, 0, info->ImageName.Length / 2);
+                    if (!snapshot.Apps.TryGetValue(exe, out var app))
+                    {
+                        app = new AppUsage { Exe = exe, FirstPid = pid, Created = info->CreateTime };
+                        snapshot.Apps[exe] = app;
+                    }
+                    app.Count++;
+                    app.Cpu = Math.Min(100, app.Cpu + cpu);
+                    double mem = info->WorkingSetPrivateSize / (1024.0 * 1024.0);
+                    app.MemMB += mem;
+                    app.Disk += disk;
+                    if (info->CreateTime < app.Created) app.Created = info->CreateTime;
+                    if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem, disk));
+                    snapshot.PidToExe[pid] = exe;
+                    snapshot.Processes.Add(key);
+                }
             }
 
             if (info->NextEntryOffset == 0) break;
             p += info->NextEntryOffset;
         }
 
-        _lastCpu = current;
+        _last = current;
         _lastSampleTime = now;
         return snapshot;
     }

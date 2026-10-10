@@ -49,7 +49,7 @@ public sealed class ShellTests : IClassFixture<AppHost>
     [Fact]
     public void Built_in_pages_are_the_sidebars()
     {
-        Assert.Equal(["home", "reports", "apps", "crashes", "timeline", "temperatures", "fans", "memory", "storage", "network", "sensors"], ShellViewModel.BuiltInPages.Select(p => p.Key));
+        Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline", "temperatures", "fans", "memory", "storage", "network", "sensors"], ShellViewModel.BuiltInPages.Select(p => p.Key));
         Assert.All(ShellViewModel.BuiltInPages, p => Assert.False(string.IsNullOrWhiteSpace(p.Name)));
     }
 
@@ -238,6 +238,118 @@ public sealed class ShellTests : IClassFixture<AppHost>
         Assert.Equal(dash.NavKey, Ui.Run(() => Shell.CurrentPage));
         Ui.Run(() => Shell.CurrentPage = "home");
         Assert.Null(Ui.Run(() => Shell.FindCustomPage("custom:nope")));
+    }
+
+    [Fact]
+    public void A_dashboard_is_a_page_of_the_sidebar_wherever_it_is_put()
+    {
+        Ui.TakeProblems();
+        string key = "custom:" + AppHost.DashboardId;
+        var dash = Ui.Run(() => Shell.FindCustomPage(key))!;
+        var sidebar = Shell.Sidebar;
+        var entry = Ui.Run(() => sidebar.EntryOf(key))!;
+        string name = Ui.Run(() => dash.Name);
+        // Its button in the window's sidebar (built anew when it moves), and the list that button is in.
+        System.Windows.Controls.RadioButton? Button() => Visuals.Descendants<System.Windows.Controls.RadioButton>(host.Window).SingleOrDefault(b => b.DataContext == entry);
+        object? ListOf(DependencyObject button) => Visuals.Ancestors<System.Windows.Controls.ItemsControl>(button).First().ItemsSource;
+        CustomPageViewModel? made = null;
+        try
+        {
+            Ui.Run(() =>
+            {
+                Shell.CurrentPage = "home";
+                Assert.Equal([key], sidebar.DashboardsGroup.Pages.Select(e => e.Key));
+                Assert.Equal(name, entry.Title);
+                Assert.True(Button()!.IsVisible);
+                Assert.Same(sidebar.DashboardsGroup.Pages, ListOf(Button()!));
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(Button()!), t => t.Text == name && t.IsVisible);
+                // "New dashboard" is one button under the dashboards, not a page.
+                Assert.Single(Visuals.Descendants<System.Windows.Controls.Button>(host.Window), b => System.Windows.Automation.AutomationProperties.GetName(b) == "New dashboard" && b.IsVisible);
+                Assert.Null(sidebar.EntryOf("new"));
+
+                // Picking it opens the dashboard.
+                Button()!.IsChecked = true;
+                Assert.Equal(key, Shell.CurrentPage);
+                Assert.True(dash.IsSelected);
+                Shell.CurrentPage = "home";
+                Assert.False(entry.IsSelected);
+
+                // Hidden: out of the sidebar, and still a dashboard.
+                entry.IsShown = false;
+            });
+            Ui.Pump(100);
+            Ui.Run(() =>
+            {
+                Assert.False(Button()!.IsVisible);
+                Assert.False(dash.InNav);
+                Assert.Contains(dash, Shell.CustomPages);
+                Assert.Contains(Shell.Settings.Current.CustomPages, p => p.Id == dash.Id);
+                Assert.Contains(Shell.SettingsPage.StartPageOptions, o => o.Key == key);
+                // Opened all the same (it may be the start page): it shows while it is the page on screen.
+                Shell.CurrentPage = key;
+            });
+            Ui.Pump(100);
+            Ui.Run(() =>
+            {
+                Assert.True(Button()!.IsVisible);
+                Shell.CurrentPage = "home";
+                entry.IsShown = true;
+
+                // Moved to the top group, under Home: its button is there, with the dashboard icon it had.
+                Assert.True(sidebar.MoveTo(entry, sidebar.MainGroup, 1));
+            });
+            Ui.Pump(100);
+            Ui.Run(() =>
+            {
+                Assert.Empty(sidebar.DashboardsGroup.Pages);
+                Assert.Same(sidebar.Main, ListOf(Button()!));
+                Assert.True(Button()!.IsVisible);
+                Assert.Equal("\uF0E2", Button()!.Tag);
+                Assert.Equal("main", Shell.Settings.Current.Sidebar.Groups[key]);
+                // The DASHBOARDS heading and "New dashboard" stay where they are.
+                Assert.Single(Visuals.Descendants<System.Windows.Controls.Button>(host.Window), b => System.Windows.Automation.AutomationProperties.GetName(b) == "New dashboard" && b.IsVisible);
+
+                // Renamed on its own page: the sidebar says so.
+                dash.Name = "Renamed here";
+                Assert.Equal("Renamed here", entry.Title);
+                Ui.SavePng(host.Window, Path.Combine(TestEnvironment.DataDir, "screens", "sidebar-dashboard-moved.png"));
+
+                // A new one is a page of DASHBOARDS at once, and the one on screen.
+                Shell.NewPageCommand.Execute(Models.DashboardPresets.Blank);
+                made = Shell.CustomPages[^1];
+                Assert.Equal([made.NavKey], sidebar.DashboardsGroup.Pages.Select(e => e.Key));
+                Assert.True(sidebar.EntryOf(made.NavKey)!.IsSelected);
+                Assert.Equal(made.NavKey, Shell.CurrentPage);
+                Assert.True(sidebar.MoveTo(sidebar.EntryOf(made.NavKey)!, sidebar.HardwareGroup, 0));
+                sidebar.EntryOf(made.NavKey)!.IsShown = false;
+                Assert.Contains(made.NavKey, Shell.Settings.Current.Sidebar.Order);
+
+                // Deleted: gone from the sidebar, and from everything saved about it.
+                Shell.ConfirmDelete = _ => true;
+                made.DeletePageCommand.Execute(null);
+                Assert.Null(sidebar.EntryOf(made.NavKey));
+                Assert.DoesNotContain(sidebar.Groups.SelectMany(g => g.Pages), e => e.Key == made.NavKey);
+                Assert.DoesNotContain(made.NavKey, Shell.Settings.Current.Sidebar.Order);
+                Assert.DoesNotContain(made.NavKey, Shell.Settings.Current.Sidebar.Hidden);
+                Assert.False(Shell.Settings.Current.Sidebar.Groups.ContainsKey(made.NavKey));
+                Assert.Equal("home", Shell.CurrentPage);
+                made = null;
+            });
+            Ui.Pump(100);
+            Ui.AssertNoProblems("a dashboard moved about the sidebar");
+        }
+        finally
+        {
+            Ui.Run(() =>
+            {
+                Shell.ConfirmDelete = _ => true;
+                made?.DeletePageCommand.Execute(null);
+                dash.Name = name;
+                entry.IsShown = true;
+                sidebar.MoveTo(entry, sidebar.DashboardsGroup, 0);
+                Shell.CurrentPage = "home";
+            });
+        }
     }
 
     [Fact]

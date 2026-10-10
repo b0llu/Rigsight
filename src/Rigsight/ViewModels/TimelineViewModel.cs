@@ -245,6 +245,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("hardware", "Hardware", [ChangeKind.Hardware, ChangeKind.Firmware]),
         ("settings", "Settings", [ChangeKind.Setting]),
         ("storage", "Drive space", [ChangeKind.Storage]),
+        ("ended", "Ended from Processes", [ChangeKind.TaskEnded]),
     ];
 
     /// <summary>Works everything out again for the data, the filter and the grouping.</summary>
@@ -407,6 +408,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("startup", [ChangeKind.Startup], "startup changes"),
         ("settings", [ChangeKind.Setting], "settings changed"),
         ("storage", [ChangeKind.Storage], "drive space changes"),
+        ("ended", [ChangeKind.TaskEnded], "apps ended from Processes"),
     ];
 
     /// <summary>
@@ -500,6 +502,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ChangeKind.Startup => "",
         ChangeKind.Hardware or ChangeKind.Firmware => "",
         ChangeKind.Setting => "",
+        ChangeKind.TaskEnded => "",
         _ => "",
     };
 

@@ -116,6 +116,16 @@ public sealed class ProcInfo
     public double Cpu { get; set; }
     public double MemMB { get; set; }
     public bool HasWindow { get; set; }
+    /// <summary>What its processes read and write, in bytes a second (0 from an agent that doesn't measure it). Most apps
+    /// are at rest at any moment: nothing is sent for those.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Disk { get; set; }
+    /// <summary>When the earliest of its processes started (Unix seconds; 0: not known).</summary>
+    public long Started { get; set; }
+    /// <summary>Windows marks one of its processes as one it can't lose: ending it stops Windows. Not said by an agent
+    /// without admin rights, nor by an older one.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Critical { get; set; }
     /// <summary>Each of its processes, biggest first; only for apps the app asked about ("procs-detail").</summary>
     public List<ProcDetail>? Processes { get; set; }
 }
@@ -128,6 +138,12 @@ public sealed class ProcDetail
     public string Label { get; set; } = "";
     public double Cpu { get; set; }
     public double MemMB { get; set; }
+    /// <summary>What it reads and writes, in bytes a second.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double Disk { get; set; }
+    /// <summary>Windows marks it as a process it can't lose (see <see cref="ProcInfo.Critical"/>).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Critical { get; set; }
 }
 
 /// <summary>The internet right now (the last second): the whole connection's speed and each app's, in bytes a second.</summary>
@@ -192,6 +208,8 @@ public sealed class AgentMessage
 
     // procs
     public List<ProcInfo>? Procs { get; set; }
+    /// <summary>What every process together reads and writes, in bytes a second (null from an agent that doesn't measure it).</summary>
+    public double? Disk { get; set; }
 
     // overlay (also on hello): whether it's on screen, and whether another program already owns its shortcut
     public bool? OverlayVisible { get; set; }
@@ -213,7 +231,7 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
-    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update · scan-now …</summary>
+    /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update · scan-now · task-ended …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }
 }

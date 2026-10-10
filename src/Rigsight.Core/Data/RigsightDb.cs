@@ -102,6 +102,9 @@ public sealed partial class RigsightDb : IDisposable
         // …and the average of the GPU's hot spot and memory, so their lines on that chart are averages like the others.
         if (!HasColumn("system_minute", "gpu_hot_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_hot_avg REAL");
         if (!HasColumn("system_minute", "gpu_mem_avg")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_avg REAL");
+        // …and their lowest, so the chart's lowest has all four lines (the user: "why don't I have the lowest of yesterday for the memory and the hot spot?").
+        if (!HasColumn("system_minute", "gpu_hot_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_hot_min REAL");
+        if (!HasColumn("system_minute", "gpu_mem_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_min REAL");
 
         // Windows' own time for a PC going down, beside the one shown (0.19.1, see InsertCrashes).
         if (!HasColumn("crashes", "ts_windows")) Exec("ALTER TABLE crashes ADD COLUMN ts_windows INTEGER");
@@ -340,9 +343,10 @@ public sealed partial class RigsightDb : IDisposable
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
-                cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma)
+                cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg, gpu_hot_min, gpu_mem_min)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma, $ghl, $gml)
             """,
+            ("$ghl", m.GpuHotMin), ("$gml", m.GpuMemMin),
             ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin), ("$gha", Tenth(m.GpuHotAvg)), ("$gma", Tenth(m.GpuMemAvg)),
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
             ("$gh", m.GpuHotMax), ("$gm", m.GpuMemMax), ("$cl", m.CpuLoad), ("$gl", m.GpuLoad), ("$cp", m.CpuPower), ("$gp", m.GpuPower),
@@ -850,7 +854,8 @@ public sealed partial class RigsightDb : IDisposable
     private bool HasLoadApps => _hasLoadApps ??= HasColumn("system_minute", "cpu_app");
     private bool HasClocks => _hasClocks ??= HasColumn("system_minute", "cpu_clock");
     // …and each minute's lowest temperatures.
-    private bool? _hasTempLows, _hasHotAvgs;
+    private bool? _hasTempLows, _hasHotAvgs, _hasHotLows;
+    private bool HasHotLows => _hasHotLows ??= HasColumn("system_minute", "gpu_hot_min");
     private bool HasTempLows => _hasTempLows ??= HasColumn("system_minute", "cpu_temp_min");
     private bool HasHotAvgs => _hasHotAvgs ??= HasColumn("system_minute", "gpu_hot_avg");
 
@@ -867,7 +872,8 @@ public sealed partial class RigsightDb : IDisposable
             SELECT ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, cpu_load, gpu_load, cpu_power, gpu_power,
                    cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
                    {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")},
-                   {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}, {(HasHotAvgs ? "gpu_hot_avg, gpu_mem_avg" : "NULL, NULL")}
+                   {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}, {(HasHotAvgs ? "gpu_hot_avg, gpu_mem_avg" : "NULL, NULL")},
+                   {(HasHotLows ? "gpu_hot_min, gpu_mem_min" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -884,6 +890,7 @@ public sealed partial class RigsightDb : IDisposable
                 ActiveSec = r.GetInt32(14), IdleSec = r.GetInt32(15), GpuMemMax = D(r, 16),
                 CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
                 CpuClock = D(r, 19), GpuClock = D(r, 20), CpuTempMin = D(r, 21), GpuTempMin = D(r, 22), GpuHotAvg = D(r, 23), GpuMemAvg = D(r, 24),
+                GpuHotMin = D(r, 25), GpuMemMin = D(r, 26),
             });
         }
         return list;
@@ -909,7 +916,9 @@ public sealed partial class RigsightDb : IDisposable
                    avg(gpu_temp), max(gpu_temp_max), {(HasTempLows ? "CASE WHEN count(gpu_temp_min) = count(gpu_temp) THEN min(gpu_temp_min) END" : "NULL")},
                    max(gpu_hot_max), {(_hasGpuMem.Value ? "max(gpu_mem_max)" : "NULL")},
                    {(HasHotAvgs ? "CASE WHEN count(gpu_hot_avg) = count(gpu_hot_max) THEN avg(gpu_hot_avg) END" : "NULL")},
-                   {(HasHotAvgs && _hasGpuMem.Value ? "CASE WHEN count(gpu_mem_avg) = count(gpu_mem_max) THEN avg(gpu_mem_avg) END" : "NULL")}
+                   {(HasHotAvgs && _hasGpuMem.Value ? "CASE WHEN count(gpu_mem_avg) = count(gpu_mem_max) THEN avg(gpu_mem_avg) END" : "NULL")},
+                   {(HasHotLows ? "CASE WHEN count(gpu_hot_min) = count(gpu_hot_max) THEN min(gpu_hot_min) END" : "NULL")},
+                   {(HasHotLows && _hasGpuMem.Value ? "CASE WHEN count(gpu_mem_min) = count(gpu_mem_max) THEN min(gpu_mem_min) END" : "NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to GROUP BY 1 ORDER BY 1
             """, ("$from", from), ("$to", to), ("$off", offset));
         using var r = cmd.ExecuteReader();
@@ -921,7 +930,7 @@ public sealed partial class RigsightDb : IDisposable
                 Ts = r.GetInt64(0),
                 CpuTemp = D(r, 1), CpuTempMax = D(r, 2), CpuTempMin = D(r, 3),
                 GpuTemp = D(r, 4), GpuTempMax = D(r, 5), GpuTempMin = D(r, 6), GpuHotMax = D(r, 7), GpuMemMax = D(r, 8),
-                GpuHotAvg = D(r, 9), GpuMemAvg = D(r, 10),
+                GpuHotAvg = D(r, 9), GpuMemAvg = D(r, 10), GpuHotMin = D(r, 11), GpuMemMin = D(r, 12),
             });
         }
         return list;
@@ -954,6 +963,45 @@ public sealed partial class RigsightDb : IDisposable
             FROM app_hour WHERE ts >= $from AND ts < $to
             """, ("$from", from), ("$to", to));
         return ReadHours(cmd);
+    }
+
+    /// <summary>One app's hours from <paramref name="from"/> to <paramref name="to"/> (the Processes page's history of an app).</summary>
+    public List<AppHour> GetAppHoursOf(long appId, long from, long to)
+    {
+        using var cmd = Cmd("""
+            SELECT ts, app_id, fg_sec, idle_sec, bg_sec, min_sec, cpu_sum, cpu_n, cpu_max, mem_sum, mem_n, mem_max,
+                   cpu_temp_sum, cpu_temp_n, cpu_temp_max, gpu_temp_sum, gpu_temp_n, gpu_temp_max, gpu_hot_max,
+                   cpu_power_max, gpu_power_max, cpu_volt_max, gpu_volt_max, gpu_load_sum, gpu_load_n
+            FROM app_hour WHERE app_id = $app AND ts >= $from AND ts < $to
+            """, ("$app", appId), ("$from", from), ("$to", to));
+        return ReadHours(cmd);
+    }
+
+    /// <summary>
+    /// Every app's memory over [from, to), added up by the database: the sum of its readings, how many there were, and
+    /// on how many (local) days it had any. The Memory page's usual for every app listed, in one read.
+    /// </summary>
+    public List<(long AppId, double MemSum, long MemN, int Days)> GetAppMemoryTotals(long from, long to)
+    {
+        using var cmd = Cmd($"""
+            SELECT app_id, total(mem_sum), total(mem_n), count(DISTINCT {DayOf("ts")})
+            FROM app_hour WHERE ts >= $from AND ts < $to AND mem_n > 0 GROUP BY app_id
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<(long, double, long, int)>();
+        while (r.Read()) list.Add((r.GetInt64(0), r.GetDouble(1), (long)r.GetDouble(2), r.GetInt32(3)));
+        return list;
+    }
+
+    /// <summary>The minute of [from, to) with the most memory in use (GB), the earliest of them; null with none recorded.</summary>
+    public (long Ts, double RamUsed)? GetFullestMinute(long from, long to)
+    {
+        using var cmd = Cmd("""
+            SELECT ts, ram_used FROM system_minute WHERE ts >= $from AND ts < $to AND ram_used IS NOT NULL
+            ORDER BY ram_used DESC, ts LIMIT 1
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (r.GetInt64(0), r.GetDouble(1)) : null;
     }
 
     /// <summary>

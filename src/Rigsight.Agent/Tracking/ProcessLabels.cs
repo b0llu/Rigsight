@@ -23,7 +23,7 @@ internal sealed class ProcessLabels
     internal Func<int, string?> CommandLine { get; init; } = Win32.ProcessCommandLine;
 
     /// <summary>The app's processes, biggest first. <paramref name="titles"/> is filled on first use.</summary>
-    public List<ProcDetail> Describe(string exe, string appName, List<ProcessUsage> processes, ref Dictionary<int, string>? titles)
+    public List<ProcDetail> Describe(string exe, string appName, List<ProcessUsage> processes, ref Dictionary<int, string>? titles, HashSet<int>? marked = null)
     {
         titles ??= WindowTitles();
         if (_roles.Count > 4000) _roles.Clear();
@@ -45,7 +45,7 @@ internal sealed class ProcessLabels
             var p = processes[i];
             string label = titles.TryGetValue(p.Pid, out var title) ? title
                 : roles[i] ?? (multiProcess ? "Main process" : serviceHost ? "Windows service" : appName);
-            result.Add(new ProcDetail { Pid = p.Pid, Label = label, Cpu = Math.Round(p.Cpu, 1), MemMB = Math.Round(p.MemMB, 1) });
+            result.Add(new ProcDetail { Pid = p.Pid, Label = label, Cpu = Math.Round(p.Cpu, 1), MemMB = Math.Round(p.MemMB, 1), Disk = Math.Round(p.Disk), Critical = marked?.Contains(p.Pid) == true });
         }
         result.Sort((a, b) => b.MemMB.CompareTo(a.MemMB));
         return result;

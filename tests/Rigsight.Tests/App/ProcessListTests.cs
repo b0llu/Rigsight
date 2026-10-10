@@ -142,6 +142,33 @@ public sealed class ProcessListTests
     }
 
     [Fact]
+    public void The_list_stays_sorted_as_figures_change_while_apps_come_and_go()
+    {
+        // As the agent sends it: every app's memory moves, and with only the biggest sent (forty of sixty here), some
+        // leave the list and others come into it in the same turn.
+        static List<ProcInfo> List(int round)
+        {
+            var random = new Random(round);
+            return [.. Enumerable.Range(0, 60).Select(i => Kit.Proc($"app{i:00}.exe", Math.Round(100 + random.NextDouble() * 900, 1))).OrderByDescending(p => p.MemMB).Take(40)];
+        }
+        var live = Greeted();
+        Ui.Run(() =>
+        {
+            live.ApplyProcs(List(0));
+            live.SetProcessSorting(true);
+        });
+        for (int round = 1; round < 10; round++)
+        {
+            int r = round;
+            Ui.Run(() => live.ApplyProcs(List(r)));
+            Ui.Pump(); // live sorting moves the rows once data binding runs
+            var memory = Ui.Run(() => live.ProcsView.Cast<ProcRow>().Select(p => p.MemMB).ToList());
+            Assert.Equal(40, memory.Count);
+            Assert.True(memory.SequenceEqual(memory.OrderDescending()), $"list {round}: {string.Join(", ", memory)}");
+        }
+    }
+
+    [Fact]
     public void Top_memory_is_the_six_biggest_and_only_replaced_when_it_changes()
     {
         var live = Greeted();

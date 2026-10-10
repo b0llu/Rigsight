@@ -1,0 +1,412 @@
+<UserControl x:Class="Rigsight.Views.ProcessesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <UserControl.Resources>
+        <!-- A row of this list: no shade of its own. The app's line and each of its processes take the pointer's shade
+             themselves (below), so an opened app isn't one tall shaded block. As light as RowItem: nothing to animate. -->
+        <Style x:Key="ProcItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="Transparent" Margin="0,0,0,2">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The figures: grey, and white and semi-bold in the column the list is sorted by. The only colour on this
+             page is in the four totals. -->
+        <Style x:Key="Fig" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="FigMemory" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.SortKey, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Memory">
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FigCpu" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.SortKey, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Cpu">
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FigInternet" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.SortKey, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Internet">
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FigDisk" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.SortKey, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Disk">
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- A column heading: a button that sorts. Its arrow says which way on the column sorted by; a faint ↕ on the rest. -->
+        <Style x:Key="SortHead" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Command" Value="{Binding DataContext.SortByCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            <Setter Property="CommandParameter" Value="{Binding Key}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat='Sort by {0}'}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
+                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="11" Margin="5,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0.6" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Opacity" Value="1" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The slim line of the box under an opened app: the whole line is the button that opens the box. -->
+        <Style x:Key="HistoryStrip" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Padding="14,9">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- What opens under an app's row: one box of what is on record about it, then each of its processes. Built
+             only for an app that is open (see the row's template), so the other rows stay as light as they were. -->
+        <DataTemplate x:Key="OpenedApp">
+            <StackPanel>
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" Margin="10,2,10,6">
+                    <StackPanel>
+                        <Button Style="{StaticResource HistoryStrip}" CommandParameter="{Binding}" AutomationProperties.Name="History"
+                                Command="{Binding DataContext.ToggleHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <DockPanel>
+                                <TextBlock x:Name="Turn" DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="7,1,0,0" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding History.ToggleText, FallbackValue=History}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <!-- The history is being read: the line says what it can meanwhile. -->
+                                <ctl:Spinner DockPanel.Dock="Right" Late="True" Margin="0,0,12,0" Visibility="{Binding History.IsLoading, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                <Grid>
+                                    <ItemsControl x:Name="Glance" ItemsSource="{Binding History.Glance}" Focusable="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,0,24,0" VerticalAlignment="Center">
+                                                    <Run Text="{Binding Label, Mode=OneWay}" /> <Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="Opened" Text="History" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Visibility="Collapsed" />
+                                </Grid>
+                            </DockPanel>
+                        </Button>
+                        <!-- Opened in place, in the same box: today's memory beside every fact there is. -->
+                        <DockPanel x:Name="Full" Margin="14,4,14,14" Visibility="Collapsed">
+                            <StackPanel DockPanel.Dock="Left" Width="280" Margin="0,0,28,0" Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                <TextBlock Text="MEMORY TODAY" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                                <ctl:HourLine Height="64" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
+                                <DockPanel Margin="0,4,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="Now" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                </DockPanel>
+                                <TextBlock FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,4,0,0"
+                                           Text="{Binding History.UsualMB, Converter={StaticResource Megabytes}, StringFormat='Dashed line: its usual, {0}'}"
+                                           Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding History.Facts}" Focusable="False" VerticalAlignment="Top">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,16,12">
+                                            <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Value}" Style="{StaticResource Body}" Margin="0,2,0,0" ctl:TrimmedText.ToolTip="True" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding Children}" Focusable="False" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="Line" Background="Transparent" CornerRadius="8" Padding="10,5" MouseRightButtonUp="Process_RightClick">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="76" />
+                                        <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="36" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
+                                        <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    </TextBlock>
+                                    <TextBlock Grid.Column="1" Text="{Binding MemText}" Style="{StaticResource FigMemory}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding CpuCell}" Style="{StaticResource FigCpu}" />
+                                    <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
+                                    <Grid Grid.Column="5" Width="28" Height="24" HorizontalAlignment="Right">
+                                        <Button x:Name="More" Style="{StaticResource IconButton}" Height="24" Click="ProcessMore_Click" Visibility="Hidden"
+                                                ToolTip="More" AutomationProperties.Name="{Binding Label, StringFormat='Actions for {0}'}">
+                                            <TextBlock Text="&#xE712;" />
+                                        </Button>
+                                        <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <Trigger SourceName="Line" Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Line" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                    <Setter TargetName="More" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding IsEnding}" Value="True">
+                                    <Setter TargetName="Line" Property="Opacity" Value="0.5" />
+                                    <Setter TargetName="More" Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding History.IsOpen}" Value="True">
+                    <Setter TargetName="Turn" Property="Text" Value="&#xE70E;" />
+                    <Setter TargetName="Glance" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Opened" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="Full" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- The list takes what the window has left under the totals, but never less than its MinHeight: then the page
+             scrolls. Its height is set in the code-behind, from the height given here (as on the Memory page: with none
+             to start from, the list was first laid out with every app's row at once). -->
+        <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid x:Name="Layout" Margin="32,26,32,24" MaxWidth="{StaticResource PageWidth}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Processes" Style="{StaticResource H1}" />
+                    <TextBlock Text="Everything running right now, and what each app is using." Style="{StaticResource Muted}" Margin="0,4,0,18" />
+                </StackPanel>
+
+                <!-- The four totals: each sorts the list by its column. Their dot and their line are the page's only colour. -->
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Tiles}" Focusable="False" Margin="-7,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Margin="7,0" Cursor="Hand" Focusable="False" CommandParameter="{Binding Key}" MinWidth="0" MinHeight="0" Padding="0"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                    Command="{Binding DataContext.SortByTotalCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    AutomationProperties.Name="{Binding Label, StringFormat='Sort by {0}'}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <ctl:SmoothBorder x:Name="Bd" Style="{StaticResource Card}" Padding="18,14,18,12">
+                                            <ContentPresenter />
+                                        </ctl:SmoothBorder>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,7,0" Fill="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                        <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" />
+                                    </StackPanel>
+                                    <TextBlock Margin="0,6,0,0" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Value, Mode=OneWay}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="  " /><Run Text="{Binding Note, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Most}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                    <!-- Across the whole foot of the tile, edge to edge (the margins undo the card's padding), and stretched
+                                         over the readings there are: a page just opened showed a squiggle in one corner. -->
+                                    <ctl:Sparkline Height="40" Margin="-18,10,-18,-12" Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}" Minimum="0" FitToData="True"
+                                                   Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,8,12">
+                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5" IsChecked="{Binding OnlyWindowed}" />
+                            <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="Search apps…" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
+                                     AutomationProperties.Name="Search the running apps" ctl:Debounce.Text="{Binding Search}" />
+                            <TextBlock Text="Running now" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes
+                             room from the rows that a fixed margin here could only guess at. -->
+                        <Grid x:Name="LiveHead" DockPanel.Dock="Top" Margin="10,0,18,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="96" />
+                                <ColumnDefinition Width="76" />
+                                <ColumnDefinition Width="104" />
+                                <ColumnDefinition Width="104" />
+                                <ColumnDefinition Width="36" />
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource SortHead}" DataContext="{Binding NameHeading}" HorizontalAlignment="Left" Margin="54,0,0,0" />
+                            <Button Grid.Column="1" Style="{StaticResource SortHead}" DataContext="{Binding MemoryHeading}" />
+                            <Button Grid.Column="2" Style="{StaticResource SortHead}" DataContext="{Binding CpuHeading}" />
+                            <Button Grid.Column="3" Style="{StaticResource SortHead}" DataContext="{Binding InternetHeading}" />
+                            <Button Grid.Column="4" Style="{StaticResource SortHead}" DataContext="{Binding DiskHeading}" />
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                                   Visibility="{Binding NoneMatch, Converter={StaticResource Vis}}" />
+                        <Grid>
+                            <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
+                            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
+                                         Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
+                            <!-- Click an app for its processes; right-click it, or its dots, for its menu; Ctrl+click picks several. -->
+                            <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource ProcItem}" ItemsSource="{Binding Apps}"
+                                     SelectionMode="Extended" VirtualizingPanel.IsVirtualizing="True" KeyDown="List_KeyDown" AutomationProperties.Name="Running apps">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel x:Name="Root" Margin="0,0,8,0">
+                                            <Border x:Name="Head" Background="Transparent" CornerRadius="10" Padding="10,8" MouseLeftButtonUp="App_Click" MouseRightButtonUp="App_RightClick">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="96" />
+                                                        <ColumnDefinition Width="76" />
+                                                        <ColumnDefinition Width="104" />
+                                                        <ColumnDefinition Width="104" />
+                                                        <ColumnDefinition Width="36" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <DockPanel>
+                                                        <Grid Width="20" VerticalAlignment="Center">
+                                                            <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource MutedBrush}"
+                                                                       HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                                            <!-- Turns while the app's processes are on their way from the agent, as on Memory. -->
+                                                            <ctl:Spinner x:Name="Opening" Width="10" Height="10" StrokeThickness="1.5" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                         Visibility="Collapsed" />
+                                                        </Grid>
+                                                        <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
+                                                        <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+                                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
+                                                            <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding MemText}" Style="{StaticResource FigMemory}" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding CpuCell}" Style="{StaticResource FigCpu}" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding NetCell}" Style="{StaticResource FigInternet}" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
+                                                    <!-- The dots show on the row under the pointer, picked, or reached with the keyboard; a spinner in their place while it is being ended. -->
+                                                    <Grid Grid.Column="5" Width="28" Height="28" HorizontalAlignment="Right">
+                                                        <Button x:Name="More" Style="{StaticResource IconButton}" Click="AppMore_Click" Visibility="Hidden"
+                                                                ToolTip="More" AutomationProperties.Name="{Binding Name, StringFormat='Actions for {0}'}">
+                                                            <TextBlock Text="&#xE712;" />
+                                                        </Button>
+                                                        <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                            <!-- Nothing until the app is opened: then what is under it is built (see OpenedApp). -->
+                                            <ContentControl x:Name="Under" Focusable="False" />
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
+                                                <Setter TargetName="Under" Property="ContentTemplate" Value="{StaticResource OpenedApp}" />
+                                                <Setter TargetName="Under" Property="Content" Value="{Binding}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                                <Setter TargetName="Chevron" Property="Visibility" Value="Hidden" />
+                                                <Setter TargetName="Opening" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <Trigger SourceName="Head" Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Head" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                <Setter TargetName="More" Property="Visibility" Value="Visible" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsKeyboardFocused, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter TargetName="More" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter TargetName="Head" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                <Setter TargetName="More" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsEnding}" Value="True">
+                                                <Setter TargetName="Root" Property="Opacity" Value="0.5" />
+                                                <Setter TargetName="More" Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </DockPanel>
+                </ctl:SmoothBorder>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- What just happened ("Ended Discord · 1.1 GB freed"), at the bottom of the page for a moment. -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Padding="16,10" CornerRadius="10" IsHitTestVisible="False"
+                Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                Visibility="{Binding Message, Converter={StaticResource Vis}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}" Margin="0,0,9,0"
+                           Visibility="{Binding MessageWarns, Converter={StaticResource Vis}}" />
+                <TextBlock Text="{Binding Message}" Style="{StaticResource Body}" AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

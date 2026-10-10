@@ -119,6 +119,25 @@ internal static partial class Win32
         }
     }
 
+    [DllImport("kernel32.dll", EntryPoint = "IsProcessCritical", SetLastError = true)]
+    private static extern bool IsProcessCriticalNative(IntPtr process, [MarshalAs(UnmanagedType.Bool)] out bool critical);
+
+    /// <summary>Whether Windows marks a process as one it can't lose (null: it wouldn't say, as for its own processes
+    /// without admin rights).</summary>
+    public static bool? IsProcessCritical(int pid)
+    {
+        var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return null;
+        try
+        {
+            return IsProcessCriticalNative(h, out bool critical) ? critical : null;
+        }
+        finally
+        {
+            CloseHandle(h);
+        }
+    }
+
     public static string? ProcessPath(int pid)
     {
         var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
@@ -168,6 +187,21 @@ internal static partial class Win32
         public uint PageFaultCount;
         public UIntPtr PeakWorkingSetSize;
         public UIntPtr WorkingSetSize;
+        public UIntPtr QuotaPeakPagedPoolUsage;
+        public UIntPtr QuotaPagedPoolUsage;
+        public UIntPtr QuotaPeakNonPagedPoolUsage;
+        public UIntPtr QuotaNonPagedPoolUsage;
+        public UIntPtr PagefileUsage;
+        public UIntPtr PeakPagefileUsage;
+        public UIntPtr PrivatePageCount;
+        // What the process has read and written since it started (files, and pipes too: the figures Task Manager's
+        // "I/O read bytes" and "I/O write bytes" show). They come with the same call, so reading them costs nothing more.
+        public long ReadOperationCount;
+        public long WriteOperationCount;
+        public long OtherOperationCount;
+        public long ReadTransferCount;
+        public long WriteTransferCount;
+        public long OtherTransferCount;
     }
 
     // ── Layered windows (widgets) ─────────────────────────────────────────

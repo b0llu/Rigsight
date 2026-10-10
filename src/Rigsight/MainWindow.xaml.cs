@@ -33,8 +33,15 @@ public partial class MainWindow : Window
         ContentRendered += (_, _) => _vm.WhatsNew.CheckOnStart();
         // Listened to weakly: the card outlives any one window (the tests host several).
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
+        PropertyChangedEventManager.AddHandler(vm.Processes.Question, OnEndQuestionOpened, nameof(EndQuestionViewModel.IsOpen));
         PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Processes.Question.IsOpen)
+            {
+                _vm.Processes.Question.Cancel();
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
             {
                 _vm.Presets.CloseCommand.Execute(null);
@@ -76,6 +83,17 @@ public partial class MainWindow : Window
         Motion.PopIn(WhatsNewCardHost);
     }
 
+    /// <summary>
+    /// The question before ending a part of Windows takes the keyboard while it is up: Enter is its button in front,
+    /// Esc cancels, and the list behind it no longer answers the keys.
+    /// </summary>
+    private void OnEndQuestionOpened(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_vm.Processes.Question.IsOpen) Dispatcher.BeginInvoke(() => EndQuestionLayer.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void EndQuestionBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Processes.Question.Cancel();
+
     private void PresetsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Presets.CloseCommand.Execute(null);
 
     private void WhatsNewBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.WhatsNew.CloseCommand.Execute(null);
@@ -102,6 +120,7 @@ public partial class MainWindow : Window
                 "fans" => new FansView { DataContext = _vm.Fans },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
+                "processes" => new ProcessesView { DataContext = _vm.Processes },
                 "storage" => new StorageView { DataContext = _vm.Storage },
                 "sensors" => new SensorsView { DataContext = _vm.Live },
                 "widgets" => new WidgetsView { DataContext = _vm.Widgets },

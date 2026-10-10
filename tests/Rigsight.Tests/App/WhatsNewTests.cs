@@ -12,7 +12,7 @@ public sealed class WhatsNewTests
     private static readonly Version V070 = new(0, 7, 0);
 
     /// <summary>Every page a feature's button can open: the sidebar's.</summary>
-    private static readonly string[] Pages = ["home", "reports", "apps", "crashes", "timeline", "temperatures", "fans", "memory", "storage", "network", "sensors",
+    private static readonly string[] Pages = ["home", "reports", "apps", "processes", "crashes", "timeline", "temperatures", "fans", "memory", "storage", "network", "sensors",
         "widgets", "overlay", "taskbar"];
 
     private static (WhatsNewViewModel Card, SettingsModel Settings) Make(string? seen, Version? current = null)

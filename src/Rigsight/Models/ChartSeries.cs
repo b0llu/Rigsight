@@ -41,20 +41,23 @@ public sealed partial class ChartSeries : CommunityToolkit.Mvvm.ComponentModel.O
     }
 
     /// <summary>
-    /// The lowest reading in that time, in the same way. Null too where a stored minute (hour, day) of it kept no
-    /// lowest (none is kept for the hot spot or the memory): the lowest of the rest would pass for the period's.
+    /// The lowest reading in that time, in the same way: of the stored minutes (hours, days) that kept a lowest, which
+    /// are the ones the line is drawn through when it shows the lowest (a week that began before lowest readings were
+    /// kept has a line for the rest of it, and the legend said nothing). Null where none of them kept one (the hot
+    /// spot's and the memory's are kept since 0.20.0): the lowest of the live readings alone would pass for the period's.
     /// </summary>
     public (double Value, long At, bool Stored)? Lowest(long from, long to)
     {
         (double Value, long At, bool Stored)? best = null;
-        bool stats = _low.Count == Minutes.Count;
+        bool stats = _low.Count == Minutes.Count, without = false;
         for (int i = Minutes.IndexAtOrAfter(from); i < Minutes.Count && Minutes.TimeAt(i) < to; i++)
         {
             if (double.IsNaN(Minutes.ValueAt(i))) continue;
-            if (!stats || double.IsNaN(_low.ValueAt(i))) return null;
+            if (!stats || double.IsNaN(_low.ValueAt(i))) { without = true; continue; }
             double v = _low.ValueAt(i);
             if (best is not { } b || v < b.Value) best = (v, Minutes.TimeAt(i), true);
         }
+        if (without && best is null) return null;
         var live = Sensor.History;
         for (int i = live.IndexAtOrAfter(from); i < live.Count && live.TimeAt(i) < to; i++)
         {
@@ -137,7 +140,7 @@ public sealed partial class ChartSeries : CommunityToolkit.Mvvm.ComponentModel.O
     private readonly HistoryBuffer _avg = new(24 * 60 + 60, true), _high = new(24 * 60 + 60, true), _low = new(24 * 60 + 60, true);
 
     // Beside Minutes too: the line when it's drawn from each minute's highest or lowest. A minute that didn't keep the
-    // one asked for (lowest readings are kept since 0.16.1, and never for the hot spot or the memory) has no point
+    // one asked for (lowest readings are kept since 0.16.1, the hot spot's and the memory's since 0.20.0) has no point
     // there: the line stops rather than pass an average off as a lowest.
     private readonly HistoryBuffer _plotHigh = new(24 * 60 + 60, true), _plotLow = new(24 * 60 + 60, true);
 

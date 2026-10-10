@@ -9,7 +9,7 @@ using Rigsight.ViewModels;
 
 namespace Rigsight.Tests.App;
 
-/// <summary>The sidebar (order, hidden pages, folded sections), dashboard presets and accent colours.</summary>
+/// <summary>The sidebar (pages moved between groups, names, hidden pages and headings, folded sections) and its editor, dashboard presets and accent colours.</summary>
 [Collection("UI")]
 public sealed class SidebarPresetAccentTests
 {
@@ -31,7 +31,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar();
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
             Assert.All(sidebar.Main.Concat(sidebar.Hardware).Concat(sidebar.OnScreen), e => Assert.True(e.IsVisible));
@@ -41,25 +41,373 @@ public sealed class SidebarPresetAccentTests
     }
 
     [Fact]
-    public void Moving_a_page_stays_in_its_group_and_is_saved()
+    public void Moving_a_page_within_its_group_is_saved()
     {
         var (sidebar, settings, _) = Sidebar();
         Ui.Run(() =>
         {
             var fans = sidebar.Hardware.Single(e => e.Key == "fans");
-            sidebar.MoveUpCommand.Execute(fans);
-            sidebar.MoveUpCommand.Execute(fans); // already first: stays
+            Assert.True(sidebar.MoveBy(fans, -1));
             Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
 
+            // Dropped on a place: the index counts the rows as they are, the moved one included.
             var apps = sidebar.Main.Single(e => e.Key == "apps");
-            sidebar.MoveDownCommand.Execute(apps);
-            sidebar.MoveDownCommand.Execute(apps);
-            sidebar.MoveDownCommand.Execute(apps); // already last of its group: doesn't jump into HARDWARE
-            Assert.Equal(["home", "reports", "crashes", "timeline", "apps"], Keys(sidebar.Main));
-            Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.True(sidebar.MoveTo(apps, sidebar.MainGroup, 6));
+            Assert.Equal(["home", "reports", "processes", "crashes", "timeline", "apps"], Keys(sidebar.Main));
+            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 6)); // where it already is
+            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 5));
+            Assert.True(sidebar.MoveTo(apps, sidebar.MainGroup, 1));
+            Assert.Equal(["home", "apps", "reports", "processes", "crashes", "timeline"], Keys(sidebar.Main));
 
-            Assert.Equal(["home", "reports", "crashes", "timeline", "apps", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
+            Assert.Equal(["home", "apps", "reports", "processes", "crashes", "timeline", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
                 settings.Current.Sidebar.Order);
+            Assert.Empty(settings.Current.Sidebar.Groups); // nothing left its own group
+        });
+    }
+
+    [Fact]
+    public void A_page_moves_to_any_group_and_stays_there()
+    {
+        var (sidebar, settings, _) = Sidebar();
+        Ui.Run(() =>
+        {
+            // Memory out of HARDWARE into the top group, after Reports; Widgets into HARDWARE, first.
+            var memory = sidebar.Hardware.Single(e => e.Key == "memory");
+            Assert.True(sidebar.MoveTo(memory, sidebar.MainGroup, 2));
+            var widgets = sidebar.OnScreen.Single(e => e.Key == "widgets");
+            Assert.True(sidebar.MoveTo(widgets, sidebar.HardwareGroup, 0));
+            Assert.Equal(["home", "reports", "memory", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["widgets", "temperatures", "fans", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["overlay", "taskbar"], Keys(sidebar.OnScreen));
+            Assert.Equal("main", settings.Current.Sidebar.Groups["memory"]);
+            Assert.Equal("hardware", settings.Current.Sidebar.Groups["widgets"]);
+
+            // It folds with the group it's in now.
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.HardwareSection);
+            Assert.False(widgets.IsVisible);
+            Assert.True(memory.IsVisible);
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.HardwareSection);
+
+            // DASHBOARDS takes a built-in page like any group.
+            Assert.True(sidebar.MoveTo(memory, sidebar.DashboardsGroup, 0));
+            Assert.Equal(["memory"], Keys(sidebar.DashboardsGroup.Pages));
+            Assert.Equal("dashboards", settings.Current.Sidebar.Groups["memory"]);
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
+            Assert.False(memory.IsVisible);
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
+
+            // Back home: nothing is kept about it.
+            Assert.True(sidebar.MoveTo(memory, sidebar.HardwareGroup, 3));
+            Assert.Equal(["widgets", "temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.False(settings.Current.Sidebar.Groups.ContainsKey("memory"));
+        });
+
+        // The next start (and the agent's copy coming back) reads the same layout.
+        var again = Ui.Run(() => new SidebarViewModel(Kit.OfflineSettings(SettingsStore.Deserialize(SettingsStore.Serialize(settings.Current))), _ => { }));
+        Ui.Run(() =>
+        {
+            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(again.Main));
+            Assert.Equal(["widgets", "temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(again.Hardware));
+            Assert.Equal(["overlay", "taskbar"], Keys(again.OnScreen));
+        });
+    }
+
+    [Fact]
+    public void The_arrow_keys_carry_a_page_across_groups()
+    {
+        var (sidebar, _, _) = Sidebar();
+        Ui.Run(() =>
+        {
+            var home = sidebar.Main.Single(e => e.Key == "home");
+            Assert.False(sidebar.MoveBy(home, -1)); // nothing above the top
+
+            // Down off the end of the top group: into DASHBOARDS, then the start of HARDWARE, then on down.
+            var timeline = sidebar.Main.Single(e => e.Key == "timeline");
+            Assert.True(sidebar.MoveBy(timeline, +1));
+            Assert.Equal(["timeline"], Keys(sidebar.DashboardsGroup.Pages));
+            Assert.True(sidebar.MoveBy(timeline, +1));
+            Assert.Equal(["timeline", "temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.True(sidebar.MoveBy(timeline, +1));
+            Assert.Equal(["temperatures", "timeline", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+
+            // Up off the start of ON SCREEN: the end of HARDWARE.
+            var widgets = sidebar.OnScreen.Single(e => e.Key == "widgets");
+            Assert.True(sidebar.MoveBy(widgets, -1));
+            Assert.Equal("widgets", sidebar.Hardware.Last().Key);
+
+            var taskbar = sidebar.OnScreen.Single(e => e.Key == "taskbar");
+            Assert.False(sidebar.MoveBy(taskbar, +1)); // nothing below the bottom
+
+            // A group emptied of its pages offers a place to drop one, and takes one back.
+            Assert.False(sidebar.OnScreenGroup.ShowDropBox);
+            foreach (var e in sidebar.OnScreen.ToList()) sidebar.MoveTo(e, sidebar.MainGroup, 0);
+            Assert.True(sidebar.OnScreenGroup.ShowDropBox);
+            Assert.True(sidebar.DashboardsGroup.ShowDropBox); // no dashboard yet, and nothing moved in
+            Assert.True(sidebar.MoveBy(widgets, +1));
+            Assert.Equal(["widgets"], Keys(sidebar.OnScreen));
+            Assert.False(sidebar.OnScreenGroup.ShowDropBox);
+        });
+    }
+
+    [Fact]
+    public void Renaming_a_page_shows_at_once_and_clearing_the_name_brings_its_own_back()
+    {
+        var (sidebar, settings, _) = Sidebar();
+        Ui.Run(() =>
+        {
+            var sensors = sidebar.Hardware.Single(e => e.Key == "sensors");
+            Assert.Equal("", sensors.Name);
+            Assert.Equal("All sensors", sensors.Title);
+
+            var raised = new List<string?>();
+            sensors.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            sensors.Name = "Every reading ";
+            Assert.Contains(nameof(NavEntry.Title), raised);
+            Assert.Equal("Every reading ", sensors.Name); // as typed: the box mustn't take a space away mid-word
+            Assert.Equal("Every reading", sensors.Title);
+            Assert.Equal("Every reading ", settings.Current.Sidebar.Names["sensors"]);
+            Assert.Equal("All sensors", sensors.BuiltInTitle);
+
+            sensors.Name = "   ";
+            Assert.Equal("", sensors.Name);
+            Assert.Equal("All sensors", sensors.Title);
+            Assert.Empty(settings.Current.Sidebar.Names);
+
+            // Headings the same, written in capitals as the sidebar does.
+            var hardware = sidebar.HardwareGroup;
+            Assert.Equal("HARDWARE", hardware.Heading);
+            hardware.Name = "My PC";
+            Assert.Equal("MY PC", hardware.Heading);
+            Assert.Equal("My PC", settings.Current.Sidebar.HeadingNames["hardware"]);
+            sidebar.DashboardsGroup.Name = "Boards";
+            Assert.Equal("BOARDS", sidebar.DashboardsGroup.Heading);
+            hardware.Name = "";
+            Assert.Equal("HARDWARE", hardware.Heading);
+            Assert.Equal(["dashboards"], settings.Current.Sidebar.HeadingNames.Keys);
+
+            sidebar.MainGroup.Name = "Top"; // the top group has no heading to name
+            Assert.False(sidebar.MainGroup.HasHeading);
+            Assert.Equal(["dashboards"], settings.Current.Sidebar.HeadingNames.Keys);
+        });
+    }
+
+    [Fact]
+    public void A_hidden_heading_cannot_fold_and_its_pages_show()
+    {
+        var (sidebar, settings, _) = Sidebar();
+        Ui.Run(() =>
+        {
+            Assert.All(sidebar.Groups.Where(g => g.HasHeading), g => Assert.True(g.ShowHeading));
+            Assert.False(sidebar.MainGroup.ShowHeading);
+            Assert.Equal("", sidebar.HiddenSummary);
+
+            // Folded, then its heading taken away: the pages are back, with nothing left to unfold them by.
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.HardwareSection);
+            Assert.All(sidebar.Hardware, e => Assert.False(e.IsVisible));
+            sidebar.HardwareGroup.ShowHeading = false;
+            Assert.Equal(["hardware"], settings.Current.Sidebar.HiddenHeadings);
+            Assert.False(sidebar.HardwareCollapsed);
+            Assert.False(sidebar.HardwareGroup.Collapsed);
+            Assert.All(sidebar.Hardware, e => Assert.True(e.IsVisible));
+            Assert.Equal("· 1 heading hidden", sidebar.HiddenSummary);
+
+            // The same for DASHBOARDS, which the shell asks about for the user's own pages.
+            sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
+            Assert.True(sidebar.DashboardsCollapsed);
+            int told = 0;
+            sidebar.Changed += () => told++;
+            sidebar.DashboardsGroup.ShowHeading = false;
+            Assert.False(sidebar.DashboardsCollapsed);
+            Assert.True(told > 0);
+
+            sidebar.Hardware.Single(e => e.Key == "fans").IsShown = false;
+            sidebar.Hardware.Single(e => e.Key == "storage").IsShown = false;
+            Assert.Equal("· 2 pages hidden, 2 headings hidden", sidebar.HiddenSummary);
+
+            // The heading back: it is folded as it was left.
+            sidebar.HardwareGroup.ShowHeading = true;
+            Assert.True(sidebar.HardwareCollapsed);
+            Assert.All(sidebar.Hardware, e => Assert.False(e.IsVisible));
+            Assert.Equal("· 2 pages hidden, 1 heading hidden", sidebar.HiddenSummary);
+        });
+    }
+
+    [Fact]
+    public void Settings_from_before_the_editor_give_the_usual_sidebar()
+    {
+        // As 0.19 wrote them: an order, hidden pages and folded sections, and nothing about groups, names or headings.
+        var old = SettingsStore.Deserialize("""
+            { "SettingsVersion": 9, "Sidebar": { "Order": ["home", "reports", "apps", "crashes", "timeline", "fans", "temperatures"], "Hidden": ["storage"], "Collapsed": ["onscreen"] } }
+            """);
+        Assert.Empty(old.Sidebar.Groups);
+        Assert.Empty(old.Sidebar.Names);
+        Assert.Empty(old.Sidebar.HeadingNames);
+        Assert.Empty(old.Sidebar.HiddenHeadings);
+
+        var (sidebar, _, _) = Sidebar(old);
+        Ui.Run(() =>
+        {
+            Assert.Equal(["home", "reports", "apps", "crashes", "timeline", "processes"], Keys(sidebar.Main));
+            Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
+            Assert.Equal(["Home", "Reports", "Apps", "Crashes", "Timeline", "Processes"], sidebar.Main.Select(e => e.Title));
+            Assert.Equal(["DASHBOARDS", "HARDWARE", "ON SCREEN"], sidebar.Groups.Where(g => g.HasHeading).Select(g => g.Heading));
+            Assert.All(sidebar.Groups.Where(g => g.HasHeading), g => Assert.True(g.ShowHeading));
+            Assert.True(sidebar.OnScreenCollapsed);
+            Assert.False(sidebar.Hardware.Single(e => e.Key == "storage").IsVisible);
+            Assert.Equal("· 1 page hidden", sidebar.HiddenSummary);
+        });
+
+        // A hand edit: nulls, empty names, a group that isn't one.
+        var odd = SettingsStore.Deserialize("""
+            { "SettingsVersion": 9, "Sidebar": { "Groups": { "memory": "nowhere", "fans": "dashboards", "taskbar": "main", "apps": null }, "Names": { "fans": "  ", "apps": null, "home": "Start" }, "HeadingNames": null, "HiddenHeadings": null } }
+            """);
+        Assert.Equal(["home"], odd.Sidebar.Names.Keys);
+        Assert.Empty(odd.Sidebar.HeadingNames);
+        Assert.Empty(odd.Sidebar.HiddenHeadings);
+        (sidebar, _, _) = Sidebar(odd);
+        Ui.Run(() =>
+        {
+            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline", "taskbar"], Keys(sidebar.Main));
+            Assert.Equal(["temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware)); // a group that isn't one: its own
+            Assert.Equal(["fans"], Keys(sidebar.DashboardsGroup.Pages));
+            Assert.Equal("Start", sidebar.Main[0].Title);
+        });
+    }
+
+    [Fact]
+    public void A_page_the_saved_layout_does_not_know_goes_last_in_its_own_group()
+    {
+        // A layout saved by a version without Network or Timeline, with Memory moved to the top group.
+        var start = SeedData.QuietSettings();
+        start.Sidebar.Order = ["home", "memory", "reports", "apps", "crashes", "sensors", "temperatures", "fans", "storage", "widgets", "overlay", "taskbar"];
+        start.Sidebar.Groups["memory"] = "main";
+        var (sidebar, _, _) = Sidebar(start);
+        Ui.Run(() =>
+        {
+            Assert.Equal(["home", "memory", "reports", "apps", "crashes", "processes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["sensors", "temperatures", "fans", "storage", "network"], Keys(sidebar.Hardware));
+        });
+    }
+
+    [Fact]
+    public void Reading_the_same_settings_again_leaves_the_rows_alone()
+    {
+        // Every change comes back from the agent a moment later: a row rebuilt then would take the focus from its name box.
+        var (sidebar, settings, _) = Sidebar();
+        Ui.Run(() =>
+        {
+            sidebar.MoveTo(sidebar.Hardware.Single(e => e.Key == "memory"), sidebar.MainGroup, 1);
+            int moves = 0;
+            foreach (var group in sidebar.Groups) group.Pages.CollectionChanged += (_, _) => moves++;
+            sidebar.Refresh();
+            Assert.Equal(0, moves);
+
+            // Changed elsewhere: followed.
+            settings.Update(s =>
+            {
+                s.Sidebar.Groups.Clear();
+                s.Sidebar.Order = [];
+                s.Sidebar.Names["memory"] = "RAM";
+            });
+            sidebar.Refresh();
+            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+            Assert.Equal("RAM", sidebar.Hardware[2].Title);
+        });
+    }
+
+    [Fact]
+    public void The_sidebar_editor_opens_from_settings_with_a_row_for_every_page()
+    {
+        var settings = Kit.OfflineSettings();
+        Ui.Run(() =>
+        {
+            var sidebar = new SidebarViewModel(settings, _ => { });
+            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings)) { Sidebar = sidebar };
+            var window = Host(new Views.SettingsView { DataContext = vm });
+            try
+            {
+                static string NameOf(DependencyObject o) => System.Windows.Automation.AutomationProperties.GetName(o);
+                var panel = Visuals.Descendants<System.Windows.Controls.Border>(window).Single(b => b.Name == "EditorPanel");
+                Assert.False(panel.IsVisible);
+                Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "SIDEBAR"); // the old card is gone
+
+                var edit = Visuals.Descendants<System.Windows.Controls.Button>(window).Single(b => NameOf(b) == "Edit the sidebar");
+                edit.Command.Execute(null);
+                Ui.Pump(400);
+                Assert.True(sidebar.IsEditing);
+                Assert.True(panel.IsVisible);
+
+                // A grip, a name box and a switch for each page; a name box and a switch for each heading.
+                var grips = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
+                Assert.Equal(15, grips.Count);
+                Assert.All(grips, g => Assert.True(g.Focusable && g.ActualHeight > 0));
+                Assert.Contains(grips, g => NameOf(g) == "Move Memory: drag it, or use the arrow keys");
+                var boxes = Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Where(b => b.IsVisible).ToList();
+                Assert.Equal(15 + 3, boxes.Count);
+                var switches = Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Where(c => c.IsVisible).Select(NameOf).ToList();
+                Assert.Contains("Show Memory", switches);
+                Assert.Contains("Show the Hardware heading", switches);
+                Assert.Equal(15 + 3, switches.Count);
+                Assert.False(Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Single(c => NameOf(c) == "Show Home").IsEnabled);
+
+                // Typing over a name renames the page with each letter.
+                var memory = sidebar.Hardware.Single(e => e.Key == "memory");
+                var box = boxes.Single(b => NameOf(b) == "Name of Memory");
+                Assert.Equal("Memory", box.Tag);
+                box.Text = "RAM";
+                Assert.Equal("RAM", memory.Title);
+                box.Text = "";
+                Assert.Equal("Memory", memory.Title);
+                boxes.Single(b => NameOf(b) == "Name of the Hardware heading").Text = "PARTS";
+                Assert.Equal("PARTS", sidebar.HardwareGroup.Heading);
+
+                // The arrow keys on a grip move its page, and the row built in its new place has a grip again.
+                var grip = grips.Single(g => g.DataContext == memory);
+                var source = PresentationSource.FromVisual(grip)!;
+                grip.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, source, 0, System.Windows.Input.Key.Up)
+                    { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+                Assert.Equal(["temperatures", "memory", "fans", "storage", "network", "sensors"], Keys(sidebar.Hardware));
+                Ui.Pump(50);
+                grip = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Single(g => g.DataContext == memory);
+
+                // Dragged: a line marks where it will land, and letting go puts it there. (The pointer is far below this
+                // off-screen window, so the nearest place is the very end of the list.)
+                var line = Visuals.Descendants<System.Windows.Shapes.Rectangle>(panel).Single(r => r.Name == "DropLine");
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0));
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0, 40));
+                Assert.True(line.IsVisible);
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0, 40, false));
+                Assert.False(line.IsVisible);
+                Assert.Equal(["widgets", "overlay", "taskbar", "memory"], Keys(sidebar.OnScreen));
+
+                // A drag given up changes nothing.
+                Ui.Pump(50);
+                grip = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Single(g => g.DataContext == memory);
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0));
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0, -400));
+                grip.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0, -400, true));
+                Assert.Equal(["widgets", "overlay", "taskbar", "memory"], Keys(sidebar.OnScreen));
+
+                // An emptied group shows its box.
+                foreach (var e in sidebar.OnScreen.ToList()) sidebar.MoveTo(e, sidebar.MainGroup, 0);
+                Ui.Pump(50);
+                Assert.Equal(2, Visuals.Descendants<System.Windows.Controls.TextBlock>(panel).Count(t => t.Text == "Drag a page here" && t.IsVisible)); // and DASHBOARDS, with no dashboard yet
+
+                // Settings says what is hidden, and Esc closes the editor.
+                sidebar.OnScreenGroup.ShowHeading = false;
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "· 1 heading hidden" && t.IsVisible);
+                panel.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, source, 0, System.Windows.Input.Key.Escape)
+                    { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+                Assert.False(sidebar.IsEditing);
+                Ui.Pump(500);
+                Assert.False(panel.IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -71,7 +419,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar(start);
         Ui.Run(() =>
         {
-            Assert.Equal(["crashes", "home", "reports", "apps", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["crashes", "home", "reports", "apps", "processes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["storage", "memory", "temperatures", "fans", "network", "sensors"], Keys(sidebar.Hardware));
         });
     }
@@ -155,7 +503,7 @@ public sealed class SidebarPresetAccentTests
             Assert.All(sidebar.Hardware, e => Assert.True(e.IsVisible));
 
             var taskbar = sidebar.OnScreen.Single(e => e.Key == "taskbar");
-            sidebar.MoveUpCommand.Execute(taskbar);
+            sidebar.MoveBy(taskbar, -1);
             Assert.Equal(["widgets", "taskbar", "overlay"], Keys(sidebar.OnScreen));
             Assert.Equal(["widgets", "taskbar", "overlay"], settings.Current.Sidebar.Order.TakeLast(3));
             sidebar.ToggleSectionCommand.Execute(SidebarViewModel.OnScreenSection);

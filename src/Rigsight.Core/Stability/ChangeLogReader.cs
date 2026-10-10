@@ -22,6 +22,8 @@ public enum ChangeKind
     Setting,
     /// <summary>A drive's used space jumped or dropped within a day.</summary>
     Storage,
+    /// <summary>An app or one of its processes was ended from the Processes page (see <see cref="TaskEnded"/>).</summary>
+    TaskEnded,
 }
 
 /// <summary>
@@ -71,7 +73,9 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     public string Short => $"{Title} ({Time:d MMM})";
 
     /// <summary>A second line under the title: what it was before.</summary>
-    public string? Detail => Kind == ChangeKind.Storage ? $"{Was} to {Now} in use" : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
+    public string? Detail => Kind == ChangeKind.Storage ? $"{Was} to {Now} in use"
+        : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : $"It held {Now}.")
+        : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
 
     /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>
     public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? $"Installed: {Title}" : Title;

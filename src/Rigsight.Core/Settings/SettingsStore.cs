@@ -164,6 +164,11 @@ public static class SettingsStore
         s.Sidebar.Hidden ??= [];
         s.Sidebar.Collapsed ??= [];
         s.Sidebar.Hidden.Remove("home");
+        // Names stay as typed (a space at the end may be half a name still being typed): only empty ones go.
+        s.Sidebar.Groups = Filled(s.Sidebar.Groups);
+        s.Sidebar.Names = Filled(s.Sidebar.Names);
+        s.Sidebar.HeadingNames = Filled(s.Sidebar.HeadingNames);
+        s.Sidebar.HiddenHeadings ??= [];
 
         // One of each built-in widget, in order, then the user's own (each with its own identifier, name and layout).
         var widgets = (s.Widgets ?? []).Where(w => w is not null && Enum.IsDefined(w.Style)).ToList();
@@ -259,6 +264,12 @@ public static class SettingsStore
             }
         }
         s.CustomPages = [.. s.CustomPages.DistinctBy(p => p.Id)];
+        // A dashboard that is gone leaves nothing behind in the sidebar's layout (its place, its group, being hidden).
+        var dashboards = s.CustomPages.Select(p => "custom:" + p.Id).ToHashSet();
+        bool Gone(string key) => key.StartsWith("custom:", StringComparison.Ordinal) && !dashboards.Contains(key);
+        s.Sidebar.Order.RemoveAll(Gone);
+        s.Sidebar.Hidden.RemoveAll(Gone);
+        foreach (var key in s.Sidebar.Groups.Keys.Where(Gone).ToList()) s.Sidebar.Groups.Remove(key);
 
         // JSON loses the case-insensitive comparers.
         s.AppNames = CaseInsensitive(s.AppNames);
@@ -273,4 +284,8 @@ public static class SettingsStore
         foreach (var (key, value) in source ?? []) result[key] = value;
         return result;
     }
+
+    /// <summary>A copy without the entries that say nothing (a hand edit can leave null or an empty text).</summary>
+    private static Dictionary<string, string> Filled(Dictionary<string, string>? source) =>
+        (source ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value);
 }

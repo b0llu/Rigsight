@@ -61,6 +61,12 @@ public sealed class ReportService(SettingsModel settings)
                 CpuTempMax = x.CpuTempMax, GpuTempMax = x.GpuTempMax, IsGame = x.IsGame || app.Category == AppCategory.Game,
             }).ToList());
 
+    /// <summary>What is on record about one running app (the Processes page's box under its row).</summary>
+    public Task<AppPast?> AppPastAsync(string exe) => Run(db => AppPast.Read(db, exe, DateTime.Now));
+
+    /// <summary>What is on record about every app's memory (the Memory page's list and its "Worth a look" cards).</summary>
+    public Task<MemoryPast?> MemoryPastAsync() => Run(db => MemoryPast.Read(db, DateTime.Now));
+
     /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
     public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 

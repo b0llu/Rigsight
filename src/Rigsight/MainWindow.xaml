@@ -278,6 +278,68 @@
                 </DockPanel>
             </ctl:SmoothBorder>
         </DataTemplate>
+
+        <!-- The question before a part of Windows is ended from the Processes page: what will happen, then the buttons.
+             The one in front (Enter) is the safe one: Cancel, or "Restart it" for Windows Explorer. -->
+        <DataTemplate x:Key="EndQuestionCard">
+            <ctl:SmoothBorder Width="470" Margin="24" Padding="26,22,26,20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                              AutomationProperties.Name="{Binding Question.Title}">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="18" Foreground="{DynamicResource WarmBrush}" Margin="0,2,12,0" VerticalAlignment="Top" />
+                        <TextBlock Text="{Binding Question.Title}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                    </DockPanel>
+                    <TextBlock Text="{Binding Question.Body}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Visibility="{Binding Question.Body, Converter={StaticResource Vis}}" />
+                    <TextBlock Text="{Binding Question.Intro}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Visibility="{Binding Question.Intro, Converter={StaticResource Vis}}" />
+                    <ItemsControl ItemsSource="{Binding Question.Lines}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" · " /><Run Text="{Binding Effect, Mode=OneWay}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <CheckBox Content="I understand that unsaved work may be lost" IsChecked="{Binding Question.Ticked}" FontSize="13" Margin="0,16,0,0"
+                              Foreground="{DynamicResource TextBrush}" Visibility="{Binding Question.NeedsTick, Converter={StaticResource Vis}}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                        <Button Content="End anyway" Command="{Binding AnswerCommand}" CommandParameter="End" IsEnabled="{Binding Question.CanEnd}"
+                                Background="{DynamicResource HotSoftBrush}" Foreground="{DynamicResource HotBrush}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.4" />
+                                            <Setter Property="Cursor" Value="Arrow" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="Cancel" Command="{Binding AnswerCommand}" CommandParameter="Cancel" Margin="10,0,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Question.CancelIsDefault}" Value="True">
+                                            <Setter Property="IsDefault" Value="True" />
+                                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="Template" Value="{StaticResource AccentButtonTemplate}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="Restart it" Style="{StaticResource AccentButton}" IsDefault="True" Command="{Binding AnswerCommand}" CommandParameter="Restart" Margin="10,0,0,0"
+                                Visibility="{Binding Question.CanRestart, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </DataTemplate>
     </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
@@ -456,15 +518,19 @@
                     </ctl:SmoothBorder>
                 </StackPanel>
 
-                <!-- Navigation (scrolls if there are many dashboards on a short screen). The groups' order and hidden pages
-                     come from Settings; DASHBOARDS, HARDWARE and ON SCREEN fold away with a click on their heading. -->
+                <!-- Navigation (scrolls if there are many dashboards on a short screen). Which page is in which group, their order
+                     and names, and what is hidden come from the sidebar editor in Settings; DASHBOARDS, HARDWARE and ON SCREEN
+                     fold away with a click on their heading. A heading left out takes no room: its pages follow the ones above. -->
                 <!-- Its bar sits in the sidebar's right margin, clear of the items (it used to lie on their edge). -->
                 <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <StackPanel DataContext="{Binding Sidebar}">
                     <StackPanel.Resources>
                         <DataTemplate x:Key="NavEntry">
-                            <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" Content="{Binding Title}"
-                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}" />
+                            <!-- The name may be the user's own: one too long for the sidebar is cut short, as a dashboard's is. -->
+                            <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" AutomationProperties.Name="{Binding Title}"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                            </RadioButton>
                         </DataTemplate>
                         <!-- A section heading that folds its group: the caption, and a chevron at the right in the muted text colour (white while hovered). -->
                         <Style x:Key="SectionToggle" TargetType="Button">
@@ -499,19 +565,12 @@
                     <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding DashboardsCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="dashboards"
-                            AutomationProperties.Name="Dashboards" ToolTip="Show or hide your dashboards">
-                        <TextBlock Text="DASHBOARDS" Style="{StaticResource Caption}" />
+                            AutomationProperties.Name="{Binding DashboardsGroup.Title}" ToolTip="Show or hide your dashboards"
+                            Visibility="{Binding DashboardsGroup.ShowHeading, Converter={StaticResource Vis}}">
+                        <TextBlock Text="{Binding DashboardsGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
-                    <ItemsControl ItemsSource="{Binding DataContext.CustomPages, RelativeSource={RelativeSource AncestorType=Window}}" Focusable="False">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource NavItem}" Tag="&#xF0E2;" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                             Visibility="{Binding InNav, Converter={StaticResource Vis}}">
-                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                </RadioButton>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- The user's dashboards, and any page moved in among them; a dashboard moved out is in the group it was put in. -->
+                    <ItemsControl ItemsSource="{Binding DashboardsGroup.Pages}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
                     <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="New dashboard"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
                             ToolTip="Start from a preset or a blank page"
@@ -535,14 +594,16 @@
                     </Button>
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding HardwareCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="hardware"
-                            AutomationProperties.Name="Hardware" ToolTip="Show or hide the hardware pages">
-                        <TextBlock Text="HARDWARE" Style="{StaticResource Caption}" />
+                            AutomationProperties.Name="{Binding HardwareGroup.Title}" ToolTip="Show or hide these pages"
+                            Visibility="{Binding HardwareGroup.ShowHeading, Converter={StaticResource Vis}}">
+                        <TextBlock Text="{Binding HardwareGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding OnScreenCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="onscreen"
-                            AutomationProperties.Name="On screen" ToolTip="Show or hide widgets, overlay and taskbar">
-                        <TextBlock Text="ON SCREEN" Style="{StaticResource Caption}" />
+                            AutomationProperties.Name="{Binding OnScreenGroup.Title}" ToolTip="Show or hide these pages"
+                            Visibility="{Binding OnScreenGroup.ShowHeading, Converter={StaticResource Vis}}">
+                        <TextBlock Text="{Binding OnScreenGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
@@ -596,6 +657,24 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsOpen}" Value="True">
                                 <Setter Property="ContentTemplate" Value="{StaticResource PresetPicker}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+
+        <!-- "End … ?": asked before a part of Windows is ended from the Processes page. Esc or a click outside cancels. -->
+        <Grid x:Name="EndQuestionLayer" Grid.ColumnSpan="2" DataContext="{Binding Processes.Question}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
+              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
+            <Border Background="#99000000" MouseLeftButtonDown="EndQuestionBackdrop_MouseDown" />
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate" Value="{StaticResource EndQuestionCard}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

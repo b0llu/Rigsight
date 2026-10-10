@@ -33,7 +33,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public string Theme { get => S.Theme; set { if (value is not null) Set(s => s.Theme = value); } }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
 
-    /// <summary>The sidebar's pages, for the Sidebar card (set by the shell).</summary>
+    /// <summary>The sidebar, for the Sidebar row and the editor it opens (set by the shell).</summary>
     public SidebarViewModel? Sidebar { get; set; }
 
     public string Accent { get => Accents.Normalize(S.Accent); set { if (value is not null) Set(s => s.Accent = value); } }

@@ -58,6 +58,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly ProcessSampler _procSampler = new();
     private readonly GpuSampler _gpuSampler = new();
     private readonly ProcessLabels _procLabels = new();
+    private readonly CriticalMarks _criticalMarks = new();
     private bool _procsNow; // sampler thread: sample processes on this pass
     private bool _sensorsNow; // sampler thread: read the sensors (and redraw the taskbar readings) on this pass
     private readonly ActivityMonitor _activity = new();
@@ -439,7 +440,7 @@ internal sealed class AgentContext : ApplicationContext
                     var windows = _activity.ScanWindows();
                     _tracker.OnProcesses(snapshot, windows, pdt);
                     Measure("windows+apps", t0);
-                    if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows) });
+                    if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows), Disk = Math.Round(snapshot.Disk) });
                     nextProc = now + (live ? 2000 : settings.Tracking.ProcessIntervalSeconds * 1000);
                 }
 
@@ -859,9 +860,16 @@ internal sealed class AgentContext : ApplicationContext
     private List<ProcInfo> BuildProcs(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows)
     {
         Dictionary<int, string>? titles = null;
+        // Asked of Windows once for each process (see CriticalMarks), and only here, while a window is open.
+        var marked = _criticalMarks.Marked(snapshot.Processes, DateTime.UtcNow.ToFileTimeUtc());
+        var markedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (int pid in marked)
+            if (snapshot.PidToExe.TryGetValue(pid, out var exe)) markedApps.Add(exe);
         return [.. snapshot.Apps.Values
             .OrderByDescending(a => a.MemMB)
-            .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe))
+            // The biggest in memory, whatever has a window, and whatever is busy right now: the Processes page sorts
+            // by processor and disk too, and an app at work mustn't be missing from it for being small.
+            .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe) || a.Cpu >= 0.5 || a.Disk >= 256 * 1024)
             .Select(a =>
             {
                 var (name, path) = _apps.Describe(a.Exe, a.FirstPid);
@@ -870,7 +878,9 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     Exe = a.Exe, Name = name, Path = path, Count = a.Count,
                     Cpu = Math.Round(a.Cpu, 1), MemMB = Math.Round(a.MemMB, 1), HasWindow = windows.ContainsKey(a.Exe),
-                    Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles) : null,
+                    Disk = Math.Round(a.Disk), Started = a.Created > 0 ? new DateTimeOffset(DateTime.FromFileTimeUtc(a.Created)).ToUnixTimeSeconds() : 0,
+                    Critical = markedApps.Contains(a.Exe),
+                    Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles, marked) : null,
                 };
             })];
     }
@@ -1274,6 +1284,11 @@ internal sealed class AgentContext : ApplicationContext
                     _procSampler.Detail = exes;
                     _procsNow = true;
                 });
+                break;
+            case Core.Stability.TaskEnded.Command:
+                // The Processes page ended an app (itself: the agent is never asked to end anything) and has it
+                // written down for the Timeline.
+                if (Core.Stability.TaskEnded.Parse(msg.Arg, DateTime.Now) is { } ended) RunOnSampler(() => _db.InsertChanges([ended]));
                 break;
             case "clear-history":
                 RunOnSampler(() =>

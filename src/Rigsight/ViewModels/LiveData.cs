@@ -444,8 +444,8 @@ public sealed partial class LiveData : ObservableObject
         AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
         AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
         // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
-        AddSeries("GPU hot spot", GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, null));
-        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, null));
+        AddSeries("GPU hot spot", GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, m.GpuHotMin));
+        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, m.GpuMemMin));
         UpdatePeaks();
 
         _byKey.Clear();
@@ -594,16 +594,18 @@ public sealed partial class LiveData : ObservableObject
     /// What the temperature graph's legend says of each line over the day, week, month or year shown: the same thing
     /// the graph's points are (<see cref="ChartPlot"/>), for the whole period. Its highest and when ("HIGHEST  CPU
     /// 84.2 °C  Sat 12 Sep, 9 PM"), its lowest and when, or its average: finding a month's highest meant hovering along
-    /// the whole graph. None on a window that ends now (the legend says the reading now), nor while the history loaded
-    /// is still another range's.
+    /// the whole graph. The same over the last hour, six hours or day up to now. None on the five minutes (every
+    /// reading is drawn, there is no choice to name), nor while the history loaded is still another range's.
     /// </summary>
     private void UpdatePeaks()
     {
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var (from, to) = ChartPeriod;
-        long fromMs = new DateTimeOffset(from).ToUnixTimeMilliseconds(), toMs = new DateTimeOffset(to).ToUnixTimeMilliseconds();
+        long fromMs = IsChartPaged ? new DateTimeOffset(from).ToUnixTimeMilliseconds() : nowMs - ChartWindowSeconds * 1000L;
+        long toMs = IsChartPaged ? new DateTimeOffset(to).ToUnixTimeMilliseconds() : nowMs + 1;
         foreach (var series in TempSeries)
         {
-            if (!IsChartPaged || series.StepSeconds != ChartStepSeconds) SetPeak(series, null);
+            if (!CanChartPlot || series.StepSeconds != ChartStepSeconds) SetPeak(series, null);
             else if (ChartPlot == "Avg") SetPeak(series, series.Average(fromMs, toMs) is { } average ? (average, 0, 0) : null);
             // A stored point is named by its start ("9 PM" is 9 to 10), as the hover box names it.
             else SetPeak(series, (ChartPlot == "High" ? series.Highest(fromMs, toMs) : series.Lowest(fromMs, toMs)) is { } b
@@ -623,6 +625,8 @@ public sealed partial class LiveData : ObservableObject
         var culture = System.Globalization.CultureInfo.CurrentCulture;
         series.PeakWhen = IsChartYear ? local.ToString("ddd d MMM", culture)
             : IsChartLong ? local.ToString("ddd d MMM, h tt", culture)
+            // The last 24 hours reach into yesterday: a time alone could be either day's.
+            : !IsChartPaged && ChartWindowSeconds >= 86400 ? local.ToString("ddd h:mm tt", culture)
             : local.ToString("h:mm tt", culture);
     }
 
@@ -632,7 +636,7 @@ public sealed partial class LiveData : ObservableObject
     /// </summary>
     private void RaisePeaks(long time)
     {
-        if (!IsChartPaged || ChartPlot == "Avg" || ChartPeriod.To <= DateTime.Now) return;
+        if (!CanChartPlot || ChartPlot == "Avg" || (IsChartPaged && ChartPeriod.To <= DateTime.Now)) return;
         bool high = ChartPlot == "High";
         foreach (var series in TempSeries)
         {
@@ -652,9 +656,46 @@ public sealed partial class LiveData : ObservableObject
     private void ToggleProcesses(ProcRow row)
     {
         if (!row.IsExpanded && !row.CanExpand) return;
-        row.IsExpanded = !row.IsExpanded;
+        SetExpanded(row, !row.IsExpanded);
+    }
+
+    /// <summary>Opens or closes an app's processes (the Processes page opens an app with a single process too).</summary>
+    public void SetExpanded(ProcRow row, bool expanded)
+    {
+        if (row.IsExpanded == expanded) return;
+        row.IsExpanded = expanded;
         row.Children = [];
         ProcessDetailChanged?.Invoke(ExpandedApps);
+    }
+
+    /// <summary>Has the agent read the running apps now, not at its next turn (the same request makes it look at once).</summary>
+    public void RequestProcs() => ProcessDetailChanged?.Invoke(ExpandedApps);
+
+    /// <summary>What every process together reads and writes, in bytes a second (null: the agent doesn't say).</summary>
+    public double? Disk { get; private set; }
+
+    /// <summary>Raised when a list of running apps from the agent has been taken in.</summary>
+    public event Action? ProcsApplied;
+
+    private bool _holdProcs;
+    private (List<ProcInfo> Procs, double? Disk)? _heldProcs;
+
+    /// <summary>
+    /// While on, the running apps stay as they are: a list from the agent is kept aside and taken in when this goes
+    /// off. The Processes page holds the list still under an open menu or question, and while something is being ended
+    /// (a row re-sorted or gone from under the pointer would put another app in its place).
+    /// </summary>
+    public bool HoldProcs
+    {
+        get => _holdProcs;
+        set
+        {
+            if (_holdProcs == value) return;
+            _holdProcs = value;
+            if (value || _heldProcs is not { } held) return;
+            _heldProcs = null;
+            ApplyProcs(held.Procs, held.Disk);
+        }
     }
 
     /// <summary>Keep the process list sorted as memory changes, only while the Memory page shows it.</summary>
@@ -681,8 +722,14 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private System.Windows.GridLength _memFreeWidth = new(1, System.Windows.GridUnitType.Star);
     [ObservableProperty] private string _memAppsText = "—";
 
-    public void ApplyProcs(List<ProcInfo> procs)
+    public void ApplyProcs(List<ProcInfo> procs, double? disk = null)
     {
+        if (_holdProcs)
+        {
+            _heldProcs = (procs, disk);
+            return;
+        }
+        Disk = disk;
         // Parts of Windows itself (no ".exe": Memory Compression, Registry, System) aren't apps, and today's
         // totals leave them out too. Memory Compression holds other apps' memory, squeezed: it's shown with the
         // system's memory instead.
@@ -692,22 +739,12 @@ public sealed partial class LiveData : ObservableObject
         UpdateMemorySplit();
         AppsPending = false;
         procs = [.. procs.Where(p => p.Exe.Contains('.'))];
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in procs)
-        {
-            seen.Add(p.Exe);
-            if (!_procIndex.TryGetValue(p.Exe, out var row))
-            {
-                row = new ProcRow(p.Exe);
-                _procIndex[p.Exe] = row;
-                row.Update(p);
-                Procs.Add(row);
-            }
-            else
-            {
-                row.Update(p);
-            }
-        }
+        // In this order: the apps that have gone leave, the new ones come in, and only then do the ones that stay take
+        // their new figures. A list kept sorted as figures change (this page's, the Processes page's) puts a new row
+        // in its place by the rows around it, and one put in among rows whose figures had just changed, in the same
+        // turn as others left, ended up in the wrong place and stayed there: the list was out of order from then on.
+        var seen = new HashSet<string>(procs.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var p in procs) seen.Add(p.Exe);
         for (int i = Procs.Count - 1; i >= 0; i--)
         {
             if (!seen.Contains(Procs[i].Exe))
@@ -716,6 +753,21 @@ public sealed partial class LiveData : ObservableObject
                 Procs.RemoveAt(i);
             }
         }
+        List<(ProcRow Row, ProcInfo Now)>? staying = null;
+        foreach (var p in procs)
+        {
+            if (_procIndex.TryGetValue(p.Exe, out var row))
+            {
+                (staying ??= new(procs.Count)).Add((row, p));
+                continue;
+            }
+            row = new ProcRow(p.Exe);
+            _procIndex[p.Exe] = row;
+            row.Update(p);
+            Procs.Add(row);
+        }
+        if (staying is not null)
+            foreach (var (row, now) in staying) row.Update(now);
         // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
         var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
@@ -727,16 +779,23 @@ public sealed partial class LiveData : ObservableObject
             OnPropertyChanged(nameof(NoProcsMatch));
         }
         UpdateBars();
+        ProcsApplied?.Invoke();
     }
 
     /// <summary>
     /// Bars compare the apps with each other: the biggest one shown fills its bar and the rest are measured against
-    /// it. (Next to all the memory every bar would be a sliver, since no one app comes close to filling it.)
+    /// it. (Next to all the memory every bar would be a sliver, since no one app comes close to filling it.) Each bar
+    /// carries a mark at the app's usual, so the scale has room for the biggest usual shown too. The Memory page calls
+    /// this when it has read the usuals.
     /// </summary>
-    private void UpdateBars()
+    public void UpdateBars()
     {
-        double biggest = Procs.Where(Listed).Select(p => p.MemMB).DefaultIfEmpty(0).Max();
-        foreach (var p in Procs) p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
+        double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
+        foreach (var p in Procs)
+        {
+            p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
+            p.Mark = biggest > 0 && p.UsualMB is { } usual ? Math.Min(usual / biggest * 100, 100) : 0;
+        }
     }
 
     private int _ticksSinceBuild;

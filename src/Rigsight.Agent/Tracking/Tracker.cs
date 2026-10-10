@@ -37,7 +37,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         /// <summary>Each fan's speed over the minute, by sensor (see <see cref="FanReading"/>).</summary>
         public readonly Dictionary<string, FanAcc> Fans = [];
         public double? CpuTempMax, GpuTempMax, GpuHotMax, GpuMemMax, CpuVoltMax, GpuVoltMax;
-        public double? CpuTempMin, GpuTempMin;
+        public double? CpuTempMin, GpuTempMin, GpuHotMin, GpuMemMin;
         public double GpuHotSum, GpuMemSum;
         public int GpuHotN, GpuMemN;
         /// <summary>The app working the CPU / GPU hardest in the minute before this minute's hottest reading (null: none clearly).</summary>
@@ -267,6 +267,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         m.GpuTempMin = Min(m.GpuTempMin, k.GpuTemp);
         m.GpuHotMax = Max(m.GpuHotMax, k.GpuHotSpot);
         m.GpuMemMax = Max(m.GpuMemMax, k.GpuMemJunction);
+        m.GpuHotMin = Min(m.GpuHotMin, k.GpuHotSpot);
+        m.GpuMemMin = Min(m.GpuMemMin, k.GpuMemJunction);
         m.CpuVoltMax = Max(m.CpuVoltMax, k.CpuVoltage);
         m.GpuVoltMax = Max(m.GpuVoltMax, k.GpuVoltage);
 
@@ -494,6 +496,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     GpuMemMax = m.GpuMemMax,
                     GpuHotAvg = Avg(m.GpuHotSum, m.GpuHotN),
                     GpuMemAvg = Avg(m.GpuMemSum, m.GpuMemN),
+                    GpuHotMin = m.GpuHotMin,
+                    GpuMemMin = m.GpuMemMin,
                     CpuLoad = Avg(m.CpuLoadSum, m.CpuLoadN),
                     GpuLoad = Avg(m.GpuLoadSum, m.GpuLoadN),
                     CpuPower = Avg(m.CpuPowerSum, m.CpuPowerN),

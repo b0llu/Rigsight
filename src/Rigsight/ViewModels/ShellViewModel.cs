@@ -37,6 +37,7 @@ public sealed partial class ShellViewModel : ObservableObject
             CurrentPage = "crashes";
         }, scan: ScanNowAsync);
         Memory = new MemoryViewModel(Reports, Live);
+        Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
         Network = new NetworkViewModel(Reports, Live);
@@ -48,7 +49,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
         SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
-        Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page);
+        Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
         Sidebar.Changed += UpdateDashboardsInNav;
         SettingsPage.Sidebar = Sidebar;
@@ -133,6 +134,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Timeline.JumpTo(day);
     }
     public MemoryViewModel Memory { get; }
+    public ProcessesViewModel Processes { get; }
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }
     public NetworkViewModel Network { get; }
@@ -147,10 +149,10 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>"New dashboard": pick a preset or a blank page.</summary>
     public PresetPickerViewModel Presets { get; }
 
-    /// <summary>A folded DASHBOARDS section still shows the dashboard you're on.</summary>
+    /// <summary>A dashboard is in the sidebar as its entry there is: hidden or in a folded group, only while it's the page you're on.</summary>
     private void UpdateDashboardsInNav()
     {
-        foreach (var page in CustomPages) page.InNav = !Sidebar.DashboardsCollapsed || page.IsSelected;
+        foreach (var page in CustomPages) page.InNav = Sidebar.EntryOf(page.NavKey)?.IsVisible ?? true;
     }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
@@ -211,7 +213,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Pages that can be chosen as the start page (besides dashboards).</summary>
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
-        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("crashes", "Crashes"), new("timeline", "Timeline"),
+        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("processes", "Processes"), new("crashes", "Crashes"), new("timeline", "Timeline"),
         new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("network", "Network"), new("sensors", "All sensors"),
     ];
 
@@ -641,7 +643,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 Live.ApplyTick(msg);
                 break;
             case "procs":
-                if (msg.Procs is not null) _ = ApplyProcsAsync(msg.Procs);
+                if (msg.Procs is not null) _ = ApplyProcsAsync(msg.Procs, msg.Disk);
                 break;
             case "settings":
                 if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
@@ -681,11 +683,11 @@ public sealed partial class ShellViewModel : ObservableObject
     /// The running apps, once the icons of any not seen before have been read (off the window's thread: the first list
     /// of a session names dozens). A list overtaken by a newer one meanwhile is dropped.
     /// </summary>
-    private async Task ApplyProcsAsync(List<Core.Protocol.ProcInfo> procs)
+    private async Task ApplyProcsAsync(List<Core.Protocol.ProcInfo> procs, double? disk)
     {
         int id = ++_procsRead;
         if (procs.Any(p => !Services.IconCache.Has(p.Path))) await Task.Run(() => Services.IconCache.Warm(procs.Select(p => p.Path)));
-        if (id == _procsRead) Live.ApplyProcs(procs);
+        if (id == _procsRead) Live.ApplyProcs(procs, disk);
     }
 
     private TaskCompletionSource? _scanned;
