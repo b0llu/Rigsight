@@ -17,6 +17,9 @@ public sealed class WheelChainTests
     {
         Ui.Run(() =>
         {
+            long clock = 1_000_000;
+            var realClock = WheelChain.Clock;
+            WheelChain.Clock = () => clock;
             var list = new ListBox { Height = 100, ItemsSource = Enumerable.Range(0, 40).Select(i => $"Row {i}").ToList() };
             WheelChain.SetEnabled(list, true);
             var panel = new StackPanel();
@@ -48,9 +51,16 @@ public sealed class WheelChainTests
                 Assert.False(Turn(120));
                 Assert.Equal(0, page.VerticalOffset);
 
-                // At its end, further down moves the page; back up is the list's again.
+                // At its end, further down moves the page, but not with the turns that ran the list out: the page
+                // holds still until the list has been at rest for a moment. Back up is the list's again.
                 inner.ScrollToBottom();
                 Ui.Pump(30);
+                clock += 100;
+                Assert.True(Turn(-120));
+                clock += 200;
+                Assert.True(Turn(-120));
+                Assert.Equal(0, page.VerticalOffset);
+                clock += 100;
                 Assert.True(Turn(-120));
                 Assert.True(page.VerticalOffset > 0);
                 Assert.False(Turn(120));
@@ -58,12 +68,17 @@ public sealed class WheelChainTests
                 // At its start, further up moves the page back.
                 inner.ScrollToTop();
                 Ui.Pump(30);
+                clock += 1000;
                 double before = page.VerticalOffset;
                 Assert.True(Turn(120));
                 Assert.True(page.VerticalOffset < before);
                 Assert.False(Turn(-120));
             }
-            finally { window.Close(); }
+            finally
+            {
+                WheelChain.Clock = realClock;
+                window.Close();
+            }
         });
     }
 }
