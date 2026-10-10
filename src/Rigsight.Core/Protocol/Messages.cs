@@ -96,6 +96,16 @@ public sealed class SensorStatus
 
     /// <summary>Windows' kernel memory kept growing while the hardware was read, so reading those parts was stopped.</summary>
     public bool StoppedForMemory { get; set; }
+
+    /// <summary>
+    /// What is wrong with the PawnIO driver, which CPU readings come through: null (nothing, or the agent has no admin
+    /// rights and says that instead) · "missing" (not on this PC) · "stopped" (installed, but Windows doesn't have it
+    /// running and the CPU's temperature isn't read).
+    /// </summary>
+    public string? Driver { get; set; }
+
+    /// <summary>The agent installing the driver after "Install": null · "installing" · "failed" · "no-winget".</summary>
+    public string? DriverInstall { get; set; }
 }
 
 /// <summary>One kind of hardware that isn't being read, and the programs it was left to.</summary>

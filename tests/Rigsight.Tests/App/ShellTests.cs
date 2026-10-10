@@ -700,6 +700,9 @@ public sealed class ShellTests : IClassFixture<AppHost>
     {
         var changed = host.Agent.Settings.Clone();
         changed.UseFahrenheit = true;
+        // A reading to show in the new unit: its own, not one an earlier test happened to leave.
+        host.Agent.Tick();
+        Assert.True(Ui.WaitFor(() => Shell.Live.CpuTemp?.Value is not null));
         host.Agent.Broadcast(new AgentMessage { T = "settings", Settings = changed });
         try
         {

@@ -44,6 +44,13 @@ internal sealed class AgentContext : ApplicationContext
     // Sampler thread: when the programs we step aside for were last seen, for leaving them the hardware a little longer.
     private SensorParts _yieldedParts;
     private int _absentChecks;
+    // What is wrong with the PawnIO driver (see SensorStatus.Driver) and how installing it is going (DriverInstall).
+    // Looked at when the sensors open, a minute after, and every five minutes from then (Environment.TickCount64).
+    private volatile string? _driver, _driverInstall;
+    private long _driverCheckAt = long.MaxValue;
+    private bool _driverStartTried, _driverUnsupportedSaid;
+    private string? _cpuReadingsSaid;
+    private HashSet<string>? _silentSaid;
     private static string ScanMarker => Path.Combine(RigsightPaths.DataDir, "sensors-scan.pending");
     private readonly KeyHistory _history = new();
     private readonly DailyExtremes _extremes = new();
@@ -457,6 +464,12 @@ internal sealed class AgentContext : ApplicationContext
                     CheckHardwareApps();
                 }
 
+                if (Environment.TickCount64 >= _driverCheckAt)
+                {
+                    _driverCheckAt = Environment.TickCount64 + 5 * 60_000;
+                    CheckDriver();
+                }
+
                 if (now >= nextCrashScan)
                 {
                     nextCrashScan = now + 10 * 60_000;
@@ -555,11 +568,18 @@ internal sealed class AgentContext : ApplicationContext
 
         _sensors = host;
         _gpuSampler.Reset(); // the graphics card may be a different one to Windows now (a driver update gives it a new identity)
-        _sensorStatus = BuildSensorStatus(apps);
         var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
         string left = skip == SensorParts.None ? ""
             : $", leaving out {string.Join(", ", parts).ToLowerInvariant()}" + (apps.Count > 0 ? $" (for {string.Join(", ", apps.Select(a => a.Name))})" : "") + (safe ? " (safe mode)" : "");
         Log.Write("agent", $"Sensors ready in {scan.Elapsed.TotalSeconds:0.0} s ({host.SensorCount} sensors{left})");
+        // What a report of missing readings is traced with: which parts were found with how many sensors of each kind,
+        // which of the main readings have no sensor at all, and the state of the driver the CPU's come through.
+        Log.Write("sensors", $"Found: {host.Summary()}");
+        if (host.NotFound() is { Count: > 0 } none) Log.Write("sensors", $"Expected and not found: {string.Join("; ", none)}");
+        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}; memory integrity: {PawnIoDriver.MemoryIntegrity switch { true => "on", false => "off", null => "not set" }}");
+        _driver = DriverProblem(host);
+        _driverCheckAt = Environment.TickCount64 + 60_000;
+        _sensorStatus = BuildSensorStatus(apps);
         _sensorsReady = true;
         if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
 
@@ -602,13 +622,124 @@ internal sealed class AgentContext : ApplicationContext
 
     private SensorStatus BuildSensorStatus(List<HardwareApps.Known> apps)
     {
-        var status = new SensorStatus { SafeMode = _safeMode, StoppedForMemory = _stoppedForMemory };
+        var status = new SensorStatus { SafeMode = _safeMode, StoppedForMemory = _stoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
         foreach (var part in new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply })
         {
             var by = apps.Where(a => a.Parts.HasFlag(part)).Select(a => a.Name).ToList();
             if (by.Count > 0) status.Paused.Add(new SkippedSensors { Part = HardwareApps.PartName(part), Because = by });
         }
         return status;
+    }
+
+    /// <summary>
+    /// What is wrong with the PawnIO driver, judged by what it is for: null while the CPU's temperature is read, or
+    /// without admin rights (said elsewhere, and nothing reads through the driver then).
+    /// </summary>
+    private string? DriverProblem(SensorHost sensors)
+    {
+        // A test copy can be told what to say, to look at the notice on a PC whose driver is fine.
+        if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_TEST_DRIVER") is { Length: > 0 } told) return told;
+        if (!_isAdmin || sensors.Read(KeySensors.CpuTemp) is not null) return null;
+        if (!PawnIoDriver.Installed) return "missing";
+        return PawnIoDriver.Running() == PawnIoDriver.State.Running ? null : "stopped";
+    }
+
+    /// <summary>
+    /// Sampler thread, a minute after the sensors opened and every five minutes: says in the log what the CPU reads
+    /// (once, and again when a reading comes or goes), and looks at the driver again: one found stopped is started once,
+    /// one installed meanwhile is read through by starting again, and Settings hears of any change.
+    /// </summary>
+    private void CheckDriver()
+    {
+        var sensors = _sensors;
+        var (readings, shape) = sensors.CpuReadings();
+        // Only a reading that came or went is news, not its figure.
+        if (shape != _cpuReadingsSaid)
+        {
+            _cpuReadingsSaid = shape;
+            Log.Write("sensors", $"CPU readings: {readings}");
+        }
+        // Sensors that are listed, were read just now and gave nothing: said once, and again when the list changes.
+        // Fewer are read with the window closed than with it open, so the list is only said again when something new is on it.
+        var silent = sensors.Silent();
+        if (_silentSaid is null && silent.Count == 0) Log.Write("sensors", "Every sensor read just now gave a reading");
+        if (silent.Where((_silentSaid ??= []).Add).ToList() is { Count: > 0 } news) Log.Write("sensors", $"Listed but giving no reading: {string.Join("; ", news)}");
+        if (!_isAdmin) return;
+
+        string? problem = DriverProblem(sensors);
+        if (problem == "stopped" && !_driverStartTried)
+        {
+            _driverStartTried = true;
+            string? why = PawnIoDriver.Start();
+            Log.Write("sensors", why is null ? "The PawnIO driver was stopped: started it, reading the hardware again" : $"The PawnIO driver is installed but won't start ({why})");
+            if (why is null)
+            {
+                OpenSensors();
+                return;
+            }
+        }
+        if (problem is null && sensors.Read(KeySensors.CpuTemp) is null && !_driverUnsupportedSaid)
+        {
+            _driverUnsupportedSaid = true;
+            Log.Write("sensors", "The PawnIO driver is installed and running, but the CPU gives no temperature: this processor may not be supported yet");
+        }
+        if (_driver == "missing" && PawnIoDriver.Installed && !_restarting)
+        {
+            // Installed by hand meanwhile: a new copy of the agent reads through it.
+            _restarting = true;
+            Log.Write("sensors", "The PawnIO driver has been installed: starting again to read through it");
+            _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
+            return;
+        }
+        if (problem == _driver) return;
+        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}{(problem is null ? "" : $" ({problem})")}");
+        _driver = problem;
+        PublishSensorStatus();
+    }
+
+    /// <summary>Sampler thread: tells the window what Settings says about the sensors now, without the hardware being read again.</summary>
+    private void PublishSensorStatus()
+    {
+        var old = _sensorStatus;
+        _sensorStatus = new SensorStatus { Paused = old.Paused, SafeMode = old.SafeMode, StoppedForMemory = old.StoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
+        if (_sensorsReady && _pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "status", SensorStatus = _sensorStatus });
+    }
+
+    /// <summary>
+    /// "Install" on the driver's notice in Settings: downloads PawnIO with winget as setup does (the agent has the admin
+    /// rights it needs, so nothing to accept), then starts again to read through it. A failure is said on the notice.
+    /// </summary>
+    private void InstallDriver()
+    {
+        if (_driverInstall == "installing") return;
+        _driverInstall = "installing";
+        RunOnSampler(PublishSensorStatus);
+        _ = Task.Run(() =>
+        {
+            string? failed;
+            try
+            {
+                if (RtssSetup.WingetInstall("namazso.PawnIO") is null)
+                {
+                    Log.Write("install", "winget isn't available: PawnIO can't be installed automatically");
+                    failed = "no-winget";
+                }
+                else failed = PawnIoDriver.Installed ? null : "failed";
+            }
+            catch (Exception ex)
+            {
+                Log.Error("install", ex);
+                failed = "failed";
+            }
+            if (failed is null)
+            {
+                Log.Write("install", "PawnIO installed: starting again to read through it");
+                _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
+                return;
+            }
+            _driverInstall = failed;
+            RunOnSampler(PublishSensorStatus);
+        });
     }
 
     /// <summary>Sampler thread: the user asked to read everything again after a safe-mode start or a memory stop.</summary>
@@ -1101,6 +1232,11 @@ internal sealed class AgentContext : ApplicationContext
             var added = _db.InsertCrashes(CrashLogReader.ReadSince(since));
             bool firstScan = !_crashesScanned;
             _crashesScanned = true;
+            // Rigsight's own crashes, and the PC's, as Windows logged them: a program that died wrote nothing here itself.
+            foreach (var e in added.Where(e => e.Time > DateTime.Now.AddDays(-7)
+                         && (e.AppExe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase) || e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset)).TakeLast(15))
+                Log.Write("crash", $"Windows logged at {e.Time:yyyy-MM-dd HH:mm:ss}: {e.Kind}{(e.AppExe.Length > 0 ? " of " + e.AppExe : "")}"
+                    + $"{(e.Module is null ? "" : ", in " + e.Module)}{(e.Code is null ? "" : ", code " + e.Code)}{(e.Kind == CrashKind.UnexpectedShutdown ? ", " + e.Moment : "")}");
             if (!_settings.Alerts.CrashNotifications) return;
 
             // Tell the user about system-level problems they may not have noticed (app crashes are covered by sessions).
@@ -1313,6 +1449,9 @@ internal sealed class AgentContext : ApplicationContext
                 break;
             case "scan-now":
                 RunOnSampler(ScanNow);
+                break;
+            case "install-driver" when _isAdmin && !RigsightPaths.IsTestInstance:
+                InstallDriver();
                 break;
             case "quit":
                 _ui.Post(_ => Quit("the app"), null);

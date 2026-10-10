@@ -68,6 +68,10 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.19.3", 10, 10,
+            better: ["Settings says when the driver for CPU temperature and power is missing or not running.",
+                "The missing driver can be installed from Settings.",
+                "The copied logs say what isn't being read, and why."]),
         V("0.19.2", 10, 9,
             better: ["Readings and the list of running apps show up right after the window opens.",
                 "A box that is still loading shows a loader, not an empty space."],

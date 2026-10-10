@@ -130,7 +130,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     /// <summary>What the agent isn't reading and why (from its hello).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SensorPausedText), nameof(SensorSkippedText), nameof(SensorsNeedAttention), nameof(AttentionSection), nameof(ShowPausedGotIt))]
+    [NotifyPropertyChangedFor(nameof(SensorPausedText), nameof(SensorSkippedText), nameof(SensorsNeedAttention), nameof(AttentionSection), nameof(ShowPausedGotIt),
+        nameof(DriverTitle), nameof(DriverText), nameof(DriverButtonText), nameof(IsInstallingDriver), nameof(ShowDriverNotNow))]
     private SensorStatus? _sensorStatus;
 
     /// <summary>The programs' notice has a part not acknowledged yet: offer "Got it" next to it.</summary>
@@ -192,10 +193,14 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 parts.Add($"{p.Part}:{app}");
         if (status.SafeMode) parts.Add("safe");
         if (status.StoppedForMemory) parts.Add("memory");
+        if (status.Driver is not null) parts.Add(DriverPart);
         return parts;
     }
 
-    internal static bool IsProblem(string part) => part is "safe" or "memory";
+    /// <summary>The PawnIO driver missing or not running: pointed at until "Install" or "Not now", and again if it comes back.</summary>
+    internal const string DriverPart = "driver";
+
+    internal static bool IsProblem(string part) => part is "safe" or "memory" or DriverPart;
 
     internal static HashSet<string> SeenParts(string? seen) =>
         new((seen ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
@@ -213,9 +218,65 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     internal static string? Acknowledge(string? seen, SensorStatus? status, bool problems)
     {
         var done = SeenParts(seen);
-        done.UnionWith(NoticeParts(status).Where(p => IsProblem(p) == problems));
+        // The driver's notice has its own buttons: "Try again" on a scan that went wrong says nothing about it.
+        done.UnionWith(NoticeParts(status).Where(p => p != DriverPart && IsProblem(p) == problems));
         return JoinParts(done);
     }
+
+    // ── The PawnIO driver ─────────────────────────────────────────────────
+    /// <summary>The notice's heading; null when the driver is fine (no notice).</summary>
+    public string? DriverTitle => SensorStatus?.Driver switch
+    {
+        "missing" => "The PawnIO driver isn't installed",
+        "stopped" => "The PawnIO driver isn't running",
+        _ => null,
+    };
+
+    public string? DriverText => DriverWords(SensorStatus);
+
+    internal static string? DriverWords(SensorStatus? status) => (status?.Driver, status?.DriverInstall) switch
+    {
+        (null, _) => null,
+        (_, "installing") => "Installing it. This can take a minute or two.",
+        ("missing", "failed" or "no-winget") => "It couldn't be installed from here. Download it, install it, and the CPU's temperature and power show up by themselves.",
+        ("missing", _) => "The CPU's temperature and power are read through it.",
+        _ => "The CPU's temperature and power are read through it. Restarting your PC or installing PawnIO again usually brings it back.",
+    };
+
+    /// <summary>"Install" has the agent fetch it; once that has failed, or when it is installed but not running, the button opens its site.</summary>
+    public string DriverButtonText => DriverOpensSite(SensorStatus) ? "Download" : "Install";
+
+    internal static bool DriverOpensSite(SensorStatus? status) => status?.Driver == "stopped" || status?.DriverInstall is "failed" or "no-winget";
+
+    public bool IsInstallingDriver => SensorStatus?.DriverInstall == "installing";
+
+    /// <summary>Someone who doesn't want the driver says so once: the notice stays, Settings stops being pointed at.</summary>
+    public bool ShowDriverNotNow => DriverTitle is not null && !IsInstallingDriver && !SeenParts(S.SensorNoticeSeen).Contains(DriverPart);
+
+    private void AcknowledgeDriver() => Set(s => s.SensorNoticeSeen = JoinParts(SeenParts(s.SensorNoticeSeen).Append(DriverPart).Distinct()));
+
+    [RelayCommand]
+    private void InstallDriver()
+    {
+        bool site = DriverOpensSite(SensorStatus);
+        AcknowledgeDriver();
+        if (!site)
+        {
+            if (client.IsConnected) client.SendCommand("install-driver");
+            return;
+        }
+        try
+        {
+            OpenInBrowser(Core.PawnIoDriver.Site);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Log.Write("app", $"Couldn't open {Core.PawnIoDriver.Site}: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void DismissDriver() => AcknowledgeDriver();
 
     /// <summary>"Got it" on the programs' notice.</summary>
     [RelayCommand]
@@ -288,8 +349,12 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         StatusMessage = "History cleared.";
     }
 
-    /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name).</summary>
+    /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name with its sensors counted by kind).</summary>
     public Func<IReadOnlyList<(string, string)>>? GetHardware { get; set; }
+
+    /// <summary>Supplied by the shell: the main readings at this moment, a line per part, and the agent's version.</summary>
+    public Func<IReadOnlyList<string>>? GetReadings { get; set; }
+    public string? AgentVersion { get; set; }
 
     /// <summary>What the two buttons say: their name, and for a moment after a press what happened ("Copied" on Copy,
     /// "Couldn't open" on Report a bug). The button is where the answer is: no line of text appears under the row.</summary>
@@ -323,7 +388,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     private bool CopyReport()
     {
-        string report = ProblemReport.ForThisPc(AppVersion, client.IsConnected, AgentIsAdmin, GetHardware?.Invoke() ?? [], SensorStatus);
+        string report = ProblemReport.ForThisPc(AppVersion, client.IsConnected, AgentIsAdmin, GetHardware?.Invoke() ?? [], SensorStatus,
+            AgentVersion, client.IsConnected ? GetReadings?.Invoke() : null, S);
         try
         {
             SetClipboard(report);
