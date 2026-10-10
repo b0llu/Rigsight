@@ -68,6 +68,21 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.20.0", 10, 10,
+            feature: new("Processes", "Everything running right now, in one list.",
+                ["Memory, processor, internet and disk use of every app, sorted the way you pick.",
+                    "Open an app to see its processes and what is on record about it.",
+                    "End an app or one process, with a warning before a part of Windows."],
+                "processes", ""),
+            added: ["Edit the sidebar from Settings: drag pages, rename them, move them between groups.",
+                "Sidebar headings can be renamed or switched off."],
+            better: ["Memory lists each app beside its usual, and marks the ones well above it.",
+                "Memory says when an app has kept growing through the day.",
+                "The memory gauge turns amber and red as memory fills up.",
+                "The temperature graph's legend says average, highest or lowest on every range.",
+                "The lowest of the GPU hot spot and GPU memory is recorded from now on."],
+            fixedBugs: ["The list of running apps on Memory stays sorted.",
+                "A week's lowest temperatures no longer show as dashes in the legend."]),
         V("0.19.3", 10, 10,
             better: ["Settings says when the driver for CPU temperature and power is missing or not running.",
                 "The missing driver can be installed from Settings.",
