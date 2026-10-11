@@ -26,7 +26,7 @@
   <meta name="twitter:image" content="https://b0llu.github.io/Rigsight/img/og.png" />
 
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="styles.css?v=0.21.0" />
+  <link rel="stylesheet" href="styles.css?v=0.21.0b" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -43,6 +43,7 @@
       "App usage and screen time reports",
       "Crash history explained in plain words",
       "Per-app internet use",
+      "Running apps with memory, processor, internet and disk use",
       "Fan speeds and drive health",
       "In-game overlay and desktop widgets"
     ],
@@ -226,7 +227,7 @@
       <p class="eyebrow reveal">Why Rigsight</p>
       <h2 class="reveal"><span class="dim">Most monitors forget.</span><br />Rigsight remembers.</h2>
       <p class="sub idea-sub reveal">Pick any day and it's all still there: what was running, how hot it got, and the minute it happened.</p>
-      <figure class="shot win idea-shot reveal" data-zoom tabindex="0"><img src="img/remembers.webp" srcset="img/remembers-720.webp 720w, img/remembers-1000.webp 1000w, img/remembers.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 1000px" width="1440" height="932" loading="lazy" alt="A day from weeks ago in Rigsight: a minute-by-minute timeline of apps with CPU and GPU temperature, the pointer on 1:59 PM showing Counter-Strike 2 at CPU 67° and GPU 69°, and that day's hottest moments with their times" /></figure>
+      <figure class="shot win idea-shot reveal" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/remembers.webp" width="760" height="1074" /><img src="img/remembers.webp" srcset="img/remembers-720.webp 720w, img/remembers-1000.webp 1000w, img/remembers.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 1000px" width="1440" height="932" loading="lazy" alt="A day from weeks ago in Rigsight: a minute-by-minute timeline of apps with CPU and GPU temperature, the pointer on 1:59 PM showing Counter-Strike 2 at CPU 67° and GPU 69°, and that day's hottest moments with their times" /></picture></figure>
       <div class="compare">
         <div class="cmp cmp-old reveal">
           <h3>A normal hardware monitor</h3>
@@ -272,7 +273,7 @@
                 <li>Alerts that ignore one-second spikes and only fire when it stays hot</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/temperatures.webp" srcset="img/temperatures-720.webp 720w, img/temperatures.webp 1440w" width="1440" height="932" sizes="(max-width: 900px) calc(100vw - 32px), 680px" alt="Temperatures page: CPU and GPU gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high, and six unbroken hours of temperature history with a game session in the middle" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/temperatures.webp" width="760" height="820" /><img loading="lazy" src="img/temperatures.webp" srcset="img/temperatures-720.webp 720w, img/temperatures.webp 1440w" width="1440" height="932" sizes="(max-width: 900px) calc(100vw - 32px), 680px" alt="Temperatures page: CPU and GPU gauges with load, power, clock, voltage, hot spot and memory junction, each with today's low and high, and six unbroken hours of temperature history with a game session in the middle" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -285,7 +286,7 @@
                 <li>Temperatures compared with your usual, idle with idle and load with load, this week and months ago</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/reports.webp" srcset="img/reports-720.webp 720w, img/reports.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="A week's report: active time, time each day by kind of app, what stood out and the hottest moments with the game behind each" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/reports.webp" width="760" height="877" /><img loading="lazy" src="img/reports.webp" srcset="img/reports-720.webp 720w, img/reports.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="A week's report: active time, time each day by kind of app, what stood out and the hottest moments with the game behind each" /></picture></figure>
           </div>
         </div>
       </div>
@@ -312,7 +313,7 @@
                 <li>Search by app or error, patterns, one-click reports to paste in a forum, and mute for noisy apps</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/crashes.webp" srcset="img/crashes-720.webp 720w, img/crashes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Crashes page: a month of crashes on a timeline, patterns, and each crash explained in plain words" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/crashes.webp" width="760" height="597" /><img loading="lazy" src="img/crashes.webp" srcset="img/crashes-720.webp 720w, img/crashes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Crashes page: a month of crashes on a timeline, patterns, and each crash explained in plain words" /></picture></figure>
           </div>
           <div class="feature pane flip">
             <div class="f-copy">
@@ -325,7 +326,7 @@
                 <li>Search for any app, driver or version; by day, or a whole month in one row</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/timeline.webp" srcset="img/timeline-720.webp 720w, img/timeline.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Timeline page: app updates, a setting switched, an app installed and a Windows update listed day by day, with a calendar and the PC's current Windows version, graphics driver and BIOS" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/timeline.webp" width="760" height="1007" /><img loading="lazy" src="img/timeline.webp" srcset="img/timeline-720.webp 720w, img/timeline.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Timeline page: app updates, a setting switched, an app installed and a Windows update listed day by day, with a calendar and the PC's current Windows version, graphics driver and BIOS" /></picture></figure>
           </div>
         </div>
       </div>
@@ -337,6 +338,7 @@
           <h2>Every part of your PC, on its own page.</h2>
           <div class="tabs" role="tablist" aria-label="Every part of your PC">
             <button type="button" class="tab" role="tab">Apps</button>
+            <button type="button" class="tab" role="tab">Processes</button>
             <button type="button" class="tab" role="tab">Network</button>
             <button type="button" class="tab" role="tab">Fans</button>
             <button type="button" class="tab" role="tab">Memory</button>
@@ -355,7 +357,20 @@
                 <li>Rename apps, set categories, or never track one</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/apps.webp" srcset="img/apps-720.webp 720w, img/apps.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/apps.webp" width="760" height="721" /><img loading="lazy" src="img/apps.webp" srcset="img/apps-720.webp 720w, img/apps.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Apps page: apps and games by time used this week, with a game's active time, sessions, temperatures and memory" /></picture></figure>
+          </div>
+          <div class="feature pane">
+            <div class="f-copy">
+              <span class="tag tag-blue">Processes</span>
+              <h3 class="f-title">Everything running, in one list.</h3>
+              <p>Every app that is running right now, with its memory, processor, internet and disk use side by side. Sort by any of them, open an app to see each of its processes, and end the ones you don't need.</p>
+              <ul class="checks">
+                <li>Open a browser to see which tab is taking the memory</li>
+                <li>Each app with its usual memory and recent crashes</li>
+                <li>End a task, with a clear warning before anything Windows depends on</li>
+              </ul>
+            </div>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/processes.webp" width="760" height="1115" /><img loading="lazy" src="img/processes.webp" srcset="img/processes-720.webp 720w, img/processes.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Processes page: total memory, processor, internet and disk use, a list of running apps, and Google Chrome opened to show its tabs and how its memory is split" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -368,7 +383,7 @@
                 <li>Notices when your connection drops, or downloads get slower than usual</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/network.webp" srcset="img/network-720.webp 720w, img/network.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Network page: a month of downloads and uploads, each day on a chart, and every app's use with how much ran in the background" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/network.webp" width="760" height="748" /><img loading="lazy" src="img/network.webp" srcset="img/network-720.webp 720w, img/network.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Network page: a month of downloads and uploads, each day on a chart, and every app's use with how much ran in the background" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -381,7 +396,7 @@
                 <li>A heads-up when a fan stops or turns slower than it used to</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/fans.webp" srcset="img/fans-720.webp 720w, img/fans.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Fans page: every fan's speed, when the GPU fans start spinning, how long they stood still and which game made them work hardest" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/fans.webp" width="760" height="633" /><img loading="lazy" src="img/fans.webp" srcset="img/fans-720.webp 720w, img/fans.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Fans page: every fan's speed, when the GPU fans start spinning, how long they stood still and which game made them work hardest" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -394,7 +409,7 @@
                 <li>Search the live list for any app</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/memory.webp" srcset="img/memory-720.webp 720w, img/memory.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/memory.webp" width="760" height="1126" /><img loading="lazy" src="img/memory.webp" srcset="img/memory-720.webp 720w, img/memory.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Memory page: a RAM gauge with memory in use, free and compressed, today's biggest memory users and the apps using memory right now" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -407,7 +422,7 @@
                 <li>Nothing is deleted for you: it shows where the space is, and you decide</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/storage.webp" srcset="img/storage-720.webp 720w, img/storage.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Storage page: how full each drive is and how fast it is filling, each drive's health, and the space that could be freed" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/storage.webp" width="760" height="840" /><img loading="lazy" src="img/storage.webp" srcset="img/storage-720.webp 720w, img/storage.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Storage page: how full each drive is and how fast it is filling, each drive's health, and the space that could be freed" /></picture></figure>
           </div>
         </div>
       </div>
@@ -454,7 +469,7 @@
                 <li>They step aside while you play</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/widgets.webp" srcset="img/widgets-720.webp 720w, img/widgets.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Desktop widgets page: built-in widgets such as FPS, Compact and Slim bar, each with a preview and a switch, and a widget made by hand" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/widgets.webp" width="760" height="742" /><img loading="lazy" src="img/widgets.webp" srcset="img/widgets-720.webp 720w, img/widgets.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Desktop widgets page: built-in widgets such as FPS, Compact and Slim bar, each with a preview and a switch, and a widget made by hand" /></picture></figure>
           </div>
           <div class="feature pane">
             <div class="f-copy">
@@ -467,7 +482,7 @@
                 <li>Pick any readings and put them in your order</li>
               </ul>
             </div>
-            <figure class="shot win" data-zoom tabindex="0"><img loading="lazy" src="img/taskbar.webp" srcset="img/taskbar-720.webp 720w, img/taskbar.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Taskbar page: a preview of CPU, GPU and RAM readings beside the clock, three styles to choose from, colour or grayscale, and the list of readings shown" /></figure>
+            <figure class="shot win" data-zoom tabindex="0"><picture><source media="(max-width: 640px)" srcset="img/phone/taskbar.webp" width="760" height="551" /><img loading="lazy" src="img/taskbar.webp" srcset="img/taskbar-720.webp 720w, img/taskbar.webp 1440w" sizes="(max-width: 900px) calc(100vw - 32px), 680px" width="1440" height="932" alt="Taskbar page: a preview of CPU, GPU and RAM readings beside the clock, three styles to choose from, colour or grayscale, and the list of readings shown" /></picture></figure>
           </div>
         </div>
       </div>

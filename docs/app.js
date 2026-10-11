@@ -184,7 +184,7 @@
       document.body.style.overflow = "hidden";
     };
     img.addEventListener("click", open);
-    // The picture's frame takes the keyboard (on a phone it scrolls sideways, so arrow keys move it): Enter opens it too.
+    // The picture's frame takes the keyboard: Enter opens it too.
     img.closest("[data-zoom]").addEventListener("keydown", e => { if (e.key === "Enter") open(); });
   });
   const closeLb = () => { lb.hidden = true; document.body.style.overflow = ""; };
