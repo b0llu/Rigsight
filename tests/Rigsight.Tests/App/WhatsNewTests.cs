@@ -13,7 +13,7 @@ public sealed class WhatsNewTests
 
     /// <summary>Every page a feature's button can open: the sidebar's.</summary>
     private static readonly string[] Pages = ["home", "reports", "apps", "processes", "crashes", "timeline", "temperatures", "fans", "memory", "storage", "network", "sensors",
-        "widgets", "overlay", "taskbar"];
+        "widgets", "overlay", "taskbar", "settings"];
 
     private static (WhatsNewViewModel Card, SettingsModel Settings) Make(string? seen, Version? current = null)
     {

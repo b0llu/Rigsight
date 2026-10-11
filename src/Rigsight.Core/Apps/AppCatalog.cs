@@ -138,10 +138,10 @@ public static class AppCatalog
                 var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
                 var desc = info.FileDescription?.Trim();
                 if (!string.IsNullOrWhiteSpace(desc) && desc.Length <= 48 && !IsGenericName(desc))
-                    return desc;
+                    return Spaced(desc, path);
                 var product = info.ProductName?.Trim();
                 if (!string.IsNullOrWhiteSpace(product) && product.Length <= 48 && !IsGenericName(product))
-                    return product;
+                    return Spaced(product, path);
             }
             catch
             {
@@ -150,6 +150,30 @@ public static class AppCatalog
         }
         if (!NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase) && GameName(path) is { Length: <= 48 } game) return game;
         return FallbackName(exe);
+    }
+
+    /// <summary>
+    /// The name as a folder above the exe spells it, when that is the same name with its words apart: a game whose
+    /// file calls itself "Grounded2" in the folder "Grounded 2" is "Grounded 2".
+    /// </summary>
+    public static string Spaced(string name, string? path)
+    {
+        if (path is null || name.Any(char.IsWhiteSpace)) return name;
+        try
+        {
+            for (var dir = Path.GetDirectoryName(path); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+            {
+                var folder = Path.GetFileName(dir).Trim();
+                if (folder.Length > name.Length && folder.Any(char.IsWhiteSpace)
+                    && string.Concat(folder.Where(c => !char.IsWhiteSpace(c))).Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return folder;
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Not a path that can be walked: the name as it is.
+        }
+        return name;
     }
 
     // Game libraries whose next folder is the game's own (…\steamapps\common\Rematch\…), most specific first.

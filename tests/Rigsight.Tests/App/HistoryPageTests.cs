@@ -45,14 +45,90 @@ public sealed class HistoryPageTests
             Assert.InRange(home.TodayTopApps.Count, 1, 6);
             Assert.All(home.TodayTopApps, a => Assert.True(a.ActiveSec >= 30 && a.Category != AppCategory.System));
             Assert.Equal(home.TodayTopApps.Max(a => a.ActiveSec), home.TodayTopMax);
-            Assert.InRange(home.RecapTopApps.Count, 1, 3);
+            Assert.InRange(home.RecapTopApps.Count, 1, HomeViewModel.RecapMost);
             Assert.All(home.RecapTopApps, a => Assert.True(a.ActiveSec >= 60 && a.Category != AppCategory.System));
             Assert.True(home.TodayInsights.Count <= 5);
-            Assert.True(home.RecapInsights.Count <= 3);
+            Assert.True(home.RecapInsights.Count <= HomeViewModel.RecapMost);
+            // The card's list is those apps, then those lines; the dashboard's Yesterday tile keeps to three apps.
+            Assert.Equal(home.RecapTopApps.Count + home.RecapInsights.Count, home.RecapRows.Count);
+            Assert.Equal(home.RecapTopApps.Max(a => a.ActiveSec), home.RecapTopMax);
+            Assert.True(home.YesterdayTopApps.Count <= 3);
+            Assert.NotEqual("", home.TodayInternetLine);
+            Assert.NotEmpty(home.Health);
+            Assert.True(home.Changes.Count <= HomeViewModel.CardLines);
             Assert.DoesNotContain(home.TodayInsights.Concat(home.RecapInsights), i => i.Key is "screen" or "top-app");
             Assert.False(home.ShowLearning);
             Assert.Contains(home.Greeting, new[] { "Up late", "Good morning", "Good afternoon", "Good evening" });
             Assert.Equal(DateTime.Now.ToString("dddd, d MMMM"), home.DateText);
+        });
+    }
+
+
+    // ── Reports: the figures on top, the split, the lists ──
+
+    [Fact]
+    public void A_report_splits_its_time_by_kind_of_app()
+    {
+        static AppStat App(string name, AppCategory kind, double minutes) => new() { Name = name, Category = kind, ActiveSec = minutes * 60 };
+        var report = new Report
+        {
+            HasData = true,
+            Apps = [App("Apex", AppCategory.Game, 150), App("Dota", AppCategory.Game, 99), App("Chrome", AppCategory.Browser, 190), App("Terminal", AppCategory.Development, 185),
+                    App("Discord", AppCategory.Communication, 65), App("Explorer", AppCategory.System, 40), App("Odd", AppCategory.Other, 30), App("Spotify", AppCategory.Media, 4)],
+        };
+        var parts = ReportsViewModel.SplitOf(report);
+        // Biggest first; Windows' own apps, the unsorted and a sliver too thin to see are one part at the end.
+        Assert.Equal(["Games 4h 09m", "Browsing 3h 10m", "Development 3h 05m", "Chat & calls 1h 05m", "Everything else 1h 14m"], parts.Select(p => $"{p.Name} {p.Text}"));
+        Assert.Equal(Rigsight.Core.Apps.AppCatalog.Color(AppCategory.Game), parts[0].Brush);
+        Assert.Equal(parts.Sum(p => p.Weight), report.Apps.Sum(a => a.ActiveSec), 6);
+        Assert.Empty(ReportsViewModel.SplitOf(null));
+        Assert.Empty(ReportsViewModel.SplitOf(new Report { Apps = [App("Blink", AppCategory.Game, 0.5)] }));
+    }
+
+    [Fact]
+    public void A_reports_words_under_its_figures()
+    {
+        Assert.Equal("4h 38m more than your daily average of 8h 47m", ReportsViewModel.Bare("That's 4h 38m more than your daily average of 8h 47m."));
+        Assert.Equal("Fifth day in a row", ReportsViewModel.Bare("fifth day in a row."));
+        Assert.Equal("", ReportsViewModel.Bare(""));
+        Assert.Equal("1.9 kWh", ReportsViewModel.EnergyOf(1940));
+        Assert.Equal("410 Wh", ReportsViewModel.EnergyOf(410.4));
+    }
+
+    [Fact]
+    public void Reports_shows_the_period_against_something()
+    {
+        var (_, reports, _) = Setup();
+        var vm = Ui.Run(() => new ReportsViewModel(reports));
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() =>
+        {
+            Assert.True(vm.HasData);
+            Assert.NotEqual("", vm.ActiveLine);
+            Assert.False(vm.ActiveLine.EndsWith('.'));
+            Assert.NotEqual("", vm.GamesLine);
+            Assert.NotEqual("", vm.InternetLine);
+            Assert.Equal(vm.Crashes.Count > 0, vm.HasProblems);
+            Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No crashes or sudden shutdowns");
+            Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
+            Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
+            // The totals are the tiles: not the first line of the list as well. Five lines, the rest on request.
+            Assert.DoesNotContain(vm.ShownInsights, i => i.Key == "screen");
+            Assert.True(vm.ShownInsights.Count <= ReportsViewModel.InsightsShown);
+            int all = vm.Insights.Count(i => i.Key != "screen");
+            Assert.Equal(all > ReportsViewModel.InsightsShown, vm.HasMoreInsights);
+            vm.ToggleInsightsCommand.Execute(null);
+            Assert.Equal(all, vm.ShownInsights.Count);
+            Assert.Equal("Show fewer", vm.MoreInsightsText);
+            // Temperatures first; the voltages and the CPU's power wait behind a button.
+            Assert.DoesNotContain(vm.Peaks, p => p.Label.Contains("voltage"));
+            Assert.All(vm.MorePeaks, p => Assert.True(p.Label.Contains("voltage") || p.Label.StartsWith("CPU power", StringComparison.Ordinal)));
+            Assert.Equal(vm.MorePeaks.Count > 0, vm.HasMorePeaks);
+            Assert.Equal("Voltages and CPU power", vm.MorePeaksText);
+            vm.TogglePeaksCommand.Execute(null);
+            Assert.True(vm.AllPeaks);
+            Assert.True(vm.Changes.Count <= ReportsViewModel.ChangesShown);
+            Assert.Equal(vm.Changes.Count > 0, vm.HasChanges);
         });
     }
 

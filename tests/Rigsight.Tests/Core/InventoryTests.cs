@@ -413,8 +413,8 @@ public sealed class InventoryTests
     {
         var changes = StorageChanges.From([Space(1, 600), Space(2, 604), Space(3, 665.4), Space(5, 610), Space(1, 100, drive: "C:\\"), Space(2, 109.9, drive: "C:\\")]);
         Assert.Equal(2, changes.Count);
-        Assert.Equal((new DateTime(2026, 9, 3), ChangeKind.Storage, "61 GB more in use on D:", "604 GB to 665 GB in use"), (changes[0].Time, changes[0].Kind, changes[0].Title, changes[0].Detail));
-        Assert.Equal((new DateTime(2026, 9, 5), "55 GB freed on D:"), (changes[1].Time, changes[1].Title));
+        Assert.Equal((new DateTime(2026, 9, 3), ChangeKind.Storage, "61 GB added to the D drive", "Was 604 GB used, now 665 GB"), (changes[0].Time, changes[0].Kind, changes[0].Title, changes[0].Detail));
+        Assert.Equal((new DateTime(2026, 9, 5), "55 GB freed on the D drive"), (changes[1].Time, changes[1].Title));
         Assert.False(changes[0].IsSystemLevel);
     }
 

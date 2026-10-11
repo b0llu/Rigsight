@@ -42,6 +42,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Export.IsOpen)
+            {
+                _vm.Export.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
             {
                 _vm.Presets.CloseCommand.Execute(null);
@@ -93,6 +99,8 @@ public partial class MainWindow : Window
     }
 
     private void EndQuestionBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Processes.Question.Cancel();
+
+    private void ExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Export.CloseCommand.Execute(null);
 
     private void PresetsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Presets.CloseCommand.Execute(null);
 

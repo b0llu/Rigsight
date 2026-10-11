@@ -31,8 +31,6 @@ public sealed class AppPast
     /// <summary>Its crashes and hangs over the last <see cref="UsualDays"/> days.</summary>
     public int Crashes { get; init; }
 
-    public DateTime? FirstSeen { get; init; }
-
     public bool HasChart => Hours.Count(h => h is not null) >= 2;
 
     public static AppPast Read(RigsightDb db, string exe, DateTime now)
@@ -82,7 +80,6 @@ public sealed class AppPast
             BackSec = any ? back : null,
             NetBytes = anyNet ? net : null,
             Crashes = crashes,
-            FirstSeen = app.FirstSeen > 0 ? TimeUtil.FromUnix(app.FirstSeen) : null,
         };
     }
 }

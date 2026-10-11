@@ -16,6 +16,9 @@ internal sealed class ProcessLabels
         "chrome.exe", "msedge.exe", "brave.exe", "opera.exe", "opera_gx.exe", "vivaldi.exe", "arc.exe", "firefox.exe", "zen.exe",
     };
 
+    /// <summary>The kind of the one process that runs the rest.</summary>
+    internal const string MainKind = "Main";
+
     // Roles by process, read once per process (a command line never changes).
     private readonly Dictionary<(int Pid, long Created), string?> _roles = [];
 
@@ -45,7 +48,9 @@ internal sealed class ProcessLabels
             var p = processes[i];
             string label = titles.TryGetValue(p.Pid, out var title) ? title
                 : roles[i] ?? (multiProcess ? "Main process" : serviceHost ? "Windows service" : appName);
-            result.Add(new ProcDetail { Pid = p.Pid, Label = label, Cpu = Math.Round(p.Cpu, 1), MemMB = Math.Round(p.MemMB, 1), Disk = Math.Round(p.Disk), Critical = marked?.Contains(p.Pid) == true });
+            // Its part in a browser-style app, for the split of the app's memory (a service host's services aren't parts).
+            string? kind = multiProcess ? roles[i] ?? MainKind : null;
+            result.Add(new ProcDetail { Pid = p.Pid, Label = label, Kind = kind, Cpu = Math.Round(p.Cpu, 1), MemMB = Math.Round(p.MemMB, 1), Disk = Math.Round(p.Disk), Critical = marked?.Contains(p.Pid) == true });
         }
         result.Sort((a, b) => b.MemMB.CompareTo(a.MemMB));
         return result;

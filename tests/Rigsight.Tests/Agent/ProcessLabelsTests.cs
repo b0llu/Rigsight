@@ -163,6 +163,11 @@ public class ProcessLabelsTests
         var list = labels.Describe("chrome.exe", "Google Chrome",
             [new(10, 1, 1, 300), new(11, 1, 2, 200), new(12, 1, 3, 150), new(13, 1, 0, 20)], ref titles);
         Assert.Equal(["Main process", "Tab", "Graphics", "Network"], list.Select(p => p.Label));
+        // Its part in the app travels beside the label, which a window's title can take the place of.
+        Assert.Equal(["Main", "Tab", "Graphics", "Network"], list.Select(p => p.Kind));
+        titles = new() { [10] = "Inbox - Google Chrome" };
+        list = labels.Describe("chrome.exe", "Google Chrome", [new(10, 1, 1, 300), new(11, 1, 2, 200)], ref titles);
+        Assert.Equal([("Inbox - Google Chrome", "Main"), ("Tab", "Tab")], list.Select(p => (p.Label, p.Kind!)));
     }
 
     [Fact]
@@ -172,6 +177,8 @@ public class ProcessLabelsTests
         Dictionary<int, string>? titles = [];
         var list = labels.Describe("notepad.exe", "Notepad", [new(10, 1, 0, 30), new(11, 1, 0, 20)], ref titles);
         Assert.All(list, p => Assert.Equal("Notepad", p.Label));
+        // Not an app built of kinds of process: nothing to split its memory by.
+        Assert.All(list, p => Assert.Null(p.Kind));
     }
 
     [Fact]

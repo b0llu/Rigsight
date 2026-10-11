@@ -73,7 +73,7 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     public string Short => $"{Title} ({Time:d MMM})";
 
     /// <summary>A second line under the title: what it was before.</summary>
-    public string? Detail => Kind == ChangeKind.Storage ? $"{Was} to {Now} in use"
+    public string? Detail => Kind == ChangeKind.Storage ? $"Was {Was} used, now {Now}"
         : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : $"It held {Now}.")
         : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
 

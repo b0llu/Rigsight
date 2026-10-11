@@ -344,7 +344,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             : _load.Select(s => s.GpuLoad).Append(_lastGpuLoad).OfType<double>().DefaultIfEmpty(0).Average();
         bool clear = top >= (kind == Load.Cpu ? MinCpuShare : MinGpuShare) && top >= second * 1.5 && top >= all * MinShareOfAll;
         if (!clear || !Nameable(exeTop)) return null;
-        return apps.Get(exeTop, _loadPids.GetValueOrDefault(exeTop));
+        var found = apps.Get(exeTop, _loadPids.GetValueOrDefault(exeTop));
+        // A launcher on top of the GPU while a game is in front: the game's work, hidden by its anti-cheat.
+        return kind == Load.Gpu ? GameWork.GpuApp(found, _foreground, CategoryOf) : found;
     }
 
     // Not Windows' own parts without a file ("System", "Memory Compression"), apps left out of tracking, or Rigsight.

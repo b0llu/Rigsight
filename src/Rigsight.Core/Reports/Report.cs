@@ -140,6 +140,9 @@ public sealed class AppStat
     public double? MemAvg { get; set; }
     public double? MemMax { get; set; }
 
+    /// <summary>What it downloaded and uploaded over the period (bytes), where the period has internet use recorded.</summary>
+    public long? NetBytes { get; set; }
+
     public int SessionCount { get; set; }
     public double LongestSessionSec { get; set; }
 }
@@ -233,6 +236,16 @@ public sealed class Report
     public Peak? GpuVoltPeak { get; set; }
     public Peak? CpuPowerPeak { get; set; }
     public Peak? GpuPowerPeak { get; set; }
+
+    /// <summary>The most memory in use at once (GB), with the app in front then; null when the period is read by days.</summary>
+    public Peak? RamPeak { get; set; }
+
+    /// <summary>
+    /// What the CPU and the graphics card drew over the period (watt-hours), from each minute's average power; null
+    /// when neither was read, or the period is read by days. Those two parts only: the screen, the drives and the
+    /// power supply's own loss aren't measured.
+    /// </summary>
+    public double? EnergyWh { get; set; }
 
     public double GamingSec { get; set; }
     public DateTime? FirstActive { get; set; }

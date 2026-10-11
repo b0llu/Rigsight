@@ -61,6 +61,13 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowChildren), nameof(IsLoading))]
     private List<ProcChild> _children = [];
 
+    /// <summary>Where its memory is, by kind of process ("8 tabs", "6 extensions", "Google Chrome itself"); empty unless
+    /// it is an app of several kinds.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasShares))]
+    private IReadOnlyList<ProcShare> _shares = [];
+    public bool HasShares => Shares.Count > 0;
+
     /// <summary>Being ended from the Processes page: its row dims until it has gone.</summary>
     [ObservableProperty] private bool _isEnding;
 
@@ -80,9 +87,16 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     public string CpuText => FormatCpu(Cpu);
     public static string FormatCpu(double cpu) => cpu < 0.05 ? "0%" : cpu < 10 ? $"{cpu:0.0}%" : $"{cpu:0}%";
     public string CountText => Count > 1 ? $"{Count} processes" : "1 process";
+    /// <summary>The heading over its processes when opened ("21 PROCESSES").</summary>
+    public string CountCaption => CountText.ToUpperInvariant();
 
     /// <summary>How far above its usual an app is before the Memory page points it out.</summary>
     public const double OverFactor = 1.6;
+    /// <summary>
+    /// How far above its usual an app pointed out has to stay to go on being pointed out. Lower than
+    /// <see cref="OverFactor"/>: an app hovering at that line had its card and its amber come and go every few seconds.
+    /// </summary>
+    public const double StayOverFactor = 1.3;
     public bool HasUsual => UsualMB is not null;
     public string UsualText => UsualMB is { } usual ? Units.Megabytes(usual) : Nothing;
     public bool IsGrowing => GrowingSince is not null;
@@ -104,7 +118,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
 
     partial void OnUsualMBChanged(double? value) => Judge();
 
-    private void Judge() => IsOver = UsualMB is > 0 and { } usual && MemMB > OverFactor * usual && Ordinary;
+    private void Judge() => IsOver = UsualMB is > 0 and { } usual && MemMB > (IsOver ? StayOverFactor : OverFactor) * usual && Ordinary;
 
     // On the Processes page a figure of nothing is a dash, so the few apps doing something stand out of a long list.
     public const string Nothing = "–";
@@ -140,10 +154,18 @@ public sealed partial class ProcRow(string exe) : ObservableObject
         OnPropertyChanged(nameof(CpuText));
         OnPropertyChanged(nameof(CpuCell));
         OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(CountCaption));
         OnPropertyChanged(nameof(SubText));
         OnPropertyChanged(nameof(CanExpand));
-        if (p.Processes is not null && IsExpanded) Children = KeptRows(Children, p.Processes);
+        if (p.Processes is not null && IsExpanded)
+        {
+            Children = KeptRows(Children, p.Processes);
+            // The rows are kept as they were while only their figures move: the split is worked out from them each time.
+            Shares = Kept.Or(Shares, ProcShare.Of(Name, Children));
+        }
     }
+
+    partial void OnChildrenChanged(List<ProcChild> value) => Shares = Kept.Or(Shares, ProcShare.Of(Name, value));
 
     /// <summary>
     /// The processes as they are now, in rows that are kept: the same processes in the same order keep their list (the

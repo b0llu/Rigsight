@@ -568,14 +568,11 @@
                     <TextBlock Text="{Binding TrackingSince}" Style="{StaticResource Hint}" Margin="0,12,0,0"
                                Visibility="{Binding TrackingSince, Converter={StaticResource Vis}}" />
                     <WrapPanel Margin="0,10,0,12">
-                        <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,8">
+                        <!-- Everything that can be saved as a file is in one box over the window (see ExportCard). -->
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCommand}" Margin="0,0,8,8" AutomationProperties.Name="Export">
                             <StackPanel Orientation="Horizontal">
-                                <Grid Width="12" Margin="0,0,8,0">
-                                    <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
-                                               Visibility="{Binding IsExporting, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                    <ctl:Spinner Visibility="{Binding IsExporting, Converter={StaticResource Vis}}" />
-                                </Grid>
-                                <TextBlock Text="Export app usage (CSV)" />
+                                <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                <TextBlock Text="Export…" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource GhostButton}" Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8">

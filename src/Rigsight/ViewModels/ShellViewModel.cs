@@ -51,6 +51,8 @@ public sealed partial class ShellViewModel : ObservableObject
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
+        Export = new ExportViewModel(Reports, Settings, Live);
+        SettingsPage.OpenExport = Export.Open;
         Sidebar.Changed += UpdateDashboardsInNav;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
@@ -156,6 +158,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>"New dashboard": pick a preset or a blank page.</summary>
     public PresetPickerViewModel Presets { get; }
+    /// <summary>The Export box over the window, opened from Settings.</summary>
+    public ExportViewModel Export { get; }
 
     /// <summary>A dashboard is in the sidebar as its entry there is: hidden or in a folded group, only while it's the page you're on.</summary>
     private void UpdateDashboardsInNav()
@@ -469,6 +473,7 @@ public sealed partial class ShellViewModel : ObservableObject
             if (id == _historyLoad) Live.LoadPowerEvents(power);
         }
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
+        if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.HeatWeekAsync(DateTime.Today) is { } week) Live.HeatWeek = Models.Kept.Or(Live.HeatWeek, week);
     }
 
     private static RecapPeriod? RecapPeriodOf(string? arg) => arg switch

@@ -417,6 +417,8 @@ public sealed partial class FansViewModel : ObservableObject
         var byFan = history.Minutes.GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.ToList());
         var apps = history.Apps.ToDictionary(a => a.Id);
         var s = _settings.Current;
+        // A launcher named for the GPU's work while a game was in front: the game's (see GameWork).
+        GameWork.Settle(history.System, app => app is long i && apps.TryGetValue(i, out var row) ? CategoryOf(row, s) : Core.Settings.AppCategory.Other);
         List<FanMinute> MinutesOf(SensorItem x) => bySensor.TryGetValue(x.Id, out var f) && byFan.TryGetValue(f, out var list) ? list : [];
 
         // A graphics card's fans always show, as one row per card (they stand still for days on a light load); a board

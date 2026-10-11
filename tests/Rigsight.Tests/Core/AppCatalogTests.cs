@@ -253,6 +253,17 @@ public sealed class AppCatalogTests
     public void Games_are_named_after_their_folder_in_a_library(string? path, string? expected) =>
         Assert.Equal(expected, AppCatalog.GameName(path));
 
+    [Theory]
+    [InlineData("Grounded2", @"E:\Grounded 2\Augusta\Binaries\Win64\Grounded2Steam-Win64-Shipping.exe", "Grounded 2")]
+    [InlineData("grounded2", @"E:\Grounded 2\game.exe", "Grounded 2")]
+    [InlineData("Grounded2", @"E:\Games\Grounded2\game.exe", "Grounded2")]
+    [InlineData("Grounded 2", @"E:\Grounded  2\game.exe", "Grounded 2")]
+    [InlineData("Notepad", @"C:\Program Files\Note Pads\notepad.exe", "Notepad")]
+    [InlineData("Grounded2", null, "Grounded2")]
+    [InlineData("Grounded2", "\0:bad", "Grounded2")]
+    public void A_name_written_as_one_word_takes_its_folders_spelling(string name, string? path, string expected) =>
+        Assert.Equal(expected, AppCatalog.Spaced(name, path));
+
     [Fact]
     public void A_real_exe_is_named_by_its_description()
     {

@@ -417,6 +417,51 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void A_colour_written_out_is_a_brush_too()
+    {
+        // An app category's own colour isn't a theme brush: it comes as "#RRGGBB".
+        var brush = Assert.IsType<SolidColorBrush>(Convert(new ResourceBrushConverter(), "#3DDC97"));
+        Assert.Equal(Color.FromRgb(0x3D, 0xDC, 0x97), brush.Color);
+        Assert.True(brush.IsFrozen);
+    }
+
+    [Fact]
+    public void Bytes_as_a_size_or_a_dash()
+    {
+        var c = new DataSizeConverter();
+        Assert.Equal(Rigsight.Core.Units.Data(6L << 30), Convert(c, 6L << 30));
+        Assert.Equal("–", Convert(c, 500_000L)); // under a megabyte says nothing
+        Assert.Equal("–", Convert(c, null));
+        Assert.Equal("–", Convert(c, "x"));
+    }
+
+    [Fact]
+    public void A_lines_icon_is_coloured_by_its_tone_then_by_what_it_is_about()
+    {
+        static string Key(string key, Rigsight.Core.Reports.InsightTone tone = Rigsight.Core.Reports.InsightTone.Neutral) =>
+            InsightBrushConverter.KeyOf(new Rigsight.Core.Reports.Insight("", "A line.", tone, key));
+        // A line that warns or reassures keeps that colour, whatever it is about.
+        Assert.Equal("WarmBrush", Key("gaming", Rigsight.Core.Reports.InsightTone.Warn));
+        Assert.Equal("HotBrush", Key("peak", Rigsight.Core.Reports.InsightTone.Hot));
+        Assert.Equal("GoodBrush", Key("comfortable", Rigsight.Core.Reports.InsightTone.Good));
+        // The rest by their subject, so a list isn't one column of blue.
+        Assert.Equal(Rigsight.Core.Apps.AppCatalog.Color(Rigsight.Core.Settings.AppCategory.Game), Key("gaming"));
+        Assert.Equal("PurpleBrush", Key("stretch"));
+        Assert.Equal("GpuBrush", Key("net-recap"));
+        Assert.Equal("GpuBrush", Key("net-background"));
+        Assert.Equal("CpuBrush", Key("screen-compare"));
+        Assert.Equal("CpuBrush", Key(""));
+        InBothThemes(_ =>
+        {
+            var c = new InsightBrushConverter();
+            Assert.IsAssignableFrom<Brush>(Convert(c, new Rigsight.Core.Reports.Insight("", "A line.", Key: "gaming")));
+            Assert.Same(Ui.Run(() => Application.Current.FindResource("PurpleBrush")), Convert(c, new Rigsight.Core.Reports.Insight("", "A line.", Key: "span")));
+            Assert.Null(Convert(c, null));
+            Assert.Null(Convert(c, "not a line"));
+        });
+    }
+
+    [Fact]
     public void Nothing_converts_back()
     {
         IValueConverter[] oneWay =
@@ -424,7 +469,7 @@ public sealed class ConverterTests
             new TempToBrushConverter(), new EqualsToVisibilityConverter(), new VisibilityConverter(), new ScaleConverter(), new DurationConverter(),
             new TempShortConverter(), new MegabytesConverter(), new BytesConverter(), new IconConverter(), new CategoryBrushConverter(),
             new InitialConverter(), new CategoryLabelConverter(), new ToneBrushConverter(), new SeverityBrushConverter(), new KindBrushConverter(),
-            new ResourceBrushConverter(), new TempDisplayConverter(),
+            new ResourceBrushConverter(), new TempDisplayConverter(), new DataSizeConverter(), new InsightBrushConverter(),
         ];
         foreach (var c in oneWay) Assert.Same(Binding.DoNothing, c.ConvertBack(Visibility.Visible, typeof(object), null!, Culture));
     }
@@ -504,6 +549,7 @@ public sealed class ConverterTests
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
+            typeof(DataSizeConverter), typeof(InsightBrushConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

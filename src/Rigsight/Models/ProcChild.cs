@@ -11,6 +11,7 @@ public sealed partial class ProcChild : ObservableObject
     {
         Pid = p.Pid;
         Label = p.Label;
+        Kind = p.Kind;
         MemMB = p.MemMB;
         Cpu = p.Cpu;
         Disk = p.Disk;
@@ -20,6 +21,11 @@ public sealed partial class ProcChild : ObservableObject
     public int Pid { get; }
     public string PidText => $"PID {Pid}";
     public string Label { get; private set; }
+    /// <summary>Its part in an app made of many processes ("Tab", "Extension"…); null when the app isn't one.</summary>
+    public string? Kind { get; private set; }
+    public bool HasKind => Kind is not null;
+    /// <summary>The colour of its kind (a theme brush's name), the same as its share of the bar above the list.</summary>
+    public string KindBrush => ProcShare.BrushOf(Kind);
     public double MemMB { get; private set; }
     public double Cpu { get; private set; }
     public double Disk { get; private set; }
@@ -43,6 +49,13 @@ public sealed partial class ProcChild : ObservableObject
         {
             Label = p.Label;
             OnPropertyChanged(nameof(Label));
+        }
+        if (Kind != p.Kind)
+        {
+            Kind = p.Kind;
+            OnPropertyChanged(nameof(Kind));
+            OnPropertyChanged(nameof(HasKind));
+            OnPropertyChanged(nameof(KindBrush));
         }
         if (MemMB != p.MemMB)
         {

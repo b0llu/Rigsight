@@ -160,6 +160,10 @@ public static class ReportBuilder
         if (range is ReportRange.Day or ReportRange.Week or ReportRange.Month or ReportRange.Year)
             report.Net = NetReportBuilder.Build(db, range, anchor, apps, settings,
                 [.. report.Apps.Where(a => a.Category == AppCategory.Game && a.ActiveSec >= 60).Select(a => a.Name)]);
+            // Each app's own share of it, beside its time and its temperatures.
+            if (report.Net is { } net)
+                foreach (var app in report.Apps)
+                    if (net.Apps.FirstOrDefault(n => n.Id == app.Id) is { } used) app.NetBytes = used.Use.Down + used.Use.Up;
         report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts, context);
         return report;
     }
@@ -330,6 +334,8 @@ public static class ReportBuilder
             return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;
         }
 
+        GameWork.Settle(minutes, CategoryOf);
+
         // System-wide totals and peaks.
         report.OnSec = minutes.Count * 60;
         report.ActiveSec = minutes.Sum(m => (double)m.ActiveSec);
@@ -356,6 +362,10 @@ public static class ReportBuilder
         report.GpuVoltPeak = PeakOf(m => m.GpuVoltMax);
         report.CpuPowerPeak = PeakOf(m => m.CpuPower, m => m.CpuApp);
         report.GpuPowerPeak = PeakOf(m => m.GpuPower, m => m.GpuApp);
+        report.RamPeak = PeakOf(m => m.RamUsed, m => m.FgApp);
+        // A minute's average watts for sixty seconds is a sixtieth of that many watt-hours.
+        if (minutes.Any(m => m.CpuPower is not null || m.GpuPower is not null))
+            report.EnergyWh = minutes.Sum(m => (m.CpuPower ?? 0) + (m.GpuPower ?? 0)) / 60;
 
         // All history is now kept for the same time, but versions before 0.4.13 deleted minute detail after 90 days
         // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and

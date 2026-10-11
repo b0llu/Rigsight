@@ -513,35 +513,29 @@ public sealed class ProcessesPageTests
         var history = new ProcHistory();
         history.Fill(row, now);
         Assert.True(history.IsLoading);
-        Assert.Equal([new ProcFact("Running since", "9:10 AM")], history.Glance);
+        Assert.Equal([new ProcFact("Running since", "9:10 AM")], history.Facts);
         Assert.False(history.HasChart);
-        Assert.Equal("History", history.ToggleText);
 
         var past = new AppPast
         {
             Hours = [.. Enumerable.Range(0, 16).Select(h => h < 9 ? (double?)null : 500 + (h - 9) * 80)],
-            UsualMB = 520, FrontSec = 22 * 60, BackSec = 5 * 3600 + 40 * 60, NetBytes = 96 << 20, Crashes = 0, FirstSeen = new DateTime(2026, 3, 14),
+            UsualMB = 520, FrontSec = 22 * 60, BackSec = 5 * 3600 + 40 * 60, NetBytes = 96 << 20, Crashes = 0,
         };
         history.Fill(row, past, now);
         Assert.False(history.IsLoading);
-        Assert.Equal(["Running since 9:10 AM", "Usual memory 520 MB", "In the background today 5 h 40 min"], history.Glance.Select(f => $"{f.Label} {f.Value}"));
         Assert.Equal(
-            ["Running since 9:10 AM", "Usual memory 520 MB", "In front today 22 min", "In the background today 5 h 40 min", "Internet today 96 MB", "Crashes (30 days) None",
-             "First seen 14 Mar 2026"], history.Facts.Select(f => $"{f.Label} {f.Value}"));
+            ["Running since 9:10 AM", "Usual memory 520 MB", "In front today 22 min", "In the background today 5 h 40 min", "Internet today 96 MB", "Crashes (30 days) None"], history.Facts.Select(f => $"{f.Label} {f.Value}"));
         Assert.DoesNotContain(history.Facts, f => f.Label.Contains("Disk")); // nothing records it
         Assert.True(history.HasChart);
         Assert.Equal(520, history.UsualMB);
         Assert.Equal(16, history.Hours.Count);
         Assert.Equal(1100, history.Hours[^1]); // the hour now is what it holds at this moment
         Assert.Equal(580, history.Hours[10]);
-        history.IsOpen = true;
-        Assert.Equal("Hide", history.ToggleText);
 
         // Read again and nothing changed: the page keeps the lists it has built its rows from.
-        var (facts, glance) = (history.Facts, history.Glance);
+        var facts = history.Facts;
         history.Fill(row, past, now);
         Assert.Same(facts, history.Facts);
-        Assert.Same(glance, history.Glance);
 
         // A small app Windows started yesterday, with nothing kept about its memory: only what there is.
         var small = new ProcRow("helper.exe");
@@ -551,7 +545,6 @@ public sealed class ProcessesPageTests
         var bare = new ProcHistory();
         bare.Fill(small, new AppPast { Crashes = 2 }, now);
         Assert.Equal(["Running since Yesterday, 7:40 PM", "Crashes (30 days) 2"], bare.Facts.Select(f => $"{f.Label} {f.Value}"));
-        Assert.Equal(["Running since"], bare.Glance.Select(f => f.Label));
         Assert.False(bare.HasChart);
         Assert.Null(bare.UsualMB);
 
@@ -563,6 +556,60 @@ public sealed class ProcessesPageTests
 
         Assert.Equal("12 Jun, 8:05 AM", ProcHistory.Since(new DateTime(2026, 6, 12, 8, 5, 0), now));
         Assert.Equal(("None", "Under a minute", "59 min", "1 h 0 min"), (ProcHistory.Time(0), ProcHistory.Time(40), ProcHistory.Time(3599), ProcHistory.Time(3600)));
+    }
+
+    private static ProcChild Child(int pid, string label, string? kind, double mb) => new(new ProcDetail { Pid = pid, Label = label, Kind = kind, MemMB = mb });
+
+    [Fact]
+    public void An_opened_apps_memory_is_split_by_kind_of_process()
+    {
+        // A browser: its tabs, its extensions, and everything that runs the rest as the app itself.
+        List<ProcChild> chrome =
+        [
+            Child(1, "Inbox - Google Chrome", "Main", 219), Child(2, "Tab", "Tab", 179), Child(3, "Graphics", "Graphics", 155), Child(4, "Tab", "Tab", 126),
+            Child(5, "Extension", "Extension", 35), Child(6, "Network", "Network", 24), Child(7, "Extension", "Extension", 30),
+        ];
+        Assert.Equal(["2 tabs 305 MB CpuBrush", "2 extensions 65 MB PurpleBrush", "Google Chrome itself 398 MB FaintBrush"],
+            ProcShare.Of("Google Chrome", chrome).Select(s => $"{s.Name} {s.Text} {s.Brush}"));
+        Assert.Equal(["FaintBrush", "CpuBrush", "FaintBrush", "CpuBrush", "PurpleBrush", "FaintBrush", "PurpleBrush"], chrome.Select(c => c.KindBrush));
+        Assert.All(chrome, c => Assert.True(c.HasKind));
+
+        // An Electron app has windows, and one of anything is said as one.
+        Assert.Equal(["1 window 300 MB", "Discord itself 180 MB"],
+            ProcShare.Of("Discord", [Child(1, "Discord", "Main", 100), Child(2, "Window", "Window", 300), Child(3, "Graphics", "Graphics", 80)]).Select(s => $"{s.Name} {s.Text}"));
+
+        // Nothing to split: an app of one part only, one not built of kinds (a service host, a game), or none read yet.
+        Assert.Empty(ProcShare.Of("Helper", [Child(1, "Main process", "Main", 10), Child(2, "Helper", "Helper", 5)]));
+        Assert.Empty(ProcShare.Of("Windows service", [Child(1, "Task Scheduler", null, 10), Child(2, "Windows Update", null, 30)]));
+        Assert.Empty(ProcShare.Of("Game", []));
+        Assert.False(Child(1, "Task Scheduler", null, 10).HasKind);
+    }
+
+    [Fact]
+    public void The_split_follows_the_processes_of_an_opened_app()
+    {
+        var row = new ProcRow("chrome.exe");
+        var info = App("chrome.exe", "Google Chrome", 400, count: 3);
+        row.Update(info);
+        Assert.False(row.HasShares);
+        Assert.Equal("3 PROCESSES", row.CountCaption);
+
+        row.IsExpanded = true;
+        info.Processes =
+        [
+            new ProcDetail { Pid = 1, Label = "Inbox - Google Chrome", Kind = "Main", MemMB = 200 }, new ProcDetail { Pid = 2, Label = "Tab", Kind = "Tab", MemMB = 150 },
+            new ProcDetail { Pid = 3, Label = "Extension", Kind = "Extension", MemMB = 50 },
+        ];
+        row.Update(info);
+        Assert.Equal(["1 tab 150 MB", "1 extension 50 MB", "Google Chrome itself 200 MB"], row.Shares.Select(s => $"{s.Name} {s.Text}"));
+
+        // The same processes with the same figures: the page keeps the split it has drawn. A figure moves: it follows.
+        var shares = row.Shares;
+        row.Update(info);
+        Assert.Same(shares, row.Shares);
+        info.Processes[1].MemMB = 250;
+        row.Update(info);
+        Assert.Equal("1 tab 250 MB", $"{row.Shares[0].Name} {row.Shares[0].Text}");
     }
 
     [Fact]
@@ -580,14 +627,10 @@ public sealed class ProcessesPageTests
         Assert.True(Ui.WaitFor(() => !chrome.History!.IsLoading));
         Ui.Run(() =>
         {
-            // The seeded history knows Chrome: its crashes at the least, and when it was first seen.
+            // The seeded history knows Chrome: its crashes at the least.
             Assert.Contains(chrome.History!.Facts, f => f.Label == "Crashes (30 days)");
-            Assert.Contains(chrome.History.Facts, f => f.Label == "First seen");
-            Assert.False(chrome.History.IsOpen);
-            page.Vm.ToggleHistoryCommand.Execute(chrome);
-            Assert.True(chrome.History.IsOpen);
-            page.Vm.ToggleHistoryCommand.Execute(chrome);
-            Assert.False(chrome.History.IsOpen);
+            // When Rigsight first saw it says nothing about the app: not among the facts.
+            Assert.DoesNotContain(chrome.History.Facts, f => f.Label == "First seen");
         });
     }
 
@@ -936,7 +979,7 @@ public sealed class ProcessesPageTests
             var chrome = page.Row("chrome.exe");
             page.Vm.ToggleCommand.Execute(chrome);
             var list = Apps();
-            list[0].Processes = [new() { Pid = 61, Label = "YouTube", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", MemMB = 400 }];
+            list[0].Processes = [new() { Pid = 61, Label = "YouTube", Kind = "Tab", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", Kind = "Main", MemMB = 400 }];
             page.Live.ApplyProcs(list);
             tab = chrome.Children[0];
         });
@@ -950,7 +993,7 @@ public sealed class ProcessesPageTests
             Assert.False(page.Row("chrome.exe").IsEnding);
             // Two lists on and still there: it wasn't ended after all, and its row comes back.
             var list = Apps();
-            list[0].Processes = [new() { Pid = 61, Label = "YouTube", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", MemMB = 400 }];
+            list[0].Processes = [new() { Pid = 61, Label = "YouTube", Kind = "Tab", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", Kind = "Main", MemMB = 400 }];
             page.Live.ApplyProcs(list);
             Assert.True(tab.IsEnding);
             page.Live.ApplyProcs(list);
@@ -1257,22 +1300,22 @@ public sealed class ProcessesPageTests
             Ui.Run(() =>
             {
                 var list = Apps();
-                list[0].Processes = [new() { Pid = 61, Label = "YouTube", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", MemMB = 400 }];
+                list[0].Processes = [new() { Pid = 61, Label = "YouTube", Kind = "Tab", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", Kind = "Main", MemMB = 400 }];
                 page.Live.ApplyProcs(list, disk: 5_000_000);
                 chrome.History!.Fill(chrome, new AppPast
                 {
                     Hours = [.. Enumerable.Range(0, 12).Select(h => (double?)(3000 + h * 90))], UsualMB = 2700, FrontSec = 3 * 3600, BackSec = 2 * 3600, Crashes = 1,
                 }, DateTime.Now);
-                chrome.History.IsOpen = true;
             });
             Ui.Pump(400);
             Ui.Run(() =>
             {
                 var view = (Views.ProcessesView)window.Content;
                 var texts = Visuals.Descendants<System.Windows.Controls.TextBlock>(view).Where(t => t.IsVisible).Select(t => t.Text).ToList();
-                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "Most: Dota 2", "Running now", "APP", "Google Chrome", "30 processes", "MEMORY TODAY", "312 KB/s" })
+                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "Most: Dota 2", "Running now", "APP", "Google Chrome", "30 processes", "MEMORY TODAY", "312 KB/s", "WHERE ITS MEMORY IS", "30 PROCESSES" })
                     Assert.Contains(expected, texts);
-                // The app is open: its two processes are under it, and its box is opened into the chart and the facts.
+                // The app is open: its box with the chart, the facts and the split of its memory, then its two processes.
+                Assert.Equal(["1 tab", "Google Chrome itself"], Visuals.Descendants<Controls.PartsBar>(view).Single().Parts!.Cast<ProcShare>().Select(x => x.Name));
                 // Built for the open app only: the other rows stay as light as a row of the Memory page.
                 Assert.Single(Visuals.Descendants<Controls.HourLine>(view));
                 Assert.Equal("Now · 3.9 GB", Visuals.Descendants<Controls.HourLine>(view).Single(c => c.IsVisible).HoverText(11));

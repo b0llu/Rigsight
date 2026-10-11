@@ -197,7 +197,7 @@ public sealed class ChangeEffectsTests
         Assert.All(new[] { Driver(Day), Of(ChangeKind.Firmware, "BIOS updated to F67"), Of(ChangeKind.Hardware, "Memory changed to 32 GB"),
             Of(ChangeKind.Windows, "Windows 11 updated to 25H2"), Of(ChangeKind.WindowsUpdate, "Windows update KB5065789") }, c => Assert.True(ChangeEffects.IsMajor(c)));
         Assert.All(new[] { Of(ChangeKind.Driver, "Realtek audio driver 6.0.9"), Of(ChangeKind.AppUpdated, "Steam updated to 2.11"), Of(ChangeKind.AppInstalled, "Stremio installed"),
-            Of(ChangeKind.Startup, "FACEIT now starts with Windows"), Of(ChangeKind.Setting, "Fast Startup turned off"), Of(ChangeKind.Storage, "61 GB more in use on E:") },
+            Of(ChangeKind.Startup, "FACEIT now starts with Windows"), Of(ChangeKind.Setting, "Fast Startup turned off"), Of(ChangeKind.Storage, "61 GB added to the E drive") },
             c => Assert.False(ChangeEffects.IsMajor(c)));
 
         var pc = new Pc().Days(-10, -1, gpu: 70).Days(1, 6, gpu: 77);

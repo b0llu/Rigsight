@@ -42,7 +42,130 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     // The report is read again on every visit and every minute, and most of it comes back the same: lists that say
     // the same stay the ones the page has, so their rows aren't built again (see Kept).
-    partial void OnReportChanged(Report? value) => SyncApps();
+    partial void OnReportChanged(Report? value)
+    {
+        SyncApps();
+        foreach (var name in new[]
+                 {
+                     nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText),
+                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights), nameof(HasMoreInsights), nameof(MoreInsightsText),
+                     nameof(MorePeaks), nameof(HasMorePeaks),
+                 })
+            OnPropertyChanged(name);
+    }
+
+    // ── The five figures on top, each against something ──
+
+    /// <summary>Under the time in use: how it compares ("4h 38m more than your daily average of 8h 47m"), or how long the PC was on.</summary>
+    public string ActiveLine => Report is not { } r ? ""
+        : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? Bare(compare.Text)
+        : $"PC on for {Units.Duration(r.OnSec)}";
+
+    /// <summary>A line of the list as a few words under a figure: without its "That's" and its full stop.</summary>
+    internal static string Bare(string line)
+    {
+        string text = line.StartsWith("That's ", StringComparison.Ordinal) ? line[7..] : line;
+        text = text.TrimEnd('.');
+        return text.Length == 0 ? text : char.ToUpper(text[0], System.Globalization.CultureInfo.CurrentCulture) + text[1..];
+    }
+
+    public string GamesText => Report is { GamingSec: >= 60 } r ? Units.Duration(r.GamingSec) : "—";
+    public string GamesLine => Report is not { GamingSec: >= 60 } r ? "No games in this period"
+        : r.Apps.Count(a => a.Category == Core.Settings.AppCategory.Game && a.ActiveSec >= 60) is var n && n == 1 ? "1 game" : $"{n} games";
+
+    public string InternetText => Report?.Net is { Down: > 0 } net ? Units.Data(net.Down) : "—";
+    public string InternetLine
+    {
+        get
+        {
+            if (Report?.Net is not { Down: > 0 } net) return "Nothing recorded";
+            if (net.PreviousDown is not > 0) return $"{Units.Data(net.Up)} uploaded";
+            double change = (net.Down - net.PreviousDown.Value) / (double)net.PreviousDown.Value * 100;
+            string before = Range switch { ReportRange.Day => "the day before", ReportRange.Week => "the week before", ReportRange.Month => "the month before", ReportRange.Year => "the year before", _ => "the period before" };
+            return Math.Abs(change) < 3 ? $"About the same as {before}" : $"{Math.Abs(change):0}% {(change > 0 ? "more" : "less")} than {before}";
+        }
+    }
+
+    /// <summary>What the CPU and the graphics card drew ("1.9 kWh", "410 Wh"); left out where no power is read.</summary>
+    public bool HasEnergy => Report?.EnergyWh is > 0;
+    public string EnergyText => Report?.EnergyWh is > 0 and var wh ? EnergyOf(wh) : "—";
+    internal static string EnergyOf(double wattHours) => wattHours >= 1000 ? $"{wattHours / 1000:0.0} kWh" : $"{wattHours:0} Wh";
+
+    public string ProblemsText => Crashes.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+    public bool HasProblems => Crashes.Count > 0;
+    public string ProblemsLine
+    {
+        get
+        {
+            int down = Crashes.Count(c => c.Event.Kind == Core.Stability.CrashKind.SystemCrash || c.Event.Kind == Core.Stability.CrashKind.UnexpectedShutdown);
+            int apps = Crashes.Count - down;
+            if (Crashes.Count == 0) return "No crashes or sudden shutdowns";
+            static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
+            return string.Join(", ", new[] { down > 0 ? Count(down, "time the PC went down", "times the PC went down") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
+        }
+    }
+
+    // ── Where the time went ──
+
+    private List<TimePart> _timeSplit = [];
+
+    /// <summary>The period's time in use by kind of app, biggest first; kinds under a fiftieth of it go into "Everything else".</summary>
+    public List<TimePart> TimeSplit => _timeSplit = Kept.Or(_timeSplit, SplitOf(Report));
+    public bool HasTimeSplit => TimeSplit.Count >= 2;
+    public string TimeSplitNote => Report is { } r ? $"{Units.Duration(r.ActiveSec)} in use · {Units.Duration(r.AwaySec)} away" : "";
+
+    internal static List<TimePart> SplitOf(Report? report)
+    {
+        if (report is null) return [];
+        var kinds = report.Apps.Where(a => a.ActiveSec > 0).GroupBy(a => a.Category).Select(g => (Kind: g.Key, Sec: g.Sum(a => a.ActiveSec))).OrderByDescending(k => k.Sec).ToList();
+        double total = kinds.Sum(k => k.Sec);
+        if (total < 60) return [];
+        var parts = new List<TimePart>();
+        double rest = 0;
+        foreach (var (kind, sec) in kinds)
+        {
+            // System apps, anything unsorted and slivers too small to see in the bar are one grey part at the end.
+            if (kind is Core.Settings.AppCategory.Other or Core.Settings.AppCategory.System || sec < total / 50) rest += sec;
+            else parts.Add(new TimePart(Core.Apps.AppCatalog.Label(kind), sec, Core.Apps.AppCatalog.Color(kind)));
+        }
+        if (rest >= 60) parts.Add(new TimePart("Everything else", rest, Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.System)));
+        return parts;
+    }
+
+    // ── What stood out: the first few, the rest on request ──
+
+    /// <summary>How many lines show before "Show more".</summary>
+    public const int InsightsShown = 5;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShownInsights), nameof(MoreInsightsText))]
+    private bool _allInsights;
+
+    // The totals are the tiles above: not said again as the first line.
+    private List<Insight> Lines => [.. Insights.Where(i => i.Key != "screen")];
+    private List<Insight> _shownInsights = [];
+    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, AllInsights ? Lines : [.. Lines.Take(InsightsShown)]);
+    public bool HasMoreInsights => Lines.Count > InsightsShown;
+    public string MoreInsightsText => AllInsights ? "Show fewer" : $"Show {Lines.Count - InsightsShown} more";
+
+    [RelayCommand]
+    private void ToggleInsights() => AllInsights = !AllInsights;
+
+    // ── What changed on the PC in the period ──
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChanges))]
+    private IReadOnlyList<HomeLine> _changes = [];
+    public bool HasChanges => Changes.Count > 0;
+
+    /// <summary>How many changes the card lists (the Timeline has them all).</summary>
+    public const int ChangesShown = 8;
+
+    private IReadOnlyList<HomeLine> ChangeLines(IEnumerable<Core.Stability.SystemChange> changes) =>
+        HomeViewModel.ChangeLines(changes, ChangesShown, c =>
+            c.Kind == Core.Stability.ChangeKind.Storage ? IsDay ? "All day" : c.Time.ToString("ddd d MMM")
+            : IsDay ? (c.IsApproximate ? "~" : "") + c.Time.ToString("h:mm tt") : c.Time.ToString("ddd d MMM, h:mm tt"));
+
     partial void OnShowBackgroundAppsChanged(bool value) => SyncApps();
 
     private void SyncApps() => Kept.Sync(Apps, Report is null ? []
@@ -52,7 +175,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public List<Insight> Insights => _insights = Kept.Or(_insights, Report?.Insights ?? []);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText))]
+    [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText), nameof(ProblemsText), nameof(ProblemsLine), nameof(HasProblems))]
     private List<CrashRow> _crashes = [];
 
     // A month can list dozens of crashes. The list sits mid-page (more sections follow), so it starts short and grows
@@ -139,29 +262,49 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public List<SessionInfo> TopSessions => _topSessions = Kept.Or(_topSessions,
         Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [], Kept.Values);
 
-    private List<PeakRow> _peaks = [];
-    public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks());
+    private List<PeakRow> _peaks = [], _morePeaks = [];
 
-    private List<PeakRow> BuildPeaks()
+    /// <summary>The period's highs most people look for: temperatures, the graphics card's power, memory, the fastest download.</summary>
+    public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks(more: false));
+
+    /// <summary>The rest (core voltages, CPU power), shown on request.</summary>
+    public List<PeakRow> MorePeaks => _morePeaks = Kept.Or(_morePeaks, BuildPeaks(more: true));
+    public bool HasMorePeaks => MorePeaks.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MorePeaksText))]
+    private bool _allPeaks;
+    public string MorePeaksText => AllPeaks ? "Show fewer" : "Voltages and CPU power";
+
+    [RelayCommand]
+    private void TogglePeaks() => AllPeaks = !AllPeaks;
+
+    private List<PeakRow> BuildPeaks(bool more)
     {
-        {
-            var r = Report;
-            if (r is null) return [];
-            var rows = new List<PeakRow>();
-            bool oneDay = IsDay && r.From.Date == r.To.AddTicks(-1).Date;
-            string When(Peak p) => oneDay ? p.Time.ToString("h:mm tt") : IsDay ? p.Time.ToString("ddd h:mm tt") : IsYear ? p.Time.ToString("d MMM, h:mm tt") : p.Time.ToString("ddd d MMM, h:mm tt");
-            var tempBrush = new TempToBrushConverter();
-            Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);
+        var r = Report;
+        if (r is null) return [];
+        var rows = new List<PeakRow>();
+        bool oneDay = IsDay && r.From.Date == r.To.AddTicks(-1).Date;
+        string At(DateTime t) => oneDay ? t.ToString("h:mm tt") : IsDay ? t.ToString("ddd h:mm tt") : IsYear ? t.ToString("d MMM, h:mm tt") : t.ToString("ddd d MMM, h:mm tt");
+        string When(Peak p) => At(p.Time);
+        var tempBrush = new TempToBrushConverter();
+        Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);
+        var plain = Controls.ChartPaint.TextBrush;
 
-            if (r.CpuTempPeak is { } a) rows.Add(new("CPU temperature", Units.TempShort(a.Value), When(a), a.App, TempBrush(a.Value)));
-            if (r.GpuTempPeak is { } b) rows.Add(new("GPU temperature", Units.TempShort(b.Value), When(b), b.App, TempBrush(b.Value)));
-            if (r.GpuHotPeak is { } c) rows.Add(new("GPU hot spot", Units.TempShort(c.Value), When(c), c.App, TempBrush(c.Value - 10)));
-            if (r.CpuVoltPeak is { } d) rows.Add(new("CPU core voltage", $"{d.Value:0.000} V", When(d), d.App, Controls.ChartPaint.TextBrush));
-            if (r.GpuVoltPeak is { } e) rows.Add(new("GPU core voltage", $"{e.Value:0.000} V", When(e), e.App, Controls.ChartPaint.TextBrush));
-            if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-min avg)", $"{f.Value:0} W", When(f), f.App, Controls.ChartPaint.TextBrush));
-            if (r.GpuPowerPeak is { } g) rows.Add(new("GPU power (1-min avg)", $"{g.Value:0} W", When(g), g.App, Controls.ChartPaint.TextBrush));
+        if (more)
+        {
+            if (r.CpuVoltPeak is { } d) rows.Add(new("CPU core voltage", $"{d.Value:0.000} V", When(d), d.App, plain));
+            if (r.GpuVoltPeak is { } e) rows.Add(new("GPU core voltage", $"{e.Value:0.000} V", When(e), e.App, plain));
+            if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-min avg)", $"{f.Value:0} W", When(f), f.App, plain));
             return rows;
         }
+        if (r.CpuTempPeak is { } a) rows.Add(new("CPU temperature", Units.TempShort(a.Value), When(a), a.App, TempBrush(a.Value)));
+        if (r.GpuTempPeak is { } b) rows.Add(new("GPU temperature", Units.TempShort(b.Value), When(b), b.App, TempBrush(b.Value)));
+        if (r.GpuHotPeak is { } c) rows.Add(new("GPU hot spot", Units.TempShort(c.Value), When(c), c.App, TempBrush(c.Value - 10)));
+        if (r.GpuPowerPeak is { } g) rows.Add(new("GPU power (1-min avg)", $"{g.Value:0} W", When(g), g.App, plain));
+        if (r.RamPeak is { } m) rows.Add(new("Memory in use", $"{m.Value:0.0} GB", When(m), m.App, plain));
+        if (r.Net is { TopSpeed: > 0, TopSpeedAt: { } at } net) rows.Add(new("Fastest download", Units.Speed(net.TopSpeed.Value), At(at), net.TopSpeedApp, plain));
+        return rows;
     }
 
     partial void OnRangeChanged(ReportRange value) => _ = LoadAsync();
@@ -214,6 +357,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var report = range != ReportRange.Custom ? await reports.BuildAsync(range, anchor)
             : customTo > customFrom ? await reports.BuildCustomAsync(customFrom, customTo) : null;
         var crashes = report is null ? [] : await reports.CrashesAsync(report.From, report.To) ?? [];
+        var changed = report is null ? [] : await reports.QueryAsync((db, _) =>
+        {
+            long from = Core.Data.TimeUtil.ToUnix(report.From), to = Core.Data.TimeUtil.ToUnix(report.To);
+            var list = db.GetChanges(from, to);
+            list.AddRange(Core.Stability.StorageChanges.From(db.GetDriveDays(from - 86400)).Where(c => c.Time >= report.From && c.Time < report.To));
+            return list;
+        }) ?? [];
         if (id != _loadId) return;
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
         if (report?.From != Report?.From || report?.To != Report?.To) _crashLimit = CrashesPage;
@@ -221,6 +371,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         FirstDay = first;
         Report = report;
         Crashes = crashes;
+        Changes = Kept.Or(Changes, ChangeLines(changed));
         IsLoading = false;
         Ready = true;
     }

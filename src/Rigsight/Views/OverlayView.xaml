@@ -9,44 +9,13 @@
             <Setter Property="Width" Value="90" />
         </Style>
 
-        <!-- An on/off chip for one reading. -->
-        <Style x:Key="MetricChip" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,0,8,8" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
-                                CornerRadius="9" Padding="12,6">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="Check" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,7,0"
-                                           Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
-                                <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="13" />
-                            </StackPanel>
-                        </ctl:SmoothBorder>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
-                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <!-- On a wide window the page is centred like the others, and this column is at its left. -->
+        <!-- A narrow column, in the middle of a wide window (at the left of the frame it left half the window empty
+             on one side only). -->
         <Grid MaxWidth="{StaticResource PageFrame}">
-        <StackPanel Margin="32,26,32,32" MaxWidth="980" HorizontalAlignment="Left">
+        <StackPanel Margin="32,26,32,32" MaxWidth="980">
             <TextBlock Text="Game overlay" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,18" />
 

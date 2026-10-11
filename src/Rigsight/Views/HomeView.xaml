@@ -9,6 +9,21 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
+
+        <!-- A line of one of the three small cards: its icon in a square, in its own colour, and a few words under it. -->
+        <DataTemplate x:Key="CardLine">
+            <DockPanel Margin="0,7">
+                <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                               Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                </Border>
+                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
+                               Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -58,14 +73,15 @@
                             </Border>
                         </UniformGrid>
 
-                        <!-- Today's hottest moments, and what was running -->
-                        <UniformGrid Columns="2" Margin="-5,0,-5,6">
+                        <!-- Today's hottest moments and what was running, and what came down the line. -->
+                        <UniformGrid Columns="3" Margin="-5,0,-5,6">
                             <Border Style="{StaticResource Tile}" Margin="5">
                                 <StackPanel>
                                     <TextBlock Text="CPU PEAK" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.CpuPeak, Converter={StaticResource TempBrush}}" />
-                                    <TextBlock Text="{Binding Live.Today.CpuPeakLine, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuPeakLine, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource Tile}" Margin="5">
@@ -73,7 +89,16 @@
                                     <TextBlock Text="GPU PEAK" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.GpuPeak, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                                    <TextBlock Text="{Binding Live.Today.GpuPeakLine, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.GpuPeakLine, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}" Margin="5">
+                                <StackPanel>
+                                    <TextBlock Text="INTERNET" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding TodayInternet}" Style="{StaticResource StatValue}" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding TodayInternetLine}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
@@ -105,15 +130,14 @@
                         <TextBlock Text="Your most-used apps show up here after a few minutes of use."
                                    Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Visibility="{Binding ShowLearning, Converter={StaticResource Vis}}" />
-
-
                     </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- The recap: yesterday, or the last whole week, month or year -->
+                <!-- The recap: yesterday, or the last whole week, month or year. As tall as the card beside it: its list
+                     shows as many apps and lines as fit that height (see FitStack), so it never ends halfway down. -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
-                    <StackPanel>
-                        <DockPanel Margin="0,0,0,14">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding HasPeriods, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" Content="Day" IsChecked="{Binding IsYesterday}" GroupName="recap" AutomationProperties.Name="Yesterday" />
@@ -128,76 +152,143 @@
                             <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <!-- Another day standing in for yesterday: why. -->
-                        <TextBlock Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
                                    Visibility="{Binding RecapNote, Converter={StaticResource Vis}}" />
 
-                        <StackPanel Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                        <StackPanel DockPanel.Dock="Top" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding RecapEmptyTitle}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
+                            <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Button DockPanel.Dock="Bottom" Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenRecap_Click"
+                                Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Open full recap" />
+                                <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <StackPanel DockPanel.Dock="Top" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Style="{StaticResource Muted}">
                                 <Run Text="active · PC on for" /> <Run Text="{Binding Recap.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
                             </TextBlock>
-
-                            <ItemsControl ItemsSource="{Binding RecapTopApps}" Margin="0,14,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,4">
-                                            <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" />
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold" />
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" Margin="10,0" VerticalAlignment="Center" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <ItemsControl ItemsSource="{Binding RecapInsights}" Margin="0,12,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,5" ToolTip="{Binding DetailOrNull}">
-                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="0,2,10,0"
-                                                       Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="OpenRecap_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Open full recap" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
-                                </StackPanel>
-                            </Button>
+                            <!-- The period's figures on one line (three boxes here took a third of the card). -->
+                            <WrapPanel Margin="0,10,0,0">
+                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.CpuTempPeak, Converter={StaticResource Vis}}">
+                                    <Run Text="CPU peak" /> <Run Text="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
+                                                                 Foreground="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempBrush}}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.GpuTempPeak, Converter={StaticResource Vis}}">
+                                    <Run Text="GPU peak" /> <Run Text="{Binding Recap.GpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
+                                                                 Foreground="{Binding Recap.GpuTempPeak.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,0,2" Visibility="{Binding RecapInternet, Converter={StaticResource Vis}}">
+                                    <Run Text="Internet" /> <Run Text="{Binding RecapInternet, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                </TextBlock>
+                            </WrapPanel>
                         </StackPanel>
 
-                        <StackPanel Visibility="{Binding RecapHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
-                            <TextBlock Text="{Binding RecapEmptyTitle}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
-                            <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </StackPanel>
+                        <ItemsControl ItemsSource="{Binding RecapRows}" Margin="0,12,0,0" Focusable="False" ClipToBounds="True"
+                                      Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ctl:FitStack />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="ctl:FitStack.Rank" Value="{Binding Rank}" />
+                                    <Setter Property="ctl:FitStack.Essential" Value="{Binding Essential}" />
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid x:Name="App" Margin="0,5" Visibility="{Binding IsApp, Converter={StaticResource Vis}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="30" />
+                                                <ColumnDefinition Width="*" MaxWidth="170" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image Source="{Binding App.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding App.Name}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                            <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="12,0" VerticalAlignment="Center"
+                                                         Maximum="{Binding DataContext.RecapTopMax, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         Value="{Binding App.ActiveSec, Mode=OneWay}"
+                                                         Foreground="{Binding App.Category, Converter={StaticResource CategoryBrush}}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding App.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                        <DockPanel x:Name="Line" Margin="0,5" ToolTip="{Binding Line.DetailOrNull}" Visibility="{Binding IsApp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                            <TextBlock Text="{Binding Line.Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="2,2,12,0"
+                                                       Foreground="{Binding Line, Converter={StaticResource InsightBrush}}" />
+                                            <TextBlock Text="{Binding Line.Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <!-- A gap between the apps and the lines about the period. -->
+                                        <DataTrigger Binding="{Binding StartsLines}" Value="True">
+                                            <Setter TargetName="Line" Property="Margin" Value="0,13,0,5" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
                 </ctl:SmoothBorder>
             </Grid>
 
-            <!-- Insights -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TodayInsights.Count, Converter={StaticResource Vis}}">
-                <StackPanel>
-                    <TextBlock Text="What stands out today" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                    <ItemsControl ItemsSource="{Binding TodayInsights}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <DockPanel Margin="0,6" ToolTip="{Binding DetailOrNull}">
-                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                                                   Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                                    </Border>
-                                    <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="14,0,0,0" VerticalAlignment="Center" />
-                                </DockPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </ctl:SmoothBorder>
+            <!-- Three small cards: today's lines, the latest of the Timeline, and a line each on what can go wrong. -->
+            <UniformGrid Columns="3" Margin="-9,0,-9,0">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
+                    <StackPanel>
+                        <TextBlock Text="What stands out today" Style="{StaticResource H2}" Margin="0,0,0,7" />
+                        <ItemsControl ItemsSource="{Binding TodayInsights}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,7" ToolTip="{Binding DetailOrNull}">
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                                       Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" Margin="13,0,0,0" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Nothing out of the ordinary so far." Style="{StaticResource Muted}" Margin="0,7"
+                                   Visibility="{Binding TodayInsights.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,7">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0" VerticalAlignment="Center"
+                                    Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="timeline"
+                                    AutomationProperties.Name="Open the Timeline">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Timeline" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="What changed lately" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding Changes}" ItemTemplate="{StaticResource CardLine}" Focusable="False" />
+                        <TextBlock Text="Nothing has changed in the last 30 days." Style="{StaticResource Muted}" Margin="0,7"
+                                   Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
+                    <StackPanel>
+                        <TextBlock Text="PC health" Style="{StaticResource H2}" Margin="0,0,0,7" />
+                        <ItemsControl ItemsSource="{Binding Health}" ItemTemplate="{StaticResource CardLine}" Focusable="False" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </UniformGrid>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

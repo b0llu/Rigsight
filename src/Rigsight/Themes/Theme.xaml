@@ -70,6 +70,8 @@
     <conv:SeverityBrushConverter x:Key="SeverityBrush" />
     <conv:FractionConverter x:Key="Fraction" />
     <conv:ResourceBrushConverter x:Key="ResourceBrush" />
+    <conv:InsightBrushConverter x:Key="InsightBrush" />
+    <conv:DataSizeConverter x:Key="DataSize" />
     <conv:KindBrushConverter x:Key="KindBrush" />
 
     <!-- ── Selectable list rows (Apps page) ───────────────────────────── -->
@@ -408,6 +410,39 @@
                             </Grid>
                         </Border>
                     </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- An on/off chip: a reading on the Overlay page, a file in the Export box. -->
+    <Style x:Key="MetricChip" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1"
+                            CornerRadius="9" Padding="12,6">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="Check" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,7,0"
+                                       Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                            <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="13" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

@@ -328,7 +328,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     [ObservableProperty] private bool _isClearing;
 
     /// <summary>The usage file is being put together and written.</summary>
-    [ObservableProperty] private bool _isExporting;
 
     /// <summary>
     /// Says something is going on until the agent's answer turns it off, and gives up after a while if no answer comes
@@ -557,45 +556,11 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         try { Process.Start(new ProcessStartInfo("https://buymeacoffee.com/bollu") { UseShellExecute = true })?.Dispose(); } catch { }
     }
 
+    /// <summary>Opens the Export box over the window (set by the shell, which owns it).</summary>
+    public Action? OpenExport { get; set; }
+
     [RelayCommand]
-    private async Task ExportCsv()
-    {
-        var dialog = new SaveFileDialog
-        {
-            Title = "Export app usage",
-            Filter = "CSV file (*.csv)|*.csv",
-            FileName = $"Rigsight-app-usage-{DateTime.Now:yyyy-MM-dd}.csv",
-        };
-        if (dialog.ShowDialog() != true) return;
-
-        IsExporting = true;
-        var report = await reports.BuildRangeAsync(DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1));
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        var sb = new StringBuilder("App,Exe,Category,Active hours,Background hours,Minimized hours,Away hours,Sessions,Avg CPU °C,Peak CPU °C,Avg GPU °C,Peak GPU °C,Peak memory MB\n");
-        foreach (var a in report?.Apps ?? [])
-        {
-            sb.AppendLine(string.Join(",", Csv(a.Name), Csv(a.Exe), a.Category,
-                (a.ActiveSec / 3600).ToString("0.00", inv), (a.BackgroundSec / 3600).ToString("0.00", inv),
-                (a.MinimizedSec / 3600).ToString("0.00", inv), (a.AwaySec / 3600).ToString("0.00", inv), a.SessionCount,
-                a.CpuTempAvg?.ToString("0.0", inv), a.CpuTempMax?.ToString("0.0", inv),
-                a.GpuTempAvg?.ToString("0.0", inv), a.GpuTempMax?.ToString("0.0", inv), a.MemMax?.ToString("0", inv)));
-        }
-        try
-        {
-            await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), Encoding.UTF8);
-            StatusMessage = $"Exported to {Path.GetFileName(dialog.FileName)}";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = "Export failed: " + ex.Message;
-        }
-        finally
-        {
-            IsExporting = false;
-        }
-
-        static string Csv(string v) => v.Contains(',') || v.Contains('"') ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
-    }
+    private void Export() => OpenExport?.Invoke();
 
     [RelayCommand]
     private void ClearHistory()

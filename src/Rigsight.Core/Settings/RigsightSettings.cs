@@ -130,6 +130,12 @@ public sealed class RigsightSettings
     /// <summary>The last day (yyyy-MM-dd) whose recap was shown: each day's comes once, the next time the PC is turned on.</summary>
     public string? RecappedDay { get; set; }
 
+    /// <summary>The folder exports were last saved in (each export makes its own folder there); null: Documents.</summary>
+    public string? ExportFolder { get; set; }
+
+    /// <summary>Exports are tables for a spreadsheet (CSV) and pages for a browser, not laid-out text files (the format picked last).</summary>
+    public bool ExportAsCsv { get; set; }
+
     public RigsightSettings Clone() => SettingsStore.Deserialize(SettingsStore.Serialize(this));
 }
 

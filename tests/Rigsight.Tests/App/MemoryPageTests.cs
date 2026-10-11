@@ -191,6 +191,9 @@ public sealed class MemoryPageTests
 
             // The line is 1.6 times the usual, and follows the app as it changes.
             next = Apps();
+            next[3].MemMB = 520 * 1.3;
+            live.ApplyProcs(next);
+            Assert.False(Row(live, "Discord.exe").IsOver);
             next[3].MemMB = 520 * 1.6;
             live.ApplyProcs(next);
             Assert.False(Row(live, "Discord.exe").IsOver);
@@ -199,6 +202,15 @@ public sealed class MemoryPageTests
             Assert.True(Row(live, "Discord.exe").IsOver);
             Assert.Contains(nameof(ProcRow.IsOver), changes);
             Assert.Equal("1.6 times its usual", Row(live, "Discord.exe").OverText);
+
+            // Once pointed out it stays so until it is clearly back down (1.3 times): an app at the line doesn't flicker.
+            next[3].MemMB = 520 * 1.4;
+            live.ApplyProcs(next);
+            Assert.True(Row(live, "Discord.exe").IsOver);
+            Assert.Equal("1.4 times its usual", Row(live, "Discord.exe").OverText);
+            next[3].MemMB = 520 * 1.3;
+            live.ApplyProcs(next);
+            Assert.False(Row(live, "Discord.exe").IsOver);
         });
         Assert.Equal("Twice its usual", ProcRow.OverTextOf(1900, 1000));
         Assert.Equal("Twice its usual", ProcRow.OverTextOf(2290, 1000));

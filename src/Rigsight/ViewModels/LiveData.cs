@@ -108,11 +108,36 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>Fills <see cref="Rest"/> from the days' temperatures at rest (heat_day).</summary>
     public void LoadRest(IEnumerable<Core.Data.HeatDay> days)
     {
-        var (cpu, gpu) = Core.Reports.RestTemps.Of(days, DateTime.Today);
+        var all = days.ToList();
+        var today = DateTime.Today;
+        var (cpu, gpu) = Core.Reports.RestTemps.Of(all, today);
+        // Each day's own rest, for the line beside the figure.
+        var rest = all.Where(d => d.App == 0 && d.N >= Core.Reports.RestTemps.MinMinutes).GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
+        // From the first day there is any rest for: a PC recorded for two weeks has a line across the card, not one
+        // squeezed into its right half.
+        int first = rest.Count == 0 ? 0 : Math.Clamp((int)(today - Core.Data.TimeUtil.FromUnix(rest.Keys.Min()).Date).TotalDays, 0, Core.Reports.RestTemps.LookBackDays);
+        List<double?> Line(Func<Core.Data.HeatDay, (double Sum, int N)> pick) =>
+            [.. Enumerable.Range(0, first + 1).Select(i =>
+                rest.TryGetValue(Core.Data.TimeUtil.ToUnix(today.AddDays(i - first)), out var d) && pick(d) is { N: > 0 } p ? p.Sum / p.N : (double?)null)];
         Rest.Clear();
-        Rest.Add(new RestRow("CPU", cpu));
-        if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu));
+        Rest.Add(new RestRow("CPU", cpu) { Days = Line(d => (d.CpuSum, d.CpuN)), LastDay = today, Brush = "CpuBrush" });
+        if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu) { Days = Line(d => (d.GpuSum, d.GpuN)), LastDay = today, Brush = "GpuBrush" });
     }
+
+    /// <summary>The Temperatures page's week, hour by hour (see <see cref="Controls.HeatGrid"/>).</summary>
+    [ObservableProperty] private IReadOnlyList<HeatHour> _heatWeek = [];
+
+    /// <summary>The board's temperature sensors and the drives', as one row of tiles.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPartTemps))]
+    private IReadOnlyList<PartTemp> _partTemps = [];
+    public bool HasPartTemps => PartTemps.Count > 0;
+
+    /// <summary>Puts <see cref="PartTemps"/> together again: the lists it is made of changed, or a sensor was hidden or renamed.</summary>
+    private void RefreshPartTemps() => PartTemps = Models.Kept.Or(PartTemps,
+        [.. BoardTemps.Where(t => !t.IsHidden).Select(t => new PartTemp(t.DisplayName, t, "40,60,80")),
+         .. Drives.Where(d => d.Temperature is not null).Select(d => new PartTemp(d.Name, d.Temperature!, "35,50,65"))]);
+
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
 
     /// <summary>
@@ -427,6 +452,7 @@ public sealed partial class LiveData : ObservableObject
             foreach (var f in n.Sensors.Where(x => x.Kind == SensorKind.Fan)) Fans.Add(f);
             foreach (var t in n.Sensors.Where(x => x.Kind == SensorKind.Temperature)) BoardTemps.Add(t);
         }
+        RefreshPartTemps();
 
         // A line's colour says which part it is, so none is green, amber or red: those say how a reading is doing (the
         // numbers above the chart), and a green or amber line under them read as "good" or "warning".
@@ -820,6 +846,7 @@ public sealed partial class LiveData : ObservableObject
         {
             foreach (var f in Fans.Where(f => f.Value is not > 0 && f.Max is not > 0).ToList()) Fans.Remove(f);
             foreach (var t in BoardTemps.Where(t => t.Value is not (> 0 and < 115)).ToList()) BoardTemps.Remove(t);
+            RefreshPartTemps();
         }
 
         if (RamUsed?.Value is double used)
@@ -860,6 +887,8 @@ public sealed partial class LiveData : ObservableObject
 
     private void OnSensorPreferenceChanged(SensorItem item)
     {
+        // A board sensor hidden or given another name: its tile on the Temperatures page follows.
+        if (item.Kind == SensorKind.Temperature) RefreshPartTemps();
         _settings.Update(s =>
         {
             if (item.CustomLabel is null) s.SensorLabels.Remove(item.Id);

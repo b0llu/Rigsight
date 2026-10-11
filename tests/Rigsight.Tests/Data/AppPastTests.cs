@@ -58,7 +58,6 @@ public sealed class AppPastTests
         Assert.Equal(6 * 3600, past.BackSec);
         Assert.Equal(96_000_000, past.NetBytes);
         Assert.Equal(2, past.Crashes);
-        Assert.NotNull(past.FirstSeen);
 
         // One app's hours only, asked of the database by its ID.
         Assert.All(t.Db.GetAppHoursOf(discord, Hour(Today, 0), Hour(Today, 24)), h => Assert.Equal(discord, h.AppId));
@@ -104,7 +103,6 @@ public sealed class AppPastTests
         Assert.Null(past.FrontSec);
         Assert.Null(past.BackSec);
         Assert.Null(past.NetBytes);
-        Assert.Null(past.FirstSeen);
         Assert.Equal(0, AppPast.Read(t.Db, "nobody.exe", Now).Crashes);
     }
 

@@ -216,90 +216,105 @@
                 </DockPanel>
             </ctl:SmoothBorder>
 
-            <!-- At rest, motherboard, drives (fans have their own page) -->
+            <!-- Motherboard and drives, right under the graph (fans have their own page): a tile each, as many across as fit, the rest on more
+                 rows; past three rows the box scrolls. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,18,12,16">
+                <StackPanel>
+                    <DockPanel Margin="0,0,8,12">
+                        <TextBlock DockPanel.Dock="Right" Text="Now, against today's range" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Motherboard and drives" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <!-- None to show (the agent has no admin rights, or the PC gives none): the card says so instead of going,
+                         which read as the drives' temperatures having been taken off the page. -->
+                    <TextBlock Text="No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights."
+                               Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,8,2"
+                               Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <ScrollViewer Style="{StaticResource CardScroll}" Padding="0" VerticalScrollBarVisibility="Auto" MaxHeight="286"
+                                  Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}">
+                        <ItemsControl ItemsSource="{Binding PartTemps}" Focusable="False" Margin="0,0,8,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ctl:TileWrap />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Tile}">
+                                        <StackPanel>
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0">
+                                                <TextBlock.Foreground>
+                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                        <Binding Path="Sensor.Value" />
+                                                        <Binding Path="Steps" />
+                                                    </MultiBinding>
+                                                </TextBlock.Foreground>
+                                            </TextBlock>
+                                            <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,7,0,5" Maximum="100" Value="{Binding Sensor.RangeShare, Mode=OneWay}">
+                                                <ProgressBar.Foreground>
+                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                        <Binding Path="Sensor.Value" />
+                                                        <Binding Path="Steps" />
+                                                    </MultiBinding>
+                                                </ProgressBar.Foreground>
+                                            </ProgressBar>
+                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock Text="SSDs are happiest below about 60°C, hard drives below 50°C. A sensor can be renamed on the All sensors page."
+                               FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,8,0"
+                               Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <!-- The week by hour, and each chip at rest over the last month. -->
             <Grid Margin="0,18,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="3*" />
                     <ColumnDefinition Width="18" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="18" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="2*" />
                 </Grid.ColumnDefinitions>
-                <!-- Idle and settled: the same load every day, so what changes is the room and the cooling. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="At rest" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                        <ItemsControl ItemsSource="{Binding Rest}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="44" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Part}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                   Foreground="{Binding Today, Converter={StaticResource TempBrush}}" />
-                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
-                                                   VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="Idle and settled today, against the last 30 days. A warmer room raises these too."
-                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
-                    </StackPanel>
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <TextBlock DockPanel.Dock="Right" Text="Each box is an hour's average" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="Warmest hours this week" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <ctl:HeatGrid Height="170" Hours="{Binding HeatWeek}" AutomationProperties.Name="The last seven days, hour by hour" />
+                    </DockPanel>
                 </ctl:SmoothBorder>
+                <!-- Idle and settled: the same load every day, so what changes is the room and the cooling. One line a
+                     chip: its figure, its usual, and its last month drawn beside them. -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Motherboard" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                        <ItemsControl ItemsSource="{Binding BoardTemps}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="At rest, last 30 days" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Bottom" Text="Idle and settled. A flat line means the cooling is holding; a slow climb is dust or old paste. A warmer room raises these too."
+                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                        <ItemsControl ItemsSource="{Binding Rest}" VerticalAlignment="Center" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,5" Visibility="{Binding IsHidden, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedValue}" FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{Binding Value, Converter={StaticResource TempBrush}, ConverterParameter='40,60,80'}" />
-                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Muted}" />
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="Tip: rename these on the All sensors page (e.g. “Temperature #5” → “VRM”)."
-                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
-                    </StackPanel>
-                </ctl:SmoothBorder>
-                <ctl:SmoothBorder Grid.Column="4" Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Drives" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                        <ItemsControl ItemsSource="{Binding Drives}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- The graph takes whatever width the name leaves, instead of a fixed thumbnail. -->
-                                    <Grid Margin="0,6">
+                                    <Grid Margin="0,7">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="1.2*" MinWidth="110" />
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="58" />
+                                            <ColumnDefinition Width="Auto" MinWidth="86" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Muted}" />
-                                            <TextBlock Text="{Binding Temperature.MinMaxText, FallbackValue=''}" FontSize="11" Foreground="{DynamicResource FaintBrush}"
-                                                       ToolTip="Lowest and highest today" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                        <Border Grid.Column="1" Margin="12,0" Background="Transparent" ToolTip="Recent temperature, up to the last 6 hours">
-                                            <ctl:Sparkline Height="34" Source="{Binding Temperature.History}" WindowSeconds="21600" FitToData="True"
-                                                           Version="{Binding Temperature.Version}" Stroke="{DynamicResource PurpleBrush}" Kind="{Binding Temperature.Kind}" />
-                                        </Border>
-                                        <TextBlock Grid.Column="2" Text="{Binding Temperature.FormattedValue, FallbackValue='—'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                   Foreground="{Binding Temperature.Value, Converter={StaticResource TempBrush}, ConverterParameter='35,50,65'}" />
+                                        <TextBlock Text="{Binding Part}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{Binding Today, Converter={StaticResource TempBrush}}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                        <ctl:TrendLine Grid.Column="3" Height="34" Values="{Binding Days}" Tips="{Binding Tips}" Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}"
+                                                       Visibility="{Binding HasLine, Converter={StaticResource Vis}}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="SSDs are happiest below about 60°C; hard drives below 50°C." FontSize="11" Foreground="{DynamicResource FaintBrush}"
-                                   TextWrapping="Wrap" Margin="0,12,0,0" />
-                    </StackPanel>
+                    </DockPanel>
                 </ctl:SmoothBorder>
             </Grid>
         </StackPanel>

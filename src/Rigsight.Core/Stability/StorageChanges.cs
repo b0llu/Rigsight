@@ -27,7 +27,8 @@ public static class StorageChanges
                     {
                         string letter = drive.Key.TrimEnd('\\');
                         changes.Add(new SystemChange(TimeUtil.FromUnix(day.Day), ChangeKind.Storage,
-                            delta > 0 ? $"{delta:N0} GB more in use on {letter}" : $"{-delta:N0} GB freed on {letter}")
+                            // "the C drive" in the sentence: "added to C:" ended on a colon and read as cut off.
+                            delta > 0 ? $"{delta:N0} GB added to the {letter.TrimEnd(':')} drive" : $"{-delta:N0} GB freed on the {letter.TrimEnd(':')} drive")
                         {
                             Subject = letter, Was = $"{before.UsedGb:N0} GB", Now = $"{day.UsedGb:N0} GB",
                         });

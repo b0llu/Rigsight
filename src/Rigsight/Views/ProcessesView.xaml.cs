@@ -33,7 +33,7 @@ public partial class ProcessesView : UserControl
     {
         if (viewportWidth <= 0) return;
         double right = RowInset + Math.Max(0, LiveList.ActualWidth - viewportWidth);
-        if (Math.Abs(LiveHead.Margin.Right - right) > 0.1) LiveHead.Margin = new Thickness(LiveHead.Margin.Left, 0, right, 6);
+        if (Math.Abs(LiveHead.Margin.Right - right) > 0.1) LiveHead.Margin = new Thickness(LiveHead.Margin.Left, 0, right, LiveHead.Margin.Bottom);
     }
 
     /// <summary>

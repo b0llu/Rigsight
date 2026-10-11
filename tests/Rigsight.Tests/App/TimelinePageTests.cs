@@ -41,7 +41,7 @@ public sealed class TimelinePageTests
             Update(d.AddDays(1).AddHours(10), "Comet"),
             Change(d.AddDays(-3).AddHours(21), ChangeKind.AppInstalled, "Stremio installed", now: "5.0.26"),
             Change(d.AddDays(-3).AddHours(17), ChangeKind.Startup, "FACEIT now starts with Windows"),
-            Change(d.AddDays(-3), ChangeKind.Storage, "61 GB more in use on E:", "1,104 GB", "1,165 GB"),
+            Change(d.AddDays(-3), ChangeKind.Storage, "61 GB added to the E drive", "1,104 GB", "1,165 GB"),
         };
         var problems = new List<TimelineProblem>
         {
@@ -135,8 +135,8 @@ public sealed class TimelinePageTests
 
             // An install shows its version; drive space has no time and comes last.
             var older = vm.Days[3];
-            Assert.Equal(["Stremio installed", "FACEIT now starts with Windows", "61 GB more in use on E:"], older.Entries.Select(e => e.Title));
-            Assert.Equal(["5.0.26", null, "1,104 GB to 1,165 GB in use"], older.Entries.Select(e => e.Detail));
+            Assert.Equal(["Stremio installed", "FACEIT now starts with Windows", "61 GB added to the E drive"], older.Entries.Select(e => e.Title));
+            Assert.Equal(["5.0.26", null, "Was 1,104 GB used, now 1,165 GB"], older.Entries.Select(e => e.Detail));
             Assert.Equal(["9:00 PM", "5:00 PM", "All day"], older.Entries.Select(e => e.TimeText)); // every line says when
             Assert.Equal("8 changes since " + changes.Min(c => c.Time).ToString("d MMM yyyy"), vm.CountText);
         });
@@ -149,7 +149,7 @@ public sealed class TimelinePageTests
         SystemChange Found(double hour, string app) => Update(day.AddHours(hour), app) with { Subject = $"app:{app.ToLowerInvariant()}" };
         var (vm, _) = Page([Change(day.AddHours(19.25), ChangeKind.Driver, "NVIDIA graphics driver 616.92"),      // from Windows' log
             Found(20, "Steam"),
-            Change(day, ChangeKind.Storage, "61 GB more in use on E:", "1,104 GB", "1,165 GB"),
+            Change(day, ChangeKind.Storage, "61 GB added to the E drive", "1,104 GB", "1,165 GB"),
             Found(9, "A"), Found(10, "C") with { Time = day.AddDays(-1).AddHours(10) }, Found(11, "D") with { Time = day.AddDays(-1).AddHours(11) },
             Found(12, "E") with { Time = day.AddDays(-1).AddHours(12) }]);
         Ui.Run(() =>

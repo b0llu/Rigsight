@@ -58,6 +58,33 @@ public sealed class Sparkline : FrameworkElement
 
     public SensorKind? Kind { get => (SensorKind?)GetValue(KindProperty); set => SetValue(KindProperty, value); }
 
+    /// <summary>
+    /// The radius of the card's lower corners, for a line laid across a card's foot from edge to edge: the line and its
+    /// shade are cut to those corners (a flat line ran straight out through them) and kept clear of the card's edge.
+    /// </summary>
+    public static readonly DependencyProperty FootRadiusProperty = DependencyProperty.Register(
+        nameof(FootRadius), typeof(double), typeof(Sparkline), new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public double FootRadius { get => (double)GetValue(FootRadiusProperty); set => SetValue(FootRadiusProperty, value); }
+
+    /// <summary>The control's own box, its two lower corners rounded by <paramref name="r"/>.</summary>
+    private static Geometry Foot(Size size, double r)
+    {
+        r = Math.Min(r, Math.Min(size.Width / 2, size.Height));
+        var g = new StreamGeometry();
+        using (var c = g.Open())
+        {
+            c.BeginFigure(new Point(0, 0), true, true);
+            c.LineTo(new Point(size.Width, 0), false, false);
+            c.LineTo(new Point(size.Width, size.Height - r), false, false);
+            c.ArcTo(new Point(size.Width - r, size.Height), new Size(r, r), 0, false, SweepDirection.Clockwise, false, false);
+            c.LineTo(new Point(r, size.Height), false, false);
+            c.ArcTo(new Point(0, size.Height - r), new Size(r, r), 0, false, SweepDirection.Clockwise, false, false);
+        }
+        g.Freeze();
+        return g;
+    }
+
     // Like every chart, it answers the pointer: the reading at that moment, and when.
     private readonly ToolTip _tip = new() { Placement = PlacementMode.Relative, IsHitTestVisible = false };
     private double? _hoverX;
@@ -151,14 +178,15 @@ public sealed class Sparkline : FrameworkElement
         if (Minimum is null) lo -= pad;
         if (Maximum is null) hi += pad;
 
-        var plot = new Rect(0, 1.5, ActualWidth, ActualHeight - 3);
+        // At a card's foot the lowest reading stops short of the card's edge, so a flat line reads as a line.
+        var plot = new Rect(0, 1.5, ActualWidth, ActualHeight - (FootRadius > 0 ? 7 : 3));
         var geometry = ChartGeometry.Build(buffer, from, to, plot, lo, hi, v => v);
         if (geometry is null) return;
         var (line, area) = geometry.Value;
 
         var color = Stroke is SolidColorBrush s ? s.Color : Colors.DeepSkyBlue;
         _fill ??= ChartGeometry.FadeFill(color, 0.28);
-        dc.PushClip(new RectangleGeometry(new Rect(RenderSize)));
+        dc.PushClip(FootRadius > 0 ? Foot(RenderSize, FootRadius) : new RectangleGeometry(new Rect(RenderSize)));
         dc.DrawGeometry(_fill, null, area);
         if (_pen is null || _pen.Brush != Stroke)
         {

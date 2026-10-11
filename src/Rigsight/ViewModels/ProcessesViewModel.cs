@@ -312,13 +312,6 @@ public sealed partial class ProcessesViewModel : ObservableObject
         if (row.IsExpanded) _ = LoadHistoryAsync(row);
     }
 
-    /// <summary>The slim line was clicked: the box opens into the chart and every fact, or closes.</summary>
-    [RelayCommand]
-    private void ToggleHistory(ProcRow row)
-    {
-        if (row.History is { } history) history.IsOpen = !history.IsOpen;
-    }
-
     /// <summary>How long what was read about an app is good for before it is read again on opening.</summary>
     private static readonly TimeSpan HistoryAge = TimeSpan.FromMinutes(1);
 

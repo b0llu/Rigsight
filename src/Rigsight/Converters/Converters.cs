@@ -362,7 +362,52 @@ public sealed class KindBrushConverter : IValueConverter
 public sealed class ResourceBrushConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is string key ? Application.Current.TryFindResource(key) as Brush : null;
+        value is string key ? Of(key) : null;
+
+    /// <summary>A theme brush by its name ("CpuBrush"), or a colour written out ("#3DDC97": an app category's own).</summary>
+    public static Brush? Of(string key)
+    {
+        if (!key.StartsWith('#')) return Application.Current?.TryFindResource(key) as Brush;
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(key));
+        brush.Freeze();
+        return brush;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>Bytes as "6.1 GB"; a dash for none or nothing recorded.</summary>
+public sealed class DataSizeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is long bytes && bytes >= 1024 * 1024 ? Units.Data(bytes) : "–";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>
+/// The colour of a line's icon on Home and Reports: amber, red or green when the line itself warns or reassures, else
+/// by what it is about (games green, internet cyan, time purple…), so a list of them isn't one column of blue.
+/// </summary>
+public sealed class InsightBrushConverter : IValueConverter
+{
+    public static string KeyOf(Core.Reports.Insight insight) => insight.Tone switch
+    {
+        Core.Reports.InsightTone.Good => "GoodBrush",
+        Core.Reports.InsightTone.Warn => "WarmBrush",
+        Core.Reports.InsightTone.Hot => "HotBrush",
+        _ => insight.Key switch
+        {
+            "gaming" or "game-heat" => Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.Game),
+            "stretch" or "span" or "early" or "away" or "streak" => "PurpleBrush",
+            "memory" or "idle-app" or "background-work" => Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.Media),
+            { } key when key.StartsWith("net-", StringComparison.Ordinal) => "GpuBrush",
+            _ => "CpuBrush",
+        },
+    };
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Core.Reports.Insight insight ? ResourceBrushConverter.Of(KeyOf(insight)) : null;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

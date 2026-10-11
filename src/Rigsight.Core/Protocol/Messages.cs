@@ -146,6 +146,12 @@ public sealed class ProcDetail
     public int Pid { get; set; }
     /// <summary>What it is: its window's title, or its role ("Tab", "Graphics", a service's name…).</summary>
     public string Label { get; set; } = "";
+    /// <summary>
+    /// Its part in an app made of many processes ("Tab", "Extension", "Graphics", "Main"…), whatever its label says (a
+    /// window's title takes the label's place); null for an app that isn't built that way.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Kind { get; set; }
     public double Cpu { get; set; }
     public double MemMB { get; set; }
     /// <summary>What it reads and writes, in bytes a second.</summary>

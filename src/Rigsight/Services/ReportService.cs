@@ -24,6 +24,16 @@ public sealed class ReportService(SettingsModel settings)
         }
     });
 
+    /// <summary>
+    /// Anything read from the history with the settings as they are now, off the window's thread (exports); the
+    /// type's default when the history can't be opened.
+    /// </summary>
+    public Task<T?> QueryAsync<T>(Func<RigsightDb, RigsightSettings, T> query)
+    {
+        var s = Snapshot();
+        return Run(db => query(db, s));
+    }
+
     public Task<Report?> BuildAsync(ReportRange range, DateTime anchor)
     {
         var s = Snapshot();
@@ -163,6 +173,28 @@ public sealed class ReportService(SettingsModel settings)
 
     /// <summary>The first day with fan speeds recorded (the Fans page's picker goes no further back).</summary>
     public Task<DateTime?> FirstFanDayAsync() => Run(db => db.FirstFanDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
+
+    /// <summary>
+    /// The seven days ending today hour by hour: each hour's average CPU and GPU temperature with the highest reading,
+    /// and the app that was in front most of it (ten minutes at least).
+    /// </summary>
+    public Task<List<Models.HeatHour>?> HeatWeekAsync(DateTime today)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            long from = TimeUtil.ToUnix(today.Date.AddDays(1 - Controls.HeatGrid.Days)), to = TimeUtil.ToUnix(today.Date.AddDays(1));
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            string? Name(long id) => apps.TryGetValue(id, out var a) ? s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name : null;
+            var front = db.GetAppHours(from, to).GroupBy(h => TimeUtil.LocalHourStart(TimeUtil.FromUnix(h.Ts)))
+                .ToDictionary(g => g.Key, g => g.MaxBy(h => h.FgSec) is { FgSec: >= 600 } top ? Name(top.AppId) : null);
+            return db.GetTempHours(from, to).Select(m =>
+            {
+                var hour = TimeUtil.LocalHourStart(TimeUtil.FromUnix(m.Ts));
+                return new Models.HeatHour(hour, m.CpuTemp ?? m.CpuTempMax, m.GpuTemp ?? m.GpuTempMax, front.GetValueOrDefault(hour)) { CpuHigh = m.CpuTempMax, GpuHigh = m.GpuTempMax };
+            }).ToList();
+        });
+    }
 
     /// <summary>Temperatures at rest per day, for today and the days before it (heat_day).</summary>
     public Task<List<HeatDay>?> RestDaysAsync(DateTime today) => Run(db =>

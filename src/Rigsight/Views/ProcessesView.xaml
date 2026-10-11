@@ -61,7 +61,8 @@
             </Style.Triggers>
         </Style>
 
-        <!-- A column heading: a button that sorts. Its arrow says which way on the column sorted by; a faint ↕ on the rest. -->
+        <!-- A column heading: a button that sorts. Its arrow says which way on the column sorted by; the rest show theirs
+             under the pointer only (five ↕ in a row made the line busy). -->
         <Style x:Key="SortHead" TargetType="Button">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
@@ -75,7 +76,7 @@
                     <ControlTemplate TargetType="Button">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
-                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="11" Margin="5,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0.6" />
+                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="11" Margin="5,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0" />
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
@@ -85,6 +86,7 @@
                             </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter TargetName="Arrow" Property="Opacity" Value="1" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -92,87 +94,69 @@
             </Setter>
         </Style>
 
-        <!-- The slim line of the box under an opened app: the whole line is the button that opens the box. -->
-        <Style x:Key="HistoryStrip" TargetType="Button">
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Padding="14,9">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- What opens under an app's row: one box of what is on record about it, then each of its processes. Built
-             only for an app that is open (see the row's template), so the other rows stay as light as they were. -->
+        <!-- What opens under an app's row: one lighter box of what is on record about it (its facts, where its memory
+             is, its memory through today), then each of its processes under their own heading. Built only for an app
+             that is open (see the row's template), so the other rows stay as light as they were. -->
         <DataTemplate x:Key="OpenedApp">
             <StackPanel>
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" Margin="10,2,10,6">
+                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Margin="10,2,10,4" Padding="16,13,16,14">
                     <StackPanel>
-                        <Button Style="{StaticResource HistoryStrip}" CommandParameter="{Binding}" AutomationProperties.Name="History"
-                                Command="{Binding DataContext.ToggleHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                            <DockPanel>
-                                <TextBlock x:Name="Turn" DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="7,1,0,0" />
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding History.ToggleText, FallbackValue=History}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                <!-- The history is being read: the line says what it can meanwhile. -->
-                                <ctl:Spinner DockPanel.Dock="Right" Late="True" Margin="0,0,12,0" Visibility="{Binding History.IsLoading, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                                <Grid>
-                                    <ItemsControl x:Name="Glance" ItemsSource="{Binding History.Glance}" Focusable="False">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,0,24,0" VerticalAlignment="Center">
-                                                    <Run Text="{Binding Label, Mode=OneWay}" /> <Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock x:Name="Opened" Text="History" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Visibility="Collapsed" />
-                                </Grid>
-                            </DockPanel>
-                        </Button>
-                        <!-- Opened in place, in the same box: today's memory beside every fact there is. -->
-                        <DockPanel x:Name="Full" Margin="14,4,14,14" Visibility="Collapsed">
-                            <StackPanel DockPanel.Dock="Left" Width="280" Margin="0,0,28,0" Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
-                                <TextBlock Text="MEMORY TODAY" Style="{StaticResource Caption}" Margin="0,0,0,6" />
-                                <ctl:HourLine Height="64" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
-                                <DockPanel Margin="0,4,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="Now" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                </DockPanel>
-                                <TextBlock FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,4,0,0"
-                                           Text="{Binding History.UsualMB, Converter={StaticResource Megabytes}, StringFormat='Dashed line: its usual, {0}'}"
-                                           Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                            </StackPanel>
-                            <ItemsControl ItemsSource="{Binding History.Facts}" Focusable="False" VerticalAlignment="Top">
+                        <DockPanel>
+                            <!-- The history is being read: the line says what it can meanwhile. -->
+                            <ctl:Spinner DockPanel.Dock="Right" Late="True" Margin="12,0,0,0" VerticalAlignment="Top"
+                                         Visibility="{Binding History.IsLoading, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                            <ItemsControl ItemsSource="{Binding History.Facts}" Focusable="False">
                                 <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel Margin="0,0,16,12">
-                                            <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Value}" Style="{StaticResource Body}" Margin="0,2,0,0" ctl:TrimmedText.ToolTip="True" />
-                                        </StackPanel>
+                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,0,26,4">
+                                            <Run Text="{Binding Label, Mode=OneWay}" /> <Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                        </TextBlock>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </DockPanel>
+                        <DockPanel x:Name="Drawn" Margin="0,10,0,0" LastChildFill="True">
+                            <StackPanel x:Name="Today" DockPanel.Dock="Right" Width="280" Margin="36,0,0,0"
+                                        Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                <TextBlock Text="MEMORY TODAY" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                                <ctl:HourLine Height="44" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
+                                <DockPanel Margin="0,4,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="Now" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock DockPanel.Dock="Left" Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="Dashed: its usual" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
+                                               Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                </DockPanel>
+                            </StackPanel>
+                            <StackPanel x:Name="Split" Visibility="{Binding HasShares, Converter={StaticResource Vis}}">
+                                <TextBlock Text="WHERE ITS MEMORY IS" Style="{StaticResource Caption}" Margin="0,0,0,9" />
+                                <ctl:PartsBar Height="8" Parts="{Binding Shares}" />
+                                <ItemsControl ItemsSource="{Binding Shares}" Focusable="False" Margin="0,10,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,26,4">
+                                                <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,1,8,0"
+                                                           Fill="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                                <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}">
+                                                    <Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Text, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DockPanel>
                     </StackPanel>
                 </Border>
 
+                <!-- The list is set apart from the box by its own heading. -->
+                <TextBlock Text="{Binding CountCaption}" Style="{StaticResource Caption}" Margin="46,8,0,4"
+                           Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}" />
                 <ItemsControl ItemsSource="{Binding Children}" Focusable="False" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -186,6 +170,9 @@
                                         <ColumnDefinition Width="104" />
                                         <ColumnDefinition Width="36" />
                                     </Grid.ColumnDefinitions>
+                                    <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="36,1,0,0"
+                                               Fill="{Binding KindBrush, Converter={StaticResource ResourceBrush}}"
+                                               Visibility="{Binding HasKind, Converter={StaticResource Vis}}" />
                                     <TextBlock Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
                                         <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
                                     </TextBlock>
@@ -216,12 +203,19 @@
                 </ItemsControl>
             </StackPanel>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding History.IsOpen}" Value="True">
-                    <Setter TargetName="Turn" Property="Text" Value="&#xE70E;" />
-                    <Setter TargetName="Glance" Property="Visibility" Value="Collapsed" />
-                    <Setter TargetName="Opened" Property="Visibility" Value="Visible" />
-                    <Setter TargetName="Full" Property="Visibility" Value="Visible" />
+                <!-- Nothing to split (most apps): today's line moves to the left, where the split would be. -->
+                <DataTrigger Binding="{Binding HasShares}" Value="False">
+                    <Setter TargetName="Today" Property="DockPanel.Dock" Value="Left" />
+                    <Setter TargetName="Today" Property="Margin" Value="0" />
                 </DataTrigger>
+                <!-- Neither to draw: the facts alone, without the gap under them. -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding HasShares}" Value="False" />
+                        <Condition Binding="{Binding History.HasChart, FallbackValue=False}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="Drawn" Property="Visibility" Value="Collapsed" />
+                </MultiDataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
@@ -277,7 +271,7 @@
                                     <TextBlock Text="{Binding Most}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                     <!-- Across the whole foot of the tile, edge to edge (the margins undo the card's padding), and stretched
                                          over the readings there are: a page just opened showed a squiggle in one corner. -->
-                                    <ctl:Sparkline Height="40" Margin="-18,10,-18,-12" Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}" Minimum="0" FitToData="True"
+                                    <ctl:Sparkline Height="40" Margin="-18,10,-18,-12" Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}" Minimum="0" FitToData="True" FootRadius="15"
                                                    Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
                                 </StackPanel>
                             </Button>
@@ -287,7 +281,7 @@
 
                 <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
                     <DockPanel>
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,8,12">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,8,20">
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5" IsChecked="{Binding OnlyWindowed}" />
                             <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="Search apps…" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
                                      AutomationProperties.Name="Search the running apps" ctl:Debounce.Text="{Binding Search}" />
@@ -295,7 +289,7 @@
                         </DockPanel>
                         <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes
                              room from the rows that a fixed margin here could only guess at. -->
-                        <Grid x:Name="LiveHead" DockPanel.Dock="Top" Margin="10,0,18,6">
+                        <Grid x:Name="LiveHead" DockPanel.Dock="Top" Margin="10,0,18,9">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="96" />
@@ -310,6 +304,8 @@
                             <Button Grid.Column="3" Style="{StaticResource SortHead}" DataContext="{Binding InternetHeading}" />
                             <Button Grid.Column="4" Style="{StaticResource SortHead}" DataContext="{Binding DiskHeading}" />
                         </Grid>
+                        <!-- A rule between the headings and the rows: the first row's name sat right under "APP". -->
+                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,8,6" />
                         <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
                                    Visibility="{Binding NoneMatch, Converter={StaticResource Vis}}" />
                         <Grid>

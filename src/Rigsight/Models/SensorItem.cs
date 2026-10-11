@@ -107,6 +107,14 @@ public sealed partial class SensorItem : ObservableObject
     /// <summary>Today's range: the agent tracks it all day; readings while the app is open widen it too.</summary>
     public string MinMaxText => Min is null ? "" : $"↓ {Units.Compact(Kind, Min)}   ↑ {Units.Compact(Kind, Max)}";
 
+    /// <summary>Today's range in words under a tile ("36° to 58° today"); empty before there is one.</summary>
+    public string RangeText => Min is double lo && Max is double hi ? $"{Units.Compact(Kind, lo)} to {Units.Compact(Kind, hi)} today" : "";
+
+    /// <summary>Where the reading sits in today's range, 0 (its lowest) to 100 (its highest); the middle when the range has no width yet.</summary>
+    public double RangeShare => Value is double v && Min is double lo && Max is double hi
+        ? hi - lo < 0.5 ? 50 : Math.Clamp((v - lo) / (hi - lo) * 100, 0, 100)
+        : 0;
+
     public void ToggleHidden()
     {
         IsHidden = !IsHidden;
@@ -155,6 +163,8 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(FormattedAverage));
         OnPropertyChanged(nameof(MinMaxText));
+        OnPropertyChanged(nameof(RangeText));
+        OnPropertyChanged(nameof(RangeShare));
         Version++;
     }
 
@@ -166,6 +176,8 @@ public sealed partial class SensorItem : ObservableObject
         OnPropertyChanged(nameof(FormattedMin));
         OnPropertyChanged(nameof(FormattedMax));
         OnPropertyChanged(nameof(MinMaxText));
+        OnPropertyChanged(nameof(RangeText));
+        OnPropertyChanged(nameof(RangeShare));
     }
 
     /// <summary>Re-evaluates every formatted string (e.g. after switching °C/°F).</summary>
