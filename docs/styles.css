@@ -136,6 +136,9 @@ code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-r
   display: block; height: 100%; width: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,.1);
   background: #0a0a0a; opacity: .58; box-shadow: 0 20px 60px -20px rgba(0,0,0,.9);
 }
+/* A card a phone can't see at the start sits in a <picture> with an empty stand-in; the card itself stays the row's item. */
+.track picture { display: contents; }
+.track source { display: none; }
 .hero.paused .lane { animation-play-state: paused; }
 .veil {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;

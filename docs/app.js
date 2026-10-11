@@ -105,6 +105,13 @@
   new IntersectionObserver(([e]) => { heroOn = e.isIntersecting; heroMotion(); }, { threshold: 0.02 }).observe(hero);
   document.addEventListener("visibilitychange", heroMotion);
 
+  // On a phone the cards off to the side start empty, so the first screen isn't waiting on twenty pictures.
+  // They get theirs once the page has loaded (or after two and a half seconds), well before they slide into view.
+  let filled = false;
+  const fillHero = () => { if (filled) return; filled = true; hero.querySelectorAll("picture > source").forEach(s => s.remove()); };
+  if (document.readyState === "complete") fillHero(); else addEventListener("load", fillHero);
+  setTimeout(fillHero, 2500);
+
   // ── The overlay clip (real footage): loaded only when shown, plays while on screen, poster with reduced motion ──
   const clips = [...document.querySelectorAll("video[data-src]")];
   if (!reduceMotion && clips.length) {
