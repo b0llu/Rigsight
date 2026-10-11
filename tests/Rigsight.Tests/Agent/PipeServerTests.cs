@@ -87,6 +87,8 @@ internal static class Wait
 }
 
 /// <summary>The agent's pipe server, on a pipe of each test's own (never the real agent's).</summary>
+// Its connects time out when the PC is busy: the gate runs it after the tests that run side by side.
+[Trait("Alone", "timing")]
 public sealed class PipeServerTests : IDisposable
 {
     private readonly string _name = Wait.PipeName();

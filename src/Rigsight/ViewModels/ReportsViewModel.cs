@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData), nameof(ShowEmpty),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData), nameof(ShowEmpty), nameof(ShowData),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -48,8 +48,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         foreach (var name in new[]
                  {
                      nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText),
-                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights), nameof(HasMoreInsights), nameof(MoreInsightsText),
-                     nameof(MorePeaks), nameof(HasMorePeaks),
+                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights),
                  })
             OnPropertyChanged(name);
     }
@@ -132,24 +131,11 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         return parts;
     }
 
-    // ── What stood out: the first few, the rest on request ──
-
-    /// <summary>How many lines show before "Show more".</summary>
-    public const int InsightsShown = 5;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShownInsights), nameof(MoreInsightsText))]
-    private bool _allInsights;
+    // ── What stood out ──
 
     // The totals are the tiles above: not said again as the first line.
-    private List<Insight> Lines => [.. Insights.Where(i => i.Key != "screen")];
     private List<Insight> _shownInsights = [];
-    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, AllInsights ? Lines : [.. Lines.Take(InsightsShown)]);
-    public bool HasMoreInsights => Lines.Count > InsightsShown;
-    public string MoreInsightsText => AllInsights ? "Show fewer" : $"Show {Lines.Count - InsightsShown} more";
-
-    [RelayCommand]
-    private void ToggleInsights() => AllInsights = !AllInsights;
+    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => i.Key != "screen")]);
 
     // ── What changed on the PC in the period ──
 
@@ -219,14 +205,38 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     /// <summary>The first period has been read: until then the page says it's loading, not that nothing was recorded.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowLoading))]
     private bool _ready;
 
-    public bool ShowEmpty => Ready && !HasData;
+    public bool ShowEmpty => Ready && !HasData && !Switching;
 
-    public string Title => Report?.Title ?? "";
+    /// <summary>
+    /// Another period was picked and is taking a moment to read (a week or a month, the first time): the page shows
+    /// that it's loading instead of the period it is leaving.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowData), nameof(ShowLoading), nameof(Title), nameof(Subtitle))]
+    private bool _switching;
 
-    public string Subtitle => Report is null ? "" : Range == ReportRange.Custom
+    public bool ShowData => HasData && !Switching;
+    public bool ShowLoading => !Ready || Switching;
+
+    /// <summary>How long a newly picked period may take before the page says it's loading (one read at once never blanks it).</summary>
+    internal static TimeSpan SwitchDelay { get; set; } = TimeSpan.FromMilliseconds(150);
+
+    // The period the page shows now (not the one being read).
+    private (ReportRange Range, DateTime Anchor, DateTime From, DateTime To)? _shown;
+
+    private async Task SwitchingAfterAsync(int id)
+    {
+        await Task.Delay(SwitchDelay);
+        if (id == _loadId && IsLoading) Switching = true;
+    }
+
+    // While another period is read the heading is empty: the one it has is the period being left.
+    public string Title => Switching ? "" : Report?.Title ?? "";
+
+    public string Subtitle => Report is null || Switching ? "" : Range == ReportRange.Custom
         ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Range, Report.From);
 
     /// <summary>Explains short weeks/months while Rigsight is new.</summary>
@@ -262,24 +272,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public List<SessionInfo> TopSessions => _topSessions = Kept.Or(_topSessions,
         Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [], Kept.Values);
 
-    private List<PeakRow> _peaks = [], _morePeaks = [];
+    private List<PeakRow> _peaks = [];
 
-    /// <summary>The period's highs most people look for: temperatures, the graphics card's power, memory, the fastest download.</summary>
-    public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks(more: false));
+    /// <summary>The period's highs: temperatures, the graphics card's power, memory, the fastest download, then core voltages and CPU power.</summary>
+    public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks());
 
-    /// <summary>The rest (core voltages, CPU power), shown on request.</summary>
-    public List<PeakRow> MorePeaks => _morePeaks = Kept.Or(_morePeaks, BuildPeaks(more: true));
-    public bool HasMorePeaks => MorePeaks.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MorePeaksText))]
-    private bool _allPeaks;
-    public string MorePeaksText => AllPeaks ? "Show fewer" : "Voltages and CPU power";
-
-    [RelayCommand]
-    private void TogglePeaks() => AllPeaks = !AllPeaks;
-
-    private List<PeakRow> BuildPeaks(bool more)
+    private List<PeakRow> BuildPeaks()
     {
         var r = Report;
         if (r is null) return [];
@@ -291,19 +289,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);
         var plain = Controls.ChartPaint.TextBrush;
 
-        if (more)
-        {
-            if (r.CpuVoltPeak is { } d) rows.Add(new("CPU core voltage", $"{d.Value:0.000} V", When(d), d.App, plain));
-            if (r.GpuVoltPeak is { } e) rows.Add(new("GPU core voltage", $"{e.Value:0.000} V", When(e), e.App, plain));
-            if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-min avg)", $"{f.Value:0} W", When(f), f.App, plain));
-            return rows;
-        }
         if (r.CpuTempPeak is { } a) rows.Add(new("CPU temperature", Units.TempShort(a.Value), When(a), a.App, TempBrush(a.Value)));
         if (r.GpuTempPeak is { } b) rows.Add(new("GPU temperature", Units.TempShort(b.Value), When(b), b.App, TempBrush(b.Value)));
         if (r.GpuHotPeak is { } c) rows.Add(new("GPU hot spot", Units.TempShort(c.Value), When(c), c.App, TempBrush(c.Value - 10)));
         if (r.GpuPowerPeak is { } g) rows.Add(new("GPU power (1-min avg)", $"{g.Value:0} W", When(g), g.App, plain));
         if (r.RamPeak is { } m) rows.Add(new("Memory in use", $"{m.Value:0.0} GB", When(m), m.App, plain));
         if (r.Net is { TopSpeed: > 0, TopSpeedAt: { } at } net) rows.Add(new("Fastest download", Units.Speed(net.TopSpeed.Value), At(at), net.TopSpeedApp, plain));
+        if (r.CpuVoltPeak is { } d) rows.Add(new("CPU core voltage", $"{d.Value:0.000} V", When(d), d.App, plain));
+        if (r.GpuVoltPeak is { } e) rows.Add(new("GPU core voltage", $"{e.Value:0.000} V", When(e), e.App, plain));
+        if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-min avg)", $"{f.Value:0} W", When(f), f.App, plain));
         return rows;
     }
 
@@ -352,6 +346,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var range = Range;
         var anchor = Anchor;
         var (customFrom, customTo) = (CustomFrom, CustomTo);
+        var period = (range, anchor, range == ReportRange.Custom ? customFrom : default, range == ReportRange.Custom ? customTo : default);
+        if (Ready && _shown != period) _ = SwitchingAfterAsync(id);
         var tracked = await reports.TrackedDaysAsync();
         var first = await reports.FirstDayAsync();
         var report = range != ReportRange.Custom ? await reports.BuildAsync(range, anchor)
@@ -372,7 +368,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Report = report;
         Crashes = crashes;
         Changes = Kept.Or(Changes, ChangeLines(changed));
+        _shown = period;
         IsLoading = false;
+        Switching = false;
         Ready = true;
     }
 

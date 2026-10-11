@@ -138,10 +138,10 @@ public static class AppCatalog
                 var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
                 var desc = info.FileDescription?.Trim();
                 if (!string.IsNullOrWhiteSpace(desc) && desc.Length <= 48 && !IsGenericName(desc))
-                    return Spaced(desc, path);
+                    return GameBehindLauncher(exe, desc, path) ?? Spaced(desc, path);
                 var product = info.ProductName?.Trim();
                 if (!string.IsNullOrWhiteSpace(product) && product.Length <= 48 && !IsGenericName(product))
-                    return Spaced(product, path);
+                    return GameBehindLauncher(exe, product, path) ?? Spaced(product, path);
             }
             catch
             {
@@ -151,6 +151,15 @@ public static class AppCatalog
         if (!NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase) && GameName(path) is { Length: <= 48 } game) return game;
         return FallbackName(exe);
     }
+
+    /// <summary>
+    /// The game's name for a game whose file is named after its maker's launcher: ARC Raiders' PioneerGame.exe calls
+    /// itself "Embark Game Launcher". Only in a game library, and only where the file's own name doesn't say launcher
+    /// (a real one, "RockstarLauncher.exe" beside a game, keeps its name). Null where that isn't so.
+    /// </summary>
+    public static string? GameBehindLauncher(string exe, string name, string? path) =>
+        name.Contains("Launcher", StringComparison.OrdinalIgnoreCase) && !exe.Contains("launcher", StringComparison.OrdinalIgnoreCase)
+        && !NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase) && GameName(path) is { Length: <= 48 } game ? game : null;
 
     /// <summary>
     /// The name as a folder above the exe spells it, when that is the same name with its words apart: a game whose

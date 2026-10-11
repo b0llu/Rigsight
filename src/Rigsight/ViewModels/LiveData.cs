@@ -277,6 +277,10 @@ public sealed partial class LiveData : ObservableObject
     // ── Today ─────────────────────────────────────────────────────────────
     [ObservableProperty] private TodayInfo _today = new();
 
+    /// <summary>Today's totals have come from the agent, or no agent is there to send them: until then Home's figures are loading, not nought.</summary>
+    [ObservableProperty] private bool _todayIn;
+    partial void OnTodayChanged(TodayInfo value) => TodayIn = true;
+
     // ── Processes ─────────────────────────────────────────────────────────
     public ObservableCollection<ProcRow> Procs { get; } = [];
 
@@ -532,7 +536,11 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private bool _appsPending = true;
 
     /// <summary>Nothing more to wait for: the agent isn't there, or hasn't sent anything for too long.</summary>
-    public void StopWaiting() => ReadingsPending = AppsPending = false;
+    public void StopWaiting()
+    {
+        ReadingsPending = AppsPending = false;
+        TodayIn = true; // no agent to send them: the figures as they are, not a loader for ever
+    }
 
     public void AgentGone()
     {

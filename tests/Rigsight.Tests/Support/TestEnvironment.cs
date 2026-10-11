@@ -17,8 +17,10 @@ internal static class TestEnvironment
         var runs = Path.Combine(Path.GetTempPath(), "rigsight-tests");
         DataDir = Path.Combine(runs, $"{DateTime.Now:yyyyMMdd-HHmmss}-{Environment.ProcessId}");
         Directory.CreateDirectory(DataDir);
-        // Runs don't pile up: the last two are kept (screenshots, logs), older ones go.
-        foreach (var old in Directory.GetDirectories(runs).Where(d => d != DataDir).OrderDescending().Skip(2))
+        // Runs don't pile up: the last two are kept (screenshots, logs), older ones go. Never one of the last hour:
+        // the gate runs the tests as several processes side by side, and each of them comes through here.
+        foreach (var old in Directory.GetDirectories(runs).Where(d => d != DataDir).OrderDescending().Skip(2)
+                     .Where(d => DateTime.Now - Directory.GetCreationTime(d) > TimeSpan.FromHours(1)))
         {
             try { Directory.Delete(old, recursive: true); }
             catch (IOException) { } // still in use by another test run

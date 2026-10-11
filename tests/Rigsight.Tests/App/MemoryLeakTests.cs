@@ -16,6 +16,8 @@ namespace Rigsight.Tests.App;
 /// of an app that was closed again. And going round every page and theme doesn't make the heap grow.
 /// </summary>
 [Collection("UI")]
+// Measures time or memory: the gate runs it after the tests that run side by side, with the PC otherwise at rest.
+[Trait("Alone", "timing")]
 public sealed class MemoryLeakTests(AppHost host) : IClassFixture<AppHost>
 {
     private static Dictionary<string, FrameworkElement> Views(MainWindow window) =>

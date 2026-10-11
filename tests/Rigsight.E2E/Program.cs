@@ -137,15 +137,14 @@ internal static class Program
             double agentAloneMb = alone[agent].PrivateEndMb;
 
             // ── App ──
-            Step("Opening the app");
-            sw.Restart();
-            Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = false, WorkingDirectory = bin })!.Dispose();
-            // Rigsight.exe starts itself again with its GC setting (see Program.cs in the app): find that copy.
-            if (!WaitFor(() => (app = FindApp(appExe)) is not null, 20_000)) throw new Exception("The app's window didn't appear");
-            var ui = new AppUi(app!);
-            ui.MoveOffScreen();
-            if (!WaitFor(() => ui.Has("Today so far"), 30_000)) throw new Exception("Home didn't show today's history");
-            Record("app.startup_ms", sw.ElapsedMilliseconds, "ms", "App start until Home shows today's history", budget: 6000);
+            Step("Opening the app, as from the tray");
+            var opened = OpenToHome(appExe, bin);
+            app = opened.App;
+            var ui = opened.Ui;
+            Record("app.startup_ms", opened.ShownMs, "ms", "App start until Home is on screen", budget: 6000);
+            Record("app.home.filled_ms", opened.FilledMs, "ms", "App start until Home has its history", budget: 6000);
+            Console.WriteLine($"  Home on screen after {opened.ShownMs} ms, with its history after {opened.FilledMs} ms");
+            foreach (var line in opened.FalseEmpties) Fail($"Home said \"{line}\" while it was still loading (a loader belongs there)");
             if (!WaitFor(() => ui.HasSidebarReadings(), 20_000)) Fail("The sidebar never showed live CPU/GPU readings (no data from the agent?)");
 
             Step("Visiting every page");
@@ -268,6 +267,38 @@ internal static class Program
             var after = ProcessSnapshot.Take(agent);
             Record("agent.after_app.private_mb", after.PrivateMb, "MB", "Agent memory 25 s after the app closed", budget: agentAloneMb + 25);
             Record("agent.after_app.growth_mb", after.PrivateMb - agentAloneMb, "MB", "…more than before the app was opened", budget: 20);
+
+            // ── Open it again: what opening from the tray is on every day but the first ──
+            Step("Opening the app again");
+            var kept = KeptIcons();
+            if (kept.Count == 0) Fail("No app icons were kept from the first time the app was open (they'd be read from every program again on each start)");
+            var again = OpenToHome(appExe, bin);
+            app = again.App;
+            Record("app.reopen.filled_ms", again.FilledMs, "ms", "Opening the app again until Home has its history", budget: 5000);
+            Console.WriteLine($"  Home on screen after {again.ShownMs} ms, with its history after {again.FilledMs} ms");
+            foreach (var line in again.FalseEmpties) Fail($"Opened again, Home said \"{line}\" while it was still loading");
+            Thread.Sleep(1500);
+            // An icon read from its program is written to its kept file: one written again was read again.
+            int reread = KeptIcons().Count(now => kept.TryGetValue(now.Key, out var before) && before != now.Value);
+            if (reread > 0) Fail($"{reread} app icon(s) were read from their programs again on the second open, not from the kept pictures");
+            again.Ui.Close();
+            if (!app.WaitForExit(10_000)) Fail("The app didn't exit within 10 s of closing its window (second time)");
+
+            // ── And once with the history held up: on a quick PC Home has its history before anything can look at it
+            // (both opens above found it filled at the first look), so what it shows while it waits is seen here. ──
+            Step("Opening the app with the history held up (what Home shows while it waits)");
+            var held = OpenToHome(appExe, bin, slowMs: 1500);
+            app = held.App;
+            Console.WriteLine($"  Home looked at {held.LooksWhileLoading} time(s) while loading; with its history after {held.FilledMs} ms");
+            foreach (var line in held.FalseEmpties) Fail($"Home said \"{line}\" while it was still loading (a loader belongs there)");
+            if (held.LooksWhileLoading == 0)
+            {
+                // A build from before the hold-up existed opens as quickly as ever: nothing to look at, and no failure of its own.
+                if (version >= new Version(0, 21, 1)) Fail("Home was never seen while loading, so what it shows then wasn't checked");
+                else Notes.Add($"v{version} can't hold its history up: what Home shows while loading wasn't checked");
+            }
+            held.Ui.Close();
+            if (!app.WaitForExit(10_000)) Fail("The app didn't exit within 10 s of closing its window (third time)");
 
             // ── Quit the agent ──
             Step("Asking the agent to quit");
@@ -399,6 +430,49 @@ internal static class Program
     /// Starts the agent elevated, telling it its data folder (UAC doesn't pass the environment on): through the admin
     /// helper when tools\test.ps1 -Admin has one running (no prompt), else with the Windows prompt.
     /// </summary>
+    /// <summary>
+    /// Opens the app the way the tray does (its program started, nothing else) and waits until Home has its history:
+    /// the recap card showing its figures, or saying there are none. Gives how long until Home was on screen, how
+    /// long until it had its history, and every "nothing here" line it showed on the way that wasn't so once it had.
+    /// </summary>
+    /// <param name="slowMs">Each read of the history is held up this long (see ReportService.SlowBy), so the wait can be looked at.</param>
+    private static (Process App, AppUi Ui, long ShownMs, long FilledMs, List<string> FalseEmpties, int LooksWhileLoading) OpenToHome(string appExe, string bin, int slowMs = 0)
+    {
+        var sw = Stopwatch.StartNew();
+        var start = new ProcessStartInfo(appExe) { UseShellExecute = false, WorkingDirectory = bin };
+        if (slowMs > 0) start.Environment["RIGSIGHT_SLOW_HISTORY_MS"] = slowMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Process.Start(start)!.Dispose();
+        // Rigsight.exe starts itself again with its GC setting (see Program.cs in the app): find that copy.
+        Process? app = null;
+        if (!WaitFor(() => (app = FindApp(appExe)) is not null, 20_000)) throw new Exception("The app's window didn't appear");
+        var ui = new AppUi(app!);
+        ui.MoveOffScreen();
+        long shown = -1;
+        int looks = 0;
+        var empties = new HashSet<string>(StringComparer.Ordinal);
+        List<string> texts;
+        while (true)
+        {
+            texts = ui.Texts();
+            if (shown < 0 && texts.Contains("Today so far")) shown = sw.ElapsedMilliseconds;
+            if (AppUi.HomeFilled(texts)) break;
+            if (shown >= 0) looks++;
+            empties.UnionWith(texts.Where(AppUi.SaysNothingHere));
+            if (sw.ElapsedMilliseconds > 30_000) throw new Exception("Home didn't show its history within 30 s");
+            Thread.Sleep(25);
+        }
+        long filled = sw.ElapsedMilliseconds;
+        // Still said now that the history is in: true, not a page caught half loaded.
+        empties.ExceptWith(texts);
+        return (app!, ui, shown < 0 ? filled : shown, filled, [.. empties], looks);
+    }
+
+    /// <summary>The app icons kept in the data folder, each with when it was written.</summary>
+    private static Dictionary<string, DateTime> KeptIcons() =>
+        Directory.Exists(RigsightPaths.IconCache)
+            ? Directory.GetFiles(RigsightPaths.IconCache, "*.png").ToDictionary(f => Path.GetFileName(f), File.GetLastWriteTimeUtc)
+            : [];
+
     private static Process StartElevated(string agentExe, string data, string bin)
     {
         if (StartThroughHelper(agentExe, data) is { } helped) return helped;
@@ -548,9 +622,9 @@ internal static class Program
         var ui = new AppUi(app!);
         if (!appWasOpen)
         {
-            if (!WaitFor(() => ui.Has("Today so far"), 30_000))
-                Notes.Add("The installed app didn't show Home within 30 s (it may open on another start page)");
-            Record("installed.app.startup_ms", sw.ElapsedMilliseconds, "ms", "Installed app start until Home shows today", budget: 6000);
+            if (!WaitFor(() => AppUi.HomeFilled(ui.Texts()), 30_000))
+                Notes.Add("The installed app didn't show Home with its history within 30 s (it may open on another start page)");
+            Record("installed.app.startup_ms", sw.ElapsedMilliseconds, "ms", "Installed app start until Home has its history", budget: 6000);
             Thread.Sleep(3000);
         }
         Step($"Installed v{version}: app open ({seconds} s)");
@@ -851,6 +925,32 @@ internal sealed class AppUi(Process app)
     private AutomationElement Root => AutomationElement.FromHandle(app.MainWindowHandle);
 
     public bool Has(string name) => Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)) is not null;
+
+    /// <summary>Every piece of text in the window as it is now.</summary>
+    public List<string> Texts()
+    {
+        try
+        {
+            return [.. Root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
+                .Cast<AutomationElement>().Select(e => { try { return e.Current.Name; } catch (ElementNotAvailableException) { return ""; } })];
+        }
+        catch (Exception ex) when (ex is ElementNotAvailableException or COMException or InvalidOperationException)
+        {
+            // The window is being built or rebuilt under the question: nothing to read this time, ask again.
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Home has its history: the recap card shows the period's figures. (Not its "No history for…" line: a Home that
+    /// said so before it had read anything is the very thing looked for, and the history used here always has a recap.)
+    /// </summary>
+    public static bool HomeFilled(IEnumerable<string> texts) => texts.Any(t => t.StartsWith("active · PC on for", StringComparison.Ordinal));
+
+    /// <summary>A line a card of Home shows when it has nothing: only true once the history has been read.</summary>
+    public static bool SaysNothingHere(string text) =>
+        text.StartsWith("No history for", StringComparison.Ordinal) || text.StartsWith("Nothing out of the ordinary", StringComparison.Ordinal)
+        || text.StartsWith("Nothing has changed", StringComparison.Ordinal) || text.StartsWith("Your most-used apps show up here", StringComparison.Ordinal);
 
     /// <summary>The sidebar's CPU/GPU readings show a degree sign once the agent sends live values.</summary>
     public bool HasSidebarReadings() =>

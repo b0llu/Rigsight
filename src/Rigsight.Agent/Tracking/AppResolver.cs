@@ -121,11 +121,13 @@ internal sealed class AppResolver
         foreach (var a in db.LoadApps())
         {
             // Names saved by older versions ("Microsoft® Windows® Operating System" for a screenshot, or a game's file
-            // name where its library now gives the real one, or "Grounded2" from the folder "Grounded 2") get fixed once.
+            // name where its library now gives the real one, or "Grounded2" from the folder "Grounded 2", or a game
+            // named after its maker's launcher) get fixed once.
             var name = a.Name;
             if (AppCatalog.KnownName(a.Exe) is { } known && known != name) name = known;
             else if (AppCatalog.IsGenericName(name) || name == AppCatalog.FallbackName(a.Exe) && AppCatalog.GameName(a.Path) is not null)
                 name = AppCatalog.ResolveName(a.Exe, a.Path);
+            else if (AppCatalog.GameBehindLauncher(a.Exe, name, a.Path) is { } game) name = game;
             else name = AppCatalog.Spaced(name, a.Path);
             if (name != a.Name)
             {

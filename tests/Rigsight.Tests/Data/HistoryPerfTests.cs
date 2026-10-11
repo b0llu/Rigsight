@@ -35,6 +35,8 @@ public sealed class PerfCollection : ICollectionFixture<HeavyHistory>;
 /// </summary>
 [Collection("Perf")]
 [Trait("Category", "Perf")]
+// Measures time or memory: the gate runs it after the tests that run side by side, with the PC otherwise at rest.
+[Trait("Alone", "timing")]
 public sealed class HistoryPerfTests(HeavyHistory heavy)
 {
     private const int Runs = 5;

@@ -236,6 +236,20 @@ public sealed class AppCatalogTests
         Assert.Equal("Crashreportclient", AppCatalog.ResolveName("CrashReportClient.exe", Path.Combine(folder, "CrashReportClient.exe")));
     }
 
+    [Theory]
+    // ARC Raiders: the game's own file calls itself its maker's launcher.
+    [InlineData("PioneerGame.exe", "Embark Game Launcher", @"Z:\nowhere\steamapps\common\Arc Raiders\PioneerGame.exe", "Arc Raiders")]
+    [InlineData("game.exe", "Some Launcher", @"C:\Program Files\Epic Games\Fortnite\game.exe", "Fortnite")]
+    // A launcher's own program, a game outside a library, a helper, a name that says nothing of a launcher.
+    [InlineData("RockstarLauncher.exe", "Rockstar Games Launcher", @"E:\SteamLibrary\steamapps\common\Grand Theft Auto V\RockstarLauncher.exe", null)]
+    [InlineData("EpicGamesLauncher.exe", "Epic Games Launcher", @"C:\Program Files\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe", null)]
+    [InlineData("PioneerGame.exe", "Embark Game Launcher", @"C:\Program Files\Embark\PioneerGame.exe", null)]
+    [InlineData("setup.exe", "Game Launcher Setup", @"E:\SteamLibrary\steamapps\common\Arc Raiders\setup.exe", null)]
+    [InlineData("Steep.exe", "Steep", @"E:\SteamLibrary\steamapps\common\Steep\Steep.exe", null)]
+    [InlineData("PioneerGame.exe", "Embark Game Launcher", null, null)]
+    public void A_game_named_after_its_makers_launcher_takes_the_games_name(string exe, string name, string? path, string? expected) =>
+        Assert.Equal(expected, AppCatalog.GameBehindLauncher(exe, name, path));
+
     [Fact]
     public void Without_steams_record_the_game_folder_names_it() =>
         Assert.Equal("Rematch", AppCatalog.ResolveName("RuntimeClient-Win64-Shipping.exe", SteamGame(null)));

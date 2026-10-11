@@ -23,6 +23,24 @@ public sealed class HistoryPageTests
     // ── Home ─────────────────────────────────────────────────────────────
 
     [Fact]
+    public void Home_refreshed_twice_at_once_never_says_there_is_no_recap_before_it_is_read()
+    {
+        // The window refreshes Home when it opens and again when the agent answers. The second used to finish first
+        // and call the page loaded while the first was still reading the recap: "No history for yesterday yet."
+        var (_, reports, live) = Setup();
+        var home = Ui.Run(() => new HomeViewModel(reports, live));
+        bool saidEmpty = false;
+        Ui.Run(() => home.PropertyChanged += (_, _) => saidEmpty |= home.ShowRecapEmpty);
+        Kit.Wait(() => Task.WhenAll(home.RefreshAsync(), home.RefreshAsync(), home.RefreshAsync()));
+        Ui.Run(() =>
+        {
+            Assert.True(home.Loaded);
+            Assert.True(home.RecapHasData);
+            Assert.False(saidEmpty);
+        });
+    }
+
+    [Fact]
     public void Home_shows_today_and_yesterday()
     {
         var (_, reports, live) = Setup();
@@ -30,6 +48,9 @@ public sealed class HistoryPageTests
         Ui.Run(() =>
         {
             Assert.False(home.ShowLearning); // not before history has loaded
+            // Nor does any card say it has nothing: they show that they're loading.
+            Assert.False(home.ShowRecapEmpty || home.ShowNoInsights || home.ShowNoChanges);
+            Assert.Equal("", home.TodayInternetLine);
             Assert.Empty(home.TodayTopApps);
             Assert.Equal(1, home.TodayTopMax);
             Assert.False(home.HasTodayData);
@@ -38,6 +59,9 @@ public sealed class HistoryPageTests
         Ui.Run(() =>
         {
             Assert.True(home.Loaded);
+            Assert.Equal(!home.RecapHasData, home.ShowRecapEmpty);
+            Assert.Equal(home.TodayInsights.Count == 0, home.ShowNoInsights);
+            Assert.Equal(!home.HasChanges, home.ShowNoChanges);
             Assert.True(home.HasTodayData);
             Assert.True(home.RecapHasData);
             Assert.Equal(RecapPeriod.Yesterday, home.Period);
@@ -96,6 +120,42 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void Reports_says_it_is_loading_while_another_period_is_read()
+    {
+        var (_, reports, _) = Setup();
+        var vm = Ui.Run(() => new ReportsViewModel(reports));
+        var delay = ReportsViewModel.SwitchDelay;
+        try
+        {
+            ReportsViewModel.SwitchDelay = TimeSpan.Zero;
+            // The first read has the page's own loader, and the minute's re-read of the same period shows nothing.
+            Ui.Run(() => { _ = vm.LoadAsync(); Assert.False(vm.Switching); Assert.True(vm.ShowLoading); });
+            Kit.Wait(() => vm.LoadAsync());
+            Ui.Run(() => { Assert.True(vm.ShowData); Assert.False(vm.ShowLoading); _ = vm.LoadAsync(); Assert.False(vm.Switching); });
+            // A week picked: the day's figures go at once, and the week's come with the loader gone.
+            Ui.Run(() =>
+            {
+                vm.Range = ReportRange.Week;
+                Assert.True(vm.Switching);
+                Assert.True(vm.ShowLoading);
+                Assert.False(vm.ShowData);
+                Assert.False(vm.ShowEmpty);
+                Assert.Equal(("", ""), (vm.Title, vm.Subtitle)); // not the day's heading over a week on its way
+            });
+            Kit.Wait(() => vm.LoadAsync());
+            Ui.Run(() =>
+            {
+                Assert.False(vm.Switching);
+                Assert.False(vm.ShowLoading);
+                Assert.Equal(ReportRange.Week, vm.Report!.Range);
+                Assert.NotEqual("", vm.Title);
+                Assert.Equal(vm.HasData, vm.ShowData);
+            });
+        }
+        finally { ReportsViewModel.SwitchDelay = delay; }
+    }
+
+    [Fact]
     public void Reports_shows_the_period_against_something()
     {
         var (_, reports, _) = Setup();
@@ -112,21 +172,15 @@ public sealed class HistoryPageTests
             Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No crashes or sudden shutdowns");
             Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
             Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
-            // The totals are the tiles: not the first line of the list as well. Five lines, the rest on request.
+            // The totals are the tiles: not the first line of the list as well. Every other line shows, with no button to press.
             Assert.DoesNotContain(vm.ShownInsights, i => i.Key == "screen");
-            Assert.True(vm.ShownInsights.Count <= ReportsViewModel.InsightsShown);
-            int all = vm.Insights.Count(i => i.Key != "screen");
-            Assert.Equal(all > ReportsViewModel.InsightsShown, vm.HasMoreInsights);
-            vm.ToggleInsightsCommand.Execute(null);
-            Assert.Equal(all, vm.ShownInsights.Count);
-            Assert.Equal("Show fewer", vm.MoreInsightsText);
-            // Temperatures first; the voltages and the CPU's power wait behind a button.
-            Assert.DoesNotContain(vm.Peaks, p => p.Label.Contains("voltage"));
-            Assert.All(vm.MorePeaks, p => Assert.True(p.Label.Contains("voltage") || p.Label.StartsWith("CPU power", StringComparison.Ordinal)));
-            Assert.Equal(vm.MorePeaks.Count > 0, vm.HasMorePeaks);
-            Assert.Equal("Voltages and CPU power", vm.MorePeaksText);
-            vm.TogglePeaksCommand.Execute(null);
-            Assert.True(vm.AllPeaks);
+            Assert.Equal(vm.Insights.Count(i => i.Key != "screen"), vm.ShownInsights.Count);
+            // One list of highs: temperatures first, the voltages and the CPU's power after them.
+            var r = vm.Report!;
+            Assert.Equal(r.CpuVoltPeak is not null, vm.Peaks.Any(p => p.Label == "CPU core voltage"));
+            Assert.Equal(r.CpuPowerPeak is not null, vm.Peaks.Any(p => p.Label.StartsWith("CPU power", StringComparison.Ordinal)));
+            if (vm.Peaks.FindIndex(p => p.Label.Contains("voltage")) is >= 0 and var volt)
+                Assert.True(vm.Peaks.FindLastIndex(p => p.Label.Contains("temperature")) < volt);
             Assert.True(vm.Changes.Count <= ReportsViewModel.ChangesShown);
             Assert.Equal(vm.Changes.Count > 0, vm.HasChanges);
         });

@@ -30,7 +30,7 @@ public sealed class WhatsNewTests
     }
 
     [Fact]
-    public void Entries_are_newest_first_short_and_plain()
+    public void Entries_are_newest_first_one_sentence_each_and_plain()
     {
         var versions = Changelog.Releases.Select(r => r.Version).ToList();
         Assert.Equal(versions.OrderDescending(), versions);
@@ -40,7 +40,7 @@ public sealed class WhatsNewTests
             Assert.NotEmpty(r.Sections);
             Assert.All(r.Sections.SelectMany(s => s.Items), item =>
             {
-                Assert.InRange(item.Length, 10, 90);          // a headline, not an explanation
+                Assert.InRange(item.Length, 10, 160);         // a sentence that says what changed, not a paragraph
                 Assert.EndsWith(".", item);
                 Assert.DoesNotContain("GitHub", item);         // in-app text never names it
             });
@@ -119,6 +119,28 @@ public sealed class WhatsNewTests
         });
     }
 
+    [Fact]
+    public void A_line_says_what_changed_not_that_something_is_better()
+    {
+        // The ways a line says nothing: a bare "better", "smarter", "tidier", "clearer wording" with no word on what is
+        // different now (see the note on Changelog for how a line is written).
+        string[] empty = ["Better ", "Improved ", "Smarter ", "A tidier ", "A neater ", "A cleaner ", "Calmer ", "Clearer wording", "Safer ", "Various ", "Minor "];
+        var lines = Changelog.Releases.SelectMany(r => r.Sections.SelectMany(s => s.Items).Concat(r.Feature?.Points ?? []));
+        Assert.All(lines, line =>
+        {
+            Assert.DoesNotContain(empty, start => line.StartsWith(start, StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain("processor", line, StringComparison.OrdinalIgnoreCase); // CPU, as the app says
+            Assert.False(line.Contains("  "), line);
+            Assert.True(char.IsUpper(line[0]) || char.IsDigit(line[0]) || line[0] == '"', line);
+        });
+        // No line twice in one release, and none of a release's lines repeats its feature card.
+        Assert.All(Changelog.Releases, r =>
+        {
+            var all = r.Sections.SelectMany(s => s.Items).Concat(r.Feature?.Points ?? []).ToList();
+            Assert.Equal(all.Count, all.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        });
+    }
+
     // ---- A headline feature ----
 
     [Fact]
@@ -129,11 +151,11 @@ public sealed class WhatsNewTests
         Assert.All(features, f =>
         {
             Assert.InRange(f.Name.Length, 3, 24);
-            Assert.InRange(f.Pitch.Length, 10, 70);
+            Assert.InRange(f.Pitch.Length, 10, 110);
             Assert.InRange(f.Points.Length, 2, 4);
             Assert.All(f.Points, p =>
             {
-                Assert.InRange(p.Length, 10, 90);
+                Assert.InRange(p.Length, 10, 130);
                 Assert.EndsWith(".", p);
             });
             Assert.Contains(f.Page, Pages); // a page that exists

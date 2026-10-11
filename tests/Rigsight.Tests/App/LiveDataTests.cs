@@ -10,6 +10,8 @@ namespace Rigsight.Tests.App;
 
 /// <summary>Live sensor data: the hello (sensor list, key sensors, history), ticks, today's ranges, and the All sensors page.</summary>
 [Collection("UI")]
+// Uses the clipboard, which the whole PC shares: not beside another test process.
+[Trait("Alone", "clipboard")]
 public sealed class LiveDataTests
 {
     private static readonly long T0 = TimeUtil.NowUnixMs() - 60_000;
@@ -207,6 +209,7 @@ public sealed class LiveDataTests
         Ui.Run(() =>
         {
             live.LoadHello(new AgentMessage { T = "hello", Today = new TodayInfo { ActiveSec = 1234, TopApp = "Steam" } });
+            Assert.True(live.TodayIn);
             Assert.Equal(1234, live.Today.ActiveSec);
             Assert.False(live.HasHardware);
             Assert.Empty(live.Hardware);
@@ -1530,8 +1533,10 @@ public sealed class LiveDataTests
         Ui.Run(() =>
         {
             Assert.True(live.ReadingsPending && live.AppsPending);
+            Assert.False(live.TodayIn); // Home's figures wait for the agent's totals too
             live.StopWaiting();
             Assert.False(live.ReadingsPending || live.AppsPending);
+            Assert.True(live.TodayIn);
         });
     }
 }

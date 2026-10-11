@@ -122,6 +122,77 @@ public sealed class InventoryTests
         Assert.Equal("1.0.9261", Held("1.0.9260", "1.0.9261", (DiscordFolder + @"PTB\app\Discord.exe", "1.0.9260")).Single(a => a.Name == "Discord").Value);
     }
 
+    // ---- A game Steam is still downloading ----
+
+    [Fact]
+    public void A_game_still_downloading_is_not_installed_until_steam_has_finished()
+    {
+        var before = Inventory.AppItems([("Steam", "2.10"), ("Steep", "")]);
+        // 11:01: ARC Raiders listed by Windows ten minutes into its download, and a small game that is already done.
+        var apps = Inventory.AppItems([("Steam", "2.10"), ("Steep", ""), ("ARC Raiders", ""), ("Slay the Spire 2", "")]);
+        Inventory.HoldDownloads(apps, before, () => new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ARC Raiders" });
+        Assert.Equal("Slay the Spire 2 installed", Assert.Single(Inventory.Diff(Inventory.App, before, apps, At)).Title);
+        // The download done: installed, dated by this reading.
+        var done = Inventory.AppItems([("Steam", "2.10"), ("Steep", ""), ("ARC Raiders", ""), ("Slay the Spire 2", "")]);
+        Inventory.HoldDownloads(done, apps, () => new HashSet<string>());
+        Assert.Equal("ARC Raiders installed", Assert.Single(Inventory.Diff(Inventory.App, apps, done, At)).Title);
+    }
+
+    [Fact]
+    public void A_game_being_updated_is_not_taken_as_removed()
+    {
+        var before = Inventory.AppItems([("Steam", "2.10"), ("Steep", "")]);
+        var apps = Inventory.AppItems([("Steam", "2.10"), ("Steep", "")]);
+        // Nothing new: Steam isn't asked.
+        Inventory.HoldDownloads(apps, before, () => throw new InvalidOperationException());
+        // Something new beside it, with the known game's files not all there (an update on its way).
+        apps = Inventory.AppItems([("Steam", "2.10"), ("Steep", ""), ("OBS Studio", "32.1.2")]);
+        Inventory.HoldDownloads(apps, before, () => new HashSet<string> { "steep" });
+        Assert.Equal("OBS Studio installed", Assert.Single(Inventory.Diff(Inventory.App, before, apps, At)).Title);
+    }
+
+    [Theory]
+    [InlineData("4", false)]      // fully installed
+    [InlineData("6", false)]      // installed, an update waiting
+    [InlineData("1030", false)]   // installed, an update running
+    [InlineData("1026", true)]    // a first download
+    [InlineData("2", true)]
+    [InlineData("0", true)]
+    public void Steams_record_says_whether_a_game_is_all_there(string state, bool downloading) =>
+        Assert.Equal(downloading, Inventory.StillDownloading($$"""
+            "AppState"
+            {
+                "appid"		"1808500"
+                "name"		"ARC Raiders"
+                "StateFlags"		"{{state}}"
+                "installdir"		"Arc Raiders"
+            }
+            """));
+
+    [Fact]
+    public void A_record_that_doesnt_say_is_no_answer_and_libraries_are_read_from_steams_list()
+    {
+        Assert.False(Inventory.StillDownloading("""
+            "AppState"
+            {
+            }
+            """));
+        Assert.Equal(["C:/Program Files (x86)/Steam", "E:/SteamLibrary"], Inventory.SteamLibraryPaths("""
+            "libraryfolders"
+            {
+                "0"
+                {
+                    "path"		"C:\\Program Files (x86)\\Steam"
+                    "label"		""
+                }
+                "1"
+                {
+                    "path"		"E:\\SteamLibrary"
+                }
+            }
+            """).Select(p => p.Replace(Path.DirectorySeparatorChar, '/')));
+    }
+
     [Fact]
     public void Nothing_is_looked_up_when_no_app_changed_version()
     {

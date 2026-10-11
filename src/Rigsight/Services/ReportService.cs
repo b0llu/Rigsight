@@ -10,10 +10,19 @@ public sealed class ReportService(SettingsModel settings)
 {
     private RigsightSettings Snapshot() => settings.Current.Clone();
 
+    /// <summary>
+    /// A test copy started with RIGSIGHT_SLOW_HISTORY_MS=1500 takes that much longer over every read of the history.
+    /// The end-to-end run opens the app that way to see what the pages show while they wait: on a quick PC the wait
+    /// is over before anything can look. Never in an installed Rigsight.
+    /// </summary>
+    private static readonly int SlowBy = Core.RigsightPaths.IsTestInstance
+        && int.TryParse(Environment.GetEnvironmentVariable("RIGSIGHT_SLOW_HISTORY_MS"), out int ms) ? Math.Clamp(ms, 0, 10_000) : 0;
+
     private static Task<T?> Run<T>(Func<RigsightDb, T> query) => Task.Run(() =>
     {
         try
         {
+            if (SlowBy > 0) Thread.Sleep(SlowBy);
             using var db = RigsightDb.OpenReader();
             return db is null ? default : query(db);
         }

@@ -5,6 +5,8 @@ namespace Rigsight.Tests.Agent;
 
 /// <summary>Sampling this PC's processes (read-only): whatever is running, the numbers must be sane.</summary>
 [Trait("Category", "Machine")]
+// Measures time or memory: the gate runs it after the tests that run side by side, with the PC otherwise at rest.
+[Trait("Alone", "timing")]
 public class ProcessSamplerTests
 {
     private static readonly string Me = Path.GetFileName(Environment.ProcessPath)!;

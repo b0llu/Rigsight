@@ -1271,7 +1271,9 @@ internal sealed class AgentContext : ApplicationContext
             var since = _db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned).AddHours(-1) : now.AddYears(-2);
             var logged = ChangeLogReader.Read(since, now);
             var reading = Inventory.Read();
-            Inventory.HoldRunningUpdates(reading, _db.GetInventory(), RunningPaths);
+            var before = _db.GetInventory();
+            Inventory.HoldRunningUpdates(reading, before, RunningPaths);
+            Inventory.HoldDownloads(reading, before);
             var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
 
             // A graphics driver is followed by its version in the inventory (the logs often don't name it); the

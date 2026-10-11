@@ -52,6 +52,20 @@
                             <TextBlock Text="Today so far" Style="{StaticResource H2}" />
                         </DockPanel>
 
+                        <!-- Until the agent has sent today's totals the figures are held back (their room kept) behind a loader. -->
+                        <Grid>
+                        <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Visibility="{Binding Live.TodayIn, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Live.TodayIn}" Value="False">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
                         <UniformGrid Columns="3" Margin="-5,0,-5,6">
                             <Border Style="{StaticResource Tile}" Margin="5">
                                 <StackPanel>
@@ -102,6 +116,8 @@
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
+                        </StackPanel>
+                        </Grid>
 
                         <TextBlock Text="MOST USED" Style="{StaticResource Caption}" Margin="0,12,0,6"
                                    Visibility="{Binding TodayTopApps.Count, Converter={StaticResource Vis}}" />
@@ -155,7 +171,9 @@
                         <TextBlock DockPanel.Dock="Top" Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
                                    Visibility="{Binding RecapNote, Converter={StaticResource Vis}}" />
 
-                        <StackPanel DockPanel.Dock="Top" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,60,0,0"
+                                     Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <StackPanel DockPanel.Dock="Top" Visibility="{Binding ShowRecapEmpty, Converter={StaticResource Vis}}">
                             <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
                             <TextBlock Text="{Binding RecapEmptyTitle}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
                             <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
@@ -261,7 +279,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock Text="Nothing out of the ordinary so far." Style="{StaticResource Muted}" Margin="0,7"
-                                   Visibility="{Binding TodayInsights.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                   Visibility="{Binding ShowNoInsights, Converter={StaticResource Vis}}" />
+                        <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,22"
+                                     Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
@@ -279,13 +299,17 @@
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding Changes}" ItemTemplate="{StaticResource CardLine}" Focusable="False" />
                         <TextBlock Text="Nothing has changed in the last 30 days." Style="{StaticResource Muted}" Margin="0,7"
-                                   Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                   Visibility="{Binding ShowNoChanges, Converter={StaticResource Vis}}" />
+                        <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,22"
+                                     Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
                     <StackPanel>
                         <TextBlock Text="PC health" Style="{StaticResource H2}" Margin="0,0,0,7" />
                         <ItemsControl ItemsSource="{Binding Health}" ItemTemplate="{StaticResource CardLine}" Focusable="False" />
+                        <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,22"
+                                     Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
             </UniformGrid>

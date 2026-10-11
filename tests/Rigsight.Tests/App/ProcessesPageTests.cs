@@ -15,6 +15,8 @@ namespace Rigsight.Tests.App;
 /// by a stand-in that only notes what it was asked.
 /// </summary>
 [Collection("UI")]
+// Uses the clipboard, which the whole PC shares: not beside another test process.
+[Trait("Alone", "clipboard")]
 public sealed class ProcessesPageTests
 {
     private static readonly long T0 = TimeUtil.NowUnixMs();

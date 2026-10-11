@@ -60,7 +60,7 @@
 
             <!-- Empty state -->
             <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
-                         Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                         Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
@@ -70,7 +70,7 @@
                 </StackPanel>
             </ctl:SmoothBorder>
 
-            <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
+            <StackPanel Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
                 <!-- The period's figures, each against something: its usual, the period before, what it is made of. -->
                 <ctl:TileWrap Margin="0,18,0,0" MinTileWidth="190" Gap="10">
                     <Border Style="{StaticResource Tile}">
@@ -199,18 +199,12 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{Binding MoreInsightsText}"
-                                    Command="{Binding ToggleInsightsCommand}" Visibility="{Binding HasMoreInsights, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
                     <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="Peaks" Style="{StaticResource H2}" Margin="0,0,0,8" />
                             <ItemsControl ItemsSource="{Binding Peaks}" ItemTemplate="{StaticResource PeakLine}" Focusable="False" />
-                            <ItemsControl ItemsSource="{Binding MorePeaks}" ItemTemplate="{StaticResource PeakLine}" Focusable="False"
-                                          Visibility="{Binding AllPeaks, Converter={StaticResource Vis}}" />
-                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{Binding MorePeaksText}"
-                                    Command="{Binding TogglePeaksCommand}" Visibility="{Binding HasMorePeaks, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
                 </Grid>

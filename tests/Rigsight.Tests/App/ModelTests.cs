@@ -516,6 +516,60 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public void An_icon_read_once_is_kept_as_a_picture_and_read_from_there_the_next_run()
+    {
+        string folder = IconCache.KeptFolder;
+        try
+        {
+            IconCache.KeptFolder = TestEnvironment.NewFolder("kept-icons");
+            string app = Path.Combine(TestEnvironment.NewFolder("kept-app"), "explorer.exe");
+            File.Copy(Explorer, app);
+            string kept = IconCache.KeptFile(app);
+            Assert.Equal(kept, IconCache.KeptFile(app.ToUpperInvariant()));
+            Ui.Run(() =>
+            {
+                var first = (System.Windows.Media.Imaging.BitmapSource)IconCache.Get(app)!;
+                Assert.True(new FileInfo(kept).Length > 0);
+
+                // The next run: the same picture, pixel for pixel and the same size on screen, without the program being read.
+                IconCache.Forget(app);
+                File.Delete(app);
+                var again = (System.Windows.Media.Imaging.BitmapSource)IconCache.Get(app)!;
+                Assert.True(again.IsFrozen);
+                Assert.Equal((first.PixelWidth, first.PixelHeight, first.Width, first.Height), (again.PixelWidth, again.PixelHeight, again.Width, again.Height));
+                Assert.Equal(Pixels(first), Pixels(again));
+
+                // Due to be read again and the program gone: no icon, remembered for a day and no longer.
+                File.SetLastWriteTimeUtc(kept, DateTime.UtcNow - IconCache.KeptFor - TimeSpan.FromDays(31));
+                IconCache.Forget(app);
+                Assert.Null(IconCache.Get(app));
+                Assert.Equal(0, new FileInfo(kept).Length);
+                File.Copy(Explorer, app);
+                IconCache.Forget(app);
+                Assert.Null(IconCache.Get(app));
+                File.SetLastWriteTimeUtc(kept, DateTime.UtcNow - IconCache.NoneKeptFor - TimeSpan.FromHours(1));
+                IconCache.Forget(app);
+                Assert.Equal(Pixels(first), Pixels((System.Windows.Media.Imaging.BitmapSource)IconCache.Get(app)!));
+
+                // A kept file that isn't a picture is read from the program and kept anew.
+                File.WriteAllText(kept, "not a picture");
+                IconCache.Forget(app);
+                Assert.Equal(Pixels(first), Pixels((System.Windows.Media.Imaging.BitmapSource)IconCache.Get(app)!));
+                Assert.True(new FileInfo(kept).Length > 100);
+            });
+        }
+        finally { IconCache.KeptFolder = folder; }
+
+        static byte[] Pixels(System.Windows.Media.Imaging.BitmapSource image)
+        {
+            var bgra = new System.Windows.Media.Imaging.FormatConvertedBitmap(image, System.Windows.Media.PixelFormats.Bgra32, null, 0);
+            var raw = new byte[bgra.PixelWidth * bgra.PixelHeight * 4];
+            bgra.CopyPixels(raw, bgra.PixelWidth * 4, 0);
+            return raw;
+        }
+    }
+
+    [Fact]
     public void The_plain_program_icon_is_always_there()
     {
         Ui.Run(() =>

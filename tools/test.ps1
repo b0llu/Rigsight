@@ -19,13 +19,19 @@
 #   -Installed          also measure the installed Rigsight as it runs: its agent (read-only), and its app opened
 #                       for about half a minute and closed again
 #   -InstalledBuild     also run the end-to-end check on the installed program files (0.5.13 or later)
+#   -Parts <n>          how many test processes run side by side (5); 1 = one after another, as it used to be
+#
+# The unit and UI tests run as several processes side by side (tests\Rigsight.Impact --split deals the classes into
+# parts of about the same length, going by the last run's times), then the classes marked [Trait("Alone", ...)] on
+# their own: the ones that measure time or memory, which other work on the PC would skew, and the ones that use the
+# clipboard. The end-to-end runs measure too, so they stay one after another, with nothing beside them.
 #
 # Stages: build (Debug) -> which tests (unless -Full) -> tests, while the Release build is made exactly as the
 # installer makes it -> Release checks (version; it can't be pointed at a test update server) -> end-to-end: that
 # Release build runs as an isolated test copy on a copy of this PC's own history (-Seeded: a made-up year; a full gate
 # also runs that one, quick) (startup, CPU, memory, handles, leaks,
 # clean shutdown, the log; against budgets and the baseline). Nothing here touches the installed Rigsight; its history is only read, to copy it.
-param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild, [switch]$Seeded)
+param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild, [switch]$Seeded, [int]$Parts = 5)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 # From the repository, wherever it's started from: dotnet reads global.json (the test runner) from the current folder.
@@ -83,10 +89,21 @@ Start-Job -Name ReleaseBuild -ArgumentList $root, $publish -ScriptBlock {
 } | Out-Null
 
 $level = 'full'; $classes = @(); $e2eMode = 'full'
+$splitJson = Join-Path $results 'split.json'
+$tests = Join-Path $root 'tests\Rigsight.Tests'
+
+# One test process for these classes, its results and its output in a folder of its own.
+function TestArgs($name, $classes) {
+    $list = @('test', '--project', "`"$tests`"", '--no-build', '--results-directory', "`"$(Join-Path $results $name)`"", '--report-xunit-trx')
+    foreach ($c in $classes) { $list += @('--filter-class', $c) }
+    $list
+}
+function TestsIn($log) { if ((Get-Content $log -Raw) -match '(?m)^\s*total:\s*(\d+)') { [int]$Matches[1] } else { 0 } }
+
 if (-not $Full) {
     Stage 'Which tests the changes need'
     $impactJson = Join-Path $results 'impact.json'
-    $impactArgs = @('--json', $impactJson)
+    $impactArgs = @('--json', $impactJson, '--split', $splitJson, '--parts', $Parts)
     if ($Base) { $impactArgs += @('--base', $Base) }
     dotnet run --project (Join-Path $root 'tests\Rigsight.Impact') -c Release -- @impactArgs
     if ($LASTEXITCODE) { Failed 'working out which tests to run' }
@@ -94,16 +111,52 @@ if (-not $Full) {
     $level = $impact.Level; $classes = @($impact.Classes); $e2eMode = $impact.EndToEnd
 }
 
-if ($level -eq 'full') {
-    Stage 'Unit, UI and performance tests: all'
-    dotnet test --project (Join-Path $root 'tests\Rigsight.Tests') --no-build --results-directory $results --report-xunit-trx
+if ($Full) {
+    dotnet run --project (Join-Path $root 'tests\Rigsight.Impact') -c Release -- --all --split $splitJson --parts $Parts
+    if ($LASTEXITCODE) { Failed 'dealing the tests into parts' }
 }
-else {
-    Stage "Unit, UI and performance tests: $($classes.Count) test class(es) the changes reach"
-    $filters = foreach ($c in $classes) { '--filter-class'; $c }
-    dotnet test --project (Join-Path $root 'tests\Rigsight.Tests') --no-build --results-directory $results --report-xunit-trx @filters
+$split = Get-Content $splitJson -Raw | ConvertFrom-Json
+$partCount = @($split.Parts).Count
+$ran = 0
+$what = if ($level -eq 'full') { 'all' } else { "$($classes.Count) test class(es) the changes reach" }
+if ($partCount -gt 0 -and @($split.Parts[0]).Count -gt 0) {
+    Stage "Unit and UI tests: $what, as $partCount process(es) side by side"
+    $running = for ($i = 0; $i -lt $partCount; $i++) {
+        $name = "part$($i + 1)"
+        New-Item -ItemType Directory -Force (Join-Path $results $name) | Out-Null
+        $log = Join-Path $results "$name\output.log"
+        $process = Start-Process dotnet -ArgumentList (TestArgs $name @($split.Parts[$i])) -WorkingDirectory $root -NoNewWindow -PassThru `
+            -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+        # Its handle is taken now: Windows PowerShell has no exit code to give for a process that ended before it looked.
+        $null = $process.Handle
+        [pscustomobject]@{ Name = $name; Log = $log; Classes = @($split.Parts[$i]).Count; Process = $process }
+    }
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $bad = @()
+    foreach ($part in $running) {
+        $part.Process.WaitForExit()
+        $count = TestsIn $part.Log
+        $ran += $count
+        $ok = $part.Process.ExitCode -eq 0
+        Write-Host ("  {0}: {1} classes, {2} tests, {3} (done at {4:0} s)" -f $part.Name, $part.Classes, $count, $(if ($ok) { 'passed' } else { 'FAILED' }), $clock.Elapsed.TotalSeconds) -ForegroundColor $(if ($ok) { 'Gray' } else { 'Red' })
+        if (-not $ok) { $bad += $part }
+    }
+    foreach ($part in $bad) {
+        Write-Host "`n-- $($part.Name): $($part.Log)" -ForegroundColor Red
+        Get-Content $part.Log | Where-Object { $_ -notmatch '^\s*$' } | Select-Object -Last 120
+        Get-Content "$($part.Log).err" -ErrorAction SilentlyContinue | Select-Object -Last 20
+    }
+    if ($bad.Count) { Failed "tests in $(($bad | ForEach-Object Name) -join ', ') (see above)" }
 }
-if ($LASTEXITCODE) { Failed 'tests (see above)' }
+if (@($split.Alone).Count -gt 0) {
+    Stage "Tests that measure time or memory, or use the clipboard: $(@($split.Alone).Count) class(es), on their own"
+    $log = Join-Path $results 'alone-output.log'
+    $list = TestArgs 'alone' @($split.Alone)
+    & dotnet @($list | ForEach-Object { $_.Trim('"') }) | Tee-Object -FilePath $log
+    if ($LASTEXITCODE) { Failed 'tests (see above)' }
+    $ran += TestsIn $log
+}
+Write-Host "  $ran tests in all" -ForegroundColor DarkGray
 
 Stage 'Release build, as the installer makes it'
 $job = Get-Job -Name ReleaseBuild

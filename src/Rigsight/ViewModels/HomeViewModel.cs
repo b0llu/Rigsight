@@ -31,12 +31,12 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TodayTopApps), nameof(TodayTopMax), nameof(TodayInsights), nameof(HasTodayData), nameof(ShowLearning),
-        nameof(TodayInternet), nameof(TodayInternetLine))]
+        nameof(TodayInternet), nameof(TodayInternetLine), nameof(ShowNoInsights))]
     private Report? _today;
 
     /// <summary>What was downloaded today, and by what mostly ("Mostly Google Chrome"); a dash before anything is.</summary>
     public string TodayInternet => Today?.Net is { Down: > 0 } net ? Units.Data(net.Down) : "—";
-    public string TodayInternetLine => Today?.Net is { Down: > 0 } net
+    public string TodayInternetLine => Today is null ? "" : Today.Net is { Down: > 0 } net
         ? net.Apps.MaxBy(a => a.Use.Down) is { } top && top.Use.Down >= net.Down * 0.4 ? $"Mostly {top.Name}" : "Downloaded"
         : "Nothing downloaded yet";
 
@@ -46,7 +46,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>The recap card's report: the period picked (yesterday until another is).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecapTopApps), nameof(RecapHasData), nameof(RecapInsights), nameof(RecapEmptyTitle), nameof(RecapEmptyText),
-        nameof(RecapRows), nameof(RecapTopMax), nameof(RecapInternet))]
+        nameof(RecapRows), nameof(RecapTopMax), nameof(RecapInternet), nameof(ShowRecapEmpty))]
     private Report? _recap;
 
     /// <summary>Yesterday's report (the recap card's first period; the dashboard's Yesterday tile shows it whatever the card shows).</summary>
@@ -64,8 +64,13 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     private static List<AppStat> TopApps(Report? r, int count = 3) => r?.Apps.Where(a => a.ActiveSec >= 60 && a.Category != AppCategory.System).Take(count).ToList() ?? [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowLearning))]
+    [NotifyPropertyChangedFor(nameof(ShowLearning), nameof(ShowRecapEmpty), nameof(ShowNoInsights), nameof(ShowNoChanges))]
     private bool _loaded;
+
+    // What a card says when it has nothing, only once the history has been read: until then it shows that it's loading.
+    public bool ShowRecapEmpty => Loaded && !RecapHasData;
+    public bool ShowNoInsights => Loaded && TodayInsights.Count == 0;
+    public bool ShowNoChanges => Loaded && !HasChanges;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
@@ -223,19 +228,30 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             _recapsFor = DateTime.Today;
             _recaps.Clear();
             LastUsedDay = null;
-            Periods = PeriodsFor(await reports.FirstDayAsync(), DateTime.Today);
-            if (!Periods.Contains(Period)) Period = RecapPeriod.Yesterday;
-            await LoadRecapAsync();
-            YesterdayChanged();
+            _dayRecap = LoadDayRecapAsync();
         }
+        // Another refresh may be the one reading the recap (the window asks again once the agent answers): this one
+        // is done when that is. It used to say "loaded" on its own, and Home said there was no history for yesterday
+        // until the recap came in.
+        if (_dayRecap is { } reading) await reading;
         Loaded = true;
+    }
+
+    private Task? _dayRecap;
+
+    private async Task LoadDayRecapAsync()
+    {
+        Periods = PeriodsFor(await reports.FirstDayAsync(), DateTime.Today);
+        if (!Periods.Contains(Period)) Period = RecapPeriod.Yesterday;
+        await LoadRecapAsync();
+        YesterdayChanged();
     }
 
     // ── The two small cards beside "What stands out today" ──
 
     /// <summary>The latest changes on the Timeline, newest first.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasChanges))]
+    [NotifyPropertyChangedFor(nameof(HasChanges), nameof(ShowNoChanges))]
     private IReadOnlyList<HomeLine> _changes = [];
     public bool HasChanges => Changes.Count > 0;
 

@@ -6,6 +6,8 @@ namespace Rigsight.Tests.App;
 
 /// <summary>Reporting a bug from Settings: what is copied never names the person or the PC, and the app only opens a form.</summary>
 [Collection("UI")]
+// Uses the clipboard, which the whole PC shares: not beside another test process.
+[Trait("Alone", "clipboard")]
 public class ProblemReportTests
 {
     [Fact]

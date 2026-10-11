@@ -162,6 +162,82 @@ public static partial class Inventory
         }
     }
 
+    /// <summary>
+    /// A game Steam is still downloading isn't installed yet. Steam lists a game with Windows the moment its download
+    /// starts: a user's 55 GB game was "installed" within ten minutes of pressing the button, hours before it could be
+    /// played. A newly listed app that Steam says it hasn't finished stays out of the reading, so it's found, and
+    /// dated, by the first reading after the download. An app the last reading already had is never taken out (a game
+    /// being updated isn't one removed).
+    /// </summary>
+    public static void HoldDownloads(Dictionary<string, List<InventoryItem>> now, IEnumerable<InventoryItem> before)
+    {
+        if (now.TryGetValue(App, out var apps)) HoldDownloads(apps, before, SteamDownloads);
+    }
+
+    internal static void HoldDownloads(List<InventoryItem> apps, IEnumerable<InventoryItem> before, Func<IReadOnlySet<string>> downloading)
+    {
+        var was = before.Where(i => i.Kind == App).Select(i => i.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (apps.All(a => was.Contains(a.Key))) return;
+        var unfinished = downloading();
+        foreach (var app in apps.Where(a => !was.Contains(a.Key) && unfinished.Contains(a.Key)))
+            Log.Write("inventory", $"{app.Name} is listed by Windows but Steam is still downloading it: not taken as installed yet");
+        apps.RemoveAll(a => !was.Contains(a.Key) && unfinished.Contains(a.Key));
+    }
+
+    private const string SteamKey = "Steam App ";
+
+    /// <summary>The keys of the apps Windows lists for Steam whose files Steam hasn't finished putting in place.</summary>
+    private static HashSet<string> SteamDownloads()
+    {
+        var unfinished = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            List<string>? libraries = null;
+            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            {
+                using var root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+                using var apps = root.OpenSubKey(UninstallKey);
+                foreach (string name in apps?.GetSubKeyNames() ?? [])
+                {
+                    if (!name.StartsWith(SteamKey, StringComparison.OrdinalIgnoreCase)) continue;
+                    using var app = apps!.OpenSubKey(name);
+                    if (app?.GetValue("DisplayName") is not string { Length: > 0 } display) continue;
+                    // Steam keeps one small file a game in each library, named by the game's number, which says how far it is.
+                    string? manifest = (libraries ??= SteamLibraries()).Select(l => Path.Combine(l, "steamapps", $"appmanifest_{name[SteamKey.Length..].Trim()}.acf")).FirstOrDefault(File.Exists);
+                    if (manifest is not null && StillDownloading(File.ReadAllText(manifest)))
+                        unfinished.Add(SplitName(display, app.GetValue("DisplayVersion") as string ?? "").Name);
+                }
+            }
+        }
+        catch (Exception ex) { Log.Error("inventory", ex); }
+        return unfinished;
+    }
+
+    /// <summary>Steam's own folder and every other library it has been given (a games folder on another drive).</summary>
+    private static List<string> SteamLibraries()
+    {
+        using var root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
+        using var key = root.OpenSubKey(@"SOFTWARE\Valve\Steam");
+        using var mine = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+        string? steam = key?.GetValue("InstallPath") as string ?? mine?.GetValue("SteamPath") as string;
+        if (string.IsNullOrWhiteSpace(steam)) return [];
+        var libraries = new List<string> { steam };
+        string list = Path.Combine(steam, "steamapps", "libraryfolders.vdf");
+        if (File.Exists(list)) libraries.AddRange(SteamLibraryPaths(File.ReadAllText(list)));
+        return [.. libraries.Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>The folders in Steam's list of libraries, where a backslash is written twice.</summary>
+    internal static List<string> SteamLibraryPaths(string list) =>
+        [.. SteamPath().Matches(list).Select(m => m.Groups[1].Value.Replace(@"\\", @"\")).Where(p => p.Length > 0)];
+
+    /// <summary>
+    /// Whether Steam's file for a game says its files aren't all there yet: its state is a sum of marks, of which 4 is
+    /// "fully installed" (a first download is 1026: update needed, update started). A file that doesn't say is no answer.
+    /// </summary>
+    internal static bool StillDownloading(string manifest) =>
+        SteamState().Match(manifest) is { Success: true } m && int.TryParse(m.Groups[1].Value, out int state) && (state & 4) == 0;
+
     /// <summary>The version a program file carries, both ways it can be written there.</summary>
     private static IEnumerable<string> FileVersions(string path)
     {
@@ -514,4 +590,10 @@ public static partial class Inventory
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Spaces();
+
+    [GeneratedRegex(@"""StateFlags""\s+""(\d+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex SteamState();
+
+    [GeneratedRegex(@"""path""\s+""([^""]*)""", RegexOptions.IgnoreCase)]
+    private static partial Regex SteamPath();
 }

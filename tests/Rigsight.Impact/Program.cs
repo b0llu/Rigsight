@@ -16,6 +16,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 // it over-selects rather than under-selects: a class name used anywhere counts, whatever it refers to.
 //
 //   Rigsight.Impact [--base <git ref>] [--json <file>] [--files a.cs,b.xaml]   (--files: what if only these changed)
+//   Rigsight.Impact --split <file> [--parts <n>] [--all]
+//     How to run the test classes as several processes side by side: the classes (the ones the changes need, or every
+//     one with --all) dealt into up to <n> parts of about the same length, going by how long each took in the last
+//     run that kept its results, and apart from them the classes marked [Trait("Alone", …)], which measure time or
+//     use something the whole PC shares and run on their own afterwards.
 var arg = (string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 string root = FindRoot();
 string baseRef = arg("--base") ?? Git(root, "describe", "--tags", "--abbrev=0", "--match", "v*").Trim();
@@ -34,7 +39,19 @@ else
 }
 void Add(string line) { if (line.Trim() is { Length: > 0 } f) changed.Add(f.Replace('\\', '/')); }
 
-var result = Decide(root, changed);
+var result = args.Contains("--all") ? new Decision("full", ["everything was asked for"], [], "full", true) : Decide(root, changed);
+if (arg("--split") is { } splitFile)
+{
+    var graph = Graph.Build(root);
+    var wanted = result.Level == "full" ? graph.AllTestClasses.ToList() : result.Classes;
+    var split = Split.Deal(wanted, graph.Alone, graph.OneAtATime, Split.LastTimes(root), int.TryParse(arg("--parts"), out int n) ? n : 4);
+    File.WriteAllText(splitFile, JsonSerializer.Serialize(new { split.Parts, split.Alone, split.Seconds, split.AloneSeconds }, new JsonSerializerOptions { WriteIndented = true }));
+    if (args.Contains("--all"))
+    {
+        Console.WriteLine($"{wanted.Count} test classes in {split.Parts.Count} part(s) of about {string.Join(", ", split.Seconds.Select(s => $"{s:0} s"))}; {split.Alone.Count} alone afterwards (about {split.AloneSeconds:0} s)");
+        return 0;
+    }
+}
 Console.WriteLine($"Changes since {baseRef}: {changed.Count} file(s)");
 foreach (var f in changed.Take(40)) Console.WriteLine($"  {f}");
 if (changed.Count > 40) Console.WriteLine($"  …and {changed.Count - 40} more");
@@ -149,12 +166,85 @@ static string Git(string root, params string[] args)
 
 internal sealed record Decision(string Level, List<string> Reasons, List<string> Classes, string EndToEnd, bool Installer);
 
+/// <summary>Test classes dealt into parts that take about as long as each other, and the ones that run alone.</summary>
+internal sealed record Split(List<List<string>> Parts, List<string> Alone, List<double> Seconds, double AloneSeconds)
+{
+    /// <summary>A class not in the last results (a new one) is taken to be this long.</summary>
+    private const double Unknown = 5;
+
+    /// <summary>A part shorter than this isn't worth a process of its own (each starts the app's test host anew).</summary>
+    private const double WorthAPart = 40;
+
+    /// <summary>
+    /// How much of a class's time a part waits for when the class runs beside others in its process (one in no
+    /// collection does; the window tests share a collection and run one after another, so theirs counts in full).
+    /// </summary>
+    private const double BesideOthers = 0.25;
+
+    public static Split Deal(IEnumerable<string> classes, IReadOnlySet<string> alone, IReadOnlySet<string> oneAtATime, IReadOnlyDictionary<string, double> times, int parts)
+    {
+        double Time(string c) => times.GetValueOrDefault(c, Unknown) * (oneAtATime.Contains(c) ? 1 : BesideOthers);
+        var apart = classes.Where(alone.Contains).Order(StringComparer.Ordinal).ToList();
+        var rest = classes.Where(c => !alone.Contains(c)).OrderByDescending(Time).ThenBy(c => c, StringComparer.Ordinal).ToList();
+        parts = Math.Clamp((int)(rest.Sum(Time) / WorthAPart), 1, Math.Max(1, parts));
+        var dealt = Enumerable.Range(0, parts).Select(_ => new List<string>()).ToList();
+        var seconds = new double[parts];
+        // Longest first, each to the part that is shortest so far.
+        foreach (var c in rest)
+        {
+            int to = Array.IndexOf(seconds, seconds.Min());
+            dealt[to].Add(c);
+            seconds[to] += Time(c);
+        }
+        return new(dealt, apart, [.. seconds], apart.Sum(Time));
+    }
+
+    /// <summary>How long each test class took (its tests added up), from the newest results kept under TestResults.</summary>
+    public static Dictionary<string, double> LastTimes(string root)
+    {
+        var times = new Dictionary<string, double>(StringComparer.Ordinal);
+        string results = Path.Combine(root, "TestResults");
+        if (!Directory.Exists(results)) return times;
+        // The newest run that got as far as writing results (a part's file each, or one for the lot).
+        foreach (var run in Directory.GetDirectories(results).OrderDescending())
+        {
+            var files = Directory.GetFiles(run, "*.trx", SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                string text = File.ReadAllText(file);
+                var classOf = new Dictionary<string, string>();
+                foreach (Match m in Regex.Matches(text, @"<UnitTest [^>]*\bid=""([^""]+)""[^>]*>.*?<TestMethod [^>]*\bclassName=""([^""]+)""", RegexOptions.Singleline))
+                    classOf[m.Groups[1].Value] = m.Groups[2].Value;
+                foreach (Match m in Regex.Matches(text, @"<UnitTestResult [^>]*>"))
+                {
+                    var id = Regex.Match(m.Value, @"\btestId=""([^""]+)""");
+                    var took = Regex.Match(m.Value, @"\bduration=""([^""]+)""");
+                    if (!id.Success || !took.Success || !classOf.TryGetValue(id.Groups[1].Value, out var cls) || !TimeSpan.TryParse(took.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out var t)) continue;
+                    cls = cls.Replace('+', '.');
+                    times[cls] = times.GetValueOrDefault(cls) + t.TotalSeconds;
+                }
+            }
+            if (times.Count > 50) break; // a whole run, not a handful of classes
+            times.Clear();
+        }
+        return times;
+    }
+}
+
 /// <summary>Which files use which types, for the programs and the tests alike.</summary>
 internal sealed class Graph
 {
     private readonly Dictionary<string, HashSet<string>> _declares = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _uses = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<string>> _testClasses = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The test classes marked [Trait("Alone", …)]: they run on their own, after the rest.</summary>
+    public HashSet<string> Alone { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The test classes in a collection ([Collection("UI")]…): those of one collection run one after another.</summary>
+    public HashSet<string> OneAtATime { get; } = new(StringComparer.Ordinal);
+
+    public IEnumerable<string> AllTestClasses => _testClasses.Values.SelectMany(c => c).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _text = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _declaredIn = new(StringComparer.Ordinal);
 
@@ -186,7 +276,12 @@ internal sealed class Graph
             // A test class is never used by other code, and a private nested type only inside its own file: neither
             // links files together.
             if (file.StartsWith("tests/Rigsight.Tests/") && type is ClassDeclarationSyntax c && IsTestClass(c))
+            {
                 tests.Add(FullName(c));
+                if (c.AttributeLists.SelectMany(a => a.Attributes).Any(a => a.Name.ToString() == "Trait" && a.ArgumentList?.Arguments.FirstOrDefault()?.ToString() == "\"Alone\""))
+                    Alone.Add(FullName(c));
+                if (c.AttributeLists.SelectMany(a => a.Attributes).Any(a => a.Name.ToString() == "Collection")) OneAtATime.Add(FullName(c));
+            }
             else if (!type.Modifiers.Any(SyntaxKind.PrivateKeyword))
                 declared.Add(type.Identifier.Text);
         }

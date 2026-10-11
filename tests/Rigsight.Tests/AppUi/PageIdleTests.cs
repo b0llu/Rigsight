@@ -10,6 +10,8 @@ namespace Rigsight.Tests.AppUi;
 /// every page with a search box, with nothing on screen to show for it.)
 /// </summary>
 [Collection("UI")]
+// Measures time or memory: the gate runs it after the tests that run side by side, with the PC otherwise at rest.
+[Trait("Alone", "timing")]
 public sealed class PageIdleTests(AppHost host) : IClassFixture<AppHost>
 {
     public static TheoryData<string> Pages => [.. AppHost.Pages];
