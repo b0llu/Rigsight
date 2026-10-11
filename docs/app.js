@@ -91,12 +91,10 @@
   }).catch(() => { /* keep the Releases-page links */ });
 
   // ── The top bar stays out of the way over the hero and slides in once you scroll ──
-  // A mark 80 px down the page says when: watching it costs no layout, where reading scrollY here forced one.
   const nav = document.getElementById("nav");
-  const mark = document.createElement("div");
-  mark.style.cssText = "position:absolute;top:80px;left:0;width:1px;height:1px;pointer-events:none";
-  document.body.append(mark);
-  new IntersectionObserver(([e]) => nav.classList.toggle("scrolled", !e.isIntersecting && e.boundingClientRect.top < 0)).observe(mark);
+  const onScroll = () => nav.classList.toggle("scrolled", scrollY > 80);
+  addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
 
   // ── The hero's rows of screenshots only move while the hero is on screen and the tab is visible ──
   const hero = document.getElementById("hero");
@@ -106,16 +104,10 @@
   document.addEventListener("visibilitychange", heroMotion);
 
   // ── The overlay clip (real footage): loaded only when shown, plays while on screen, poster with reduced motion ──
-  const clips = [...document.querySelectorAll("video[data-src]")];
+  const clips = [...document.querySelectorAll("video[data-src]")].filter(v => v.getClientRects().length);
   if (!reduceMotion && clips.length) {
     const seen = new IntersectionObserver(entries => {
       for (const { target: v, isIntersecting } of entries) {
-        // A clip that is never shown (hidden at this width) never gets its sources.
-        if (isIntersecting && !v.childElementCount) {
-          const webm = document.createElement("source"); webm.src = `${v.dataset.src}.webm`; webm.type = "video/webm";
-          const mp4 = document.createElement("source"); mp4.src = `${v.dataset.src}.mp4`; mp4.type = "video/mp4";
-          v.append(webm, mp4);   // adding sources is enough: the browser fetches when play() asks for it
-        }
         v.dataset.on = isIntersecting ? "1" : "";
         if (isIntersecting && !document.hidden && !v.closest("[inert]")) v.play().catch(() => { /* blocked: the poster stays */ });
         else if (!v.paused) v.pause();
@@ -123,6 +115,9 @@
     }, { threshold: 0.05 });
     for (const v of clips) {
       v.muted = true;
+      const webm = document.createElement("source"); webm.src = `${v.dataset.src}.webm`; webm.type = "video/webm";
+      const mp4 = document.createElement("source"); mp4.src = `${v.dataset.src}.mp4`; mp4.type = "video/mp4";
+      v.append(webm, mp4);   // adding sources is enough: the browser fetches when play() asks for it
       seen.observe(v);
     }
     document.addEventListener("visibilitychange", () => clips.forEach(v => { document.hidden ? v.pause() : v.dataset.on && v.play().catch(() => { }); }));
