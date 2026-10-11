@@ -31,7 +31,14 @@
       panes[i].setAttribute("role", "tabpanel");
       panes[i].setAttribute("aria-labelledby", tab.id);
       tab.setAttribute("aria-controls", panes[i].id);
-      tab.addEventListener("click", () => { show(i); count(`Tab: ${tab.textContent.trim()}`); });
+      tab.addEventListener("click", () => {
+        show(i);
+        count(`Tab: ${tab.textContent.trim()}`);
+        // On a phone the names ride along under the top bar: picked from there, the new page starts right below them
+        // (not wherever the last page had been scrolled to).
+        const row = tab.parentElement, at = row.getBoundingClientRect(), top = panes[i].getBoundingClientRect().top;
+        if (getComputedStyle(row).position === "sticky" && top < at.bottom) scrollBy({ top: top - at.bottom - 16, behavior: reduceMotion ? "auto" : "smooth" });
+      });
       tab.addEventListener("keydown", e => {
         const to = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length
           : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
