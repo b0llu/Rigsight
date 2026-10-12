@@ -536,7 +536,7 @@
                         </ToggleButton.Template>
                     </ToggleButton>
                     <Popup x:Name="SettingsMenu" PlacementTarget="{Binding ElementName=SettingsRow}" Placement="Top" VerticalOffset="-6" StaysOpen="False"
-                           AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding IsChecked, ElementName=SettingsRow, Mode=TwoWay}">
+                           AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding IsChecked, ElementName=SettingsRow, Mode=TwoWay}" Closed="SettingsMenu_Closed">
                         <Border Width="{Binding ActualWidth, ElementName=SettingsRow}" Background="{DynamicResource TooltipBrush}"
                                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Padding="6">
                             <StackPanel Button.Click="SettingsMenu_Click">
@@ -574,7 +574,15 @@
                                     </Style>
                                 </StackPanel.Resources>
                                 <Button Tag="&#xE713;" Content="Settings" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="Settings" />
-                                <Button Tag="&#xE72C;" Content="{Binding Update.ActionText}" Command="{Binding Update.ActionCommand}" AutomationProperties.Name="{Binding Update.ActionText}" />
+                                <!-- Checking for an update keeps the menu open, and the line itself becomes the answer
+                                     ("Checking…", then "Up to date" with a tick) until the menu closes: see the code
+                                     behind. Every other line closes the menu. -->
+                                <Button x:Name="MenuUpdate" Tag="&#xE72C;" Command="{Binding Update.ActionCommand}" AutomationProperties.Name="{Binding Update.ActionText}">
+                                    <Grid>
+                                        <TextBlock x:Name="MenuUpdateText" Text="{Binding Update.ActionText}" />
+                                        <TextBlock x:Name="MenuUpdateAnswer" Text="{Binding Update.AnswerText}" Visibility="Collapsed" />
+                                    </Grid>
+                                </Button>
                                 <Button Tag="&#xE7C3;" Content="What's new" Command="{Binding WhatsNew.SeeAllCommand}" />
                                 <Border Style="{StaticResource MenuRule}" />
                                 <Button Tag="&#xEBE8;" Content="Report a bug" Command="{Binding SettingsPage.ReportBugCommand}" />

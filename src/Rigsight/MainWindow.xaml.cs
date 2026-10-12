@@ -98,8 +98,31 @@ public partial class MainWindow : Window
         if (_vm.Processes.Question.IsOpen) Dispatcher.BeginInvoke(() => EndQuestionLayer.Focus(), System.Windows.Threading.DispatcherPriority.Input);
     }
 
-    /// <summary>A line of the Settings menu was picked: the menu goes away as its command runs.</summary>
-    private void SettingsMenu_Click(object sender, RoutedEventArgs e) => SettingsRow.IsChecked = false;
+    /// <summary>
+    /// A line of the Settings menu was picked: the menu goes away as its command runs. Not for the update line: the
+    /// menu stays open and that line becomes the answer ("Checking…", then "Up to date" with a tick).
+    /// </summary>
+    private void SettingsMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, MenuUpdate)) ShowUpdateAnswer(true);
+        else SettingsRow.IsChecked = false;
+    }
+
+    /// <summary>The next time the menu opens its update line asks again: the answer shows only from a press until the menu closes.</summary>
+    private void SettingsMenu_Closed(object? sender, EventArgs e) => ShowUpdateAnswer(false);
+
+    private void ShowUpdateAnswer(bool answer)
+    {
+        MenuUpdateText.Visibility = answer ? Visibility.Collapsed : Visibility.Visible;
+        MenuUpdateAnswer.Visibility = answer ? Visibility.Visible : Visibility.Collapsed;
+        // The line's icon (its Tag) follows the answer too: a tick once it is up to date.
+        if (answer) MenuUpdate.SetBinding(TagProperty, new System.Windows.Data.Binding("Update.AnswerIcon"));
+        else
+        {
+            System.Windows.Data.BindingOperations.ClearBinding(MenuUpdate, TagProperty);
+            MenuUpdate.Tag = ViewModels.UpdateViewModel.CheckIcon;
+        }
+    }
 
     private void EndQuestionBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Processes.Question.Cancel();
 

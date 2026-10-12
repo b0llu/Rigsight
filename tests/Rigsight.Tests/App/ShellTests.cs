@@ -769,12 +769,27 @@ public sealed class ShellTests : IClassFixture<AppHost>
                 Assert.Equal(["What's new", "Report a bug", "Copy logs", "Support Rigsight", "About Rigsight"], lines.Skip(2).Select(b => (string)b.Content));
                 Assert.All(lines, b => Assert.NotNull(b.Command));
 
+                // The update line keeps the menu open and becomes the answer itself, in the same place.
+                var (ask, answer) = ((FrameworkElement)window.FindName("MenuUpdateText"), (System.Windows.Controls.TextBlock)window.FindName("MenuUpdateAnswer"));
+                Assert.True(ask.IsVisible);
+                Assert.False(answer.IsVisible);
+                Assert.Equal(UpdateViewModel.CheckIcon, lines[1].Tag);
+                lines[1].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Ui.Pump(100);
+                Assert.True(menu.IsOpen);
+                Assert.False(ask.IsVisible);
+                Assert.True(answer.IsVisible);
+                Assert.Equal(Shell.Update.AnswerText, answer.Text);
+                Assert.Equal(Shell.Update.AnswerIcon, lines[1].Tag);
+
                 // Picking a line runs it and puts the menu away: About is Settings on its About tab.
                 var invoke = (System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(lines[^1])
                     .GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke);
                 invoke.Invoke();
                 Ui.Pump(200);
                 Assert.False(menu.IsOpen);
+                Assert.Equal((Visibility.Visible, Visibility.Collapsed), (ask.Visibility, answer.Visibility)); // the next opening asks again
+                Assert.Equal(UpdateViewModel.CheckIcon, lines[1].Tag);
                 Assert.Equal(("settings", "about"), (Shell.CurrentPage, Shell.SettingsPage.Tab));
                 Assert.Equal(true, row.Tag); // marked like a page while Settings is open
             }

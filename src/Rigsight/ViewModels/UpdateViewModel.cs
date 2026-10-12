@@ -61,7 +61,8 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLine), nameof(ShowProgress), nameof(ShowPrompt), nameof(ShowFailed), nameof(LineTitle), nameof(LineIcon),
-        nameof(LineTip), nameof(ProgressTitle), nameof(PromptText), nameof(StatusText), nameof(ActionText), nameof(IsBusy), nameof(ActionIsPrimary))]
+        nameof(LineTip), nameof(ProgressTitle), nameof(PromptText), nameof(StatusText), nameof(ActionText), nameof(IsBusy), nameof(ActionIsPrimary),
+        nameof(AnswerText), nameof(AnswerIcon))]
     [NotifyCanExecuteChangedFor(nameof(ActionCommand))]
     private UpdateState _state;
 
@@ -73,7 +74,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     private string _error = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(ActionText), nameof(IsBusy))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(ActionText), nameof(IsBusy), nameof(AnswerText), nameof(AnswerIcon))]
     [NotifyCanExecuteChangedFor(nameof(ActionCommand))]
     private bool _isChecking;
 
@@ -119,6 +120,29 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     /// <summary>The button is the next step of an update (not just "Check for updates"): it stands out.</summary>
     public bool ActionIsPrimary => State is UpdateState.Available or UpdateState.Ready or UpdateState.Waiting or UpdateState.Failed;
+
+    public const string CheckIcon = "\uE72C";
+
+    /// <summary>
+    /// What the Settings menu's update line reads once it has been pressed, in place of "Check for updates": the
+    /// answer in two or three words, or the next step when there is one (Download, Restart to update).
+    /// </summary>
+    public string AnswerText => State switch
+    {
+        _ when IsChecking => "Checking…",
+        UpdateState.None when _checkError is not null => "Couldn't check",
+        UpdateState.None when _checked => "Up to date",
+        _ => ActionText,
+    };
+
+    /// <summary>The icon beside <see cref="AnswerText"/>: a tick when up to date, a warning when the check couldn't be made.</summary>
+    public string AnswerIcon => State switch
+    {
+        _ when IsChecking => CheckIcon,
+        UpdateState.None when _checkError is not null => "\uE7BA",
+        UpdateState.None when _checked => "\uE73E",
+        _ => CheckIcon,
+    };
 
     public string ActionText => State switch
     {
@@ -462,7 +486,7 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     private void RefreshTexts()
     {
-        foreach (var name in new[] { nameof(LineTip), nameof(ProgressTitle), nameof(PromptText), nameof(StatusText) })
+        foreach (var name in new[] { nameof(LineTip), nameof(ProgressTitle), nameof(PromptText), nameof(StatusText), nameof(AnswerText), nameof(AnswerIcon) })
             OnPropertyChanged(name);
     }
 }
