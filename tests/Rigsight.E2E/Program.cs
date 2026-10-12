@@ -930,7 +930,20 @@ internal sealed class WindowWatch : IDisposable
 /// <summary>Drives the app's window through UI Automation (what screen readers use): no mouse, no keyboard.</summary>
 internal sealed class AppUi(Process app)
 {
-    private AutomationElement Root => AutomationElement.FromHandle(app.MainWindowHandle);
+    private IntPtr _window;
+
+    /// <summary>
+    /// The app's window, found once and kept: asked afresh, Windows can name the Settings menu (a small window of its
+    /// own while it is open) as the process's main window, and that one is gone a moment later.
+    /// </summary>
+    private AutomationElement Root
+    {
+        get
+        {
+            if (_window == IntPtr.Zero) _window = app.MainWindowHandle;
+            return AutomationElement.FromHandle(_window);
+        }
+    }
 
     public bool Has(string name) => Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)) is not null;
 
