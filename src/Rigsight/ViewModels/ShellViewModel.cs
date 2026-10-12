@@ -92,7 +92,9 @@ public sealed partial class ShellViewModel : ObservableObject
             _ = RefreshTickAsync();
             if (!RigsightPaths.IsTestInstance) _ = Update.CheckIfDueAsync(); // a new day while the window stayed open
         };
-        _refresh.Start();
+        // The end-to-end check asks a test copy for this refresh itself, so that it falls where it is measured.
+        if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_REFRESH_ON_SIGNAL") == "1") RefreshOnSignal();
+        else _refresh.Start();
         _ = RefreshCurrentPageAsync();
 
         // An update already found or downloaded shows at once; GitHub is asked once the window has settled (at most once a day).
@@ -357,6 +359,18 @@ public sealed partial class ShellViewModel : ObservableObject
                 }
                 break;
         }
+    }
+
+    /// <summary>A test copy only: the minute's refresh whenever its signal is set, in place of the clock.</summary>
+    private void RefreshOnSignal()
+    {
+        var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        var signal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Rigsight.App.Refresh" + RigsightPaths.InstanceSuffix);
+        new Thread(() =>
+        {
+            while (signal.WaitOne()) dispatcher.InvokeAsync(() => _ = RefreshTickAsync());
+        })
+        { IsBackground = true, Name = "RefreshOnSignal" }.Start();
     }
 
     private bool _ticking;

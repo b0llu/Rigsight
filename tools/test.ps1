@@ -9,9 +9,16 @@
 #             agent's main loop, startup, build files, test helpers): everything
 #   -Full               everything, whatever changed
 #   -Base <git ref>     compare with this instead of the last release tag
-#   -Quick              shorter end-to-end measures
+#   -Quick              (kept for old habits: the end-to-end run is always the short one now)
+#   -Year               also the end-to-end run on a year of made-up history. Without it that run is only made when
+#                       how history is stored, read or summed up changed since the last release (src\Rigsight.Core\Data
+#                       and Reports, the app's ReportService): that is what a long history can slow down
 #   -SkipEndToEnd       unit and UI tests only
-#   -UpdateBaseline     accept this run's end-to-end measures as the new baseline (only if it passed)
+#   -UpdateBaseline     accept this run's end-to-end measures (only if it passed): added to the baseline, which is the
+#                       last five accepted runs; a later run is compared with the middle value of each measure.
+#                       The made-up year's run has a baseline of its own and is added to it the same way
+#   -NewBaseline        as -UpdateBaseline, but the baseline starts over from this run alone: after a change that was
+#                       meant to cost what it now costs (the middle of the earlier runs would go on failing it)
 #   -Admin              the test copy's agent runs with admin rights, reading every sensor like an installed one;
 #                       measured against its own baseline. One Windows prompt, at the start, for tools\admin-helper.ps1,
 #                       which then starts the test agent with admin rights for every run until one passes (or 2 hours
@@ -31,7 +38,7 @@
 # Release build runs as an isolated test copy on a copy of this PC's own history (-Seeded: a made-up year; a full gate
 # also runs that one, quick) (startup, CPU, memory, handles, leaks,
 # clean shutdown, the log; against budgets and the baseline). Nothing here touches the installed Rigsight; its history is only read, to copy it.
-param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild, [switch]$Seeded, [int]$Parts = 5)
+param([switch]$Full, [string]$Base, [switch]$Quick, [switch]$SkipEndToEnd, [switch]$UpdateBaseline, [switch]$NewBaseline, [switch]$Installed, [switch]$Admin, [switch]$InstalledBuild, [switch]$Seeded, [switch]$Year, [int]$Parts = 5)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 # From the repository, wherever it's started from: dotnet reads global.json (the test runner) from the current folder.
@@ -177,17 +184,25 @@ else {
     # On a copy of this PC's own history unless -Seeded: what the pages really hold is what has to be quick.
     if (-not $Seeded) { $e2eArgs += '--real-data' }
     if ($short) { $e2eArgs += '--quick' }
-    if ($UpdateBaseline) { $e2eArgs += '--update-baseline' }
+    $baselineArg = if ($NewBaseline) { '--new-baseline' } elseif ($UpdateBaseline) { '--update-baseline' }
+    if ($baselineArg) { $e2eArgs += $baselineArg }
     if ($Installed) { $e2eArgs += '--installed' }
     if ($Admin) { $e2eArgs += '--admin'; Write-Host '  (a Windows admin prompt will appear for the test agent: accept it)' -ForegroundColor Yellow }
     dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release -- @e2eArgs
     if ($LASTEXITCODE) { Failed 'end-to-end (see the report in the results folder)' }
 
-    # A full gate also takes the made-up year (quick): what a long history costs, which this PC's own doesn't show yet.
-    if ($level -eq 'full' -and -not $short -and -not $Seeded) {
-        Stage 'End-to-end: a year of made-up history (quick)'
+    # The made-up year: what a long history costs, which this PC's own doesn't show yet. Only when asked for (-Year)
+    # or when the code that stores, reads or sums up history changed since the last release.
+    $history = $false
+    if (-not $Year) {
+        $tag = git -C $root describe --tags --abbrev=0 2>$null
+        $history = [bool]($tag -and (git -C $root diff --name-only $tag -- src/Rigsight.Core/Data src/Rigsight.Core/Reports src/Rigsight/Services/ReportService.cs))
+    }
+    if (-not $Seeded -and ($Year -or $history)) {
+        Stage "End-to-end: a year of made-up history$(if (-not $Year) { ' (the history code changed since the last release)' })"
         $yearArgs = @('--bin', $publish, '--out', (Join-Path $results 'e2e-year'), '--quick')
         if ($Admin) { $yearArgs += '--admin' }
+        if ($baselineArg) { $yearArgs += $baselineArg }
         dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release --no-build -- @yearArgs
         if ($LASTEXITCODE) { Failed 'end-to-end on a year of history' }
     }
