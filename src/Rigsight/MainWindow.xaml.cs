@@ -98,6 +98,9 @@ public partial class MainWindow : Window
         if (_vm.Processes.Question.IsOpen) Dispatcher.BeginInvoke(() => EndQuestionLayer.Focus(), System.Windows.Threading.DispatcherPriority.Input);
     }
 
+    /// <summary>A line of the Settings menu was picked: the menu goes away as its command runs.</summary>
+    private void SettingsMenu_Click(object sender, RoutedEventArgs e) => SettingsRow.IsChecked = false;
+
     private void EndQuestionBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Processes.Question.Cancel();
 
     private void ExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Export.CloseCommand.Execute(null);

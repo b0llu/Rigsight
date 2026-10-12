@@ -399,7 +399,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     private void FillLegend()
     {
         IReadOnlyList<NetLegend> legend = ChartMode == "Background"
-            ? [new("CoolBrush", "The app in front"), new("CoolBrush", "In the background, or while you were away", 0.45)]
+            ? [new("SkyBrush", "The app in front"), new("SkyBrush", "In the background, or while you were away", 0.45)]
             : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => new NetLegend(Controls.NetBarsChart.AppBrushKeys[i], AppNames.GetValueOrDefault(id, "Unknown")))
                     .Where(l => l.Text != "Unknown"),
                new(Controls.NetBarsChart.OtherBrushKey, "Every other app")];

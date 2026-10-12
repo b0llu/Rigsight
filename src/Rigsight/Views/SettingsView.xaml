@@ -44,6 +44,44 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- A heading inside a tab that holds two groups (Privacy under Tracking, Updates and About): bold and white. -->
+        <Style x:Key="SubHead" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Margin" Value="2,24,0,10" />
+        </Style>
+        <!-- A tab of the page: its name, with the accent under it while picked. The weight never changes, so the row
+             doesn't shift when another is picked. -->
+        <Style x:Key="SettingsTab" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="SettingsTab" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="8,8,0,0" Padding="14,9,14,11">
+                                <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="Line" Height="2" CornerRadius="1" Margin="14,0,14,-1" VerticalAlignment="Bottom"
+                                    Background="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="Margin" Value="4,26,0,8" />
         </Style>
@@ -185,13 +223,40 @@
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <!-- On a wide window the page is centred like the others, and this column is at its left. -->
         <Grid MaxWidth="{StaticResource PageFrame}">
-        <StackPanel Margin="32,26,32,40" MaxWidth="900" HorizontalAlignment="Left">
+        <!-- A column up to 900 wide at the left, the same width on every tab (a tab with short rows would otherwise shrink to them). -->
+        <Grid Margin="32,26,32,40">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MaxWidth="900" />
+            <ColumnDefinition Width="0.001*" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
             <TextBlock Text="Settings" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0"
                        Visibility="{Binding StatusMessage, Converter={StaticResource Vis}}" />
 
+            <!-- The sections as tabs, so a setting is a click away, not a scroll: the tab's name is its section's title.
+                 Privacy sits with Tracking and Updates with About, under their own bold headings. -->
+            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Margin="0,18,0,20">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="General" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=general}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="Appearance" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=appearance}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="Tracking" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=tracking}" />
+                    <!-- A dot while something on Sensors needs a look. -->
+                    <RadioButton Style="{StaticResource SettingsTab}" AutomationProperties.Name="Sensors" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=sensors}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Sensors" />
+                            <Ellipse Width="7" Height="7" Margin="8,1,0,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
+                                     Visibility="{Binding SensorsNeedAttention, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="Notifications" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=notifications}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="History" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=history}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="About" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=about}" />
+                </StackPanel>
+            </Border>
+
             <!-- General -->
-            <TextBlock Text="GENERAL" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsGeneral, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -231,30 +296,79 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Appearance -->
-            <TextBlock Text="APPEARANCE" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsAppearance, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
-                    <DockPanel Style="{StaticResource Row}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=dark}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Grey"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=grey}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=light}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=system}" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="Theme" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </DockPanel>
+                    <!-- The themes as small pictures of the window in each: its background, text, a card and its accent. -->
+                    <TextBlock Text="Theme" Style="{StaticResource Title}" Margin="0,10,0,10" />
+                    <ListBox Style="{StaticResource ChipList}" AutomationProperties.Name="Theme" ItemsSource="{Binding ThemeOptions}"
+                             SelectedValuePath="Key" SelectedValue="{Binding Theme}" Margin="-6,0,-6,4">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- One row, the cards sharing its width: none is left alone on a second line. -->
+                                <UniformGrid Rows="1" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <StackPanel Margin="6,0,6,10" Background="Transparent">
+                                                <Grid>
+                                                    <Border x:Name="Ring" CornerRadius="12" Margin="-3" BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}" Opacity="0" />
+                                                    <Border Height="68" CornerRadius="10" Background="{Binding Bg}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                                        <Grid Margin="16,10,10,10">
+                                                            <Border Width="3" Height="16" CornerRadius="2" Margin="-10,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Background="{Binding Accent}" />
+                                                            <StackPanel>
+                                                                <Border Height="5" Width="50" CornerRadius="3" HorizontalAlignment="Left" Background="{Binding Text}" />
+                                                                <Border Height="5" Width="34" CornerRadius="3" HorizontalAlignment="Left" Background="{Binding Muted}" Margin="0,6,0,0" />
+                                                                <Border Height="16" Width="72" CornerRadius="5" HorizontalAlignment="Left" Background="{Binding Card}" Margin="0,9,0,0" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                                <TextBlock Text="{Binding Name}" FontSize="13" Margin="2,7,0,0" Foreground="{TemplateBinding Foreground}" />
+                                            </StackPanel>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Ring" Property="Opacity" Value="0.35" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
                     <DockPanel Style="{StaticResource Row}">
                         <ListBox DockPanel.Dock="Right" Style="{StaticResource ChipList}" ItemContainerStyle="{StaticResource Swatch}" VerticalAlignment="Center"
                                  AutomationProperties.Name="Accent colour" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
                         <TextBlock Text="Accent colour" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <!-- Only once an accent is picked: from then on every part's colour is a shade of it, and this says
+                         whether the colours that judge a reading follow it too. -->
+                    <DockPanel Style="{StaticResource Row}" Visibility="{Binding AccentPicked, Converter={StaticResource Vis}}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="StatusColors" Content="Green, amber, red"
+                                             IsChecked="{Binding KeepStatusColors, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="StatusColors" Content="Accent"
+                                             IsChecked="{Binding KeepStatusColors, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Temperature and usage colours" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <!-- The sidebar: its editor slides in from the right (below). What is hidden is said here, when anything is. -->
                     <DockPanel Style="{StaticResource Row}" DataContext="{Binding Sidebar}">
@@ -268,9 +382,10 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Tracking -->
-            <TextBlock Text="TRACKING" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsTracking, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -313,15 +428,10 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Sensors: outlined, with a dot by its title, while something here needs a look; Settings opens with it centred. -->
-            <StackPanel ctl:Attention.Section="sensors">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="SENSORS" Style="{StaticResource Section}" />
-                <!-- Same top and bottom margins as the section title, so the dot sits on its line. -->
-                <Ellipse Width="7" Height="7" Margin="8,26,0,8" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
-                         Visibility="{Binding SensorsNeedAttention, Converter={StaticResource Vis}}" />
-            </StackPanel>
+            <StackPanel ctl:Attention.Section="sensors" Visibility="{Binding IsSensors, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Padding="20,8">
                 <ctl:SmoothBorder.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
@@ -408,7 +518,8 @@
             </StackPanel>
 
             <!-- Privacy -->
-            <TextBlock Text="PRIVACY" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsTracking, Converter={StaticResource Vis}}">
+            <TextBlock Text="Privacy" Style="{StaticResource SubHead}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,14">
                 <StackPanel>
                     <TextBlock Text="Apps that are never recorded" Style="{StaticResource Title}" />
@@ -439,9 +550,10 @@
                     </StackPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Notifications -->
-            <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsNotifications, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
@@ -546,9 +658,10 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- History -->
-            <TextBlock Text="HISTORY" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsHistory, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -594,9 +707,11 @@
                     </WrapPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
 
             <!-- Updates -->
-            <TextBlock Text="UPDATES" Style="{StaticResource Section}" />
+            <StackPanel Visibility="{Binding IsAbout, Converter={StaticResource Vis}}">
+            <TextBlock Text="Updates" Style="{StaticResource SubHead}" Margin="2,0,0,10" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -638,7 +753,7 @@
             </ctl:SmoothBorder>
 
             <!-- About -->
-            <TextBlock Text="ABOUT" Style="{StaticResource Section}" />
+            <TextBlock Text="About" Style="{StaticResource SubHead}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -701,7 +816,9 @@
                     </StackPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            </StackPanel>
         </StackPanel>
+        </Grid>
         </Grid>
     </ScrollViewer>
 

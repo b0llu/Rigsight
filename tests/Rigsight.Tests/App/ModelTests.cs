@@ -676,17 +676,18 @@ public sealed class ServiceTests
     }
 
     [Fact]
-    public void Both_themes_define_every_colour_the_app_asks_for()
+    public void Every_theme_defines_every_colour_the_app_asks_for()
     {
         string[] keys =
         [
             "BgColor", "TextColor", "MutedColor", "FaintColor", "StrokeColor", "Surface2Color", "TooltipColor", "CpuColor", "GpuColor",
             "CoolColor", "GoodColor", "WarmColor", "OrangeColor", "HotColor", "PurpleColor", "PinkColor",
             "HotBrush", "WarmBrush", "GoodBrush", "GoodSoftBrush", "GpuBrush", "CpuBrush", "PurpleBrush", "AccentBrush", "MutedBrush", "StrokeBrush", "FaintBrush", "HoverBrush",
+            "SkyColor", "SkyBrush", "RamBrush", "RamSoftBrush", "SegmentOnBrush", "SegmentOnTextBrush", "ListBarBrush", "AccentSoftBrush", "OnAccentBrush", "SystemAccentColor",
         ];
         try
         {
-            foreach (var theme in new[] { ThemeManager.Dark, ThemeManager.Grey, ThemeManager.Light })
+            foreach (var theme in new[] { ThemeManager.Dark, ThemeManager.Grey, ThemeManager.Midnight, ThemeManager.Forest, ThemeManager.Ember, ThemeManager.Light })
             {
                 Ui.Run(() => ThemeManager.Apply(theme));
                 var missing = Ui.Run(() => keys.Where(k => Application.Current.TryFindResource(k) is null).ToList());

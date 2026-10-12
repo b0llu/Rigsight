@@ -75,7 +75,7 @@ public sealed partial class FanCard : ObservableObject
     internal const double MinSpinRpm = 100;
 
     // None green, amber, orange or red: those say how a reading is doing, not which fan a line is.
-    private static readonly string[] Colors = ["GpuColor", "PurpleColor", "PinkColor", "CoolColor"];
+    private static readonly string[] Colors = ["GpuColor", "PurpleColor", "PinkColor", "SkyColor"];
 
     public FanCard(IReadOnlyList<SensorItem> sensors)
     {

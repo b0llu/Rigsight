@@ -13,11 +13,17 @@ public sealed class RigsightSettings
 
     public bool UseFahrenheit { get; set; }
 
-    /// <summary>The app's colors: "dark", "grey", "light" or "system" (follow Windows).</summary>
+    /// <summary>The app's colors: "dark", "grey", "midnight", "forest", "ember", "light" or "system" (follow Windows).</summary>
     public string Theme { get; set; } = "dark";
 
-    /// <summary>The app's accent: "mono" (black and white), a colour's name, or "windows" (follow Windows).</summary>
+    /// <summary>The app's accent: "mono" (the theme's own), a colour's name, or "windows" (follow Windows).</summary>
     public string Accent { get; set; } = "mono";
+
+    /// <summary>
+    /// With an accent picked, every part's colour becomes a shade of it, and so do the colours for how a reading is
+    /// doing (temperatures, drive health, fullness). On, those stay green, amber and red.
+    /// </summary>
+    public bool KeepStatusColors { get; set; }
 
     /// <summary>How often the app's live views refresh while it is open.</summary>
     public int LiveRefreshMs { get; set; } = 1000;

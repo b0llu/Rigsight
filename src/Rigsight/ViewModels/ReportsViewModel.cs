@@ -125,9 +125,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         {
             // System apps, anything unsorted and slivers too small to see in the bar are one grey part at the end.
             if (kind is Core.Settings.AppCategory.Other or Core.Settings.AppCategory.System || sec < total / 50) rest += sec;
-            else parts.Add(new TimePart(Core.Apps.AppCatalog.Label(kind), sec, Core.Apps.AppCatalog.Color(kind)));
+            else parts.Add(new TimePart(Core.Apps.AppCatalog.Label(kind), sec, ThemeManager.CategoryHex(kind)));
         }
-        if (rest >= 60) parts.Add(new TimePart("Everything else", rest, Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.System)));
+        if (rest >= 60) parts.Add(new TimePart("Everything else", rest, ThemeManager.CategoryHex(Core.Settings.AppCategory.System)));
         return parts;
     }
 

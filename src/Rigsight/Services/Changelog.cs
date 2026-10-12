@@ -83,6 +83,21 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.22.0", 10, 12,
+            feature: new("Themes", "Give the whole window a colour of its own, with new themes and an accent that reaches every page.",
+                ["Three new themes, Midnight, Forest and Ember, beside Dark, Grey and Light.",
+                    "A picked accent colours the charts, bars and icons on every page, not only the buttons.",
+                    "Choose whether temperatures keep green, amber and red or take the accent too.",
+                    "Warnings stay amber and red in every theme, so a problem still stands out."],
+                "settings", "\uE790", isPage: false) { OpenText = "Open Settings" },
+            added: ["Settings is split into tabs, so each group of settings is one click away instead of a long scroll.",
+                "Settings stays at the foot of the sidebar and opens a menu with updates, What's new, bug reports and logs."],
+            better: ["An accent you picked earlier now colours the whole app, temperatures included, and Appearance in Settings can bring green, amber and red back.",
+                "Small labels such as LOAD and POWER are a lighter grey, so they are easier to read on every page.",
+                "Drive bars on Storage and the bars on Memory are one flat colour instead of a blue-to-purple fade.",
+                "Home shows a loader while its recap card reads another day, week or month.",
+                "Storage uses much less memory and CPU time while it adds up the space you could free.",
+                "The CPU, GPU and RAM readout under the sidebar is removed, as Home and Temperatures already show those readings."]),
         V("0.21.1", 10, 11,
             better: ["App icons are saved between runs, so Home and Reports no longer wait to read them each time Rigsight opens.",
                 "Reports shows a loader while it reads another day, week or month, instead of leaving the old figures on screen.",

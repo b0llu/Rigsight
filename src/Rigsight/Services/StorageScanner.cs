@@ -169,6 +169,9 @@ public static class StorageScanner
     /// <summary>
     /// The space the files under a folder take on the drive (for cleanup suggestions), those <paramref name="filter"/>
     /// keeps; 0 if it doesn't exist. Junctions aren't followed, and a file under two names counts once.
+    /// Only sizes are wanted, so the files' names are never made (a file <paramref name="filter"/> sees has an empty
+    /// name) and one list is used for every folder: a folder tree of hundreds of thousands of files (Windows' update
+    /// cache during an update) used to cost about a hundred megabytes of short-lived strings.
     /// </summary>
     public static long FolderSize(string path, Func<DiskEntry, bool>? filter = null)
     {
@@ -176,10 +179,13 @@ public static class StorageScanner
         long total = 0;
         var seen = new HashSet<long>();
         var folders = new Stack<string>([path]);
+        var entries = new List<DiskEntry>();
         while (folders.Count > 0)
         {
             var folder = folders.Pop();
-            foreach (var e in Entries(folder))
+            entries.Clear();
+            Read(folder, entries, fileNames: false);
+            foreach (var e in entries)
             {
                 if (e.IsFolder)
                 {
@@ -198,14 +204,21 @@ public static class StorageScanner
     /// lists them): with each file's space on the drive and its ID, which no per-file call has to fetch. Nothing for a
     /// folder that can't be opened (protected, gone).
     /// </summary>
-    public static unsafe List<DiskEntry> Entries(string folder)
+    public static List<DiskEntry> Entries(string folder)
     {
         var list = new List<DiskEntry>();
+        Read(folder, list, fileNames: true);
+        return list;
+    }
+
+    /// <summary>Adds a folder's entries to <paramref name="list"/>; without <paramref name="fileNames"/> a file's name is left empty (a folder's never is).</summary>
+    private static unsafe void Read(string folder, List<DiskEntry> list, bool fileNames)
+    {
         string full = System.IO.Path.GetFullPath(folder);
         // The long-path form, so folders deeper than 260 characters are read too.
         string name = full.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + full[2..] : @"\\?\" + full;
         using var handle = CreateFileW(name, FileListDirectory, FileShareAll, IntPtr.Zero, OpenExisting, BackupSemantics, IntPtr.Zero);
-        if (handle.IsInvalid) return list;
+        if (handle.IsInvalid) return;
 
         const int size = 64 * 1024;
         byte* buffer = (byte*)NativeMemory.Alloc(size);
@@ -225,11 +238,16 @@ public static class StorageScanner
                     // name length 60, file ID 72, name 80.
                     int next = *(int*)p;
                     int nameLength = *(int*)(p + 60);
-                    var entryName = new string((char*)(p + 80), 0, nameLength / 2);
-                    if (entryName is not "." and not "..")
+                    char* chars = (char*)(p + 80);
+                    bool dots = (nameLength == 2 && chars[0] == '.') || (nameLength == 4 && chars[0] == '.' && chars[1] == '.');
+                    if (!dots)
                     {
                         var attributes = (FileAttributes)(*(uint*)(p + 56));
                         long onDisk = *(long*)(p + 48);
+                        // A name is a string each: made for folders (to go into them), for the few files whose real
+                        // size has to be asked for by path, and for every file only when the caller wants names.
+                        bool isFolder = (attributes & FileAttributes.Directory) != 0;
+                        string entryName = fileNames || isFolder || (attributes & Special) != 0 ? new string(chars, 0, nameLength / 2) : "";
                         // The listing gives a compressed file's space before compression. For those (and sparse files,
                         // Windows' own compacted system files, cloud files: all rare) the space they really take is asked
                         // for, as Explorer's "Size on disk" does. It reads no data: a cloud-only file stays in the cloud.
@@ -247,7 +265,6 @@ public static class StorageScanner
         {
             NativeMemory.Free(buffer);
         }
-        return list;
     }
 
     private const FileAttributes Special = FileAttributes.Compressed | FileAttributes.SparseFile | FileAttributes.ReparsePoint;

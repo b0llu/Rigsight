@@ -10,7 +10,7 @@
     <Color x:Key="StrokeColor">#1F1F1F</Color>
     <Color x:Key="TextColor">#FFFFFF</Color>
     <Color x:Key="MutedColor">#A3A3A3</Color>
-    <Color x:Key="FaintColor">#6B6B6B</Color>
+    <Color x:Key="FaintColor">#8A8A8A</Color>
     <Color x:Key="AccentColor">#FFFFFF</Color>
     <Color x:Key="OnAccentColor">#000000</Color>
     <Color x:Key="CpuColor">#5B8CFF</Color>
@@ -23,6 +23,8 @@
     <Color x:Key="GoodColor">#34D399</Color>
     <Color x:Key="PinkColor">#F472B6</Color>
     <Color x:Key="TooltipColor">#1C1C1C</Color>
+    <!-- Sky: the blue of a kind of thing (voltages, drives, the internet), apart from Cool, which says a temperature is low. -->
+    <Color x:Key="SkyColor">#38BDF8</Color>
 
     <SolidColorBrush x:Key="BgBrush" Color="{StaticResource BgColor}" />
     <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
@@ -45,6 +47,15 @@
     <SolidColorBrush x:Key="GoodBrush" Color="{StaticResource GoodColor}" />
     <SolidColorBrush x:Key="PinkBrush" Color="{StaticResource PinkColor}" />
     <SolidColorBrush x:Key="TooltipBrush" Color="{StaticResource TooltipColor}" />
+    <SolidColorBrush x:Key="SkyBrush" Color="{StaticResource SkyColor}" />
+    <!-- Memory's bars, lines and badge: the accent, whichever it is. -->
+    <SolidColorBrush x:Key="RamBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="RamSoftBrush" Color="{StaticResource AccentColor}" Opacity="0.16" />
+    <!-- The picked segment of a segmented choice: a shade, or the accent once one is picked. -->
+    <SolidColorBrush x:Key="SegmentOnBrush" Color="{StaticResource HoverColor}" />
+    <SolidColorBrush x:Key="SegmentOnTextBrush" Color="{StaticResource TextColor}" />
+    <!-- The thin bar under each app in the Apps list: quiet, or the accent once one is picked. -->
+    <SolidColorBrush x:Key="ListBarBrush" Color="{StaticResource FaintColor}" />
     <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentColor}" Opacity="0.14" />
     <SolidColorBrush x:Key="CpuSoftBrush" Color="{StaticResource CpuColor}" Opacity="0.16" />
     <SolidColorBrush x:Key="GpuSoftBrush" Color="{StaticResource GpuColor}" Opacity="0.16" />

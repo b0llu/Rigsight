@@ -28,6 +28,10 @@ internal static class ChartPaint
     public static SolidColorBrush Warm { get; private set; } = null!;
     public static SolidColorBrush Orange { get; private set; } = null!;
     public static SolidColorBrush Hot { get; private set; } = null!;
+    public static SolidColorBrush ReadCool { get; private set; } = null!;
+    public static SolidColorBrush ReadGood { get; private set; } = null!;
+    public static SolidColorBrush ReadWarm { get; private set; } = null!;
+    public static SolidColorBrush ReadHot { get; private set; } = null!;
     public static SolidColorBrush Faint { get; private set; } = null!;
     public static SolidColorBrush CpuBrush { get; private set; } = null!;
 
@@ -53,6 +57,14 @@ internal static class ChartPaint
         Warm = Brush(Res("WarmColor", 0x80));
         Orange = Brush(Res("OrangeColor", 0x80));
         Hot = Brush(Res("HotColor", 0x80));
+        // A reading's colours by how it is doing: the same four, or shades of the accent if the person chose that.
+        // Warnings (a crash's mark, a gap in a chart) stay on the four above.
+        (ReadCool, ReadGood, ReadWarm, ReadHot) = (Cool, Good, Warm, Hot);
+        if (Services.ThemeManager.ReadingAccent is { } accent)
+        {
+            var shades = Services.Accents.ReadingShades(accent, Res("TextColor", 0xFF), Res("BgColor", 0x00));
+            (ReadCool, ReadGood, ReadWarm, ReadHot) = (Brush(shades.Cool), Brush(shades.Good), Brush(shades.Warm), Brush(shades.Hot));
+        }
         Faint = Brush(Res("FaintColor", 0x6B));
         CpuBrush = Brush(Cpu);
     }

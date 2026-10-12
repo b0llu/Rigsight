@@ -62,11 +62,19 @@ public sealed class DayTimeline : FrameworkElement
         InvalidateVisual();
     }
 
+    // The brushes are the current theme's: a picked accent turns the categories into its shades.
+    private static int _brushesTheme = -1;
+
     private static (Brush Solid, Brush Faint) BrushesFor(AppCategory c)
     {
+        if (_brushesTheme != Services.ThemeManager.Version)
+        {
+            CategoryBrushes.Clear();
+            _brushesTheme = Services.ThemeManager.Version;
+        }
         if (!CategoryBrushes.TryGetValue(c, out var b))
         {
-            var color = (Color)ColorConverter.ConvertFromString(AppCatalog.Color(c));
+            var color = (Color)ColorConverter.ConvertFromString(Services.ThemeManager.CategoryHex(c));
             CategoryBrushes[c] = b = (ChartPaint.Brush(color), ChartPaint.Brush(color, 0.28));
         }
         return b;

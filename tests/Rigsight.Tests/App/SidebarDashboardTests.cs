@@ -342,7 +342,7 @@ public sealed class SidebarDashboardTests
         Ui.Run(() =>
         {
             var sidebar = boards.Sidebar;
-            var vm = new SettingsViewModel(boards.Settings, new AgentClient(Ui.Dispatcher), new ReportService(boards.Settings)) { Sidebar = sidebar };
+            var vm = new SettingsViewModel(boards.Settings, new AgentClient(Ui.Dispatcher), new ReportService(boards.Settings)) { Sidebar = sidebar, Tab = "appearance" };
             var window = new Window { Content = new Views.SettingsView { DataContext = vm }, Left = -32000, Top = -32000, Width = 1200, Height = 900, ShowActivated = false, ShowInTaskbar = false };
             window.Show();
             Ui.Pump(200);

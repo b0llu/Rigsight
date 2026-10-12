@@ -37,10 +37,18 @@ public sealed class DailyBars : FrameworkElement
         InvalidateVisual();
     }
 
+    // The fills are the current theme's: a picked accent turns the categories into its shades.
+    private static int _fillsTheme = -1;
+
     private static Brush Fill(AppCategory c)
     {
+        if (_fillsTheme != Services.ThemeManager.Version)
+        {
+            Fills.Clear();
+            _fillsTheme = Services.ThemeManager.Version;
+        }
         if (!Fills.TryGetValue(c, out var b))
-            Fills[c] = b = ChartPaint.Brush((Color)ColorConverter.ConvertFromString(AppCatalog.Color(c)));
+            Fills[c] = b = ChartPaint.Brush((Color)ColorConverter.ConvertFromString(Services.ThemeManager.CategoryHex(c)));
         return b;
     }
 

@@ -61,14 +61,8 @@
                                         <TextBlock Text="{Binding UsageText}" Style="{StaticResource Muted}" FontSize="12" />
                                     </StackPanel>
                                 </DockPanel>
-                                <ProgressBar Style="{StaticResource Bar}" Height="10" Margin="0,16,0,8" Value="{Binding UsedPercent, Mode=OneWay}">
-                                    <ProgressBar.Foreground>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Color="#5B8CFF" Offset="0" />
-                                            <GradientStop Color="#B18CFF" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </ProgressBar.Foreground>
-                                </ProgressBar>
+                                <!-- One flat colour, the accent (the bar style's own). -->
+                                <ProgressBar Style="{StaticResource Bar}" Height="10" Margin="0,16,0,8" Value="{Binding UsedPercent, Mode=OneWay}" />
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Growth}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                     <TextBlock Text="{Binding FreeText}" FontSize="12" Foreground="{DynamicResource TextBrush}" />

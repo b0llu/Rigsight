@@ -74,7 +74,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Settings.Changed += () =>
         {
-            ThemeManager.Apply(Settings.Current.Theme, Settings.Current.Accent);
+            ThemeManager.Apply(Settings.Current.Theme, Settings.Current.Accent, Settings.Current.KeepStatusColors);
             Live.ApplySettings();
             Widgets.Refresh();
             Overlay.Refresh();
@@ -522,6 +522,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [RelayCommand]
     private void Go(string page) => CurrentPage = page;
+
+    /// <summary>"About Rigsight" in the sidebar's menu: Settings, on its About tab.</summary>
+    [RelayCommand]
+    private void About()
+    {
+        SettingsPage.Tab = "about";
+        CurrentPage = "settings";
+    }
 
     [RelayCommand]
     private void StartAgent()

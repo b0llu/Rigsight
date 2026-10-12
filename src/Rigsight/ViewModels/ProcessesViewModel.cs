@@ -86,8 +86,8 @@ public sealed partial class ProcessesViewModel : ObservableObject
         _view.LiveFilteringProperties.Add(nameof(ProcRow.HasWindow));
         Tiles =
         [
-            new(ByMemory, "MEMORY", "PurpleBrush", SensorKind.Data), new(ByCpu, "CPU", "CpuBrush", SensorKind.Load),
-            new(ByInternet, "INTERNET", "CoolBrush", SensorKind.Throughput), new(ByDisk, "DISK", "AccentBrush", SensorKind.Throughput),
+            new(ByMemory, "MEMORY", "RamBrush", SensorKind.Data), new(ByCpu, "CPU", "CpuBrush", SensorKind.Load),
+            new(ByInternet, "INTERNET", "SkyBrush", SensorKind.Throughput), new(ByDisk, "DISK", "AccentBrush", SensorKind.Throughput),
         ];
         Tiles[2].History = _netHistory;
         Tiles[3].History = _diskHistory;

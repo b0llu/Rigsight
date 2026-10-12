@@ -48,6 +48,8 @@ public partial class SettingsView : UserControl
     private void ScrollToAttention()
     {
         if (DataContext is not SettingsViewModel { AttentionSection: { } section } vm) return;
+        // The section is a tab of its own, or sits on one: show that tab first.
+        vm.Tab = section;
         // After layout, so the section's position is known.
         Dispatcher.BeginInvoke(() =>
         {

@@ -33,10 +33,10 @@ internal static class Brushes2
 /// </summary>
 public sealed class TempToBrushConverter : IValueConverter
 {
-    public static SolidColorBrush Cool => Controls.ChartPaint.Cool;
-    public static SolidColorBrush Good => Controls.ChartPaint.Good;
-    public static SolidColorBrush Warm => Controls.ChartPaint.Warm;
-    public static SolidColorBrush Hot => Controls.ChartPaint.Hot;
+    public static SolidColorBrush Cool => Controls.ChartPaint.ReadCool;
+    public static SolidColorBrush Good => Controls.ChartPaint.ReadGood;
+    public static SolidColorBrush Warm => Controls.ChartPaint.ReadWarm;
+    public static SolidColorBrush Hot => Controls.ChartPaint.ReadHot;
     public static SolidColorBrush None => Controls.ChartPaint.Faint;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -229,14 +229,25 @@ public sealed class IconConverter : IValueConverter
 /// <summary>AppCategory → its color (ConverterParameter "Soft" for a translucent version).</summary>
 public sealed class CategoryBrushConverter : IValueConverter
 {
+    // For the current theme only: a picked accent turns the categories into its shades.
     private static readonly Dictionary<(AppCategory, bool), SolidColorBrush> Cache = [];
+    private static int _cacheTheme = -1;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var category = value is AppCategory c ? c : AppCategory.Other;
         bool soft = parameter as string == "Soft";
+        // "Bar": a plain list of apps with a bar each (Home). With an accent picked the bars are all the accent: the
+        // categories' lighter and deeper shades, with nothing beside them to say what they stand for, read as a fault.
+        if (parameter as string == "Bar" && ThemeManager.AccentTakesOver && Application.Current?.TryFindResource("AccentBrush") is SolidColorBrush accent)
+            return accent;
+        if (_cacheTheme != ThemeManager.Version)
+        {
+            Cache.Clear();
+            _cacheTheme = ThemeManager.Version;
+        }
         if (!Cache.TryGetValue((category, soft), out var brush))
-            Cache[(category, soft)] = brush = Brushes2.FromHex(AppCatalog.Color(category), soft ? 0.16 : 1);
+            Cache[(category, soft)] = brush = Brushes2.FromHex(ThemeManager.CategoryHex(category), soft ? 0.16 : 1);
         return brush;
     }
 
@@ -320,14 +331,14 @@ public sealed class KindBrushConverter : IValueConverter
         SensorKind.Load => "CpuColor",
         SensorKind.Clock or SensorKind.Frequency or SensorKind.Timing => "PurpleColor",
         SensorKind.Power or SensorKind.Energy or SensorKind.Current => "MutedColor",
-        SensorKind.Voltage => "CoolColor",
+        SensorKind.Voltage => "SkyColor",
         SensorKind.Fan or SensorKind.Flow or SensorKind.Control => "MutedColor",
         SensorKind.Data or SensorKind.SmallData or SensorKind.Throughput => "PinkColor",
         SensorKind => "MutedColor",
         "Cpu" => "CpuColor",
         "GpuNvidia" or "GpuAmd" or "GpuIntel" => "GpuColor",
         "Memory" => "PurpleColor",
-        "Storage" => "CoolColor",
+        "Storage" => "SkyColor",
         "Motherboard" or "SuperIO" or "EmbeddedController" => "MutedColor",
         "Cooler" => "MutedColor",
         "Psu" or "Battery" => "MutedColor",
@@ -398,9 +409,9 @@ public sealed class InsightBrushConverter : IValueConverter
         Core.Reports.InsightTone.Hot => "HotBrush",
         _ => insight.Key switch
         {
-            "gaming" or "game-heat" => Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.Game),
+            "gaming" or "game-heat" => ThemeManager.CategoryHex(Core.Settings.AppCategory.Game),
             "stretch" or "span" or "early" or "away" or "streak" => "PurpleBrush",
-            "memory" or "idle-app" or "background-work" => Core.Apps.AppCatalog.Color(Core.Settings.AppCategory.Media),
+            "memory" or "idle-app" or "background-work" => ThemeManager.CategoryHex(Core.Settings.AppCategory.Media),
             { } key when key.StartsWith("net-", StringComparison.Ordinal) => "GpuBrush",
             _ => "CpuBrush",
         },

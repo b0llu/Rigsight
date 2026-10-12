@@ -109,10 +109,23 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     /// <summary>What goes in "Space you could free" (tests swap it: the real one walks the user's own folders).</summary>
     internal Func<List<CleanupItem>> FindCleanup { get; set; } = FindCleanupItems;
 
+    /// <summary>How long after the page opens the cleanup list starts being worked out: the page is drawn first.</summary>
+    internal TimeSpan CleanupDelay { get; set; } = TimeSpan.FromMilliseconds(600);
+
+    /// <summary>
+    /// Adding up the folders (some hold hundreds of thousands of files) is never in the page's way: it starts a moment
+    /// after the page is up, on a thread of its own below normal priority, and the list shows its loader until then.
+    /// </summary>
     private async Task LoadCleanupAsync()
     {
         CleanupLoading = true;
-        var items = await Task.Run(FindCleanup);
+        if (CleanupDelay > TimeSpan.Zero) await Task.Delay(CleanupDelay);
+        var items = await Task.Factory.StartNew(() =>
+        {
+            var thread = Thread.CurrentThread;
+            thread.Priority = ThreadPriority.BelowNormal;
+            return FindCleanup();
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         Cleanup.Clear();
         foreach (var i in items) Cleanup.Add(i);
         CleanupLoading = false;

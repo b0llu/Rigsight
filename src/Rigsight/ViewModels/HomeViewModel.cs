@@ -68,7 +68,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     private bool _loaded;
 
     // What a card says when it has nothing, only once the history has been read: until then it shows that it's loading.
-    public bool ShowRecapEmpty => Loaded && !RecapHasData;
+    public bool ShowRecapEmpty => Loaded && !RecapLoading && !RecapHasData;
     public bool ShowNoInsights => Loaded && TodayInsights.Count == 0;
     public bool ShowNoChanges => Loaded && !HasChanges;
 
@@ -361,6 +361,8 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         int id = ++_recapLoad;
         if (!_recaps.TryGetValue(period, out var report))
         {
+            // The card's title is the new period's already: its figures are still the last one's until this is read.
+            RecapLoading = true;
             var (range, anchor) = Bounds(period, DateTime.Today);
             report = await reports.BuildAsync(range, anchor);
             // Nothing yesterday: the last day the PC was used, if there is one.
@@ -373,6 +375,14 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             _recaps[period] = report;
             if (period == RecapPeriod.Yesterday) YesterdayChanged();
         }
-        if (id == _recapLoad) Recap = report;
+        if (id != _recapLoad) return;
+        Recap = report;
+        RecapLoading = false;
     }
+
+    /// <summary>
+    /// A period was just picked and its report isn't read yet: the card hides the last period's figures (they keep
+    /// their room, so nothing moves) and shows a loader over them.
+    /// </summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowRecapEmpty))] private bool _recapLoading;
 }

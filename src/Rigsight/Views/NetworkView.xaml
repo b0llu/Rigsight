@@ -115,7 +115,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
-                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                    <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
                                     <TextBlock Text="Download" Style="{StaticResource LegendText}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding DownNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,12" />
@@ -175,7 +175,7 @@
                                             <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" />
                                             <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="10,0" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="12.5" Foreground="{DynamicResource CoolBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="12.5" Foreground="{DynamicResource SkyBrush}" TextAlignment="Right" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="12.5" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
@@ -347,11 +347,11 @@
                                                         <TextBlock Text="IN FRONT OR IN THE BACKGROUND" Style="{StaticResource Caption}" />
                                                         <ctl:ShareBar Height="8" Margin="0,8,0,6" Front="{Binding FrontShare}" Background2="{Binding BgShare}" Away="{Binding AwayShare}" />
                                                         <WrapPanel>
-                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" />
+                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
                                                             <TextBlock Text="{Binding FrontText}" Style="{StaticResource LegendText}" />
-                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.45" />
+                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" Opacity="0.45" />
                                                             <TextBlock Text="{Binding BgText}" Style="{StaticResource LegendText}" />
-                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource CoolBrush}" Opacity="0.22" />
+                                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" Opacity="0.22" />
                                                             <TextBlock Text="{Binding AwayText}" Style="{StaticResource LegendText}" />
                                                         </WrapPanel>
                                                         <UniformGrid Columns="2" Margin="0,12,0,0">

@@ -350,7 +350,7 @@
         <!-- Sidebar -->
         <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0">
             <DockPanel Margin="14,16,14,16">
-                <!-- Bottom: an update if there is one, an agent warning if needed, then a live readout -->
+                <!-- Bottom: an update if there is one, an agent warning if needed, then Settings and its menu -->
                 <StackPanel DockPanel.Dock="Bottom">
                     <!-- Update: a quiet line, then download progress, then the restart prompt -->
                     <StackPanel DataContext="{Binding Update}">
@@ -489,33 +489,105 @@
                         </StackPanel>
                     </ctl:SmoothBorder>
 
-                    <ctl:SmoothBorder CornerRadius="12" Padding="8,10" Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                            Visibility="{Binding IsConnected, Converter={StaticResource Vis}}">
-                        <UniformGrid Columns="3">
-                            <UniformGrid.Resources>
-                                <Style TargetType="StackPanel"><Setter Property="HorizontalAlignment" Value="Center" /></Style>
-                                <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Center" /></Style>
-                            </UniformGrid.Resources>
-                            <StackPanel>
-                                <TextBlock Text="CPU" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource CpuBrush}" />
-                                <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
+                    <!-- Settings: always at the foot of the sidebar, however far the pages above are scrolled. A press opens a
+                         small menu over it (Settings first, then the things people come looking for: updates, what's new,
+                         reporting a bug); the menu floats, so nothing moves. Marked like a page while Settings is open. -->
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,4,12,10" />
+                    <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="Settings and more" Cursor="Hand" Focusable="False"
+                                  HorizontalAlignment="Stretch" Foreground="{DynamicResource MutedBrush}"
+                                  Tag="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
+                                    <Grid>
+                                        <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0" HorizontalAlignment="Left"
+                                                Background="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" Text="&#xE713;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                            <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" Style="{StaticResource Icon}" FontSize="10"
+                                                       Foreground="{DynamicResource FaintBrush}" Margin="8,0,0,0" />
+                                            <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
+                                            <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
+                                                     ToolTip="Something in Settings needs a look"
+                                                     Visibility="{Binding SettingsNeedAttention, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="Settings" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                    </Grid>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <!-- The menu closes on a click anywhere outside it; without this, a click on the row
+                                             itself would close it and open it again at once. -->
+                                        <Setter Property="IsHitTestVisible" Value="False" />
+                                    </Trigger>
+                                    <Trigger Property="Tag" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+                    <Popup x:Name="SettingsMenu" PlacementTarget="{Binding ElementName=SettingsRow}" Placement="Top" VerticalOffset="-6" StaysOpen="False"
+                           AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding IsChecked, ElementName=SettingsRow, Mode=TwoWay}">
+                        <Border Width="{Binding ActualWidth, ElementName=SettingsRow}" Background="{DynamicResource TooltipBrush}"
+                                BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Padding="6">
+                            <StackPanel Button.Click="SettingsMenu_Click">
+                                <StackPanel.Resources>
+                                    <!-- A line of the menu: its icon (the Tag) and its words. -->
+                                    <Style TargetType="Button">
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Focusable" Value="False" />
+                                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,8">
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="14"
+                                                                       Foreground="{DynamicResource MutedBrush}" Width="16" TextAlignment="Center" />
+                                                            <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextElement.FontSize="13"
+                                                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                                                        </DockPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                    <Style x:Key="MenuRule" TargetType="Border">
+                                        <Setter Property="Height" Value="1" />
+                                        <Setter Property="Margin" Value="4,5" />
+                                        <Setter Property="Background" Value="{DynamicResource StrokeBrush}" />
+                                    </Style>
+                                </StackPanel.Resources>
+                                <Button Tag="&#xE713;" Content="Settings" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="Settings" />
+                                <Button Tag="&#xE72C;" Content="{Binding Update.ActionText}" Command="{Binding Update.ActionCommand}" AutomationProperties.Name="{Binding Update.ActionText}" />
+                                <Button Tag="&#xE7C3;" Content="What's new" Command="{Binding WhatsNew.SeeAllCommand}" />
+                                <Border Style="{StaticResource MenuRule}" />
+                                <Button Tag="&#xEBE8;" Content="Report a bug" Command="{Binding SettingsPage.ReportBugCommand}" />
+                                <Button Tag="&#xE8C8;" Content="Copy logs" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
+                                <Button Tag="&#xEB51;" Content="Support Rigsight" Command="{Binding SettingsPage.SupportCommand}" />
+                                <Border Style="{StaticResource MenuRule}" />
+                                <Button Tag="&#xE946;" Content="About Rigsight" Command="{Binding AboutCommand}" />
+                                <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="10,6,10,4">
+                                    <Run Text="Version" /> <Run Text="{Binding SettingsPage.AppVersion, Mode=OneWay}" />
+                                </TextBlock>
                             </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="GPU" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource GpuBrush}" />
-                                <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="RAM" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource PurpleBrush}" />
-                                <!-- Coloured like CPU and GPU (green, amber from 75 % in use, red from 90 %), and a faint dash
-                                     until the first reading; plain white stood out as bolder than the tinted two. -->
-                                <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="16" FontWeight="SemiBold"
-                                           Foreground="{Binding Live.RamLoad.Value, Converter={StaticResource TempBrush}, ConverterParameter='0,75,90'}" />
-                            </StackPanel>
-                        </UniformGrid>
-                    </ctl:SmoothBorder>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
                 <!-- Navigation (scrolls if there are many dashboards on a short screen). Which page is in which group, their order
@@ -606,19 +678,6 @@
                         <TextBlock Text="{Binding OnScreenGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
-
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,14,12,14" />
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" AutomationProperties.Name="Settings"
-                                 DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
-                        <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
-                        <DockPanel>
-                            <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
-                                     ToolTip="Something in Settings needs a look"
-                                     Visibility="{Binding SettingsNeedAttention, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="Settings" VerticalAlignment="Center" />
-                        </DockPanel>
-                    </RadioButton>
                 </StackPanel>
                 </ScrollViewer>
             </DockPanel>

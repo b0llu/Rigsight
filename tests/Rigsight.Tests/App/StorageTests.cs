@@ -278,6 +278,43 @@ public sealed class StorageTests
         Assert.Equal(7 * K, StorageScanner.FolderSize(root, f => f.Length > K));
         Assert.Equal(0, StorageScanner.FolderSize(Path.Combine(root, "nope")));
         Assert.Equal(0, StorageScanner.FolderSize(Path.Combine(root, "empty")));
+
+        // Only sizes are wanted: no file's name is made on the way (a tree of 300,000 files cost a hundred megabytes
+        // of them), though everything else about each file is there to choose by.
+        var seen = new List<DiskEntry>();
+        Assert.Equal(10 * K, StorageScanner.FolderSize(root, f => { seen.Add(f); return true; }));
+        Assert.NotEmpty(seen);
+        Assert.All(seen, f => Assert.Equal("", f.Name));
+        Assert.All(seen, f => Assert.True(f.Length > 0 && f.LastWrite > DateTime.Now.AddDays(-1)));
+        // Listing a folder still names its files.
+        Assert.All(StorageScanner.Entries(root), e => Assert.NotEqual("", e.Name));
+    }
+
+    [Fact]
+    public void The_cleanup_list_is_worked_out_after_the_page_is_up_and_out_of_its_way()
+    {
+        var vm = Page();
+        ThreadPriority? priority = null;
+        Ui.Run(() =>
+        {
+            vm.CleanupDelay = TimeSpan.FromMilliseconds(1500);
+            vm.FindCleanup = () =>
+            {
+                priority = Thread.CurrentThread.Priority;
+                return [new CleanupItem("Temp", "", 1, null, false)];
+            };
+        });
+        // The page has its drives and is done opening: the list hasn't been started, and says it is loading.
+        Kit.Wait(() => vm.RefreshAsync());
+        Ui.Run(() =>
+        {
+            Assert.NotEmpty(vm.Volumes);
+            Assert.True(vm.CleanupLoading);
+            Assert.Empty(vm.Cleanup);
+        });
+        Assert.Null(priority);
+        Assert.True(Ui.WaitFor(() => Ui.Run(() => vm.Cleanup.Count == 1 && !vm.CleanupLoading)));
+        Assert.Equal(ThreadPriority.BelowNormal, priority);
     }
 
     [Fact]

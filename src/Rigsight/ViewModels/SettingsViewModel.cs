@@ -14,6 +14,24 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
+/// <summary>A theme in Settings, with the colours its small picture is drawn in (read from the theme's own palette).</summary>
+public sealed record ThemeOption(string Key, string Name, System.Windows.Media.Brush Bg, System.Windows.Media.Brush Text,
+    System.Windows.Media.Brush Muted, System.Windows.Media.Brush Card, System.Windows.Media.Brush Accent)
+{
+    /// <param name="palette">The palette file's name in Themes ("Dark", "Midnight"…).</param>
+    public static ThemeOption From(string key, string name, string palette)
+    {
+        var colors = new System.Windows.ResourceDictionary { Source = new Uri($"pack://application:,,,/Rigsight;component/Themes/{palette}.xaml") };
+        System.Windows.Media.Brush Of(string color)
+        {
+            var b = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)colors[color]);
+            b.Freeze();
+            return b;
+        }
+        return new(key, name, Of("BgColor"), Of("TextColor"), Of("MutedColor"), Of("Surface2Color"), Of("AccentColor"));
+    }
+}
+
 /// <summary>A swatch in Settings' accent row.</summary>
 public sealed record AccentOption(string Key, string Name, System.Windows.Media.Brush Brush);
 
@@ -38,8 +56,49 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     public string Accent { get => Accents.Normalize(S.Accent); set { if (value is not null) Set(s => s.Accent = value); } }
 
+    /// <summary>An accent other than the theme's own is picked: the switch for green, amber and red has something to say.</summary>
+    public bool AccentPicked => Accent != Accents.Mono;
+
+    public bool KeepStatusColors { get => S.KeepStatusColors; set => Set(s => s.KeepStatusColors = value); }
+
+    // ── The page's tabs ───────────────────────────────────────────────────
+    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "about"];
+
+    private string _tab = "general";
+
+    /// <summary>The tab shown, one of <see cref="Tabs"/>; kept while the app is open (the page is, too).</summary>
+    public string Tab
+    {
+        get => _tab;
+        set
+        {
+            if (value is null || value == _tab || !Tabs.Contains(value)) return;
+            _tab = value;
+            OnPropertyChanged(string.Empty);
+        }
+    }
+
+    public bool IsGeneral => _tab == "general";
+    public bool IsAppearance => _tab == "appearance";
+    public bool IsTracking => _tab == "tracking";
+    public bool IsSensors => _tab == "sensors";
+    public bool IsNotifications => _tab == "notifications";
+    public bool IsHistory => _tab == "history";
+    public bool IsAbout => _tab == "about";
+
+    private List<ThemeOption>? _themeOptions;
+
+    /// <summary>The themes, each with the few colours its small picture is drawn in; "System" in Windows' own mode's.</summary>
+    public List<ThemeOption> ThemeOptions => _themeOptions ??=
+    [
+        ThemeOption.From(ThemeManager.Dark, "Dark", "Dark"), ThemeOption.From(ThemeManager.Grey, "Grey", "Grey"),
+        ThemeOption.From(ThemeManager.Midnight, "Midnight", "Midnight"), ThemeOption.From(ThemeManager.Forest, "Forest", "Forest"),
+        ThemeOption.From(ThemeManager.Ember, "Ember", "Ember"), ThemeOption.From(ThemeManager.Light, "Light", "Light"),
+        ThemeOption.From(ThemeManager.System, "Same as Windows", ThemeManager.WindowsUsesLight() ? "Light" : "Dark"),
+    ];
+
     private List<AccentOption>? _accentOptions;
-    private (bool Light, System.Windows.Media.Color? Windows) _accentShades;
+    private (bool Light, System.Windows.Media.Color? Windows, System.Windows.Media.Color Own) _accentShades;
 
     /// <summary>
     /// The accent swatches, in the shades the current theme would use; Windows' own accent last. The same list until
@@ -50,11 +109,13 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         get
         {
             bool light = ThemeManager.IsLight;
-            var shades = (light, Accents.WindowsAccent(light));
+            var shades = (light, Accents.WindowsAccent(light), ThemeManager.OwnAccent);
             if (_accentOptions is null || shades != _accentShades)
             {
                 _accentShades = shades;
-                _accentOptions = [.. Accents.All.Select(a => new AccentOption(a.Key, a.Name, Swatch(light ? a.OnLight : a.OnDark)))];
+                // The first swatch is the theme's own accent: white on Dark, blue on Midnight…
+                _accentOptions = [.. Accents.All.Select(a => new AccentOption(a.Key, a.Name,
+                    Swatch(a.Key == Accents.Mono ? ThemeManager.OwnAccent : light ? a.OnLight : a.OnDark)))];
                 if (shades.Item2 is { } windows) _accentOptions.Add(new AccentOption(Accents.Windows, "Windows accent", Swatch(windows)));
             }
             return _accentOptions;

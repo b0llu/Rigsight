@@ -16,12 +16,36 @@ public sealed class Treemap : FrameworkElement
 
     public event Action<FolderNode>? ItemActivated;
 
-    private static readonly Brush[] Palette =
+    private static readonly Brush[] Own =
     [
         ChartPaint.Frozen(0x5B, 0x8C, 0xFF), ChartPaint.Frozen(0x3D, 0xDC, 0x97), ChartPaint.Frozen(0xB1, 0x8C, 0xFF),
         ChartPaint.Frozen(0xFB, 0xBF, 0x24), ChartPaint.Frozen(0xF4, 0x72, 0xB6), ChartPaint.Frozen(0x22, 0xD3, 0xEE),
         ChartPaint.Frozen(0xF8, 0x71, 0x71), ChartPaint.Frozen(0x7C, 0x83, 0xFD),
     ];
+    private static Brush[] _shades = Own;
+    private static int _shadesTheme = -1;
+
+    /// <summary>
+    /// The boxes' colours: the map's own eight, or, once an accent is picked, eight shades of it (none so deep that
+    /// the dark names on the boxes stop reading).
+    /// </summary>
+    private static Brush[] Palette
+    {
+        get
+        {
+            if (_shadesTheme == Services.ThemeManager.Version) return _shades;
+            _shadesTheme = Services.ThemeManager.Version;
+            if (!Services.ThemeManager.AccentTakesOver) return _shades = Own;
+            Color accent = ChartPaint.Res("AccentColor", 0xFF), text = ChartPaint.Res("TextColor", 0xFF), bg = ChartPaint.Res("BgColor", 0);
+            return _shades =
+            [
+                ChartPaint.Brush(accent), ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.72)), ChartPaint.Brush(Services.Accents.Mix(accent, bg, 0.80)),
+                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.50)), ChartPaint.Brush(Services.Accents.Mix(accent, bg, 0.66)),
+                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.86)), ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.36)),
+                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.62)),
+            ];
+        }
+    }
     private static Brush Dim => ChartPaint.Brush(ChartPaint.Res("BgColor", 0), 0.44);
     private static readonly Brush Highlight = ChartPaint.Frozen(0xFF, 0xFF, 0xFF, 0x30);
     private static readonly Brush Ink = ChartPaint.Frozen(0x0B, 0x0E, 0x14);

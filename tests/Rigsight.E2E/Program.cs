@@ -145,13 +145,19 @@ internal static class Program
             Record("app.home.filled_ms", opened.FilledMs, "ms", "App start until Home has its history", budget: 6000);
             Console.WriteLine($"  Home on screen after {opened.ShownMs} ms, with its history after {opened.FilledMs} ms");
             foreach (var line in opened.FalseEmpties) Fail($"Home said \"{line}\" while it was still loading (a loader belongs there)");
-            if (!WaitFor(() => ui.HasSidebarReadings(), 20_000)) Fail("The sidebar never showed live CPU/GPU readings (no data from the agent?)");
+            if (!WaitFor(() => ui.HasLiveReadings(), 20_000)) Fail("Home never showed a live reading (no data from the agent?)");
 
             Step("Visiting every page");
             string[] pages = ["Home", "Reports", "Apps", "Processes", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "Network", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
             var pageCpu = new Dictionary<string, double>();
             foreach (var page in pages)
             {
+                // Settings is in the menu its row at the foot of the sidebar opens.
+                if (page == "Settings" && ui.Has("Settings and more"))
+                {
+                    ui.Press("Settings and more");
+                    Thread.Sleep(600);
+                }
                 if (!ui.Has(page)) { Notes.Add($"No \"{page}\" in the sidebar (skipped)"); continue; }
                 double before = CpuMs(app!);
                 ui.Press(page);
@@ -228,7 +234,9 @@ internal static class Program
             Step($"Switching between every pair of pages, {rounds}× (stutters)");
             var switches = new List<(string From, string To, double Ms)>();
             // The sidebar's items, found once: finding one by name searches the whole window, which would be timed too.
-            var nav = pageCpu.Keys.ToDictionary(p => p, ui.NavItem);
+            // Settings is not among them: it is a line of the menu at the sidebar's foot, there only while the menu is open
+            // (opening it is timed with the first visits above, and it is in every round of the cycling).
+            var nav = pageCpu.Keys.Where(p => p != "Settings").ToDictionary(p => p, ui.NavItem);
             using (var watch = new WindowWatch(app!.MainWindowHandle))
             {
                 for (int r = 0; r < rounds; r++)
@@ -953,16 +961,33 @@ internal sealed class AppUi(Process app)
         || text.StartsWith("Nothing has changed", StringComparison.Ordinal) || text.StartsWith("Your most-used apps show up here", StringComparison.Ordinal);
 
     /// <summary>The sidebar's CPU/GPU readings show a degree sign once the agent sends live values.</summary>
-    public bool HasSidebarReadings() =>
+    /// <summary>
+    /// Something on the page that only the running agent can have sent: a temperature, or the fans' line in PC health.
+    /// (It used to be the CPU / GPU / RAM readout at the foot of the sidebar, which is gone.)
+    /// </summary>
+    public bool HasLiveReadings() =>
         Root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
-            .Cast<AutomationElement>().Any(e => e.Current.Name.EndsWith('°'));
+            .Cast<AutomationElement>().Any(e => e.Current.Name is { } n && (n.EndsWith('°') || n.EndsWith("spinning now", StringComparison.Ordinal)));
 
     public void Press(string name)
     {
-        var e = Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name))
-            ?? throw new Exception($"No \"{name}\" in the window");
+        AutomationElement? Find(string n) => Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, n));
+        var e = Find(name);
+        // Settings is a line of the menu its row at the foot of the sidebar opens: open that first. Asked again for a
+        // few seconds, the row included: while the window is busy (a page just switched, the menu being built as a
+        // window of its own) a search can come back with nothing for something that is there.
+        for (int tries = 0; tries < 30 && e is null && name == "Settings"; tries++)
+        {
+            if (Find("Settings and more") is { } row && row.TryGetCurrentPattern(TogglePattern.Pattern, out var open)
+                && ((TogglePattern)open).Current.ToggleState != ToggleState.On)
+                ((TogglePattern)open).Toggle();
+            Thread.Sleep(150);
+            e = Find(name);
+        }
+        if (e is null) throw new Exception($"No \"{name}\" in the window");
         if (e.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var select)) ((SelectionItemPattern)select).Select();
         else if (e.TryGetCurrentPattern(InvokePattern.Pattern, out var invoke)) ((InvokePattern)invoke).Invoke();
+        else if (e.TryGetCurrentPattern(TogglePattern.Pattern, out var toggle)) ((TogglePattern)toggle).Toggle();
         else throw new Exception($"Can't press \"{name}\"");
     }
 

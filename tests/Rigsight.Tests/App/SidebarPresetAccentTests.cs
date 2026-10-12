@@ -324,7 +324,7 @@ public sealed class SidebarPresetAccentTests
         Ui.Run(() =>
         {
             var sidebar = new SidebarViewModel(settings, _ => { });
-            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings)) { Sidebar = sidebar };
+            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings)) { Sidebar = sidebar, Tab = "appearance" };
             var window = Host(new Views.SettingsView { DataContext = vm });
             try
             {
@@ -724,7 +724,7 @@ public sealed class SidebarPresetAccentTests
         var settings = Kit.OfflineSettings();
         Ui.Run(() =>
         {
-            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
+            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings)) { Tab = "appearance" };
             var window = Host(new Views.SettingsView { DataContext = vm });
             try
             {

@@ -744,4 +744,47 @@ public sealed class ShellTests : IClassFixture<AppHost>
         Assert.True(Ui.WaitFor(() => Shell.Live.TempSeries[0].StepSeconds == 60, 15_000));
         Ui.Run(() => Shell.CurrentPage = "home");
     }
+    [Fact]
+    public void Settings_sits_at_the_foot_of_the_sidebar_and_opens_a_menu()
+    {
+        Ui.Run(() =>
+        {
+            var window = host.Window;
+            static string NameOf(DependencyObject o) => System.Windows.Automation.AutomationProperties.GetName(o);
+            // Not a page item among the scrolling ones any more, and the CPU / GPU / RAM readout under it is gone.
+            Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.RadioButton>(window), r => NameOf(r) == "Settings");
+            Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "RAM" && t.FontSize < 10);
+            var row = Visuals.Descendants<System.Windows.Controls.Primitives.ToggleButton>(window).Single(t => NameOf(t) == "Settings and more");
+            Assert.True(row.IsVisible);
+            var menu = (System.Windows.Controls.Primitives.Popup)window.FindName("SettingsMenu");
+            Assert.False(menu.IsOpen);
+            try
+            {
+                row.IsChecked = true;
+                Ui.Pump(150);
+                Assert.True(menu.IsOpen);
+                var lines = Visuals.Descendants<System.Windows.Controls.Button>(menu.Child).ToList();
+                Assert.Equal(7, lines.Count);
+                Assert.Equal("Settings", lines[0].Content);
+                Assert.Equal(["What's new", "Report a bug", "Copy logs", "Support Rigsight", "About Rigsight"], lines.Skip(2).Select(b => (string)b.Content));
+                Assert.All(lines, b => Assert.NotNull(b.Command));
+
+                // Picking a line runs it and puts the menu away: About is Settings on its About tab.
+                var invoke = (System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(lines[^1])
+                    .GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke);
+                invoke.Invoke();
+                Ui.Pump(200);
+                Assert.False(menu.IsOpen);
+                Assert.Equal(("settings", "about"), (Shell.CurrentPage, Shell.SettingsPage.Tab));
+                Assert.Equal(true, row.Tag); // marked like a page while Settings is open
+            }
+            finally
+            {
+                row.IsChecked = false;
+                Shell.SettingsPage.Tab = "general";
+                Shell.GoCommand.Execute("home");
+                Ui.Pump(100);
+            }
+        });
+    }
 }

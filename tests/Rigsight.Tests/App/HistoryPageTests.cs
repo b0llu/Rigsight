@@ -296,10 +296,18 @@ public sealed class HistoryPageTests
         var home = Ui.Run(() => new HomeViewModel(reports, live));
         Kit.Wait(() => home.RefreshAsync());
         Ui.Run(() => Assert.True(home.HasLastWeek, "the seeded history reaches into last week"));
-        Ui.Run(() => home.Period = RecapPeriod.LastWeek);
+        // Until the week is read the card says so (its figures are still yesterday's), and stops saying so once it is.
+        Ui.Run(() =>
+        {
+            Assert.False(home.RecapLoading);
+            home.Period = RecapPeriod.LastWeek;
+            Assert.True(home.RecapLoading);
+            Assert.False(home.ShowRecapEmpty);
+        });
         Assert.True(Ui.WaitFor(() => home.Recap is { Range: ReportRange.Week }, 15_000));
         Ui.Run(() =>
         {
+            Assert.False(home.RecapLoading);
             Assert.Equal(("Last week", "last-week", true), (home.RecapTitle, home.RecapArg, home.IsLastWeek));
             Assert.Equal(ReportBuilder.Bounds(ReportRange.Week, DateTime.Today.AddDays(-7)).From, home.Recap!.From);
             Assert.True(home.RecapHasData);

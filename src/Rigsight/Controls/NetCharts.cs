@@ -16,7 +16,7 @@ public abstract class NetChartBase : FanChartBase
 
     protected NetChartBase()
     {
-        SetResourceReference(DownBrushProperty, "CoolBrush");
+        SetResourceReference(DownBrushProperty, "SkyBrush");
         SetResourceReference(UpBrushProperty, "PurpleBrush");
     }
 
@@ -317,7 +317,7 @@ public sealed class BarPair : FrameworkElement
 
     public BarPair()
     {
-        SetResourceReference(DownBrushProperty, "CoolBrush");
+        SetResourceReference(DownBrushProperty, "SkyBrush");
         SetResourceReference(UpBrushProperty, "PurpleBrush");
     }
 
@@ -347,7 +347,7 @@ public sealed class ShareBar : FrameworkElement
     public static readonly DependencyProperty BrushProperty = DependencyProperty.Register(
         nameof(Brush), typeof(Brush), typeof(ShareBar), new FrameworkPropertyMetadata(Brushes.DeepSkyBlue, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    public ShareBar() => SetResourceReference(BrushProperty, "CoolBrush");
+    public ShareBar() => SetResourceReference(BrushProperty, "SkyBrush");
 
     public double Front { get => (double)GetValue(FrontProperty); set => SetValue(FrontProperty, value); }
     /// <summary>The background share (named so it doesn't hide FrameworkElement's own properties).</summary>

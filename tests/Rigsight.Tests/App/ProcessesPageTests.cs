@@ -378,7 +378,7 @@ public sealed class ProcessesPageTests
         {
             var (memory, cpu, internet, disk) = (page.Vm.Tiles[0], page.Vm.Tiles[1], page.Vm.Tiles[2], page.Vm.Tiles[3]);
             Assert.Equal(["MEMORY", "CPU", "INTERNET", "DISK"], page.Vm.Tiles.Select(t => t.Label));
-            Assert.Equal(["PurpleBrush", "CpuBrush", "CoolBrush", "AccentBrush"], page.Vm.Tiles.Select(t => t.Brush));
+            Assert.Equal(["RamBrush", "CpuBrush", "SkyBrush", "AccentBrush"], page.Vm.Tiles.Select(t => t.Brush));
             Assert.Equal([ProcessesViewModel.ByMemory, ProcessesViewModel.ByCpu, ProcessesViewModel.ByInternet, ProcessesViewModel.ByDisk], page.Vm.Tiles.Select(t => t.Key));
 
             Assert.Equal(("16.0 GB", "of 32 GB", "Most: Dota 2"), (memory.Value, memory.Note, memory.Most));

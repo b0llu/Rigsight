@@ -136,7 +136,7 @@
                                         <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="12,0" VerticalAlignment="Center"
                                                      Maximum="{Binding DataContext.TodayTopMax, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                      Value="{Binding ActiveSec, Mode=OneWay}"
-                                                     Foreground="{Binding Category, Converter={StaticResource CategoryBrush}}" />
+                                                     Foreground="{Binding Category, Converter={StaticResource CategoryBrush}, ConverterParameter=Bar}" />
                                         <TextBlock Grid.Column="3" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" />
                                     </Grid>
@@ -152,6 +152,18 @@
                 <!-- The recap: yesterday, or the last whole week, month or year. As tall as the card beside it: its list
                      shows as many apps and lines as fit that height (see FitStack), so it never ends halfway down. -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                    <Grid>
+                    <Grid.Resources>
+                        <!-- While a period just picked is being read, the last one's figures are hidden but keep their
+                             room, so the card and the cards under it don't move; the loader below shows over them. -->
+                        <Style x:Key="HiddenWhileLoading" TargetType="FrameworkElement">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RecapLoading}" Value="True">
+                                    <Setter Property="Opacity" Value="0" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Resources>
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding HasPeriods, Converter={StaticResource Vis}}">
@@ -179,15 +191,17 @@
                             <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <Button DockPanel.Dock="Bottom" Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenRecap_Click"
+                        <Border DockPanel.Dock="Bottom" Style="{StaticResource HiddenWhileLoading}">
+                        <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenRecap_Click"
                                 Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Open full recap" />
                                 <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
                             </StackPanel>
                         </Button>
+                        </Border>
 
-                        <StackPanel DockPanel.Dock="Top" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                        <StackPanel DockPanel.Dock="Top" Style="{StaticResource HiddenWhileLoading}" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Style="{StaticResource Muted}">
@@ -210,7 +224,7 @@
                         </StackPanel>
 
                         <ItemsControl ItemsSource="{Binding RecapRows}" Margin="0,12,0,0" Focusable="False" ClipToBounds="True"
-                                      Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                                      Style="{StaticResource HiddenWhileLoading}" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <ctl:FitStack />
@@ -237,7 +251,7 @@
                                             <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Margin="12,0" VerticalAlignment="Center"
                                                          Maximum="{Binding DataContext.RecapTopMax, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                          Value="{Binding App.ActiveSec, Mode=OneWay}"
-                                                         Foreground="{Binding App.Category, Converter={StaticResource CategoryBrush}}" />
+                                                         Foreground="{Binding App.Category, Converter={StaticResource CategoryBrush}, ConverterParameter=Bar}" />
                                             <TextBlock Grid.Column="3" Text="{Binding App.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                        VerticalAlignment="Center" />
                                         </Grid>
@@ -257,6 +271,10 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </DockPanel>
+                    <!-- A period just picked, not read yet. -->
+                    <ctl:Spinner Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Visibility="{Binding RecapLoading, Converter={StaticResource Vis}}" />
+                    </Grid>
                 </ctl:SmoothBorder>
             </Grid>
 

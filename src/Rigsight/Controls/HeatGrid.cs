@@ -111,7 +111,7 @@ public sealed class HeatGrid : FrameworkElement
         var empty = ChartPaint.Track;
         var outline = new Pen(ChartPaint.TextBrush, 1);
         outline.Freeze();
-        var steps = new[] { Tinted(ChartPaint.Cool, 0.5), Tinted(ChartPaint.Good, 0.5), Tinted(ChartPaint.Warm, 0.85), Tinted(ChartPaint.Hot, 1) };
+        var steps = new[] { Tinted(ChartPaint.ReadCool, 0.5), Tinted(ChartPaint.ReadGood, 0.5), Tinted(ChartPaint.ReadWarm, 0.85), Tinted(ChartPaint.ReadHot, 1) };
         var hours = ByHour;
         for (int row = 0; row < Days; row++)
         {

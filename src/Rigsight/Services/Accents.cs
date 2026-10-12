@@ -18,7 +18,7 @@ public static class Accents
 
     public static readonly IReadOnlyList<Accent> All =
     [
-        new(Mono, "Black and white", Colors.White, Colors.Black),
+        new(Mono, "The theme's own", Colors.White, Colors.Black),
         new("blue", "Blue", Hex("#60A5FA"), Hex("#2563EB")),
         new("teal", "Teal", Hex("#2DD4BF"), Hex("#0D9488")),
         new("green", "Green", Hex("#4ADE80"), Hex("#16A34A")),
@@ -75,7 +75,7 @@ public static class Accents
         foreach (var key in new[] { "SystemAccentColor", "SystemAccentColorPrimary", "SystemAccentColorSecondary", "SystemAccentColorLight1",
                      "SystemAccentColorLight2", "SystemAccentColorLight3", "SystemAccentColorDark1", "SystemAccentColorDark2", "SystemAccentColorDark3" })
             palette[key] = accent;
-        foreach (var key in new[] { "AccentBrush", "AccentSoftBrush", "AccentFillColorDefaultBrush", "AccentFillColorSecondaryBrush",
+        foreach (var key in new[] { "AccentBrush", "AccentSoftBrush", "RamBrush", "RamSoftBrush", "AccentFillColorDefaultBrush", "AccentFillColorSecondaryBrush",
                      "AccentFillColorTertiaryBrush", "AccentFillColorSelectedTextBackgroundBrush", "AccentTextFillColorPrimaryBrush",
                      "AccentTextFillColorSecondaryBrush" })
             palette[key] = Brush(accent, (palette[key] as SolidColorBrush)?.Opacity ?? 1);
@@ -83,6 +83,52 @@ public static class Accents
                      "TextOnAccentFillColorSelectedTextBrush" })
             palette[key] = Brush(on, 1);
     }
+
+    /// <summary>
+    /// A picked accent takes over the whole palette: on top of <see cref="ApplyTo"/>, every colour that says which
+    /// part or kind something is (CPU, GPU, memory, data, the internet) becomes a shade of the accent, lighter and
+    /// deeper ones so lines on one chart still differ, and the picked segment is the accent itself. Green, amber and
+    /// red stay in the palette: they are what warnings are drawn in (readings have colours of their own, see
+    /// <see cref="ReadingShades"/>).
+    /// </summary>
+    /// <param name="goodToo">Green ("all is well": a fan card's All OK, a healthy drive) becomes the accent as well.
+    /// Amber, orange and red never do: a warning has to stand out from everything else.</param>
+    public static void TakeOver(ResourceDictionary palette, Color accent, bool goodToo)
+    {
+        ApplyTo(palette, accent);
+        if (goodToo) Set(palette, "Good", accent);
+        var text = (Color)palette["TextColor"];
+        var bg = (Color)palette["BgColor"];
+        Color lighter = Mix(accent, text, 0.58), deeper = Mix(accent, bg, 0.55), palest = Mix(accent, text, 0.28);
+        Set(palette, "Cpu", accent);
+        Set(palette, "Gpu", lighter);
+        Set(palette, "Purple", deeper);
+        Set(palette, "Pink", palest);
+        Set(palette, "Sky", accent);
+        palette["SegmentOnBrush"] = Brush(accent, 1);
+        palette["SegmentOnTextBrush"] = Brush(OnAccent(accent), 1);
+        palette["ListBarBrush"] = Brush(accent, 1);
+    }
+
+    /// <summary>
+    /// The four colours a reading is drawn in by how it is doing (low, fine, warm, hot) once they follow the accent:
+    /// shades of it, in place of blue, green, amber and red. Warnings never use these: they keep their own colours.
+    /// </summary>
+    public static (Color Cool, Color Good, Color Warm, Color Hot) ReadingShades(Color accent, Color text, Color bg) =>
+        (Mix(accent, bg, 0.55), accent, Mix(accent, text, 0.58), Mix(accent, text, 0.28));
+
+    /// <summary>One named colour of a palette with its brush and, where it has one, its soft brush.</summary>
+    private static void Set(ResourceDictionary palette, string name, Color color)
+    {
+        palette[name + "Color"] = color;
+        palette[name + "Brush"] = Brush(color, 1);
+        if (palette[name + "SoftBrush"] is SolidColorBrush soft) palette[name + "SoftBrush"] = Brush(color, soft.Opacity);
+    }
+
+    /// <summary>A colour between two: <paramref name="share"/> of the first, the rest of the second.</summary>
+    public static Color Mix(Color a, Color b, double share) => Color.FromRgb(
+        (byte)Math.Round(a.R * share + b.R * (1 - share)), (byte)Math.Round(a.G * share + b.G * (1 - share)),
+        (byte)Math.Round(a.B * share + b.B * (1 - share)));
 
     private static SolidColorBrush Brush(Color c, double opacity)
     {

@@ -157,7 +157,7 @@ public static class SettingsStore
         s.Tracking.Enabled = null;
         s.SettingsVersion = CurrentVersion;
 
-        if (s.Theme is not ("dark" or "grey" or "light" or "system")) s.Theme = "dark";
+        if (s.Theme is not ("dark" or "grey" or "midnight" or "forest" or "ember" or "light" or "system")) s.Theme = "dark";
         if (string.IsNullOrWhiteSpace(s.Accent)) s.Accent = "mono";
         s.Sidebar ??= new();
         s.Sidebar.Order ??= [];

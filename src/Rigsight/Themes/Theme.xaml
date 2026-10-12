@@ -299,7 +299,8 @@
     <Style x:Key="Caption" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+        <!-- Muted, not faint: a small label in the faint grey took effort to read on a black card. -->
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
     <Style x:Key="Muted" TargetType="TextBlock">
         <Setter Property="FontSize" Value="13" />
@@ -476,7 +477,7 @@
                                 <VisualState x:Name="Indeterminate" />
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
-                        <Border x:Name="Selected" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                        <Border x:Name="Selected" Background="{DynamicResource SegmentOnBrush}" CornerRadius="7" Opacity="0" />
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="12,5">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
@@ -486,7 +487,7 @@
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SegmentOnTextBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

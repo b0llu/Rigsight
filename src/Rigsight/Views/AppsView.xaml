@@ -88,7 +88,7 @@
                                 <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Stat.Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
                                     <ProgressBar Style="{StaticResource Bar}" Height="3" Margin="0,6,0,0" Value="{Binding Bar, Mode=OneWay}"
-                                                 Foreground="{DynamicResource FaintBrush}" />
+                                                 Foreground="{DynamicResource ListBarBrush}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{Binding Metric}" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </Grid>

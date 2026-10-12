@@ -342,12 +342,12 @@ public sealed class ConverterTests
     {
         { SensorKind.Temperature, "MutedColor" }, { SensorKind.Load, "CpuColor" }, { SensorKind.Clock, "PurpleColor" },
         { SensorKind.Frequency, "PurpleColor" }, { SensorKind.Timing, "PurpleColor" }, { SensorKind.Power, "MutedColor" },
-        { SensorKind.Energy, "MutedColor" }, { SensorKind.Current, "MutedColor" }, { SensorKind.Voltage, "CoolColor" },
+        { SensorKind.Energy, "MutedColor" }, { SensorKind.Current, "MutedColor" }, { SensorKind.Voltage, "SkyColor" },
         { SensorKind.Fan, "MutedColor" }, { SensorKind.Flow, "MutedColor" }, { SensorKind.Control, "MutedColor" },
         { SensorKind.Data, "PinkColor" }, { SensorKind.SmallData, "PinkColor" }, { SensorKind.Throughput, "PinkColor" },
         { SensorKind.Level, "MutedColor" }, { SensorKind.Factor, "MutedColor" }, { SensorKind.Noise, "MutedColor" },
         { "Cpu", "CpuColor" }, { "GpuNvidia", "GpuColor" }, { "GpuAmd", "GpuColor" }, { "GpuIntel", "GpuColor" },
-        { "Memory", "PurpleColor" }, { "Storage", "CoolColor" }, { "Motherboard", "MutedColor" }, { "SuperIO", "MutedColor" },
+        { "Memory", "PurpleColor" }, { "Storage", "SkyColor" }, { "Motherboard", "MutedColor" }, { "SuperIO", "MutedColor" },
         { "EmbeddedController", "MutedColor" }, { "Cooler", "MutedColor" }, { "Psu", "MutedColor" }, { "Battery", "MutedColor" },
         { "Network", "PinkColor" }, { "Toaster", "MutedColor" }, { null, "MutedColor" }, { 3, "MutedColor" },
     };
