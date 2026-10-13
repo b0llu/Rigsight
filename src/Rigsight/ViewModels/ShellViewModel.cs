@@ -46,7 +46,11 @@ public sealed partial class ShellViewModel : ObservableObject
         Taskbar = new TaskbarViewModel(Settings, Live);
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
-        Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin, autoUpdate: () => Settings.Current.AutoUpdate);
+        Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin,
+            // On a PC that keeps Rigsight up to date for everyone, the PC's updater does it for an admin too: their own
+            // install would close the other people's Rigsight and couldn't start it again.
+            autoUpdate: () => Settings.Current.AutoUpdate && !MachineSetup.KeepUpdated,
+            pcUpdates: () => MachineSetup.KeepUpdated, needsAdmin: () => StandardAccount && !MachineSetup.KeepUpdated);
         SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
@@ -232,7 +236,7 @@ public sealed partial class ShellViewModel : ObservableObject
     ];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowAgentStarting), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowAgentStarting), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate), nameof(ShowStandardNote))]
     private bool _isConnected;
 
     /// <summary>
@@ -272,7 +276,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// pages looked blank with nothing to say why.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate))]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(AgentHint), nameof(AgentButtonText), nameof(AgentOutOfDate), nameof(ShowStandardNote))]
     private string? _otherAgentVersion;
 
     public bool AgentOutOfDate => IsConnected && OtherAgentVersion is not null;
@@ -292,7 +296,50 @@ public sealed partial class ShellViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(AgentHint), nameof(ShowAgentStarting))]
     private string _agentStatus = "";
 
-    public bool ShowAgentWarning => IsConnected ? !AgentIsAdmin || AgentOutOfDate : !AgentPending;
+    /// <summary>The agent runs under a standard account: no admin rights and nobody to ask for them, so no warning either.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAgentWarning), nameof(ShowStandardNote))]
+    private bool _standardAccount;
+
+    // Opened, or shown in a window that has since been closed: the note has been seen and never comes back.
+    private bool _standardNoteShown;
+
+    /// <summary>
+    /// On a standard account, once: a plain note that some readings are off, leading to Settings' "Admin rights" tab.
+    /// </summary>
+    public bool ShowStandardNote
+    {
+        get
+        {
+            bool show = IsConnected && StandardAccount && !AgentOutOfDate && !Settings.Current.StandardNoteSeen;
+            _standardNoteShown |= show;
+            return show;
+        }
+    }
+
+    /// <summary>The note's button: Settings, on the tab that says what is off; the note has done its job.</summary>
+    [RelayCommand]
+    private void OpenAdminRights()
+    {
+        StandardNoteSeen();
+        SettingsPage.Tab = "admin";
+        CurrentPage = "settings";
+    }
+
+    /// <summary>The window is closing: a note that was on show in it has been seen.</summary>
+    public void WindowClosing()
+    {
+        if (_standardNoteShown) StandardNoteSeen();
+    }
+
+    private void StandardNoteSeen()
+    {
+        if (Settings.Current.StandardNoteSeen) return;
+        Settings.Update(s => s.StandardNoteSeen = true);
+        OnPropertyChanged(nameof(ShowStandardNote));
+    }
+
+    public bool ShowAgentWarning => IsConnected ? (!AgentIsAdmin && !StandardAccount) || AgentOutOfDate : !AgentPending;
 
     /// <summary>The agent is being started: a quiet line saying so, with no button to press meanwhile.</summary>
     public bool ShowAgentStarting => !IsConnected && AgentPending && !string.IsNullOrEmpty(AgentStatus);
@@ -651,15 +698,20 @@ public sealed partial class ShellViewModel : ObservableObject
         switch (msg.T)
         {
             case "hello":
+                StandardAccount = msg.StandardAccount;
                 AgentIsAdmin = msg.IsAdmin;
                 OtherAgentVersion = OtherVersion(msg.Version, AppVersion, RigsightPaths.IsTestInstance);
                 // Without admin the agent can't read CPU temps, fans or voltages: offer the UAC prompt once per launch.
-                if (!msg.IsAdmin && !_elevationRequested && !RigsightPaths.IsTestInstance)
+                // Not on a standard account, where the prompt asks for a password the person doesn't have.
+                if (!msg.IsAdmin && !msg.StandardAccount && !_elevationRequested && !RigsightPaths.IsTestInstance)
                 {
                     _elevationRequested = true;
                     _client.SendCommand("restart-elevated");
                 }
                 SettingsPage.AgentIsAdmin = msg.IsAdmin;
+                SettingsPage.StandardAccount = msg.StandardAccount;
+                Live.StandardAccount = msg.StandardAccount;
+                Update.AccountChanged();
                 SettingsPage.AgentVersion = msg.Version;
                 // The first hello comes before the hardware scan; the one with the hardware says what was left out.
                 if (msg.Hardware is not null)

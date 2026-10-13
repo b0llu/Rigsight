@@ -22,6 +22,34 @@ public static class UpdateStore
 
     public static string SetupPath(Release release) => Path.Combine(Folder, release.AssetName);
 
+    /// <summary>
+    /// "Update now", pressed in the window on a PC that updates Rigsight itself: a note in the person's own folder that
+    /// says only "go ahead under my open window, and open it again after". Good for a few minutes.
+    /// </summary>
+    public const string NowFile = "now";
+    private static readonly TimeSpan NowLasts = TimeSpan.FromMinutes(5);
+
+    public static void AskNow()
+    {
+        Directory.CreateDirectory(Folder);
+        File.WriteAllText(Path.Combine(Folder, NowFile), "");
+    }
+
+    /// <summary>Whether a folder's note is there and fresh (<paramref name="folder"/>: someone's "updates" folder).</summary>
+    public static bool AskedNow(string folder)
+    {
+        try { return File.Exists(Path.Combine(folder, NowFile)) && DateTime.UtcNow - File.GetLastWriteTimeUtc(Path.Combine(folder, NowFile)) < NowLasts; }
+        catch { return false; }
+    }
+
+    /// <summary>This person asked, a moment ago: the note is taken (the window is to be opened again, once).</summary>
+    public static bool TakeNow()
+    {
+        bool asked = AskedNow(Folder);
+        try { File.Delete(Path.Combine(Folder, NowFile)); } catch { }
+        return asked;
+    }
+
     public static CheckResult? ReadCheck() => Read<CheckResult>(CheckFile);
     public static InstallAttempt? ReadAttempt() => Read<InstallAttempt>(AttemptFile);
 

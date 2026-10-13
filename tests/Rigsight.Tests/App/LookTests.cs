@@ -323,7 +323,7 @@ public sealed class LookTests
             var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
             Assert.Equal("general", vm.Tab);
             bool[] Flags() => [vm.IsGeneral, vm.IsAppearance, vm.IsTracking, vm.IsSensors, vm.IsNotifications, vm.IsHistory, vm.IsAbout];
-            for (int i = 0; i < SettingsViewModel.Tabs.Length; i++)
+            for (int i = 0; i < 7; i++)
             {
                 vm.Tab = SettingsViewModel.Tabs[i];
                 Assert.Equal(Enumerable.Range(0, 7).Select(n => n == i), Flags());
@@ -333,6 +333,16 @@ public sealed class LookTests
             Assert.Equal("about", vm.Tab);
             vm.Tab = null!;
             Assert.Equal("about", vm.Tab);
+            // "Admin rights" is a tab on a standard account only, and leaving such an account leaves the tab.
+            vm.Tab = "admin";
+            Assert.Equal("about", vm.Tab);
+            Assert.False(vm.IsAdminRights);
+            vm.StandardAccount = true;
+            vm.Tab = "admin";
+            Assert.True(vm.IsAdminRights);
+            Assert.DoesNotContain(true, Flags());
+            vm.StandardAccount = false;
+            Assert.Equal("general", vm.Tab);
         });
     }
 
@@ -355,7 +365,11 @@ public sealed class LookTests
             try
             {
                 bool Shown(string text) => Visuals.Descendants<TextBlock>(window).Any(t => t.Text == text && t.IsVisible);
-                var tabs = Visuals.Descendants<RadioButton>(window).Where(r => r.GroupName == "SettingsTab").ToList();
+                // "Admin rights" is the eighth, and only a standard account sees it.
+                var every = Visuals.Descendants<RadioButton>(window).Where(r => r.GroupName == "SettingsTab").ToList();
+                Assert.Equal(8, every.Count);
+                Assert.False(every[7].IsVisible);
+                var tabs = every.Where(r => r.IsVisible).ToList();
                 Assert.Equal(7, tabs.Count);
                 Assert.True(tabs[0].IsChecked);
 
@@ -382,6 +396,16 @@ public sealed class LookTests
                 Ui.Pump(300);
                 Assert.Equal("sensors", vm.Tab);
                 Assert.True(Shown("Background sensor sampling"));
+
+                // On a standard account the eighth tab shows, with what is off there.
+                vm.StandardAccount = true;
+                Ui.Pump(120);
+                Assert.True(every[7].IsVisible);
+                every[7].IsChecked = true;
+                Ui.Pump(120);
+                Assert.Equal("admin", vm.Tab);
+                Assert.True(Shown("This is a standard account"));
+                Assert.False(Shown("Background sensor sampling"));
             }
             finally { window.Close(); }
         });

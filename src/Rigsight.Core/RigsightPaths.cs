@@ -31,8 +31,18 @@ public static class RigsightPaths
     public static string IconCache => Path.Combine(DataDir, "icons");
     public static string LogFile => Path.Combine(DataDir, "rigsight.log");
 
-    /// <summary>Named pipe the agent serves live data on.</summary>
-    public static string PipeName { get; } = "Rigsight.Agent.v1" + InstanceSuffix;
+    /// <summary>
+    /// The Windows sign-in session this process runs in. Pipe names are shared by the whole PC, so anything that is one
+    /// per signed-in person carries it.
+    /// </summary>
+    public static string SessionSuffix { get; } = "." + System.Diagnostics.Process.GetCurrentProcess().SessionId;
+
+    /// <summary>
+    /// Named pipe the agent serves live data on: one per sign-in session. With one name for the PC, the second person
+    /// signed in at the same time (fast user switching, a remote session) couldn't open theirs, and their window found
+    /// no agent, or an admin's window found someone else's.
+    /// </summary>
+    public static string PipeName { get; } = "Rigsight.Agent.v1" + InstanceSuffix + SessionSuffix;
 
     /// <summary>Held by the running agent (one per user).</summary>
     public static string AgentMutex { get; } = @"Local\Rigsight.Agent" + InstanceSuffix;
@@ -42,6 +52,12 @@ public static class RigsightPaths
 
     /// <summary>Task Scheduler task that starts the agent at sign-in.</summary>
     public const string AgentTaskName = "Rigsight Agent";
+
+    /// <summary>
+    /// The task Windows runs as the system to install a newer Rigsight, on a PC that keeps it up to date for accounts
+    /// that can't install anything. Anyone may ask it to run; what it does is its own (see the agent's UpdaterTask).
+    /// </summary>
+    public const string UpdaterTaskName = "Rigsight Updater";
 
     public const string AgentExe = "Rigsight.Agent.exe";
     public const string AppExe = "Rigsight.exe";

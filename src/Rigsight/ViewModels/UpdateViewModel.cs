@@ -46,18 +46,26 @@ public sealed partial class UpdateViewModel : ObservableObject
     private readonly AgentClient _client;
     private readonly Func<bool> _agentCanInstall;
     private readonly Func<bool> _autoUpdate;
+    // A standard account can't install an update itself. Either the PC keeps Rigsight up to date for it (nothing to
+    // show, nothing to press), or someone with an admin's password has to (said so, with the one button for it).
+    private readonly Func<bool> _pcUpdates, _needsAdmin;
     private Release? _release;
     private DateTime _checkedDay;
     private DispatcherTimer? _agentTimeout;
     private bool _checked;
     private string? _checkError;
 
-    public UpdateViewModel(AgentClient client, Func<bool> agentCanInstall, Func<bool> autoUpdate)
+    public UpdateViewModel(AgentClient client, Func<bool> agentCanInstall, Func<bool> autoUpdate, Func<bool>? pcUpdates = null, Func<bool>? needsAdmin = null)
     {
         _client = client;
         _agentCanInstall = agentCanInstall;
         _autoUpdate = autoUpdate;
+        _pcUpdates = pcUpdates ?? (() => false);
+        _needsAdmin = needsAdmin ?? (() => false);
     }
+
+    /// <summary>The agent said what kind of account this is: what is shown about updates may differ.</summary>
+    public void AccountChanged() => OnPropertyChanged(string.Empty);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLine), nameof(ShowProgress), nameof(ShowPrompt), nameof(ShowFailed), nameof(LineTitle), nameof(LineIcon),
@@ -83,10 +91,13 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     // ── Sidebar: one quiet line, a progress card, the restart prompt, or what went wrong ──
 
-    public bool ShowLine => State is UpdateState.Available or UpdateState.Waiting;
-    public bool ShowProgress => State is UpdateState.Downloading or UpdateState.Installing;
-    public bool ShowPrompt => State == UpdateState.Ready;
-    public bool ShowFailed => State == UpdateState.Failed;
+    public bool ShowLine => !_pcUpdates() && State is UpdateState.Available or UpdateState.Waiting;
+    public bool ShowProgress => !_pcUpdates() && State is UpdateState.Downloading or UpdateState.Installing;
+    public bool ShowPrompt => !_pcUpdates() && State == UpdateState.Ready;
+    public bool ShowFailed => !_pcUpdates() && State == UpdateState.Failed;
+
+    public string PromptTitle => _needsAdmin() ? "Update needs an admin" : "Update ready";
+    public string InstallText => _needsAdmin() ? "Install" : "Restart";
 
     public string LineTitle => State == UpdateState.Waiting ? "Restart to update" : "Update available";
     public string LineIcon => State == UpdateState.Waiting ? "" : "";
@@ -97,7 +108,8 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     public string ProgressTitle => State == UpdateState.Installing ? $"Updating to {Version}…" : $"Downloading {Version}";
 
-    public string PromptText => _autoUpdate() && _agentCanInstall()
+    public string PromptText => _needsAdmin() ? $"Version {Version} is out. Someone with an admin password can install it."
+        : _autoUpdate() && _agentCanInstall()
         ? $"Restart now to update to {Version}, or it installs by itself the next time you start your PC."
         : $"Restart Rigsight to finish updating to {Version}.";
 
@@ -108,6 +120,10 @@ public sealed partial class UpdateViewModel : ObservableObject
     public string StatusText => State switch
     {
         _ when IsChecking => "Checking for updates…",
+        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => $"Version {Version} is out. It installs the next time Rigsight starts, or now.",
+        UpdateState.Installing when _pcUpdates() => "Updating: Rigsight closes and reopens by itself in a minute.",
+        _ when _pcUpdates() => "This PC keeps Rigsight up to date by itself.",
+        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _needsAdmin() => $"Version {Version} is out. Installing it needs an admin's password.",
         UpdateState.Available => $"Version {Version} is available.",
         UpdateState.Downloading => $"Downloading version {Version}… {Progress:0}%",
         UpdateState.Ready or UpdateState.Waiting => $"Version {Version} is downloaded and ready to install.",
@@ -147,6 +163,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     public string ActionText => State switch
     {
         _ when IsChecking => "Checking…",
+        UpdateState.Available when _pcUpdates() => "Update now",
         UpdateState.Available => "Download",
         UpdateState.Downloading => "Downloading…",
         UpdateState.Ready or UpdateState.Waiting => "Restart to update",
@@ -167,6 +184,8 @@ public sealed partial class UpdateViewModel : ObservableObject
         switch (State)
         {
             case UpdateState.None: await CheckNowAsync(); break;
+            // On a PC that updates Rigsight itself there is nothing for this account to download: it asks for the update.
+            case UpdateState.Available when _pcUpdates(): Install(); break;
             case UpdateState.Available: await DownloadAsync(automatic: false); break;
             case UpdateState.Ready or UpdateState.Waiting: Install(); break;
             case UpdateState.Failed: await RetryAsync(); break;
@@ -395,6 +414,23 @@ public sealed partial class UpdateViewModel : ObservableObject
         State = UpdateState.Installing;
         Progress = 100;
         ProgressText = "Rigsight closes and reopens by itself in a few seconds.";
+        if (_pcUpdates())
+        {
+            // The PC's own updater does it: told it may close this window (and that it is to come back), then asked to run.
+            try
+            {
+                UpdateStore.AskNow();
+                if (AgentTask.Schtasks(out _, "/Run", "/TN", RigsightPaths.UpdaterTaskName) != 0) throw new InvalidOperationException("the updater couldn't be asked to run");
+                // The PC's updater downloads the installer itself first: longer than an install that is already here.
+                WaitForInstaller(minutes: 10);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("update", ex);
+                Fail("The update couldn't be started.");
+            }
+            return;
+        }
         string setup = UpdateStore.SetupPath(release);
 
         if (_agentCanInstall())
@@ -427,7 +463,9 @@ public sealed partial class UpdateViewModel : ObservableObject
         try
         {
             UpdateStore.WriteAttempt(release.Version);
-            Process.Start(new ProcessStartInfo(setup, ReleaseFeed.SetupArguments) { UseShellExecute = true, Verb = "runas" })?.Dispose();
+            // On a standard account setup is started as the person and asks for the admin's password itself: started
+            // already elevated, it wouldn't know who to open Rigsight for afterwards, and would open it as that admin.
+            Process.Start(new ProcessStartInfo(setup, ReleaseFeed.SetupArguments) { UseShellExecute = true, Verb = _needsAdmin() ? "" : "runas" })?.Dispose();
             WaitForInstaller();
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
@@ -448,9 +486,9 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// the new version), so there's never a moment where Rigsight has simply vanished. Still here after two minutes:
     /// the installer didn't get that far.
     /// </summary>
-    private void WaitForInstaller()
+    private void WaitForInstaller(double minutes = 2)
     {
-        var watchdog = new DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
+        var watchdog = new DispatcherTimer { Interval = TimeSpan.FromMinutes(minutes) };
         watchdog.Tick += (_, _) =>
         {
             watchdog.Stop();

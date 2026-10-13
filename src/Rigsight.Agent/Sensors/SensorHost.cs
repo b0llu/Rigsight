@@ -443,6 +443,9 @@ internal sealed class SensorHost
         return values;
     }
 
+    /// <summary>This agent has no admin rights, so nothing is read through the driver: an agent with them reads as it always did.</summary>
+    private static readonly bool NoDriverAccess = Account.Kind != AccountKind.Admin;
+
     public double? Read(string key)
     {
         if (_usingFastValues && key.StartsWith("gpu", StringComparison.Ordinal))
@@ -450,8 +453,12 @@ internal sealed class SensorHost
         if (!Keys.TryGetValue(key, out var i) || (_gpusPaused && IsGpu(_sensorHardware[i]))) return null;
         var v = _sensors[i].Value;
         if (v is not float f || !float.IsFinite(f)) return null;
-        // Without driver access some temperature sensors report 0 instead of nothing.
-        if (_sensors[i].SensorType == SensorType.Temperature && f <= 0) return null;
+        // Without driver access (no admin rights) some sensors report 0 instead of nothing: any temperature, and a
+        // CPU's clock and power. Kept as nothing, so the history has a gap there and never a false zero. Only the
+        // CPU's: a graphics card that is switched off really is at 0.
+        var s = _sensors[i];
+        if (f <= 0 && (s.SensorType == SensorType.Temperature
+            || (NoDriverAccess && s.SensorType is SensorType.Clock or SensorType.Power && s.Hardware.HardwareType == HardwareType.Cpu))) return null;
         return f;
     }
 
@@ -460,7 +467,9 @@ internal sealed class SensorHost
         CpuTemp = Read(KeySensors.CpuTemp),
         CpuLoad = Read(KeySensors.CpuLoad),
         CpuPower = Read(KeySensors.CpuPower),
-        CpuVoltage = Read(KeySensors.CpuVoltage),
+        // A CPU that gives neither temperature nor power isn't being read through the driver, and the voltage it
+        // then shows is a figure that never moves, not a reading.
+        CpuVoltage = NoDriverAccess && Read(KeySensors.CpuTemp) is null && Read(KeySensors.CpuPower) is null ? null : Read(KeySensors.CpuVoltage),
         CpuClock = Read(KeySensors.CpuClock),
         GpuTemp = Read(KeySensors.GpuTemp),
         GpuHotSpot = Read(KeySensors.GpuHotSpot),

@@ -143,7 +143,7 @@
                                                                 <Button.Style>
                                                                     <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsRemoval}" Value="True">
+                                                                            <DataTrigger Binding="{Binding ShowsButton}" Value="False">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -399,11 +399,11 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE930;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Update ready" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding PromptTitle}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding PromptText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
                                 <UniformGrid Columns="2">
-                                    <Button Style="{StaticResource AccentButton}" Content="Restart" Command="{Binding InstallCommand}" Margin="0,0,4,0" />
+                                    <Button Style="{StaticResource AccentButton}" Content="{Binding InstallText}" Command="{Binding InstallCommand}" Margin="0,0,4,0" />
                                     <Button Style="{StaticResource GhostButton}" Content="Later" Command="{Binding LaterCommand}" Margin="4,0,0,0" />
                                 </UniformGrid>
                             </StackPanel>
@@ -458,6 +458,28 @@
                             </Path>
                             <TextBlock Text="{Binding AgentStatus}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
+                    </ctl:SmoothBorder>
+
+                    <!-- A standard account, once: nothing is wrong, some readings just can't be had. One press opens Settings on
+                         the tab that lists them, and the note is gone for good. -->
+                    <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                            Visibility="{Binding ShowStandardNote, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border DockPanel.Dock="Left" Width="28" Height="28" CornerRadius="8" Background="{DynamicResource CpuSoftBrush}" Margin="0,0,10,0">
+                                    <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Standard account" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock Text="CPU temperature and a few other readings are off here." FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,10" />
+                            <Button Style="{StaticResource GhostButton}" Command="{Binding OpenAdminRightsCommand}" HorizontalAlignment="Stretch" AutomationProperties.Name="See what's off">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="See what's off" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </ctl:SmoothBorder>
 
                     <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"

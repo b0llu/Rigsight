@@ -66,6 +66,7 @@ public partial class MainWindow : Window
         ThemeManager.Changed += RebuildPages;
         // Closing ends the app, except where another window takes over (the tests host several in turn).
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;
+        Closing += (_, _) => _vm.WindowClosing();
     }
 
     /// <summary>

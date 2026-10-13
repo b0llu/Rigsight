@@ -356,6 +356,7 @@ public static class ReportBuilder
             return best is null ? null : new Peak(bestV, TimeUtil.FromUnix(best.Ts), app?.Invoke(best) is long id ? NameOf(id) : null);
         }
         report.CpuTempPeak = PeakOf(m => m.CpuTempMax, m => m.CpuApp);
+        report.CpuLoadPeak = PeakOf(m => m.CpuLoad, m => m.CpuApp);
         report.GpuTempPeak = PeakOf(m => m.GpuTempMax, m => m.GpuApp);
         report.GpuHotPeak = PeakOf(m => m.GpuHotMax, m => m.GpuApp);
         report.CpuVoltPeak = PeakOf(m => m.CpuVoltMax);

@@ -17,7 +17,8 @@ public static class AgentLauncher
     {
         var exe = RigsightPaths.Sibling(RigsightPaths.AgentExe);
         if (!File.Exists(exe)) return false;
-        if (AgentTask.PointsTo(exe) && AgentTask.Run()) return true;
+        // Only the account the task belongs to: for another one Windows says "started" and nothing starts.
+        if (AgentTask.StartsForMe(exe) && AgentTask.Run()) return true;
 
         try
         {

@@ -46,8 +46,14 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>The recap card's report: the period picked (yesterday until another is).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecapTopApps), nameof(RecapHasData), nameof(RecapInsights), nameof(RecapEmptyTitle), nameof(RecapEmptyText),
-        nameof(RecapRows), nameof(RecapTopMax), nameof(RecapInternet), nameof(ShowRecapEmpty))]
+        nameof(RecapRows), nameof(RecapTopMax), nameof(RecapInternet), nameof(ShowRecapEmpty), nameof(ShowRecapCpuBusiest))]
     private Report? _recap;
+
+    /// <summary>
+    /// The recap's period has no CPU temperature on a standard account: its line says how busy the CPU got instead (a
+    /// period that has one, read while admin rights were on for a while, says its peak as usual).
+    /// </summary>
+    public bool ShowRecapCpuBusiest => Live.StandardAccount && Recap is { CpuTempPeak: null, CpuLoadPeak: not null };
 
     /// <summary>Yesterday's report (the recap card's first period; the dashboard's Yesterday tile shows it whatever the card shows).</summary>
     public Report? Yesterday => _recaps.GetValueOrDefault(RecapPeriod.Yesterday);

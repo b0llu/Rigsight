@@ -62,9 +62,18 @@
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
-            <TextBlock Text="No fan speeds reported. Most motherboards share them only with the agent running as admin."
-                       Style="{StaticResource Muted}" TextWrapping="Wrap"
-                       Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}" />
+            <TextBlock TextWrapping="Wrap" Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                        <Setter Property="Text" Value="No fan speeds reported. Most motherboards share them only with the agent running as admin." />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Live.StandardAccount}" Value="True">
+                                <Setter Property="Text" Value="Fan speeds need admin rights on this PC." />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
                          Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
 

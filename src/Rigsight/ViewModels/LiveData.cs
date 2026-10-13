@@ -44,6 +44,14 @@ public sealed partial class LiveData : ObservableObject
     private List<object> _sensorRows = [];
 
     [ObservableProperty] private bool _hasHardware;
+
+    /// <summary>
+    /// The agent runs under a standard account, where some readings can't be had: a page says "needs admin rights on
+    /// this PC" where one would be, instead of pointing at an agent the person can't restart with them.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
+    private bool _standardAccount;
     [ObservableProperty] private long _tick;
 
     // ── Dashboard picks ───────────────────────────────────────────────────
@@ -275,7 +283,15 @@ public sealed partial class LiveData : ObservableObject
     public string SystemSummary => string.Join("  ·  ", new[] { CpuName, GpuName }.Where(n => n is not "CPU" and not "GPU"));
 
     // ── Today ─────────────────────────────────────────────────────────────
-    [ObservableProperty] private TodayInfo _today = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
+    private TodayInfo _today = new();
+
+    /// <summary>
+    /// Home's CPU tile says how busy the CPU got instead of how hot: on a standard account, on a day with no CPU
+    /// temperature (a day that has one, read while admin rights were on for a while, shows its peak as usual).
+    /// </summary>
+    public bool ShowCpuBusiest => StandardAccount && Today.CpuPeak is null;
 
     /// <summary>Today's totals have come from the agent, or no agent is there to send them: until then Home's figures are loading, not nought.</summary>
     [ObservableProperty] private bool _todayIn;

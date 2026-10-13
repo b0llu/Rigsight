@@ -65,6 +65,29 @@ public static unsafe class NetAdapters
         }
     }
 
+    /// <summary>
+    /// The same counters, in and out apart and card by card: what each connected network card has received and sent
+    /// since Windows started. What is counted where each app's use can't be read (no admin rights); null when they can't be read.
+    /// </summary>
+    public static Dictionary<string, (long Received, long Sent)>? CardTraffic()
+    {
+        try
+        {
+            var cards = new Dictionary<string, (long, long)>();
+            foreach (var n in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (n.OperationalStatus != OperationalStatus.Up || n.NetworkInterfaceType == NetworkInterfaceType.Loopback || !IsHardware(n)) continue;
+                var stats = n.GetIPStatistics();
+                cards[n.Id] = (stats.BytesReceived, stats.BytesSent);
+            }
+            return cards;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static bool HasGateway(NetworkInterface n)
     {
         try { return n.GetIPProperties().GatewayAddresses.Any(g => !g.Address.Equals(System.Net.IPAddress.Any) && !g.Address.Equals(System.Net.IPAddress.IPv6Any)); }

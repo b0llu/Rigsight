@@ -11,7 +11,16 @@ public static class Log
     /// </summary>
     public static bool Rotates { get; set; }
 
-    public static void Write(string source, string message) => WriteTo(RigsightPaths.LogFile, source, message, Rotates);
+    /// <summary>
+    /// Nothing is written. For setup's steps run with another account's admin rights from someone's sign-in: that
+    /// account's folder isn't the person's, and nothing of Rigsight's is left in it (setup keeps its own log of the steps).
+    /// </summary>
+    public static bool Muted { get; set; }
+
+    public static void Write(string source, string message)
+    {
+        if (!Muted) WriteTo(RigsightPaths.LogFile, source, message, Rotates);
+    }
 
     /// <summary>Appends to the log at <paramref name="path"/>: <see cref="RigsightPaths.LogFile"/>, or a test's.</summary>
     internal static void WriteTo(string path, string source, string message, bool rotate = true)

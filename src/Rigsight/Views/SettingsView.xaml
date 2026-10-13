@@ -252,6 +252,9 @@
                     <RadioButton Style="{StaticResource SettingsTab}" Content="Notifications" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=notifications}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="History" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=history}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="About" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=about}" />
+                    <!-- Only on a standard account, where some readings can't be had. -->
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="Admin rights" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=admin}"
+                                 Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}" />
                 </StackPanel>
             </Border>
 
@@ -709,6 +712,98 @@
             </ctl:SmoothBorder>
             </StackPanel>
 
+            <!-- Admin rights: only on a standard account. What can't be read there, and what each page shows instead. -->
+            <StackPanel Visibility="{Binding IsAdminRights, Converter={StaticResource Vis}}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,16">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" Background="{DynamicResource CpuSoftBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="This is a standard account" Style="{StaticResource Title}" FontWeight="SemiBold" />
+                        <TextBlock Text="Rigsight runs without admin rights here and never asks for a password. Everything it can read is recorded as usual." Style="{StaticResource Hint}" />
+                    </StackPanel>
+                </DockPanel>
+            </ctl:SmoothBorder>
+            <TextBlock Text="OFF ON THIS ACCOUNT" Style="{StaticResource Caption}" Margin="2,22,0,10" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                            <TextBlock Text="Off" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </Border>
+                        <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" Background="{DynamicResource WarmSoftBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE9CA;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="CPU temperature, power and clock speed" Style="{StaticResource Title}" />
+                            <TextBlock Text="Temperatures shows how busy the CPU is instead." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                            <TextBlock Text="Off" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </Border>
+                        <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" Background="{DynamicResource GpuSoftBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE950;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Motherboard fans, voltages and temperatures" Style="{StaticResource Title}" />
+                            <TextBlock Text="Fans still shows the graphics card's fans." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                            <TextBlock Text="Off" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </Border>
+                        <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" Background="{DynamicResource GoodSoftBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Drive health and drive temperature" Style="{StaticResource Title}" />
+                            <TextBlock Text="Storage still shows space and how fast it fills." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                            <TextBlock Text="Off" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </Border>
+                        <Border DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" Background="{DynamicResource PurpleSoftBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE839;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource PurpleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Each app's internet use" Style="{StaticResource Title}" />
+                            <TextBlock Text="Network still shows the whole PC's use, local devices included." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Margin="0,16,0,0">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding KeepUpdated}" Margin="0,10">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Update by itself" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                                <!-- How a PC updates for someone who can't install anything: asked often enough to answer in place. -->
+                                <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="8,1,0,0" VerticalAlignment="Center"
+                                           Background="Transparent" ToolTipService.InitialShowDelay="0" ToolTipService.ShowDuration="60000">
+                                    <TextBlock.ToolTip>
+                                        <ToolTip MaxWidth="360">
+                                            <StackPanel>
+                                                <TextBlock Text="How it updates without admin rights" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                                <TextBlock TextWrapping="Wrap" Text="When an admin installed Rigsight, setup left a small updater on this PC. Windows runs it when Rigsight starts, with admin rights of its own. It downloads the new Rigsight, checks that it is the real one, installs it and stops. Your account never gets admin rights." />
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </TextBlock.ToolTip>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock Text="{Binding KeepUpdatedHint}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+            </ctl:SmoothBorder>
+            </StackPanel>
+
             <!-- Updates -->
             <StackPanel Visibility="{Binding IsAbout, Converter={StaticResource Vis}}">
             <TextBlock Text="Updates" Style="{StaticResource SubHead}" Margin="2,0,0,10" />
@@ -746,8 +841,27 @@
                             <TextBlock Text="{Binding Update.StatusText}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10">
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10"
+                              Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <TextBlock Text="Update automatically" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <!-- A standard account can't install an update: whether the PC does it for them, set on the Admin rights tab. -->
+                    <DockPanel Style="{StaticResource Row}" Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding KeepUpdatedWord}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="Update by itself" Style="{StaticResource Title}" />
+                            <TextBlock Text="Changed on the Admin rights tab." Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <!-- An admin, on a PC set up for other people too: whether it stays up to date for them. -->
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding KeepUpdated}" Margin="0,10"
+                              Visibility="{Binding ShowKeepUpdatedForEveryone, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="Keep Rigsight updated for everyone on this PC" Style="{StaticResource Title}" />
+                            <TextBlock Text="Windows updates Rigsight for every account on this PC, yours included, whatever the switch above says. Off removes the small updater." Style="{StaticResource Hint}" />
+                        </StackPanel>
                     </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -762,9 +876,21 @@
                         <StackPanel>
                             <TextBlock Text="Background agent" Style="{StaticResource Title}" />
                             <TextBlock Text="Records your history and runs the widgets, overlay and notifications." Style="{StaticResource Hint}" />
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,4,16,0" Foreground="{DynamicResource WarmBrush}"
-                                       Text="It's running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar."
-                                       Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <!-- A warning with a way out for an admin; on a standard account a plain fact, with where to read more. -->
+                            <TextBlock Margin="0,4,16,0" Visibility="{Binding AgentIsAdmin, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                        <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                        <Setter Property="Text" Value="It's running without admin rights, so CPU and motherboard sensors are unavailable. Restart it from the tray or the sidebar." />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StandardAccount}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                <Setter Property="Text" Value="It runs without admin rights on this account. The Admin rights tab lists what that turns off." />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">

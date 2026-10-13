@@ -227,6 +227,8 @@ public sealed class Report
 
     public Peak? CpuTempPeak { get; set; }
     public Peak? GpuTempPeak { get; set; }
+    /// <summary>The CPU's busiest minute (its average load, in percent) and the app doing the work then.</summary>
+    public Peak? CpuLoadPeak { get; set; }
 
     /// <summary>The highest minute averages: how hot a chip held, not a moment's spike (as <see cref="CpuTempPeak"/> can be).</summary>
     public double? CpuTempHeld { get; set; }

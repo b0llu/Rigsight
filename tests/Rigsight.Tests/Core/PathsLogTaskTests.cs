@@ -12,7 +12,7 @@ public sealed class RigsightPathsTests
     {
         Assert.True(RigsightPaths.IsTestInstance);
         Assert.Matches("^\\.[0-9A-F]{12}$", RigsightPaths.InstanceSuffix);
-        Assert.Equal("Rigsight.Agent.v1" + RigsightPaths.InstanceSuffix, RigsightPaths.PipeName);
+        Assert.Equal("Rigsight.Agent.v1" + RigsightPaths.InstanceSuffix + RigsightPaths.SessionSuffix, RigsightPaths.PipeName);
         Assert.Equal(@"Local\Rigsight.Agent" + RigsightPaths.InstanceSuffix, RigsightPaths.AgentMutex);
         Assert.Equal(@"Local\Rigsight.Agent.Quit" + RigsightPaths.InstanceSuffix, RigsightPaths.AgentQuitEvent);
         Assert.NotEqual("Rigsight.Agent.v1", RigsightPaths.PipeName);
@@ -285,4 +285,47 @@ public sealed class AgentTaskTests
     [Fact]
     public void Unparsable_output_that_still_names_the_agent_is_recognised() =>
         Assert.True(AgentTask.XmlPointsTo($"garbage <Command>{Exe}</Command> <unclosed>", Exe));
+
+    // ---- A task per admin account ----
+
+    [Fact]
+    public void Each_account_has_a_task_of_its_own()
+    {
+        Assert.Equal("Rigsight Agent S-1-5-21-1-2-3-1001", AgentTask.NameFor("S-1-5-21-1-2-3-1001"));
+        Assert.NotEqual(AgentTask.NameFor("S-1-5-21-1-2-3-1001"), AgentTask.NameFor("S-1-5-21-1-2-3-1002"));
+        // No id to go by: the old single name, rather than a task nobody could find again.
+        Assert.Equal("Rigsight Agent", AgentTask.NameFor(null));
+        Assert.Equal("Rigsight Agent", AgentTask.NameFor(""));
+    }
+
+    [Fact]
+    public void A_task_names_the_account_it_is_for()
+    {
+        string xml = """
+            <Task><Triggers><LogonTrigger><UserId>PC\Someone</UserId></LogonTrigger></Triggers>
+            <Principals><Principal id="Author"><UserId>S-1-5-21-1-2-3-1001</UserId></Principal></Principals></Task>
+            """;
+        Assert.True(AgentTask.XmlIsFor(xml, "S-1-5-21-1-2-3-1001", @"PC\Dhruv"));
+        Assert.True(AgentTask.XmlIsFor(xml.Replace("S-1-5-21-1-2-3-1001", @"PC\Dhruv"), "S-1-5-21-9-9-9-1001", @"pc\dhruv"));
+        // Another admin's, however the trigger reads; and anything that isn't a task.
+        Assert.False(AgentTask.XmlIsFor(xml, "S-1-5-21-1-2-3-1002", @"PC\Someone"));
+        Assert.False(AgentTask.XmlIsFor("ERROR: Access is denied.", "S-1-5-21-1-2-3-1001", @"PC\Dhruv"));
+    }
+
+    [Fact]
+    public void Uninstall_finds_every_accounts_task_and_the_old_single_one()
+    {
+        string list = string.Join("\r\n",
+            "\"\\Rigsight Agent\",\"N/A\",\"Ready\"",
+            "\"\\Rigsight Agent S-1-5-21-1-2-3-1001\",\"N/A\",\"Running\"",
+            "\"\\Rigsight Agent S-1-5-21-1-2-3-1002\",\"N/A\",\"Ready\"",
+            "\"\\Rigsight Agent S-1-5-21-1-2-3-1002\",\"N/A\",\"Ready\"",
+            "\"\\Rigsight Updater\",\"N/A\",\"Ready\"",
+            "\"\\Rigsight Agents of Chaos\",\"N/A\",\"Ready\"",
+            "\"\\Microsoft\\Windows\\Defrag\\ScheduledDefrag\",\"N/A\",\"Ready\"",
+            "INFO: There are no scheduled tasks presently available at your access level.",
+            "");
+        Assert.Equal(new[] { "Rigsight Agent", "Rigsight Agent S-1-5-21-1-2-3-1001", "Rigsight Agent S-1-5-21-1-2-3-1002" }, AgentTask.NamesIn(list));
+        Assert.Empty(AgentTask.NamesIn(""));
+    }
 }

@@ -88,8 +88,9 @@ internal sealed class NetTracker(RigsightDb db)
     /// One second's bytes (or a little more, <paramref name="seconds"/>): by app, and those of processes that couldn't be
     /// named or aren't tracked (null app), which count for the totals only.
     /// </summary>
+    /// <param name="wholePc">The counts are the whole PC's, not one unnamed process's: there is no window they stood behind.</param>
     public void OnSecond(long now, IReadOnlyList<(AppInfo? App, NetCounts Counts)> counts, double seconds, AppInfo? front, bool present, bool gameInFront,
-        Func<AppInfo, string> name)
+        Func<AppInfo, string> name, bool wholePc = false)
     {
         seconds = Math.Max(seconds, 0.001);
         long physDown = 0, physUp = 0, tunnelDown = 0, tunnelUp = 0, carrierDown = 0, carrierUp = 0;
@@ -117,7 +118,7 @@ internal sealed class NetTracker(RigsightDb db)
                 _chunkOtherTunnelDown += c.TunnelDown;
                 _chunkOtherTunnelUp += c.TunnelUp;
                 _chunkOtherLan += c.LanDown + c.LanUp;
-                if (state == NetState.Background) { _chunkOtherBgDown += c.InternetDown; _chunkOtherBgUp += c.InternetUp; }
+                if (state == NetState.Background && !wholePc) { _chunkOtherBgDown += c.InternetDown; _chunkOtherBgUp += c.InternetUp; }
                 if (state == NetState.Away) { _chunkOtherAwayDown += c.InternetDown; _chunkOtherAwayUp += c.InternetUp; }
                 continue;
             }

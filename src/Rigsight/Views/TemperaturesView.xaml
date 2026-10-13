@@ -24,7 +24,20 @@
                             <TextBlock Text="{Binding CpuName}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                         </DockPanel>
 
-                        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0" Visibility="{Binding CpuThreads.Count, Converter={StaticResource Vis}}">
+                        <!-- A standard account: the CPU's temperature, power and clock can't be read. Said once, at the card's
+                             foot; the card itself shows what is read, its load and its threads. -->
+                        <Border DockPanel.Dock="Bottom" Margin="0,16,0,0" Padding="0,14,0,0" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0"
+                                Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}">
+                            <!-- A DockPanel, so the sentence is held to the card's width and wraps on a narrow window (in a
+                                 horizontal StackPanel it ran past the edge and was cut). -->
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,3,9,0" VerticalAlignment="Top" />
+                                <TextBlock Text="Temperature, power and clock speed need admin rights on this PC." Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Bottom" Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <StackPanel Margin="0,14,0,0" Visibility="{Binding CpuThreads.Count, Converter={StaticResource Vis}}">
                             <TextBlock Text="LOAD PER THREAD" Style="{StaticResource Caption}" Margin="5,0,0,8" />
                             <ItemsControl ItemsSource="{Binding CpuThreads}" Margin="5,0">
                                 <ItemsControl.ItemsPanel>
@@ -42,9 +55,43 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
+                        </Border>
+
+                        <Grid>
+                        <!-- A standard account: the gauge is the load, and the threads take the place of the tiles that
+                             would have nothing to show. -->
+                        <ctl:SideOrStack Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}">
+                            <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <ctl:ArcGauge Value="{Binding CpuLoad.Value}" Maximum="100" Thickness="13" Brush="{DynamicResource CpuBrush}" />
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding CpuLoad.Value, StringFormat='{}{0:0}%', FallbackValue='—', TargetNullValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource CpuBrush}" />
+                                    <TextBlock Text="LOAD" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding CpuLoad.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
+                                <TextBlock Text="LOAD PER THREAD" Style="{StaticResource Caption}" Margin="4,0,0,10" />
+                                <ItemsControl ItemsSource="{Binding CpuThreads}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Height="96" Margin="4" CornerRadius="5" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
+                                                <Border VerticalAlignment="Bottom" CornerRadius="5" Background="{DynamicResource CpuBrush}"
+                                                        Height="{Binding Value, Converter={StaticResource Scale}, ConverterParameter=0.96}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ctl:SideOrStack>
 
                         <!-- The gauge beside its tiles; above them where the card is too narrow for both (see SideOrStack). -->
-                        <ctl:SideOrStack>
+                        <ctl:SideOrStack Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <ctl:ArcGauge Value="{Binding CpuTemp.Value}" Maximum="100" Thickness="13"
                                               Brush="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
@@ -62,6 +109,7 @@
                                 <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
                             </UniformGrid>
                         </ctl:SideOrStack>
+                        </Grid>
                     </DockPanel>
                 </ctl:SmoothBorder>
 

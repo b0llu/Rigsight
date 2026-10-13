@@ -64,6 +64,9 @@ It knows which app is in front, how hard your hardware is working, and how much 
 **Why does it need admin rights?**
 Windows only lets programs with admin rights read CPU and motherboard sensors, and see how much each app uses the internet. Only the small background part runs as admin, and you're asked once, not at every start.
 
+**Does it work on a standard account?**
+Yes. On a standard Windows account it runs without admin rights and never asks for a password. It records everything Windows lets it read there, and Settings lists the few readings that need an admin account. On a PC several people use, setup can install it for everyone and keep it updated for them.
+
 **My CPU temperature is missing.**
 Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight.
 

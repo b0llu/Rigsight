@@ -21,8 +21,10 @@ internal static class Program
         if (Array.IndexOf(args, "--data-dir") is var d and >= 0 && d + 1 < args.Length)
             Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", args[d + 1]);
         Log.Rotates = true; // the agent keeps the shared log to size (see Log.Rotates)
+        bool setupStep = args.Any(a => a is "--install-rtss" or "--install-pawnio" or "--register-startup" or "--everyone" or "--updater" or "--quit" or "--start-in-sessions" or "--forget-tasks");
+        if (setupStep && Account.ElevatedAsSomeoneElse) Log.Muted = true;
 
-        bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+        bool isAdmin = Account.Kind == AccountKind.Admin;
 
         // Run by the installer before replacing or removing files: ask a running agent to save and exit
         // cleanly (a forced kill would lose the game session in progress), waiting a few seconds.
@@ -30,10 +32,20 @@ internal static class Program
         {
             try
             {
+                // Run by the system (its updater's install, an IT tool's): the request only reaches an agent from inside
+                // its own sign-in, so it is made there, once for each person signed in, as that person.
+                using (var who = WindowsIdentity.GetCurrent())
+                    if (who.IsSystem)
+                    {
+                        SessionStarter.QuitAgents();
+                        return;
+                    }
                 if (EventWaitHandle.TryOpenExisting(RigsightPaths.AgentQuitEvent, out var quit))
                 {
                     quit.Set();
-                    var others = Process.GetProcessesByName("Rigsight.Agent").Where(p => p.Id != Environment.ProcessId).ToList();
+                    // This sign-in's agent only: another person's isn't ours to wait on (nor was it asked).
+                    int session = Process.GetCurrentProcess().SessionId;
+                    var others = Process.GetProcessesByName("Rigsight.Agent").Where(p => p.Id != Environment.ProcessId && p.SessionId == session).ToList();
                     foreach (var p in others) p.WaitForExit(6000);
                 }
             }
@@ -90,11 +102,68 @@ internal static class Program
             Environment.Exit(code);
         }
 
+        // Run by the installer (already elevated), or by Settings with an admin's go-ahead: Rigsight starts for everyone
+        // who signs in on this PC ("--everyone on"), or stops doing so ("off"). The same for keeping it up to date.
+        if (Array.IndexOf(args, "--everyone") is var ev and >= 0)
+        {
+            if (!isAdmin || Environment.ProcessPath is not { } self) Environment.Exit(1);
+            // Exit code 2: not installed where only an admin can change the program (see MachineSetup.OnlyAdminsCanChange).
+            if (ev + 1 < args.Length && args[ev + 1] == "on" && !MachineSetup.OnlyAdminsCanChange(AppContext.BaseDirectory)) Environment.Exit(2);
+            try { MachineSetup.SetEveryone(ev + 1 < args.Length && args[ev + 1] == "on", Environment.ProcessPath!); }
+            catch (Exception ex) { Log.Error("setup", ex); Environment.Exit(1); }
+            Environment.Exit(0);
+        }
+        if (Array.IndexOf(args, "--updater") is var up and >= 0)
+        {
+            if (!isAdmin) Environment.Exit(1);
+            if (up + 1 < args.Length && args[up + 1] == "on" && !MachineSetup.OnlyAdminsCanChange(AppContext.BaseDirectory)) Environment.Exit(2);
+            bool ok;
+            try { ok = UpdaterTask.Set(up + 1 < args.Length && args[up + 1] == "on"); }
+            catch (Exception ex) { Log.Error("setup", ex); ok = false; }
+            Environment.Exit(ok ? 0 : 1);
+        }
+
+        // Run by the installer when an update came from the system's own updater, which closed every agent: start one
+        // again for each person signed in. Only the system account can; from any other this starts nothing.
+        if (args.Contains("--start-in-sessions"))
+        {
+            int started = 0;
+            try { started = SessionStarter.StartAgents(); } catch (Exception ex) { Log.Error("setup", ex); }
+            Log.Write("agent", $"Started for {started} signed-in account(s) after an update");
+            Environment.Exit(0);
+        }
+
+        // The updater task (see UpdaterTask): the system installs a newer Rigsight if there is one, and ends.
+        if (args.Contains(UpdaterTask.Argument))
+        {
+            int code;
+            try { code = SystemUpdater.RunAsync().GetAwaiter().GetResult(); }
+            catch (Exception ex) { Log.Error("update", ex); code = SystemUpdater.Failed; }
+            Environment.Exit(code);
+        }
+
         // Run by the installer (already elevated): register "start with Windows" and start the agent
         // through the task, so the user never sees a separate UAC prompt.
+        // Uninstall: every account's start-up task goes (there is one per admin since 0.23.0).
+        if (args.Contains("--forget-tasks"))
+        {
+            try { AgentTask.DeleteAll(); } catch (Exception ex) { Log.Error("setup", ex); }
+            Environment.Exit(0);
+        }
+
         if (args.Contains("--register-startup"))
         {
             if (!isAdmin) Environment.Exit(1);
+            // Setup was started from someone's sign-in with another account's admin password: that admin isn't the one
+            // who signs in here, so no task for them and nothing saved under them. The person's own Rigsight starts
+            // without admin rights (through the window setup opens, and at sign-in where it is set up for everyone).
+            // Exit code 4 says so: setup then starts the person's own agent, as them.
+            if (Account.ElevatedAsSomeoneElse) Environment.Exit(4);
+            // Setup run by the system itself (the updater's install, or an IT tool's): the system is nobody who signs in.
+            // A task registered here would belong to it, take the place of an admin's own, and start an agent as the
+            // system (seen on a test machine). Whoever is signed in gets their agent back from "--start-in-sessions".
+            using (var who = WindowsIdentity.GetCurrent())
+                if (who.IsSystem) Environment.Exit(0);
             bool ok = StartupTask.Enable();
             if (ok)
             {
@@ -120,8 +189,30 @@ internal static class Program
             Environment.Exit(code);
         }
 
-        // CPU and motherboard sensors need admin rights. Relaunch elevated unless told not to.
-        if (!isAdmin && !args.Contains("--no-elevate") && !Debugger.IsAttached && !RigsightPaths.IsTestInstance)
+        // Started at sign-in on a PC where Rigsight is set up for everyone (see MachineSetup): each person gets the
+        // agent their account allows, and nobody is asked anything.
+        // Or started again for someone signed in, after an update closed their agent ("--resume"): the same, without
+        // asking whether they want it at sign-in (it was running).
+        bool resume = args.Contains(MachineSetup.ResumeArgument);
+        bool signIn = resume || args.Contains(MachineSetup.SignInArgument);
+        if (signIn && !RigsightPaths.IsTestInstance)
+        {
+            // This person switched "Start with Windows" off for themselves.
+            if (!resume && !SettingsStore.Load().StartAtSignIn) return;
+            // An admin with a start-up task of their own: the task starts the agent, with admin rights.
+            // (Asked to start it now as well: at sign-in the task is about to anyway and a second start is ignored,
+            // and after an update installed by the system nothing else would bring this admin's agent back.)
+            if (Account.Kind == AccountKind.AdminNotElevated && Environment.ProcessPath is { } me && AgentTask.StartsForMe(me))
+            {
+                AgentTask.Run();
+                return;
+            }
+        }
+
+        // CPU and motherboard sensors need admin rights. Relaunch elevated unless told not to. Only an admin's own
+        // account is asked (one "Yes"): on a standard account the prompt wants a password the person doesn't have,
+        // so the agent runs without admin rights straight away.
+        if (Account.Kind == AccountKind.AdminNotElevated && !signIn && !args.Contains("--no-elevate") && !Debugger.IsAttached && !RigsightPaths.IsTestInstance)
         {
             try
             {
@@ -188,7 +279,7 @@ internal static class Program
         // Every start says which version it is, where it runs from, on which Windows and in which language and time
         // zone: a log read weeks later, or after an update or two, still says what each line was written by.
         var offset = TimeZoneInfo.Local.GetUtcOffset(DateTime.Now);
-        Log.Write("agent", $"Starting {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)} (admin: {isAdmin}, process {Environment.ProcessId}{(args.Contains(AfterCrash) ? ", after a crash" : "")}"
+        Log.Write("agent", $"Starting {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)} (admin: {isAdmin}, account: {Account.Kind}, process {Environment.ProcessId}{(args.Contains(AfterCrash) ? ", after a crash" : "")}"
             + $", Windows {Environment.OSVersion.Version}, {System.Globalization.CultureInfo.CurrentCulture.Name}, UTC{(offset < TimeSpan.Zero ? "-" : "+")}{offset:hh\\:mm}, from {AppContext.BaseDirectory.TrimEnd('\\')})");
         Application.Run(new AgentContext(args, isAdmin));
         GC.KeepAlive(mutex);
@@ -207,7 +298,8 @@ internal static class Program
 
     internal static List<string> RestartArgs(string[] args, string? testDataDir)
     {
-        var list = args.Where(a => a is not ("--open" or "--replace" or AfterCrash)).ToList();
+        // (Nor how it came to start at sign-in: a copy carrying on from this one isn't a sign-in.)
+        var list = args.Where(a => a is not ("--open" or "--replace" or AfterCrash or MachineSetup.SignInArgument or MachineSetup.ResumeArgument)).ToList();
         if (testDataDir is not null && !list.Contains("--data-dir")) list.AddRange(["--data-dir", testDataDir]);
         return list;
     }

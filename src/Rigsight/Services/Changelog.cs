@@ -51,6 +51,15 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
     /// <summary>The button names the page it opens, which for a feature isn't always the feature's own name.</summary>
     public string OpenText { get; init; } = $"Open {name}";
 
+    /// <summary>
+    /// Whether the card has a button. Not for something taken away, and not for something that has no page to try it
+    /// on: a change in how Rigsight runs (on a standard account, say) is told, not opened.
+    /// </summary>
+    public bool HasButton { get; init; } = true;
+
+    /// <summary>The button is drawn.</summary>
+    public bool ShowsButton => HasButton && !IsRemoval;
+
     /// <summary>Something true about this PC from the feature's own data ("31 changes already found…"), once known.</summary>
     [ObservableProperty] private string? _fact;
 }
@@ -83,6 +92,15 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.23.0", 10, 13,
+            feature: new("Standard accounts", "Rigsight runs on a standard Windows account by itself, without asking for an admin password.",
+                ["Each person on a PC has their own history, saved in their own Windows account.",
+                    "Setup can install Rigsight for everyone on the PC and keep it updated for them.",
+                    "Settings lists the readings that need admin rights, and each page shows what it can read instead."],
+                "settings", "\uEA18", isPage: false) { HasButton = false },
+            added: ["On a PC that keeps Rigsight updated for everyone, updates install as Rigsight starts, and Settings has Update now for anyone who doesn't want to wait."],
+            better: ["On a PC with several admin accounts, Rigsight starts for each of them without a prompt once each has accepted it.",
+                "After an update, Rigsight comes back only for people who had it running."]),
         V("0.22.0", 10, 12,
             feature: new("Themes", "Give the whole window a colour of its own, with new themes and an accent that reaches every page.",
                 ["Three new themes, Midnight, Forest and Ember, beside Dark, Grey and Light.",

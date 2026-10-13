@@ -41,14 +41,14 @@ public partial class MemoryView : UserControl
     }
 
     /// <summary>
-    /// As many cards side by side as the page is wide enough for, the rest on a row below. A card alone keeps to half
-    /// the page: across all of it, its name and its figure would be a page apart.
+    /// As many cards side by side as the page is wide enough for, the rest on a row below. A card alone takes the whole
+    /// row: half a row left empty beside it is what the owner asked not to see.
     /// </summary>
     private void FitNotes()
     {
         if (_notesPanel is null || NotesRow.ActualWidth <= 0) return;
         int fit = Math.Max(1, (int)(NotesRow.ActualWidth / (NoteMinWidth + NoteGap)));
-        int columns = Math.Min(fit, Math.Max(NotesRow.Items.Count, 2));
+        int columns = Math.Min(fit, Math.Max(NotesRow.Items.Count, 1));
         if (_notesPanel.Columns != columns) _notesPanel.Columns = columns;
     }
 

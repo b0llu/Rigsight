@@ -160,9 +160,15 @@ public sealed class WhatsNewTests
             });
             Assert.Contains(f.Page, Pages); // a page that exists
             Assert.StartsWith("Open ", f.OpenText);
+            Assert.Equal(f.HasButton && !f.IsRemoval, f.ShowsButton);
             Assert.True(f.Icon.Length == 1 || f.Icon is "fan" or "network");
             Assert.Contains(f.Tag, new[] { "NEW PAGE", "NEW FEATURE", "EXPERIMENTAL", "REMOVED" });
         });
+        // A change in how Rigsight runs has no page to try it on, so its card has no button (0.23.0, standard accounts).
+        var accounts = Changelog.For(new Version(0, 23, 0))!.Feature!;
+        Assert.Equal("Standard accounts", accounts.Name);
+        Assert.False(accounts.ShowsButton);
+        Assert.True(Changelog.For(new Version(0, 22, 0))!.Feature!.ShowsButton);
         // A page of its own opens by its name; a feature opens the page it lives on.
         var timeline = Changelog.Releases.Single(r => r.Version == new Version(0, 15, 0)).Feature!;
         Assert.Equal(("Timeline", "NEW PAGE", "Open Timeline"), (timeline.Name, timeline.Tag, timeline.OpenText));

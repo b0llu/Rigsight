@@ -64,7 +64,12 @@ internal static class StartupTask
         try
         {
             File.WriteAllText(file, xml, Encoding.Unicode);
-            return AgentTask.Schtasks(out _, "/Create", "/TN", RigsightPaths.AgentTaskName, "/XML", file, "/F") == 0;
+            // This account's own task, never the old one for the whole PC: written over by a second admin, that one kept
+            // the first admin's permissions, and the second, without admin rights, could then neither read nor start
+            // what was now its own task (seen on a test machine: "Access is denied").
+            if (AgentTask.Schtasks(out _, "/Create", "/TN", AgentTask.Mine, "/XML", file, "/F") != 0) return false;
+            AgentTask.DropOldOne();
+            return true;
         }
         finally
         {

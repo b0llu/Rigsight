@@ -62,7 +62,69 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool KeepStatusColors { get => S.KeepStatusColors; set => Set(s => s.KeepStatusColors = value); }
 
     // ── The page's tabs ───────────────────────────────────────────────────
-    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "about"];
+    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "about", "admin"];
+
+    /// <summary>
+    /// The agent runs under a standard account: the "Admin rights" tab is there, saying what can't be read without them.
+    /// </summary>
+    [ObservableProperty]
+    private bool _standardAccount;
+
+    // The tab only exists on a standard account: should the account stop being one while it's shown, show the first.
+    partial void OnStandardAccountChanged(bool value)
+    {
+        if (!value && _tab == "admin") Tab = "general";
+        OnPropertyChanged(nameof(ShowKeepUpdatedForEveryone));
+    }
+
+    // ── For the whole PC (see MachineSetup): read by anyone, changed with admin rights ──
+
+    /// <summary>
+    /// The PC keeps Rigsight up to date for everyone, through the updater Windows runs. Changing it is for an admin:
+    /// their own agent does it; from a standard account Windows asks for an admin's password first.
+    /// </summary>
+    public bool KeepUpdated
+    {
+        get => MachineSetup.KeepUpdated;
+        set { if (value != MachineSetup.KeepUpdated) _ = SetKeepUpdatedAsync(value); }
+    }
+
+    /// <summary>On an admin's own account, only where the PC was set up for other people too.</summary>
+    public bool ShowKeepUpdatedForEveryone => !StandardAccount && (MachineSetup.Everyone || MachineSetup.KeepUpdated);
+
+    public string KeepUpdatedHint => KeepUpdated
+        ? "Rigsight keeps itself up to date on this PC. Changing this needs an admin's password."
+        : "Off. An admin installs each new version on this PC. Changing this needs an admin's password.";
+
+    public string KeepUpdatedWord => KeepUpdated ? "On" : "Off";
+
+    private async Task SetKeepUpdatedAsync(bool on)
+    {
+        try
+        {
+            if (AgentIsAdmin && !StandardAccount) client.SendCommand(on ? "updater-on" : "updater-off");
+            else
+            {
+                var agent = RigsightPaths.Sibling(RigsightPaths.AgentExe);
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(agent, on ? "--updater on" : "--updater off") { UseShellExecute = true, Verb = "runas" });
+                if (p is not null) await p.WaitForExitAsync();
+            }
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // The password prompt was closed: nothing changed.
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
+        // The agent's own change takes a moment; either way the switch shows what is, not what was asked.
+        for (int i = 0; i < 8 && MachineSetup.KeepUpdated != on; i++) await Task.Delay(500);
+        OnPropertyChanged(nameof(KeepUpdated));
+        OnPropertyChanged(nameof(KeepUpdatedHint));
+        OnPropertyChanged(nameof(KeepUpdatedWord));
+        OnPropertyChanged(nameof(ShowKeepUpdatedForEveryone));
+    }
 
     private string _tab = "general";
 
@@ -73,6 +135,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         set
         {
             if (value is null || value == _tab || !Tabs.Contains(value)) return;
+            // "Admin rights" only exists on a standard account.
+            if (value == "admin" && !StandardAccount) return;
             _tab = value;
             OnPropertyChanged(string.Empty);
         }
@@ -85,6 +149,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsNotifications => _tab == "notifications";
     public bool IsHistory => _tab == "history";
     public bool IsAbout => _tab == "about";
+    public bool IsAdminRights => _tab == "admin";
 
     private List<ThemeOption>? _themeOptions;
 

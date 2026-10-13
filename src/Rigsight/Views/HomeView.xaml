@@ -89,7 +89,16 @@
 
                         <!-- Today's hottest moments and what was running, and what came down the line. -->
                         <UniformGrid Columns="3" Margin="-5,0,-5,6">
-                            <Border Style="{StaticResource Tile}" Margin="5">
+                            <!-- Where the CPU's temperature can't be read (a standard account): how busy it got, and with what. -->
+                            <Border Style="{StaticResource Tile}" Margin="5" Visibility="{Binding Live.ShowCpuBusiest, Converter={StaticResource Vis}}">
+                                <StackPanel>
+                                    <TextBlock Text="CPU BUSIEST" Style="{StaticResource Caption}" />
+                                    <TextBlock Text="{Binding Live.Today.CpuBusy, StringFormat='{}{0:0} %', FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}" />
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuBusyLine, TargetNullValue='No reading yet today'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Tile}" Margin="5" Visibility="{Binding Live.ShowCpuBusiest, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                 <StackPanel>
                                     <TextBlock Text="CPU PEAK" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
@@ -212,6 +221,10 @@
                                 <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.CpuTempPeak, Converter={StaticResource Vis}}">
                                     <Run Text="CPU peak" /> <Run Text="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
                                                                  Foreground="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempBrush}}" />
+                                </TextBlock>
+                                <!-- A period with no CPU temperature (a standard account): how busy the CPU got instead. -->
+                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding ShowRecapCpuBusiest, Converter={StaticResource Vis}}">
+                                    <Run Text="CPU busiest" /> <Run Text="{Binding Recap.CpuLoadPeak.Value, StringFormat='{}{0:0}%', Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.GpuTempPeak, Converter={StaticResource Vis}}">
                                     <Run Text="GPU peak" /> <Run Text="{Binding Recap.GpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"

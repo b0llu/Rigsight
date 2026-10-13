@@ -42,6 +42,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public int GpuHotN, GpuMemN;
         /// <summary>The app working the CPU / GPU hardest in the minute before this minute's hottest reading (null: none clearly).</summary>
         public AppInfo? CpuApp, GpuApp;
+        /// <summary>The minute's highest CPU load so far: who to put the minute down to where there is no temperature.</summary>
+        public double? CpuLoadMax;
     }
 
     private sealed class FanAcc
@@ -73,6 +75,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         /// <summary>The app working the CPU / GPU hardest just before each peak (null when none clearly was); named
         /// and categorised when asked, so a rename or a new category shows at once.</summary>
         public AppInfo? CpuPeakApp, GpuPeakApp;
+        /// <summary>The CPU's busiest minute today (average load, percent), when, and the app doing the work.</summary>
+        public double? CpuBusy;
+        public long? CpuBusyTime;
+        public AppInfo? CpuBusyApp;
     }
 
     private RigsightSettings _settings = new();
@@ -260,6 +266,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         Acc(k.GpuMemJunction, ref m.GpuMemSum, ref m.GpuMemN);
         // The minute's hottest reading so far: note who was working that part hardest just before it.
         if (k.CpuTemp is double cpuNow && (m.CpuTempMax is null || cpuNow > m.CpuTempMax)) m.CpuApp = Busiest(Load.Cpu);
+        // No CPU temperature (a standard account): the minute goes to who was working the CPU at its busiest reading.
+        if (Account.Kind == AccountKind.Standard && k.CpuTemp is null && k.CpuLoad is double loadNow && (m.CpuLoadMax is null || loadNow > m.CpuLoadMax)) m.CpuApp = Busiest(Load.Cpu);
+        m.CpuLoadMax = Max(m.CpuLoadMax, k.CpuLoad);
         if (k.GpuTemp is double gpuNow && (m.GpuTempMax is null || gpuNow > m.GpuTempMax)) m.GpuApp = Busiest(Load.Gpu);
         m.CpuTempMax = Max(m.CpuTempMax, k.CpuTemp);
         m.GpuTempMax = Max(m.GpuTempMax, k.GpuTemp);
@@ -453,6 +462,17 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _net.OnSecond(NowUnix(), counts, seconds, _foreground, _present, gameInFront, a => AppResolver.DisplayName(a, _settings));
     }
 
+    /// <summary>
+    /// Without each app's use (no admin rights): what the whole PC moved through its network cards, kept in the totals
+    /// under no app's name, the way an untracked app's bytes are.
+    /// </summary>
+    public void OnNetworkTotal(long down, long up, double seconds)
+    {
+        if (Paused) return;
+        _net.OnSecond(NowUnix(), [(null, new NetCounts { Down = down, Up = up })], seconds, _foreground, _present, gameInFront: false,
+            a => AppResolver.DisplayName(a, _settings), wholePc: true);
+    }
+
     /// <summary>A time the internet dropped (see ConnectionWatch).</summary>
     public void OnDrop(NetDrop drop)
     {
@@ -485,6 +505,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             var m = _minute;
             if (m.Seconds >= 1)
             {
+                // Today's busiest minute for the CPU, as the minutes keep it (the report says the same for today).
+                if (Avg(m.CpuLoadSum, m.CpuLoadN) is double busy && (_today.CpuBusy is null || busy > _today.CpuBusy))
+                {
+                    _today.CpuBusy = busy;
+                    _today.CpuBusyTime = _minuteTs;
+                    _today.CpuBusyApp = m.CpuApp;
+                }
                 db.WriteMinute(new SystemMinute
                 {
                     Ts = _minuteTs,
@@ -616,6 +643,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 GpuPeak = gpu?.Value,
                 GpuPeakTime = gpu is null ? null : TimeUtil.ToUnix(gpu.Time),
                 GpuPeakApp = ByName(gpu?.App),
+                CpuBusy = r.CpuLoadPeak?.Value,
+                CpuBusyTime = r.CpuLoadPeak is null ? null : TimeUtil.ToUnix(r.CpuLoadPeak.Time),
+                CpuBusyApp = ByName(r.CpuLoadPeak?.App),
             };
             foreach (var a in r.Apps.Where(a => a.ActiveSec > 0))
                 _today.AppSec[a.Id] = a.ActiveSec;
@@ -641,6 +671,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             GpuPeakTime = _today.GpuPeakTime,
             GpuPeakApp = NameOf(_today.GpuPeakApp),
             GpuPeakCategory = CategoryOf(_today.GpuPeakApp),
+            CpuBusy = _today.CpuBusy,
+            CpuBusyTime = _today.CpuBusyTime,
+            CpuBusyApp = NameOf(_today.CpuBusyApp),
+            CpuBusyCategory = CategoryOf(_today.CpuBusyApp),
         };
         if (_today.AppSec.Count > 0)
         {

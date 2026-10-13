@@ -104,6 +104,9 @@ internal sealed class AgentContext : ApplicationContext
     // Today's totals as last computed on the sampler thread, for the hello sent to a newly connected app.
     private volatile TodayInfo? _lastToday;
     private bool _startupEnabled;
+
+    /// <summary>"Start with Windows" is this person's own Run entry: a standard account, on a PC not set up for everyone.</summary>
+    private static bool OwnStartup => Account.Kind == AccountKind.Standard && !MachineSetup.Everyone && !RigsightPaths.IsTestInstance;
     private string? _pendingPage, _pendingArg;
 
     // Set RIGSIGHT_PROFILE=1 to log how long each part of the sampler loop takes, once a minute.
@@ -200,6 +203,7 @@ internal sealed class AgentContext : ApplicationContext
         // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
         // the real startup task alone.
         _startupEnabled = StartupTask.IsEnabled();
+        if (!_isAdmin && MachineSetup.Everyone) _startupEnabled = _settings.StartAtSignIn;
         bool manageStartup = _isAdmin && !RigsightPaths.IsTestInstance;
         if (!_settings.StartupConfigured && manageStartup)
         {
@@ -211,12 +215,25 @@ internal sealed class AgentContext : ApplicationContext
             // Installed somewhere new (or reinstalled): point the task at this copy.
             _startupEnabled = StartupTask.Enable();
         }
+        // A standard account on a PC nobody set up for everyone: its own start at sign-in, added on the first run like
+        // an admin's task is (this is the PC an admin installed Rigsight on once, then an update brought this version).
+        if (OwnStartup)
+        {
+            _startupEnabled = MachineSetup.StartsForMe;
+            if (!_settings.StartupConfigured && Environment.ProcessPath is { } me)
+            {
+                _startupEnabled = MachineSetup.SetStartsForMe(true, me) && MachineSetup.StartsForMe;
+                MutateSettings(s => s.StartupConfigured = true);
+            }
+        }
 
         _displayWatch.Start();
         _sampler = new Thread(SamplerLoop) { IsBackground = true, Name = "Sampler", Priority = ThreadPriority.BelowNormal };
         _sampler.Start();
 
         if (args.Contains("--open")) OpenApp(null);
+        // "Update now" was pressed in this person's window, and the update closed it: open it again.
+        else if (!RigsightPaths.IsTestInstance && UpdateStore.TakeNow()) OpenApp(null);
         if (RigsightPaths.IsTestInstance) return; // no updates in a test copy
         if (_isAdmin) ThreadPool.QueueUserWorkItem(_ => UpdateInstaller.Cleanup());
         // Updates: first a minute and a half after starting (Windows is still settling at sign-in), then every
@@ -233,6 +250,20 @@ internal sealed class AgentContext : ApplicationContext
     private async Task RunUpdaterAsync()
     {
         if (_stopping || Environment.ProcessPath is not { } exe || Interlocked.Exchange(ref _updaterRunning, 1) == 1) return;
+        // An account that can't install anything, on a PC that updates Rigsight itself: as this agent starts (a sign-in,
+        // or Rigsight closed and opened again) it asks the PC's updater to have a look, once. Never later in the day.
+        // An admin on such a PC too: their own install would close everyone else's Rigsight and couldn't start it again;
+        // the PC's updater can.
+        if (MachineSetup.KeepUpdated && !RigsightPaths.IsTestInstance)
+        {
+            if (!_updaterStarted)
+            {
+                _updaterStarted = true;
+                if (!UpdaterTask.Run()) Log.Write("update", "The PC's updater couldn't be asked to run");
+            }
+            Volatile.Write(ref _updaterRunning, 0);
+            return;
+        }
         try
         {
             bool appOpen = _pipe.ClientCount > 0;
@@ -417,7 +448,7 @@ internal sealed class AgentContext : ApplicationContext
                             ExtremesDay = _extremes.Day,
                             ExtremesFull = full,
                             // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
-                            Net = _netTrace is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
+                            Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
                         });
                     }
 
@@ -1064,6 +1095,46 @@ internal sealed class AgentContext : ApplicationContext
 
     private static string NetTraceName => "Rigsight Network" + RigsightPaths.InstanceSuffix;
 
+    // Without admin rights there is no trace of each app's use: the network cards' own counters say what the whole
+    // PC moved. Read every few seconds (listing the cards isn't free), the last reading and what has gone by since.
+    private Dictionary<string, (long Received, long Sent)>? _cardsBefore;
+    private double _cardSeconds;
+    private const double CardEverySeconds = 3;
+
+    /// <summary>
+    /// Sampler thread, without admin rights: what crossed the network cards since the last look goes into the totals and
+    /// the speed right now. The bytes downloaded, for the drop watch (null between looks).
+    /// </summary>
+    private long? SampleCards(double seconds)
+    {
+        _cardSeconds += seconds;
+        if (_cardSeconds < CardEverySeconds && _cardsBefore is not null) return null;
+        var now = NetAdapters.CardTraffic();
+        var before = _cardsBefore;
+        double span = _cardSeconds;
+        _cardsBefore = now;
+        _cardSeconds = 0;
+        // The first look, or counters that couldn't be read: nothing to count.
+        if (now is null || before is null) return null;
+        // Card by card: one that has just come back (Wi-Fi reconnecting, a dock, waking up) has no reading before, and
+        // its whole count since Windows started is not what moved in these seconds. One whose count went back restarted.
+        long down = 0, up = 0;
+        foreach (var (id, n) in now)
+            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
+            {
+                down += n.Received - b.Received;
+                up += n.Sent - b.Sent;
+            }
+        _tracker.OnNetworkTotal(down, up, span);
+        var live = _tracker.NetNow;
+        lock (_netHistoryLock)
+        {
+            _netHistory.Enqueue(new NetLive { Time = live.Time, Down = live.Down, Up = live.Up });
+            while (_netHistory.Count > 60) _netHistory.Dequeue();
+        }
+        return down;
+    }
+
     private static readonly NetLive NotRecording = new() { Stalled = true };
 
     /// <summary>
@@ -1120,6 +1191,8 @@ internal sealed class AgentContext : ApplicationContext
     private void SampleNetwork(double seconds)
     {
         long? internetDown = null;
+        // A standard account only: an admin's agent that isn't elevated (yet) records nothing here, as before.
+        if (_netTrace is null && Account.Kind == AccountKind.Standard) internetDown = SampleCards(seconds);
         if (_netTrace is { } trace)
         {
             var counts = trace.Take();
@@ -1375,6 +1448,9 @@ internal sealed class AgentContext : ApplicationContext
             T = "hello",
             Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3),
             IsAdmin = _isAdmin,
+            StandardAccount = Account.Kind == AccountKind.Standard,
+            Everyone = MachineSetup.Everyone,
+            KeepUpdated = MachineSetup.KeepUpdated,
             StartupEnabled = _startupEnabled,
             Settings = _settings,
             Page = _pendingPage,
@@ -1393,7 +1469,7 @@ internal sealed class AgentContext : ApplicationContext
             hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
             hello.Drives = sensors.DriveHealth;
             hello.SensorStatus = _sensorStatus;
-            if (_netTrace is not null)
+            if (_netTrace is not null || _cardsBefore is not null)
                 lock (_netHistoryLock) hello.NetHistory = [.. _netHistory];
             _sendAllExtremes = true;
         }
@@ -1434,6 +1510,25 @@ internal sealed class AgentContext : ApplicationContext
                     _tracker.ClearHistory();
                     _pipe.Broadcast(new AgentMessage { T = "history-cleared" });
                 });
+                break;
+            // Without admin rights there is no task to switch: where the PC starts Rigsight for everyone, this person's
+            // own choice is kept in their settings (the sign-in start reads it).
+            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance && !_isAdmin && MachineSetup.Everyone:
+                MutateSettings(s => s.StartAtSignIn = msg.Cmd == "startup-on");
+                _startupEnabled = msg.Cmd == "startup-on";
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            // A standard account, on a PC not set up for everyone: the task needs an admin, their own Run entry doesn't.
+            case "startup-on" or "startup-off" when OwnStartup:
+                if (Environment.ProcessPath is { } own) MachineSetup.SetStartsForMe(msg.Cmd == "startup-on", own);
+                if (msg.Cmd == "startup-on") MutateSettings(s => s.StartAtSignIn = true);
+                _startupEnabled = MachineSetup.StartsForMe;
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            // An admin turns keeping Rigsight up to date for everyone on or off, from their own Settings.
+            case "updater-on" or "updater-off" when _isAdmin && !RigsightPaths.IsTestInstance:
+                try { UpdaterTask.Set(msg.Cmd == "updater-on"); } catch (Exception ex) { Log.Error("setup", ex); }
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled, Everyone = MachineSetup.Everyone, KeepUpdated = MachineSetup.KeepUpdated });
                 break;
             case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance:
                 _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
@@ -1501,6 +1596,7 @@ internal sealed class AgentContext : ApplicationContext
         incoming.RecappedDay = current.RecappedDay;
         incoming.LastUpdateNotice = current.LastUpdateNotice;
         incoming.HardwareAppsChecked = current.HardwareAppsChecked;
+        incoming.StartAtSignIn = current.StartAtSignIn;
         incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
         foreach (var w in incoming.Widgets)
         {
@@ -1668,6 +1764,9 @@ internal sealed class AgentContext : ApplicationContext
     private void RestartElevated()
     {
         if (_isAdmin || RigsightPaths.IsTestInstance || Environment.ProcessPath is not { } exe) return;
+        // Never on a standard account, whoever asks: the copy that took over would run as the admin whose password was
+        // typed, with that admin's folder, and the person's history would stop there and an empty one start.
+        if (Account.Kind == AccountKind.Standard) return;
         try
         {
             Process.Start(new ProcessStartInfo(exe, "--replace") { UseShellExecute = true, Verb = "runas" });

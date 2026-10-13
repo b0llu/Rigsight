@@ -80,8 +80,10 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,11" Margin="0,0,0,18">
                 <DockPanel>
                     <!-- "Right now" already says it's live: the button says only that it opens, in a word (an arrow alone went unseen). -->
+                    <!-- The details are each app's speed: not there to open on a standard account. -->
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ToggleLiveCommand}" Content="{Binding LiveButtonText}"
-                            AutomationProperties.Name="Live details" VerticalAlignment="Center" Margin="14,0,0,0" MinWidth="86" />
+                            AutomationProperties.Name="Live details" VerticalAlignment="Center" Margin="14,0,0,0" MinWidth="86"
+                            Visibility="{Binding Live.StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Right now" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock FontSize="13" Margin="20,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
@@ -235,7 +237,7 @@
                     </Border>
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="IN THE BACKGROUND" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding BackgroundCaption}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding BackgroundText}" Style="{StaticResource TileBig}" />
                             <TextBlock Text="{Binding BackgroundNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
@@ -252,7 +254,7 @@
                     <ctl:SmoothBorder x:Name="ChartCard" Style="{StaticResource RowCard}" VerticalAlignment="Top">
                         <StackPanel>
                             <DockPanel Margin="0,0,0,12">
-                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding WholeOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <StackPanel Orientation="Horizontal">
                                         <RadioButton Style="{StaticResource Segment}" GroupName="NetChartMode" Content="By app"
                                                      IsChecked="{Binding ChartMode, Converter={StaticResource Equals}, ConverterParameter=App}" />
@@ -291,7 +293,8 @@
                                         ToolTip="Back to every app of the period" Visibility="{Binding HasSelection, Converter={StaticResource Vis}}" />
                                 <TextBlock Text="{Binding AppsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
-                            <Border DockPanel.Dock="Top" Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Top" Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                    Visibility="{Binding WholeOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="Total"
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Total}" />
@@ -304,7 +307,7 @@
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Background}" />
                                 </StackPanel>
                             </Border>
-                            <TextBlock DockPanel.Dock="Top" Text="Nothing here." Style="{StaticResource TileNote}"
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding NoAppsText}" Style="{StaticResource TileNote}" TextWrapping="Wrap"
                                        Visibility="{Binding HasApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" AutomationProperties.Name="Apps">

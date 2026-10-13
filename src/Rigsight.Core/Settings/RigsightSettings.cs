@@ -119,6 +119,18 @@ public sealed class RigsightSettings
     public string? SensorNoticeSeen { get; set; }
 
     /// <summary>
+    /// On a standard account the sidebar says once that some readings are off; set when that note was opened or the
+    /// window it showed in was closed. Never shown again after, not after an update either: the person knows.
+    /// </summary>
+    public bool StandardNoteSeen { get; set; }
+
+    /// <summary>
+    /// On a PC where Rigsight starts for everyone who signs in: whether it starts for this person. "Start with Windows"
+    /// in Settings, for an account that has no start-up task of its own to switch off.
+    /// </summary>
+    public bool StartAtSignIn { get; set; } = true;
+
+    /// <summary>
     /// The newest version whose "What's new" has been shown ("0.6.4"). Empty on a new install, where nothing is new: the
     /// app then sets it without showing anything.
     /// </summary>

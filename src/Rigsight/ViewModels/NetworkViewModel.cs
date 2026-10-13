@@ -253,6 +253,17 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _upNote = "";
     [ObservableProperty] private string _backgroundText = "—";
     [ObservableProperty] private string _backgroundNote = "";
+
+    /// <summary>
+    /// The period has the whole PC's use and no app's: a standard account, where which app used the internet can't be
+    /// read. The page keeps its totals and its graph, and the Apps box says why it is empty.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BackgroundCaption), nameof(NoAppsText))]
+    private bool _wholeOnly;
+
+    public string BackgroundCaption => WholeOnly ? "WHILE YOU WERE AWAY" : "IN THE BACKGROUND";
+    public string NoAppsText => WholeOnly ? "Each app's internet use needs admin rights on this PC." : "Nothing here.";
     [ObservableProperty] private string _totalText = "—";
     [ObservableProperty] private string _totalNote = "";
 
@@ -357,8 +368,11 @@ public sealed partial class NetworkViewModel : ObservableObject
         bool now = IncludesToday;
         Insights = Models.Kept.Or(Insights, [.. r.Insights.OrderByDescending(i => i.Priority)]);
 
+        WholeOnly = Live.StandardAccount && r.Apps.Count == 0;
+        // No app to colour by: the graph shows the PC's use, lighter for what moved with nobody there.
+        if (WholeOnly && ChartMode != "Background") ChartMode = "Background";
         TotalText = Units.Data(r.Down + r.Up);
-        TotalNote = r.Apps.Count == 1 ? "download and upload · 1 app" : $"download and upload · {r.Apps.Count} apps";
+        TotalNote = WholeOnly ? "all network use, local devices included" : r.Apps.Count == 1 ? "download and upload · 1 app" : $"download and upload · {r.Apps.Count} apps";
         DownText = Units.Data(r.Down);
         DownNote = r.Range == ReportRange.Day && r.UsualDayDown is long usual
             ? $"vs {Units.Data(usual)} on a usual day"
@@ -366,9 +380,10 @@ public sealed partial class NetworkViewModel : ObservableObject
         UpText = Units.Data(r.Up);
         var topUp = r.Apps.Where(a => a.Use.Up > 0).MaxBy(a => a.Use.Up);
         UpNote = topUp is null ? "" : $"{topUp.Name} the most";
-        BackgroundText = Units.Data(r.Background);
         long away = r.AwayDown + r.AwayUp;
-        BackgroundNote = r.Down + r.Up > 0
+        BackgroundText = Units.Data(WholeOnly ? away : r.Background);
+        BackgroundNote = WholeOnly ? (away > 0 ? $"{Math.Round(100.0 * away / (r.Down + r.Up)):0}% of all use" : "")
+            : r.Down + r.Up > 0
             ? $"{Math.Round(100.0 * r.Background / (r.Down + r.Up)):0}% of all use" + (away >= 50 << 20 ? $" · {Units.Data(away)} while you were away" : "")
             : "";
 
@@ -398,7 +413,9 @@ public sealed partial class NetworkViewModel : ObservableObject
     /// <summary>The colours' names under the chart: the apps with their own, or in front and background.</summary>
     private void FillLegend()
     {
-        IReadOnlyList<NetLegend> legend = ChartMode == "Background"
+        IReadOnlyList<NetLegend> legend = WholeOnly
+            ? [new("SkyBrush", "This PC"), new("SkyBrush", "While you were away", 0.45)]
+            : ChartMode == "Background"
             ? [new("SkyBrush", "The app in front"), new("SkyBrush", "In the background, or while you were away", 0.45)]
             : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => new NetLegend(Controls.NetBarsChart.AppBrushKeys[i], AppNames.GetValueOrDefault(id, "Unknown")))
                     .Where(l => l.Text != "Unknown"),

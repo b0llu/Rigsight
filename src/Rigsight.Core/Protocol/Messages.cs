@@ -64,6 +64,14 @@ public sealed class TodayInfo
     public double? GpuPeak { get; set; }
     public long? GpuPeakTime { get; set; }
     public string? GpuPeakApp { get; set; }
+    /// <summary>
+    /// The CPU's busiest minute today, in percent, with when and the app doing the work: what Home shows where the
+    /// CPU's temperature can't be read (a standard account). Null before the first full minute, or from an older agent.
+    /// </summary>
+    public double? CpuBusy { get; set; }
+    public long? CpuBusyTime { get; set; }
+    public string? CpuBusyApp { get; set; }
+    public AppCategory? CpuBusyCategory { get; set; }
     /// <summary>What kind of app each peak's app is (for the words under it); null with no app, or from an older agent.</summary>
     public AppCategory? CpuPeakCategory { get; set; }
     public AppCategory? GpuPeakCategory { get; set; }
@@ -71,6 +79,7 @@ public sealed class TodayInfo
     /// <summary>"While playing Rematch", or the time when no app clearly was (null before the first reading).</summary>
     [JsonIgnore] public string? CpuPeakLine => PeakWords.Line(CpuPeak, CpuPeakApp, CpuPeakTime, CpuPeakCategory);
     [JsonIgnore] public string? GpuPeakLine => PeakWords.Line(GpuPeak, GpuPeakApp, GpuPeakTime, GpuPeakCategory);
+    [JsonIgnore] public string? CpuBusyLine => PeakWords.Line(CpuBusy, CpuBusyApp, CpuBusyTime, CpuBusyCategory);
 }
 
 /// <summary>A drive's SMART health, as judged the way CrystalDiskInfo does (hard drives have no wear "Life").</summary>
@@ -194,6 +203,12 @@ public sealed class AgentMessage
     // hello
     public string? Version { get; set; }
     public bool IsAdmin { get; set; }
+    /// <summary>The agent runs under a standard account: admin rights would take someone else's password, so nothing asks for them.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool StandardAccount { get; set; }
+    /// <summary>The PC starts Rigsight for everyone who signs in / keeps it up to date by itself (hello and "status"); see MachineSetup.</summary>
+    public bool? Everyone { get; set; }
+    public bool? KeepUpdated { get; set; }
     /// <summary>Whether the agent is registered to start with Windows (hello and "status").</summary>
     public bool? StartupEnabled { get; set; }
     public List<HardwareMeta>? Hardware { get; set; }
