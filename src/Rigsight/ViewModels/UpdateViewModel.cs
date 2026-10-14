@@ -97,21 +97,22 @@ public sealed partial class UpdateViewModel : ObservableObject
     public bool ShowFailed => !_pcUpdates() && State == UpdateState.Failed;
 
     public string PromptTitle => _needsAdmin() ? "Update needs an admin" : "Update ready";
-    public string InstallText => _needsAdmin() ? "Install" : "Restart";
+    // "Update" in the sidebar card: "Update now" wrapped onto two lines in half its width. Settings has room: "Update now".
+    public string InstallText => _needsAdmin() ? "Install" : "Update";
 
-    public string LineTitle => State == UpdateState.Waiting ? "Restart to update" : "Update available";
+    public string LineTitle => State == UpdateState.Waiting ? "Update ready" : "Update available";
     public string LineIcon => State == UpdateState.Waiting ? "" : "";
 
     public string LineTip => State == UpdateState.Waiting
-        ? $"Rigsight {Version} is downloaded. Click to restart and install it."
+        ? $"Rigsight {Version} is downloaded. Click to install it: Rigsight closes and opens again by itself."
         : $"Rigsight {Version} is out. Click to download it; you can keep using Rigsight meanwhile.";
 
     public string ProgressTitle => State == UpdateState.Installing ? $"Updating to {Version}…" : $"Downloading {Version}";
 
     public string PromptText => _needsAdmin() ? $"Version {Version} is out. Someone with an admin password can install it."
         : _autoUpdate() && _agentCanInstall()
-        ? $"Restart now to update to {Version}, or it installs by itself the next time you start your PC."
-        : $"Restart Rigsight to finish updating to {Version}.";
+        ? $"Update now to get {Version}, or it installs by itself the next time you start your PC."
+        : $"Update now to get {Version}.";
 
     public string FailedText => $"{Error} Try again, or get the latest version from the download page.";
 
@@ -166,7 +167,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         UpdateState.Available when _pcUpdates() => "Update now",
         UpdateState.Available => "Download",
         UpdateState.Downloading => "Downloading…",
-        UpdateState.Ready or UpdateState.Waiting => "Restart to update",
+        UpdateState.Ready or UpdateState.Waiting => "Update now",
         UpdateState.Installing => "Installing…",
         UpdateState.Failed => "Try again",
         _ => "Check for updates",
@@ -406,11 +407,77 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     // ── Installing ──
 
-    /// <summary>"Restart" in the prompt, the "Restart to update" line, or Settings.</summary>
+    // ── The screen over the window while an update someone asked for installs ──
+
+    /// <summary>
+    /// "Updating Rigsight" over the whole window, from the moment someone presses Update now until the installer closes
+    /// the window (or it didn't install). Never for an update that installs by itself at the next start: nobody is
+    /// looking then. Its bar moves only at moments the app can see: the download checked, the installer started, and
+    /// then over the usual time an install takes, short of the end, since the installer closes the window to replace it.
+    /// </summary>
+    [ObservableProperty] private bool _showOverlay;
+    [ObservableProperty] private double _overlayFill;
+    [ObservableProperty] private bool _overlayFailed;
+
+    /// <summary>Under "The update didn't install": what is still there, and what to do.</summary>
+    public string ReleaseFeedCurrentText => $"Rigsight is still on {ReleaseFeed.Current.ToString(3)}, with nothing lost. Try again, or get the new version from the download page.";
+
+    /// <summary>"0.24.0 → 0.25.0" under the screen's title.</summary>
+    public string OverlayVersions => $"{ReleaseFeed.Current.ToString(3)} → {Version}";
+
+    /// <summary>Where the bar stops while the installer works: the end is the window closing, never drawn.</summary>
+    internal const double OverlayLast = 92;
+    private DispatcherTimer? _overlayTimer;
+
+    private void Fill(double to)
+    {
+        if (to > OverlayFill) OverlayFill = to;
+    }
+
+    /// <summary>The installer is running: the last part of the bar fills over about the time an install takes.</summary>
+    private void FillWhileInstalling()
+    {
+        if (!ShowOverlay) return;
+        Fill(66);
+        _overlayTimer?.Stop();
+        _overlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        _overlayTimer.Tick += (_, _) =>
+        {
+            if (!ShowOverlay || OverlayFailed) { _overlayTimer?.Stop(); return; }
+            OverlayFill += (OverlayLast - OverlayFill) * 0.025;
+        };
+        _overlayTimer.Start();
+    }
+
+    /// <summary>"Close" on the screen after an update that didn't install: back to the app, as it was.</summary>
+    [RelayCommand]
+    private void CloseOverlay()
+    {
+        _overlayTimer?.Stop();
+        ShowOverlay = false;
+        OverlayFailed = false;
+        OverlayFill = 0;
+    }
+
+    /// <summary>"Try again" on the screen: the same as the sidebar's.</summary>
+    [RelayCommand]
+    private Task RetryFromOverlay()
+    {
+        OverlayFailed = false;
+        OverlayFill = 0;
+        return RetryAsync();
+    }
+
+    /// <summary>"Update now" in the prompt, the "Update ready" line, or Settings.</summary>
     [RelayCommand]
     private void Install()
     {
         if (_release is not { } release) return;
+        // Someone pressed it: the screen goes over the window, the download already checked when it was saved.
+        ShowOverlay = true;
+        OverlayFailed = false;
+        OnPropertyChanged(nameof(OverlayVersions));
+        Fill(18);
         State = UpdateState.Installing;
         Progress = 100;
         ProgressText = "Rigsight closes and reopens by itself in a few seconds.";
@@ -437,6 +504,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         {
             // The agent answers with an "update" message; if it never does, run the installer ourselves.
             _client.SendCommand("install-update", setup);
+            Fill(34);
             _agentTimeout?.Stop();
             _agentTimeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             _agentTimeout.Tick += (_, _) => { _agentTimeout.Stop(); if (State == UpdateState.Installing) _ = RunSetupAsync(setup, release); };
@@ -465,12 +533,14 @@ public sealed partial class UpdateViewModel : ObservableObject
             UpdateStore.WriteAttempt(release.Version);
             // On a standard account setup is started as the person and asks for the admin's password itself: started
             // already elevated, it wouldn't know who to open Rigsight for afterwards, and would open it as that admin.
+            Fill(34);
             Process.Start(new ProcessStartInfo(setup, ReleaseFeed.SetupArguments) { UseShellExecute = true, Verb = _needsAdmin() ? "" : "runas" })?.Dispose();
             WaitForInstaller();
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
             UpdateStore.ClearAttempt();
+            CloseOverlay();
             State = UpdateState.Waiting; // the admin prompt was declined: ready whenever they are
         }
         catch (Exception ex)
@@ -488,6 +558,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// </summary>
     private void WaitForInstaller(double minutes = 2)
     {
+        FillWhileInstalling();
         var watchdog = new DispatcherTimer { Interval = TimeSpan.FromMinutes(minutes) };
         watchdog.Tick += (_, _) =>
         {
@@ -520,6 +591,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         Error = reason;
         State = UpdateState.Failed;
+        // The screen, if it is up, says so in place, with nothing lost: the window was never closed.
+        if (ShowOverlay) OverlayFailed = true;
     }
 
     private void RefreshTexts()

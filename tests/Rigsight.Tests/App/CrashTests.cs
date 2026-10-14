@@ -785,6 +785,40 @@ public sealed class CrashesPageTests
     }
 
     [Fact]
+    public void Just_after_an_update_the_page_waits_for_windows_records_and_reads_itself_again_once_they_are_in()
+    {
+        // The user: after updating, every shut-off showed red, then turned grey once the agent had read Windows' records.
+        var (vm, _) = Page();
+        bool read = false;
+        Ui.Run(() => { vm.RecordsRead = () => Task.FromResult<bool?>(read); vm.Started = DateTime.Now; }); // the app just opened
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() =>
+        {
+            Assert.True(vm.ReadingRecords);
+            Assert.Equal("Reading Windows' records", vm.StatusTitle);
+            Assert.Equal("MutedBrush", vm.StatusBrush);
+            Assert.True(vm.ShowListLoader);
+            Assert.False(vm.ShowEmpty);
+        });
+        read = true;
+        Assert.True(Ui.WaitFor(() => Ui.Run(() => !vm.ReadingRecords && vm.HasCrashes), 15_000));
+        Ui.Run(() =>
+        {
+            Assert.NotEqual("Reading Windows' records", vm.StatusTitle);
+            Assert.False(vm.ShowListLoader);
+        });
+        // And the list's loader is told it has gone: it stayed on screen once the list had loaded (the binding never heard).
+        var heard = new List<string?>();
+        Ui.Run(() =>
+        {
+            vm.PropertyChanged += (_, e) => heard.Add(e.PropertyName);
+            typeof(CrashesViewModel).GetProperty(nameof(CrashesViewModel.Loaded))!.SetValue(vm, false);
+            typeof(CrashesViewModel).GetProperty(nameof(CrashesViewModel.Loaded))!.SetValue(vm, true);
+        });
+        Assert.Contains(nameof(CrashesViewModel.ShowListLoader), heard);
+    }
+
+    [Fact]
     public void Status_power_lost_while_asleep_is_not_a_fault()
     {
         var (vm, _) = Page();
@@ -807,7 +841,7 @@ public sealed class CrashesPageTests
             Assert.Equal("No serious problems", vm.StatusTitle);
             Assert.Contains("2 shutdowns that didn't finish (usually harmless)", vm.StatusDetail);
             Assert.Contains("1 power loss while asleep (not a fault)", vm.StatusDetail);
-            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 of 3 unexpected shutdowns happened while Windows was shutting down"));
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 more shutdowns didn't finish while Windows was shutting down"));
             Assert.DoesNotContain(vm.Patterns, p => p.Text.Contains("while the PC was asleep"));
         });
     }

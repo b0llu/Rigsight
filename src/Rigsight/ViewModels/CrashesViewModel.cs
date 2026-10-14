@@ -390,8 +390,47 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
     [ObservableProperty] private bool _isLoading;
 
+    /// <summary>The agent hasn't read Windows' crash records yet on this version: the list waits with a loader.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowListLoader), nameof(ShowEmpty))]
+    private bool _readingRecords;
+
+    /// <summary>The list's loader: the first read, or the wait for Windows' records.</summary>
+    public bool ShowListLoader => !Loaded || ReadingRecords;
+
+    /// <summary>When the app started: the wait for the records is for just after an update, never longer than this.</summary>
+    internal DateTime Started { get; set; } = AppStarted;
+    private static readonly DateTime AppStarted = System.Diagnostics.Process.GetCurrentProcess().StartTime;
+    internal const double WaitForRecordsMinutes = 3;
+    private Task? _recordsWait;
+
+    /// <summary>Whether the agent has read Windows' records yet (tests swap it).</summary>
+    internal Func<Task<bool?>> RecordsRead { get; set; } = reports.CrashRecordsReadAsync;
+
+    /// <summary>Looks every couple of seconds until the records are in (or the wait is over), then reads the page again.</summary>
+    private async Task WaitForRecordsAsync()
+    {
+        while ((DateTime.Now - Started).TotalMinutes < WaitForRecordsMinutes && await RecordsRead() == false)
+            await Task.Delay(2000);
+        _recordsWait = null;
+        await (System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => LoadAsync()).Task.Unwrap() ?? Task.CompletedTask);
+    }
+
     private async Task ReadAsync(int id, bool onlyIfChanged)
     {
+        // Just after an update, until the agent has read Windows' records once, the stored crashes lack what their
+        // findings rest on: judged now, a power cut read as a serious shut-off for half a minute, then turned grey.
+        // The page waits for the records instead, says so, and reloads by itself once they are in.
+        if (await RecordsRead() == false && (DateTime.Now - Started).TotalMinutes < WaitForRecordsMinutes)
+        {
+            if (id != _loadId) return;
+            ReadingRecords = true;
+            (StatusTitle, StatusDetail, StatusIcon, StatusBrush) = ("Reading Windows' records",
+                "Reading what Windows recorded about these crashes. This takes a few seconds after an update.", "\uE895", "MutedBrush");
+            _recordsWait ??= Task.Run(WaitForRecordsAsync);
+            return;
+        }
+        ReadingRecords = false;
         var since = await reports.FirstCrashDayAsync();
         var all = Unit == Core.Reports.ReportRange.All;
         var (from, to) = all ? (DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1)) : Bounds;
@@ -415,11 +454,11 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     /// <summary>Loaded once: a later visit only needs a rebuild if the crashes changed.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowListLoader))]
     private bool _loaded;
 
     /// <summary>"No crashes in this period": only once the period has been read (a loader until then).</summary>
-    public bool ShowEmpty => Loaded && !HasCrashes;
+    public bool ShowEmpty => Loaded && !HasCrashes && !ReadingRecords;
 
     private void Regroup()
     {
@@ -598,7 +637,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             list.Add(new("\uE946", "MutedBrush", $"{asleep} of {shutdowns.Count} unexpected shutdowns happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems."));
         int unfinished = shutdowns.Count(c => c.Event.Moment == PowerMoment.ShuttingDown);
         if (unfinished >= 2)
-            list.Add(new("\uE946", "MutedBrush", $"{unfinished} of {shutdowns.Count} unexpected shutdowns happened while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them."));
+            list.Add(new("\uE946", "MutedBrush", $"{unfinished} more shutdowns didn't finish while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them."));
 
         // An app that only went down because a driver was being installed under it says nothing about the driver.
         int gpuRelated = rows.Count(c => c.Finding is not { Outside: true } &&

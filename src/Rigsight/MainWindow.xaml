@@ -794,5 +794,30 @@
                 </ContentControl.Style>
             </ContentControl>
         </Grid>
+        <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see
+             UpdateViewModel.ShowOverlay). Opaque, so nothing on the pages behind it can be clicked meanwhile. -->
+        <Grid Grid.ColumnSpan="2" DataContext="{Binding Update}" Background="{DynamicResource BgBrush}"
+              Visibility="{Binding ShowOverlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Updating Rigsight">
+            <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                <Image Source="Assets/Rigsight.ico" Width="56" Height="56" Margin="0,0,0,18" RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock Text="Updating Rigsight" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding OverlayVersions}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,22" />
+                <ProgressBar Style="{StaticResource Bar}" Height="8" Value="{Binding OverlayFill, Mode=OneWay}" Maximum="100" />
+                <TextBlock Text="Rigsight closes and opens again by itself." FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                <TextBlock Text="This takes about 15 seconds. Your history and settings stay as they are." FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+            </StackPanel>
+            <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}}">
+                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="40" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" Margin="0,0,0,18" />
+                <TextBlock Text="The update didn't install" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding ReleaseFeedCurrentText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,18" />
+                <UniformGrid Columns="2" Width="260">
+                    <Button Style="{StaticResource AccentButton}" Content="Try again" Command="{Binding RetryFromOverlayCommand}" Margin="0,0,4,0" />
+                    <Button Style="{StaticResource GhostButton}" Content="Close" Command="{Binding CloseOverlayCommand}" Margin="4,0,0,0" />
+                </UniformGrid>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

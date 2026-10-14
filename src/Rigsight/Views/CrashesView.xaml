@@ -260,11 +260,12 @@
                         </DockPanel>
                         <Grid>
                             <ScrollViewer x:Name="ListScroller" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto"
-                                          ctl:InfiniteScroll.LoadMore="{Binding ShowMoreCommand}">
+                                          ctl:InfiniteScroll.LoadMore="{Binding ShowMoreCommand}"
+                                          Visibility="{Binding ReadingRecords, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                 <ItemsControl ItemsSource="{Binding GroupsShown}" ItemTemplate="{StaticResource GroupTemplate}" />
                             </ScrollViewer>
                             <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                         Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                         Visibility="{Binding ShowListLoader, Converter={StaticResource Vis}}" />
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                                 <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" />
                                 <TextBlock Text="{Binding EmptyText}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />

@@ -57,7 +57,10 @@ public sealed record CaseBand(DateTime From, DateTime To, string? App, string? C
 /// <summary>A strip under the lanes: which app was in front, or working a part hardest, minute by minute.</summary>
 public sealed record CaseStrip(string Name, List<CaseBand> Bands);
 
-/// <summary>Something that happened in those minutes, marked across every lane ("HandBrake opened"); the crash itself is one.</summary>
+/// <summary>
+/// Something that happened in those minutes, marked across every lane: an app opening (<see cref="Label"/> is its
+/// name), or the crash itself ("Crash").
+/// </summary>
 public sealed record CaseMark(DateTime At, string Label, bool IsCrash);
 
 /// <summary>

@@ -1341,7 +1341,7 @@ internal sealed class AgentContext : ApplicationContext
     private bool _crashesScanned;
     private const string ShutdownTimesKey = "shutdown_times_placed";
     private const string CrashFactsKey = "crash_facts_filled";
-    private const string CrashScannedKey = "crashes_scanned_to";
+    private const string CrashScannedKey = RigsightDb.CrashScannedKey;
     /// <summary>The one-time catch-up (see <see cref="CrashFactsKey"/>) is still to do: it is the scan after the first.</summary>
     private bool _crashFillDue;
 

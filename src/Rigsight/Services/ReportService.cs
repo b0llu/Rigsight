@@ -213,6 +213,13 @@ public sealed class ReportService(SettingsModel settings)
     /// Crashes in a range, explained, with what was going on just before (temperatures, the app in front, how long it had
     /// been in use) and, for blue screens, the dump file Windows saved. Muted apps are left out unless asked for.
     /// </summary>
+    /// <summary>
+    /// Whether the agent has read Windows' crash records on this version (see RigsightDb.CrashScannedKey), or there is
+    /// nothing for it to have read. Null when the history can't be opened.
+    /// </summary>
+    public Task<bool?> CrashRecordsReadAsync() =>
+        Run(db => (bool?)(db.GetMeta(Core.Data.RigsightDb.CrashScannedKey) is not null || db.FirstCrashTime() is null));
+
     public Task<List<Models.CrashRow>?> CrashesAsync(DateTime from, DateTime to, bool includeMuted = false)
     {
         var s = Snapshot();

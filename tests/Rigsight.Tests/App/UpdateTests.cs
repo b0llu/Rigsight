@@ -193,9 +193,9 @@ public sealed class UpdateTests : IDisposable
         {
             Assert.Equal(UpdateState.Ready, vm.State);
             Assert.True(vm.ShowPrompt);
-            Assert.Equal("Restart Rigsight to finish updating to 99.0.0.", vm.PromptText);
+            Assert.Equal("Update now to get 99.0.0.", vm.PromptText);
             Assert.Equal("Version 99.0.0 is downloaded and ready to install.", vm.StatusText);
-            Assert.Equal("Restart to update", vm.ActionText);
+            Assert.Equal("Update now", vm.ActionText);
             Assert.Equal(100, vm.Progress, 6);
         });
         Assert.Equal(_server.Setup, File.ReadAllBytes(SetupPath));
@@ -204,13 +204,13 @@ public sealed class UpdateTests : IDisposable
         _auto = _agentCanInstall = true;
         Ui.Run(() =>
         {
-            Assert.Equal("Restart now to update to 99.0.0, or it installs by itself the next time you start your PC.", vm.PromptText);
+            Assert.Equal("Update now to get 99.0.0, or it installs by itself the next time you start your PC.", vm.PromptText);
             vm.LaterCommand.Execute(null);
             Assert.Equal(UpdateState.Waiting, vm.State);
             Assert.True(vm.ShowLine);
-            Assert.Equal("Restart to update", vm.LineTitle);
-            Assert.Equal("Rigsight 99.0.0 is downloaded. Click to restart and install it.", vm.LineTip);
-            Assert.Equal("Restart to update", vm.ActionText);
+            Assert.Equal("Update ready", vm.LineTitle);
+            Assert.Equal("Rigsight 99.0.0 is downloaded. Click to install it: Rigsight closes and opens again by itself.", vm.LineTip);
+            Assert.Equal("Update now", vm.ActionText);
         });
     }
 
@@ -227,7 +227,7 @@ public sealed class UpdateTests : IDisposable
         {
             Assert.Equal(UpdateState.Waiting, opened.State); // already asked today: the quiet line
             Assert.True(opened.ShowLine);
-            Assert.Equal("Restart to update", opened.LineTitle);
+            Assert.Equal("Update ready", opened.LineTitle);
         });
         Assert.Equal(feed, _server.FeedRequests);
     }
@@ -536,6 +536,43 @@ public sealed class UpdateTests : IDisposable
             // The agent started the installer: now we just wait for it to close the app.
             vm.OnAgentMessage(new AgentMessage { T = "update", UpdateStatus = "started" });
             Assert.Equal(UpdateState.Installing, vm.State);
+        });
+    }
+
+    [Fact]
+    public void Pressing_update_covers_the_window_and_its_bar_moves_only_at_moments_the_app_sees()
+    {
+        // The user: "show a updating app overlay ... only if user initiates the update by pressing" it.
+        using var link = new AgentLink();
+        _agentCanInstall = true;
+        var vm = Make(link.Client);
+        Act(vm);
+        Act(vm);
+        Ui.Run(() =>
+        {
+            Assert.False(vm.ShowOverlay); // a download alone never shows it
+            Assert.Equal("Update", vm.InstallText);
+            vm.InstallCommand.Execute(null);
+            Assert.True(vm.ShowOverlay);
+            Assert.False(vm.OverlayFailed);
+            Assert.EndsWith("→ 99.0.0", vm.OverlayVersions);
+            Assert.Equal(34, vm.OverlayFill); // the download checked, the installer asked for
+            vm.OnAgentMessage(new AgentMessage { T = "update", UpdateStatus = "started" });
+            Assert.Equal(66, vm.OverlayFill);
+        });
+        // It fills on while the installer works, and never reaches the end: that is the window closing.
+        Assert.True(Ui.WaitFor(() => Ui.Run(() => vm.OverlayFill) > 70, 5000));
+        Ui.Run(() => Assert.True(vm.OverlayFill < UpdateViewModel.OverlayLast));
+
+        // Nothing happened in the end: said in place, and closed back to the app as it was.
+        Ui.Run(() =>
+        {
+            typeof(UpdateViewModel).GetMethod("Fail", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(vm, ["The update didn't install."]);
+            Assert.True(vm.OverlayFailed);
+            Assert.StartsWith("Rigsight is still on ", vm.ReleaseFeedCurrentText);
+            vm.CloseOverlayCommand.Execute(null);
+            Assert.False(vm.ShowOverlay);
+            Assert.Equal(0, vm.OverlayFill);
         });
     }
 

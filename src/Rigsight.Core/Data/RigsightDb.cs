@@ -289,6 +289,12 @@ public sealed partial class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long n && n > 0;
     }
 
+    /// <summary>
+    /// When the agent last read Windows' crash records, as a Unix time: missing until a version from 0.24.0 on has read
+    /// them once. Until then the crashes stored by an earlier version lack what their findings rest on.
+    /// </summary>
+    public const string CrashScannedKey = "crashes_scanned_to";
+
     public string? GetMeta(string key)
     {
         using var cmd = Cmd("SELECT value FROM meta WHERE key = $k", ("$k", key));

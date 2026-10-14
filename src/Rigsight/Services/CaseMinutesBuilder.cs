@@ -124,8 +124,12 @@ internal static class CaseMinutesBuilder
         var marks = sessions.Where(x => x.Start > f && x.Start < at && onStrips.Contains(NameOf(x.AppId)))
             .GroupBy(x => NameOf(x.AppId)).Select(g => g.MinBy(x => x.Start)!)
             .OrderByDescending(x => x.Start).Take(3)
-            .Select(x => new CaseMark(TimeUtil.FromUnix(x.Start), $"{NameOf(x.AppId)} opened", false)).ToList();
+            .Select(x => new CaseMark(TimeUtil.FromUnix(x.Start), NameOf(x.AppId), false)).ToList();
         marks.Add(new CaseMark(crash, "Crash", true));
+        // The box says it too, for the minute it happened in: a line on the lanes is never left to be guessed at.
+        foreach (var mark in marks.Where(k => !k.IsCrash))
+            if (minutes.FindLastIndex(m => m.Time <= mark.At) is int found and >= 0 && minutes[found].Flags.Count < 2)
+                minutes[found].Flags.Add($"{mark.Label} opened");
 
         // Never in the way of the crash opening: what stood out is left out, and the log says why.
         List<StoodOut> stood;
@@ -135,6 +139,11 @@ internal static class CaseMinutesBuilder
             Core.Log.Error("crashes", ex);
             stood = [];
         }
+        // On a standard account, why the CPU's temperature and power and the motherboard's fans aren't there: missing
+        // lines and dashes read as "nothing happened" without it. Only where they really are missing from these minutes.
+        if (Account.Kind == AccountKind.Standard && minutes.Count > 0 && minutes.All(m => m.CpuTemp is null))
+            stood.Insert(stood.FindIndex(s => s.IsCalm) is int calm and >= 0 ? calm : stood.Count,
+                new StoodOut("Windows keeps the CPU's temperature and power and the motherboard's fans for admin accounts, so they aren't shown here.", false));
         int crashIndex = minutes.FindLastIndex(m => m.Time <= crash);
         return new Built(minutes, lanes, strips, marks, stood, new CaseReadout(minutes, Math.Max(0, crashIndex), ramTotal, crash));
     }

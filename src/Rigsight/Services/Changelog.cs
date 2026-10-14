@@ -92,6 +92,14 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.24.1", 10, 14,
+            added: ["Pressing Update shows an \"Updating Rigsight\" screen with a progress bar until the new version opens, instead of the window just disappearing."],
+            better: ["The update button says Update instead of Restart, and the sidebar line says \"Update ready\".",
+                "Lines on an opened crash for apps that opened before it are labelled, and the readings box names the app for that minute.",
+                "Right after an update, the Crashes page waits for Windows' records instead of showing shut-offs as serious for a few seconds.",
+                "On a standard account, an opened crash says why the CPU's temperature and power and the motherboard's fans aren't shown.",
+                "Minutes with nothing recorded are left empty on an opened crash, instead of looking like readings at zero.",
+                "\"What they have in common\" counts unfinished shutdowns apart, so it matches the shut-offs tile."]),
         V("0.24.0", 10, 14,
             feature: new("Crash causes", "Every crash now says what most likely caused it, how sure that is, and what it rests on.",
                 ["Open a crash to see what points to the cause, what it wasn't, and what is still unknown.",

@@ -16,7 +16,9 @@ namespace Rigsight.Controls;
 /// </summary>
 public sealed class CaseLanes : FrameworkElement
 {
-    private const double LabelWidth = 112, LabelGap = 10, Top = 18, StripHeight = 26, StripGap = 12, AxisHeight = 22, MinLane = 54;
+    // Top: two rows of words over the lanes, the crash's, then the apps that opened (see the marks below).
+    private const double LabelWidth = 112, LabelGap = 10, Top = 32, StripHeight = 26, StripGap = 12, AxisHeight = 22, MinLane = 54;
+    private const double CrashRow = 1, AppRow = 16;
 
     public static readonly DependencyProperty CaseProperty = DependencyProperty.Register(
         nameof(Case), typeof(CrashCase), typeof(CaseLanes), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
@@ -142,13 +144,12 @@ public sealed class CaseLanes : FrameworkElement
             Backed(dc, top, new Point(plotLeft + 3, area.Top));
             Backed(dc, foot, new Point(plotLeft + 3, area.Bottom - foot.Height));
 
-            // Stretches with nothing recorded: a thin strip at the lane's foot, and why in words in the first lane.
+            // Stretches with nothing recorded are left empty, with why in words in the first lane. (A thin strip at
+            // each lane's foot read as readings at zero: "0°", "0 W" for half an hour.)
             foreach (var gap in c.Gaps)
             {
                 double a = X(gap.From), b = X(gap.To);
-                if (b - a < 3) continue;
-                dc.DrawRectangle(ChartPaint.Faint, null, new Rect(a + 1, area.Bottom - 2, b - a - 2, 2));
-                if (li != 0) continue;
+                if (b - a < 3 || li != 0) continue;
                 var why = ChartPaint.Format(this, gap.Why, 11.5, ChartPaint.Muted);
                 if (why.Width + 12 <= b - a) dc.DrawText(why, new Point((a + b) / 2 - why.Width / 2, area.Top + area.Height / 2 - why.Height / 2));
             }
@@ -195,22 +196,44 @@ public sealed class CaseLanes : FrameworkElement
 
         // ── Marks, across every lane and strip ──
         double markBottom = y;
-        var taken = new List<(double From, double To)>();
-        foreach (var mark in c.Marks.OrderByDescending(m => m.IsCrash))
+        // The crash: its line, and its word on the top row.
+        foreach (var mark in c.Marks.Where(m => m.IsCrash))
         {
             double x = X(mark.At);
-            if (mark.IsCrash) dc.DrawRectangle(ChartPaint.Hot, null, new Rect(x - 1, Top, 2, markBottom - Top));
-            else
+            dc.DrawRectangle(ChartPaint.Hot, null, new Rect(x - 1, Top, 2, markBottom - Top));
+            var label = ChartPaint.Format(this, mark.Label, 10.5, ChartPaint.Hot);
+            dc.DrawText(label, new Point(Math.Clamp(x - label.Width / 2, plotLeft, w - label.Width), CrashRow));
+        }
+        // Apps that opened: a dashed line each, and their words on a row of their own under the crash's. Lines close
+        // together share one label ("Steam, Discord and Epic Games opened", or "3 apps opened" where the names don't
+        // fit), so no line is ever left without saying what it is (the user: "white lines but no explanation").
+        var dashed = new Pen(ChartPaint.Label, 1) { DashStyle = new DashStyle([3, 3], 0) };
+        dashed.Freeze();
+        var apps = c.Marks.Where(m => !m.IsCrash).OrderBy(m => m.At).ToList();
+        foreach (var m in apps)
+        {
+            double x = Math.Round(X(m.At)) + 0.5;
+            dc.DrawLine(dashed, new Point(x, Top), new Point(x, markBottom));
+        }
+        var groups = new List<List<CaseMark>>();
+        foreach (var m in apps)
+            if (groups.Count > 0 && X(m.At) - X(groups[^1][0].At) < 90) groups[^1].Add(m);
+            else groups.Add([m]);
+        double free = plotLeft;
+        foreach (var g in groups)
+        {
+            double mid = (X(g[0].At) + X(g[^1].At)) / 2;
+            var names = g.Select(m => m.Label).Distinct().ToList();
+            string full = (names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1]) + " opened";
+            var label = ChartPaint.Format(this, full, 10.5, ChartPaint.Muted);
+            double lx = Math.Clamp(mid - label.Width / 2, free, w - label.Width);
+            if (label.Width > 220 || lx + label.Width > w || lx < free)
             {
-                var pen = new Pen(ChartPaint.Label, 1) { DashStyle = new DashStyle([3, 3], 0) };
-                pen.Freeze();
-                dc.DrawLine(pen, new Point(Math.Round(x) + 0.5, Top), new Point(Math.Round(x) + 0.5, markBottom));
+                label = ChartPaint.Format(this, names.Count == 1 ? "An app opened" : $"{names.Count} apps opened", 10.5, ChartPaint.Muted);
+                lx = Math.Clamp(mid - label.Width / 2, free, w - label.Width);
             }
-            var label = ChartPaint.Format(this, mark.Label, 10.5, mark.IsCrash ? ChartPaint.Hot : ChartPaint.Muted);
-            double lx = Math.Clamp(x - label.Width / 2, plotLeft, w - label.Width);
-            if (taken.Any(r => lx < r.To + 8 && lx + label.Width > r.From - 8)) continue;
-            taken.Add((lx, lx + label.Width));
-            dc.DrawText(label, new Point(lx, 1));
+            dc.DrawText(label, new Point(lx, AppRow));
+            free = lx + label.Width + 10;
         }
 
         // ── The minute pointed at ──

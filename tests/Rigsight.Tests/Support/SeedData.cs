@@ -46,8 +46,9 @@ public static class SeedData
         foreach (var f in new[] { dbPath, dbPath + "-wal", dbPath + "-shm" })
             if (File.Exists(f)) File.Delete(f);
 
-        // The schema, exactly as the agent makes it.
-        using (RigsightDb.OpenWriter(dbPath)) { }
+        // The schema, exactly as the agent makes it, read by an agent of this version (it has read Windows' crash records:
+        // see RigsightDb.CrashScannedKey; a history without that is one just updated, and the Crashes page waits for it).
+        using (var db = RigsightDb.OpenWriter(dbPath)) db.SetMeta(RigsightDb.CrashScannedKey, TimeUtil.ToUnix(end).ToString());
 
         var rnd = new Random(p.Seed);
         using var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False");
