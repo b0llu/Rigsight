@@ -44,6 +44,23 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public AppInfo? CpuApp, GpuApp;
         /// <summary>The minute's highest CPU load so far: who to put the minute down to where there is no temperature.</summary>
         public double? CpuLoadMax;
+        /// <summary>What every process read and wrote, sample by sample (bytes a second), and the highest of them.</summary>
+        public double DiskSum;
+        public double? DiskMax, CommitMax, VramTotal;
+        public double VramSum;
+        public int VramN;
+        public int? Battery;
+        public bool? OnBattery;
+        /// <summary>How many process samples the minute has had, and what each app with something to show added up to over them.</summary>
+        public int Samples;
+        public readonly Dictionary<string, AppAcc> Apps = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>One app over a minute's process samples: sums, to be averaged (see <see cref="TopApps"/>).</summary>
+    internal sealed class AppAcc
+    {
+        public double Cpu, Gpu, Mem, Disk;
+        public int MemN, Pid;
     }
 
     private sealed class FanAcc
@@ -280,6 +297,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         m.GpuMemMin = Min(m.GpuMemMin, k.GpuMemJunction);
         m.CpuVoltMax = Max(m.CpuVoltMax, k.CpuVoltage);
         m.GpuVoltMax = Max(m.GpuVoltMax, k.GpuVoltage);
+        m.CommitMax = Max(m.CommitMax, k.CommitPct);
+        Acc(k.GpuVramUsed, ref m.VramSum, ref m.VramN);
+        if (k.GpuVramTotal is double vramTotal) m.VramTotal = vramTotal;
+        if (k.Battery is int charge) m.Battery = charge;
+        if (k.OnBattery is bool onBattery) m.OnBattery = (m.OnBattery ?? false) || onBattery;
 
         // Today's peaks: every reading, whether or not anyone is at the PC, as the minutes keep them, so Home says what
         // the reports and the Temperatures page say for today. Put down to the app that was doing the work (the one the
@@ -371,6 +393,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _netApps.Prune(snapshot.PidToExe);
         if (Paused) return;
         RecordLoad(snapshot);
+        RecordMinute(snapshot);
 
         // Open-but-not-in-front time.
         foreach (var (exe, state) in windows)
@@ -398,6 +421,60 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             h.MemN++;
             h.MemMax = Max(h.MemMax, usage.MemMB);
         }
+    }
+
+    /// <summary>The least an app must be doing in a sample (% of the CPU or GPU, MB of memory, bytes a second) to be kept for the minute at all.</summary>
+    private const double KeepCpu = 0.5, KeepGpu = 1, KeepMemMb = 150, KeepDisk = 100_000;
+
+    /// <summary>
+    /// Adds this sample to the minute: what the drives were doing, and each app with something to show. The samples
+    /// are taken anyway (for the hour's totals and for <see cref="Busiest"/>): this keeps what they said per minute.
+    /// </summary>
+    private void RecordMinute(ProcessSnapshot snapshot)
+    {
+        var m = _minute;
+        m.Samples++;
+        m.DiskSum += snapshot.Disk;
+        m.DiskMax = Max(m.DiskMax, snapshot.Disk);
+        foreach (var usage in snapshot.Apps.Values)
+        {
+            double gpu = snapshot.Gpu.GetValueOrDefault(usage.Exe);
+            if (usage.Cpu < KeepCpu && gpu < KeepGpu && usage.MemMB < KeepMemMb && usage.Disk < KeepDisk) continue;
+            // Not Windows' own parts without a file, apps the user left out of tracking, or Rigsight.
+            if (!Nameable(usage.Exe)) continue;
+            if (!m.Apps.TryGetValue(usage.Exe, out var acc)) m.Apps[usage.Exe] = acc = new AppAcc();
+            acc.Cpu += usage.Cpu;
+            acc.Gpu += gpu;
+            acc.Mem += usage.MemMB;
+            acc.MemN++;
+            acc.Disk += usage.Disk;
+            acc.Pid = usage.FirstPid;
+        }
+    }
+
+    /// <summary>How many apps a minute keeps for each thing, and the least each must average to be one of them.</summary>
+    internal const int TopCpu = 3, TopGpu = 2, TopMem = 3, TopDisk = 2;
+    // The CPU's least is the one an app is noted at for the hour's totals (see OnProcesses): keeping a minute's apps
+    // adds nobody to the list of apps for CPU work that wouldn't be there anyway.
+    internal const double LeastCpu = 2, LeastGpu = 5, LeastMemMb = 300, LeastDisk = 1_048_576;
+
+    /// <summary>
+    /// The apps a minute keeps: the three hardest on the CPU, the two hardest on the GPU, the three with the most
+    /// memory and the two reading and writing the most, each only if it was doing something worth naming. Their CPU,
+    /// GPU and drive figures are averages over all the minute's samples (an app that ran for half of it counts for
+    /// half); memory over the samples it was there for. By exe, with the process to find its name by.
+    /// </summary>
+    internal static List<(string Exe, int Pid, double Cpu, double Gpu, double MemMb, double Disk)> TopApps(IReadOnlyDictionary<string, AppAcc> apps, int samples)
+    {
+        if (samples <= 0 || apps.Count == 0) return [];
+        var all = apps.Select(a => (Exe: a.Key, a.Value.Pid, Cpu: a.Value.Cpu / samples, Gpu: a.Value.Gpu / samples,
+            MemMb: a.Value.MemN > 0 ? a.Value.Mem / a.Value.MemN : 0, Disk: a.Value.Disk / samples)).ToList();
+        var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in all.Where(a => a.Cpu >= LeastCpu).OrderByDescending(a => a.Cpu).Take(TopCpu)) keep.Add(a.Exe);
+        foreach (var a in all.Where(a => a.Gpu >= LeastGpu).OrderByDescending(a => a.Gpu).Take(TopGpu)) keep.Add(a.Exe);
+        foreach (var a in all.Where(a => a.MemMb >= LeastMemMb).OrderByDescending(a => a.MemMb).Take(TopMem)) keep.Add(a.Exe);
+        foreach (var a in all.Where(a => a.Disk >= LeastDisk).OrderByDescending(a => a.Disk).Take(TopDisk)) keep.Add(a.Exe);
+        return [.. all.Where(a => keep.Contains(a.Exe)).OrderByDescending(a => a.Cpu)];
     }
 
     /// <summary>Keeps each app's CPU and GPU share from this sample, for <see cref="Busiest"/>.</summary>
@@ -541,7 +618,16 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     GpuClock = Avg(m.GpuClockSum, m.GpuClockN),
                     ActiveSec = (int)Math.Min(60, Math.Round(m.Active)),
                     IdleSec = (int)Math.Min(60, Math.Round(m.Idle)),
+                    DiskRate = m.Samples > 0 ? m.DiskSum / m.Samples : null,
+                    DiskRateMax = m.DiskMax,
+                    CommitPct = m.CommitMax,
+                    Battery = m.Battery,
+                    OnBattery = m.OnBattery,
+                    VramUsed = Avg(m.VramSum, m.VramN),
+                    VramTotal = m.VramTotal,
                 });
+                db.WriteAppMinutes(_minuteTs, [.. TopApps(m.Apps, m.Samples)
+                    .Select(a => new AppMinute(_minuteTs, apps.Get(a.Exe, a.Pid).Id, a.Cpu, a.Gpu, a.MemMb, a.Disk))]);
                 db.WriteFanMinutes(_minuteTs, [.. m.Fans.Where(f => f.Value.N > 0)
                     .Select(f => (db.FanId(f.Key, f.Value.Name, f.Value.Hardware), (int)Math.Round(f.Value.Sum / f.Value.N), (int)Math.Round(f.Value.Max)))]);
             }

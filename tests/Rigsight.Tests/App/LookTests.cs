@@ -27,6 +27,30 @@ public sealed class LookTests
     // ── Themes ───────────────────────────────────────────────────────────
 
     [Theory]
+    [InlineData(ThemeManager.Dark, Accents.Mono)]
+    [InlineData(ThemeManager.Ember, Accents.Mono)]
+    [InlineData(ThemeManager.Midnight, "pink")]
+    [InlineData(ThemeManager.Light, "pink")]
+    public void Dropdowns_and_menus_are_in_the_themes_own_shades_with_the_accent_as_the_mark(string theme, string accent)
+    {
+        // The user: on a brown theme the dropdowns and right-click menus were Windows' neutral grey with a grey mark.
+        try
+        {
+            Ui.Run(() =>
+            {
+                ThemeManager.Apply(theme, accent);
+                foreach (var key in new[] { "ComboBoxBackground", "ComboBoxDropDownBackground", "ContextMenuBackground" })
+                    Assert.Equal(Res("Surface2Color"), BrushOf(key).Color);
+                foreach (var key in new[] { "ComboBoxItemBackgroundSelected", "ComboBoxBackgroundPointerOver", "SubtleFillColorSecondaryBrush" })
+                    Assert.Equal(Res("HoverColor"), BrushOf(key).Color);
+                Assert.Equal(Res("StrokeColor"), BrushOf("ContextMenuBorderBrush").Color);
+                Assert.Equal(Res("AccentColor"), BrushOf("ComboBoxItemPillFillBrush").Color);
+            });
+        }
+        finally { Reset(); }
+    }
+
+    [Theory]
     [InlineData(ThemeManager.Midnight, "Midnight")]
     [InlineData(ThemeManager.Forest, "Forest")]
     [InlineData(ThemeManager.Ember, "Ember")]

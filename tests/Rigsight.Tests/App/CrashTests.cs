@@ -24,10 +24,16 @@ internal static class Crashes
             DuringSleep = sleep, Detail = detail,
         };
         if (moment is { } m) e.Moment = m;
+        // With its finding, worked out as the app does from what the row was given.
+        var input = new CrashInput(e, CrashExplainer.Explain(e, name), new Rigsight.Core.Settings.AlertSettings())
+        {
+            AppName = name, IsGame = game, FrontApp = front,
+            Context = cpu is null && gpu is null && session is null ? null : new CrashContext(cpu, gpu, null, session) { Minutes = 5 },
+        };
         return new CrashRow
         {
-            Event = e, Explanation = CrashExplainer.Explain(e, name), AppName = name, CpuBefore = cpu, GpuBefore = gpu, FrontApp = front,
-            SessionSec = session, IsGame = game, DumpPath = dump,
+            Event = e, Explanation = input.Explanation, AppName = name, CpuBefore = cpu, GpuBefore = gpu, FrontApp = front,
+            SessionSec = session, IsGame = game, DumpPath = dump, Input = input, Finding = CrashFindings.Judge(input),
         };
     }
 
@@ -162,7 +168,7 @@ public sealed class CrashModelTests
         var rows = new[] { Crashes.Reset(Noon), Crashes.App(Noon.AddSeconds(30), "game.exe"), Crashes.App(Noon.AddSeconds(50), "browser.exe") };
         var g = Assert.Single(CrashGroup.Build(rows));
         Assert.True(g.IsIncident);
-        Assert.Equal("The graphics driver reset and took apps with it", g.Title);
+        Assert.Equal("The graphics driver reset and apps failed with it", g.Title);
         Assert.Equal($"The graphics driver reset, and game and browser were affected within 1 minute, starting at {Noon:h:mm tt}.", g.Reason);
         Assert.Equal("Display driver stopped responding and has recovered games crash", g.SearchQuery);
     }
@@ -329,9 +335,10 @@ public sealed class CrashModelTests
             var text = CrashesViewModel.Report(one);
             Assert.Contains($"When: {Noon:dddd d MMMM yyyy, h:mm tt}", text);
             Assert.Contains("What happened: ", text);
-            Assert.Contains("Just before: CPU 55°, GPU 66°", text);
+            Assert.Contains("  - It wasn't overheating: The CPU was at 55° and the GPU at 66°, under your alert limits.", text);
             Assert.Contains("Technical: game.exe  ·  module ntdll.dll  ·  code 0xc0000005", text);
-            Assert.Contains("Suggested fix: ", text);
+            Assert.Contains("How sure: ", text);
+            Assert.Contains("What to try: ", text);
             Assert.EndsWith(PcInfo.Text, text);
 
             var repeated = CrashGroup.Build([Crashes.App(Noon), Crashes.App(Noon.AddDays(-2))])[0];
@@ -339,7 +346,7 @@ public sealed class CrashModelTests
 
             var incident = CrashGroup.Build([Crashes.Reset(Noon), Crashes.App(Noon.AddSeconds(30), "a.exe"), Crashes.App(Noon.AddSeconds(50), "b.exe")])[0];
             var lines = CrashesViewModel.Report(incident);
-            Assert.StartsWith("Problem: The graphics driver reset and took apps with it (several at once)", lines);
+            Assert.StartsWith("Problem: The graphics driver reset and apps failed with it (several at once)", lines);
             Assert.Contains($"When: {Noon:dddd d MMMM yyyy, h:mm tt} – {Noon.AddSeconds(50):h:mm tt}", lines);
             Assert.Contains("Graphics driver: gpu driver reset", lines);
             Assert.Contains("a: app crash (a.exe  ·  module ntdll.dll  ·  code 0xc0000005)", lines);
@@ -385,7 +392,7 @@ public sealed class CrashesPageTests
         typeof(CrashesViewModel).GetField("_anchor", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(vm, anchor);
     });
 
-    private static int Counted(CrashesViewModel vm) => vm.AppCrashCount + vm.SystemCount + vm.DriverResetCount;
+    private static int Counted(CrashesViewModel vm) => vm.AppCrashCount + vm.SystemCount + vm.UnfinishedCount + vm.DriverResetCount;
 
     [Fact]
     public void All_time_lists_every_generated_crash_with_consistent_counts()
@@ -436,17 +443,17 @@ public sealed class CrashesPageTests
             vm.Filter = "Apps";
             Assert.All(vm.GroupsShown, g => Assert.True(!g.IsIncident && !g.Latest.IsSystem));
             Assert.All(vm.Crashes, c => Assert.False(c.IsSystem));
-            Assert.Equal("No app or game crashes in this period", vm.EmptyText);
+            Assert.Equal("No app or game crashes on record", vm.EmptyText);
             int apps = vm.GroupsShown.Count, appCrashes = vm.Crashes.Count;
             vm.Filter = "Pc";
             Assert.All(vm.GroupsShown, g => Assert.True(g.IsIncident || g.Latest.IsSystem));
-            Assert.Equal("No PC crashes, driver resets or sudden shutdowns in this period", vm.EmptyText);
+            Assert.Equal("No PC crashes, driver resets or sudden shutdowns on record", vm.EmptyText);
             Assert.Equal(all, apps + vm.GroupsShown.Count);
             Assert.Equal(crashes, appCrashes + vm.Crashes.Count);
             // Counts are of the whole period, whatever the filter.
             Assert.Equal(crashes, Counted(vm));
             vm.Filter = "All";
-            Assert.Equal("No crashes in this period", vm.EmptyText);
+            Assert.Equal(vm.Unit == ReportRange.Custom ? "No crashes in this time" : "No crashes on record", vm.EmptyText);
             Assert.Equal(all, vm.GroupsShown.Count);
         });
     }
@@ -617,10 +624,10 @@ public sealed class CrashesPageTests
         {
             Assert.False(vm.ShowTimeline);
             Assert.Empty(vm.Days);
-            Assert.Equal("No crashes on this day", vm.EmptyText);
+            Assert.Equal("No crashes yesterday", vm.EmptyText);
             Assert.All(vm.Crashes, c => Assert.Equal(day, c.Time.Date));
             Assert.Equal(day.ToString("dddd, d MMMM yyyy"), vm.RangeNote);
-            Assert.EndsWith("on this day", vm.StatusTitle);
+            Assert.EndsWith("yesterday", vm.StatusTitle);
         });
     }
 
@@ -652,7 +659,7 @@ public sealed class CrashesPageTests
             Assert.Contains(vm.Crashes, c => c.Time == crash.Time);
             Assert.Equal(inRange, vm.Crashes.Count);
             Assert.Equal(Controls.PeriodPicker.Duration(to - from), vm.RangeNote);
-            Assert.Equal("No crashes in this period", vm.EmptyText);
+            Assert.Equal(vm.Unit == ReportRange.Custom ? "No crashes in this time" : "No crashes on record", vm.EmptyText);
             Assert.False(vm.IncludesToday);
             if (!listed) Assert.Equal((to.AddTicks(-1).Date - from.Date).Days + 1, vm.Days.Count); // the part-days at both ends too
         });
@@ -696,7 +703,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("All clear", vm.StatusTitle);
-            Assert.Equal("No blue screens in this period · no app crashes.", vm.StatusDetail);
+            Assert.Equal("No app crashes this month.", vm.StatusDetail);
             Assert.Equal("GoodBrush", vm.StatusBrush);
         });
     }
@@ -709,7 +716,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("No serious problems", vm.StatusTitle);
-            Assert.Equal("No blue screens in this period · last app crash yesterday.", vm.StatusDetail);
+            Assert.Equal("Last app crash yesterday.", vm.StatusDetail);
         });
     }
 
@@ -754,6 +761,30 @@ public sealed class CrashesPageTests
     }
 
     [Fact]
+    public void A_newer_power_cut_doesnt_hide_a_shut_off_under_load_and_the_tile_says_which_were_power_cuts()
+    {
+        // The user's month: a shut-off under load five days ago that may be the power supply, then a power cut at idle
+        // two days ago. The card led with the power cut and called the month "like 3 others".
+        var (vm, _) = Page();
+        var load = Crashes.Power(DateTime.Today.AddDays(-5).AddHours(18));
+        var cut = Crashes.Power(DateTime.Today.AddDays(-2).AddHours(10));
+        var unfinished = Crashes.Unfinished(DateTime.Today.AddDays(-1).AddHours(23));
+        var outside = new CrashFinding(Confidence.Likely, "The power went while the PC was idle", "", "", "Lost power while idle.") { Cause = "a power cut", Outside = true };
+        var supply = new CrashFinding(Confidence.Possible, "The power went while the PC was working hard", "", "", "Lost power under load.") { Cause = "mains or power supply" };
+        typeof(CrashRow).GetProperty(nameof(CrashRow.Finding))!.SetValue(load, supply); // the findings as the rules gave them on the user's PC
+        typeof(CrashRow).GetProperty(nameof(CrashRow.Finding))!.SetValue(cut, outside);
+        Show(vm, [cut, load, unfinished]);
+        Ui.Run(() =>
+        {
+            Assert.Equal("Your PC shut off unexpectedly 5 days ago", vm.StatusTitle);
+            Assert.Equal("Possible: mains or power supply · also 1 likely power cut this month.", vm.StatusDetail);
+            // Two shut-offs counted, one of them a power cut; the shutdown that didn't finish listed, not counted.
+            Assert.Equal((2, 1, 1), (vm.SystemCount, vm.PowerCutCount, vm.UnfinishedCount));
+            Assert.Equal("1 likely power cut", vm.PowerCutText);
+        });
+    }
+
+    [Fact]
     public void Status_power_lost_while_asleep_is_not_a_fault()
     {
         var (vm, _) = Page();
@@ -762,7 +793,7 @@ public sealed class CrashesPageTests
         {
             Assert.Equal("No serious problems", vm.StatusTitle);
             Assert.Contains("2 power losses while asleep (not a fault)", vm.StatusDetail);
-            Assert.Contains(vm.Patterns, p => p.StartsWith("2 of 2 unexpected shutdowns happened while the PC was asleep"));
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 of 2 unexpected shutdowns happened while the PC was asleep"));
         });
     }
 
@@ -776,8 +807,8 @@ public sealed class CrashesPageTests
             Assert.Equal("No serious problems", vm.StatusTitle);
             Assert.Contains("2 shutdowns that didn't finish (usually harmless)", vm.StatusDetail);
             Assert.Contains("1 power loss while asleep (not a fault)", vm.StatusDetail);
-            Assert.Contains(vm.Patterns, p => p.StartsWith("2 of 3 unexpected shutdowns happened while Windows was shutting down"));
-            Assert.DoesNotContain(vm.Patterns, p => p.Contains("while the PC was asleep"));
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 of 3 unexpected shutdowns happened while Windows was shutting down"));
+            Assert.DoesNotContain(vm.Patterns, p => p.Text.Contains("while the PC was asleep"));
         });
     }
 
@@ -801,16 +832,24 @@ public sealed class CrashesPageTests
         Show(vm, [Crashes.App(t), Crashes.App(t.AddHours(1), "b.exe"), Crashes.Bsod(t.AddHours(2))]);
         Ui.Run(() =>
         {
-            Assert.Equal("3 problems on this day", vm.StatusTitle);
+            Assert.Equal("3 problems yesterday", vm.StatusTitle);
             Assert.Equal("1 blue screen · 2 app crashes.", vm.StatusDetail);
             Assert.Equal("HotBrush", vm.StatusBrush);
         });
         Show(vm, []);
         Ui.Run(() =>
         {
-            Assert.Equal("No problems on this day", vm.StatusTitle);
+            Assert.Equal("No problems yesterday", vm.StatusTitle);
             Assert.Equal("Nothing crashed, froze or shut down unexpectedly.", vm.StatusDetail);
         });
+        // The day is called what it is: today is "today", and a day further back goes by its date.
+        SetPeriod(vm, ReportRange.Day, DateTime.Today);
+        Show(vm, []);
+        Ui.Run(() => Assert.Equal(("No problems today", "No crashes today"), (vm.StatusTitle, vm.EmptyText)));
+        SetPeriod(vm, ReportRange.Day, DateTime.Today.AddDays(-9));
+        Show(vm, []);
+        string date = DateTime.Today.AddDays(-9).Year == DateTime.Today.Year ? $"{DateTime.Today.AddDays(-9):ddd, d MMM}" : $"{DateTime.Today.AddDays(-9):d MMM yyyy}";
+        Ui.Run(() => Assert.Equal(($"No problems on {date}", $"No crashes on {date}"), (vm.StatusTitle, vm.EmptyText)));
     }
 
     [Fact]
@@ -821,54 +860,55 @@ public sealed class CrashesPageTests
         Show(vm, [Crashes.Reset(now.AddHours(-1)), Crashes.Reset(now.AddHours(-30)), Crashes.Row(CrashKind.AppCrash, now.AddHours(-50), "g.exe", gpu: 90)]);
         Ui.Run(() =>
         {
-            Assert.Contains(vm.Patterns, p => p.StartsWith("2 problems involved the graphics driver"));
-            Assert.Contains("1 crash happened while your hardware was running hot. Check airflow and fan curves.", vm.Patterns);
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 problems involved the graphics driver"));
+            // 90° is over the alert limit (83°): heat is counted by the user's own limits, as each case judges it.
+            Assert.Contains(vm.Patterns, p => p.Text == "1 crash happened while your hardware was over your alert limits. Check airflow and fan curves.");
         });
         Show(vm, [Crashes.App(now.AddHours(-1))]);
         Ui.Run(() => Assert.Empty(vm.Patterns));
     }
 
     [Fact]
-    public void Drivers_installed_the_week_before_are_suggested_as_causes()
+    public void A_row_says_what_most_likely_happened_and_how_sure_that_is()
     {
         var (vm, _) = Page();
         var t = DateTime.Today.AddDays(-1).AddHours(12);
-        var changes = new List<SystemChange>
-        {
-            new(t.AddDays(-2), ChangeKind.Driver, "NVIDIA graphics driver 581.29"),
-            new(t.AddDays(-1), ChangeKind.Driver, "Realtek audio driver"),
-            new(t.AddHours(-3), ChangeKind.WindowsUpdate, "2026-09 Cumulative Update"),
-            new(t.AddDays(-9), ChangeKind.Driver, "Old graphics driver"),
-        };
-        Show(vm, [Crashes.Bsod(t), Crashes.App(t.AddHours(-1), "own-bug.exe")], changes);
+        Show(vm, [Crashes.Unfinished(t), Crashes.App(t.AddHours(-1), "own-bug.exe", "own-bug.exe")]);
         Ui.Run(() =>
         {
-            var bsod = vm.GroupsShown.Single(g => g.Latest.Event.Kind == CrashKind.SystemCrash);
-            Assert.Equal("In the week before: NVIDIA graphics driver 581.29 (2 days before), 2026-09 Cumulative Update (same day)", bsod.ChangesText);
-            // A bug in an app's own code isn't explained by a driver.
-            Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "own-bug.exe").ChangesText);
+            var unfinished = vm.GroupsShown.Single(g => g.Latest.Event.Kind == CrashKind.UnexpectedShutdown);
+            Assert.Equal(("NAMED BY WINDOWS", "Named", "Windows was already shutting down. Usually harmless."), (unfinished.Chip, unfinished.Sure, unfinished.Line));
+            var bug = vm.GroupsShown.Single(g => g.AppExe == "own-bug.exe");
+            Assert.Equal(("POSSIBLE: A FAULT IN THE APP", "Possible"), (bug.Chip, bug.Sure));
         });
     }
 
     [Fact]
-    public void An_app_that_crashed_while_a_graphics_driver_was_being_installed_says_so()
+    public void Shut_offs_group_by_their_finding_so_a_row_never_says_one_finding_of_all()
     {
-        // 7 Oct 2026: two apps went down as an NVIDIA driver was swapped; its log entry is from seconds after.
-        var (vm, _) = Page();
-        var t = DateTime.Today.AddDays(-1).AddHours(17).AddMinutes(40).AddSeconds(29);
-        var changes = new List<SystemChange>
+        // 48 shut-offs under the newest one's "likely a power cut" said that of the ones that came under load too.
+        var noon = DateTime.Today.AddDays(-2).AddHours(12);
+        CrashRow Power(DateTime time, double load, bool? button)
         {
-            new(t.AddSeconds(2), ChangeKind.Driver, "NVIDIA graphics driver 617.42"),
-            new(t.AddHours(-5), ChangeKind.Driver, "Realtek audio driver"),
-        };
-        Show(vm, [Crashes.App(t, "swapped.exe"), Crashes.App(t.AddMinutes(-10), "earlier.exe"), Crashes.App(t.AddMinutes(10), "later.exe")], changes);
-        Ui.Run(() =>
-        {
-            var swapped = vm.GroupsShown.Single(g => g.AppExe == "swapped.exe");
-            Assert.Equal("NVIDIA graphics driver 617.42 was being installed at that moment", swapped.ChangesText);
-            Assert.StartsWith("Apps that are open can crash while a graphics driver is replaced", swapped.ChangesTip);
-            Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "earlier.exe").ChangesText);
-            Assert.Null(vm.GroupsShown.Single(g => g.AppExe == "later.exe").ChangesText);
-        });
+            var e = new CrashEvent { Id = time.Ticks, Ts = TimeUtil.ToUnix(time), Kind = CrashKind.UnexpectedShutdown, Facts = button is null ? null : new CrashFacts { PowerButton = button, HardwareErrors = 0 } };
+            var input = new CrashInput(e, CrashExplainer.Explain(e), new Rigsight.Core.Settings.AlertSettings()) { Context = new CrashContext(50, 50, null, null) { Minutes = 10, CpuLoad = load, GpuLoad = load } };
+            return new CrashRow { Event = e, Explanation = input.Explanation, Input = input, Finding = CrashFindings.Judge(input) };
+        }
+        var groups = CrashGroup.Build([Power(noon, 5, false), Power(noon.AddHours(-5), 4, false), Power(noon.AddHours(-9), 95, false)]);
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(("LIKELY A POWER CUT", 2, CrashSeverity.Info), (groups[0].Chip, groups[0].Count, groups[0].Severity));
+        Assert.Equal(("POSSIBLE: MAINS OR POWER SUPPLY", 1, CrashSeverity.Critical), (groups[1].Chip, groups[1].Count, groups[1].Severity));
+    }
+
+    [Fact]
+    public void A_copied_report_carries_the_finding_what_it_rests_on_and_what_was_ruled_out()
+    {
+        var row = Crashes.Row(CrashKind.AppCrash, DateTime.Today.AddHours(-5), "g.exe", "Game", "nvwgf2umx.dll", "c0000005", cpu: 60, gpu: 70);
+        string text = CrashesViewModel.Report(CrashGroup.Build([row]).Single());
+        Assert.Contains("What happened: The NVIDIA graphics driver failed while running Game.", text);
+        Assert.Contains("How sure: Named by Windows.", text);
+        Assert.Contains("What it wasn't:", text);
+        Assert.Contains("  - It wasn't overheating: The CPU was at 60° and the GPU at 70°, under your alert limits.", text);
+        Assert.Contains("What to try: Update the NVIDIA driver", text);
     }
 }

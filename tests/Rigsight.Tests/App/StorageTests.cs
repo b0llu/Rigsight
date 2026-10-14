@@ -386,4 +386,157 @@ public sealed class StorageTests
             Assert.False(vm.CanGoUp);
         });
     }
+
+    [Fact]
+    public void Emptying_the_bin_is_off_the_windows_thread_and_a_scan_waits_for_it_with_a_loader_where_another_scan_was()
+    {
+        // The user: emptying the bin while a drive was being scanned left the window not answering and the deleting
+        // crawling; and while E: was being scanned the box still listed C:'s folders.
+        string first = Tree(), second = Tree();
+        var vm = Page();
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(first));
+        var bin = new CleanupItem("Recycle Bin", "3 deleted items.", 1, null, true);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int uiThread = Ui.Run(() => Environment.CurrentManagedThreadId), ranOn = 0;
+        ApartmentState apartment = ApartmentState.Unknown;
+        Task emptying = Task.CompletedTask, scanning = Task.CompletedTask;
+        Ui.Run(() =>
+        {
+            vm.Cleanup.Add(bin);
+            vm.EmptyBin = _ =>
+            {
+                ranOn = Environment.CurrentManagedThreadId;
+                apartment = Thread.CurrentThread.GetApartmentState();
+                entered.Set();
+                release.Wait(TestContext.Current.CancellationToken);
+                return true;
+            };
+            emptying = vm.CleanupActionCommand.ExecuteAsync(bin);
+        });
+        Assert.True(entered.Wait(10_000, TestContext.Current.CancellationToken));
+        Ui.Run(() =>
+        {
+            Assert.True(bin.Busy);
+            // Pressed again while Windows is at it: nothing more.
+            vm.CleanupActionCommand.Execute(bin);
+            scanning = vm.ScanCommand.ExecuteAsync(second);
+        });
+        Thread.Sleep(400);
+        Ui.Run(() =>
+        {
+            // The scan of the other folder hasn't moved, and what was on screen has made way for a loader.
+            Assert.True(vm.IsScanning);
+            Assert.Equal(first, vm.Result!.Root.Path);
+            Assert.False(vm.ShowResult);
+            Assert.True(vm.ShowScanLoader);
+        });
+        release.Set();
+        Kit.Wait(() => Task.WhenAll(emptying, scanning));
+        Assert.NotEqual(uiThread, ranOn);
+        Assert.Equal(ApartmentState.STA, apartment);
+        Ui.Run(() =>
+        {
+            Assert.False(bin.Busy);
+            Assert.DoesNotContain(bin, vm.Cleanup);
+            Assert.False(vm.IsScanning);
+            Assert.Equal(second, vm.Result!.Root.Path);
+            Assert.True(vm.ShowResult);
+            Assert.False(vm.ShowScanLoader);
+        });
+    }
+
+    [Fact]
+    public void A_bin_the_user_chose_not_to_empty_stays_listed_and_the_same_place_scanned_again_stays_on_screen()
+    {
+        var root = Tree();
+        var vm = Page();
+        var bin = new CleanupItem("Recycle Bin", "", 1, null, true);
+        Ui.Run(() =>
+        {
+            vm.Cleanup.Add(bin);
+            vm.EmptyBin = _ => false; // "No" in Windows' question
+        });
+        Kit.Wait(() => vm.CleanupActionCommand.ExecuteAsync(bin));
+        Ui.Run(() =>
+        {
+            Assert.Contains(bin, vm.Cleanup);
+            Assert.False(bin.Busy);
+            Assert.Equal("Empty", bin.ActionText);
+            Assert.Equal("Open", new CleanupItem("Temp", "", 1, null, false).ActionText);
+            Assert.False(vm.ShowResult);
+            Assert.False(vm.ShowScanLoader);
+        });
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
+        // Refresh scans the same place: what is on screen stays up meanwhile.
+        bool hidden = false;
+        Ui.Run(() => vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.IsScanning) && vm.IsScanning) hidden |= !vm.ShowResult; });
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root + "\\"));
+        Assert.False(hidden);
+        Ui.Run(() =>
+        {
+            Assert.True(vm.ShowResult);
+            Assert.Equal($"The {vm.Result!.LargestFiles.Count} largest files in {vm.Result.Root.Path}", vm.FilesTitle);
+            // Only a folder with something under it opens; the buckets never do.
+            Assert.True(vm.Result.Root.CanOpen);
+            Assert.All(vm.Result.Root.Children.Where(c => c.IsBucket), c => Assert.False(c.CanOpen));
+        });
+    }
+
+    [Fact]
+    public async Task A_scan_that_is_held_waits_and_goes_on_when_let_go()
+    {
+        var root = Tree();
+        using var hold = new ManualResetEventSlim(false);
+        var scan = StorageScanner.ScanAsync(root, new Progress<(long, long)>(), TestContext.Current.CancellationToken, hold);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.False(scan.IsCompleted);
+        hold.Set();
+        Assert.Equal(5, (await scan).FileCount);
+    }
+
+    [Fact]
+    public void The_list_has_its_rows_after_a_folder_was_opened_on_another_view_and_its_box_keeps_one_height()
+    {
+        // The user: on Largest files, one level back in the path, then List: nothing shown (the rows were there with no
+        // width, only their hover shade). And the box grew and shrank with every folder opened.
+        var root = Tree();
+        var vm = Page();
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var window = new System.Windows.Window { Content = new Views.StorageView { DataContext = vm }, Left = -32000, Top = -32000, Width = 1200, Height = 900, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                var b = vm.Result!.Root.Children[0];
+                vm.ScanView = "List";
+                vm.Open(b);
+                Ui.Pump(200);
+                var box = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(window).Single(s => s.Name == "ListBox");
+                double height = box.ActualHeight;
+                Assert.True(height >= 420);
+                vm.ScanView = "Files";
+                Ui.Pump(200);
+                Assert.False(box.IsVisible);
+                vm.Open(vm.Result.Root); // one level back, by the path
+                Ui.Pump(100);
+                vm.ScanView = "List";
+                Ui.Pump(300);
+                var rows = Visuals.Descendants<System.Windows.Controls.Button>(box).Where(r => r.DataContext is FolderNode).ToList();
+                Assert.Equal(vm.CurrentItems, rows.Select(r => (FolderNode)r.DataContext));
+                Assert.All(rows, r => Assert.True(r.ActualWidth > 600, $"row {((FolderNode)r.DataContext).Name} is {r.ActualWidth} wide"));
+                var names = rows.Select(r => Visuals.Descendants<System.Windows.Controls.TextBlock>(r).Single(x => x.Text == ((FolderNode)r.DataContext).Name)).ToList();
+                Assert.All(names, n => Assert.True(n.ActualWidth > 0));
+                // Three things or one: the same box.
+                Assert.Equal(height, box.ActualHeight);
+                // A bucket has nothing to open.
+                Assert.False(rows.Single(r => ((FolderNode)r.DataContext).IsBucket).IsEnabled);
+                Assert.True(rows[0].IsEnabled);
+            }
+            finally { window.Close(); }
+        });
+        Ui.AssertNoProblems("Storage list");
+    }
 }

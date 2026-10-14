@@ -92,6 +92,11 @@ public sealed class HomeAndHeatTests
         Assert.All(bad, l => Assert.Equal("WarmBrush", l.Brush));
         Assert.Equal("1 time the PC went down", HomeViewModel.HealthLines(1, 0, [], null, null, 0)[0].Text);
         Assert.Equal("3 app crashes", HomeViewModel.HealthLines(0, 3, [], null, null, 0)[0].Text);
+        // Shut-offs that were most likely power cuts are said apart, and alone they are no warning.
+        var mains = HomeViewModel.HealthLines(3, 3, [], null, null, 0, mains: 4)[0];
+        Assert.Equal(("3 times the PC went down, 4 shut-offs that look like power cuts, 3 app crashes", "WarmBrush"), (mains.Text, mains.Brush));
+        var only = HomeViewModel.HealthLines(0, 0, [], null, null, 0, mains: 1)[0];
+        Assert.Equal(("1 shut-off that looks like a power cut", "MutedBrush"), (only.Text, only.Brush));
         // Nothing known of the drives or the fans (no admin rights, a laptop): only what there is.
         Assert.Single(HomeViewModel.HealthLines(0, 0, [], null, null, 0));
         Assert.Equal("1 spinning now", HomeViewModel.HealthLines(0, 0, [], null, null, 1)[^1].Detail);

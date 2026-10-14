@@ -195,7 +195,7 @@ public sealed class ExportTests
         Assert.Contains(text, l => l.StartsWith("  Apex Legends  ", StringComparison.Ordinal) && l.Contains("76°"));
         Assert.DoesNotContain(text, l => l.Contains("Barely"));
         Assert.DoesNotContain(text, l => l.Contains('<')); // text, not a page
-        Assert.Contains("Nothing was recorded in this period.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
+        Assert.Contains("Nothing was recorded in this time.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
 
         Assert.StartsWith($"Rigsight crashes{Environment.NewLine}Last 7 days: none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
     }
@@ -281,7 +281,7 @@ public sealed class ExportTests
 
         // Too little to draw a line through: no drawing. Nothing recorded at all: it says so.
         Assert.Null(ReadableExport.TempChart([new TempPoint(day, 50, 40), new TempPoint(day.AddMinutes(1), 51, 41)]));
-        Assert.Contains("Nothing was recorded in this period.", ReadableExport.Report(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.20.1"));
+        Assert.Contains("Nothing was recorded in this time.", ReadableExport.Report(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.20.1"));
     }
 
     // ── The box ──

@@ -16,8 +16,65 @@ string db = args.Length > 0 && !args[0].StartsWith("--", StringComparison.Ordina
 string? settingsFile = arg("--settings") ?? (db == Path.Combine(data, "rigsight.db") ? Path.Combine(data, "settings.json") : null);
 int? days = int.TryParse(arg("--days"), out int d) ? d : null;
 
-using var reader = RigsightDb.OpenReader(db) ?? throw new Exception($"Can't open {db}");
 var settings = settingsFile is not null && File.Exists(settingsFile) ? SettingsStore.Load(settingsFile) : new RigsightSettings();
+
+// --crashes: every crash's finding instead (what it says, how sure, what it rests on, what was ruled out), worked out
+// exactly as the app does. The database is copied first and the copy given what this PC's Windows logs still hold about
+// its crashes, as the agent does at its first start after an update; the database itself is never written.
+//     Rigsight.InsightAudit [<rigsight.db>] --crashes [--out <file>]
+if (args.Contains("--crashes"))
+{
+    string copy = Path.Combine(Path.GetTempPath(), $"rigsight-audit-{Guid.NewGuid():N}.db");
+    using (var source = new SqliteConnection($"Data Source={db};Mode=ReadOnly"))
+    using (var target = new SqliteConnection($"Data Source={copy};Pooling=False"))
+    {
+        source.Open();
+        target.Open();
+        source.BackupDatabase(target);
+    }
+    var lines = new List<string>();
+    using (var w = RigsightDb.OpenWriter(copy))
+    {
+        if (w.FirstCrashTime() is long firstCrash)
+        {
+            var from = TimeUtil.FromUnix(firstCrash).AddDays(-1);
+            var reading = System.Diagnostics.Stopwatch.StartNew();
+            var read = Rigsight.Core.Stability.CrashLogReader.ReadSince(from);
+            long crashMs = reading.ElapsedMilliseconds;
+            var signs = Rigsight.Core.Stability.CrashLogReader.ReadSigns(from);
+            lines.Add($"# Windows' logs since {from:yyyy-MM-dd}: {read.Count} crashes read in {crashMs} ms, {signs.Count} signs in {reading.ElapsedMilliseconds - crashMs} ms");
+            reading.Restart();
+            Rigsight.Core.Stability.CrashLogReader.ReadSince(DateTime.Now.AddMinutes(-30));
+            Rigsight.Core.Stability.CrashLogReader.ReadSigns(DateTime.Now.AddMinutes(-30));
+            lines.Add($"# the ten-minute scan (last 30 minutes): {reading.ElapsedMilliseconds} ms");
+            w.InsertCrashes(read, knownOnly: true);
+            w.InsertSigns(signs);
+        }
+        var crashes = w.GetCrashes(0, long.MaxValue / 2);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var findings = Rigsight.Core.Stability.CrashCases.Of(w, crashes, settings);
+        lines.Add($"# {db}: {crashes.Count} crashes, findings in {watch.ElapsedMilliseconds} ms");
+        foreach (var c in crashes)
+        {
+            var f = findings[c.Id];
+            lines.Add($"## {c.Time:ddd yyyy-MM-dd HH:mm:ss}  {c.Kind} {c.AppExe}  [{f.Chip}]{(f.Outside ? " (outside)" : "")}");
+            lines.Add($"   {f.Head} {f.Text}");
+            lines.Add($"   line: {f.Said}");
+            lines.Add($"   try:  {f.Advice}");
+            foreach (var p in f.Points) lines.Add($"   + {p.Title}: {p.Detail}");
+            foreach (var p in f.RuledOut) lines.Add($"   - {p.Title}: {p.Detail}");
+            if (f.CantTell is { } cant) lines.Add($"   ? {cant}");
+        }
+        lines.Add("");
+        lines.AddRange(findings.Values.GroupBy(f => f.Chip).OrderByDescending(g => g.Count()).Select(g => $"{g.Count(),5}  {g.Key}"));
+    }
+    SqliteConnection.ClearAllPools();
+    try { File.Delete(copy); } catch (IOException) { }
+    if (arg("--out") is { } crashFile) File.WriteAllLines(crashFile, lines); else foreach (var crashLine in lines) Console.WriteLine(crashLine);
+    return;
+}
+
+using var reader = RigsightDb.OpenReader(db) ?? throw new Exception($"Can't open {db}");
 var (first, last) = Span(db);
 if (days is int n && last.Date.AddDays(1 - n) > first) first = last.Date.AddDays(1 - n);
 

@@ -12,7 +12,30 @@ namespace Rigsight.Core.Export;
 public sealed record SnapshotReading(string Part, string Kind, string Name, string Now, string Lowest, string Highest);
 
 /// <summary>A crash with what was going on around it, for the crashes file.</summary>
-public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Context, string? AppInFront, IReadOnlyList<SystemChange> ChangesBefore);
+public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Context, string? AppInFront, IReadOnlyList<SystemChange> ChangesBefore)
+{
+    /// <summary>What most likely happened and how sure that is, as every page says it (null: said from the crash's own entry alone).</summary>
+    public CrashFinding? Finding { get; init; }
+
+    /// <summary>The finding as rows: what happened, how sure, what it rests on, what was ruled out, what can't be told, what to try.</summary>
+    public IEnumerable<(string Label, string? Value)> Found()
+    {
+        if (Finding is not { } f)
+        {
+            var said = CrashExplainer.Explain(Crash, App);
+            yield return ("Likely reason", said.Reason);
+            yield return ("What to try", said.Advice);
+            yield break;
+        }
+        yield return ("What happened", $"{f.Head} {f.Text}");
+        yield return ("How sure", f.Verdict);
+        yield return ("What points to this", f.Points.Count == 0 ? null : string.Join("; ", f.Points.Select(p => p.Detail.Length > 0 ? $"{p.Title} ({p.Detail.TrimEnd('.')})" : p.Title)));
+        yield return ("What it wasn't", f.RuledOut.Count == 0 ? null : string.Join("; ", f.RuledOut.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
+        yield return ("Could not be checked", f.NotChecked.Count == 0 ? null : string.Join("; ", f.NotChecked.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
+        yield return ("Still unknown", f.CantTell);
+        yield return ("What to try", f.Advice);
+    }
+}
 
 /// <summary>
 /// The exports made to be read and passed on, each one file that needs nothing else: this PC as it is now (plain text,
@@ -44,7 +67,7 @@ public static class ReadableExport
         if (!r.HasData)
         {
             sb.AppendLine();
-            sb.AppendLine("Nothing was recorded in this period.");
+            sb.AppendLine("Nothing was recorded in this time.");
             return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
         }
         var totals = new List<object?[]> { new object?[] { "Active", Units.Duration(r.ActiveSec) }, new object?[] { "PC on", Units.Duration(r.OnSec) } };
@@ -93,7 +116,7 @@ public static class ReadableExport
             sb.AppendLine();
             sb.AppendLine(said.Title);
             sb.AppendLine(TimeUtil.FromUnix(s.Crash.Ts).ToString("dddd, d MMMM yyyy, h:mm tt"));
-            var rows = new List<(string Label, string? Value)> { ("Likely reason", said.Reason), ("What to try", said.Advice) };
+            var rows = new List<(string Label, string? Value)>(s.Found());
             if (s.Context is { NoReadings: false } c)
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)
@@ -198,7 +221,7 @@ public static class ReadableExport
     /// <summary>The period as the Reports page tells it: totals, peaks, what stood out, temperatures drawn, every app, the crashes.</summary>
     public static string Report(Report r, string title, string version)
     {
-        var sb = Page(title, r.HasData ? $"Active {Units.Duration(r.ActiveSec)}, PC on for {Units.Duration(r.OnSec)}" : "Nothing was recorded in this period.");
+        var sb = Page(title, r.HasData ? $"Active {Units.Duration(r.ActiveSec)}, PC on for {Units.Duration(r.OnSec)}" : "Nothing was recorded in this time.");
         if (!r.HasData) return End(sb, r.BuiltAt, version);
 
         sb.Append("<div class=\"tiles\">");
@@ -299,8 +322,7 @@ public static class ReadableExport
             var said = CrashExplainer.Explain(s.Crash, s.App);
             sb.Append($"<div class=\"crash\"><h3>{H(said.Title)}</h3><div class=\"sub\">{H(TimeUtil.FromUnix(s.Crash.Ts).ToString("dddd, d MMMM yyyy, h:mm tt"))}</div><dl>");
             void Row(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) sb.Append($"<dt>{H(label)}</dt><dd>{H(value)}</dd>"); }
-            Row("Likely reason", said.Reason);
-            Row("What to try", said.Advice);
+            foreach (var (label, value) in s.Found()) Row(label, value);
             if (s.Context is { NoReadings: false } c)
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)

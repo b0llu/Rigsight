@@ -630,7 +630,7 @@
                         <DataTemplate x:Key="NavEntry">
                             <!-- The name may be the user's own: one too long for the sidebar is cut short, as a dashboard's is. -->
                             <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" AutomationProperties.Name="{Binding Title}"
-                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}">
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}" Click="NavClicked">
                                 <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                             </RadioButton>
                         </DataTemplate>

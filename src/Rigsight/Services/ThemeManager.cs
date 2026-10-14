@@ -79,6 +79,7 @@ public static class ThemeManager
         if (accentColor is { } color) Accents.TakeOver(palette, color, goodToo: !keepStatus);
         // A theme with a coloured accent of its own: the palette's keys for the Fluent controls are written in black and white.
         else if (own != Colors.White && own != Colors.Black) Accents.ApplyTo(palette, own);
+        Accents.Popups(palette);
         if (index >= 0) dictionaries[index] = palette;
         else dictionaries.Insert(0, palette);
 

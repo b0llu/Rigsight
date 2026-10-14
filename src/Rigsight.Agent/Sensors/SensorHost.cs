@@ -679,4 +679,12 @@ internal readonly record struct KeyValues
     public double? RamLoad { get; init; }
     public double? RamUsed { get; init; }
     public double? RamAvailable { get; init; }
+    /// <summary>
+    /// Memory promised to apps, as a share of all Windows can promise, 0 to 100. Not a sensor's: this and the battery
+    /// are asked of Windows by the agent as it hands the readings on (see <see cref="SystemState.With"/>).
+    /// </summary>
+    public double? CommitPct { get; init; }
+    /// <summary>The battery's charge, 0 to 100, and whether the PC is running on it; both null on a PC without one.</summary>
+    public int? Battery { get; init; }
+    public bool? OnBattery { get; init; }
 }

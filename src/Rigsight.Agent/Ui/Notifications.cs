@@ -11,6 +11,68 @@ namespace Rigsight.Agent.Ui;
 internal enum NoticeKind { Alert, Recap, Session, Crash, Overlay, Update }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
+/// <summary>
+/// One notification for an app that keeps crashing, not one each time: the first crash is always said; another of the
+/// same app within <see cref="Quiet"/> of the one last said is not (a game that dies at every start would otherwise
+/// fill the screen). A crash that isn't said doesn't lengthen the quiet (the user's ruling: two minutes, no restart),
+/// so an app that goes down again later the same evening is said again. Every crash is still stored and on the
+/// Crashes page.
+/// </summary>
+internal sealed class CrashNoticeGate
+{
+    public static readonly TimeSpan Quiet = TimeSpan.FromMinutes(2);
+
+    /// <summary>Per app, the crash last said.</summary>
+    private readonly Dictionary<string, DateTime> _said = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Lock _gate = new();
+
+    /// <summary>Whether a crash of <paramref name="exe"/> at <paramref name="at"/> is to be said.</summary>
+    public bool Allow(string exe, DateTime at)
+    {
+        lock (_gate)
+        {
+            // Within the quiet of the one last said, the same crash seen again included (two sessions of one app
+            // ending around it both find it in Windows' log).
+            if (_said.TryGetValue(exe, out var said) && at >= said && at - said < Quiet) return false;
+            _said[exe] = at;
+            return true;
+        }
+    }
+}
+
+/// <summary>What the notification for an app that closed unexpectedly says.</summary>
+internal static class CrashNotices
+{
+    /// <summary>How long after the first look the crash is looked at again, when the first found too little to say.</summary>
+    public static readonly TimeSpan SecondLook = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// The finding as its own case says it, with how sure that is ("Rocket League stopped as it was starting. Likely
+    /// at start-up."), then how long it had been in use. Without a finding (the crash couldn't be stored), only that
+    /// it happened: a notification never states a cause nothing was read for.
+    /// </summary>
+    /// <summary>
+    /// The example Settings shows: a made-up crash put through the real rules and the real wording, so the preview is
+    /// always what a notification of that crash would say ("Dota 2 crashed inside the NVIDIA driver. Named by Windows.
+    /// You played for 48m. Click for the full picture.").
+    /// </summary>
+    public static string Sample
+    {
+        get
+        {
+            var crash = new Rigsight.Core.Stability.CrashEvent { Kind = Rigsight.Core.Stability.CrashKind.AppCrash, AppExe = "dota2.exe", Module = "nvwgf2umx.dll", Code = "c0000005" };
+            var input = new Rigsight.Core.Stability.CrashInput(crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Dota 2"), new Rigsight.Core.Settings.AlertSettings()) { AppName = "Dota 2", IsGame = true };
+            return Body(Rigsight.Core.Stability.CrashFindings.Judge(input), game: true, activeSec: 48 * 60);
+        }
+    }
+
+    public static string Body(Rigsight.Core.Stability.CrashFinding? finding, bool game, double activeSec)
+    {
+        string used = $"You {(game ? "played" : "used it")} for {Rigsight.Core.Units.Duration(activeSec)}.";
+        return finding is null ? $"{used} Click to see what most likely happened." : $"{finding.Said} {used} Click for the full picture.";
+    }
+}
+
 internal sealed record Notice(NoticeKind Kind, string Title, string Body, string? IconPath = null,
     string? Page = null, string? Arg = null, bool Urgent = false);
 

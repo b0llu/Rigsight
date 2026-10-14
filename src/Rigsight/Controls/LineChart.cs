@@ -200,9 +200,10 @@ public sealed class LineChart : FrameworkElement
 
         if (lo > hi)
         {
-            string nothing = Long ? (IsTemp ? "No temperatures recorded in this " : "Nothing recorded in this ")
-                    + LongUnit switch { Core.Reports.ReportRange.Week => "week", Core.Reports.ReportRange.Year => "year", _ => "month" }
-                : _pastDay ? (IsTemp ? "No temperatures recorded on this day" : "Nothing recorded on this day") : "Collecting data…";
+            // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
+            string what = IsTemp ? "No temperatures recorded " : "Nothing recorded ";
+            string nothing = Long ? what + PeriodPicker.Words(LongUnit, day)
+                : _pastDay ? what + PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : "Collecting data…";
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }

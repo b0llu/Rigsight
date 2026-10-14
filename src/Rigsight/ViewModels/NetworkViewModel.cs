@@ -97,11 +97,11 @@ public sealed partial class NetworkViewModel : ObservableObject
     // ── The period (Day, Week, Month or Year; today unless picked otherwise) ──
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(PeriodWord))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(PeriodWord), nameof(EmptyText))]
     private ReportRange _unit = ReportRange.Day;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(PeriodWord))]
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(PeriodWord), nameof(EmptyText))]
     private DateTime _anchor = DateTime.Today;
 
     [ObservableProperty]
@@ -116,18 +116,11 @@ public sealed partial class NetworkViewModel : ObservableObject
     public bool IncludesToday => Period.To > DateTime.Today && Period.From <= DateTime.Today;
     public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
 
-    /// <summary>"today", "this week", "Sep 2026"… for the labels that follow the period.</summary>
-    public string PeriodWord => Controls.PeriodPicker.Text(Unit, Anchor) switch
-    {
-        "Today" => "today",
-        "Yesterday" => "yesterday",
-        "This week" => "this week",
-        "Last week" => "last week",
-        "This month" => "this month",
-        "Last month" => "last month",
-        "This year" => "this year",
-        var other => other,
-    };
+    /// <summary>"today", "this week", "in September 2026"… for the labels that follow the period (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
+    public string PeriodWord => Controls.PeriodPicker.Words(Unit, Anchor);
+
+    /// <summary>What the page says when the period has nothing.</summary>
+    public string EmptyText => $"Nothing recorded {PeriodWord} yet. Internet use is recorded while the agent runs as admin.";
 
     partial void OnUnitChanged(ReportRange value) { SelectedBin = -1; _ = RefreshAsync(); }
     partial void OnAnchorChanged(DateTime value) { SelectedBin = -1; _ = RefreshAsync(); }

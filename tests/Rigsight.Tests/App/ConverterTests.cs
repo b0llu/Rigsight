@@ -338,6 +338,27 @@ public sealed class ConverterTests
         });
     }
 
+    [Theory]
+    [InlineData("Named", "GoodColor")]
+    [InlineData("Likely", "TextColor")]
+    [InlineData("Possible", "WarmColor")]
+    [InlineData("NotEnough", "MutedColor")]
+    [InlineData(null, "MutedColor")]
+    [InlineData("CpuBrush", "CpuColor")] // a palette brush by its name, for an evidence line's icon
+    public void How_sure_a_finding_is_has_its_colour_and_a_soft_wash_of_it(object? sure, string colorKey)
+    {
+        var c = new SureBrushConverter();
+        InBothThemes(_ =>
+        {
+            var solid = (SolidColorBrush)Convert(c, sure)!;
+            Assert.Equal(ThemeColor(colorKey), solid.Color);
+            var soft = (SolidColorBrush)Convert(c, sure, "soft")!;
+            Assert.Equal((solid.Color, 0.15), (soft.Color, Math.Round(soft.Opacity, 6)));
+            Assert.True(soft.IsFrozen);
+        });
+        Assert.Same(Binding.DoNothing, c.ConvertBack("x", typeof(object), null!, Culture));
+    }
+
     public static TheoryData<object?, string> Kinds => new()
     {
         { SensorKind.Temperature, "MutedColor" }, { SensorKind.Load, "CpuColor" }, { SensorKind.Clock, "PurpleColor" },
@@ -549,7 +570,7 @@ public sealed class ConverterTests
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
-            typeof(DataSizeConverter), typeof(InsightBrushConverter),
+            typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

@@ -51,6 +51,16 @@ public static class InsightEngine
             var ex = CrashExplainer.Explain(latest, name);
             string more = r.Crashes.Count > 1 ? $" ({r.Crashes.Count} crashes in total — see the Crashes page)" : "";
             string when = isDay ? $"{latest.Time:h:mm tt}" : $"{latest.Time:ddd d MMM, h:mm tt}";
+            // What most likely happened and how sure that is, in the words every other page uses for it. A problem whose
+            // cause was outside the PC (a power cut) is said plainly, not as a warning.
+            if (r.CrashFindings.GetValueOrDefault(latest.Id) is { } finding)
+            {
+                bool outside = r.Crashes.Count <= CrashesJudged && r.Crashes.All(c => r.CrashFindings.GetValueOrDefault(c.Id) is { Outside: true });
+                string others = r.Crashes.Count > 1 ? $" {r.Crashes.Count} problems in all, each on the Crashes page." : "";
+                list.Add(new Insight(outside ? IconInfo : IconWarn, $"{finding.Short} at {when}. {finding.Verdict}{others}", outside ? InsightTone.Neutral : InsightTone.Warn, "crash", 95, CrashDetail(r)));
+            }
+            else
+            {
             // The cause after the title where there is one to add ("NVIDIA driver", a bugcheck name), as written: no
             // lowercasing of names, nothing that only repeats the title. "in its own code" reads on from the time.
             string cause = ex.Cause switch
@@ -60,6 +70,7 @@ public static class InsightEngine
                 var c => $": {c}",
             };
             list.Add(new Insight(IconWarn, $"{ex.Title} at {when}{cause}.{more}{CrashPattern(r, alerts)}", InsightTone.Warn, "crash", 95, CrashDetail(r)));
+            }
         }
 
         // Minutes a chip averaged at or over the user's alert limit (a moment's spike isn't one, as it isn't for the alert).
@@ -368,7 +379,7 @@ public static class InsightEngine
         // Left on with nobody there: only long stretches with nothing working (a short break, a render, a download aren't).
         if (r.LongAwaySec >= 3600 && isDay)
             list.Add(new Insight(IconAway,
-                $"Your PC sat on with nobody there for {Units.Duration(r.LongAwaySec)}{(r.Range != ReportRange.Day ? "" : inProgress ? " today" : " that day")}.",
+                $"Your PC sat on with nobody there for {Units.Duration(r.LongAwaySec)}{(r.Range != ReportRange.Day ? "" : $" {PeriodWords.Said(r.Range, r.From)}")}.",
                 InsightTone.Neutral, "away", 42, $"Stretches of {Report.LongAwayMinutes} minutes or more without use or heavy work"));
 
         // Reassurance when everything was cool (less of it when it's every day).
@@ -565,6 +576,9 @@ public static class InsightEngine
     /// What the crashes had in common, from the minutes before each: heat at the user's alert limits, or one app in
     /// front (other than the one that crashed: that one being in front goes without saying).
     /// </summary>
+    /// <summary>How many of a report's crashes (the newest) have their finding worked out for the crash insight.</summary>
+    public const int CrashesJudged = 12;
+
     private static string CrashPattern(Report r, AlertSettings alerts)
     {
         var contexts = r.Crashes.Select(c => r.CrashContexts.GetValueOrDefault(c.Id)).ToList();

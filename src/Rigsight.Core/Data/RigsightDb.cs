@@ -106,8 +106,23 @@ public sealed partial class RigsightDb : IDisposable
         if (!HasColumn("system_minute", "gpu_hot_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_hot_min REAL");
         if (!HasColumn("system_minute", "gpu_mem_min")) Exec("ALTER TABLE system_minute ADD COLUMN gpu_mem_min REAL");
 
+        // The rest of what an opened crash shows of its minutes (0.24.0): what the drives were doing, how near
+        // Windows was to running out of memory, the battery; and the apps doing the most each minute, with how much.
+        if (!HasColumn("system_minute", "disk_rate"))
+            Exec("ALTER TABLE system_minute ADD COLUMN disk_rate INTEGER; ALTER TABLE system_minute ADD COLUMN disk_rate_max INTEGER;"
+                + " ALTER TABLE system_minute ADD COLUMN commit_pct INTEGER; ALTER TABLE system_minute ADD COLUMN battery INTEGER;"
+                + " ALTER TABLE system_minute ADD COLUMN on_battery INTEGER");
+        // …and the graphics card's memory in use, against all it has.
+        if (!HasColumn("system_minute", "vram_used"))
+            Exec("ALTER TABLE system_minute ADD COLUMN vram_used INTEGER; ALTER TABLE system_minute ADD COLUMN vram_total INTEGER");
+        Exec("CREATE TABLE IF NOT EXISTS app_minute(ts INTEGER NOT NULL, app INTEGER NOT NULL, cpu REAL NOT NULL, gpu REAL NOT NULL,"
+            + " mem INTEGER NOT NULL, disk INTEGER NOT NULL, PRIMARY KEY(ts, app)) WITHOUT ROWID");
+
         // Windows' own time for a PC going down, beside the one shown (0.19.1, see InsertCrashes).
         if (!HasColumn("crashes", "ts_windows")) Exec("ALTER TABLE crashes ADD COLUMN ts_windows INTEGER");
+        // What else Windows wrote about a crash (see CrashFacts), and the trouble it logged around them (see CrashSign).
+        if (!HasColumn("crashes", "facts")) Exec("ALTER TABLE crashes ADD COLUMN facts TEXT");
+        Exec("CREATE TABLE IF NOT EXISTS crash_signs(ts INTEGER NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, PRIMARY KEY(ts, kind, detail)) WITHOUT ROWID");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -343,9 +358,15 @@ public sealed partial class RigsightDb : IDisposable
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
-                cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg, gpu_hot_min, gpu_mem_min)
-            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma, $ghl, $gml)
+                cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg, gpu_hot_min, gpu_mem_min, disk_rate, disk_rate_max, commit_pct, battery, on_battery,
+                vram_used, vram_total)
+            VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma, $ghl, $gml,
+                $disk, $diskMax, $commit, $battery, $onBattery, $vram, $vramTotal)
             """,
+            // Whole numbers: nothing shows a fraction of a byte a second or of a percent, and the row stays short.
+            ("$disk", WholeOrNull(m.DiskRate)), ("$diskMax", WholeOrNull(m.DiskRateMax)), ("$commit", WholeOrNull(m.CommitPct)),
+            ("$vram", WholeOrNull(m.VramUsed)), ("$vramTotal", WholeOrNull(m.VramTotal)),
+            ("$battery", m.Battery), ("$onBattery", m.OnBattery is bool onBattery ? (onBattery ? 1 : 0) : null),
             ("$ghl", m.GpuHotMin), ("$gml", m.GpuMemMin),
             ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin), ("$gha", Tenth(m.GpuHotAvg)), ("$gma", Tenth(m.GpuMemAvg)),
             ("$ts", m.Ts), ("$ct", m.CpuTemp), ("$ctm", m.CpuTempMax), ("$gt", m.GpuTemp), ("$gtm", m.GpuTempMax),
@@ -373,6 +394,40 @@ public sealed partial class RigsightDb : IDisposable
             using var heat = Cmd($"DELETE FROM heat_day WHERE day = $from; INSERT OR REPLACE INTO heat_day {HeatSql}", ("$from", from), ("$to", to));
             heat.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// The apps that did the most in a minute (see <see cref="AppMinute"/>), in place of any written for it before.
+    /// </summary>
+    public void WriteAppMinutes(long ts, IReadOnlyList<AppMinute> rows)
+    {
+        using (var clear = Cmd("DELETE FROM app_minute WHERE ts = $ts", ("$ts", ts))) clear.ExecuteNonQuery();
+        foreach (var a in rows)
+        {
+            using var cmd = Cmd("INSERT OR REPLACE INTO app_minute(ts, app, cpu, gpu, mem, disk) VALUES($ts, $app, $cpu, $gpu, $mem, $disk)",
+                ("$ts", ts), ("$app", a.App), ("$cpu", Math.Round(a.Cpu, 1)), ("$gpu", Math.Round(a.Gpu, 1)),
+                ("$mem", (long)Math.Round(a.MemMb)), ("$disk", (long)Math.Round(a.Disk)));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private bool _hasAppMinutes;
+
+    /// <summary>
+    /// The apps that did the most in each minute from <paramref name="from"/> to <paramref name="to"/>, by minute and the hardest on the CPU first. None
+    /// from before 0.24.0. Kept as long as the minutes themselves: a few rows a minute, about a third more history,
+    /// which the user chose over thinning them after a month (a crash, or anything else, looked at long after shows
+    /// the same detail, and what is usual for this PC can be worked out from the ordinary days too).
+    /// </summary>
+    public List<AppMinute> GetAppMinutes(long from, long to)
+    {
+        // The agent adds the table; the app may read a database from before, and looks again next time.
+        if (!_hasAppMinutes && !(_hasAppMinutes = HasTable("app_minute"))) return [];
+        using var cmd = Cmd("SELECT ts, app, cpu, gpu, mem, disk FROM app_minute WHERE ts >= $from AND ts < $to ORDER BY ts, cpu DESC, app", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<AppMinute>();
+        while (r.Read()) list.Add(new AppMinute(r.GetInt64(0), r.GetInt64(1), r.GetDouble(2), r.GetDouble(3), r.GetInt64(4), r.GetInt64(5)));
+        return list;
     }
 
     private static object? WholeOrNull(double? value) => value is double v && double.IsFinite(v) ? (long)Math.Round(v) : null;
@@ -647,6 +702,7 @@ public sealed partial class RigsightDb : IDisposable
         using var move = Cmd($"UPDATE OR IGNORE crashes SET ts = $ts, ts_windows = $w{(e.Kind == CrashKind.UnexpectedShutdown ? ", during_sleep = $sleep" : "")} WHERE id = $id",
             ("$ts", e.Ts), ("$w", windows), ("$sleep", (int)e.Moment), ("$id", id.Value));
         move.ExecuteNonQuery();
+        KeepFacts(id.Value, e.Facts);
         return true;
     }
 
@@ -662,12 +718,21 @@ public sealed partial class RigsightDb : IDisposable
         foreach (var e in crashes)
         {
             if (e.NextStart is long nextStart && PlaceShutdown(e, nextStart)) continue;
+            string? facts = e.Facts is { IsEmpty: false } f ? f.ToJson() : null;
+            // One stored already gets what Windows has written about it since (see KeepFacts).
+            if (facts is not null)
+            {
+                long? stored = null;
+                using (var find = Cmd("SELECT id FROM crashes WHERE kind = $kind AND ts = $ts AND app_exe = $exe", ("$kind", e.Kind.ToString()), ("$ts", e.Ts), ("$exe", e.AppExe ?? "")))
+                    if (find.ExecuteScalar() is long id) stored = id;
+                if (stored is long known) KeepFacts(known, e.Facts);
+            }
             if (knownOnly) continue;
             using var cmd = Cmd("""
-                INSERT OR IGNORE INTO crashes(ts, kind, app_exe, app_path, module, code, detail, during_sleep, ts_windows)
-                VALUES($ts, $kind, $exe, $path, $module, $code, $detail, $sleep, $windows)
+                INSERT OR IGNORE INTO crashes(ts, kind, app_exe, app_path, module, code, detail, during_sleep, ts_windows, facts)
+                VALUES($ts, $kind, $exe, $path, $module, $code, $detail, $sleep, $windows, $facts)
                 """, ("$ts", e.Ts), ("$kind", e.Kind.ToString()), ("$exe", e.AppExe ?? ""), ("$path", e.AppPath),
-                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", (int)e.Moment), ("$windows", e.WindowsTs));
+                ("$module", e.Module), ("$code", e.Code), ("$detail", e.Detail), ("$sleep", (int)e.Moment), ("$windows", e.WindowsTs), ("$facts", facts));
             if (cmd.ExecuteNonQuery() > 0) added.Add(e);
             else if (e.Kind == CrashKind.UnexpectedShutdown)
             {
@@ -681,10 +746,51 @@ public sealed partial class RigsightDb : IDisposable
         return added;
     }
 
+    /// <summary>
+    /// Gives a stored crash the facts read for it: all of them where it has none, and where it has some, only what
+    /// they lack (a blue screen's driver and a crash's report are written by Windows after the crash's own entry, so
+    /// the scan that first saw it may have come before them). What is stored is never replaced.
+    /// </summary>
+    private void KeepFacts(long id, CrashFacts? facts)
+    {
+        if (facts is not { IsEmpty: false }) return;
+        string? stored;
+        using (var read = Cmd("SELECT facts FROM crashes WHERE id = $id", ("$id", id))) stored = read.ExecuteScalar() as string;
+        var merged = stored is null ? facts : CrashFacts.FromJson(stored) is { } had ? had.With(facts) : null;
+        if (merged is null) return; // nothing new, or stored by a newer version in a shape this one can't read: left alone
+        using var cmd = Cmd("UPDATE crashes SET facts = $facts WHERE id = $id", ("$facts", merged.ToJson()), ("$id", id));
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Stores the trouble Windows logged around crashes; what is stored already is left as it is.</summary>
+    public void InsertSigns(IEnumerable<CrashSign> signs)
+    {
+        foreach (var s in signs)
+        {
+            using var cmd = Cmd("INSERT OR IGNORE INTO crash_signs(ts, kind, detail) VALUES($ts, $kind, $detail)", ("$ts", s.Ts), ("$kind", s.Kind), ("$detail", s.Detail));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private bool _hasSigns;
+
+    /// <summary>The trouble Windows logged from <paramref name="from"/> to <paramref name="to"/>, oldest first.</summary>
+    public List<CrashSign> GetSigns(long from, long to)
+    {
+        // The agent adds the table; the app may read a database from before, and looks again next time.
+        if (!_hasSigns && !(_hasSigns = HasTable("crash_signs"))) return [];
+        using var cmd = Cmd("SELECT ts, kind, detail FROM crash_signs WHERE ts >= $from AND ts < $to ORDER BY ts", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<CrashSign>();
+        while (r.Read()) list.Add(new CrashSign(r.GetInt64(0), r.GetString(1), r.GetString(2)));
+        return list;
+    }
+
     /// <summary>Deletes all history older than <paramref name="before"/>: every table uses the same cutoff.</summary>
     public void Prune(long before)
     {
         using (var c1 = Cmd("DELETE FROM system_minute WHERE ts < $t", ("$t", before))) c1.ExecuteNonQuery();
+        using (var c1a = Cmd("DELETE FROM app_minute WHERE ts < $t", ("$t", before))) c1a.ExecuteNonQuery();
         using (var c2 = Cmd("DELETE FROM app_hour WHERE ts < $t", ("$t", before))) c2.ExecuteNonQuery();
         using (var c2m = Cmd($"""
             DELETE FROM app_month WHERE month <= {MonthOf("$t")};
@@ -721,14 +827,15 @@ public sealed partial class RigsightDb : IDisposable
         using (var c3 = Cmd("DELETE FROM sessions WHERE start < $t", ("$t", before))) c3.ExecuteNonQuery();
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
+        using (var c5s = Cmd("DELETE FROM crash_signs WHERE ts < $t", ("$t", before))) c5s.ExecuteNonQuery();
         PruneNetwork(before);
         PruneChanges(before);
     }
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes;"
-            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day;"
+        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs;"
+            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;"
             + " DELETE FROM changes;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
         Exec("VACUUM");
@@ -858,6 +965,11 @@ public sealed partial class RigsightDb : IDisposable
     private bool HasHotLows => _hasHotLows ??= HasColumn("system_minute", "gpu_hot_min");
     private bool HasTempLows => _hasTempLows ??= HasColumn("system_minute", "cpu_temp_min");
     private bool HasHotAvgs => _hasHotAvgs ??= HasColumn("system_minute", "gpu_hot_avg");
+    // …and the drives, the memory promised and the battery (0.24.0).
+    private bool? _hasDrives;
+    private bool HasDrives => _hasDrives ??= HasColumn("system_minute", "disk_rate");
+    private bool? _hasVram;
+    private bool HasVram => _hasVram ??= HasColumn("system_minute", "vram_used");
 
     // An average to a tenth of a degree: nothing shows more, and the row isn't made longer by digits nobody reads.
     private static double? Tenth(double? v) => v is double d ? Math.Round(d, 1) : null;
@@ -873,7 +985,9 @@ public sealed partial class RigsightDb : IDisposable
                    cpu_volt_max, gpu_volt_max, ram_used, fg_app, active_sec, idle_sec, {(_hasGpuMem.Value ? "gpu_mem_max" : "NULL")},
                    {(HasLoadApps ? "cpu_app, gpu_app" : "NULL, NULL")}, {(HasClocks ? "cpu_clock, gpu_clock" : "NULL, NULL")},
                    {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}, {(HasHotAvgs ? "gpu_hot_avg, gpu_mem_avg" : "NULL, NULL")},
-                   {(HasHotLows ? "gpu_hot_min, gpu_mem_min" : "NULL, NULL")}
+                   {(HasHotLows ? "gpu_hot_min, gpu_mem_min" : "NULL, NULL")},
+                   {(HasDrives ? "disk_rate, disk_rate_max, commit_pct, battery, on_battery" : "NULL, NULL, NULL, NULL, NULL")},
+                   {(HasVram ? "vram_used, vram_total" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -891,6 +1005,9 @@ public sealed partial class RigsightDb : IDisposable
                 CpuApp = r.IsDBNull(17) ? null : r.GetInt64(17), GpuApp = r.IsDBNull(18) ? null : r.GetInt64(18),
                 CpuClock = D(r, 19), GpuClock = D(r, 20), CpuTempMin = D(r, 21), GpuTempMin = D(r, 22), GpuHotAvg = D(r, 23), GpuMemAvg = D(r, 24),
                 GpuHotMin = D(r, 25), GpuMemMin = D(r, 26),
+                DiskRate = D(r, 27), DiskRateMax = D(r, 28), CommitPct = D(r, 29),
+                Battery = r.IsDBNull(30) ? null : r.GetInt32(30), OnBattery = r.IsDBNull(31) ? null : r.GetInt64(31) != 0,
+                VramUsed = D(r, 32), VramTotal = D(r, 33),
             });
         }
         return list;
@@ -1081,10 +1198,28 @@ public sealed partial class RigsightDb : IDisposable
     /// For every crash in the range, in one query: the highest CPU and GPU temperature in the 5 minutes before it,
     /// the app in front (within 3 minutes), and how long the crashed app's session had run (the one it ended).
     /// </summary>
-    public Dictionary<long, CrashContext> GetCrashContext(long from, long to)
+    /// <param name="forFindings">Also what a finding is worked out from (the load, power and memory of the minutes
+    /// before, when the PC was last in use and when it came back). A report's list of a year's crashes shows none of
+    /// that and reads them without: seven more lookups per crash tripled the time an all-time report took.</param>
+    public Dictionary<long, CrashContext> GetCrashContext(long from, long to, bool forFindings = true)
     {
         // The session may have ended up to 10 minutes before the crash, so it can start that much before the longest-session bound.
-        using var cmd = Cmd("""
+        using var cmd = Cmd(forFindings ? CrashContextSql : CrashContextSql[..CrashContextSql.IndexOf("/*findings*/", StringComparison.Ordinal)]
+                + "NULL, NULL, NULL, NULL, NULL, NULL, NULL FROM crashes c WHERE c.ts >= $from AND c.ts < $to",
+            ("$from", from), ("$to", to), ("$maxSession", MaxSessionSec()));
+        using var r = cmd.ExecuteReader();
+        var map = new Dictionary<long, CrashContext>();
+        while (r.Read())
+            map[r.GetInt64(0)] = new CrashContext(D(r, 1), D(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), D(r, 4), !r.IsDBNull(5) && r.GetInt64(5) != 0)
+            {
+                CpuLoad = D(r, 6), GpuLoad = D(r, 7), GpuPower = D(r, 8), Minutes = r.IsDBNull(9) ? 0 : (int)r.GetInt64(9),
+                LastActive = r.IsDBNull(10) ? null : r.GetInt64(10), BackOn = r.IsDBNull(11) ? null : r.GetInt64(11),
+                RamUsed = D(r, 12),
+            };
+        return map;
+    }
+
+    private const string CrashContextSql = """
             SELECT c.id,
               (SELECT max(cpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
               (SELECT max(gpu_temp_max) FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts),
@@ -1092,15 +1227,17 @@ public sealed partial class RigsightDb : IDisposable
               (SELECT s.active_sec FROM sessions s WHERE s.app_id = (SELECT a.id FROM apps a WHERE a.exe = c.app_exe)
                  AND s.start >= c.ts - $maxSession - 601 AND s.start <= c.ts + 60 AND s.end >= c.ts - 600 ORDER BY s.end DESC LIMIT 1),
               NOT EXISTS (SELECT 1 FROM system_minute m WHERE m.ts >= c.ts - 300 AND m.ts <= c.ts)
-                 AND c.ts - 300 >= (SELECT min(ts) FROM system_minute)
+                 AND c.ts - 300 >= (SELECT min(ts) FROM system_minute),
+              /*findings*/
+              (SELECT avg(cpu_load) FROM system_minute m WHERE m.ts >= c.ts - 600 AND m.ts <= c.ts),
+              (SELECT avg(gpu_load) FROM system_minute m WHERE m.ts >= c.ts - 600 AND m.ts <= c.ts),
+              (SELECT avg(gpu_power) FROM system_minute m WHERE m.ts >= c.ts - 600 AND m.ts <= c.ts),
+              (SELECT count(*) FROM system_minute m WHERE m.ts >= c.ts - 600 AND m.ts <= c.ts),
+              (SELECT max(m.ts) FROM system_minute m WHERE m.ts <= c.ts AND m.ts >= c.ts - 14400 AND m.active_sec > 0),
+              (SELECT min(m.ts) FROM system_minute m WHERE m.ts > c.ts + 60 AND m.ts < c.ts + 86400),
+              (SELECT ram_used FROM system_minute m WHERE m.ts <= c.ts AND m.ts >= c.ts - 300 AND ram_used IS NOT NULL ORDER BY m.ts DESC LIMIT 1)
             FROM crashes c WHERE c.ts >= $from AND c.ts < $to
-            """, ("$from", from), ("$to", to), ("$maxSession", MaxSessionSec()));
-        using var r = cmd.ExecuteReader();
-        var map = new Dictionary<long, CrashContext>();
-        while (r.Read())
-            map[r.GetInt64(0)] = new CrashContext(D(r, 1), D(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), D(r, 4), !r.IsDBNull(5) && r.GetInt64(5) != 0);
-        return map;
-    }
+            """;
 
     public List<SessionRow> GetSessions(long from, long to)
     {
@@ -1183,13 +1320,14 @@ public sealed partial class RigsightDb : IDisposable
 
     // crashes.ts_windows is added by the agent (0.19.1); the app may read an older database first, and goes on reading
     // it after the agent has added the column.
-    private bool _hasWindowsTs;
+    private bool _hasWindowsTs, _hasFacts;
 
     public List<CrashEvent> GetCrashes(long from, long to)
     {
         _hasWindowsTs = _hasWindowsTs || HasColumn("crashes", "ts_windows");
+        _hasFacts = _hasFacts || HasColumn("crashes", "facts");
         using var cmd = Cmd($"""
-            SELECT id, ts, kind, app_exe, app_path, module, code, detail, during_sleep, {(_hasWindowsTs ? "ts_windows" : "NULL")}
+            SELECT id, ts, kind, app_exe, app_path, module, code, detail, during_sleep, {(_hasWindowsTs ? "ts_windows" : "NULL")}, {(_hasFacts ? "facts" : "NULL")}
             FROM crashes WHERE ts >= $from AND ts < $to ORDER BY ts DESC
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -1204,6 +1342,7 @@ public sealed partial class RigsightDb : IDisposable
                 Module = r.IsDBNull(5) ? null : r.GetString(5), Code = r.IsDBNull(6) ? null : r.GetString(6),
                 Detail = r.IsDBNull(7) ? null : r.GetString(7), Moment = (PowerMoment)Math.Clamp(r.GetInt64(8), 0, 2),
                 WindowsTs = r.IsDBNull(9) ? null : r.GetInt64(9),
+                Facts = r.IsDBNull(10) ? null : CrashFacts.FromJson(r.GetString(10)),
             });
         }
         return list;

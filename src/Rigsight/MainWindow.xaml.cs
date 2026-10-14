@@ -103,6 +103,16 @@ public partial class MainWindow : Window
     /// A line of the Settings menu was picked: the menu goes away as its command runs. Not for the update line: the
     /// menu stays open and that line becomes the answer ("Checking…", then "Up to date" with a tick).
     /// </summary>
+    /// <summary>
+    /// "Crashes" pressed in the sidebar while a crash is open on that page: back to the list (the page is already the
+    /// one shown, so nothing else would happen, and the list is what the sidebar's name promises).
+    /// </summary>
+    private void NavClicked(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "crashes" } && _vm.CurrentPage == "crashes")
+            _vm.Crashes.CloseCaseCommand.Execute(null);
+    }
+
     private void SettingsMenu_Click(object sender, RoutedEventArgs e)
     {
         if (ReferenceEquals(e.OriginalSource, MenuUpdate)) ShowUpdateAnswer(true);

@@ -29,6 +29,7 @@ public static class DataExport
     /// <summary>Apps by their id, named as the app names them (the user's own names first).</summary>
     private sealed class Names(RigsightDb db, RigsightSettings s)
     {
+        public RigsightSettings Settings => s;
         private readonly Dictionary<long, AppRow> _apps = db.LoadApps().ToDictionary(a => a.Id);
         private readonly Dictionary<string, AppRow> _byExe = db.LoadApps().GroupBy(a => a.Exe, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -137,12 +138,20 @@ public static class DataExport
 
         [ExportTable.Crashes] = new("Crashes.csv", "Apps that crashed or stopped responding, blue screens, unexpected shutdowns and graphics driver resets.",
             [C("Time", "When it happened"), C("What", "In a sentence"), C("Kind", "The kind of problem"), C("App", "The app, if it was one"),
-             C("Program", "Its program file"), C("Module", "The file the fault was in"), C("Code", "Windows' error code"), C("Detail", "What Windows wrote down")],
-            "crashes", "ts", 180,
-            (db, from, to, n) => db.GetCrashes(from, to).OrderBy(e => e.Ts).Select(e => new object?[]
+             C("Program", "Its program file"), C("Module", "The file the fault was in"), C("Code", "Windows' error code"), C("Detail", "What Windows wrote down"),
+             C("Most likely", "What most likely happened"), C("How sure", "Named by Windows, likely, possible, or not enough to say"),
+             C("App version", "The program's version"), C("Driver", "The driver a blue screen names")],
+            "crashes", "ts", 260,
+            (db, from, to, n) =>
             {
-                Time(e.Ts), CrashExplainer.Explain(e, n.OfExe(e.AppExe)).Title, e.Kind.ToString(), n.OfExe(e.AppExe), e.AppExe, e.Module, e.Code, e.Detail,
-            })),
+                var crashes = db.GetCrashes(from, to).OrderBy(e => e.Ts).ToList();
+                var found = CrashCases.Of(db, crashes, n.Settings);
+                return crashes.Select(e => new object?[]
+                {
+                    Time(e.Ts), CrashExplainer.Explain(e, n.OfExe(e.AppExe)).Title, e.Kind.ToString(), n.OfExe(e.AppExe), e.AppExe, e.Module, e.Code, e.Detail,
+                    found.GetValueOrDefault(e.Id)?.Head, found.GetValueOrDefault(e.Id)?.Verdict, e.Facts?.AppVersion, e.Facts?.Driver,
+                });
+            }),
 
         [ExportTable.Timeline] = new("Timeline changes.csv", "What changed on the PC: drivers, Windows updates, apps installed, removed and updated, startup programs, settings, parts, drive space.",
             [C("Time", "When it changed (a change found by a check is dated when it was found)"), C("Kind", "The kind of change"), C("What", "In a sentence"),

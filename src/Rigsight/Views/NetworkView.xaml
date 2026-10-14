@@ -188,7 +188,7 @@
                 </ctl:SmoothBorder>
             </Grid>
 
-            <TextBlock Text="Nothing recorded for this period yet. Internet use is recorded while the agent runs as admin."
+            <TextBlock Text="{Binding EmptyText}"
                        Style="{StaticResource Muted}" TextWrapping="Wrap"
                        Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}" />
             <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"

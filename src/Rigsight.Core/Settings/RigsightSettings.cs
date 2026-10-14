@@ -211,8 +211,12 @@ public sealed class AlertSettings
     /// <summary>Game sessions shorter than this don't get a summary.</summary>
     public int SessionSummaryMinMinutes { get; set; } = 15;
 
-    /// <summary>Tell me what happened when an app or game crashes (off by default: nobody wants a popup right after a crash).</summary>
-    public bool CrashNotifications { get; set; }
+    /// <summary>
+    /// Tell me what happened when an app or game crashes, or the PC goes down. On by default since the notification
+    /// says what most likely happened and how sure that is (it was off before, and people took crashes "not coming up"
+    /// for Rigsight missing them). An app that crashes again within two minutes is said once, not each time (see the agent's CrashNoticeGate).
+    /// </summary>
+    public bool CrashNotifications { get; set; } = true;
 
     /// <summary>Hold recaps and summaries while a fullscreen app is in front; show them afterwards.</summary>
     public bool QuietDuringFullscreen { get; set; } = true;

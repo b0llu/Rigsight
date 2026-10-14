@@ -370,6 +370,26 @@ public sealed class KindBrushConverter : IValueConverter
 }
 
 /// <summary>A palette brush by its key ("HotBrush"…), looked up in the current theme.</summary>
+/// <summary>
+/// The colour of how sure a crash's finding is ("Named" green, "Likely" the text's own, "Possible" amber, "NotEnough"
+/// grey: none of them a part's colour, which a picked accent takes over), or
+/// with the parameter "soft" a faint wash of it for the chip's background. Also takes a palette brush's name.
+/// </summary>
+public sealed class SureBrushConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        string key = value as string switch { "Named" => "GoodBrush", "Likely" => "TextBrush", "Possible" => "WarmBrush", "NotEnough" => "MutedBrush", string other => other, _ => "MutedBrush" };
+        var brush = ResourceBrushConverter.Of(key);
+        if (parameter as string != "soft" || brush is not SolidColorBrush solid) return brush;
+        var soft = new SolidColorBrush(solid.Color) { Opacity = 0.15 };
+        soft.Freeze();
+        return soft;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 public sealed class ResourceBrushConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

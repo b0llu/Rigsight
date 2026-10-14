@@ -44,7 +44,7 @@ public static class NetInsights
         if (!r.HasData) return list;
         bool inProgress = r.From <= r.BuiltAt && r.BuiltAt < r.To;
         bool isDay = r.Range == ReportRange.Day;
-        string period = PeriodWord(r.Range, inProgress);
+        string period = PeriodWords.Said(r.Range, r.From, r.BuiltAt);
         double scale = r.Range switch { ReportRange.Day => 1, ReportRange.Week => 5, ReportRange.Month => 15, _ => double.PositiveInfinity };
 
         // 1. An app downloading a lot while you weren't using it, or weren't even there.
@@ -180,18 +180,6 @@ public static class NetInsights
         double usual = (double)db.GetNetDrops(from, to).Count / days;
         return r.Drops.Count > usual * 2;
     }
-
-    private static string PeriodWord(ReportRange range, bool inProgress) => (range, inProgress) switch
-    {
-        (ReportRange.Day, true) => "today",
-        (ReportRange.Day, false) => "that day",
-        (ReportRange.Week, true) => "this week",
-        (ReportRange.Week, false) => "that week",
-        (ReportRange.Month, true) => "this month",
-        (ReportRange.Month, false) => "that month",
-        (_, true) => "this year",
-        _ => "that year",
-    };
 
     private static string Span(int days) => days switch { 30 => "a month", 90 => "three months", _ => "a year" };
 

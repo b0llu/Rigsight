@@ -15,6 +15,9 @@ public sealed class FolderNode
     public List<FolderNode> Children { get; set; } = [];
     /// <summary>True for "files in this folder" and "smaller items" buckets (not real folders).</summary>
     public bool IsBucket { get; init; }
+    /// <summary>There is something inside to show: a folder with folders or files of its own. Not the two buckets.</summary>
+    public bool CanOpen => Children.Count > 0;
+    public string FilesText => Files == 1 ? "1 file" : $"{Files:N0} files";
     public double Share => Parent is { Size: > 0 } p ? 100.0 * Size / p.Size : 100;
 }
 
@@ -52,7 +55,9 @@ public static class StorageScanner
     private const int KeepChildren = 60;
     private const int KeepLargestFiles = 40;
 
-    public static Task<ScanResult> ScanAsync(string root, IProgress<(long Files, long Bytes)> progress, CancellationToken ct) =>
+    /// <param name="hold">While reset, the scan waits (between folders): the drive is left to something the user is
+    /// waiting on, such as the Recycle Bin being emptied.</param>
+    public static Task<ScanResult> ScanAsync(string root, IProgress<(long Files, long Bytes)> progress, CancellationToken ct, ManualResetEventSlim? hold = null) =>
         Task.Run(() =>
         {
             var started = DateTime.Now;
@@ -66,6 +71,7 @@ public static class StorageScanner
             FolderNode Walk(string path, string name, FolderNode? parent, int depth)
             {
                 ct.ThrowIfCancellationRequested();
+                hold?.Wait(ct);
                 var node = new FolderNode { Name = name, Path = path, Parent = parent };
                 long directSize = 0, directFiles = 0;
                 var subdirs = new List<string>();

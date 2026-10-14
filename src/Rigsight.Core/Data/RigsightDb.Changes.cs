@@ -192,6 +192,22 @@ public sealed partial class RigsightDb
     }
 
     /// <summary>The PC as last read: its apps, startup programs, hardware and settings.</summary>
+    /// <summary>The oldest change on record (Unix seconds), or null.</summary>
+    public long? FirstChangeTime()
+    {
+        if (!HasChanges) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM changes");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    /// <summary>One thing the inventory holds a single value for ("ram": "16 GB"), or null.</summary>
+    public string? GetInventoryValue(string kind)
+    {
+        if (!HasChanges) return null;
+        using var cmd = Cmd("SELECT value FROM inventory WHERE kind = $kind LIMIT 1", ("$kind", kind));
+        return cmd.ExecuteScalar() as string;
+    }
+
     public List<InventoryItem> GetInventory()
     {
         if (!HasChanges) return [];

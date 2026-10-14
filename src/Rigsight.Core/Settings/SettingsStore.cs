@@ -93,7 +93,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 9;
+    private const int CurrentVersion = 10;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -152,6 +152,9 @@ public static class SettingsStore
         if (s.SettingsVersion is > 0 and < 8) s.WhatsNewSeen ??= "0.6.3";
         // v9: grayscale taskbar readings. A new install starts in grayscale; an earlier setup keeps its colours.
         if (s.SettingsVersion is > 0 and < 9) s.TrayGrayscale = false;
+        // v10: crash alerts are on by default, and turned on once for setups from before: there it was off unless
+        // someone had found the switch, and a crash with no word from Rigsight read as one it had missed.
+        if (s.SettingsVersion is > 0 and < 10) s.Alerts.CrashNotifications = true;
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;

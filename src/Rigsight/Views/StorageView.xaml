@@ -38,7 +38,7 @@
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
                                             Command="{Binding DataContext.ScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding Root}">
+                                            CommandParameter="{Binding Root}" AutomationProperties.Name="{Binding ScanName}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
                                             <TextBlock Text="See what's inside" />
@@ -103,15 +103,16 @@
                         <ItemsControl ItemsSource="{Binding Live.Drives}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource Tile}" Margin="0,5">
+                                    <Border Style="{StaticResource Tile}" Margin="0,5" Padding="16,14">
                                         <DockPanel>
-                                            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Background="Transparent"
+                                            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,2,0" Background="Transparent"
                                                         Visibility="{Binding HasHealth, Converter={StaticResource Vis}}" ToolTip="{Binding HealthToolTip}">
                                                 <TextBlock Text="{Binding HealthText}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"
                                                            Foreground="{Binding HealthBrush}" />
                                                 <TextBlock Text="HEALTH" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                                             </StackPanel>
-                                            <StackPanel>
+                                            <!-- In the middle of the tile's height, like the figure beside it (it sat at the top, with the room under it). -->
+                                            <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                                 <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                     <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,0,14,0"
@@ -179,9 +180,10 @@
                                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Margin="12,0,0,0" VerticalAlignment="Center"
                                                 Command="{Binding DataContext.CleanupActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}">
+                                            <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
                                             <Grid>
-                                                <TextBlock Text="Open" Visibility="{Binding IsRecycleBin, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                                <TextBlock Text="Empty" Visibility="{Binding IsRecycleBin, Converter={StaticResource Vis}}" />
+                                                <TextBlock x:Name="Word" Text="{Binding ActionText}" />
+                                                <ctl:Spinner x:Name="Busy" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
                                             </Grid>
                                         </Button>
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -190,6 +192,12 @@
                                             <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </DockPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Busy}" Value="True">
+                                            <Setter TargetName="Word" Property="Visibility" Value="Hidden" />
+                                            <Setter TargetName="Busy" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -203,8 +211,9 @@
             <ctl:SmoothBorder x:Name="Scanner" Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,12">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0" Visibility="{Binding Result, Converter={StaticResource Vis}}">
+                        <!-- One row, one height: the choice of view, then what can be done (they sat on two rows at three heights). -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Style="{StaticResource SegmentHost}" Height="34" Margin="0,0,8,0" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="Map"
                                                  IsChecked="{Binding ScanView, Converter={StaticResource Equals}, ConverterParameter=Map}" />
@@ -214,13 +223,20 @@
                                                  IsChecked="{Binding ScanView, Converter={StaticResource Equals}, ConverterParameter=Files}" />
                                 </StackPanel>
                             </Border>
-                            <Button Style="{StaticResource GhostButton}" Command="{Binding ChooseFolderCommand}">
+                            <Button Style="{StaticResource GhostButton}" Height="34" Margin="0,0,8,0" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
+                                    Visibility="{Binding ShowResult, Converter={StaticResource Vis}}" ToolTip="Open the folder shown here in Explorer">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="Open in Explorer" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostButton}" Height="34" Command="{Binding ChooseFolderCommand}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
                                     <TextBlock Text="Scan a folder…" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Command="{Binding CancelScanCommand}" Content="Cancel" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Height="34" Command="{Binding CancelScanCommand}" Content="Cancel" Margin="8,0,0,0"
                                     Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
                         </StackPanel>
                         <StackPanel>
@@ -236,33 +252,51 @@
                                Style="{StaticResource Muted}" TextWrapping="Wrap"
                                Visibility="{Binding Result, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
 
-                    <StackPanel Visibility="{Binding Result, Converter={StaticResource Vis}}">
-                        <!-- Breadcrumbs -->
-                        <DockPanel Margin="0,0,0,10">
+                    <!-- Another drive or folder is being scanned: what was here would read as its contents. The box keeps its
+                         size, so nothing below moves when the scan lands. -->
+                    <Grid ctl:Roomy.Height="458" Visibility="{Binding ShowScanLoader, Converter={StaticResource Vis}}">
+                        <ctl:Spinner Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <StackPanel Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
+                        <!-- Where the folders shown are. The largest files are of the whole scan, so there it says that. -->
+                        <TextBlock Text="{Binding FilesTitle}" Style="{StaticResource Muted}" Height="28" Margin="0,0,0,10" Padding="0,6,0,0"
+                                   Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=Files}" />
+                        <DockPanel Height="28" Margin="0,0,0,10">
+                            <DockPanel.Style>
+                                <Style TargetType="DockPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ScanView}" Value="Files">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DockPanel.Style>
                             <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" ToolTip="Up one level">
                                 <TextBlock Text="&#xE74A;" />
                             </Button>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                    <TextBlock Text="Open in Explorer" />
-                                </StackPanel>
-                            </Button>
-                            <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" Margin="8,0">
+                            <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" Margin="8,0" AlternationCount="1000">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <WrapPanel />
+                                        <!-- One line: a deep path doesn't push the box below it down. -->
+                                        <StackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
+                                            <!-- The arrow is between two folders: none before the first (there was one after the last). -->
+                                            <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource FaintBrush}" Margin="2,0" />
                                             <Button Style="{StaticResource IconButton}" Width="Auto" Padding="6,0"
                                                     Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="13" Margin="6,0" Foreground="{DynamicResource TextBrush}" />
                                             </Button>
-                                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource FaintBrush}" Margin="2,0" />
                                         </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                                <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -272,13 +306,19 @@
                         <ctl:Treemap x:Name="Map" ctl:Roomy.Height="420" Items="{Binding CurrentItems}"
                                      Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=Map}" />
 
-                        <!-- List -->
-                        <ItemsControl ItemsSource="{Binding CurrentItems}" Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=List}">
+                        <!-- List: a box of the map's height that scrolls, so a folder of two things and one of sixty take the
+                             same room (the page jumped at every folder opened). A row takes its width from the box: told its
+                             width by a binding, rows made while the list was hidden (on Largest files) had none, and the list
+                             came back empty. -->
+                        <ScrollViewer x:Name="ListBox" Style="{StaticResource CardScroll}" ctl:Roomy.Height="420" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=List}">
+                        <ItemsControl ItemsSource="{Binding CurrentItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource GhostButton}" Background="Transparent" HorizontalContentAlignment="Stretch" Margin="0,1"
+                                    <!-- "Files in this folder" and "N smaller folders" have nothing to open: no hand, no shade. -->
+                                    <Button Style="{StaticResource FlatRowButton}" Margin="0,1" IsEnabled="{Binding CanOpen}"
                                             Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                        <Grid Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Margin="-14,0">
+                                        <Grid Margin="0,8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="30" />
                                                 <ColumnDefinition Width="2*" />
@@ -286,19 +326,29 @@
                                                 <ColumnDefinition Width="100" />
                                                 <ColumnDefinition Width="110" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}" Margin="12,0,0,0" />
+                                            <TextBlock x:Name="Glyph" Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}" Margin="12,0,0,0" />
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="8,0" />
                                             <ProgressBar Grid.Column="2" Style="{StaticResource Bar}" Value="{Binding Share, Mode=OneWay}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="3" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Body}" FontWeight="SemiBold" HorizontalAlignment="Right" />
-                                            <TextBlock Grid.Column="4" Text="{Binding Files, StringFormat='{}{0:N0} files'}" Style="{StaticResource Muted}" HorizontalAlignment="Right" Margin="0,0,24,0" />
+                                            <TextBlock Grid.Column="4" Text="{Binding FilesText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" Margin="0,0,14,0" />
                                         </Grid>
                                     </Button>
+                                    <DataTemplate.Triggers>
+                                        <!-- Loose files, not a folder. -->
+                                        <DataTrigger Binding="{Binding IsBucket}" Value="True">
+                                            <Setter TargetName="Glyph" Property="Text" Value="&#xE7C3;" />
+                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </ScrollViewer>
 
                         <!-- Largest files -->
-                        <ItemsControl ItemsSource="{Binding Result.LargestFiles}" Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=Files}">
+                        <ScrollViewer Style="{StaticResource CardScroll}" ctl:Roomy.Height="420" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding ScanView, Converter={StaticResource EqualsVis}, ConverterParameter=Files}">
+                        <ItemsControl ItemsSource="{Binding Result.LargestFiles}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,5">
@@ -316,6 +366,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </ScrollViewer>
                     </StackPanel>
                 </StackPanel>
             </ctl:SmoothBorder>

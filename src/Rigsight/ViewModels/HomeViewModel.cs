@@ -276,12 +276,15 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             var changes = db.GetChanges(from, to);
             changes.AddRange(StorageChanges.From(db.GetDriveDays(from - 86400)).Where(c => c.Time >= now.Date.AddDays(-30)));
             var crashes = db.GetCrashes(TimeUtil.ToUnix(now.Date.AddDays(-6)), to).Where(e => !s.IsCrashMuted(e.AppExe)).ToList();
-            return (Changes: changes, Shutdowns: crashes.Count(IsPcDown), Crashes: crashes.Count(e => !IsPcDown(e)));
+            // A shut-off that was most likely the mains is no fault of the PC's: counted, and said, apart.
+            var found = CrashCases.Of(db, crashes, s);
+            bool Mains(CrashEvent e) => IsPcDown(e) && found.GetValueOrDefault(e.Id) is { Outside: true };
+            return (Changes: changes, Shutdowns: crashes.Count(e => IsPcDown(e) && !Mains(e)), Crashes: crashes.Count(e => !IsPcDown(e)), Mains: crashes.Count(Mains));
         });
         Changes = Kept.Or(Changes, ChangeLines(read.Changes ?? [], now.Date));
         Health = Kept.Or(Health, HealthLines(read.Shutdowns, read.Crashes, Live.Drives, FullestVolume(),
             Today?.Insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older")?.Text,
-            Live.AllSensors.Count(x => x.Kind == SensorKind.Fan && x.Value >= FanCard.MinSpinRpm)));
+            Live.AllSensors.Count(x => x.Kind == SensorKind.Fan && x.Value >= FanCard.MinSpinRpm), read.Mains));
     }
 
     /// <summary>The PC itself went down (a blue screen, an unexpected shutdown while running), not one app.</summary>
@@ -336,16 +339,19 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     internal static string VolumeText(string root, long usedBytes, long totalBytes) =>
         $"{root.TrimEnd('\\').TrimEnd(':')} drive: {usedBytes / 1073741824.0:0} of {totalBytes / 1073741824.0:0} GB used";
 
-    internal static List<HomeLine> HealthLines(int shutdowns, int crashes, IEnumerable<DriveSummary> drives, string? fullest, string? fanWarning, int fansSpinning)
+    /// <param name="mains">Shut-offs that were most likely power cuts (not among <paramref name="shutdowns"/>).</param>
+    internal static List<HomeLine> HealthLines(int shutdowns, int crashes, IEnumerable<DriveSummary> drives, string? fullest, string? fanWarning, int fansSpinning, int mains = 0)
     {
         const string Week = "In the last 7 days";
         var lines = new List<HomeLine>();
         static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
-        if (shutdowns + crashes == 0) lines.Add(new("\uE73E", "GoodBrush", "No crashes or sudden shutdowns", Week));
+        if (shutdowns + crashes + mains == 0) lines.Add(new("\uE73E", "GoodBrush", "No crashes or sudden shutdowns", Week));
         else
-            lines.Add(new("\uE7BA", "WarmBrush", string.Join(", ", new[]
+            // Only likely power cuts: said, without the warning's colour.
+            lines.Add(new(shutdowns + crashes == 0 ? "\uE7E8" : "\uE7BA", shutdowns + crashes == 0 ? "MutedBrush" : "WarmBrush", string.Join(", ", new[]
             {
                 shutdowns > 0 ? Count(shutdowns, "time the PC went down", "times the PC went down") : null,
+                mains > 0 ? Count(mains, "shut-off that looks like a power cut", "shut-offs that look like power cuts") : null,
                 crashes > 0 ? Count(crashes, "app crash", "app crashes") : null,
             }.Where(t => t is not null)), Week));
 

@@ -64,8 +64,8 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Nothing recorded for this period" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="No data for this period: the PC was off, or the background agent wasn't running. Pick another period."
+                    <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
+                    <TextBlock Text="The PC was off, or the background agent wasn't running. Pick another period."
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
             </ctl:SmoothBorder>

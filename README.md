@@ -101,7 +101,7 @@ To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (
 
 Rigsight is free and made by one person. If it's useful to you, you can buy me a coffee.
 
-<a href="https://buymeacoffee.com/bollu"><img alt="Buy me a coffee" height="44" src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=bollu&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" /></a>
+<a href="https://buymeacoffee.com/bollu"><img alt="Buy me a coffee" height="44" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" /></a>
 
 ## License
 

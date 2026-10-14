@@ -81,7 +81,7 @@
                            Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
                 <TextBlock Grid.Column="2" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}">
                     <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}"
-                        Command="{Binding DataContext.OpenCrashesCommand, ElementName=Page}" CommandParameter="{Binding}">See on Crashes</Hyperlink>
+                        Command="{Binding DataContext.OpenCrashesCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="{Binding OpenText, Mode=OneWay}" /></Hyperlink>
                 </TextBlock>
             </Grid>
         </DataTemplate>

@@ -68,6 +68,7 @@
     <conv:InitialConverter x:Key="Initial" />
     <conv:ToneBrushConverter x:Key="ToneBrush" />
     <conv:SeverityBrushConverter x:Key="SeverityBrush" />
+    <conv:SureBrushConverter x:Key="SureBrush" />
     <conv:FractionConverter x:Key="Fraction" />
     <conv:ResourceBrushConverter x:Key="ResourceBrush" />
     <conv:InsightBrushConverter x:Key="InsightBrush" />
@@ -458,6 +459,11 @@
     </Style>
     <Style x:Key="Segment" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <!-- The text changes in step with the shade behind it (see NavInk): under the pointer, and when picked. -->
+        <Setter Property="ctl:NavInk.Follows" Value="True" />
+        <Setter Property="ctl:NavInk.Checked" Value="SegmentOnTextBrush" />
+        <!-- The picked shade says where the keyboard is: Windows' own outline doesn't follow the rounded shape. -->
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
@@ -482,14 +488,6 @@
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource SegmentOnTextBrush}" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -539,6 +537,9 @@
     <Style x:Key="ActionButton" TargetType="Button">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <!-- The text brightens and dims in step with the shade behind it (see NavInk): set by a trigger it changed at
+             once while the shade was still fading, and the two out of step looked like a stutter. -->
+        <Setter Property="ctl:NavInk.Follows" Value="True" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Margin" Value="0,0,4,0" />
@@ -567,11 +568,6 @@
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -816,40 +812,118 @@
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
     </Style>
-    <!-- ── Crash card (Reports and Crashes pages) ─────────────────────── -->
+    <!-- A whole row that opens: quiet until hovered. -->
+    <!-- A list row that opens something: nothing behind it until the pointer is on it, and its content takes the row's
+         whole width (GhostButton centres its content, so a row made of one had to be told its width). -->
+    <Style x:Key="FlatRowButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="9" Opacity="0" />
+                        <ContentPresenter />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="RowButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="12" />
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="12" Opacity="0" />
+                        <ContentPresenter />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── A crash as a row (Reports): what it was, what most likely happened and how sure that is. It opens the
+         crash's own case on the Crashes page. ── -->
     <DataTemplate x:Key="CrashTemplate">
-        <Border CornerRadius="12" Background="{DynamicResource Surface2Brush}" Padding="16,14" Margin="0,0,0,10">
+        <Button Style="{StaticResource RowButton}" Margin="0,0,0,8" AutomationProperties.Name="{Binding Title}"
+                Command="{Binding DataContext.OpenCaseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="4" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" VerticalAlignment="Top">
+                <Border Background="{Binding Severity, Converter={StaticResource SeverityBrush}}" CornerRadius="12,0,0,12" />
+                <Border Grid.Column="1" Width="36" Height="36" CornerRadius="9" VerticalAlignment="Center" Margin="14,0,0,0"
+                        Background="{Binding Severity, Converter={StaticResource SeverityBrush}, ConverterParameter=soft}">
                     <Grid>
-                        <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="17" HorizontalAlignment="Center" Foreground="{DynamicResource WarmBrush}" />
-                        <Image Source="{Binding IconPath, Converter={StaticResource ExeIcon}}" Width="26" Height="26" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="16" HorizontalAlignment="Center"
+                                   Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />
+                        <Image Source="{Binding IconPath, Converter={StaticResource ExeIcon}}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
                     </Grid>
                 </Border>
-                <StackPanel Grid.Column="1" Margin="14,0,0,0">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <Border CornerRadius="6" Padding="7,2" Margin="10,0,0,0" Background="{DynamicResource WarmSoftBrush}" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding KindLabel}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarmBrush}" />
-                            </Border>
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding Reason}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                    <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0">
-                        <Run Text="What to try: " FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" /><Run Text="{Binding Advice, Mode=OneWay}" />
-                    </TextBlock>
-                    <TextBlock Text="{Binding TempsText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"
-                               Visibility="{Binding TempsText, Converter={StaticResource Vis}}" />
-                    <TextBlock Text="{Binding TechnicalText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
-                               Visibility="{Binding TechnicalText, Converter={StaticResource Vis}}" />
+                <StackPanel Grid.Column="2" Margin="14,11,12,11" VerticalAlignment="Center">
+                    <WrapPanel>
+                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Border Style="{StaticResource Chip}" Margin="0,1,6,1"
+                                Background="{Binding Severity, Converter={StaticResource SeverityBrush}, ConverterParameter=soft}">
+                            <TextBlock Text="{Binding KindLabel}" FontSize="10" FontWeight="Bold" Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />
+                        </Border>
+                        <Border Style="{StaticResource Chip}" Margin="0,1,6,1" Background="{Binding Sure, Converter={StaticResource SureBrush}, ConverterParameter=soft}"
+                                Visibility="{Binding HasFinding, Converter={StaticResource Vis}}" ToolTip="How sure Rigsight is of what happened, by what it rests on">
+                            <TextBlock Text="{Binding Chip}" FontSize="10" FontWeight="Bold" Foreground="{Binding Sure, Converter={StaticResource SureBrush}}" />
+                        </Border>
+                    </WrapPanel>
+                    <TextBlock Text="{Binding Line}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
+                <TextBlock Grid.Column="3" Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="14,0,16,0" />
             </Grid>
-        </Border>
+        </Button>
     </DataTemplate>
 </ResourceDictionary>

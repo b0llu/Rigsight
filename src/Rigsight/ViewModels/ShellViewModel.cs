@@ -28,14 +28,14 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Home = new HomeViewModel(Reports, Live);
-        ReportsPage = new ReportsViewModel(Reports);
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash };
         Apps = new AppsViewModel(Reports, Settings);
         Crashes = new CrashesViewModel(Reports, Settings);
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>
         {
             Crashes.ShowDay(day);
             CurrentPage = "crashes";
-        }, scan: ScanNowAsync);
+        }, scan: ScanNowAsync, openCrash: OpenCrash);
         Memory = new MemoryViewModel(Reports, Live);
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);
@@ -545,10 +545,24 @@ public sealed partial class ShellViewModel : ObservableObject
         _ => null,
     };
 
+    /// <summary>Opens the crash that happened at <paramref name="time"/> as its own case on the Crashes page.</summary>
+    private void OpenCrash(DateTime time)
+    {
+        CurrentPage = "crashes";
+        _ = Crashes.ShowCrashAsync(time);
+    }
+
     public void Navigate(string? page, string? arg)
     {
         if (!string.IsNullOrEmpty(page))
         {
+            // A crash's notification: that crash, opened (its time, in ticks).
+            if (page == "crashes" && long.TryParse(arg, out long ticks) && ticks > 0 && ticks < DateTime.MaxValue.Ticks)
+            {
+                OpenCrash(new DateTime(ticks));
+                ActivateRequested?.Invoke();
+                return;
+            }
             // The recap of a whole period: last week, month or year.
             if (page == "reports" && RecapPeriodOf(arg) is { } period)
             {

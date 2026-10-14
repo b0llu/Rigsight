@@ -41,11 +41,32 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
     public string Title => string.IsNullOrWhiteSpace(Label) ? $"Local disk ({Root.TrimEnd('\\')})" : $"{Label} ({Root.TrimEnd('\\')})";
     public string UsageText => $"{Units.Bytes(Used)} used of {Units.Bytes(Total)}";
     public string FreeText => $"{Units.Bytes(Free)} free";
+    /// <summary>What its scan button is called for a screen reader: each drive's button says the same words.</summary>
+    public string ScanName => $"See what's inside {Root.TrimEnd('\\')}";
 }
 
-public sealed record CleanupItem(string Title, string Description, long Size, string? Path, bool IsRecycleBin)
+public sealed record CleanupItem(string Title, string Description, long Size, string? Path, bool IsRecycleBin) : System.ComponentModel.INotifyPropertyChanged
 {
+    private bool _busy;
+
     public string SizeText => Units.Bytes(Size);
+
+    /// <summary>What its button says: the Recycle Bin is emptied, anything else is opened for the user to look at.</summary>
+    public string ActionText => IsRecycleBin ? "Empty" : "Open";
+
+    /// <summary>Its button was pressed and Windows is still at it (the Recycle Bin being emptied).</summary>
+    public bool Busy
+    {
+        get => _busy;
+        set
+        {
+            if (_busy == value) return;
+            _busy = value;
+            PropertyChanged?.Invoke(this, new(nameof(Busy)));
+        }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }
 
 public sealed partial class StorageViewModel(ReportService reports, LiveData live) : ObservableObject
@@ -58,9 +79,25 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     public ObservableCollection<FolderNode> Breadcrumbs { get; } = [];
 
     [ObservableProperty] private bool _cleanupLoading;
-    [ObservableProperty] private bool _isScanning;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowResult), nameof(ShowScanLoader))] private bool _isScanning;
     [ObservableProperty] private string _scanStatus = "";
-    [ObservableProperty] private ScanResult? _result;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowResult), nameof(ShowScanLoader), nameof(FilesTitle))] private ScanResult? _result;
+
+    /// <summary>What the scan now running reads, while it isn't what is on screen (another drive, another folder).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowResult), nameof(ShowScanLoader))] private bool _scanningElsewhere;
+
+    /// <summary>
+    /// The last scan is on screen: not while a scan of something else runs (the user: scanning E: with C:'s folders
+    /// still listed under "Scanning E:"). It comes back if that scan is cancelled; the Refresh button's scan of the
+    /// same place keeps it up.
+    /// </summary>
+    public bool ShowResult => Result is not null && !(IsScanning && ScanningElsewhere);
+
+    /// <summary>The box holds a loader: a scan of something else is running where a result was.</summary>
+    public bool ShowScanLoader => Result is not null && IsScanning && ScanningElsewhere;
+
+    /// <summary>Above the largest files, where the folders' path is in the other two views: they are of the whole scan.</summary>
+    public string FilesTitle => Result is { } r ? $"The {r.LargestFiles.Count} largest files in {r.Root.Path}" : "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentItems), nameof(CanGoUp))]
@@ -178,6 +215,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         // A scan started while another runs takes over: the one it replaced ends without touching what's on screen
         // (it used to say "Scan cancelled." and hide the progress and Cancel button of the scan still going).
         var scan = _scanCts = new CancellationTokenSource();
+        ScanningElsewhere = Result is { } shown && !string.Equals(shown.Root.Path.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
         IsScanning = true;
         ScanStatus = $"Scanning {root}…";
         // A drive's own card says so too (the drives may be read again meanwhile: the card is found by its drive each time).
@@ -192,7 +230,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         });
         try
         {
-            var result = await StorageScanner.ScanAsync(root, progress, scan.Token);
+            var result = await StorageScanner.ScanAsync(root, progress, scan.Token, _hold);
             if (_scanCts != scan) return;
             Result = result;
             Breadcrumbs.Clear();
@@ -227,7 +265,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     [RelayCommand]
     public void Open(FolderNode? node)
     {
-        if (node is null || node.Children.Count == 0) return;
+        if (node is null || !node.CanOpen) return;
         Current = node;
         Breadcrumbs.Clear();
         for (var n = node; n is not null; n = n.Parent) Breadcrumbs.Insert(0, n);
@@ -251,17 +289,54 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         catch { }
     }
 
+    /// <summary>A running scan waits while this is reset (see <see cref="CleanupAction"/>).</summary>
+    private readonly ManualResetEventSlim _hold = new(true);
+
+    /// <summary>Empties the Recycle Bin, with Windows' own question and progress; true once emptied (tests swap it).</summary>
+    internal Func<IntPtr, bool> EmptyBin { get; set; } = StorageScanner.EmptyRecycleBin;
+
+    /// <summary>
+    /// A cleanup row's button. Emptying the Recycle Bin can take minutes, so it never runs on the window's own thread
+    /// (the window stopped answering until Windows was done), and a scan under way waits meanwhile: four threads
+    /// reading the same drive made the deleting crawl. After it the drives' free space is read again.
+    /// </summary>
     [RelayCommand]
-    private void CleanupAction(CleanupItem? item)
+    private async Task CleanupAction(CleanupItem? item)
     {
-        if (item is null) return;
-        if (item.IsRecycleBin)
+        if (item is null || item.Busy) return;
+        if (!item.IsRecycleBin)
         {
-            var owner = new WindowInteropHelper(Application.Current.MainWindow).Handle;
-            if (StorageScanner.EmptyRecycleBin(owner)) Cleanup.Remove(item);
+            Reveal(item.Path);
             return;
         }
-        Reveal(item.Path);
+        var owner = Application.Current?.MainWindow is { } window ? new WindowInteropHelper(window).Handle : IntPtr.Zero;
+        item.Busy = true;
+        _hold.Reset();
+        bool emptied;
+        try { emptied = await OnOwnThread(() => EmptyBin(owner)); }
+        catch { emptied = false; }
+        finally
+        {
+            _hold.Set();
+            item.Busy = false;
+        }
+        if (!emptied) return;
+        Cleanup.Remove(item);
+        await LoadVolumesAsync();
+    }
+
+    /// <summary>Runs shell work on a thread of its own, set up as the shell wants one (single-threaded apartment).</summary>
+    private static Task<T> OnOwnThread<T>(Func<T> work)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try { done.SetResult(work()); }
+            catch (Exception ex) { done.SetException(ex); }
+        }) { IsBackground = true, Name = "Rigsight shell work" };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return done.Task;
     }
 
     /// <summary>

@@ -176,3 +176,109 @@ public class NotificationTests
         Assert.Equal(1, c.Held);
     }
 }
+
+/// <summary>What the notification for an app that closed unexpectedly says: its case's own finding, or nothing it didn't read.</summary>
+public class CrashNoticeTests
+{
+    [Fact]
+    public void It_says_the_finding_with_how_sure_that_is_then_how_long_it_was_in_use()
+    {
+        var crash = new Rigsight.Core.Stability.CrashEvent
+        {
+            Kind = Rigsight.Core.Stability.CrashKind.AppCrash, AppExe = "RocketLeague.exe", Module = "unknown",
+            Facts = new Rigsight.Core.Stability.CrashFacts { RanSec = 33 },
+        };
+        var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
+            crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Rocket League"), new AlertSettings()) { AppName = "Rocket League" });
+        Assert.Equal("Rocket League stopped as it was starting. Likely at start-up. You played for 33s. Click for the full picture.",
+            CrashNotices.Body(finding, game: true, activeSec: 33));
+    }
+
+    [Fact]
+    public void Too_little_on_record_is_said_as_that_and_never_as_a_cause()
+    {
+        var crash = new Rigsight.Core.Stability.CrashEvent { Kind = Rigsight.Core.Stability.CrashKind.AppHang, AppExe = "game.exe" };
+        var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
+            crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Game"), new AlertSettings()) { AppName = "Game" });
+        string body = CrashNotices.Body(finding, game: false, activeSec: 2880);
+        Assert.Equal("Game stopped responding. Windows didn't record what it was waiting for. Not enough to say why. You used it for 48m. Click for the full picture.", body);
+        Assert.DoesNotContain("Likely cause", body);
+    }
+
+    [Fact]
+    public void A_crash_that_could_not_be_stored_only_says_it_happened()
+    {
+        Assert.Equal("You played for 48m. Click to see what most likely happened.", CrashNotices.Body(null, game: true, activeSec: 2880));
+        // The example in Settings is a made-up crash through the real rules: what it shows is what would be sent.
+        Assert.Equal("Dota 2 crashed inside the NVIDIA driver. Named by Windows. You played for 48m. Click for the full picture.", CrashNotices.Sample);
+        // The second look comes once Windows has had time to file its report.
+        Assert.InRange(CrashNotices.SecondLook.TotalSeconds, 10, 60);
+    }
+}
+
+/// <summary>An app that keeps crashing is said once; crash alerts are on unless switched off.</summary>
+public class CrashNoticeGateTests
+{
+    private static readonly DateTime T = new(2026, 10, 13, 21, 0, 0);
+
+    [Fact]
+    public void The_first_crash_is_always_said_and_the_same_app_crashing_again_is_not()
+    {
+        var gate = new CrashNoticeGate();
+        Assert.True(gate.Allow("game.exe", T));
+        // Dying at every start, seconds apart: nothing more.
+        Assert.False(gate.Allow("game.exe", T.AddSeconds(9)));
+        Assert.False(gate.Allow("GAME.EXE", T.AddSeconds(40)));
+        // Another app is its own first.
+        Assert.True(gate.Allow("other.exe", T.AddSeconds(41)));
+        Assert.False(gate.Allow("game.exe", T + CrashNoticeGate.Quiet - TimeSpan.FromSeconds(1)));
+        // The crashes that weren't said don't lengthen the quiet: two minutes after the one that was, it is said again,
+        // though the last crash was a second ago.
+        Assert.True(gate.Allow("game.exe", T + CrashNoticeGate.Quiet));
+        // And that one starts its own two minutes.
+        Assert.False(gate.Allow("game.exe", T + CrashNoticeGate.Quiet + TimeSpan.FromSeconds(30)));
+        Assert.Equal(TimeSpan.FromMinutes(2), CrashNoticeGate.Quiet);
+    }
+
+    [Fact]
+    public void The_same_crash_seen_twice_is_said_once()
+    {
+        // Two sessions of one app ending around a crash both find it in Windows' log.
+        var gate = new CrashNoticeGate();
+        Assert.True(gate.Allow("game.exe", T));
+        Assert.False(gate.Allow("game.exe", T));
+    }
+
+    [Fact]
+    public void Crash_alerts_are_on_for_a_new_install_turned_on_once_for_an_earlier_one_and_stay_off_once_switched_off()
+    {
+        Assert.True(new RigsightSettings().Alerts.CrashNotifications);
+        // From before they were on by default: off there meant nobody had found the switch.
+        Assert.True(SettingsStore.Deserialize("""{ "SettingsVersion": 9, "Alerts": { "CrashNotifications": false } }""").Alerts.CrashNotifications);
+        // Switched off after that: left off.
+        Assert.False(SettingsStore.Deserialize("""{ "SettingsVersion": 10, "Alerts": { "CrashNotifications": false } }""").Alerts.CrashNotifications);
+    }
+}
+
+/// <summary>How far back the agent's first crash scan after starting reads Windows' logs.</summary>
+public class CrashScanReachTests
+{
+    private static readonly DateTime Now = new(2026, 10, 13, 21, 0, 0);
+    private static string At(DateTime t) => Rigsight.Core.Data.TimeUtil.ToUnix(t).ToString();
+
+    [Fact]
+    public void A_day_before_the_last_scan_and_never_more_than_ninety_days()
+    {
+        // Never scanned (or a value that can't be read): the 90 days.
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom(null, Now));
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom("soon", Now));
+        // Scanned ten minutes before a restart: a day and ten minutes, not 90 days.
+        Assert.Equal(Now.AddMinutes(-10).AddDays(-1), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddMinutes(-10)), Now));
+        // Off for a fortnight: from a day before it was last on.
+        Assert.Equal(Now.AddDays(-15), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(-14)), Now));
+        // Off for half a year: Windows' logs are read 90 days back, as on a PC never scanned.
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(-180)), Now));
+        // A clock that was set back since: a day, not nothing.
+        Assert.Equal(Now.AddDays(-1), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(3)), Now));
+    }
+}

@@ -49,6 +49,9 @@ internal sealed class TrackerRig : IDisposable
     /// <summary>Each running app's share of the GPU (default: none).</summary>
     public Dictionary<string, double> GpuUsage { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>What each running app reads and writes, in bytes a second (none unless set).</summary>
+    public Dictionary<string, double> DiskUsage { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public KeyValues Keys { get; set; }
 
     /// <summary>The fans, as read with the sensors (default: none).</summary>
@@ -146,7 +149,9 @@ internal sealed class TrackerRig : IDisposable
         foreach (var exe in Running)
         {
             var (cpu, mem) = Usage.TryGetValue(exe, out var u) ? u : (5.0, 300.0);
-            snapshot.Apps[exe] = new AppUsage { Exe = exe, FirstPid = 0, Count = 1, Cpu = cpu, MemMB = mem };
+            double disk = DiskUsage.GetValueOrDefault(exe);
+            snapshot.Apps[exe] = new AppUsage { Exe = exe, FirstPid = 0, Count = 1, Cpu = cpu, MemMB = mem, Disk = disk };
+            snapshot.Disk += disk;
             if (GpuUsage.TryGetValue(exe, out var gpu)) snapshot.Gpu[exe] = gpu;
         }
         return snapshot;

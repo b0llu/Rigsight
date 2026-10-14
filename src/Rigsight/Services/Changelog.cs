@@ -92,6 +92,23 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.24.0", 10, 14,
+            feature: new("Crash causes", "Every crash now says what most likely caused it, how sure that is, and what it rests on.",
+                ["Open a crash to see what points to the cause, what it wasn't, and what is still unknown.",
+                    "The 45 minutes before a crash show temperatures, load, power, memory, fans, drives and network, with the apps doing the work.",
+                    "Point at any minute to see every reading from it, including each app's share of the CPU, GPU and memory.",
+                    "Copy a crash as a report for a forum post, or search the web for it."],
+                "crashes", "\uE7BA", isPage: false) { OpenText = "Open Crashes" },
+            added: ["Crash notifications are on and say what most likely happened, and an app that keeps crashing is announced once.",
+                "Reports lists the period's crashes with their likely cause, and each one opens straight into its details.",
+                "Each minute now records drive activity, GPU memory in use, memory promised to apps and battery charge."],
+            better: ["Home, Reports, the Timeline and exports give the same cause for a crash as the Crashes page.",
+                "The Crashes page leads with the most serious problem of the period and says which shut-offs were likely power cuts.",
+                "Today and yesterday are called that across the app, instead of \"that day\".",
+                "Dropdowns and right-click menus take the colours of your theme and accent."],
+            fixedBugs: ["Storage's list no longer comes up empty after switching from Largest files and going back a folder.",
+                "Emptying the Recycle Bin from Storage no longer freezes the window while a drive is being scanned.",
+                "While another drive is scanned, Storage shows a loader instead of the last drive's folders."]),
         V("0.23.0", 10, 13,
             feature: new("Standard accounts", "Rigsight runs on a standard Windows account by itself, without asking for an admin password.",
                 ["Each person on a PC has their own history, saved in their own Windows account.",

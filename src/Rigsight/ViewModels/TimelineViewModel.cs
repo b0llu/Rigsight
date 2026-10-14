@@ -34,6 +34,10 @@ public sealed partial class TimelineEntry : ObservableObject
 
     /// <summary>A problem's day, to open on the Crashes page.</summary>
     public DateTime? CrashDay { get; init; }
+
+    /// <summary>The problem's own time, where the line is one problem: it opens as its own case.</summary>
+    public DateTime? CrashTime { get; init; }
+    public string OpenText => CrashTime is null ? "See on Crashes" : "Open";
     public bool IsProblem => CrashDay is not null;
 
     /// <summary>What was different after this change (see <see cref="Core.Reports.ChangeEffects"/>), and the brush for it.</summary>
@@ -115,7 +119,7 @@ public sealed record NowFact(string Label, string Value, string? Since);
 /// drive space) with the problems that happened in between, a calendar to jump around in, and the PC as it is now.
 /// </summary>
 /// <param name="scan">Has the agent look for new changes and problems now; done when it has (or it can't be reached).</param>
-public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null) : ObservableObject
+public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null, Action<DateTime>? openCrash = null) : ObservableObject
 {
     /// <summary>
     /// Days built at a time: the newest first (about a screenful, so opening the page or changing the filter is quick),
@@ -339,15 +343,16 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var entries = new List<(DateTime At, TimelineEntry Entry)>();
 
         // The same kind of problem several times in a day is one line ("3 graphics driver resets").
-        foreach (var group in problems.GroupBy(p => p.Kind))
+        foreach (var group in problems.GroupBy(p => (p.Kind, p.Outside)))
         {
             var first = group.MinBy(p => p.Time)!;
             int n = group.Count();
-            string brush = first.IsCritical ? "HotBrush" : "WarmBrush";
+            string brush = first.Outside ? "MutedBrush" : first.IsCritical ? "HotBrush" : "WarmBrush";
             entries.Add((first.Time, new TimelineEntry
             {
-                TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = brush, IconBrush = brush, IsKey = true, CrashDay = day,
-                Title = n == 1 ? first.Title : Capital(CrashesViewModel.KindCount(group.Key, n)),
+                TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
+                CrashTime = n == 1 ? first.Time : null,
+                Title = n == 1 ? first.Title : first.Outside ? $"{n} shut-offs that look like power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             }));
         }
 
@@ -419,15 +424,16 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     {
         var (changes, problems) = _byDay[month];
         var entries = new List<TimelineEntry>();
-        foreach (var group in problems.GroupBy(p => p.Kind))
+        foreach (var group in problems.GroupBy(p => (p.Kind, p.Outside)))
         {
             var last = group.MaxBy(p => p.Time)!;
             int n = group.Count();
-            string brush = group.Any(p => p.IsCritical) ? "HotBrush" : "WarmBrush";
+            string brush = last.Outside ? "MutedBrush" : group.Any(p => p.IsCritical) ? "HotBrush" : "WarmBrush";
             entries.Add(new TimelineEntry
             {
-                TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = brush, IconBrush = brush, IsKey = true, CrashDay = last.Time.Date,
-                Title = n == 1 ? last.Title : Capital(CrashesViewModel.KindCount(group.Key, n)),
+                TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = last.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !last.Outside, CrashDay = last.Time.Date,
+                CrashTime = n == 1 ? last.Time : null,
+                Title = n == 1 ? last.Title : last.Outside ? $"{n} shut-offs that look like power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
         }
         foreach (var (key, kinds, many) in MonthLines)
@@ -517,7 +523,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     [RelayCommand]
     private void OpenCrashes(TimelineEntry entry)
     {
-        if (entry.CrashDay is { } day) openCrashes(day);
+        if (entry.CrashTime is { } time && openCrash is not null) openCrash(time);
+        else if (entry.CrashDay is { } day) openCrashes(day);
     }
 
     // ── The calendar ────────────────────────────────────────────────────

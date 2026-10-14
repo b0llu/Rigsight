@@ -422,7 +422,7 @@ internal sealed class AgentContext : ApplicationContext
                     var keys = _sensors.ReadKeys();
                     long unixMs = TimeUtil.NowUnixMs();
                     _history.Add(unixMs, _sensors);
-                    _tracker.OnSensors(keys);
+                    _tracker.OnSensors(SystemState.With(keys));
                     _tracker.OnFans(_sensors.ReadFans());
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
@@ -504,7 +504,21 @@ internal sealed class AgentContext : ApplicationContext
                 if (now >= nextCrashScan)
                 {
                     nextCrashScan = now + 10 * 60_000;
+                    bool long_ = !_crashesScanned || _crashFillDue;
+                    MemoryAt("before the crash scan");
                     ScanCrashes();
+                    // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
+                    // a PC that has just started has enough to do.
+                    if (_crashFillDue) nextCrashScan = now + 2 * 60_000;
+                    // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
+                    // thousands of short-lived records, which the agent would otherwise sit on for as long as it
+                    // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
+                    if (long_)
+                    {
+                        MemoryAt("long crash scan done");
+                        CompactMemory();
+                        MemoryAt("handed back");
+                    }
                 }
 
                 if (now >= nextChangeScan)
@@ -1265,12 +1279,27 @@ internal sealed class AgentContext : ApplicationContext
                 var crash = CrashLogReader.RecentAppCrash(app.Exe, TimeSpan.FromMinutes(3));
                 if (crash is not null)
                 {
-                    RunOnSampler(ScanCrashes);
-                    if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe)) return;
-                    var ex = CrashExplainer.Explain(crash, name);
-                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly",
-                        $"Likely cause: {ex.Culprit}. You played for {Units.Duration(row.ActiveSec)}. Details are on the Crashes page whenever you want them.",
-                        app.Path, "crashes")), null);
+                    // Stored and on the Crashes page either way; said only if alerts are on, the app isn't muted, and
+                    // it isn't the same app crashing again and again (the first is always said).
+                    if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe) || !_crashNotices.Allow(app.Exe, crash.Time))
+                    {
+                        RunOnSampler(ScanCrashes);
+                        return;
+                    }
+                    // The notification says what the crash's own case will say: the crash is stored first, and its
+                    // finding worked out from the history exactly as every page does (the minutes before, earlier
+                    // times, a driver being installed, other things failing at the same moment).
+                    var finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); });
+                    // Windows files its report (the kind of failure, what a frozen app was waiting on) some seconds
+                    // after the crash's own entry: before saying there isn't enough, one more look once it has had time.
+                    if (finding is null or { Confidence: Confidence.NotEnough })
+                    {
+                        await Task.Delay(CrashNotices.SecondLook);
+                        finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); }) ?? finding;
+                    }
+                    string body = CrashNotices.Body(finding, row.IsGame, row.ActiveSec);
+                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly", body,
+                        app.Path, "crashes", crash.Time.Ticks.ToString())), null);
                     return;
                 }
                 if (!summaryWanted) return;
@@ -1284,15 +1313,59 @@ internal sealed class AgentContext : ApplicationContext
         });
     }
 
+    /// <summary>Runs <paramref name="work"/> on the sampler thread (the only one that touches the database) and hands back what it returns.</summary>
+    private Task<T> OnSampler<T>(Func<T> work)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RunOnSampler(() =>
+        {
+            try { done.SetResult(work()); }
+            catch (Exception ex) { done.SetException(ex); }
+        });
+        return done.Task;
+    }
+
+    /// <summary>
+    /// Sampler thread: the finding of a crash just read from Windows' log, once it is stored. Worked out with what
+    /// else failed in the five minutes around it, so several things failing together say the one thing here too.
+    /// Null when it isn't stored (yet).
+    /// </summary>
+    private CrashFinding? FindingOf(CrashEvent crash)
+    {
+        var near = _db.GetCrashes(crash.Ts - 300, crash.Ts + 301);
+        var stored = near.FirstOrDefault(c => c.Kind == crash.Kind && c.Ts == crash.Ts && c.AppExe.Equals(crash.AppExe, StringComparison.OrdinalIgnoreCase));
+        return stored is null ? null : CrashCases.Of(_db, near, _settings).GetValueOrDefault(stored.Id);
+    }
+
+    private readonly CrashNoticeGate _crashNotices = new();
     private bool _crashesScanned;
     private const string ShutdownTimesKey = "shutdown_times_placed";
+    private const string CrashFactsKey = "crash_facts_filled";
+    private const string CrashScannedKey = "crashes_scanned_to";
+    /// <summary>The one-time catch-up (see <see cref="CrashFactsKey"/>) is still to do: it is the scan after the first.</summary>
+    private bool _crashFillDue;
+
+    /// <summary>
+    /// How far back the first scan after starting reads: a day before the last scan ended (Windows files a crash's
+    /// report, and a blue screen's driver, some minutes after the crash's own entry), and never more than 90 days. On a
+    /// PC never scanned, the 90 days. It used to be 90 days at every start: about 100 ms of CPU on a PC a few weeks old.
+    /// </summary>
+    internal static DateTime FirstScanFrom(string? scannedTo, DateTime now)
+    {
+        var furthest = now.AddDays(-90);
+        if (!long.TryParse(scannedTo, out long ts)) return furthest;
+        var from = TimeUtil.FromUnix(ts).AddDays(-1);
+        return from < furthest ? furthest : from > now ? now.AddDays(-1) : from;
+    }
 
     /// <summary>Sampler thread: copies new crash records from the Windows event logs into the database.</summary>
     private void ScanCrashes()
     {
         try
         {
-            var since = _crashesScanned ? DateTime.Now.AddMinutes(-30) : DateTime.Now.AddDays(-90);
+            var now = DateTime.Now;
+            bool firstScan = !_crashesScanned;
+            var since = firstScan ? FirstScanFrom(_db.GetMeta(CrashScannedKey), now) : now.AddMinutes(-30);
             // Once: the PC going down, stored under Windows' time (often half an hour early) by versions before 0.19.1,
             // is put at the time it was last known to be running. The scan below does that for the last 90 days; this
             // is for the ones stored from before, as far back as Windows' log still has them.
@@ -1302,8 +1375,24 @@ internal sealed class AgentContext : ApplicationContext
                     _db.InsertCrashes(CrashLogReader.ReadSince(TimeUtil.FromUnix(first).AddDays(-1), systemOnly: true).Where(e => e.NextStart is not null), knownOnly: true);
                 _db.SetMeta(ShutdownTimesKey, "1");
             }
-            var added = _db.InsertCrashes(CrashLogReader.ReadSince(since));
-            bool firstScan = !_crashesScanned;
+            // Once: what else Windows wrote about the crashes stored before that was kept (versions, the driver a blue
+            // screen names, a held power button…), as far back as its logs still reach; and the trouble it logged
+            // around them. The scan below does both for what it reads.
+            // That one time the logs are read once for both, from the first stored crash; and not by the first scan
+            // after starting, which stays short (see FirstScanFrom).
+            var from = since;
+            bool fillDue = _db.GetMeta(CrashFactsKey) is null;
+            bool fill = fillDue && !firstScan;
+            _crashFillDue = fillDue && firstScan;
+            if (fill && _db.FirstCrashTime() is long oldest && TimeUtil.FromUnix(oldest).AddDays(-1) is var earliest && earliest < since) from = earliest;
+            _db.InsertSigns(CrashLogReader.ReadSigns(from));
+            var read = CrashLogReader.ReadSince(from);
+            long sinceTs = TimeUtil.ToUnix(since);
+            // Older than the scan's own reach: only what is stored already gets its facts, nothing is added.
+            if (from < since) _db.InsertCrashes(read.Where(e => e.Ts < sinceTs), knownOnly: true);
+            var added = _db.InsertCrashes(read.Where(e => e.Ts >= sinceTs));
+            if (fill) _db.SetMeta(CrashFactsKey, "1");
+            _db.SetMeta(CrashScannedKey, TimeUtil.ToUnix(now).ToString());
             _crashesScanned = true;
             // Rigsight's own crashes, and the PC's, as Windows logged them: a program that died wrote nothing here itself.
             foreach (var e in added.Where(e => e.Time > DateTime.Now.AddDays(-7)
@@ -1317,11 +1406,17 @@ internal sealed class AgentContext : ApplicationContext
             var recent = added.Where(e => e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset
                                           && e.Moment != PowerMoment.ShuttingDown
                                           && e.Time > DateTime.Now.AddHours(firstScan ? -24 : -1)).ToList();
-            foreach (var e in recent.TakeLast(2))
+            if (recent.Count == 0) return;
+            // As stored (a PC going down is given the time it was last seen running), with each one's finding.
+            var stored = _db.GetCrashes(recent.Min(e => e.Ts) - 1, recent.Max(e => e.Ts) + 1)
+                .Where(s => recent.Any(e => e.Kind == s.Kind && e.Ts == s.Ts)).OrderBy(s => s.Ts).ToList();
+            var findings = CrashCases.Of(_db, stored, _settings);
+            foreach (var e in stored.TakeLast(2))
             {
                 var ex = CrashExplainer.Explain(e);
+                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Said : ex.Reason;
                 _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, ex.Title,
-                    $"{e.Time:ddd h:mm tt} — {ex.Reason} See the Crashes page for what to try.", Page: "crashes")), null);
+                    $"{e.Time:ddd h:mm tt}. {said} Click for the full picture.", Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
             }
         }
         catch (Exception ex)
@@ -1431,8 +1526,7 @@ internal sealed class AgentContext : ApplicationContext
                 $"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)} has been above your limit for {s.Alerts.SustainSeconds}+ seconds while Cyberpunk 2077 was running.", Page: "temperatures", Urgent: true),
             "session" => new(NoticeKind.Session, "Dota 2 session",
                 $"Played for 2h 14m. Peak CPU {Units.TempShort(71)}, GPU {Units.TempShort(68)}. Click for the full breakdown.", activity.Path, "apps"),
-            "crash" => new(NoticeKind.Crash, "Dota 2 closed unexpectedly",
-                "Likely cause: NVIDIA driver. You played for 48m. Details are on the Crashes page whenever you want them.", activity.Path, "crashes"),
+            "crash" => new(NoticeKind.Crash, "Dota 2 closed unexpectedly", CrashNotices.Sample, activity.Path, "crashes"),
             _ => new(NoticeKind.Recap, "Yesterday on your PC",
                 $"Active 6h 12m  ·  Dota 2 3h 05m  ·  CPU peak {Units.TempShort(78)}  ·  GPU peak {Units.TempShort(72)}. Click for the full recap.", Page: "reports", Arg: "yesterday"),
         };

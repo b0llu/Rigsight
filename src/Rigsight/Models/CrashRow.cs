@@ -24,6 +24,18 @@ public sealed class CrashRow
     /// <summary>The blue-screen dump file Windows saved, if any.</summary>
     public string? DumpPath { get; init; }
 
+    /// <summary>What most likely happened, with how sure that is (see <see cref="CrashFinding"/>), and what it was worked out from.</summary>
+    public CrashFinding? Finding { get; init; }
+    public CrashInput? Input { get; init; }
+
+    public bool HasFinding => Finding is not null;
+    public string? Chip => Finding?.Chip;
+    /// <summary>The colour that goes with how sure the finding is: "Named", "Likely", "Possible" or "NotEnough".</summary>
+    public string Sure => (Finding?.Confidence ?? Confidence.NotEnough).ToString();
+    /// <summary>The row's second line: what happened, in a sentence.</summary>
+    public string Line => Finding?.Line ?? Reason;
+    public Models.CrashSeverity Severity => Models.CrashGroup.SeverityOf(this);
+
     public DateTime Time => Event.Time;
     public string TimeText => Time.Date == DateTime.Today ? $"Today, {Time:h:mm tt}"
         : Time.Date == DateTime.Today.AddDays(-1) ? $"Yesterday, {Time:h:mm tt}"
@@ -81,8 +93,10 @@ public sealed class CrashRow
 
     public string TechnicalText => string.Join("  ·  ", new[]
     {
-        string.IsNullOrEmpty(Event.AppExe) ? null : Event.AppExe,
-        Event.Module is null ? null : $"module {Event.Module}",
+        string.IsNullOrEmpty(Event.AppExe) ? null : Event.Facts?.AppVersion is { } version ? $"{Event.AppExe} {version}" : Event.AppExe,
+        Event.Module is null ? null : $"module {Event.Module}{(Event.Facts?.ModuleVersion is { } mv ? $" {mv}" : "")}{(Event.Facts?.Offset is { } offset ? $" at {offset}" : "")}",
+        Event.Facts?.Driver is { } driver ? $"driver {driver}" : null,
+        Event.Facts?.ReportType is { } type ? $"report {type}" : null,
         Event.Code is null ? null : $"code {Event.Code}",
         Event.Detail,
         WindowsTimeNote,

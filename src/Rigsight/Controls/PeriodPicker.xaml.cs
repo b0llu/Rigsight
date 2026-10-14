@@ -159,6 +159,22 @@ public partial class PeriodPicker : UserControl
     public static string Span(ReportRange unit, DateTime anchor, DateTime? firstDay, DateTime customFrom, DateTime customTo) =>
         unit == ReportRange.Custom ? (customTo > customFrom ? Duration(customTo - customFrom) : "") : Span(unit, anchor, firstDay);
 
+    /// <summary>
+    /// The period as it reads after a statement ("No crashes …", "Nothing recorded …"): by its own name where it has
+    /// one ("today", "yesterday", "this week", "last month"), else by its dates ("on Fri, 9 Oct", "in the week of
+    /// 5–11 Oct", "in August 2026", "in 2025"); "on record" for all time. Never "on this day" or "in this period" for
+    /// a period the app can name. A custom range, which has no name, is "in this time".
+    /// </summary>
+    public static string Words(ReportRange unit, DateTime anchor, DateTime customFrom = default, DateTime customTo = default)
+    {
+        if (unit == ReportRange.All) return "on record";
+        if (unit == ReportRange.Custom) return "in this time";
+        string label = Text(unit, anchor);
+        if (label is "Today" or "Yesterday" || label.StartsWith("This ", StringComparison.Ordinal) || label.StartsWith("Last ", StringComparison.Ordinal))
+            return label.ToLowerInvariant();
+        return unit switch { ReportRange.Day => $"on {label}", ReportRange.Week => $"in the week of {label}", _ => $"in {label}" };
+    }
+
     /// <summary>The period in words: "Today", "Last week", "August 2026", "2025", "All time".</summary>
     public static string Text(ReportRange unit, DateTime anchor)
     {

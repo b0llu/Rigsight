@@ -116,7 +116,32 @@ public sealed class SystemMinute
     public double? GpuClock { get; set; }
     public int ActiveSec { get; set; }
     public int IdleSec { get; set; }
+    /// <summary>
+    /// What every process together read from and wrote to the drives, in bytes a second: the minute's average and its
+    /// highest sample. Null in minutes from before 0.24.0, as are the three below.
+    /// </summary>
+    public double? DiskRate { get; set; }
+    public double? DiskRateMax { get; set; }
+    /// <summary>
+    /// The memory Windows has promised to apps, as a share of all it can promise (RAM and page file), at its highest in
+    /// the minute, 0 to 100. Near 100 is Windows about to run out, which memory "in use" doesn't show.
+    /// </summary>
+    public double? CommitPct { get; set; }
+    /// <summary>The battery's charge at the end of the minute, 0 to 100. Null on a PC without one.</summary>
+    public int? Battery { get; set; }
+    /// <summary>The PC ran on its battery at some point in the minute. Null on a PC without one.</summary>
+    public bool? OnBattery { get; set; }
+    /// <summary>The graphics card's memory in use (the minute's average) and all it has, in MB. Null before 0.24.0 or where the card doesn't say.</summary>
+    public double? VramUsed { get; set; }
+    public double? VramTotal { get; set; }
 }
+
+/// <summary>
+/// One app in one minute, for the apps that did the most then (see the agent's Tracker.TopApps): its share of the
+/// CPU and of the GPU (0 to 100, as Task Manager says them), its memory in MB and what it read and wrote in bytes a
+/// second, each the minute's average. What an opened crash names as having driven a part hot, with how much.
+/// </summary>
+public sealed record AppMinute(long Ts, long App, double Cpu, double Gpu, double MemMb, double Disk);
 
 /// <summary>Per-app totals for one local hour. Written as deltas and summed by the database.</summary>
 public sealed class AppHour
@@ -213,7 +238,21 @@ public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN,
 
 /// <param name="NoReadings">Nothing at all was recorded in the five minutes before it, though recording had begun by then
 /// (not the same as a temperature that wasn't read in a recorded minute).</param>
-public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec, bool NoReadings = false);
+public sealed record CrashContext(double? CpuBefore, double? GpuBefore, long? FrontApp, double? SessionSec, bool NoReadings = false)
+{
+    /// <summary>How busy the processor and the graphics card were over the ten minutes before, on average (percent), and the card's power (watts).</summary>
+    public double? CpuLoad { get; init; }
+    public double? GpuLoad { get; init; }
+    public double? GpuPower { get; init; }
+    /// <summary>How many of those ten minutes were recorded.</summary>
+    public int Minutes { get; init; }
+    /// <summary>The last minute somebody was at the PC, within the four hours before (Unix seconds).</summary>
+    public long? LastActive { get; init; }
+    /// <summary>The first minute recorded again after it, within a day (Unix seconds): when a PC that went down was back on.</summary>
+    public long? BackOn { get; init; }
+    /// <summary>Memory in use in the last recorded minute before it (GB).</summary>
+    public double? RamUsed { get; init; }
+}
 
 /// <summary>
 /// One minute of internet use, all apps together (net_minute), in bytes: downloaded and uploaded, the part by apps that

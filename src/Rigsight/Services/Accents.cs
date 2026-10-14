@@ -85,6 +85,26 @@ public static class Accents
     }
 
     /// <summary>
+    /// Windows' own (Fluent) dropdowns and right-click menus in the theme's colours: left alone they are a neutral
+    /// grey with a grey mark, which on Ember, Forest or Midnight (or under a picked accent) read as boxes from another
+    /// app. The box and an open list are the tile shade, the row under the pointer the hover shade, the mark beside
+    /// the picked row the accent. For every palette, after any accent was put in.
+    /// </summary>
+    public static void Popups(ResourceDictionary palette)
+    {
+        Color tile = (Color)palette["Surface2Color"], hover = (Color)palette["HoverColor"], stroke = (Color)palette["StrokeColor"];
+        var accent = (Color)palette["AccentColor"];
+        foreach (var key in new[] { "ComboBoxBackground", "ComboBoxDropDownBackground", "ContextMenuBackground", "FlyoutBackground" })
+            palette[key] = Brush(tile, 1);
+        foreach (var key in new[] { "ComboBoxBackgroundPointerOver", "ComboBoxBackgroundPressed", "ComboBoxItemBackgroundSelected", "SubtleFillColorSecondaryBrush" })
+            palette[key] = Brush(hover, 1);
+        palette["SubtleFillColorTertiaryBrush"] = Brush(Mix(hover, tile, 0.5), 1);
+        foreach (var key in new[] { "ComboBoxDropDownBorderBrush", "ContextMenuBorderBrush", "FlyoutBorderBrush" })
+            palette[key] = Brush(stroke, 1);
+        palette["ComboBoxItemPillFillBrush"] = Brush(accent, 1);
+    }
+
+    /// <summary>
     /// A picked accent takes over the whole palette: on top of <see cref="ApplyTo"/>, every colour that says which
     /// part or kind something is (CPU, GPU, memory, data, the internet) becomes a shade of the accent, lighter and
     /// deeper ones so lines on one chart still differ, and the picked segment is the accent itself. Green, amber and

@@ -40,11 +40,30 @@ public sealed partial class CrashGroup : ObservableObject
     [ObservableProperty] private bool _isExpanded;
     [ObservableProperty] private bool _showDetails;
 
-    /// <summary>"Started 2 days after: NVIDIA graphics driver installed (9 Aug)", set once changes are loaded.</summary>
-    [ObservableProperty] private string? _changesText;
+    private CrashFinding? _finding;
+    private bool _judged;
 
-    /// <summary>What that line means, on hover.</summary>
-    [ObservableProperty] private string? _changesTip;
+    /// <summary>
+    /// What most likely happened, with how sure that is: the newest time's, or for several things failing together,
+    /// one for the moment. Null only for rows made without their inputs.
+    /// </summary>
+    public CrashFinding? Finding
+    {
+        get
+        {
+            if (_judged) return _finding;
+            _judged = true;
+            return _finding = !IsIncident ? Latest.Finding
+                : Rows.All(r => r.Input is not null) ? CrashCases.Together([.. Rows.OrderBy(r => r.Time).Select(r => r.Input!)]) : null;
+        }
+    }
+
+    public bool HasFinding => Finding is not null;
+    public string? Chip => Finding?.Chip;
+    /// <summary>The colour that goes with how sure the finding is: "Named", "Likely", "Possible" or "NotEnough".</summary>
+    public string Sure => (Finding?.Confidence ?? Confidence.NotEnough).ToString();
+    /// <summary>The row's second line: what happened, in a sentence.</summary>
+    public string Line => Finding?.Line ?? Reason;
 
     [ObservableProperty] private bool _isMuted;
 
@@ -57,7 +76,11 @@ public sealed partial class CrashGroup : ObservableObject
 
     public CrashSeverity Severity => IsIncident ? CrashSeverity.Serious : SeverityOf(Latest);
 
-    public static CrashSeverity SeverityOf(CrashRow r) => r.Event.Kind switch
+    /// <summary>
+    /// A problem whose cause was most likely outside the PC (the mains, a shutdown already under way, a driver being
+    /// installed under an app) is no fault of the PC's: grey, and not counted as serious.
+    /// </summary>
+    public static CrashSeverity SeverityOf(CrashRow r) => r.Finding is { Outside: true } ? CrashSeverity.Info : r.Event.Kind switch
     {
         CrashKind.SystemCrash => CrashSeverity.Critical,
         CrashKind.UnexpectedShutdown => r.Event.Moment == PowerMoment.Running ? CrashSeverity.Critical : CrashSeverity.Info,
@@ -70,7 +93,7 @@ public sealed partial class CrashGroup : ObservableObject
 
     public string Title => IsIncident ? IncidentTitle : Latest.Title;
     public string Reason => IsIncident ? IncidentReason : Latest.Reason;
-    public string Advice => IsIncident ? IncidentAdvice : Latest.Advice;
+    public string Advice => Finding?.Advice ?? (IsIncident ? IncidentAdvice : Latest.Advice);
     public string? IconPath => IsIncident ? null : Latest.IconPath;
     public string? ContextText => Latest.ContextText;
     public string ContextLabel => Count == 1 ? "Just before: " : "Last time, just before: ";
@@ -128,7 +151,7 @@ public sealed partial class CrashGroup : ObservableObject
     private List<string> IncidentApps => [.. Rows.OrderBy(r => r.Time).Select(r => r.Event.Kind == CrashKind.GpuDriverReset ? "the graphics driver" : r.AppName ?? r.Event.AppExe).Distinct()];
 
     private string IncidentTitle => Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "Your PC froze"
-        : Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset) ? "The graphics driver reset and took apps with it"
+        : Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset) ? "The graphics driver reset and apps failed with it"
         : "Several things failed at once";
 
     private string IncidentReason
@@ -161,10 +184,6 @@ public sealed partial class CrashGroup : ObservableObject
 
     // ── Grouping ────────────────────────────────────────────────────────
 
-    /// <summary>Failures this close together, of at least this many different things, are one incident.</summary>
-    private static readonly TimeSpan IncidentGap = TimeSpan.FromMinutes(5);
-    private const int IncidentMinEvents = 3, IncidentMinApps = 2;
-
     /// <param name="groupRepeats">False lists every crash on its own (newest first), keeping only incidents together:
     /// several failures within minutes are one moment in time, so they stay one card either way.</param>
     public static List<CrashGroup> Build(IEnumerable<CrashRow> rows, bool groupRepeats = true)
@@ -173,27 +192,16 @@ public sealed partial class CrashGroup : ObservableObject
         var groups = new List<CrashGroup>();
         var used = new HashSet<CrashRow>();
 
-        // Incidents: app crashes, freezes and driver resets in quick succession, across different apps.
-        var appLevel = sorted.Where(r => r.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang or CrashKind.GpuDriverReset).ToList();
-        var cluster = new List<CrashRow>();
-        void Close()
+        // Incidents: app crashes, freezes and driver resets in quick succession, across different apps (the one rule
+        // for it is the core's, so a row elsewhere can't split the moment differently).
+        var rowOf = new Dictionary<CrashEvent, CrashRow>(ReferenceEqualityComparer.Instance);
+        foreach (var r in sorted) rowOf[r.Event] = r;
+        foreach (var incident in CrashIncidents.Find(sorted.Select(r => r.Event)))
         {
-            // Two apps crashing together (an app and its own helper, say) isn't a PC-wide problem; a freeze or a driver reset is.
-            int apps = cluster.Select(r => r.Event.AppExe.ToLowerInvariant()).Distinct().Count();
-            bool pcWide = cluster.Any(r => r.Event.Kind is CrashKind.AppHang or CrashKind.GpuDriverReset);
-            if (cluster.Count >= IncidentMinEvents && (apps >= 3 || (apps >= IncidentMinApps && pcWide)))
-            {
-                groups.Add(new CrashGroup(cluster, incident: true));
-                used.UnionWith(cluster);
-            }
-            cluster = [];
+            var cluster = incident.Select(e => rowOf[e]).ToList();
+            groups.Add(new CrashGroup(cluster, incident: true));
+            used.UnionWith(cluster);
         }
-        foreach (var r in appLevel)
-        {
-            if (cluster.Count > 0 && r.Time - cluster[^1].Time > IncidentGap) Close();
-            cluster.Add(r);
-        }
-        Close();
 
         // Repeats: the same thing failing the same way.
         foreach (var g in sorted.Where(r => !used.Contains(r)).GroupBy(r => groupRepeats ? KeyOf(r) : r.Event.Ts + "|" + r.Event.Id + "|" + r.GetHashCode()))
@@ -205,8 +213,11 @@ public sealed partial class CrashGroup : ObservableObject
     private static string KeyOf(CrashRow r) => r.Event.Kind switch
     {
         CrashKind.SystemCrash => $"bsod|{r.Event.Code}",
-        CrashKind.UnexpectedShutdown => $"power|{r.Event.Moment}",
+        // Shut-offs are one row per finding: a row of 48 under the newest one's "likely a power cut" would say that of
+        // the three that came under load and of the ones nothing was recorded for.
+        CrashKind.UnexpectedShutdown => $"power|{r.Event.Moment}|{r.Finding?.Chip}",
         CrashKind.GpuDriverReset => "gpu",
-        _ => $"{r.Event.Kind}|{r.Event.AppExe.ToLowerInvariant()}|{r.Culprit}",
+        // …and an app that went down under a driver install is not one of its own crashes.
+        _ => $"{r.Event.Kind}|{r.Event.AppExe.ToLowerInvariant()}|{r.Culprit}|{r.Finding is { Outside: true }}",
     };
 }

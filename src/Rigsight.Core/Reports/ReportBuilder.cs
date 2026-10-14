@@ -131,7 +131,13 @@ public static class ReportBuilder
         var previous = RecordedFrom(db, pFrom) ? Period(pFrom, pTo) : null;
 
         var usual = BuildRaw(db, ReportRange.Week, from.Date.AddDays(-7), from.Date, apps, settings);
-        if (report.Crashes.Count > 0) report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
+        if (report.Crashes.Count > 0)
+        {
+            report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), forFindings: false);
+            // The insight says the newest one, and whether every one came from outside the PC: the newest few are
+            // enough for that, and a year's hundreds are not read for one line.
+            report.CrashFindings = Stability.CrashCases.Of(db, [.. report.Crashes.Take(InsightEngine.CrashesJudged)], settings);
+        }
         report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts);
         return report;
     }
@@ -156,7 +162,13 @@ public static class ReportBuilder
             report.Records = RecordsOf(db, report, from, [.. apps.Values.Where(a => CategoryOf(apps, settings, a.Id) == AppCategory.Game).Select(a => a.Id)]);
             report.StreakDays = StreakOf(db, report, from);
         }
-        if (report.Crashes.Count > 0) report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
+        if (report.Crashes.Count > 0)
+        {
+            report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), forFindings: false);
+            // The insight says the newest one, and whether every one came from outside the PC: the newest few are
+            // enough for that, and a year's hundreds are not read for one line.
+            report.CrashFindings = Stability.CrashCases.Of(db, [.. report.Crashes.Take(InsightEngine.CrashesJudged)], settings);
+        }
         if (range is ReportRange.Day or ReportRange.Week or ReportRange.Month or ReportRange.Year)
             report.Net = NetReportBuilder.Build(db, range, anchor, apps, settings,
                 [.. report.Apps.Where(a => a.Category == AppCategory.Game && a.ActiveSec >= 60).Select(a => a.Name)]);

@@ -70,6 +70,12 @@ public sealed class CrashEvent
     /// </summary>
     public long? WindowsTs { get; set; }
 
+    /// <summary>Just read from Windows' log: the id of the report Windows Error Reporting filed for it. Not stored.</summary>
+    public string? ReportId { get; set; }
+
+    /// <summary>What else Windows wrote down about it (null on one stored before that was kept, and where there was nothing more).</summary>
+    public CrashFacts? Facts { get; set; }
+
     public bool DuringSleep
     {
         get => Moment == PowerMoment.Asleep;

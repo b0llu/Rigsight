@@ -99,7 +99,7 @@ public class DrawingCostTests(ITestOutputHelper output)
     public void A_card_draws_within_budget()
     {
         Warm();
-        var n = new Notice(NoticeKind.Crash, "Dota 2 closed unexpectedly", "Likely cause: NVIDIA driver. You played for 48m. Details are on the Crashes page.");
+        var n = new Notice(NoticeKind.Crash, "Dota 2 closed unexpectedly", CrashNotices.Sample);
         // A card redraws every 16 ms while it fades in and out.
         var (ms, bytes) = Measure("card", () => ToastRenderer.Render(n, 1.5f, false, out _).Dispose());
         Assert.True(ms < 4, $"{ms:0.00} ms");

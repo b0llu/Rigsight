@@ -396,7 +396,9 @@ public sealed partial class ExportViewModel : ObservableObject
         string Name(AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name;
         var context = db.GetCrashContext(f, t);
         var changes = db.GetChanges(f - 7 * 86400, t).Where(c => Telling.Contains(c.Kind)).ToList();
-        return [.. db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe)).Select(e =>
+        var crashes = db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe)).ToList();
+        var findings = CrashCases.Of(db, crashes, s);
+        return [.. crashes.Select(e =>
         {
             var at = TimeUtil.FromUnix(e.Ts);
             context.TryGetValue(e.Id, out var ctx);
@@ -404,7 +406,7 @@ public sealed partial class ExportViewModel : ObservableObject
                 e.AppExe.Length == 0 ? null : byExe.TryGetValue(e.AppExe, out var row) ? Name(row) : null,
                 ctx,
                 ctx?.FrontApp is long front && byId.TryGetValue(front, out var app) ? Name(app) : null,
-                [.. changes.Where(c => c.Time <= at && c.Time >= at.AddDays(-7)).TakeLast(6)]);
+                [.. changes.Where(c => c.Time <= at && c.Time >= at.AddDays(-7)).TakeLast(6)]) { Finding = findings.GetValueOrDefault(e.Id) };
         })];
     }
 }

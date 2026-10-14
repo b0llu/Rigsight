@@ -69,7 +69,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     }
 
     public string GamesText => Report is { GamingSec: >= 60 } r ? Units.Duration(r.GamingSec) : "—";
-    public string GamesLine => Report is not { GamingSec: >= 60 } r ? "No games in this period"
+    public string GamesLine => Report is not { GamingSec: >= 60 } r ? $"No games {When}"
         : r.Apps.Count(a => a.Category == Core.Settings.AppCategory.Game && a.ActiveSec >= 60) is var n && n == 1 ? "1 game" : $"{n} games";
 
     public string InternetText => Report?.Net is { Down: > 0 } net ? Units.Data(net.Down) : "—";
@@ -96,11 +96,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         get
         {
-            int down = Crashes.Count(c => c.Event.Kind == Core.Stability.CrashKind.SystemCrash || c.Event.Kind == Core.Stability.CrashKind.UnexpectedShutdown);
-            int apps = Crashes.Count - down;
+            // As Home counts them: a shut-off that was most likely a power cut is said apart from the PC going down.
+            int mains = Crashes.Count(c => c.Event is { Kind: Core.Stability.CrashKind.UnexpectedShutdown, Moment: Core.Stability.PowerMoment.Running } && c.Finding is { Outside: true });
+            int down = Crashes.Count(c => c.Event.Kind == Core.Stability.CrashKind.SystemCrash || c.Event.Kind == Core.Stability.CrashKind.UnexpectedShutdown) - mains;
+            int apps = Crashes.Count - down - mains;
             if (Crashes.Count == 0) return "No crashes or sudden shutdowns";
             static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
-            return string.Join(", ", new[] { down > 0 ? Count(down, "time the PC went down", "times the PC went down") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
+            return string.Join(", ", new[] { down > 0 ? Count(down, "time the PC went down", "times the PC went down") : null, mains > 0 ? Count(mains, "shut-off that looks like a power cut", "shut-offs that look like power cuts") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
         }
     }
 
@@ -175,6 +177,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public bool HasMoreCrashes => Crashes.Count > _crashLimit;
     public string MoreCrashesText => $"Show {Math.Min(20, Crashes.Count - _crashLimit)} more ({Crashes.Count - _crashLimit} not shown)";
 
+    /// <summary>Opens a crash as its own case on the Crashes page (set by the window).</summary>
+    public Action<DateTime>? OpenCrash { get; set; }
+
+    [RelayCommand]
+    private void OpenCase(CrashRow row) => OpenCrash?.Invoke(row.Time);
+
     [RelayCommand]
     private void ShowMoreCrashes()
     {
@@ -205,10 +213,16 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     /// <summary>The first period has been read: until then the page says it's loading, not that nothing was recorded.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowLoading))]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowLoading), nameof(EmptyTitle))]
     private bool _ready;
 
     public bool ShowEmpty => Ready && !HasData && !Switching;
+
+    /// <summary>The period shown as it reads after a statement: "today", "last week", "in August 2026" (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
+    private string When => Controls.PeriodPicker.Words(Range, Anchor, CustomFrom, CustomTo);
+
+    /// <summary>What the page says when the period has nothing.</summary>
+    public string EmptyTitle => $"Nothing recorded {When}";
 
     /// <summary>
     /// Another period was picked and is taking a moment to read (a week or a month, the first time): the page shows

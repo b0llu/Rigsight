@@ -289,6 +289,9 @@ public sealed class Report
     /// <summary>What was going on just before each crash (by crash ID), when there were any.</summary>
     public Dictionary<long, CrashContext> CrashContexts { get; set; } = [];
 
+    /// <summary>What most likely happened in each crash, and how sure that is (by crash ID): what the crash insight says.</summary>
+    public Dictionary<long, Stability.CrashFinding> CrashFindings { get; set; } = [];
+
     /// <summary>Records this period set against the days before it, and how many days in a row screen time beat its usual.</summary>
     public List<RecordNote> Records { get; set; } = [];
     public int StreakDays { get; set; }

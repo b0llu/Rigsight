@@ -21,6 +21,8 @@ public static class CrashExplainer
         ("nvoglv", "NVIDIA driver", "The NVIDIA OpenGL driver failed while running {app}.", "Update the NVIDIA driver."),
         ("nvlddmkm", "NVIDIA driver", "The NVIDIA kernel driver failed.", "Update the NVIDIA driver. Repeated failures can mean an unstable GPU overclock or overheating."),
         ("nvspcap", "GeForce Experience overlay", "The NVIDIA overlay (GeForce Experience / NVIDIA app) crashed inside {app}.", "Try turning off the NVIDIA in-game overlay."),
+        ("amdkmdag", "AMD driver", "The AMD kernel driver failed.", "Update the AMD Adrenalin driver (a clean install helps). Repeated failures can mean an unstable GPU overclock or overheating."),
+        ("atikm", "AMD driver", "The AMD kernel driver failed.", "Update the AMD Adrenalin driver (a clean install helps). Repeated failures can mean an unstable GPU overclock or overheating."),
         ("amdxx", "AMD driver", "The AMD graphics driver failed while running {app}.", "Update the AMD Adrenalin driver."),
         ("atiumd", "AMD driver", "The AMD graphics driver failed while running {app}.", "Update the AMD Adrenalin driver."),
         ("amdxc", "AMD driver", "The AMD graphics driver failed while running {app}.", "Update the AMD Adrenalin driver."),
@@ -75,6 +77,16 @@ public static class CrashExplainer
         [0x1E] = ("KMODE_EXCEPTION_NOT_HANDLED", "A driver crashed.", "Update drivers."),
         [0xC2] = ("BAD_POOL_CALLER", "A driver misused memory.", "Update drivers."),
     };
+
+    /// <summary>What a file that something crashed in is known to be, and what helps (null: not one of the known ones).</summary>
+    public static (string Culprit, string Advice)? Module(string? file)
+    {
+        if (string.IsNullOrEmpty(file)) return null;
+        string lower = file.ToLowerInvariant();
+        foreach (var m in Modules)
+            if (lower.StartsWith(m.Prefix, StringComparison.Ordinal)) return (m.Culprit, m.Advice);
+        return null;
+    }
 
     public static CrashExplanation Explain(CrashEvent e, string? appName = null)
     {

@@ -84,7 +84,7 @@ public sealed class HistoryPerfTests(HeavyHistory heavy)
     [InlineData(ReportRange.Week, 300, 18.5)] // measured 79–117 ms, 6.1 MB
     [InlineData(ReportRange.Month, 630, 62)]  // measured 190–209 ms, 20.4 MB
     [InlineData(ReportRange.Year, 190, 12.5)] // measured 62–64 ms, 4.2 MB
-    [InlineData(ReportRange.All, 75, 5.5)]    // measured 20–28 ms, 1.7 MB
+    [InlineData(ReportRange.All, 75, 5.5)]    // measured 20–28 ms, 1.7 MB; 46 ms, 4.0 MB since each report works out its newest crashes' findings
     public void A_report_builds_within_budget(ReportRange range, double ms, double mb)
     {
         using var db = Open();
