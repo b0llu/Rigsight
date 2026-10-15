@@ -45,19 +45,19 @@ public sealed record CrashFinding(Confidence Confidence, string Head, string Tex
     /// </summary>
     public bool Outside { get; init; }
 
-    /// <summary>"LIKELY A POWER CUT", "POSSIBLE: MAINS OR POWER SUPPLY", "NAMED BY WINDOWS", "NOT ENOUGH TO SAY".</summary>
+    /// <summary>"LIKELY A POWER CUT", "POSSIBLE: MAINS OR POWER SUPPLY", "CONFIRMED", "NOT ENOUGH TO SAY".</summary>
     public string Chip => Confidence switch
     {
-        Confidence.Named => "NAMED BY WINDOWS",
+        Confidence.Named => "CONFIRMED",
         Confidence.Likely => Cause is null ? "LIKELY" : $"LIKELY {Cause}",
         Confidence.Possible => Cause is null ? "POSSIBLE" : $"POSSIBLE: {Cause}",
         _ => "NOT ENOUGH TO SAY",
     };
 
-    /// <summary>The confidence as a sentence, for a line of text with no chip: "Likely a power cut.", "Named by Windows.", "Not enough to say why."</summary>
+    /// <summary>The confidence as a sentence, for a line of text with no chip: "Likely a power cut.", "Confirmed by Windows.", "Not enough to say why."</summary>
     public string Verdict => Confidence switch
     {
-        Confidence.Named => "Named by Windows.",
+        Confidence.Named => "Confirmed by Windows.",
         Confidence.Likely => Cause is null ? "Likely." : $"Likely {Lowered(Cause)}.",
         Confidence.Possible => Cause is null ? "Possible, not certain." : $"Possible: {Lowered(Cause)}.",
         _ => "Not enough to say why.",
@@ -87,6 +87,8 @@ public sealed record CrashInput(CrashEvent Crash, CrashExplanation Explanation, 
     public IReadOnlyList<SystemChange>? Changes { get; init; }
     /// <summary>Trouble Windows logged from half an hour before to a day after.</summary>
     public IReadOnlyList<CrashSign> Signs { get; init; } = [];
+    /// <summary>The graphics card's memory as the app crashed, against that app's usual (worked out for an opened crash only).</summary>
+    public GpuMemoryAtCrash? GpuMemory { get; init; }
     /// <summary>A program's name as the app shows it, from its file name.</summary>
     public Func<string, string> NameOf { get; init; } = exe => Path.GetFileNameWithoutExtension(exe);
 }
@@ -100,8 +102,11 @@ public static class CrashFindings
     /// <summary>The title of the line that says a part was over its alert limit (the Crashes page counts these).</summary>
     public const string HotTitle = "It was running hot";
 
+    /// <summary>How many times, as a person says it: "once", "twice", "17 times".</summary>
+    public static string Times(int n) => n switch { 1 => "once", 2 => "twice", _ => $"{n} times" };
+
     /// <summary>"4m" said the way a person says it: "4 minutes", "an hour and 5 minutes".</summary>
-    internal static string Words(double seconds)
+    public static string Words(double seconds)
     {
         var t = TimeSpan.FromSeconds(Math.Max(0, seconds));
         static string Of(int n, string unit) => n == 1 ? $"1 {unit}" : $"{n} {unit}s";
@@ -134,14 +139,27 @@ public static class CrashFindings
         _ => $"{e.Kind}|{e.AppExe.ToLowerInvariant()}|{e.Module?.ToLowerInvariant()}",
     };
 
-    public static CrashFinding Judge(CrashInput x) => Tidy(x.Crash.Kind switch
+    public static CrashFinding Judge(CrashInput x) => Tidy(UpClose(x, x.Crash.Kind switch
     {
         CrashKind.UnexpectedShutdown => ShutOff(x),
         CrashKind.SystemCrash => BlueScreen(x),
         CrashKind.GpuDriverReset => DriverReset(x),
         CrashKind.AppHang => Hang(x),
         _ => AppCrash(x),
-    });
+    }));
+
+    /// <summary>
+    /// What only an opened crash looks at adds to what the finding rests on, never to what it says: the graphics card's
+    /// memory against the app's usual.
+    /// The headline, the confidence and the advice are the same as on every list, which work without them.
+    /// </summary>
+    private static CrashFinding UpClose(CrashInput x, CrashFinding f)
+    {
+        var points = f.Points.ToList();
+        var ruled = f.RuledOut.ToList();
+        if (x.GpuMemory?.Point(x.AppName ?? x.NameOf(x.Crash.AppExe)) is { } memory) points.Add(memory);
+        return points.Count == f.Points.Count && ruled.Count == f.RuledOut.Count ? f : f with { Points = points, RuledOut = ruled };
+    }
 
     /// <summary>
     /// Every finding leaves here with its evidence in the right list, whatever rule made it: only what a reading
@@ -192,6 +210,12 @@ public static class CrashFindings
         // Only an error the hardware could not correct: corrected ones are logged all day on some healthy PCs.
         bool hardware = f?.HardwareErrors > 0 || x.Signs.Any(s => s.Kind == SignKind.Hardware && s.Detail.Contains("couldn't correct", StringComparison.Ordinal) && Near(s, e, f));
         var hang = f?.NextStart is long start ? x.Signs.FirstOrDefault(s => s.Kind == SignKind.GraphicsHang && s.Ts >= start - 60 && s.Ts <= start + 900) : null;
+        // The moment it hung, where Windows' report could be read: just before the PC went down, no more than two minutes before
+        // the last whole minute it was recorded running ended (the shut-off is given that time): a hang earlier than that it recovered from.
+        // And the PC was starting again within ten minutes of it: Windows' own time for a shut-off can be hours stale.
+        var hungAt = f?.NextStart is long restart
+            ? x.Signs.Where(s => s.Kind == SignKind.GraphicsHangAt && s.Ts >= e.Ts - 180 && s.Ts <= restart && restart - s.Ts <= 600).MaxBy(s => s.Ts)
+            : null;
 
         if (f?.PowerButton == true) points.Add(new("power", "Someone held the power button", "Windows noted it when the PC next started."));
         else if (noPress) points.Add(new("power", "Nobody held the power button", "Windows notes it when the PC next starts if someone does, and it noted nothing."));
@@ -220,6 +244,19 @@ public static class CrashFindings
                 "Undo any overclock or undervolt (Curve Optimizer, XMP or EXPO included), update the BIOS, and check the temperatures.",
                 "Windows logged a hardware error around it.")
             { Short = "PC went down with a hardware error", Cause = "A HARDWARE FAULT", Points = [new("warn", "Windows logged a hardware error", f?.HardwareErrors > 0 ? $"{f.HardwareErrors} handed over by the firmware at the next start." : "In the minutes around it."), .. points], RuledOut = ruled, CantTell = "Which part reported it." };
+        if (hungAt is not null)
+        {
+            var at = TimeUtil.FromUnix(hungAt.Ts);
+            string starting = f?.NextStart is long next && next > hungAt.Ts ? $" The PC was starting again at {TimeUtil.FromUnix(next):h:mm:ss tt}." : "";
+            return new(Confidence.Likely, "The graphics card hung, and the PC went down with it.", $"Windows recorded the graphics card hanging at {at:h:mm:ss tt}, while the PC was still running.{starting} A card that stops answering can take the whole PC down.",
+                "Update or clean-reinstall the graphics driver and undo any overclock of the card. If it happens again, check the card's power cables.",
+                $"The graphics card hung at {at:h:mm:ss tt}{where}, then the PC went down.{(backOn is int b2 ? $" Back on {Minutes(b2)} later." : "")}")
+            {
+                Short = "PC went down after the graphics card hung", Cause = "THE GRAPHICS CARD HUNG",
+                Points = [new("warn", $"Windows recorded the graphics card hanging at {at:h:mm:ss tt}", "Its report gives the moment of the hang, before the PC went down."), .. points],
+                RuledOut = ruled, CantTell = "Why the card hung: its driver, heat, power, or the card itself.",
+            };
+        }
         if (hang is not null)
             return new(Confidence.Possible, "The graphics card may have stopped answering.", $"Windows filed a graphics-hang report at the start after, {hang.Time:h:mm tt}. A screen that freezes or goes black, and a PC that then has to be switched off, fit that.",
                 "Update or clean-reinstall the graphics driver and undo any overclock of the card.", "Windows filed a graphics-hang report at the next start.")
@@ -320,9 +357,18 @@ public static class CrashFindings
         points.AddRange(Signs(x));
         if (Before(x) is { } before) points.Add(before);
         Sort(Change(x, anyDriver: false), points, ruled);
+        var f = x.Crash.Facts;
+        // Read from Windows' hang report (most PCs), or from its older display entry (event 4101).
+        var said = f?.HangKey is not null
+            ? new Evidence("info", "Windows reported that the graphics card stopped answering", f.Driver is { } driver
+                ? $"Its report names {driver}{(CrashExplainer.Module(driver)?.Culprit is { } known ? $", {Lower(known)}" : "")}, and Windows restarted it." : "Windows restarted the graphics driver and filed a report.")
+            : new Evidence("info", "Windows restarted the graphics driver", "It recorded this at that moment.");
+        string advice = x.FrontApp is null
+            ? "Update or clean-reinstall the graphics driver and undo any overclock of the card. If it keeps happening, check the card's temperatures around these times."
+            : $"If it keeps happening in {x.FrontApp}, lower its graphics settings or cap its frame rate first. If it happens in other games too, update or clean-reinstall the graphics driver and undo any overclock of the card.";
         return new(Confidence.Named, "The graphics card stopped answering and Windows reset its driver.", "The screen may have gone black for a moment. Windows records the reset, not why the card stopped.",
-            ex.Advice, $"Windows reset the graphics driver{(x.FrontApp is null ? "" : $" while {x.FrontApp} was in front")}.")
-        { Points = [new("info", "Windows restarted the graphics driver", "It recorded this at that moment."), .. points], RuledOut = ruled, CantTell = "Why the card stopped answering: its driver, heat, or the card itself." };
+            advice, $"Windows reset the graphics driver{(x.FrontApp is null ? "" : $" while {x.FrontApp} was in front")}.")
+        { Short = x.FrontApp is null ? "The graphics driver was reset" : $"The graphics driver was reset in {x.FrontApp}", Points = [said, .. points], RuledOut = ruled, CantTell = "Why the card stopped answering: its driver, heat, power, or the card itself." };
     }
 
     // ── One app ─────────────────────────────────────────────────────────
@@ -553,7 +599,8 @@ public static class CrashFindings
         {
             if (s.Kind == SignKind.Hardware && e.Kind is CrashKind.UnexpectedShutdown && s.Detail.Contains("couldn't correct", StringComparison.Ordinal)) continue; // said by the finding itself
             int before = (int)Math.Max(0, (e.Ts - s.Ts) / 60);
-            yield return new("warn", s.Detail, before <= 1 ? "In the same minute as the crash." : $"{Capital(Minutes(before))} before the crash.");
+            string what = e.Kind == CrashKind.GpuDriverReset ? "reset" : "crash";
+            yield return new("warn", s.Detail, before <= 1 ? $"In the same minute as the {what}." : $"{Capital(Minutes(before))} before the {what}.");
         }
     }
 
@@ -590,7 +637,7 @@ public static class CrashFindings
         long ts = TimeUtil.ToUnix(change.Earliest);
         int before = x.Earlier.Count(p => p.Ts < ts && p.Ts >= ts - 30L * 86400), since = x.Earlier.Count(p => p.Ts >= ts) + 1;
         return before > 0
-            ? new("ok", $"{name} didn't cause it", $"It was installed {when}, but this was already happening: {before} time{(before == 1 ? "" : "s")} in the 30 days before it, {since} since.")
+            ? new("ok", $"{name} didn't cause it", $"It was installed {when}. This had already happened {Times(before)} in the 30 days before it, and {Times(since)} since.")
             : new("change", $"{name} was installed {when}", "This never happened before it.");
     }
 

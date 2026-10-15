@@ -318,10 +318,14 @@ public sealed class ReportService(SettingsModel settings)
             string NameOf(long id) => apps.TryGetValue(id, out var a) ? (s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name) : "An app";
 
             var from = at.AddMinutes(-Models.CrashCase.MinutesBefore);
-            var to = group.IsIncident ? group.Latest.Time.AddMinutes(1) : at.AddMinutes(1);
+            // And what came after: the minutes recorded since, up to ten.
+            var now = DateTime.Now;
+            var to = (group.IsIncident ? group.Latest.Time : at).AddMinutes(Models.CrashCase.MinutesAfter);
+            if (to > now) to = now < at.AddMinutes(1) ? at.AddMinutes(1) : now;
             // Everything recorded about the PC in those minutes: its lanes, strips and marks, the box beside them, and
             // what stood out (see CaseMinutesBuilder).
-            var built = CaseMinutesBuilder.Build(db, s, from, to, at, db.GetSessions(TimeUtil.ToUnix(from), ts + 60));
+            var built = CaseMinutesBuilder.Build(db, s, from, to, at, db.GetSessions(TimeUtil.ToUnix(from), ts + 60),
+                group.IsIncident ? "crash" : CloseUpBuilder.WordOf(e.Kind));
             var points = built.Minutes;
 
             // The stretches with nothing recorded, each with why where Windows' log says (the PC was off, asleep, had
@@ -338,6 +342,29 @@ public sealed class ReportService(SettingsModel settings)
                 }
                 Gap(from, points[0].Time);
                 for (int i = 1; i < points.Count; i++) Gap(points[i - 1].Time.AddMinutes(1), points[i].Time);
+                // After the last minute recorded, where the PC was off or asleep (an app's crash is followed by more minutes).
+                if (points[^1].Time.AddMinutes(1) < at.AddMinutes(1)) Gap(at, to);
+                else Gap(points[^1].Time.AddMinutes(1), to);
+            }
+
+            // What came after it, in words, among what stood out: the app opened again, or the PC back on.
+            var stood = built.StoodOut;
+            // The PC going down is marked as what it was, not as "Crash".
+            string word = e.Kind switch { Core.Stability.CrashKind.UnexpectedShutdown => "Shut off", Core.Stability.CrashKind.SystemCrash => "Blue screen", Core.Stability.CrashKind.GpuDriverReset => "Driver reset", _ => "Crash" };
+            for (int i = 0; i < built.Marks.Count; i++)
+                if (built.Marks[i].IsCrash && !group.IsIncident) built.Marks[i] = built.Marks[i] with { Label = word };
+            if (After(e, ts, to, row, db, NameOf) is { } after)
+                stood.Insert(stood.FindIndex(x => x.IsCalm) is int calm and >= 0 ? calm : stood.Count, new Core.Stability.StoodOut(after, false));
+
+            // What only an opened crash looks at (its close-up, the graphics card's memory against the app's usual) adds to
+            // what the finding rests on; never to what it says, which is the same as on every list.
+            if (!group.IsIncident && Core.Stability.CrashCases.Of(db, [e], s, upClose: true).GetValueOrDefault(e.Id) is { } full && full.Head == finding.Head)
+                finding = full;
+            Models.CaseView? close = null;
+            if (!group.IsIncident && e.Kind is Core.Stability.CrashKind.AppCrash or Core.Stability.CrashKind.AppHang or Core.Stability.CrashKind.GpuDriverReset && db.GetCloseUp(e.Ts, e.AppExe) is { } closeUp)
+            {
+                try { close = CloseUpBuilder.Build(db, s, closeUp, e, now); }
+                catch (Exception ex) { Core.Log.Error("crashes", ex); } // never in the way of the crash opening
             }
 
             // What was open in those minutes: each app's latest stretch in front.
@@ -420,19 +447,40 @@ public sealed class ReportService(SettingsModel settings)
 
             return new Models.CrashCase
             {
-                Group = group, Row = row, Finding = finding, Gaps = gaps,
+                Group = group, Row = row, Finding = finding,
                 WhenNote = null,
                 Points = [.. finding.Points.Select(Models.CaseEvidence.Of)],
                 RuledOut = [.. finding.RuledOut.Select(Models.CaseEvidence.Of)],
                 NotKnown = [.. finding.NotChecked.Select(Models.CaseEvidence.Of), .. finding.CantTell is { } cant ? new[] { new Models.CaseEvidence("\uE897", "MutedBrush", cant.TrimEnd('.'), "") } : []],
-                Minutes = points, Lanes = built.Lanes, Strips = built.Strips, Marks = built.Marks, StoodOut = built.StoodOut, Readout = built.Readout,
-                ChartFrom = from, ChartTo = to,
+                Wide = new Models.CaseView
+                {
+                    Minutes = points, Lanes = built.Lanes, Strips = built.Strips, Marks = built.Marks, StoodOut = stood, Readout = built.Readout,
+                    Gaps = gaps, ChartFrom = from, ChartTo = to,
+                },
+                Close = close, UpClose = close is not null,
                 NoChart = db.FirstDataTime() is long began && began > ts ? $"Nothing was being recorded then. This PC's history starts on {TimeUtil.FromUnix(began):d MMM yyyy}." : "Nothing was recorded in the 45 minutes before.",
                 Running = running, Changes = changes, NoChanges = noChanges,
                 HistoryTitle = title, Bars = bars, Times = times, HistoryNote = note,
                 Tech = TechOf(group, row),
             };
         });
+
+        // What came after: for an app, whether it was opened again in the ten minutes after; for the PC, when it was back on.
+        static string? After(Core.Stability.CrashEvent e, long ts, DateTime to, Models.CrashRow row, Core.Data.RigsightDb db, Func<long, string> nameOf)
+        {
+            if (e.Kind is Core.Stability.CrashKind.AppCrash or Core.Stability.CrashKind.AppHang)
+            {
+                var app = db.LoadApps().FirstOrDefault(a => a.Exe.Equals(e.AppExe, StringComparison.OrdinalIgnoreCase));
+                if (app is null) return null;
+                var again = db.GetSessions(ts + 5, ts + Models.CrashCase.MinutesAfter * 60).Where(x => x.AppId == app.Id && x.Start > ts + 5).MinBy(x => x.Start);
+                if (again is not null) return $"After: {nameOf(app.Id)} was opened again {Core.Stability.CrashFindings.Words(again.Start - ts)} later.";
+                return (to - TimeUtil.FromUnix(ts)).TotalMinutes >= Models.CrashCase.MinutesAfter - 0.5
+                    ? $"After: {nameOf(app.Id)} wasn't opened again in the {Models.CrashCase.MinutesAfter} minutes after." : null;
+            }
+            if (e.Kind is Core.Stability.CrashKind.UnexpectedShutdown or Core.Stability.CrashKind.SystemCrash && row.Input?.Context?.BackOn is long on && on > ts && on - ts <= 3 * 3600)
+                return $"After: back on {Core.Stability.CrashFindings.Words(on - ts)} later.";
+            return null;
+        }
 
         static List<Models.CaseLine> TechOf(Models.CrashGroup group, Models.CrashRow shown)
         {
@@ -448,8 +496,10 @@ public sealed class ReportService(SettingsModel settings)
                 bool unnamed = string.Equals(e.Module, "unknown", StringComparison.OrdinalIgnoreCase);
                 Add("Had been running", f?.RanSec is double ran ? (ran < 90 ? $"{ran:0} seconds" : Core.Units.Duration(ran)) : null);
                 Add("Program", string.IsNullOrEmpty(e.AppExe) ? null : $"{e.AppExe}{(Version(f?.AppVersion) is { } version ? $", version {version}" : "")}");
-                Add("Crashed in", e.Module is null ? null : unnamed ? "Windows couldn't name the file" : $"{e.Module}{(Version(f?.ModuleVersion) is { } mv ? $", version {mv}" : "")}{(f?.Offset is { } offset ? $", at {offset}" : "")}");
-                Add(e.Kind == Core.Stability.CrashKind.SystemCrash ? "Crash code" : "Error code", e.Code);
+                // A reset read from Windows' hang report: the driver and the report's kind say it (below), not a crash's file and code.
+                bool hangReport = f?.HangKey is not null;
+                if (!hangReport) Add("Crashed in", e.Module is null ? null : unnamed ? "Windows couldn't name the file" : $"{e.Module}{(Version(f?.ModuleVersion) is { } mv ? $", version {mv}" : "")}{(f?.Offset is { } offset ? $", at {offset}" : "")}");
+                if (!hangReport) Add(e.Kind == Core.Stability.CrashKind.SystemCrash ? "Crash code" : "Error code", e.Code);
                 Add("Its four numbers", f?.BugParams is { } p ? string.Join(", ", p) : null);
                 Add("Driver named by Windows", f?.Driver is { } driver ? $"{driver}{(f.DriverName is { } dn ? $" ({dn})" : "")}" : null);
                 Add("Windows' report kind", f?.ReportType);

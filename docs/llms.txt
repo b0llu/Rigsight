@@ -26,7 +26,7 @@ Rigsight is a history tool, not only a live monitor. Hardware monitors like HWiN
 
 - Data never leaves the PC; the only online check is for a new version.
 - Never records window titles, keystrokes, screenshots, file contents or websites visited.
-- A year of history takes about 35 MB; keep from three months to forever.
+- A year of history takes about 100 MB on a PC that's on most of the day; keep from three months to forever.
 - This website counts visits with Umami (no cookies); the app has no part in that.
 
 ## Links

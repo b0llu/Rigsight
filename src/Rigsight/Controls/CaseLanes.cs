@@ -20,17 +20,19 @@ public sealed class CaseLanes : FrameworkElement
     private const double LabelWidth = 112, LabelGap = 10, Top = 32, StripHeight = 26, StripGap = 12, AxisHeight = 22, MinLane = 54;
     private const double CrashRow = 1, AppRow = 16;
 
-    public static readonly DependencyProperty CaseProperty = DependencyProperty.Register(
-        nameof(Case), typeof(CrashCase), typeof(CaseLanes), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
+    public static readonly DependencyProperty ViewProperty = DependencyProperty.Register(
+        nameof(View), typeof(CaseView), typeof(CaseLanes), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure,
+            (d, _) => ((CaseLanes)d)._pointed = -1));
 
-    public CrashCase? Case { get => (CrashCase?)GetValue(CaseProperty); set => SetValue(CaseProperty, value); }
+    /// <summary>What to draw: the minutes around the crash, or its close-up.</summary>
+    public CaseView? View { get => (CaseView?)GetValue(ViewProperty); set => SetValue(ViewProperty, value); }
 
     private int _pointed = -1;
 
     /// <summary>Never shorter than every lane at its least: taller when the box beside it is.</summary>
     protected override Size MeasureOverride(Size available)
     {
-        if (Case is not { HasChart: true } c) return new Size(0, 0);
+        if (View is not { HasChart: true } c) return new Size(0, 0);
         return new Size(0, Top + c.Lanes.Count * MinLane + c.Strips.Count * (StripHeight + StripGap) + AxisHeight);
     }
 
@@ -39,16 +41,12 @@ public sealed class CaseLanes : FrameworkElement
     /// <summary>Room at the right for the crash's line with the word centred over it.</summary>
     private const double EndGap = 18;
 
-    /// <summary>
-    /// Where the time line ends: at the crash, where it is the last thing on it (a PC that went down records nothing
-    /// after, and an app's crash is its minute's last news); else (several things failing together) a minute after the last.
-    /// </summary>
-    private static DateTime End(CrashCase c) =>
-        c.Marks.FirstOrDefault(m => m.IsCrash)?.At is DateTime crash && (c.ChartTo - crash).TotalSeconds <= 90 ? crash : c.ChartTo;
+    /// <summary>Where the time line ends: the view's own end (the crash itself, where nothing comes after it).</summary>
+    private static DateTime End(CaseView c) => c.ChartTo;
 
     private int IndexAt(double x)
     {
-        if (Case is not { HasChart: true } c || c.Minutes.Count == 0) return -1;
+        if (View is not { HasChart: true } c || c.Minutes.Count == 0) return -1;
         var plot = Plot;
         if (x < plot.Left - 8 || x > plot.Right + 8) return -1;
         double span = Math.Max(60, (End(c) - c.ChartFrom).TotalSeconds);
@@ -60,7 +58,7 @@ public sealed class CaseLanes : FrameworkElement
             double d = Math.Abs((c.Minutes[i].Time - at).TotalSeconds);
             if (d < nearest) (nearest, best) = (d, i);
         }
-        return nearest <= 90 ? best : -1;
+        return nearest <= c.BreakSec ? best : -1;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -68,7 +66,7 @@ public sealed class CaseLanes : FrameworkElement
         int i = IndexAt(e.GetPosition(this).X);
         if (i == _pointed) return;
         _pointed = i;
-        Case?.Readout?.Show(i < 0 ? null : i);
+        View?.Readout?.Show(i < 0 ? null : i);
         InvalidateVisual();
     }
 
@@ -76,7 +74,7 @@ public sealed class CaseLanes : FrameworkElement
     {
         if (_pointed < 0) return;
         _pointed = -1;
-        Case?.Readout?.Show(null);
+        View?.Readout?.Show(null);
         InvalidateVisual();
     }
 
@@ -86,7 +84,7 @@ public sealed class CaseLanes : FrameworkElement
     {
         double w = ActualWidth, h = ActualHeight;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h)); // the whole area answers the pointer
-        if (Case is not { HasChart: true } c || w < 260) return;
+        if (View is not { HasChart: true } c || w < 260) return;
 
         double plotLeft = LabelWidth + LabelGap, plotRight = w - EndGap, plotWidth = plotRight - plotLeft;
         double span = Math.Max(60, (End(c) - c.ChartFrom).TotalSeconds);
@@ -128,7 +126,7 @@ public sealed class CaseLanes : FrameworkElement
                     {
                         if (s.Values[i] is not double v) { last = null; continue; }
                         var p = new Point(X(c.Minutes[i].Time), Y(v));
-                        if (last is { } before && (c.Minutes[i].Time - before).TotalSeconds <= 90) g.LineTo(p, true, true);
+                        if (last is { } before && (c.Minutes[i].Time - before).TotalSeconds <= c.BreakSec) g.LineTo(p, true, true);
                         else g.BeginFigure(p, false, false);
                         last = c.Minutes[i].Time;
                     }
@@ -180,29 +178,38 @@ public sealed class CaseLanes : FrameworkElement
             y += StripHeight + StripGap;
         }
 
-        // ── The time along the foot: every ten minutes, and the crash's own in the warning colour ──
+        // ── The time along the foot: every so often (ten minutes, or one up close), and the crash's own in the warning colour ──
         dc.DrawRectangle(ChartPaint.Grid, null, new Rect(0, Math.Round(y), w, 1));
-        var crash = c.Marks.FirstOrDefault(m => m.IsCrash)?.At ?? c.ChartTo;
+        var crash = c.Crash ?? c.ChartTo;
         var ticks = new List<DateTime>();
-        for (var t = c.ChartFrom; t < crash.AddMinutes(-7); t = t.AddMinutes(10)) ticks.Add(t); // none crowding the crash's own time
+        var near = TimeSpan.FromTicks(c.TickEvery.Ticks * 7 / 10);
+        for (var t = c.ChartFrom; t <= End(c) - near / 2; t += c.TickEvery)
+            if ((t - crash).Duration() >= near) ticks.Add(t); // none crowding the crash's own time
         foreach (var t in ticks)
         {
-            var label = ChartPaint.Format(this, t.ToString("h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Label);
+            var label = ChartPaint.Format(this, t.ToString(c.IsCloseUp ? "h:mm:ss" : "h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Label);
             double x = t == c.ChartFrom ? plotLeft : X(t) - label.Width / 2;
             dc.DrawText(label, new Point(Math.Max(plotLeft, x), y + 5));
         }
-        var end = ChartPaint.Format(this, crash.ToString("h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Hot, bold: true);
+        var end = ChartPaint.Format(this, crash.ToString(c.IsCloseUp ? "h:mm:ss tt" : "h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Hot, bold: true);
         dc.DrawText(end, new Point(Math.Min(plotRight - end.Width, X(crash) - end.Width / 2), y + 5));
 
         // ── Marks, across every lane and strip ──
         double markBottom = y;
-        // The crash: its line, and its word on the top row.
+        // The crash: its line, and its word on the top row; what came after it, lightly shaded, with "After" beside it.
         foreach (var mark in c.Marks.Where(m => m.IsCrash))
         {
             double x = X(mark.At);
-            dc.DrawRectangle(ChartPaint.Hot, null, new Rect(x - 1, Top, 2, markBottom - Top));
             var label = ChartPaint.Format(this, mark.Label, 10.5, ChartPaint.Hot);
-            dc.DrawText(label, new Point(Math.Clamp(x - label.Width / 2, plotLeft, w - label.Width), CrashRow));
+            double lx = Math.Clamp(x - label.Width / 2, plotLeft, w - label.Width);
+            if ((End(c) - mark.At).TotalSeconds > c.BreakSec && plotRight - x > 40)
+            {
+                dc.DrawRectangle(ChartPaint.After, null, new Rect(x, Top, plotRight - x, markBottom - Top));
+                var after = ChartPaint.Format(this, "After", 10.5, ChartPaint.Muted);
+                if (lx + label.Width + 10 + after.Width <= w) dc.DrawText(after, new Point(lx + label.Width + 10, CrashRow));
+            }
+            dc.DrawRectangle(ChartPaint.Hot, null, new Rect(x - 1, Top, 2, markBottom - Top));
+            dc.DrawText(label, new Point(lx, CrashRow));
         }
         // Apps that opened: a dashed line each, and their words on a row of their own under the crash's. Lines close
         // together share one label ("Steam, Discord and Epic Games opened", or "3 apps opened" where the names don't

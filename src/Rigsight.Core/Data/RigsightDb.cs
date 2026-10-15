@@ -123,6 +123,8 @@ public sealed partial class RigsightDb : IDisposable
         // What else Windows wrote about a crash (see CrashFacts), and the trouble it logged around them (see CrashSign).
         if (!HasColumn("crashes", "facts")) Exec("ALTER TABLE crashes ADD COLUMN facts TEXT");
         Exec("CREATE TABLE IF NOT EXISTS crash_signs(ts INTEGER NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, PRIMARY KEY(ts, kind, detail)) WITHOUT ROWID");
+        // The seconds around a crash (0.25.0, see CloseUp): kept as long as the crash itself.
+        Exec("CREATE TABLE IF NOT EXISTS close_up(ts INTEGER NOT NULL, exe TEXT NOT NULL, kind TEXT NOT NULL, done INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY(ts, exe))");
 
         // Added for long histories: crashes by time, and the longest session (see GetSessions).
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
@@ -674,13 +676,20 @@ public sealed partial class RigsightDb : IDisposable
     /// (<paramref name="windowsTs"/>) is the last one it happened to note, which on this PC was 5 to 35 minutes before
     /// the minutes recorded here stopped; so it is the end of the last minute recorded before Windows next started
     /// (<paramref name="nextStart"/>), where that is later. Windows' time stands where nothing was recorded after it
-    /// (nothing was recording, or those minutes are no longer kept).
+    /// (nothing was recording, or those minutes are no longer kept). And where Windows recorded the graphics card
+    /// hanging in between (an admin can read the hang's own time), the PC was running then, whatever else says.
     /// </summary>
     public long LastSeenRunning(long windowsTs, long nextStart)
     {
         // A minute that ended before that start: the minute the PC started in can have a row too, written after it.
-        using var cmd = Cmd("SELECT max(ts) FROM system_minute WHERE ts <= $before", ("$before", nextStart - 60));
-        return cmd.ExecuteScalar() is long minute && minute + 60 > windowsTs ? minute + 60 : windowsTs;
+        long seen = windowsTs;
+        using (var cmd = Cmd("SELECT max(ts) FROM system_minute WHERE ts <= $before", ("$before", nextStart - 60)))
+            if (cmd.ExecuteScalar() is long minute && minute + 60 > seen) seen = minute + 60;
+        if (!_hasSigns && !(_hasSigns = HasTable("crash_signs"))) return seen;
+        using (var hang = Cmd("SELECT max(ts) FROM crash_signs WHERE kind = $kind AND ts > $seen AND ts < $next",
+                   ("$kind", SignKind.GraphicsHangAt), ("$seen", seen), ("$next", nextStart)))
+            if (hang.ExecuteScalar() is long hung) seen = hung;
+        return seen;
     }
 
     /// <summary>
@@ -724,6 +733,16 @@ public sealed partial class RigsightDb : IDisposable
         foreach (var e in crashes)
         {
             if (e.NextStart is long nextStart && PlaceShutdown(e, nextStart)) continue;
+            // A graphics hang Windows writes up again later (its records share an address) is the one stored already.
+            if (e.Kind == CrashKind.GpuDriverReset && e.Facts?.HangKey is { Length: > 0 } key)
+            {
+                using var same = Cmd("SELECT id FROM crashes WHERE kind = $kind AND facts LIKE $key LIMIT 1", ("$kind", e.Kind.ToString()), ("$key", $"%{key}%"));
+                if (same.ExecuteScalar() is long known)
+                {
+                    KeepFacts(known, e.Facts);
+                    continue;
+                }
+            }
             string? facts = e.Facts is { IsEmpty: false } f ? f.ToJson() : null;
             // One stored already gets what Windows has written about it since (see KeepFacts).
             if (facts is not null)
@@ -792,6 +811,53 @@ public sealed partial class RigsightDb : IDisposable
         return list;
     }
 
+    /// <summary>
+    /// The graphics card's memory in use (MB) in each minute <paramref name="app"/> was in front and in use, from
+    /// <paramref name="from"/> to <paramref name="to"/>: what is usual for that app on this PC.
+    /// </summary>
+    public List<double> GetAppVram(long app, long from, long to)
+    {
+        if (!HasVram) return [];
+        using var cmd = Cmd("SELECT vram_used FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app = $app AND active_sec > 0 AND vram_used IS NOT NULL",
+            ("$from", from), ("$to", to), ("$app", app));
+        using var r = cmd.ExecuteReader();
+        var list = new List<double>();
+        while (r.Read()) list.Add(r.GetDouble(0));
+        return list;
+    }
+
+    /// <summary>Keeps a crash's close-up, in place of any kept for it before (the before is kept at once, then again with the after).</summary>
+    public void SaveCloseUp(CloseUp c)
+    {
+        using var cmd = Cmd("INSERT OR REPLACE INTO close_up(ts, exe, kind, done, data) VALUES($ts, $exe, $kind, $done, $data)",
+            ("$ts", c.Ts), ("$exe", c.Exe.ToLowerInvariant()), ("$kind", c.Kind), ("$done", c.Done ? 1 : 0), ("$data", CloseUp.Pack(c.Points)));
+        cmd.ExecuteNonQuery();
+    }
+
+    private bool _hasCloseUps;
+
+    /// <summary>The close-up kept for the crash at <paramref name="ts"/> of <paramref name="exe"/> (empty for the PC going down), or null.</summary>
+    public CloseUp? GetCloseUp(long ts, string exe)
+    {
+        // The agent adds the table; the app may read a database from before, and looks again next time.
+        if (!_hasCloseUps && !(_hasCloseUps = HasTable("close_up"))) return null;
+        using var cmd = Cmd("SELECT kind, done, data FROM close_up WHERE ts = $ts AND exe = $exe", ("$ts", ts), ("$exe", exe.ToLowerInvariant()));
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        var points = CloseUp.Unpack((byte[])r.GetValue(2));
+        return points.Count == 0 ? null : new CloseUp(ts, exe, r.GetString(0), r.GetInt64(1) != 0, points);
+    }
+
+    /// <summary>How many close-ups are kept, and their size in bytes (for tests and the log).</summary>
+    public (long Count, long Bytes) CloseUpSize()
+    {
+        if (!_hasCloseUps && !(_hasCloseUps = HasTable("close_up"))) return (0, 0);
+        using var cmd = Cmd("SELECT count(*), coalesce(sum(length(data)), 0) FROM close_up");
+        using var r = cmd.ExecuteReader();
+        r.Read();
+        return (r.GetInt64(0), r.GetInt64(1));
+    }
+
     /// <summary>Deletes all history older than <paramref name="before"/>: every table uses the same cutoff.</summary>
     public void Prune(long before)
     {
@@ -834,13 +900,14 @@ public sealed partial class RigsightDb : IDisposable
         using (var c4 = Cmd("DELETE FROM drive_day WHERE day < $t", ("$t", before))) c4.ExecuteNonQuery();
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
         using (var c5s = Cmd("DELETE FROM crash_signs WHERE ts < $t", ("$t", before))) c5s.ExecuteNonQuery();
+        using (var c5c = Cmd("DELETE FROM close_up WHERE ts < $t", ("$t", before))) c5c.ExecuteNonQuery();
         PruneNetwork(before);
         PruneChanges(before);
     }
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs;"
+        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;"
             + " DELETE FROM changes;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new

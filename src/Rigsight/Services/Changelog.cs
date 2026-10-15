@@ -92,6 +92,17 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.25.0", 10, 15,
+            feature: new("Crash close-ups", "An opened crash shows the seconds around it and what came after, and graphics driver resets are counted.",
+                ["An app or game crash keeps its last five minutes and the two after, a reading every 2 to 3 seconds.",
+                    "Every opened crash shows the 10 minutes after it, such as the app opening again or the PC coming back on.",
+                    "Graphics driver resets that Windows records as hang reports are listed and counted, each opening up close.",
+                    "A shut-off that came right after the graphics card hung says so, with the second it happened."],
+                "crashes", "", isPage: false) { OpenText = "Open Crashes" },
+            better: ["The top level of how sure a crash's cause is now reads Confirmed, for what Windows' own records say.",
+                "An opened game crash points out when graphics memory was well above that game's usual on this PC.",
+                "Copy report and the crashes export include what stood out in a crash's last minutes.",
+                "\"What they have in common\" says plainly when a graphics driver update didn't cause the shut-offs."]),
         V("0.24.1", 10, 14,
             added: ["Pressing Update shows an \"Updating Rigsight\" screen with a progress bar until the new version opens, instead of the window just disappearing."],
             better: ["The update button says Update instead of Restart, and the sidebar line says \"Update ready\".",

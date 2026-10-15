@@ -134,7 +134,7 @@ public sealed class CrashFindingTests
     public void A_held_power_button_is_named_by_windows_whatever_else_is_known()
     {
         var f = CrashFindings.Judge(Input(ShutOff(button: true), Idle(), front: "Blender"));
-        Assert.Equal((Confidence.Named, "NAMED BY WINDOWS", false), (f.Confidence, f.Chip, f.Outside));
+        Assert.Equal((Confidence.Named, "CONFIRMED", false), (f.Confidence, f.Chip, f.Outside));
         Assert.Equal("It was switched off by holding the power button.", f.Head);
         Assert.Equal("Switched off by holding the power button, with Blender in front.", f.Line);
     }
@@ -251,7 +251,7 @@ public sealed class CrashFindingTests
         var driver = new SystemChange(At.AddDays(-5), ChangeKind.Driver, "NVIDIA graphics driver 617.42") { Subject = "nvidia-graphics" };
         var earlier = Enumerable.Range(1, 3).Select(i => ShutOff(at: At.AddDays(-5 - i))).ToList();
         var before = CrashFindings.Judge(Input(ShutOff(), Idle()) with { Changes = [driver], Earlier = earlier });
-        Assert.Contains(before.RuledOut, p => p.Title == "NVIDIA graphics driver 617.42 didn't cause it" && p.Detail == "It was installed 5 days before, but this was already happening: 3 times in the 30 days before it, 1 since.");
+        Assert.Contains(before.RuledOut, p => p.Title == "NVIDIA graphics driver 617.42 didn't cause it" && p.Detail == "It was installed 5 days before. This had already happened 3 times in the 30 days before it, and once since.");
         var fresh = CrashFindings.Judge(Input(ShutOff(), Idle()) with { Changes = [driver] });
         Assert.Contains(fresh.Points, p => p.Title == "NVIDIA graphics driver 617.42 was installed 5 days before" && p.Detail == "This never happened before it.");
         // No record of changes reaching back that far: nothing is said either way.
@@ -268,7 +268,7 @@ public sealed class CrashFindingTests
         // 9 Sep 2026: SYSTEM_SERVICE_EXCEPTION in RtUsbA64.sys. Rigsight had said "update your GPU drivers".
         var e = new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At), Kind = CrashKind.SystemCrash, Code = "0x3B", Facts = new CrashFacts { Driver = "RtUsbA64.sys", DriverName = "Realtek USB Audio Driver", HardwareErrors = 0 } };
         var f = CrashFindings.Judge(Input(e));
-        Assert.Equal((Confidence.Named, "NAMED BY WINDOWS"), (f.Confidence, f.Chip));
+        Assert.Equal((Confidence.Named, "CONFIRMED"), (f.Confidence, f.Chip));
         Assert.Equal("Windows crashed inside RtUsbA64.sys, the Realtek USB audio driver.", f.Head);
         Assert.Equal("Windows crashed inside the Realtek USB audio driver (RtUsbA64.sys).", f.Line);
         Assert.StartsWith("Update or reinstall the Realtek USB audio driver.", f.Advice);

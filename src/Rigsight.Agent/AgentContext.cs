@@ -163,6 +163,7 @@ internal sealed class AgentContext : ApplicationContext
         _tracker = new Tracker(_db, _apps);
         _tracker.SetSettings(_settings);
         _tracker.SessionEnded += OnSessionEnded;
+        _closeUps = new CloseUpKeeper(_db, _tracker.Ring);
         MemoryAt("database open");
 
         _widgets = new WidgetManager(() => _settings, MutateSettings, id => OpenApp("widgets", id));
@@ -198,6 +199,7 @@ internal sealed class AgentContext : ApplicationContext
         // Waking from sleep is turning the PC on again, for the daily recap.
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
+        WatchAppCrashes();
         _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit("a quit signal (the installer, or --quit)"), null), null, Timeout.Infinite, executeOnlyOnce: true);
 
         // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
@@ -424,6 +426,7 @@ internal sealed class AgentContext : ApplicationContext
                     _history.Add(unixMs, _sensors);
                     _tracker.OnSensors(SystemState.With(keys));
                     _tracker.OnFans(_sensors.ReadFans());
+                    _closeUps.Tick();
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
                     if (_sensors.DrivesUpdated) _driveHistory.Add(unixMs, _sensors);
@@ -545,6 +548,7 @@ internal sealed class AgentContext : ApplicationContext
 
         _tracker.Flush(closeAllSessions: true);
         SaveExtremes(force: true);
+        _appCrashWatch?.Dispose();
         _netTrace?.Dispose();
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
@@ -1265,7 +1269,6 @@ internal sealed class AgentContext : ApplicationContext
     {
         var settings = _settings;
         bool summaryWanted = settings.Alerts.SessionSummaries && row.IsGame && row.ActiveSec >= settings.Alerts.SessionSummaryMinMinutes * 60;
-        if (!summaryWanted && !settings.Alerts.CrashNotifications) return;
         string name = AppResolver.DisplayName(app, settings);
 
         // Windows logs a crash a few seconds after the process dies, so wait a moment before deciding
@@ -1337,10 +1340,49 @@ internal sealed class AgentContext : ApplicationContext
         return stored is null ? null : CrashCases.Of(_db, near, _settings).GetValueOrDefault(stored.Id);
     }
 
+    private System.Diagnostics.Eventing.Reader.EventLogWatcher? _appCrashWatch;
+    private int _appCrashScanDue;
+
+    /// <summary>
+    /// Windows tells the agent the moment it logs an app crashing or freezing, so its close-up is kept while the ring
+    /// still holds the minutes before: the ten-minute scan alone comes too late for most of them, and a crash of an
+    /// app nobody was using has no session ending to look for it. Nothing is read until one is logged.
+    /// </summary>
+    private void WatchAppCrashes()
+    {
+        try
+        {
+            // And Windows filing an error report: that is how most PCs record the graphics card hanging (a driver reset).
+            var query = new System.Diagnostics.Eventing.Reader.EventLogQuery("Application", System.Diagnostics.Eventing.Reader.PathType.LogName,
+                CrashLogReader.AppQuery.Replace("]]", " or (EventID=1001 and Provider[@Name='Windows Error Reporting'])]]"));
+            _appCrashWatch = new System.Diagnostics.Eventing.Reader.EventLogWatcher(query);
+            _appCrashWatch.EventRecordWritten += (_, e) =>
+            {
+                e.EventRecord?.Dispose();
+                // Several at once (an app and its helpers) are one scan; a few seconds on, for Windows' own report too.
+                if (Interlocked.Exchange(ref _appCrashScanDue, 1) == 1) return;
+                _ = Task.Delay(5_000).ContinueWith(_ =>
+                {
+                    Interlocked.Exchange(ref _appCrashScanDue, 0);
+                    RunOnSampler(ScanCrashes);
+                });
+            };
+            _appCrashWatch.Enabled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("closeup", ex);
+            _appCrashWatch = null;
+        }
+    }
+
     private readonly CrashNoticeGate _crashNotices = new();
+    private CloseUpKeeper _closeUps = null!;
+
     private bool _crashesScanned;
     private const string ShutdownTimesKey = "shutdown_times_placed";
     private const string CrashFactsKey = "crash_facts_filled";
+    private const string ResetsReadKey = "gpu_resets_read";
     private const string CrashScannedKey = RigsightDb.CrashScannedKey;
     /// <summary>The one-time catch-up (see <see cref="CrashFactsKey"/>) is still to do: it is the scan after the first.</summary>
     private bool _crashFillDue;
@@ -1383,7 +1425,9 @@ internal sealed class AgentContext : ApplicationContext
             var from = since;
             bool fillDue = _db.GetMeta(CrashFactsKey) is null;
             bool fill = fillDue && !firstScan;
-            _crashFillDue = fillDue && firstScan;
+            // A first scan that reads the whole 90 days finds the resets itself: nothing to catch up on.
+            if (firstScan && since <= now.AddDays(-89) && _db.GetMeta(ResetsReadKey) is null) _db.SetMeta(ResetsReadKey, "1");
+            _crashFillDue = (fillDue || _db.GetMeta(ResetsReadKey) is null) && firstScan;
             if (fill && _db.FirstCrashTime() is long oldest && TimeUtil.FromUnix(oldest).AddDays(-1) is var earliest && earliest < since) from = earliest;
             _db.InsertSigns(CrashLogReader.ReadSigns(from));
             var read = CrashLogReader.ReadSince(from);
@@ -1391,7 +1435,23 @@ internal sealed class AgentContext : ApplicationContext
             // Older than the scan's own reach: only what is stored already gets its facts, nothing is added.
             if (from < since) _db.InsertCrashes(read.Where(e => e.Ts < sinceTs), knownOnly: true);
             var added = _db.InsertCrashes(read.Where(e => e.Ts >= sinceTs));
+            // An app's crash the ring of readings still reaches gets its close-up.
+            try { _closeUps.OnStored(added); }
+            catch (Exception ex) { Log.Error("closeup", ex); }
             if (fill) _db.SetMeta(CrashFactsKey, "1");
+            // Once, from 0.25.0 on: the graphics driver resets Windows recorded as hang reports, which earlier versions
+            // didn't read, as far back as a first scan reads; and the moment each hang really happened, for a shut-off
+            // that came with one. On the scan after the first, as the catch-up above, to keep starting light.
+            if (!firstScan && _db.GetMeta(ResetsReadKey) is null)
+            {
+                var back = now.AddDays(-90);
+                var resets = _db.InsertCrashes(CrashLogReader.ReadResets(back));
+                _db.InsertSigns(CrashLogReader.ReadSigns(back));
+                // A shut-off that came right after the card hung was running until then: placed again (later, never earlier).
+                _db.InsertCrashes(CrashLogReader.ReadSince(back, systemOnly: true).Where(e => e.NextStart is not null), knownOnly: true);
+                _db.SetMeta(ResetsReadKey, "1");
+                Log.Write("crash", $"Read the graphics driver resets of the last 90 days: {resets.Count} found");
+            }
             _db.SetMeta(CrashScannedKey, TimeUtil.ToUnix(now).ToString());
             _crashesScanned = true;
             // Rigsight's own crashes, and the PC's, as Windows logged them: a program that died wrote nothing here itself.
@@ -1413,6 +1473,8 @@ internal sealed class AgentContext : ApplicationContext
             var findings = CrashCases.Of(_db, stored, _settings);
             foreach (var e in stored.TakeLast(2))
             {
+                // A graphics card that hangs again and again within minutes: the first is said, the rest are on the page.
+                if (e.Kind == CrashKind.GpuDriverReset && !_crashNotices.Allow("graphics driver", e.Time)) continue;
                 var ex = CrashExplainer.Explain(e);
                 string said = findings.TryGetValue(e.Id, out var finding) ? finding.Said : ex.Reason;
                 _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, ex.Title,

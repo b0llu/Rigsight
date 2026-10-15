@@ -20,7 +20,7 @@ internal static class CaseMinutesBuilder
     /// <summary>The most fans drawn on the Fans lane (the fastest-turning); the box lists the first <see cref="CaseReadout.FanLines"/>.</summary>
     private const int FanSeries = 4;
 
-    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions)
+    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions, string word = "crash")
     {
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to) + 60, at = TimeUtil.ToUnix(crash);
         var rows = db.GetMinutes(f, t);
@@ -145,7 +145,7 @@ internal static class CaseMinutesBuilder
             stood.Insert(stood.FindIndex(s => s.IsCalm) is int calm and >= 0 ? calm : stood.Count,
                 new StoodOut("Windows keeps the CPU's temperature and power and the motherboard's fans for admin accounts, so they aren't shown here.", false));
         int crashIndex = minutes.FindLastIndex(m => m.Time <= crash);
-        return new Built(minutes, lanes, strips, marks, stood, new CaseReadout(minutes, Math.Max(0, crashIndex), ramTotal, crash));
+        return new Built(minutes, lanes, strips, marks, stood, new CaseReadout(minutes, Math.Max(0, crashIndex), ramTotal, crash, word: word));
     }
 
     /// <summary>What stands out in one minute alone, for the box: a part that warmed fast, memory nearly out, a battery nearly empty.</summary>

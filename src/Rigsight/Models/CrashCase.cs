@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Models;
@@ -31,10 +32,13 @@ public sealed record CaseEvidence(string Icon, string Brush, string Title, strin
 /// A crash opened: its finding with what it rests on, the 45 minutes before it, what was running, what had changed,
 /// its earlier times, and what Windows recorded. Everything a person would otherwise piece together from Event Viewer.
 /// </summary>
-public sealed class CrashCase
+public sealed partial class CrashCase : ObservableObject
 {
     /// <summary>Minutes of history shown before the crash.</summary>
     public const int MinutesBefore = 45;
+
+    /// <summary>Minutes of history shown after it.</summary>
+    public const int MinutesAfter = 10;
 
     public required CrashGroup Group { get; init; }
     public required CrashFinding Finding { get; init; }
@@ -47,7 +51,10 @@ public sealed class CrashCase
     public string Chip => Finding.Chip;
     public string Sure => Finding.Confidence.ToString();
     /// <summary>The confidence alone for the case's own chip: its cause is the headline beside it.</summary>
-    public string SureWord => Finding.Confidence switch { Confidence.Named => "NAMED BY WINDOWS", Confidence.Likely => "LIKELY", Confidence.Possible => "POSSIBLE", _ => "NOT ENOUGH TO SAY" };
+    public string SureWord => Finding.Confidence switch { Confidence.Named => "CONFIRMED", Confidence.Likely => "LIKELY", Confidence.Possible => "POSSIBLE", _ => "NOT ENOUGH TO SAY" };
+    /// <summary>The chip's hover: where "Confirmed" comes from, or what the word means.</summary>
+    public string SureHint => Finding.Confidence == Confidence.Named ? "Windows' own record says this."
+        : "How sure Rigsight is of what happened, by what it rests on";
     public string Head => Finding.Head;
     /// <summary>The case's headline: the finding itself, without its full stop.</summary>
     public string Headline => Finding.Head.TrimEnd('.');
@@ -67,21 +74,46 @@ public sealed class CrashCase
     public bool HasNotKnown => NotKnown.Count > 0;
     public bool HasPoints => Points.Count > 0;
 
-    /// <summary>Everything recorded about the PC in each of the minutes before (see <see cref="Controls.CaseLanes"/>).</summary>
-    public List<CaseMinute> Minutes { get; init; } = [];
-    public List<CaseLane> Lanes { get; init; } = [];
-    public List<CaseStrip> Strips { get; init; } = [];
-    public List<CaseMark> Marks { get; init; } = [];
-    /// <summary>What stood out in those minutes, in words, above the lanes (the last line: what was calm).</summary>
-    public List<StoodOut> StoodOut { get; init; } = [];
-    /// <summary>The box beside the lanes: the minute pointed at, or the crash's own.</summary>
-    public CaseReadout? Readout { get; init; }
-    public List<CaseGap> Gaps { get; init; } = [];
+    /// <summary>The 45 minutes before and the 10 after, a reading a minute (see <see cref="Controls.CaseLanes"/>).</summary>
+    public required CaseView Wide { get; init; }
+    /// <summary>The seconds around it, where they were kept (see <see cref="CloseUp"/>); null where they weren't.</summary>
+    public CaseView? Close { get; init; }
+    public bool HasCloseUp => Close is not null;
+
+    /// <summary>The close-up is shown (where there is one): an opened crash starts on it.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(View), nameof(StoodOut), nameof(Readout), nameof(RangeText), nameof(Minutes), nameof(Lanes), nameof(Strips), nameof(Marks), nameof(Gaps), nameof(Wider))]
+    private bool _upClose;
+
+    /// <summary>The other side of the switch: the minutes shown.</summary>
+    public bool Wider { get => !UpClose; set => UpClose = !value; }
+
+    /// <summary>What the lanes, the box and the lines above them show now.</summary>
+    public CaseView View => UpClose && Close is not null ? Close : Wide;
+
+    /// <summary>"Around the crash", "Around the shut-off", "Around the blue screen".</summary>
+    public string AroundTitle => Row.Event.Kind switch
+    {
+        CrashKind.UnexpectedShutdown => "Around the shut-off",
+        CrashKind.SystemCrash => "Around the blue screen",
+        CrashKind.GpuDriverReset => "Around the driver reset",
+        _ => "Around the crash",
+    };
+
+    public List<CaseMinute> Minutes => View.Minutes;
+    public List<CaseLane> Lanes => View.Lanes;
+    public List<CaseStrip> Strips => View.Strips;
+    public List<CaseMark> Marks => View.Marks;
+    /// <summary>What stood out, in words, above the lanes (the last line: what was calm).</summary>
+    public List<StoodOut> StoodOut => View.StoodOut;
+    /// <summary>The box beside the lanes: the moment pointed at, or the crash's own.</summary>
+    public CaseReadout? Readout => View.Readout;
+    public List<CaseGap> Gaps => View.Gaps;
     /// <summary>Above the lanes, at the right: the stretch they cover.</summary>
-    public string RangeText => Minutes.Count == 0 ? "" : $"{ChartFrom:h:mm tt} to {Marks.LastOrDefault(k => k.IsCrash)?.At ?? ChartTo:h:mm tt} · one reading a minute";
-    public DateTime ChartFrom { get; init; }
-    public DateTime ChartTo { get; init; }
-    public bool HasChart => Minutes.Count > 0;
+    public string RangeText => View.RangeText;
+    public DateTime ChartFrom => View.ChartFrom;
+    public DateTime ChartTo => View.ChartTo;
+    public bool HasChart => Wide.HasChart || Close is { HasChart: true };
     /// <summary>Why there is no chart ("Nothing was being recorded then…").</summary>
     public string NoChart { get; init; } = "";
 

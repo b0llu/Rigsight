@@ -15,8 +15,11 @@ public static class CrashCases
     /// <summary>Days of rest temperatures a PC's "usual at rest" is taken from.</summary>
     private const int RestDays = 14;
 
-    /// <summary>The inputs for the crashes given (any order), by crash id.</summary>
-    public static Dictionary<long, CrashInput> Inputs(RigsightDb db, IReadOnlyList<CrashEvent> crashes, RigsightSettings settings)
+    /// <summary>
+    /// The inputs for the crashes given (any order), by crash id. <paramref name="upClose"/>: also what only an opened
+    /// crash looks at (its close-up, the graphics card's memory against the app's usual), which adds to the evidence only.
+    /// </summary>
+    public static Dictionary<long, CrashInput> Inputs(RigsightDb db, IReadOnlyList<CrashEvent> crashes, RigsightSettings settings, bool upClose = false)
     {
         var map = new Dictionary<long, CrashInput>();
         if (crashes.Count == 0) return map;
@@ -61,15 +64,46 @@ public static class CrashCases
                 Signs = [.. signs.Where(s => s.Ts >= e.Ts - 1800 && s.Ts <= e.Ts + 86400)],
                 NameOf = NameOf,
             };
+            if (upClose)
+            {
+                if (e.Kind is CrashKind.AppCrash or CrashKind.AppHang && app is not null)
+                    map[e.Id] = map[e.Id] with { GpuMemory = GpuMemory(db, e, app.Id, db.GetCloseUp(e.Ts, e.AppExe)) };
+            }
         }
         return map;
 
         static double? Ratio(double sum, int n) => n > 0 ? sum / n : null;
     }
 
-    /// <summary>Each crash's finding, by crash id.</summary>
-    public static Dictionary<long, CrashFinding> Of(RigsightDb db, IReadOnlyList<CrashEvent> crashes, RigsightSettings settings) =>
-        Findings(Inputs(db, crashes, settings));
+    /// <summary>Each crash's finding, by crash id (with <paramref name="upClose"/>, as an opened crash shows it).</summary>
+    public static Dictionary<long, CrashFinding> Of(RigsightDb db, IReadOnlyList<CrashEvent> crashes, RigsightSettings settings, bool upClose = false) =>
+        Findings(Inputs(db, crashes, settings, upClose));
+
+    /// <summary>How far back an app's usual graphics memory is taken from, leaving out the hour before the crash itself.</summary>
+    private const int UsualDays = 60;
+
+    /// <summary>The graphics card's memory as <paramref name="e"/> happened (the last 30 seconds up close, else its last minutes), against the app's usual.</summary>
+    internal static GpuMemoryAtCrash? GpuMemory(RigsightDb db, CrashEvent e, long app, CloseUp? closeUp)
+    {
+        double? used = null, total = null;
+        bool upClose = false;
+        if (closeUp is not null)
+        {
+            var last = closeUp.Points.Where(p => p.T <= e.Ts * 1000 + 999 && p.T >= (e.Ts - 30) * 1000 && p.Vram is not null).ToList();
+            if (last.Count > 0) (used, total, upClose) = (last.Max(p => p.Vram), last[^1].VramTotal, true);
+        }
+        if (used is null)
+        {
+            var minutes = db.GetMinutes(e.Ts - 120, e.Ts + 1).Where(m => m.VramUsed is not null).ToList();
+            if (minutes.Count == 0) return null;
+            (used, total) = (minutes.Max(m => m.VramUsed), minutes[^1].VramTotal);
+        }
+        if (used is not double u || total is not double t || t <= 0) return null;
+        var usual = db.GetAppVram(app, e.Ts - UsualDays * 86400L, e.Ts - 3600);
+        if (usual.Count == 0) return new GpuMemoryAtCrash(u, t, 0, 0, upClose);
+        usual.Sort();
+        return new GpuMemoryAtCrash(u, t, usual[usual.Count / 2], usual.Count, upClose);
+    }
 
     /// <summary>
     /// The findings for inputs already read. An app that went down within two minutes of a graphics driver's logged

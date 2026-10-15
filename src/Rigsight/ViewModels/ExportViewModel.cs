@@ -406,7 +406,14 @@ public sealed partial class ExportViewModel : ObservableObject
                 e.AppExe.Length == 0 ? null : byExe.TryGetValue(e.AppExe, out var row) ? Name(row) : null,
                 ctx,
                 ctx?.FrontApp is long front && byId.TryGetValue(front, out var app) ? Name(app) : null,
-                [.. changes.Where(c => c.Time <= at && c.Time >= at.AddDays(-7)).TakeLast(6)]) { Finding = findings.GetValueOrDefault(e.Id) };
+                [.. changes.Where(c => c.Time <= at && c.Time >= at.AddDays(-7)).TakeLast(6)])
+            {
+                Finding = findings.GetValueOrDefault(e.Id),
+                InLastMinutes = e.Kind is CrashKind.AppCrash or CrashKind.AppHang or CrashKind.GpuDriverReset && db.GetCloseUp(e.Ts, e.AppExe) is { } close
+                    ? [.. CloseUpWords.Find(close.Points, e.Ts, id => byId.TryGetValue(id, out var a) ? Name(a) : "An app",
+                        e.AppExe.Length > 0 && byExe.TryGetValue(e.AppExe, out var crashed) ? crashed.Id : null).Select(x => x.Text)]
+                    : [],
+            };
         })];
     }
 }

@@ -5,6 +5,7 @@ using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
+using Rigsight.Core.Stability;
 
 namespace Rigsight.Agent.Tracking;
 
@@ -109,6 +110,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
     private AppInfo? _foreground;
     private bool _present;
+
+    /// <summary>The last few minutes, reading by reading, in memory only: what a crash's close-up is cut from (see CloseUpRing).</summary>
+    public CloseUpRing Ring { get; } = new();
+    // What the ring's next reading carries from the slower reads: the fans (every 10 s), the apps and the drives (every 5 s).
+    private List<CloseUpFan>? _ringFans;
+    private List<CloseUpApp>? _ringApps;
+    private double? _ringDisk;
 
     // Internet use, by app (see NetTracker): which app each process is, and the bookkeeping.
     private readonly NetApps _netApps = new(apps);
@@ -267,6 +275,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         _lastGpuLoad = k.GpuLoad;
         if (Paused) return;
+        AddToRing(k);
 
         var m = _minute;
         m.N++;
@@ -343,6 +352,47 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
     private string? NameOf(AppInfo? app) => app is null ? null : AppResolver.DisplayName(app, _settings);
 
+    /// <summary>This reading, with the last fans, apps, drives and network carried to it, into the ring.</summary>
+    private void AddToRing(KeyValues k)
+    {
+        static double? R(double? v, int digits = 1) => v is double x && double.IsFinite(x) ? Math.Round(x, digits) : null;
+        var net = _net.Live;
+        bool netNow = net.Time >= NowUnix() - 5;
+        Ring.Add(new CloseUpPoint
+        {
+            T = _clock().ToUnixTimeMilliseconds(),
+            CpuTemp = R(k.CpuTemp), GpuTemp = R(k.GpuTemp), GpuHot = R(k.GpuHotSpot),
+            CpuLoad = R(k.CpuLoad, 0), GpuLoad = R(k.GpuLoad, 0), CpuPower = R(k.CpuPower, 0), GpuPower = R(k.GpuPower, 0),
+            Ram = R(k.RamUsed, 2), Commit = R(k.CommitPct, 0), Vram = R(k.GpuVramUsed, 0), VramTotal = R(k.GpuVramTotal, 0),
+            Disk = R(_ringDisk, 0), Down = netNow ? Math.Round(net.Down) : null, Up = netNow ? Math.Round(net.Up) : null,
+            Battery = k.Battery, OnBattery = k.OnBattery,
+            Front = _foreground?.Id, Here = _present,
+            Fans = _ringFans, Apps = _ringApps,
+        });
+    }
+
+    /// <summary>
+    /// How many apps each reading in the ring carries for the CPU, the GPU and memory, and the least each must be doing:
+    /// the leasts the hour's totals and the minute's apps note an app at, so the ring never adds an app to the history
+    /// that wouldn't be there anyway.
+    /// </summary>
+    internal const int RingCpu = 3, RingGpu = 2, RingMem = 3;
+    internal const double RingLeastCpu = LeastCpu, RingLeastGpu = LeastGpu, RingLeastMemMb = LeastMemMb;
+
+    /// <summary>The apps doing the most in this sample, for the ring's next readings.</summary>
+    private void RingApps(ProcessSnapshot snapshot)
+    {
+        _ringDisk = snapshot.Disk;
+        var all = snapshot.Apps.Values.Where(u => Nameable(u.Exe))
+            .Select(u => (Usage: u, Gpu: snapshot.Gpu.GetValueOrDefault(u.Exe))).ToList();
+        var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in all.Where(a => a.Usage.Cpu >= RingLeastCpu).OrderByDescending(a => a.Usage.Cpu).Take(RingCpu)) keep.Add(a.Usage.Exe);
+        foreach (var a in all.Where(a => a.Gpu >= RingLeastGpu).OrderByDescending(a => a.Gpu).Take(RingGpu)) keep.Add(a.Usage.Exe);
+        foreach (var a in all.Where(a => a.Usage.MemMB >= RingLeastMemMb).OrderByDescending(a => a.Usage.MemMB).Take(RingMem)) keep.Add(a.Usage.Exe);
+        _ringApps = [.. all.Where(a => keep.Contains(a.Usage.Exe)).OrderByDescending(a => a.Usage.Cpu)
+            .Select(a => new CloseUpApp(apps.Get(a.Usage.Exe, a.Usage.FirstPid).Id, Math.Round(a.Usage.Cpu, 1), Math.Round(a.Gpu, 1), Math.Round(a.Usage.MemMB)))];
+    }
+
     private enum Load { Cpu, Gpu }
 
     /// <summary>The least an app must average over the minute (% of the CPU / GPU) to be named for a peak…</summary>
@@ -394,6 +444,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (Paused) return;
         RecordLoad(snapshot);
         RecordMinute(snapshot);
+        RingApps(snapshot);
 
         // Open-but-not-in-front time.
         foreach (var (exe, state) in windows)
@@ -509,6 +560,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         if (Paused) return;
         var m = _minute;
+        _ringFans = [.. fans.Where(f => f.Rpm is double r && double.IsFinite(r) && r >= 0).Select(f => new CloseUpFan(f.Name, (int)Math.Round(f.Rpm!.Value)))];
         foreach (var f in fans)
         {
             if (f.Rpm is not double rpm || !double.IsFinite(rpm) || rpm < 0) continue;
@@ -790,6 +842,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _deltas.Clear();
         _sessions.Clear();
         _net.Clear();
+        Ring.Clear();
         _today = new TodayState { Day = LocalToday };
     }
 

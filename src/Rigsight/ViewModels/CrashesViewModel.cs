@@ -630,7 +630,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             int before = earlier.Count(p => p.Ts < ts && p.Ts >= ts - 30L * 86400) + (running[0].Event.Ts < ts ? 1 : 0), since = running.Count(c => c.Time >= driver.Time);
             string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
             if (before >= 2)
-                list.Add(new("\uE73E", "GoodBrush", $"The {name} of {driver.Time:d MMM} did not start the shut-offs: {before} in the 30 days before it, {since} since."));
+                list.Add(new("\uE73E", "GoodBrush", $"Not caused by the {name} installed on {driver.Time:d MMM}. The PC shut off {CrashFindings.Times(before)} in the 30 days before it, and {CrashFindings.Times(since)} since."));
         }
         int asleep = shutdowns.Count(c => c.Event.DuringSleep);
         if (asleep >= 2)
@@ -638,6 +638,17 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         int unfinished = shutdowns.Count(c => c.Event.Moment == PowerMoment.ShuttingDown);
         if (unfinished >= 2)
             list.Add(new("\uE946", "MutedBrush", $"{unfinished} more shutdowns didn't finish while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them."));
+
+        // Graphics driver resets: in one app every time, or in several (the first points at that app, the second past it).
+        var resets = rows.Where(c => c.Event.Kind == CrashKind.GpuDriverReset && c.Finding is not { Outside: true }).ToList();
+        if (resets.Count >= 2)
+        {
+            var inApps = resets.Where(c => c.Input?.FrontApp is not null).GroupBy(c => c.Input!.FrontApp!).OrderByDescending(g => g.Count()).ToList();
+            if (inApps.Count > 0 && inApps[0].Count() >= 2 && inApps[0].Count() * 2 > resets.Count)
+                list.Add(new("\uE7F4", "WarmBrush", $"{inApps[0].Count()} of the {resets.Count} graphics driver resets were in {inApps[0].Key}. Resets in one game while others run fine point at that game or its graphics settings first."));
+            else if (inApps.Count >= 2)
+                list.Add(new("\uE7F4", "WarmBrush", $"The {resets.Count} graphics driver resets came in {inApps.Count} different apps. Across several apps, the driver, the card's temperature or an overclock is likelier than any one game."));
+        }
 
         // An app that only went down because a driver was being installed under it says nothing about the driver.
         int gpuRelated = rows.Count(c => c.Finding is not { Outside: true } &&
@@ -693,7 +704,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         try
         {
-            Clipboard.SetText(Report(g));
+            // From an opened crash, as it shows: with what only it looks at, and its close-up.
+            Clipboard.SetText(Report(g, Case is { } open && open.Group == g ? open : null));
             g.Copied = true;
             await Task.Delay(2000);
             g.Copied = false;
@@ -708,7 +720,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// A plain-text summary for forums or support: what, when, what most likely happened and how sure that is, what it
     /// rests on, what was ruled out, and this PC's hardware.
     /// </summary>
-    public static string Report(CrashGroup g)
+    public static string Report(CrashGroup g, CrashCase? opened = null)
     {
         var sb = new StringBuilder();
         string kind = g.KindLabel.ToLowerInvariant();
@@ -718,7 +730,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             : g.Count == 1
             ? $"When: {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}"
             : $"When: {g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})");
-        if (g.Finding is { } f)
+        if ((opened?.Finding ?? g.Finding) is { } f)
         {
             sb.AppendLine($"What happened: {f.Head} {f.Text}");
             sb.AppendLine($"How sure: {f.Verdict}");
@@ -729,6 +741,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             if (f.NotChecked.Count > 0) sb.AppendLine("Could not be checked:");
             foreach (var p in f.NotChecked) sb.AppendLine($"  - {p.Title}: {p.Detail}");
             if (f.CantTell is { } cant) sb.AppendLine($"Still unknown: {cant}");
+            // What its close-up showed, a reading every two seconds.
+            if (opened?.Close is { StoodOut.Count: > 0 } close)
+            {
+                sb.AppendLine("In the last minutes:");
+                foreach (var line in close.StoodOut) sb.AppendLine($"  - {line.Text}");
+            }
         }
         else sb.AppendLine($"What happened: {g.Reason}");
         if (g.IsIncident)

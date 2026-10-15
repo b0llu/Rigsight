@@ -139,7 +139,7 @@ public static class DataExport
         [ExportTable.Crashes] = new("Crashes.csv", "Apps that crashed or stopped responding, blue screens, unexpected shutdowns and graphics driver resets.",
             [C("Time", "When it happened"), C("What", "In a sentence"), C("Kind", "The kind of problem"), C("App", "The app, if it was one"),
              C("Program", "Its program file"), C("Module", "The file the fault was in"), C("Code", "Windows' error code"), C("Detail", "What Windows wrote down"),
-             C("Most likely", "What most likely happened"), C("How sure", "Named by Windows, likely, possible, or not enough to say"),
+             C("Most likely", "What most likely happened"), C("How sure", "Confirmed (by Windows' own record), likely, possible, or not enough to say"),
              C("App version", "The program's version"), C("Driver", "The driver a blue screen names")],
             "crashes", "ts", 260,
             (db, from, to, n) =>

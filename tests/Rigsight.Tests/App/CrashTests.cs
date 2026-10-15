@@ -903,6 +903,18 @@ public sealed class CrashesPageTests
     }
 
     [Fact]
+    public void Graphics_driver_resets_say_whether_they_were_in_one_game_or_several()
+    {
+        var (vm, _) = Page();
+        var now = DateTime.Now;
+        CrashRow Reset(double hours, string front) => Crashes.Row(CrashKind.GpuDriverReset, now.AddHours(-hours), front: front);
+        Show(vm, [Reset(1, "Dota 2"), Reset(20, "Dota 2"), Reset(40, "Dota 2"), Reset(60, "Apex Legends")]);
+        Ui.Run(() => Assert.Contains(vm.Patterns, p => p.Text.StartsWith("3 of the 4 graphics driver resets were in Dota 2.")));
+        Show(vm, [Reset(1, "Dota 2"), Reset(20, "Apex Legends"), Reset(40, "Cyberpunk 2077")]);
+        Ui.Run(() => Assert.Contains(vm.Patterns, p => p.Text.StartsWith("The 3 graphics driver resets came in 3 different apps.")));
+    }
+
+    [Fact]
     public void A_row_says_what_most_likely_happened_and_how_sure_that_is()
     {
         var (vm, _) = Page();
@@ -911,7 +923,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             var unfinished = vm.GroupsShown.Single(g => g.Latest.Event.Kind == CrashKind.UnexpectedShutdown);
-            Assert.Equal(("NAMED BY WINDOWS", "Named", "Windows was already shutting down. Usually harmless."), (unfinished.Chip, unfinished.Sure, unfinished.Line));
+            Assert.Equal(("CONFIRMED", "Named", "Windows was already shutting down. Usually harmless."), (unfinished.Chip, unfinished.Sure, unfinished.Line));
             var bug = vm.GroupsShown.Single(g => g.AppExe == "own-bug.exe");
             Assert.Equal(("POSSIBLE: A FAULT IN THE APP", "Possible"), (bug.Chip, bug.Sure));
         });
@@ -940,7 +952,7 @@ public sealed class CrashesPageTests
         var row = Crashes.Row(CrashKind.AppCrash, DateTime.Today.AddHours(-5), "g.exe", "Game", "nvwgf2umx.dll", "c0000005", cpu: 60, gpu: 70);
         string text = CrashesViewModel.Report(CrashGroup.Build([row]).Single());
         Assert.Contains("What happened: The NVIDIA graphics driver failed while running Game.", text);
-        Assert.Contains("How sure: Named by Windows.", text);
+        Assert.Contains("How sure: Confirmed by Windows.", text);
         Assert.Contains("What it wasn't:", text);
         Assert.Contains("  - It wasn't overheating: The CPU was at 60° and the GPU at 70°, under your alert limits.", text);
         Assert.Contains("What to try: Update the NVIDIA driver", text);

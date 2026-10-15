@@ -53,6 +53,18 @@ Leave **PawnIO** and **RivaTuner** ticked if the installer offers them. PawnIO r
 
 **To uninstall**, go to **Settings → Apps → Rigsight → Uninstall**. Your history stays in `%LocalAppData%\Rigsight`; delete that folder too if you want it gone.
 
+## How much it uses
+
+Measured on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti on Windows 11, with three weeks of history, as Task Manager shows it:
+
+| What's open | CPU | Memory |
+|---|---|---|
+| Nothing, just recording in the background | about 0.02% | about 30 to 45 MB |
+| The Rigsight window, on Home | about 0.2% | about 150 MB |
+| The window on a live page, such as Temperatures | about 0.3% | about 160 MB |
+
+With the window open, sensors are read every second instead of every two, so it uses a little more until you close it. On a CPU with fewer cores the share is bigger: in the background Rigsight uses about half a percent of one core. A year of history takes about 100 MB on a PC that's on most of the day.
+
 ## Privacy
 
 No account, no telemetry. The only thing Rigsight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.

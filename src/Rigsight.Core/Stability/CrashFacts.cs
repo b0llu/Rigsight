@@ -40,10 +40,15 @@ public sealed class CrashFacts
     public int? HardwareErrors { get; set; }
     /// <summary>…and when that start was (Unix seconds).</summary>
     public long? NextStart { get; set; }
+    /// <summary>
+    /// A graphics driver reset read from Windows' hang report: the address its records share. Windows writes one hang
+    /// up two or three times (a quick record, a fuller one seconds later, sometimes again later), all with this.
+    /// </summary>
+    public string? HangKey { get; set; }
 
     [JsonIgnore]
     public bool IsEmpty => RanSec is null && AppVersion is null && ModuleVersion is null && Offset is null && ReportType is null && WaitedOn is null && Error is null
-                           && Driver is null && BugParams is null && PowerButton is null && HardwareErrors is null && NextStart is null;
+                           && Driver is null && BugParams is null && PowerButton is null && HardwareErrors is null && NextStart is null && HangKey is null;
 
     /// <summary>
     /// These facts with whatever <paramref name="later"/> has that these don't (Windows writes a blue screen's driver
@@ -87,6 +92,11 @@ public static class SignKind
     /// <summary>Windows filed a report that the graphics card stopped answering. Its time is when the report was filed,
     /// which for a PC that then went down is the next start.</summary>
     public const string GraphicsHang = "gpu-hang";
+    /// <summary>
+    /// The moment the graphics card hung, from the report's own time (Windows keeps it where only an admin can read it):
+    /// for a PC that went down, this is before it went, not when it was written up at the next start.
+    /// </summary>
+    public const string GraphicsHangAt = "gpu-hang-at";
     /// <summary>Windows was running out of memory.</summary>
     public const string Memory = "memory";
 }

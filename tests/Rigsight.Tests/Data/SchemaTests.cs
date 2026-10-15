@@ -39,6 +39,7 @@ public sealed class SchemaTests
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
         ["crashes"] = ["id", "ts", "kind", "app_exe", "app_path", "module", "code", "detail", "during_sleep", "ts_windows", "facts"],
         ["crash_signs"] = ["ts", "kind", "detail"],
+        ["close_up"] = ["ts", "exe", "kind", "done", "data"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
         ["net_minute"] = ["ts", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "steady", "app"],
         ["net_day"] = ["day", "minutes", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "best", "best_ts"],

@@ -12,7 +12,8 @@ namespace Rigsight.Core.Stability;
 /// </summary>
 public static partial class CrashLogReader
 {
-    private const string AppQuery =
+    /// <summary>An app crashing or freezing, as Windows logs it (public for the agent's watch on it).</summary>
+    public const string AppQuery =
         "*[System[(EventID=1000 and Provider[@Name='Application Error']) or (EventID=1002 and Provider[@Name='Application Hang'])]]";
 
     private const string SystemQuery =
@@ -121,6 +122,9 @@ public static partial class CrashLogReader
                 }
             }
         }
+        if (!systemOnly)
+            events.AddRange(ResetsFrom(ReadHangs(since), [.. kernelPower.Select(k => k.Logged)],
+                [.. events.Where(e => e.Kind == CrashKind.GpuDriverReset).Select(e => e.Time)]));
         foreach (var (logged, bugcheck, moment, facts) in kernelPower)
         {
             facts.NextStart = TimeUtil.ToUnix(logged);
@@ -165,6 +169,96 @@ public static partial class CrashLogReader
             5 or 6 => PowerMoment.ShuttingDown,
             _ => PowerMoment.Running,
         } : PowerMoment.Running;
+    }
+
+    /// <summary>
+    /// The graphics driver resets since <paramref name="since"/> on their own (see <see cref="ResetsFrom"/>), for a
+    /// history whose earlier scans didn't look for them: with the sudden restarts and the usual reset entries of that
+    /// stretch, so a hang that took the PC down, or one counted already, isn't added.
+    /// </summary>
+    public static List<CrashEvent> ReadResets(DateTime since)
+    {
+        var starts = new List<DateTime>();
+        var display = new List<DateTime>();
+        foreach (var record in Query("System", SystemQuery, since))
+        {
+            using (record)
+            {
+                if (record.TimeCreated is not { } logged) continue;
+                if (record.Id == 41) starts.Add(logged);
+                else if (record.Id == 4101) display.Add(logged);
+            }
+        }
+        return ResetsFrom(ReadHangs(since), starts, display);
+    }
+
+    /// <summary>One of Windows' records of a graphics hang (an error report named LiveKernelEvent): when it was written, the
+    /// address its records share, its bucket (which names the driver, in the fuller record) and its code (141 or 117).</summary>
+    internal sealed record HangRecord(DateTime Logged, string Key, string? Bucket, string Code);
+
+    /// <summary>Windows' graphics-hang records since <paramref name="since"/>, oldest first.</summary>
+    internal static List<HangRecord> ReadHangs(DateTime since)
+    {
+        var list = new List<HangRecord>();
+        try
+        {
+            foreach (var record in Query("Application", ReportQuery, since, "EventData[Data='LiveKernelEvent']"))
+            {
+                using (record)
+                {
+                    if (record.TimeCreated is not { } time || !string.Equals(Prop(record, 2), "LiveKernelEvent", StringComparison.OrdinalIgnoreCase)) continue;
+                    // 141 and 117: the graphics card took too long to answer and Windows recovered it.
+                    if (Text(Prop(record, 5)) is not ("141" or "117") || Text(Prop(record, 5)) is not { } code) continue;
+                    list.Add(new HangRecord(time, Text(Prop(record, 6)) ?? time.Ticks.ToString(), Text(Prop(record, 0)), code));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("crashes", ex);
+        }
+        return [.. list.OrderBy(h => h.Logged)];
+    }
+
+    /// <summary>
+    /// The graphics driver resets in Windows' hang records: one per hang (its records share an address), at the first
+    /// record's time, which on the PC this was worked out on came 0 to 2 seconds after the hang itself (once, 1 min 42 s).
+    /// Left out: a hang followed within ten minutes by a sudden restart, or written up just after one (<paramref name="suddenStarts"/>,
+    /// Kernel-Power 41): it took the PC down and is said on that shut-off instead. And one Windows also logged the usual way (Display 4101).
+    /// </summary>
+    internal static List<CrashEvent> ResetsFrom(IReadOnlyList<HangRecord> records, IReadOnlyList<DateTime> suddenStarts, IReadOnlyList<DateTime> displayResets)
+    {
+        var list = new List<CrashEvent>();
+        foreach (var hang in records.GroupBy(r => r.Key))
+        {
+            var first = hang.MinBy(r => r.Logged)!;
+            // A sudden restart soon after it (the PC went down with the card) or a write-up just after one: that shut-off's.
+            if (suddenStarts.Any(s => first.Logged >= s.AddMinutes(-10) && first.Logged <= s.AddMinutes(15))) continue;
+            if (displayResets.Any(d => Math.Abs((d - first.Logged).TotalSeconds) <= 120)) continue;
+            string? driver = hang.Select(r => DriverOf(r.Bucket)).FirstOrDefault(d => d is not null);
+            list.Add(new CrashEvent
+            {
+                Ts = TimeUtil.ToUnix(first.Logged),
+                Kind = CrashKind.GpuDriverReset,
+                AppExe = "",
+                Module = driver,
+                Code = first.Code,
+                Detail = $"Windows reported that the graphics card stopped answering (LiveKernelEvent {first.Code})",
+                Facts = new CrashFacts { Driver = driver, DriverName = driver is null ? null : DriverFiles.Describe(driver), ReportType = $"LiveKernelEvent {first.Code}", HangKey = hang.Key },
+            });
+        }
+        return list;
+    }
+
+    /// <summary>The driver a hang report's bucket names ("LKD_0x141_Tdr:6_IMAGE_nvlddmkm.sys_Ampere" gives "nvlddmkm.sys").</summary>
+    internal static string? DriverOf(string? bucket)
+    {
+        if (bucket is null) return null;
+        int at = bucket.IndexOf("IMAGE_", StringComparison.OrdinalIgnoreCase);
+        if (at < 0) return null;
+        var rest = bucket[(at + 6)..];
+        int end = rest.IndexOf(".sys", StringComparison.OrdinalIgnoreCase);
+        return end > 0 ? rest[..(end + 4)] : null;
     }
 
     private const string DumpQuery = "*[System[Provider[@Name='Microsoft-Windows-WER-SystemErrorReporting'] and EventID=1001]]";
@@ -400,14 +494,18 @@ public static partial class CrashLogReader
                 }
             }
             // Windows picks these out itself: every error report of the period used to be read here to find a handful.
-            foreach (var record in Query("Application", ReportQuery, since, "EventData[Data='LiveKernelEvent']"))
+            var hangs = ReadHangs(since);
+            foreach (var h in hangs)
+                found.Add((TimeUtil.ToUnix(h.Logged) / 60 * 60, SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"));
+            // And the moment each hang really happened, where its report can be read (an admin agent can).
+            if (hangs.Count > 0)
             {
-                using (record)
+                var reports = HangReports();
+                foreach (var hang in hangs.GroupBy(h => h.Key))
                 {
-                    if (record.TimeCreated is not { } time || !string.Equals(Prop(record, 2), "LiveKernelEvent", StringComparison.OrdinalIgnoreCase)) continue;
-                    // 141 and 117: the graphics card took too long to answer and Windows recovered it.
-                    if (Text(Prop(record, 5))?.ToLowerInvariant() is "141" or "117")
-                        found.Add((TimeUtil.ToUnix(time) / 60 * 60, SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"));
+                    var at = hang.Select(h => reports.Where(r => Math.Abs((r.Written - h.Logged).TotalSeconds) <= 20).Select(r => (DateTime?)r.Hung).FirstOrDefault())
+                        .FirstOrDefault(t => t is not null);
+                    if (at is DateTime hung) found.Add((TimeUtil.ToUnix(hung), SignKind.GraphicsHangAt, "The graphics card hung"));
                 }
             }
         }
@@ -417,6 +515,40 @@ public static partial class CrashLogReader
         }
         return [.. found.GroupBy(f => (f.Minute, f.Kind, f.Detail)).OrderBy(g => g.Key.Minute)
             .Select(g => new CrashSign(g.Key.Minute, g.Key.Kind, g.Key.Kind == SignKind.GraphicsHang || g.Count() == 1 ? g.Key.Detail : $"{g.Key.Detail} ({g.Count()} times)"))];
+    }
+
+    /// <summary>
+    /// Windows' graphics-hang reports as filed: when each was written, and the moment of the hang it gives (its
+    /// EventTime). The folder is readable only with admin rights: empty without them.
+    /// </summary>
+    internal static List<(DateTime Written, DateTime Hung)> HangReports()
+    {
+        var list = new List<(DateTime, DateTime)>();
+        try
+        {
+            var archive = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Microsoft", "Windows", "WER", "ReportArchive");
+            foreach (var dir in Directory.EnumerateDirectories(archive, "Kernel_141_*").Concat(Directory.EnumerateDirectories(archive, "Kernel_117_*")))
+            {
+                try
+                {
+                    var wer = Path.Combine(dir, "Report.wer");
+                    if (!File.Exists(wer)) continue;
+                    if (EventTimeOf(File.ReadLines(wer, System.Text.Encoding.Unicode)) is DateTime hung) list.Add((Directory.GetCreationTime(dir), hung));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return list;
+    }
+
+    /// <summary>A report's EventTime line ("EventTime=134...", a Windows file time) as a local time.</summary>
+    internal static DateTime? EventTimeOf(IEnumerable<string> lines)
+    {
+        foreach (var line in lines)
+            if (line.StartsWith("EventTime=", StringComparison.Ordinal) && long.TryParse(line.AsSpan(10), out long ft) && ft > 0)
+                return DateTime.FromFileTime(ft);
+        return null;
     }
 
     /// <summary>Which of Windows' own entries count as a sign, and what each says in plain words (null: routine noise).</summary>

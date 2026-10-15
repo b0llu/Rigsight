@@ -47,8 +47,12 @@ if (args.Contains("--crashes"))
             Rigsight.Core.Stability.CrashLogReader.ReadSince(DateTime.Now.AddMinutes(-30));
             Rigsight.Core.Stability.CrashLogReader.ReadSigns(DateTime.Now.AddMinutes(-30));
             lines.Add($"# the ten-minute scan (last 30 minutes): {reading.ElapsedMilliseconds} ms");
-            w.InsertCrashes(read, knownOnly: true);
+            // As the agent does: the signs first (a hang's own time places the shut-off after it), then what is stored
+            // put right, then the graphics driver resets from Windows' hang reports, which earlier versions didn't read.
             w.InsertSigns(signs);
+            w.InsertCrashes(read, knownOnly: true);
+            var resets = w.InsertCrashes(Rigsight.Core.Stability.CrashLogReader.ReadResets(from));
+            lines.Add($"# graphics driver resets added from Windows' hang reports: {resets.Count}");
         }
         var crashes = w.GetCrashes(0, long.MaxValue / 2);
         var watch = System.Diagnostics.Stopwatch.StartNew();

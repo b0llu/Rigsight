@@ -146,7 +146,19 @@
                     <Border Style="{StaticResource Tile}" Margin="5">
                         <DockPanel>
                             <Border Width="38" Height="38" CornerRadius="19" VerticalAlignment="Center" Margin="0,0,14,0" Background="{DynamicResource HoverBrush}">
-                                <TextBlock Text="{Binding StatusIcon}" Style="{StaticResource Icon}" FontSize="17" HorizontalAlignment="Center" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}" />
+                                <TextBlock Text="{Binding StatusIcon}" FontSize="18" Width="18" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight" UseLayoutRounding="True"
+                                           TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                            <Style.Triggers>
+                                                <!-- The warning triangle is drawn up and to the left in its square: whole pixels only, so it lands the same wherever the window is (measured on screen). -->
+                                                <DataTrigger Binding="{Binding StatusIcon}" Value="&#xE7BA;">
+                                                    <Setter Property="RenderTransform"><Setter.Value><TranslateTransform X="1" Y="1" /></Setter.Value></Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </Border>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding StatusTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding StatusBrush, Converter={StaticResource ResourceBrush}}" />
@@ -212,8 +224,10 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,5">
-                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Top" Margin="0,1,12,0" />
-                                        <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight"
+                                                   Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Top" Margin="0,0,12,0" />
+                                        <!-- The text in lines of the same height as the icon's. -->
+                                        <TextBlock Text="{Binding Text}" FontSize="13" LineHeight="18" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                                     </DockPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -368,7 +382,7 @@
                             </Border>
                             <Border DockPanel.Dock="Right" Style="{StaticResource Chip}" Padding="10,4" VerticalAlignment="Center" Margin="16,0,0,0"
                                     Background="{Binding Sure, Converter={StaticResource SureBrush}, ConverterParameter=soft}"
-                                    ToolTip="How sure Rigsight is of what happened, by what it rests on">
+                                    ToolTip="{Binding SureHint}">
                                 <TextBlock Text="{Binding SureWord}" FontSize="11" FontWeight="Bold" Foreground="{Binding Sure, Converter={StaticResource SureBrush}}" />
                             </Border>
                             <StackPanel VerticalAlignment="Center">
@@ -422,16 +436,26 @@
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Text="{Binding RangeText}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"
                                        Visibility="{Binding HasChart, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="The 45 minutes before" Style="{StaticResource H2}" />
+                            <!-- The close-up and the minutes, where there is a close-up: it starts on the close-up. -->
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center" Margin="0,0,16,0"
+                                    Visibility="{Binding HasCloseUp, Converter={StaticResource Vis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="5 minutes" IsChecked="{Binding UpClose, Mode=TwoWay}"
+                                                 ToolTip="The last 5 minutes up close, a reading every 2 to 3 seconds" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="45 minutes" IsChecked="{Binding Wider, Mode=TwoWay}"
+                                                 ToolTip="The 45 minutes before and the 10 after, a reading a minute" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{Binding AroundTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding StoodOut}" Margin="0,12,0,4" Visibility="{Binding HasChart, Converter={StaticResource Vis}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border x:Name="Box" Background="{DynamicResource Surface2Brush}" CornerRadius="12" Padding="14,10" Margin="0,0,0,8">
                                         <DockPanel>
-                                            <TextBlock x:Name="Glyph" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="14" Width="18" Margin="0,1,10,0"
-                                                       VerticalAlignment="Top" Foreground="{DynamicResource MutedBrush}" />
-                                            <TextBlock x:Name="Said" Text="{Binding Text}" Style="{StaticResource Body}" TextWrapping="Wrap" TextTrimming="None" />
+                                            <TextBlock x:Name="Glyph" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="14" Width="18" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight"
+                                                       Margin="0,0,10,0" VerticalAlignment="Top" Foreground="{DynamicResource MutedBrush}" />
+                                            <TextBlock x:Name="Said" Text="{Binding Text}" Style="{StaticResource Body}" LineHeight="18" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextTrimming="None" />
                                         </DockPanel>
                                     </Border>
                                     <DataTemplate.Triggers>
@@ -457,7 +481,7 @@
                                 <ColumnDefinition Width="18" />
                                 <ColumnDefinition Width="284" />
                             </Grid.ColumnDefinitions>
-                            <ctl:CaseLanes Case="{Binding}" />
+                            <ctl:CaseLanes View="{Binding View}" />
                             <Border Grid.Column="2" Background="{DynamicResource Surface2Brush}" CornerRadius="14" Padding="16,14" VerticalAlignment="Top"
                                     DataContext="{Binding Readout}" AutomationProperties.Name="The minute's readings">
                                 <Border.Resources>

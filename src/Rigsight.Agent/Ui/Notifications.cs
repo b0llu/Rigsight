@@ -53,7 +53,7 @@ internal static class CrashNotices
     /// </summary>
     /// <summary>
     /// The example Settings shows: a made-up crash put through the real rules and the real wording, so the preview is
-    /// always what a notification of that crash would say ("Dota 2 crashed inside the NVIDIA driver. Named by Windows.
+    /// always what a notification of that crash would say ("Dota 2 crashed inside the NVIDIA driver. Confirmed by Windows.
     /// You played for 48m. Click for the full picture.").
     /// </summary>
     public static string Sample

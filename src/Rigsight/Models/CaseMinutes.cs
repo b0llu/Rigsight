@@ -73,10 +73,16 @@ public sealed partial class CaseReadout : ObservableObject
     private readonly int _crash;
 
     private readonly DateTime? _crashAt;
+    private readonly bool _seconds;
+    private readonly string _word;
 
-    public CaseReadout(IReadOnlyList<CaseMinute> minutes, int crashIndex, double? ramTotal = null, DateTime? crashAt = null)
+    /// <param name="seconds">The close-up: a reading every two seconds, said to the second.</param>
+    /// <param name="word">What it was, as said in the box: "crash", "shut-off", "blue screen".</param>
+    public CaseReadout(IReadOnlyList<CaseMinute> minutes, int crashIndex, double? ramTotal = null, DateTime? crashAt = null, bool seconds = false, string word = "crash")
     {
+        _word = word;
         _minutes = minutes;
+        _seconds = seconds;
         RamTotal = ramTotal;
         _crashAt = crashAt;
         _crash = Math.Clamp(crashIndex, 0, Math.Max(0, minutes.Count - 1));
@@ -120,12 +126,24 @@ public sealed partial class CaseReadout : ObservableObject
         int i = index is int at ? Math.Clamp(at, 0, _minutes.Count - 1) : _crash;
         pointing &= index is not null;
         var m = _minutes[i];
-        // The crash's own minute where it was recorded; else the last before it (a PC that went off records nothing after).
-        bool own = _crashAt is not DateTime crashAt || m.Time.AddMinutes(1) > crashAt;
-        Title = pointing ? $"At {m.Time:h:mm tt}" : own ? $"At the crash, {m.Time:h:mm tt}" : $"Just before the crash, {m.Time:h:mm tt}";
-        int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
-        When = !pointing ? "Point at the lanes for any other minute" : before > 0 ? $"{before} min before the crash" : before < 0 ? $"{-before} min after it" : "The crash's own minute";
-        Flag1 = m.Flags.ElementAtOrDefault(0) ?? "Nothing stands out in this minute";
+        string said = m.Time.ToString(_seconds ? "h:mm:ss tt" : "h:mm tt");
+        if (_seconds)
+        {
+            // To the second: the reading nearest the crash, then how far from it each other one is.
+            Title = pointing ? $"At {said}" : $"Last reading before the {_word}, {said}";
+            double from = ((_crashAt ?? _minutes[_crash].Time) - m.Time).TotalSeconds;
+            When = !pointing ? "Point at the lanes for any other moment" : Math.Abs(from) < 1.5 ? $"The {_word}'s own moment"
+                : from > 0 ? $"{Ago(from)} before the {_word}" : $"{Ago(-from)} after it";
+        }
+        else
+        {
+            // The crash's own minute where it was recorded; else the last before it (a PC that went off records nothing after).
+            bool own = _crashAt is not DateTime crashAt || m.Time.AddMinutes(1) > crashAt;
+            Title = pointing ? $"At {said}" : own ? $"At the {_word}, {said}" : $"Just before the {_word}, {said}";
+            int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
+            When = !pointing ? "Point at the lanes for any other minute" : before > 0 ? $"{before} min before the {_word}" : before < 0 ? $"{-before} min after it" : $"The {_word}'s own minute";
+        }
+        Flag1 = m.Flags.ElementAtOrDefault(0) ?? (_seconds ? "Nothing stands out at this moment" : "Nothing stands out in this minute");
         Flag2 = m.Flags.ElementAtOrDefault(1) ?? "";
         HasFlags = m.Flags.Count > 0;
         CpuTemp = Temp(m.CpuTemp);
@@ -150,6 +168,13 @@ public sealed partial class CaseReadout : ObservableObject
 
     private static string Temp(double? t) => t is double v ? Units.TempShort(v) : "–";
 
+    /// <summary>"28 s", "1 min 12 s".</summary>
+    private static string Ago(double seconds)
+    {
+        int s = (int)Math.Round(seconds);
+        return s < 60 ? $"{s} s" : s % 60 == 0 ? $"{s / 60} min" : $"{s / 60} min {s % 60} s";
+    }
+
     private static string Load(double? load, double? power) => (load, power) switch
     {
         (double l, double p) => $"{l:0}% · {p:0} W",
@@ -161,4 +186,36 @@ public sealed partial class CaseReadout : ObservableObject
     /// <summary>Exactly <paramref name="lines"/> lines: the first ones, then dashes.</summary>
     internal static IReadOnlyList<CaseApp> Pad(IReadOnlyList<CaseApp> items, int lines) =>
         [.. items.Take(lines), .. Enumerable.Repeat(new CaseApp("–", ""), Math.Max(0, lines - items.Count))];
+}
+
+/// <summary>
+/// One way of looking at the moments around a crash: the 45 minutes before and 10 after, a reading a minute; or the
+/// close-up, a reading about every two seconds. Everything the lanes and the box beside them draw.
+/// </summary>
+public sealed class CaseView
+{
+    public List<CaseMinute> Minutes { get; init; } = [];
+    public List<CaseLane> Lanes { get; init; } = [];
+    public List<CaseStrip> Strips { get; init; } = [];
+    public List<CaseMark> Marks { get; init; } = [];
+    public List<CaseGap> Gaps { get; init; } = [];
+    /// <summary>What stood out, in words, above the lanes (the last line: what was calm).</summary>
+    public List<Core.Stability.StoodOut> StoodOut { get; init; } = [];
+    public CaseReadout? Readout { get; init; }
+    public DateTime ChartFrom { get; init; }
+    public DateTime ChartTo { get; init; }
+    /// <summary>Readings further apart than this are a break in a line (seconds).</summary>
+    public double BreakSec { get; init; } = 90;
+    /// <summary>A time along the foot every so often.</summary>
+    public TimeSpan TickEvery { get; init; } = TimeSpan.FromMinutes(10);
+    /// <summary>"one reading a minute", "a reading every 2 to 3 seconds".</summary>
+    public string Rate { get; init; } = "one reading a minute";
+    public bool IsCloseUp { get; init; }
+    public bool HasChart => Minutes.Count > 0;
+
+    /// <summary>The crash's own time on the lanes.</summary>
+    public DateTime? Crash => Marks.FirstOrDefault(k => k.IsCrash)?.At;
+
+    /// <summary>Above the lanes, at the right: the stretch they cover.</summary>
+    public string RangeText => Minutes.Count == 0 ? "" : $"{ChartFrom.ToString(IsCloseUp ? "h:mm:ss tt" : "h:mm tt")} to {ChartTo.ToString(IsCloseUp ? "h:mm:ss tt" : "h:mm tt")} · {Rate}";
 }

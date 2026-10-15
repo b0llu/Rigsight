@@ -210,7 +210,7 @@ public class CrashNoticeTests
     {
         Assert.Equal("You played for 48m. Click to see what most likely happened.", CrashNotices.Body(null, game: true, activeSec: 2880));
         // The example in Settings is a made-up crash through the real rules: what it shows is what would be sent.
-        Assert.Equal("Dota 2 crashed inside the NVIDIA driver. Named by Windows. You played for 48m. Click for the full picture.", CrashNotices.Sample);
+        Assert.Equal("Dota 2 crashed inside the NVIDIA driver. Confirmed by Windows. You played for 48m. Click for the full picture.", CrashNotices.Sample);
         // The second look comes once Windows has had time to file its report.
         Assert.InRange(CrashNotices.SecondLook.TotalSeconds, 10, 60);
     }

@@ -19,6 +19,8 @@ internal static class ChartPaint
     public static Pen TooltipBorder { get; private set; } = null!;
     public static Brush Cursor { get; private set; } = null!;
     public static Brush Backdrop { get; private set; } = null!;
+    /// <summary>A light shade over what came after a crash, on its lanes.</summary>
+    public static Brush After { get; private set; } = null!;
     public static Color Cpu { get; private set; }
     public static Color Gpu { get; private set; }
 
@@ -50,6 +52,7 @@ internal static class ChartPaint
         TooltipBorder.Freeze();
         Cursor = Brush(Res("TextColor", 0xFF), 0.4);
         Backdrop = Brush(Res("BgColor", 0x00));
+        After = Brush(Res("TextColor", 0xFF), 0.035);
         Cpu = Res("CpuColor", 0x80);
         Gpu = Res("GpuColor", 0x80);
         Cool = Brush(Res("CoolColor", 0x80));

@@ -17,6 +17,9 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
     /// <summary>What most likely happened and how sure that is, as every page says it (null: said from the crash's own entry alone).</summary>
     public CrashFinding? Finding { get; init; }
 
+    /// <summary>What stood out in its close-up, a reading every two seconds, where one was kept (see <see cref="CloseUp"/>).</summary>
+    public IReadOnlyList<string> InLastMinutes { get; init; } = [];
+
     /// <summary>The finding as rows: what happened, how sure, what it rests on, what was ruled out, what can't be told, what to try.</summary>
     public IEnumerable<(string Label, string? Value)> Found()
     {
@@ -33,6 +36,7 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
         yield return ("What it wasn't", f.RuledOut.Count == 0 ? null : string.Join("; ", f.RuledOut.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
         yield return ("Could not be checked", f.NotChecked.Count == 0 ? null : string.Join("; ", f.NotChecked.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
         yield return ("Still unknown", f.CantTell);
+        yield return ("In the last minutes", InLastMinutes.Count == 0 ? null : string.Join(" ", InLastMinutes));
         yield return ("What to try", f.Advice);
     }
 }

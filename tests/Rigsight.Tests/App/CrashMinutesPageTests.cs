@@ -98,6 +98,115 @@ public sealed class CrashMinutesPageTests
         Ui.AssertNoProblems("Opened crash");
     }
 
+    /// <summary>The opened crash given a close-up of its own (made on a database of the test's own: the shared one stays as it is).</summary>
+    private static CrashCase WithCloseUp(CrashCase c)
+    {
+        using var t = new Rigsight.Tests.Data.TestDb("closeup-page");
+        long app = t.Db.UpsertApp("game.exe", "A game", null, Rigsight.Core.Settings.AppCategory.Game);
+        var crash = c.Row.Event;
+        long at = crash.Ts * 1000;
+        var points = Enumerable.Range(-150, 211).Select(i => new CloseUpPoint
+        {
+            T = at + i * 2000L, CpuTemp = 60 + (i > -15 && i <= 0 ? 15 + i : 0), GpuTemp = 70, GpuHot = 82 + (i > -15 && i <= 0 ? 15 + i * 0.5 : 0),
+            CpuLoad = 40, GpuLoad = i <= 0 ? 95 : 3, CpuPower = 70, GpuPower = 220, Ram = 14, Commit = 60, Vram = 9000, VramTotal = 12288,
+            Disk = 2_000_000, Down = 50_000, Up = 5_000, Here = true, Front = i <= 0 ? app : null,
+            Fans = [new CloseUpFan("CPU fan", 1200), new CloseUpFan("GPU fan", 1600)],
+            Apps = [new CloseUpApp(app, 30, i <= 0 ? 90 : 0, 6000)],
+        }).ToList();
+        var view = CloseUpBuilder.Build(t.Db, Kit.OfflineSettings().Current, new CloseUp(crash.Ts, crash.AppExe, CloseUpKind.App, true, points), crash, DateTime.Now)!;
+        return new CrashCase
+        {
+            Group = c.Group, Row = c.Row, Finding = c.Finding, Wide = c.Wide, Close = view, UpClose = true,
+            Points = c.Points, RuledOut = c.RuledOut, NotKnown = c.NotKnown, Running = c.Running, Changes = c.Changes, NoChanges = c.NoChanges,
+            HistoryTitle = c.HistoryTitle, Bars = c.Bars, Times = c.Times, HistoryNote = c.HistoryNote, Tech = c.Tech, NoChart = c.NoChart,
+        };
+    }
+
+    [Fact]
+    public void A_crash_with_a_close_up_opens_on_it_and_the_switch_shows_the_minutes_with_their_after_side()
+    {
+        var vm = Loaded();
+        var group = WithMinutes(vm);
+        Kit.Wait(() => vm.OpenCaseCommand.ExecuteAsync(group));
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var c = WithCloseUp(vm.Case!);
+            Assert.True(c.HasCloseUp);
+            Assert.EndsWith("a reading every 2 to 3 seconds", c.RangeText);
+            Assert.All(c.Lanes.SelectMany(l => l.Series), s => Assert.Equal(c.Minutes.Count, s.Values.Length));
+            Assert.StartsWith("Last reading before the crash, ", c.Readout!.Title);
+            Assert.Contains(c.StoodOut, x => x.Text.StartsWith("After: the GPU went from"));
+            c.Readout.Show(0);
+            Assert.EndsWith("before the crash", c.Readout.When);
+
+            var window = new Window { Content = new Views.CrashesView { DataContext = vm }, Left = -32000, Top = -32000, Width = 1400, Height = 1000, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                vm.Case = c;
+                Ui.Pump(400);
+                var box = Visuals.Descendants<Border>(window).Single(b => AutomationProperties.GetName(b) == "The minute's readings");
+                var lanes = Visuals.Descendants<CaseLanes>(window).Single();
+                Assert.Same(c.Close, lanes.View);
+                double height = box.ActualHeight;
+                Assert.Equal(height, lanes.ActualHeight, 1);
+                for (int i = 0; i < c.Minutes.Count; i += 17)
+                {
+                    c.Readout!.Show(i);
+                    Ui.Pump(5);
+                    Assert.Equal(height, box.ActualHeight);
+                }
+                var switches = Visuals.Descendants<RadioButton>(window).Where(r => r.Content is "5 minutes" or "45 minutes").ToList();
+                Assert.Equal(2, switches.Count);
+                Assert.True(switches[0].IsChecked);
+
+                // The minutes: 45 before and the after side.
+                switches[1].IsChecked = true;
+                Ui.Pump(200);
+                Assert.False(c.UpClose);
+                Assert.Same(c.Wide, lanes.View);
+                Assert.EndsWith("one reading a minute", c.RangeText);
+                Assert.True(c.Wide.ChartTo > c.Row.Time);
+                Assert.Equal(height, box.ActualHeight, 1);
+            }
+            finally { window.Close(); }
+        });
+        Ui.AssertNoProblems("Opened crash with a close-up");
+    }
+
+    [Fact]
+    public void A_driver_resets_close_up_breaks_the_graphics_lines_while_the_driver_restarts()
+    {
+        using var t = new Rigsight.Tests.Data.TestDb("closeup-reset");
+        var at = new DateTime(2026, 10, 16, 18, 10, 22);
+        long ts = Rigsight.Core.Data.TimeUtil.ToUnix(at);
+        var reset = new CrashEvent { Id = 1, Ts = ts, Kind = CrashKind.GpuDriverReset, AppExe = "" };
+        // Every 2 seconds; no GPU readings for the 6 seconds the driver was restarting.
+        var points = Enumerable.Range(-150, 211).Select(i =>
+        {
+            bool gone = i > 0 && i <= 3;
+            return new CloseUpPoint
+            {
+                T = ts * 1000 + i * 2000L, CpuTemp = 61, CpuLoad = 29, Here = true,
+                GpuTemp = gone ? null : 70, GpuHot = gone ? null : 84, GpuLoad = gone ? null : 72, GpuPower = gone ? null : (i > -3 && i <= 0 ? 305 : 180),
+            };
+        }).ToList();
+        var view = Ui.Run(() => CloseUpBuilder.Build(t.Db, Kit.OfflineSettings().Current, new CloseUp(ts, "", CloseUpKind.App, true, points), reset, DateTime.Now))!;
+
+        var crashMark = Assert.Single(view.Marks, m => m.IsCrash);
+        Assert.Equal(("Driver reset", at), (crashMark.Label, crashMark.At));
+        Assert.Equal(at.AddSeconds(CloseUp.AfterSec), view.ChartTo);
+        // The GPU's lines are a break for those seconds, not a drop to zero.
+        var gpuLoad = view.Lanes.Single(l => l.Name == "Load").Series.Single(x => x.Label == "GPU").Values;
+        Assert.All(Enumerable.Range(151, 3), i => Assert.Null(gpuLoad[i]));
+        Assert.NotNull(gpuLoad[155]);
+        Assert.StartsWith("Last reading before the driver reset, ", view.Readout!.Title);
+        view.Readout.Show(0);
+        Assert.EndsWith("before the driver reset", view.Readout.When);
+        Assert.Contains(view.StoodOut, x => x.Warn && x.Text.StartsWith("GPU power jumped to about"));
+    }
+
     [Theory]
     [InlineData(4.1, 5)]
     [InlineData(100, 100)]

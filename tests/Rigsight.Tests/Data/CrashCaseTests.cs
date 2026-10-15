@@ -76,7 +76,7 @@ public sealed class CrashCaseTests
         var late = new CrashEvent { Ts = T0, Kind = CrashKind.SystemCrash, Code = "0x3B", NextStart = T0 + 300, Facts = new CrashFacts { PowerButton = false, HardwareErrors = 0, NextStart = T0 + 300, Driver = "RtUsbA64.sys", DriverName = "Realtek USB Audio Driver" } };
         Assert.Empty(t.Db.InsertCrashes([late]));
         var stored = Assert.Single(t.Db.GetCrashes(0, T0 + 1));
-        Assert.Equal(("RtUsbA64.sys", "NAMED BY WINDOWS"), (stored.Facts!.Driver, CrashCases.Of(t.Db, [stored], new RigsightSettings())[stored.Id].Chip));
+        Assert.Equal(("RtUsbA64.sys", "CONFIRMED"), (stored.Facts!.Driver, CrashCases.Of(t.Db, [stored], new RigsightSettings())[stored.Id].Chip));
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class CrashCaseTests
         t.Db.InsertCrashes([ShutOff(T0 + 1800, button: true)]);
         report = ReportBuilder.Build(t.Db, ReportRange.Day, L(T0), new RigsightSettings());
         insight = Assert.Single(report.Insights, i => i.Key == "crash");
-        Assert.StartsWith("PC was switched off by its power button at 10:51 AM. Named by Windows. 2 problems in all", insight.Text);
+        Assert.StartsWith("PC was switched off by its power button at 10:51 AM. Confirmed by Windows. 2 problems in all", insight.Text);
         Assert.Equal(InsightTone.Warn, insight.Tone);
     }
 }
