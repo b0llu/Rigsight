@@ -3,8 +3,8 @@
   const REPO = "b0llu/Rigsight";
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ── Counting what gets clicked (GoatCounter, loaded after this file; nothing happens if it's blocked) ──
-  const count = name => { try { window.goatcounter?.count?.({ path: name, title: name, event: true }); } catch { /* counting never gets in the way */ } };
+  // ── Counting what gets clicked (Umami, loaded after this file; nothing happens if it's blocked) ──
+  const count = name => { try { window.umami?.track?.(name); } catch { /* counting never gets in the way */ } };
   const where = el => el.closest(".nav") ? "top bar" : el.closest(".hero") ? "first screen" : el.closest(".install") ? "install steps" : el.closest(".footer") ? "footer" : "end";
   document.querySelectorAll("[data-download]").forEach(a => a.addEventListener("click", () => count(`Download (${where(a)})`)));
   document.querySelectorAll('a[href*="buymeacoffee.com"]').forEach(a => a.addEventListener("click", () => count(`Buy me a coffee (${where(a)})`)));
