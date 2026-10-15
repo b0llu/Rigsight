@@ -42,7 +42,7 @@ It records quietly in the background using about **0.02% of your CPU**, and ever
 **One command.** Open PowerShell (press Start, type *PowerShell*) and paste:
 
 ```powershell
-irm https://b0llu.github.io/Rigsight/install.ps1 | iex
+irm https://rigsight.app/install.ps1 | iex
 ```
 
 **Or download it** from the [Releases](../../releases) page and run `Rigsight-Setup-x.y.z.exe`. Windows may say *"Windows protected your PC"* because the installer isn't code-signed: click **More info → Run anyway**.

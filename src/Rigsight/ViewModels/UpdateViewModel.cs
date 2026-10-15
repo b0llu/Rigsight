@@ -39,7 +39,7 @@ public enum UpdateState
 public sealed partial class UpdateViewModel : ObservableObject
 {
     /// <summary>Where to get the installer by hand when updating in the app keeps failing.</summary>
-    public const string DownloadPage = "https://b0llu.github.io/Rigsight/#install";
+    public const string DownloadPage = "https://rigsight.app/#install";
 
     private static string PromptedFile => Path.Combine(UpdateStore.Folder, "prompted");
 

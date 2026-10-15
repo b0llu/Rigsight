@@ -1,0 +1,39 @@
+# Rigsight
+
+> Rigsight is a free, open-source (MIT) PC monitoring app for Windows 10 and 11 that records your hardware all day and keeps it as history. It logs CPU and GPU temperatures, fans, clocks, power, app and game usage (screen time), internet use per app, and crashes, so you can open any past day, week, month or year and see how hot the PC ran, what was running and what went wrong. No account, no telemetry: everything stays on the PC.
+
+Rigsight is a history tool, not only a live monitor. Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what the PC is doing right now; Rigsight reads the same kind of sensors but keeps recording in the background (about 0.02% CPU, about 40 MB of memory) even with its window closed, and can be used alongside them. Hardware is read through LibreHardwareMonitor (NVIDIA, AMD and Intel graphics cards; Intel and AMD processors).
+
+## Install
+
+- [Download the latest installer](https://github.com/b0llu/Rigsight/releases/latest): free, no account, no ads. Accept one admin prompt; it sets up the recorder to start with Windows.
+- One command in PowerShell: `irm https://rigsight.app/install.ps1 | iex` (run it again to update).
+- Updates install themselves the next time the PC starts.
+- Uninstall: Settings > Apps > Rigsight > Uninstall. History stays in `%LocalAppData%\Rigsight` until that folder is deleted.
+
+## What it does
+
+- Temperatures: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, clocks, power and voltages, with history for any period and alerts that ignore one-second spikes.
+- Reports: any day, week, month or year; which app was in front each minute with temperatures drawn over it, active time versus time the PC was just on, and highlights when something stands out.
+- Crashes: game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns read from Windows' own logs and explained in plain words, with the temperatures, apps and driver or Windows updates from before each crash.
+- Timeline: what changed on the PC day by day (drivers, Windows updates, apps installed or removed, startup apps, hardware, BIOS, key settings).
+- Apps: time each app and game was in use, in the background or minimized, and how hot each one runs the CPU and GPU.
+- Processes, Memory, Storage, Network and Fans pages: live process list with an End task button, RAM use per app, drive space, SSD wear and SMART health, internet use per app, and fan behaviour by temperature.
+- Without opening the window: an in-game overlay (Alt+Shift+O; FPS, 1% lows, frame time, temperatures; exclusive fullscreen through RivaTuner Statistics Server; never hooks into games), desktop widgets, and readings in the taskbar.
+- Custom dashboards, more than 200 sensors on a typical gaming PC, calm notifications, dark, grey and light themes.
+
+## Privacy
+
+- Data never leaves the PC; the only online check is for a new version.
+- Never records window titles, keystrokes, screenshots, file contents or websites visited.
+- A year of history takes about 35 MB; keep from three months to forever.
+- This website counts visits with GoatCounter (no cookies); the app has no part in that.
+
+## Links
+
+- [Website](https://rigsight.app/)
+- [Source code on GitHub](https://github.com/b0llu/Rigsight)
+- [All releases and release notes](https://github.com/b0llu/Rigsight/releases)
+- [Report a problem](https://github.com/b0llu/Rigsight/issues)
+- [MIT license](https://github.com/b0llu/Rigsight/blob/main/LICENSE)
+- [Support the project (Buy Me a Coffee)](https://buymeacoffee.com/bollu)

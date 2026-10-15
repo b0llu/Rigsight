@@ -1,6 +1,6 @@
 # Rigsight installer
 #
-#   irm https://b0llu.github.io/Rigsight/install.ps1 | iex
+#   irm https://rigsight.app/install.ps1 | iex
 #
 # Downloads the latest Rigsight release from GitHub, checks it against the checksum GitHub publishes for it,
 # and opens its setup. Run it again at any time to update: it always opens the newest version's setup.
