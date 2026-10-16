@@ -105,7 +105,7 @@
                             <UniformGrid Columns="2">
                                 <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{DynamicResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
                                 <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{DynamicResource CpuBrush}" />
-                                <ctl:MetricTile Label="AVG CLOCK" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="AVERAGE CLOCK" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
                                 <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
                             </UniformGrid>
                         </ctl:SideOrStack>
@@ -202,7 +202,30 @@
                             </StackPanel>
                         </Border>
                         </StackPanel>
-                        <TextBlock Text="History" Style="{StaticResource H2}" />
+                        <!-- Zoomed in (a drag across the graph): the stretch shown and the way back to the period picked. They
+                             sit after the title, in the room before the pickers; the button keeps its place while hidden. -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="History" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ZoomText, ElementName=HistoryChart}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
+                                       VerticalAlignment="Center" Margin="16,0,10,0" />
+                            <Button Command="{Binding ResetZoomCommand, ElementName=HistoryChart}" AutomationProperties.Name="{Binding ResetText, ElementName=HistoryChart}"
+                                    VerticalAlignment="Center" FontSize="12">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsZoomed, ElementName=HistoryChart}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding ResetText, ElementName=HistoryChart}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <!-- What the line is, from an hour up (under that every reading is drawn): a short spike is in a minute's
@@ -259,38 +282,48 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     </DockPanel>
-                    <ctl:LineChart ctl:Roomy.Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
-                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" />
+                    <ctl:LineChart x:Name="HistoryChart" ctl:Roomy.Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
+                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" CanZoom="True" />
                 </DockPanel>
             </ctl:SmoothBorder>
 
-            <!-- Motherboard and drives, right under the graph (fans have their own page): a tile each, as many across as fit, the rest on more
-                 rows; past three rows the box scrolls. -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,18,12,16">
-                <StackPanel>
-                    <DockPanel Margin="0,0,8,12">
-                        <TextBlock DockPanel.Dock="Right" Text="Now, against today's range" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="Motherboard and drives" Style="{StaticResource H2}" />
-                    </DockPanel>
-                    <!-- None to show (the agent has no admin rights, or the PC gives none): the card says so instead of going,
-                         which read as the drives' temperatures having been taken off the page. -->
-                    <TextBlock Text="No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights."
-                               Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,8,2"
-                               Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                    <ScrollViewer Style="{StaticResource CardScroll}" Padding="0" VerticalScrollBarVisibility="Auto" MaxHeight="286"
-                                  Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}">
-                        <ItemsControl ItemsSource="{Binding PartTemps}" Focusable="False" Margin="0,0,8,0">
+            <!-- Drives, and the motherboard, right under the graph (fans have their own page): two cards side by side, one
+                 above the other on a narrow window, and one across the row when only it has readings (see CardPair). -->
+            <ctl:CardPair Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}">
+                <!-- A row a drive, against its own limit: a drive at 45° may be fine or near its limit, and the bar says which. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasDriveTemps, Converter={StaticResource Vis}}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top">
+                            <TextBlock DockPanel.Dock="Right" Text="Now, against each drive's limit" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="Drives" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <!-- The card is as tall as the board's beside it: the rows share that height evenly, instead of
+                             leaving an empty space under the last drive. -->
+                        <ItemsControl ItemsSource="{Binding DriveTemps}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <ctl:TileWrap />
+                                    <UniformGrid Columns="1" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource Tile}">
-                                        <StackPanel>
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0">
+                                    <Border x:Name="Row" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,10">
+                                        <Grid VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Detail}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                           Margin="0,1,0,0" Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,0,0">
                                                 <TextBlock.Foreground>
                                                     <MultiBinding Converter="{StaticResource ScaledTempBrush}">
                                                         <Binding Path="Sensor.Value" />
@@ -298,24 +331,114 @@
                                                     </MultiBinding>
                                                 </TextBlock.Foreground>
                                             </TextBlock>
-                                            <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,7,0,5" Maximum="100" Value="{Binding Sensor.RangeShare, Mode=OneWay}">
-                                                <ProgressBar.Foreground>
-                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
-                                                        <Binding Path="Sensor.Value" />
-                                                        <Binding Path="Steps" />
-                                                    </MultiBinding>
-                                                </ProgressBar.Foreground>
-                                            </ProgressBar>
-                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
+                                            <!-- The reading on a bar to a little past the limit, with a mark at the limit. -->
+                                            <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,9,0,7">
+                                                <ProgressBar Style="{StaticResource Bar}" Height="6" Maximum="{Binding Top}"
+                                                             Value="{Binding Sensor.Value, Mode=OneWay, FallbackValue=0, TargetNullValue=0}">
+                                                    <ProgressBar.Foreground>
+                                                        <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                            <Binding Path="Sensor.Value" />
+                                                            <Binding Path="Steps" />
+                                                        </MultiBinding>
+                                                    </ProgressBar.Foreground>
+                                                </ProgressBar>
+                                                <Grid IsHitTestVisible="False">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding LimitWidth}" />
+                                                        <ColumnDefinition Width="{Binding AboveLimitWidth}" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="1" HorizontalAlignment="Left" Width="2" Margin="-1,-3,0,-3" CornerRadius="1" Background="{DynamicResource MutedBrush}" />
+                                                </Grid>
+                                            </Grid>
+                                            <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding LimitText}" ToolTip="{Binding LimitTip}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" />
+                                                <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </Grid>
                                     </Border>
+                                    <DataTemplate.Triggers>
+                                        <!-- A line between drives: none above the first. -->
+                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                            <Setter TargetName="Row" Property="BorderThickness" Value="0" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
-                    <TextBlock Text="SSDs are happiest below about 60°C, hard drives below 50°C. A sensor can be renamed on the All sensors page."
-                               FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,8,0"
-                               Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}" />
+                    </DockPanel>
+                </ctl:SmoothBorder>
+
+                <!-- The board's sensors as tiles, grouped by the chip they're read from and named as All sensors names it:
+                     two chips each have a "Temperature #1". Every tile shows (no box to scroll): a PC has a dozen at most. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <TextBlock DockPanel.Dock="Right" Text="Now, against today's range" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="Motherboard" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel x:Name="Group" Margin="0,18,0,0">
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding ChipCaps}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Board}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding HasBoard, Converter={StaticResource Vis}}" />
+                                        </DockPanel>
+                                        <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <!-- Narrower than the page's other tiles: three across in half the row. -->
+                                                    <ctl:TileWrap MinTileWidth="150" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource Tile}">
+                                                        <StackPanel>
+                                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0">
+                                                                <TextBlock.Foreground>
+                                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                        <Binding Path="Sensor.Value" />
+                                                                        <Binding Path="Steps" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.Foreground>
+                                                            </TextBlock>
+                                                            <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,7,0,5" Maximum="100" Value="{Binding Sensor.RangeShare, Mode=OneWay}">
+                                                                <ProgressBar.Foreground>
+                                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                        <Binding Path="Sensor.Value" />
+                                                                        <Binding Path="Steps" />
+                                                                    </MultiBinding>
+                                                                </ProgressBar.Foreground>
+                                                            </ProgressBar>
+                                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                            <Setter TargetName="Group" Property="Margin" Value="0" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </ctl:CardPair>
+
+            <!-- Neither has readings (the agent has no admin rights, or the PC gives none): one card across the row says so
+                 instead of the cards going, which read as the drives' temperatures having been taken off the page. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                <StackPanel>
+                    <TextBlock Text="Motherboard and drives" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                    <TextBlock Text="No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights."
+                               Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,2" />
                 </StackPanel>
             </ctl:SmoothBorder>
 

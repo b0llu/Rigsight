@@ -101,7 +101,7 @@ public sealed class DriverResetTests
         var f = CrashFindings.Judge(Input(Reset(T(10, 16, 18, 10, 22)), front: "Dota 2"));
         Assert.Equal((Confidence.Named, "CONFIRMED"), (f.Confidence, f.Chip));
         Assert.Equal("Windows reset the graphics driver while Dota 2 was in front.", f.Line);
-        Assert.Contains(f.Points, p => p.Title == "Windows reported that the graphics card stopped answering" && p.Detail.StartsWith("Its report names nvlddmkm.sys"));
+        Assert.Contains(f.Points, p => p.Title == "Windows reported that the GPU stopped answering" && p.Detail.StartsWith("Its report names nvlddmkm.sys"));
         Assert.StartsWith("If it keeps happening in Dota 2, lower its graphics settings", f.Advice);
         Assert.Contains("power", f.CantTell);
     }
@@ -136,11 +136,11 @@ public sealed class DriverResetTests
             new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"),
         };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
-        Assert.Equal((Confidence.Likely, "LIKELY THE GRAPHICS CARD HUNG"), (f.Confidence, f.Chip));
+        Assert.Equal((Confidence.Likely, "LIKELY THE GPU HUNG"), (f.Confidence, f.Chip));
         Assert.Contains("9:47:09 AM", f.Text);
         Assert.Contains("9:47:24 AM", f.Text);
-        Assert.StartsWith("The graphics card hung at 9:47:09 AM in Dota 2, then the PC went down.", f.Line);
-        Assert.Contains(f.Points, p => p.Kind == "warn" && p.Title == "Windows recorded the graphics card hanging at 9:47:09 AM");
+        Assert.StartsWith("The GPU hung at 9:47:09 AM in Dota 2, then the PC shut off.", f.Line);
+        Assert.Contains(f.Points, p => p.Kind == "warn" && p.Title == "Windows recorded the GPU hanging at 9:47:09 AM");
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class DriverResetTests
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
         var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
-        Assert.Equal((Confidence.Possible, "POSSIBLE: THE GRAPHICS CARD HUNG"), (f.Confidence, f.Chip));
+        Assert.Equal((Confidence.Possible, "POSSIBLY THE GPU HUNG"), (f.Confidence, f.Chip));
     }
 
     [Fact]
@@ -160,10 +160,10 @@ public sealed class DriverResetTests
         var e = ShutOff(T(9, 21, 23, 7, 49), T(9, 22, 9, 47, 35));
         var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The graphics card hung") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Signs = signs });
-        Assert.Equal("THE GRAPHICS CARD HUNG", f.Cause);
+        Assert.Equal("THE GPU HUNG", f.Cause);
         // A hang hours before the restart says nothing about this shut-off.
         var early = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 2, 0, 0)), SignKind.GraphicsHangAt, "The graphics card hung") };
-        Assert.NotEqual("THE GRAPHICS CARD HUNG", CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Signs = early }).Cause);
+        Assert.NotEqual("THE GPU HUNG", CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Signs = early }).Cause);
     }
 
     [Fact]
@@ -182,6 +182,6 @@ public sealed class DriverResetTests
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
         var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 40, 0)), SignKind.GraphicsHangAt, "The graphics card hung") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
-        Assert.NotEqual("THE GRAPHICS CARD HUNG", f.Cause);
+        Assert.NotEqual("THE GPU HUNG", f.Cause);
     }
 }

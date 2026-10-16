@@ -26,7 +26,7 @@ public static class DashboardPresets
     [
         new("Essentials", "Temperatures, load and power at a glance, and your day so far.", "\uE80F",
             [.. TileCatalog.Starter().Select(t => new PresetTile(t.Kind, t.Sensor))], []),
-        new("Gaming", "Graphics card heat, load and power, with the CPU beside it.", "\uE7FC",
+        new("Gaming", "GPU heat, load and power, with the CPU beside it.", "\uE7FC",
             [GpuGauge, CpuGauge, PresetTile.Reading(KeySensors.GpuLoad), PresetTile.Reading(KeySensors.GpuPower),
              PresetTile.Reading(KeySensors.GpuHotSpot), PresetTile.Reading(KeySensors.GpuVramLoad), Chart,
              PresetTile.Reading(KeySensors.GpuMemJunction), PresetTile.Reading(KeySensors.GpuFan), PresetTile.Reading(KeySensors.CpuLoad),
@@ -40,7 +40,7 @@ public static class DashboardPresets
             [new("fans", W: 6), CpuGauge, GpuGauge, Chart, PresetTile.Reading(KeySensors.GpuFan), PresetTile.Reading(KeySensors.CpuPower),
              PresetTile.Reading(KeySensors.GpuPower)],
             [Fans]),
-        new("Workload", "How busy the CPU, graphics card and memory are, and what's using them.", "\uE9D9",
+        new("Workload", "How busy the CPU, GPU and memory are, and what's using them.", "\uE9D9",
             [PresetTile.Reading(KeySensors.CpuLoad), PresetTile.Reading(KeySensors.CpuClock), PresetTile.Reading(KeySensors.CpuPower),
              PresetTile.Reading(KeySensors.RamLoad), PresetTile.Reading(KeySensors.GpuLoad), PresetTile.Reading(KeySensors.GpuVramLoad),
              PresetTile.Reading(KeySensors.GpuPower), new("top-memory"), new("most-used")],

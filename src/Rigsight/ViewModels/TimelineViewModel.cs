@@ -352,7 +352,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
                 CrashTime = n == 1 ? first.Time : null,
-                Title = n == 1 ? first.Title : first.Outside ? $"{n} shut-offs that look like power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
+                Title = n == 1 ? first.Title : first.Outside ? $"{n} likely power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             }));
         }
 
@@ -433,7 +433,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = last.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !last.Outside, CrashDay = last.Time.Date,
                 CrashTime = n == 1 ? last.Time : null,
-                Title = n == 1 ? last.Title : last.Outside ? $"{n} shut-offs that look like power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
+                Title = n == 1 ? last.Title : last.Outside ? $"{n} likely power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
         }
         foreach (var (key, kinds, many) in MonthLines)

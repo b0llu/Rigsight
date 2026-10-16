@@ -292,8 +292,33 @@
                         </Grid.ColumnDefinitions>
                         <!-- A day: minute by minute. A week, a month: each day's average and fastest. A year: each month's. -->
                         <StackPanel Visibility="{Binding DataContext.IsDay, ElementName=Page, Converter={StaticResource Vis}}">
-                            <TextBlock Text="SPEED THROUGH THE DAY" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                            <ctl:LineChart ctl:Roomy.Height="220" Kind="{x:Static core:SensorKind.Fan}" WindowSeconds="0"
+                            <!-- Zoomed in (a drag across the graph): the stretch shown and "Whole day". They hang over the
+                                 caption's line without making it taller, so the two charts stay level and nothing moves. -->
+                            <DockPanel Margin="0,0,0,10">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,-10" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ZoomText, ElementName=SpeedChart}" Foreground="{DynamicResource MutedBrush}" FontSize="12"
+                                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <Button Command="{Binding ResetZoomCommand, ElementName=SpeedChart}" AutomationProperties.Name="{Binding ResetText, ElementName=SpeedChart}"
+                                            VerticalAlignment="Center" FontSize="12">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsZoomed, ElementName=SpeedChart}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ResetText, ElementName=SpeedChart}" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="SPEED THROUGH THE DAY" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ctl:LineChart x:Name="SpeedChart" CanZoom="True" ctl:Roomy.Height="220" Kind="{x:Static core:SensorKind.Fan}" WindowSeconds="0"
                                            Day="{Binding DataContext.DayOfChart, ElementName=Page}"
                                            Series="{Binding DataContext.ChartSeries, ElementName=Page}"
                                            Version="{Binding DataContext.Live.Tick, ElementName=Page}" />

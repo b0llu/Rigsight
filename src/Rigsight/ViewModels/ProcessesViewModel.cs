@@ -84,6 +84,9 @@ public sealed partial class ProcessesViewModel : ObservableObject
         // A list of its own over the same rows as the Memory page's: its own order and its own search.
         _view = new ListCollectionView(live.Procs) { Filter = o => o is ProcRow p && Listed(p) };
         _view.LiveFilteringProperties.Add(nameof(ProcRow.HasWindow));
+        // Kept sorted and filtered whether the page shows or not (see LiveData's ProcsView: switching it off while away
+        // left one app on two rows when the page came back).
+        _view.IsLiveSorting = _view.IsLiveFiltering = true;
         Tiles =
         [
             new(ByMemory, "MEMORY", "RamBrush", SensorKind.Data), new(ByCpu, "CPU", "CpuBrush", SensorKind.Load),
@@ -110,18 +113,15 @@ public sealed partial class ProcessesViewModel : ObservableObject
 
     // ── Shown or not: nothing is worked out for a page that isn't on screen ──
 
-    /// <summary>The page came on screen or left it: the list is kept sorted, and the totals kept up, only while it shows.</summary>
+    /// <summary>The page came on screen or left it: the totals are kept up only while it shows.</summary>
     public void SetShown(bool shown)
     {
         if (_shown == shown) return;
         _shown = shown;
         if (shown) Live.PropertyChanged += OnLiveChanged;
         else Live.PropertyChanged -= OnLiveChanged;
-        _view.IsLiveSorting = _view.IsLiveFiltering = shown;
         if (!shown) return;
         Refresh();
-        // In order again only if it moved while it wasn't kept (reading the list anew rebuilds every row on screen).
-        if (Filtering || !InOrder()) _view.Refresh();
         // An app opened on the Memory page is open here too: its box is read now.
         foreach (var row in Live.Procs)
             if (row.IsExpanded) _ = LoadHistoryAsync(row);
@@ -253,28 +253,8 @@ public sealed partial class ProcessesViewModel : ObservableObject
         ApplySort();
     }
 
-    /// <summary>What a row is sorted by, for the column picked (a name sorts as text).</summary>
-    private IComparable KeyOf(ProcRow p) => SortKey switch
-    {
-        ByName => p.Name, ByCpu => p.Cpu, ByInternet => p.Net, ByDisk => p.Disk, _ => p.MemMB,
-    };
-
     // Names run A to Z, figures biggest first, unless flipped.
     private bool Descending => (SortKey != ByName) != SortFlipped;
-
-    /// <summary>Whether the rows are still in the order asked for (by the column picked; rows level on it aside).</summary>
-    private bool InOrder()
-    {
-        IComparable? last = null;
-        foreach (ProcRow row in _view)
-        {
-            var key = KeyOf(row);
-            int step = last is null ? 0 : key is string name ? string.Compare((string)last, name, StringComparison.CurrentCulture) : last.CompareTo(key);
-            if (Descending ? step < 0 : step > 0) return false;
-            last = key;
-        }
-        return true;
-    }
 
     private void ApplySort()
     {

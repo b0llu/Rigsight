@@ -39,7 +39,7 @@ public sealed class PowerLogTests
         // The readings stop at 9:52, the PC starts at 10:32 and Windows notes twelve seconds later that it hadn't shut down.
         Assert.Equal(GapReason.ShutOff, PowerLog.Reason(At(7, 9, 52), At(7, 10, 33), Log, Margin));
         Assert.Equal(GapReason.Crashed, PowerLog.Reason(At(8, 9, 43), At(8, 9, 52), Log, Margin));
-        Assert.Equal("PC shut off unexpectedly", PowerLog.Words(GapReason.ShutOff));
+        Assert.Equal("PC shut off suddenly", PowerLog.Words(GapReason.ShutOff));
         Assert.Equal("Windows crashed", PowerLog.Words(GapReason.Crashed));
     }
 

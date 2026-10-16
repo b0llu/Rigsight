@@ -46,14 +46,7 @@ public sealed class CrashRow
     public string Culprit => Explanation.Culprit;
     public string? IconPath => Event.AppPath;
 
-    public string KindLabel => Event.Kind switch
-    {
-        CrashKind.AppCrash => "APP CRASH",
-        CrashKind.AppHang => "NOT RESPONDING",
-        CrashKind.GpuDriverReset => "GPU DRIVER RESET",
-        CrashKind.SystemCrash => "BLUE SCREEN",
-        _ => "UNEXPECTED SHUTDOWN",
-    };
+    public string KindLabel => Core.Wording.KindChip(Event.Kind);
 
     public bool IsSystem => Event.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset;
 
@@ -76,7 +69,7 @@ public sealed class CrashRow
                 parts.Add($"CPU {Core.Units.TempShort(CpuBefore)}, GPU {Core.Units.TempShort(GpuBefore)}" +
                           (GpuBefore >= 83 || CpuBefore >= 88 ? " (running hot)" : ""));
             else if (NoReadingsBefore)
-                parts.Add("no readings recorded");
+                parts.Add(Core.Wording.NotRecorded.ToLowerInvariant());
             return parts.Count == 0 ? null : string.Join("  ·  ", parts);
         }
     }

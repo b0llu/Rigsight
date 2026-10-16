@@ -77,3 +77,67 @@ public partial class AppsView : UserControl
         menu.IsOpen = true;
     }
 }
+
+/// <summary>
+/// The selected app's groups (Time, Hardware, Internet): side by side in equal columns, all as tall as the tallest so
+/// their boxes line up, or one above the other when narrower than <see cref="Threshold"/>, where three columns would cut
+/// their figures off.
+/// </summary>
+public sealed class GroupRow : Panel
+{
+    /// <summary>The width from which the groups fit side by side.</summary>
+    public double Threshold { get; set; } = 680;
+
+    /// <summary>The space between two groups, either way.</summary>
+    public double Gap { get; set; } = 12;
+
+    /// <summary>Whether a panel this wide puts the groups one above the other.</summary>
+    internal bool Stacks(double width) => !double.IsInfinity(width) && width < Threshold;
+
+    private double ColumnWidth(double width) => Math.Max(0, (width - Gap * (InternalChildren.Count - 1)) / InternalChildren.Count);
+
+    protected override Size MeasureOverride(Size available)
+    {
+        int n = InternalChildren.Count;
+        if (n == 0) return default;
+        if (Stacks(available.Width))
+        {
+            double height = 0;
+            foreach (UIElement child in InternalChildren)
+            {
+                child.Measure(new Size(available.Width, double.PositiveInfinity));
+                height += child.DesiredSize.Height;
+            }
+            return new Size(available.Width, height + Gap * (n - 1));
+        }
+        double column = double.IsInfinity(available.Width) ? double.PositiveInfinity : ColumnWidth(available.Width);
+        double tallest = 0, widths = 0;
+        foreach (UIElement child in InternalChildren)
+        {
+            child.Measure(new Size(column, double.PositiveInfinity));
+            tallest = Math.Max(tallest, child.DesiredSize.Height);
+            widths += child.DesiredSize.Width;
+        }
+        return new Size(double.IsInfinity(available.Width) ? widths + Gap * (n - 1) : available.Width, tallest);
+    }
+
+    protected override Size ArrangeOverride(Size final)
+    {
+        int n = InternalChildren.Count;
+        if (n == 0) return final;
+        if (Stacks(final.Width))
+        {
+            double y = 0;
+            foreach (UIElement child in InternalChildren)
+            {
+                child.Arrange(new Rect(0, y, final.Width, child.DesiredSize.Height));
+                y += child.DesiredSize.Height + Gap;
+            }
+            return final;
+        }
+        double column = ColumnWidth(final.Width);
+        for (int i = 0; i < n; i++)
+            InternalChildren[i].Arrange(new Rect(i * (column + Gap), 0, column, final.Height));
+        return final;
+    }
+}

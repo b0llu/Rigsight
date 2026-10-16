@@ -277,7 +277,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="Nothing recorded yet today." Style="{StaticResource Row}"
+                <TextBlock Text="No internet use yet today." Style="{StaticResource Row}"
                            Visibility="{Binding Net.Top.Count, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Visible}" />
             </Grid>
         </DataTemplate>
@@ -400,11 +400,11 @@
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="{Binding Crashes.Recent.DriverResetCount}" Style="{StaticResource Big}" />
-                        <TextBlock Text="driver resets" Style="{StaticResource Caption}" />
+                        <TextBlock Text="graphics driver resets" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="{Binding Crashes.Recent.SystemCount}" Style="{StaticResource Big}" />
-                        <TextBlock Text="PC crashes" Style="{StaticResource Caption}" />
+                        <TextBlock Text="blue screens &amp; sudden shut-offs" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                     </StackPanel>
                 </UniformGrid>
                 <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.Recent.HasCrashes, Converter={StaticResource Vis}}">

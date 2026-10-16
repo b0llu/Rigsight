@@ -434,7 +434,7 @@ public sealed class LiveDataTests
             Assert.Equal(60, s.Average);
             Assert.Null(s.Value);
             Assert.Equal(4, s.History.Count);
-            Assert.Equal("↓ 50°   ↑ 70°", s.MinMaxText);
+            Assert.Equal("50° to 70° today", s.MinMaxText);
         });
     }
 
@@ -530,7 +530,7 @@ public sealed class LiveDataTests
             live.ApplyTick(Extremes("2026-09-25", true, ("/cpu/temperature/0", [31, 88]), ("/gpu/temperature/0", [29, 77])));
             Assert.Equal((31, 88), (live.CpuTemp!.Min, live.CpuTemp.Max));
             Assert.Equal((29, 77), (live.GpuTemp!.Min, live.GpuTemp.Max));
-            Assert.Equal("↓ 31°   ↑ 88°", live.CpuTemp.MinMaxText);
+            Assert.Equal("31° to 88° today", live.CpuTemp.MinMaxText);
         });
     }
 

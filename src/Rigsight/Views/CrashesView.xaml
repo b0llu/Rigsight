@@ -74,18 +74,19 @@
 
         <!-- One thing a finding rests on, or one thing ruled out. -->
         <DataTemplate x:Key="EvidenceTemplate">
-            <DockPanel Margin="0,12,0,0">
-                <Grid DockPanel.Dock="Left" Width="30" Height="30" VerticalAlignment="Top" Margin="0,0,12,0">
-                    <Border CornerRadius="8" Background="{Binding Brush, Converter={StaticResource SureBrush}, ConverterParameter=soft}" />
-                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{Binding Brush, Converter={StaticResource SureBrush}}" />
-                </Grid>
-                <StackPanel VerticalAlignment="Center">
+            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,12,0,0" Padding="12,0,0,0">
+                <HeaderedContentControl.Header>
+                    <Border Style="{StaticResource IconBox}" Background="{Binding Brush, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
+                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{Binding Brush, Converter={StaticResource SureBrush}}" />
+                    </Border>
+                </HeaderedContentControl.Header>
+                <StackPanel>
                     <TextBlock Text="{Binding Title}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Detail}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
                                Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
                 </StackPanel>
-            </DockPanel>
+            </HeaderedContentControl>
         </DataTemplate>
 
         <!-- A line of one of the case's lists: what, a second line under it, and what stands at its right. -->
@@ -126,7 +127,7 @@
                     </Button>
                     <StackPanel>
                         <TextBlock Text="Crashes" Style="{StaticResource H1}" />
-                        <TextBlock Text="App and game crashes, graphics driver resets, blue screens and sudden shutdowns: what most likely happened, and how sure that is."
+                        <TextBlock Text="App and game crashes, graphics driver resets, blue screens and sudden shut-offs: what happened, what most likely caused it, and how sure that is."
                                    Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
@@ -174,14 +175,14 @@
                     </Border>
                     <Border Grid.Column="2" Style="{StaticResource Tile}" Margin="5">
                         <StackPanel>
-                            <TextBlock Text="GPU DRIVER RESETS" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                            <TextBlock Text="GRAPHICS DRIVER RESETS" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding DriverResetCount}" Style="{StaticResource StatValue}" />
                         </StackPanel>
                     </Border>
                     <Border Grid.Column="3" Style="{StaticResource Tile}" Margin="5">
                         <StackPanel>
-                            <TextBlock Text="BLUE SCREENS &amp; SHUT-OFFS" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       ToolTip="Blue screens, and times the PC turned off without shutting down (including losing power while asleep). Shutdowns that didn't finish are listed but not counted: they are usually harmless." />
+                            <TextBlock Text="BLUE SCREENS &amp; SUDDEN SHUT-OFFS" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                       ToolTip="Blue screens, and sudden shut-offs (including while asleep). Shutdowns that didn't finish are listed but not counted: they are usually harmless." />
                             <TextBlock Text="{Binding SystemCount}" Style="{StaticResource StatValue}" />
                             <!-- How many of them came from outside the PC: the number alone read as nine faults. -->
                             <TextBlock Text="{Binding PowerCutText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0"
@@ -196,14 +197,14 @@
                         <DockPanel Margin="0,0,0,10">
                             <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
                                 <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{x:Static ctl:CrashStrip.CriticalBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="Blue screen / shut-off" Style="{StaticResource Legend}" />
+                                <TextBlock Text="Blue screen / sudden shut-off" Style="{StaticResource Legend}" />
                                 <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{x:Static ctl:CrashStrip.SeriousBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="Driver reset / freeze" Style="{StaticResource Legend}" />
+                                <TextBlock Text="Graphics driver reset / freeze" Style="{StaticResource Legend}" />
                                 <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{x:Static ctl:CrashStrip.MinorBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="App crash" Style="{StaticResource Legend}" />
                                 <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{x:Static ctl:CrashStrip.InfoBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="Cause likely outside the PC" Style="{StaticResource Legend}"
-                                           ToolTip="Power lost while asleep or shutting down, a shut-off that was most likely a power cut, an app that went down while a driver was being installed" />
+                                           ToolTip="A sudden shut-off while asleep or shutting down, one most likely from a power cut, and an app that crashed while a driver was being installed" />
                                 <Rectangle Width="6" Height="6" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="1,0">
                                     <Rectangle.LayoutTransform>
                                         <RotateTransform Angle="45" />
@@ -223,12 +224,14 @@
                         <ItemsControl ItemsSource="{Binding Patterns}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,5">
-                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight"
-                                                   Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Top" Margin="0,0,12,0" />
+                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,5" Padding="12,0,0,0">
+                                        <HeaderedContentControl.Header>
+                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight"
+                                                       Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                        </HeaderedContentControl.Header>
                                         <!-- The text in lines of the same height as the icon's. -->
                                         <TextBlock Text="{Binding Text}" FontSize="13" LineHeight="18" LineStackingStrategy="BlockLineHeight" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                                    </DockPanel>
+                                    </HeaderedContentControl>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -265,7 +268,7 @@
                                         <RadioButton Style="{StaticResource Segment}" GroupName="CrashFilter" Content="Apps &amp; games"
                                                      IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=Apps}" />
                                         <RadioButton Style="{StaticResource Segment}" GroupName="CrashFilter" Content="PC problems"
-                                                     ToolTip="Blue screens, sudden shutdowns, graphics driver resets, and freezes that took several apps down"
+                                                     ToolTip="Blue screens, sudden shut-offs, graphics driver resets, and freezes that took several apps with them"
                                                      IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=Pc}" />
                                     </StackPanel>
                                 </Border>
@@ -383,7 +386,7 @@
                             <Border DockPanel.Dock="Right" Style="{StaticResource Chip}" Padding="10,4" VerticalAlignment="Center" Margin="16,0,0,0"
                                     Background="{Binding Sure, Converter={StaticResource SureBrush}, ConverterParameter=soft}"
                                     ToolTip="{Binding SureHint}">
-                                <TextBlock Text="{Binding SureWord}" FontSize="11" FontWeight="Bold" Foreground="{Binding Sure, Converter={StaticResource SureBrush}}" />
+                                <TextBlock Text="{Binding Chip}" FontSize="11" FontWeight="Bold" Foreground="{Binding Sure, Converter={StaticResource SureBrush}}" />
                             </Border>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Headline}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
@@ -452,24 +455,48 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border x:Name="Box" Background="{DynamicResource Surface2Brush}" CornerRadius="12" Padding="14,10" Margin="0,0,0,8">
-                                        <DockPanel>
-                                            <TextBlock x:Name="Glyph" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="14" Width="18" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight"
-                                                       Margin="0,0,10,0" VerticalAlignment="Top" Foreground="{DynamicResource MutedBrush}" />
-                                            <TextBlock x:Name="Said" Text="{Binding Text}" Style="{StaticResource Body}" LineHeight="18" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextTrimming="None" />
-                                        </DockPanel>
+                                        <HeaderedContentControl Style="{StaticResource IconRow}" Padding="10,0,0,0">
+                                            <!-- A warning in the warning colour; what was calm, quietly, without a box. The icon and the
+                                                 text set their own looks: they sit inside the row's template, out of the triggers' reach. -->
+                                            <HeaderedContentControl.Header>
+                                                <TextBlock FontSize="14" Width="18" Height="18" LineHeight="18" LineStackingStrategy="BlockLineHeight">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                                            <Setter Property="Text" Value="&#xE946;" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Warn}" Value="True">
+                                                                    <Setter Property="Text" Value="&#xE7BA;" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsCalm}" Value="True">
+                                                                    <Setter Property="Text" Value="&#xE73E;" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </HeaderedContentControl.Header>
+                                            <TextBlock Text="{Binding Text}" LineHeight="18" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextTrimming="None">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Warn}" Value="True">
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsCalm}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </HeaderedContentControl>
                                     </Border>
                                     <DataTemplate.Triggers>
-                                        <!-- A warning in the warning colour; what was calm, quietly, without a box. -->
-                                        <DataTrigger Binding="{Binding Warn}" Value="True">
-                                            <Setter TargetName="Glyph" Property="Text" Value="&#xE7BA;" />
-                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                            <Setter TargetName="Said" Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsCalm}" Value="True">
                                             <Setter TargetName="Box" Property="Background" Value="Transparent" />
                                             <Setter TargetName="Box" Property="Padding" Value="14,2" />
-                                            <Setter TargetName="Glyph" Property="Text" Value="&#xE73E;" />
-                                            <Setter TargetName="Said" Property="Foreground" Value="{DynamicResource MutedBrush}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -629,7 +656,7 @@
                     </ctl:SmoothBorder>
                     <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="What changed in the week before" Style="{StaticResource H2}" Margin="0,0,0,5" />
+                            <TextBlock Text="What changed in the 7 days before" Style="{StaticResource H2}" Margin="0,0,0,5" />
                             <ItemsControl ItemsSource="{Binding Changes}" ItemTemplate="{StaticResource LineTemplate}" />
                             <TextBlock Text="{Binding NoChanges}" Style="{StaticResource Empty}" Margin="0,7,0,0"
                                        Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />

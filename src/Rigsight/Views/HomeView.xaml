@@ -12,17 +12,19 @@
 
         <!-- A line of one of the three small cards: its icon in a square, in its own colour, and a few words under it. -->
         <DataTemplate x:Key="CardLine">
-            <DockPanel Margin="0,7">
-                <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                               Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
-                </Border>
-                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
+            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,7">
+                <HeaderedContentControl.Header>
+                    <Border Style="{StaticResource IconBox}">
+                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                   Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                    </Border>
+                </HeaderedContentControl.Header>
+                <StackPanel>
                     <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
                                Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
                 </StackPanel>
-            </DockPanel>
+            </HeaderedContentControl>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -284,9 +286,24 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </DockPanel>
-                    <!-- A period just picked, not read yet. -->
-                    <ctl:Spinner Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                 Visibility="{Binding RecapLoading, Converter={StaticResource Vis}}" />
+                    <!-- A period just picked, not read yet. Not while the page itself is first being read: the loader above is
+                         already turning then, and two at once looked odd. -->
+                    <ctl:Spinner Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ctl:Spinner.Style>
+                            <Style TargetType="ctl:Spinner">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding RecapLoading}" Value="True" />
+                                            <Condition Binding="{Binding Loaded}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ctl:Spinner.Style>
+                    </ctl:Spinner>
                     </Grid>
                 </ctl:SmoothBorder>
             </Grid>
@@ -299,13 +316,15 @@
                         <ItemsControl ItemsSource="{Binding TodayInsights}" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,7" ToolTip="{Binding DetailOrNull}">
-                                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                                                       Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
-                                        </Border>
-                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" Margin="13,0,0,0" VerticalAlignment="Center" />
-                                    </DockPanel>
+                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,7" ToolTip="{Binding DetailOrNull}">
+                                        <HeaderedContentControl.Header>
+                                            <Border Style="{StaticResource IconBox}">
+                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                                           Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
+                                            </Border>
+                                        </HeaderedContentControl.Header>
+                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
+                                    </HeaderedContentControl>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

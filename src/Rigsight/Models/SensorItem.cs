@@ -104,8 +104,11 @@ public sealed partial class SensorItem : ObservableObject
     public string FormattedMax => Units.Format(Kind, Max);
     public string FormattedAverage => Units.Format(Kind, Average);
     public string ShortValue => Units.Short(Kind, Value);
-    /// <summary>Today's range: the agent tracks it all day; readings while the app is open widen it too.</summary>
-    public string MinMaxText => Min is null ? "" : $"↓ {Units.Compact(Kind, Min)}   ↑ {Units.Compact(Kind, Max)}";
+    /// <summary>
+    /// Today's range: the agent tracks it all day; readings while the app is open widen it too. In words ("37° to 55°
+    /// today"), as every range is said, not arrows.
+    /// </summary>
+    public string MinMaxText => RangeText;
 
     /// <summary>Today's range in words under a tile ("36° to 58° today"); empty before there is one.</summary>
     public string RangeText => Min is double lo && Max is double hi ? $"{Units.Compact(Kind, lo)} to {Units.Compact(Kind, hi)} today" : "";

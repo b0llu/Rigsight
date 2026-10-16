@@ -95,11 +95,11 @@
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}" Visibility="{Binding HasEnergy, Converter={StaticResource Vis}}"
-                            ToolTip="Worked out from the power the CPU and the graphics card report each minute. The screen, the drives and the rest of the PC aren't measured.">
+                            ToolTip="Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren't measured.">
                         <StackPanel>
                             <TextBlock Text="ENERGY" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="CPU and graphics card" Style="{StaticResource TileLine}" />
+                            <TextBlock Text="CPU and GPU" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
@@ -156,21 +156,56 @@
                         <DockPanel Margin="0,0,0,12">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
                                         Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" />
+                                <!-- What the curves are, as on Temperatures (one remembered choice for both pages). -->
+                                <TextBlock Text="Each minute's" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Average"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Highest"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Lowest"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
+                                    </StackPanel>
+                                </Border>
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" VerticalAlignment="Center" />
                                 <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" />
+                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
-                            <Grid>
-                                <TextBlock Text="Your day, minute by minute" Style="{StaticResource H2}" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                            </Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Your day, minute by minute" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
+                                    <!-- Zoomed in (a drag across the graph): the stretch shown and the way back, beside the title (what is shown), apart
+                                         from the controls on the right. They come in the free space after the title, so nothing moves. -->
+                                    <TextBlock Text="{Binding ZoomText, ElementName=Timeline}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
+                                               VerticalAlignment="Center" Margin="16,0,10,0" />
+                                    <Button Command="{Binding ResetZoomCommand, ElementName=Timeline}" AutomationProperties.Name="{Binding ResetText, ElementName=Timeline}"
+                                            VerticalAlignment="Center" FontSize="12">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsZoomed, ElementName=Timeline}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ResetText, ElementName=Timeline}" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
                         </DockPanel>
-                        <ctl:DayTimeline ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
-                                         Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                        <ctl:DayTimeline x:Name="Timeline" ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
+                                         Plot="{Binding ChartPlot}" CanZoom="True" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                         <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                         <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
-                                   Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details."
+                                   Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer."
                                    Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -188,14 +223,15 @@
                             <ItemsControl ItemsSource="{Binding ShownInsights}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <DockPanel Margin="0,6" ToolTip="{Binding DetailOrNull}">
-                                            <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                                                           Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
-                                            </Border>
-                                            <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap"
-                                                       Margin="14,0,0,0" VerticalAlignment="Center" />
-                                        </DockPanel>
+                                        <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,6" Padding="14,0,0,0" ToolTip="{Binding DetailOrNull}">
+                                            <HeaderedContentControl.Header>
+                                                <Border Style="{StaticResource IconBox}">
+                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                                               Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
+                                                </Border>
+                                            </HeaderedContentControl.Header>
+                                            <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                        </HeaderedContentControl>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -237,9 +273,9 @@
                             <TextBlock Text="APP" Style="{StaticResource Caption}" Margin="44,0,0,0" />
                             <TextBlock Grid.Column="1" Text="IN USE" Style="{StaticResource Col}" ToolTip="In front and being used" />
                             <TextBlock Grid.Column="2" Text="BACKGROUND" Style="{StaticResource Col}" ToolTip="Open with a visible window, but another app was in front" />
-                            <TextBlock Grid.Column="3" Text="PEAK CPU" Style="{StaticResource Col}" />
-                            <TextBlock Grid.Column="4" Text="PEAK GPU" Style="{StaticResource Col}" />
-                            <TextBlock Grid.Column="5" Text="PEAK MEMORY" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="3" Text="CPU PEAK" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="4" Text="GPU PEAK" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="5" Text="MEMORY PEAK" Style="{StaticResource Col}" />
                             <TextBlock Grid.Column="6" Text="INTERNET" Style="{StaticResource Col}" ToolTip="Downloaded and uploaded" />
                         </Grid>
                         <!-- Every app, in a box of a set height that scrolls (a month can list hundreds; only the rows on screen are built). -->
@@ -349,7 +385,7 @@
                 <!-- Crashes -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Crashes.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="Crashes &amp; unexpected shutdowns" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                        <TextBlock Text="Crashes &amp; sudden shut-offs" Style="{StaticResource H2}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding CrashesShown}" ItemTemplate="{StaticResource CrashTemplate}" />
                         <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,4,0,0"
                                 Content="{Binding MoreCrashesText}" Command="{Binding ShowMoreCrashesCommand}"
@@ -386,7 +422,7 @@
                                         <TextBlock Grid.Column="3" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}"
                                                    FontWeight="SemiBold" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                            <Run Text="peak CPU" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   GPU" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                            <Run Text="CPU peak" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   GPU peak" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                         </TextBlock>
                                     </Grid>
                                 </DataTemplate>

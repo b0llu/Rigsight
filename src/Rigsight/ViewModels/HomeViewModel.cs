@@ -287,7 +287,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             Live.AllSensors.Count(x => x.Kind == SensorKind.Fan && x.Value >= FanCard.MinSpinRpm), read.Mains));
     }
 
-    /// <summary>The PC itself went down (a blue screen, an unexpected shutdown while running), not one app.</summary>
+    /// <summary>The PC itself went down (a blue screen, a sudden shut-off while running), not one app.</summary>
     private static bool IsPcDown(CrashEvent e) =>
         e.Kind == CrashKind.SystemCrash || e is { Kind: CrashKind.UnexpectedShutdown, Moment: PowerMoment.Running };
 
@@ -345,13 +345,13 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         const string Week = "In the last 7 days";
         var lines = new List<HomeLine>();
         static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
-        if (shutdowns + crashes + mains == 0) lines.Add(new("\uE73E", "GoodBrush", "No crashes or sudden shutdowns", Week));
+        if (shutdowns + crashes + mains == 0) lines.Add(new("\uE73E", "GoodBrush", Core.Wording.NoProblems, Week));
         else
             // Only likely power cuts: said, without the warning's colour.
             lines.Add(new(shutdowns + crashes == 0 ? "\uE7E8" : "\uE7BA", shutdowns + crashes == 0 ? "MutedBrush" : "WarmBrush", string.Join(", ", new[]
             {
-                shutdowns > 0 ? Count(shutdowns, "time the PC went down", "times the PC went down") : null,
-                mains > 0 ? Count(mains, "shut-off that looks like a power cut", "shut-offs that look like power cuts") : null,
+                shutdowns > 0 ? Count(shutdowns, "blue screen or sudden shut-off", "blue screens or sudden shut-offs") : null,
+                mains > 0 ? Count(mains, "likely power cut", "likely power cuts") : null,
                 crashes > 0 ? Count(crashes, "app crash", "app crashes") : null,
             }.Where(t => t is not null)), Week));
 

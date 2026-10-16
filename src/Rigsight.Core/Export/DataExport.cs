@@ -56,8 +56,8 @@ public static class DataExport
             [C("Day", "The day"), C("App", "The app's name"), C("Program", "Its program file"), C("Category", "Games, Browsing…"),
              C("In use (min)", "In front and being used"), C("Away (min)", "In front while nobody was at the PC"),
              C("Background (min)", "Open with a window, another app in front"), C("Minimized (min)", "Open with every window minimized"),
-             C("Peak memory (MB)", "The most memory it held"), C("Peak CPU (°C)", "The CPU's highest while it was in front"),
-             C("Peak GPU (°C)", "The GPU's highest while it was in front")],
+             C("Memory peak (MB)", "The most memory it held"), C("CPU peak (°C)", "The CPU's highest while it was in front"),
+             C("GPU peak (°C)", "The GPU's highest while it was in front")],
             "app_hour", "ts", 78,
             (db, from, to, n) => db.GetAppHours(from, to)
                 .GroupBy(h => (Day: TimeUtil.FromUnix(h.Ts).Date, h.AppId))
@@ -71,8 +71,8 @@ public static class DataExport
 
         [ExportTable.Sessions] = new("Sessions.csv", "Each stretch an app was in front, from when it came to the front until it left.",
             [C("Start", "When it started"), C("End", "When it ended"), C("App", "The app's name"), C("Program", "Its program file"),
-             C("In use (min)", "Time in front and being used"), C("Game", "Yes for a game"), C("Peak CPU (°C)", "The CPU's highest in it"),
-             C("Peak GPU (°C)", "The GPU's highest in it")],
+             C("In use (min)", "Time in front and being used"), C("Game", "Yes for a game"), C("CPU peak (°C)", "The CPU's highest in it"),
+             C("GPU peak (°C)", "The GPU's highest in it")],
             "sessions", "start", 92,
             (db, from, to, n) => db.GetSessions(from, to).Select(x => new object?[]
             {
@@ -121,7 +121,7 @@ public static class DataExport
 
         [ExportTable.Memory] = new("Memory.csv", "The memory each app held, hour by hour.",
             [C("Hour", "The start of the hour"), C("App", "The app's name"), C("Program", "Its program file"), C("Memory (MB)", "Its average over the hour"),
-             C("Peak memory (MB)", "The most it held")],
+             C("Memory peak (MB)", "The most it held")],
             "app_hour", "ts", 62,
             (db, from, to, n) => db.GetAppHours(from, to).Where(h => h.MemN > 0).OrderBy(h => h.Ts).ThenByDescending(h => h.MemSum / h.MemN).Select(h => new object?[]
             {
@@ -136,10 +136,10 @@ public static class DataExport
                 Day(TimeUtil.FromUnix(d.Day)), d.Drive.TrimEnd('\\'), Math.Round(d.UsedGb, 1), Math.Round(d.TotalGb, 1),
             })),
 
-        [ExportTable.Crashes] = new("Crashes.csv", "Apps that crashed or stopped responding, blue screens, unexpected shutdowns and graphics driver resets.",
+        [ExportTable.Crashes] = new("Crashes.csv", "Apps that crashed or froze, blue screens, sudden shut-offs and graphics driver resets.",
             [C("Time", "When it happened"), C("What", "In a sentence"), C("Kind", "The kind of problem"), C("App", "The app, if it was one"),
              C("Program", "Its program file"), C("Module", "The file the fault was in"), C("Code", "Windows' error code"), C("Detail", "What Windows wrote down"),
-             C("Most likely", "What most likely happened"), C("How sure", "Confirmed (by Windows' own record), likely, possible, or not enough to say"),
+             C("Most likely", "What most likely happened"), C("How sure", "How sure the cause is: confirmed (by Windows' own record), likely, possibly, or not enough to say"),
              C("App version", "The program's version"), C("Driver", "The driver a blue screen names")],
             "crashes", "ts", 260,
             (db, from, to, n) =>
@@ -149,7 +149,7 @@ public static class DataExport
                 return crashes.Select(e => new object?[]
                 {
                     Time(e.Ts), CrashExplainer.Explain(e, n.OfExe(e.AppExe)).Title, e.Kind.ToString(), n.OfExe(e.AppExe), e.AppExe, e.Module, e.Code, e.Detail,
-                    found.GetValueOrDefault(e.Id)?.Head, found.GetValueOrDefault(e.Id)?.Verdict, e.Facts?.AppVersion, e.Facts?.Driver,
+                    found.GetValueOrDefault(e.Id)?.Head, found.GetValueOrDefault(e.Id)?.HowSure, e.Facts?.AppVersion, e.Facts?.Driver,
                 });
             }),
 

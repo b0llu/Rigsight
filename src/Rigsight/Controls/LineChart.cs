@@ -13,7 +13,8 @@ namespace Rigsight.Controls;
 /// whole line is one point for each minute, its average; hovering a minute says its average, highest and
 /// lowest. On a shorter window every reading is drawn, and hovering shows the exact time and each value there.
 /// A week or a month (the one <see cref="Day"/> is in, whole, on the calendar) is drawn from hours (each hour's
-/// average), and hovering says the hour's three; a year from days, in the same way.
+/// average), and hovering says the hour's three; a year from days, in the same way. From an hour up, dragging across
+/// it shows only that stretch, with the same points drawn wider (see <see cref="ChartZoom"/>).
 /// </summary>
 public sealed class LineChart : FrameworkElement
 {
@@ -109,9 +110,134 @@ public sealed class LineChart : FrameworkElement
         return f;
     }
 
+    // ── Zoom ──
+
+    /// <summary>Drag across the graph to show only that stretch (off by default: a chart on a card without the button back, a dashboard's, stays whole).</summary>
+    public static readonly DependencyProperty CanZoomProperty = DependencyProperty.Register(
+        nameof(CanZoom), typeof(bool), typeof(LineChart), new FrameworkPropertyMetadata(false, (d, _) => ((LineChart)d).ResetZoom()));
+
+    public bool CanZoom { get => (bool)GetValue(CanZoomProperty); set => SetValue(CanZoomProperty, value); }
+
+    private static readonly DependencyPropertyKey IsZoomedKey = DependencyProperty.RegisterReadOnly(
+        nameof(IsZoomed), typeof(bool), typeof(LineChart), new PropertyMetadata(false));
+    public static readonly DependencyProperty IsZoomedProperty = IsZoomedKey.DependencyProperty;
+
+    /// <summary>Showing only a stretch: the card shows its range and the button back.</summary>
+    public bool IsZoomed => (bool)GetValue(IsZoomedProperty);
+
+    private static readonly DependencyPropertyKey ZoomTextKey = DependencyProperty.RegisterReadOnly(
+        nameof(ZoomText), typeof(string), typeof(LineChart), new PropertyMetadata(""));
+    public static readonly DependencyProperty ZoomTextProperty = ZoomTextKey.DependencyProperty;
+
+    /// <summary>The stretch shown, in words ("9:30 AM – 11:15 AM", "Mon 5, 3 PM – Wed 7, 9 AM"); empty when it's all shown.</summary>
+    public string ZoomText => (string)GetValue(ZoomTextProperty);
+
+    private static readonly DependencyPropertyKey ResetTextKey = DependencyProperty.RegisterReadOnly(
+        nameof(ResetText), typeof(string), typeof(LineChart), new PropertyMetadata(ResetTextOf(300)));
+    public static readonly DependencyProperty ResetTextProperty = ResetTextKey.DependencyProperty;
+
+    /// <summary>What the button back says: the period picked, in its own words ("Whole day", "Back to 24 hours", "Whole week").</summary>
+    public string ResetText => (string)GetValue(ResetTextProperty);
+
+    internal static string ResetTextOf(int windowSeconds) => windowSeconds switch
+    {
+        0 => "Whole day",
+        3600 => "Back to 1 hour",
+        21600 => "Back to 6 hours",
+        86400 => "Back to 24 hours",
+        604800 => "Whole week",
+        31536000 => "Whole year",
+        > 86400 => "Whole month",
+        _ => "Back to all of it",
+    };
+
+    /// <summary>Back to the period picked (the card's button).</summary>
+    public ICommand ResetZoomCommand => _resetCommand ??= new ActionCommand(ResetZoom);
+    private ICommand? _resetCommand;
+
+    private readonly ChartZoom _zoom = new();
+
+    /// <summary>A zoom keeps to the points this window has: under an hour every reading is drawn, and there's nothing to zoom into.</summary>
+    private bool Zoomable => CanZoom && ByMinute;
+
+    /// <summary>How far apart the points are (a minute, an hour on a week or a month, a day on a year): a zoom is at least 15 of them.</summary>
+    private TimeSpan ZoomStep => TimeSpan.FromSeconds(Step);
+
+    public void ResetZoom()
+    {
+        if (_zoom.Reset()) InvalidateVisual();
+        SyncZoom();
+    }
+
+    private void SyncZoom()
+    {
+        SetValue(IsZoomedKey, _zoom.IsZoomed);
+        SetValue(ZoomTextKey, _zoom.Range is { } r ? ChartZoom.Text(r.From, r.To, ZoomStep) : "");
+    }
+
+    // Another period (or day) starts whole.
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property == WindowSecondsProperty || e.Property == DayProperty)
+        {
+            if (e.Property == WindowSecondsProperty) SetValue(ResetTextKey, ResetTextOf(WindowSeconds));
+            ResetZoom();
+        }
+    }
+
+    /// <summary>Where the plot is, and the whole stretch and the one shown (set each render): the drag works in them.</summary>
+    private Rect _plotRect;
+    private (DateTime From, DateTime To) _full, _shown;
+
+    private DateTime TimeAtX(double x) => _shown.From + (_shown.To - _shown.From) * Math.Clamp((x - _plotRect.Left) / Math.Max(1, _plotRect.Width), 0, 1);
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (!Zoomable) return;
+        if (e.ClickCount == 2)
+        {
+            ResetZoom();
+            e.Handled = true;
+            return;
+        }
+        double x = e.GetPosition(this).X;
+        if (_plotRect.Width <= 0 || x < _plotRect.Left || x > _plotRect.Right) return;
+        _zoom.Press(x);
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (_zoom.Drag is null) return;
+        FinishDrag();
+        ReleaseMouseCapture();
+    }
+
+    /// <summary>The drag ended: zoom to it (or, a press that hardly moved, nothing).</summary>
+    internal void FinishDrag()
+    {
+        // The period changed under the drag to one that draws every reading: nothing to zoom into.
+        if (!Zoomable && _zoom.CancelDrag()) return;
+        _zoom.Release(TimeAtX, _full.From, _full.To, ZoomStep);
+        SyncZoom();
+        InvalidateVisual();
+    }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        // Capture taken away mid-drag (another window came up): the band goes, nothing zooms.
+        if (_zoom.CancelDrag()) InvalidateVisual();
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         _hoverX = e.GetPosition(this).X;
+        _zoom.Move(_hoverX.Value, _plotRect.Left, _plotRect.Right);
         InvalidateVisual();
     }
 
@@ -164,6 +290,8 @@ public sealed class LineChart : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
+        // Nothing to drag across until there's a plot with lines (set below).
+        _plotRect = default;
         if (ActualWidth < AxisWidth + 20 || ActualHeight < AxisHeight + 20) return;
 
         var plot = new Rect(AxisWidth, 6, ActualWidth - AxisWidth - 6, ActualHeight - AxisHeight - 6);
@@ -201,7 +329,7 @@ public sealed class LineChart : FrameworkElement
         if (lo > hi)
         {
             // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
-            string what = IsTemp ? "No temperatures recorded " : "Nothing recorded ";
+            string what = Core.Wording.NotRecorded + " ";
             string nothing = Long ? what + PeriodPicker.Words(LongUnit, day)
                 : _pastDay ? what + PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : "Collecting data…";
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
@@ -222,6 +350,23 @@ public sealed class LineChart : FrameworkElement
             hi = step * Rows;
         }
 
+        // Zoomed in: only that stretch of the period, its points drawn wider across the whole width. The scale stays the
+        // period's, so a stretch keeps its place against the rest.
+        static DateTime Local(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
+        static long Ms(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
+        _plotRect = plot;
+        _full = (Local(from), Local(to));
+        if (Zoomable && _zoom.IsZoomed)
+        {
+            var (zoomFrom, zoomTo) = _zoom.Shown(_full.From, _full.To, ZoomStep);
+            (from, to) = (Ms(zoomFrom), Ms(zoomTo));
+            window = (int)((to - from) / 1000);
+        }
+        else if (!Zoomable) _zoom.Reset();
+        _shown = (Local(from), Local(to));
+        // (Not set while drawing: the card's text would be laid out again in the middle of it.)
+        if (_zoom.IsZoomed != IsZoomed) Dispatcher.BeginInvoke(SyncZoom);
+
         // Horizontal grid + Y labels.
         if (_gridPen is null || _gridPen.Brush != GridBrush)
         {
@@ -239,7 +384,19 @@ public sealed class LineChart : FrameworkElement
         }
 
         // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
-        if (dayMode)
+        if (_zoom.IsZoomed)
+        {
+            // A zoomed stretch: round clock times (every 15 minutes, every 2 hours, every day...), as many as fit, none
+            // so near an edge that it would run past it.
+            var (ticks, every) = ChartZoom.Ticks(_shown.From, _shown.To, plot.Width, 72);
+            foreach (var t in ticks)
+            {
+                double x = plot.Left + plot.Width * (Ms(t) - from) / (to - from);
+                if (x - plot.Left < 24 || plot.Right - x < 24) continue;
+                DrawText(dc, ChartZoom.TickLabel(t, every), new Point(x, plot.Bottom + 12), dpi, center: true);
+            }
+        }
+        else if (dayMode)
         {
             // Whole hours from midnight ("12 AM", "3 AM"…), as many as fit; today ends at "now".
             double hours = window / 3600.0;
@@ -323,6 +480,10 @@ public sealed class LineChart : FrameworkElement
             if (!Long) Draw(s, s.Sensor.History, groupMs: GroupMs);
         }
         dc.Pop();
+
+        // The band of a drag going on, in place of the hover.
+        _zoom.DrawBand(dc, plot);
+        if (_zoom.Dragging) return;
 
         if (_hoverX is double hx && hx >= plot.Left && hx <= plot.Right)
         {
@@ -490,7 +651,7 @@ public sealed class LineChart : FrameworkElement
         var title = Text(when, HoverFont, 12, HoverText, dpi);
         // One value a line, or three columns under their names: the minute's average, highest and lowest.
         FormattedText Cell(double? v) => Text(Units.Format(Kind, v), HoverFont, 12, HoverText, dpi);
-        var heads = stats ? new[] { "Avg", "Highest", "Lowest" }.Select(c => Text(c, LabelFont, 11, HoverMuted, dpi)).ToArray() : [];
+        var heads = stats ? new[] { Core.Wording.Average, Core.Wording.Highest, Core.Wording.Lowest }.Select(c => Text(c, LabelFont, 11, HoverMuted, dpi)).ToArray() : [];
         var lines = rows.Select(r => (r.Series, Name: Text(r.Series.Label, LabelFont, 12, HoverMuted, dpi),
             Cells: stats ? new[] { Cell(r.Value), Cell(r.High), Cell(r.Low) } : [Cell(r.Value)])).ToList();
 

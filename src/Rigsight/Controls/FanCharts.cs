@@ -222,7 +222,7 @@ public sealed class FanCurveChart : FanChartBase
             var bin = bins.MinBy(b => Math.Abs(b.Temp + 0.5 - t))!;
             if (Math.Abs(bin.Temp + 0.5 - t) <= 2)
             {
-                var lines = new List<string> { bin.StillShare >= 0.5 ? "Usually standing still" : $"Typically {Units.Format(SensorKind.Fan, bin.Rpm)}" };
+                var lines = new List<string> { bin.StillShare >= 0.5 ? "Usually standing still" : $"Average {Units.Format(SensorKind.Fan, bin.Rpm)}" };
                 if (bin.StillShare is > 0.05 and < 0.5) lines.Add($"Still in {bin.StillShare:P0} of them");
                 lines.Add($"{bin.Minutes:N0} minute{(bin.Minutes == 1 ? "" : "s")}");
                 double x = X(bin.Temp + 0.5);
@@ -290,7 +290,7 @@ public sealed class FanDaysChart : FanChartBase
         {
             var d = days[h];
             var lines = new List<string>();
-            if (d.Average is null && d.Fastest is null) lines.Add("Nothing recorded");
+            if (d.Average is null && d.Fastest is null) lines.Add(Core.Wording.NotRecorded);
             if (d.Average is not null) lines.Add($"{ValueLabel} {Units.Format(SensorKind.Fan, d.Average)}");
             if (d.Fastest is not null) lines.Add($"Fastest {Units.Format(SensorKind.Fan, d.Fastest)}");
             if (d.Earlier) lines.Add("Before its setting changed");

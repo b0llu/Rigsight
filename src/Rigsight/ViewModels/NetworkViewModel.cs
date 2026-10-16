@@ -78,14 +78,42 @@ public sealed partial class NetAppRow : ObservableObject
 /// <summary>A colour of the chart and what it stands for.</summary>
 public sealed record NetLegend(string BrushKey, string Text, double Opacity = 1);
 
-/// <summary>Something big that came in in one go, as the card lists it.</summary>
-public sealed record NetDownloadRow(string Name, string? Path, string When, string How, string Size);
+/// <summary>
+/// A part of a biggest hour's or day's bar: an app with a colour of its own on the chart, in that colour, or every other
+/// app together in the chart's grey. <see cref="Width"/> is out of <see cref="NetworkViewModel.BarRoom"/>.
+/// </summary>
+public sealed record NetSegment(string BrushKey, double Width, string Tip);
+
+/// <summary>One of the biggest hours or days, whole: when, everything moved, the bar of who it was, and the top apps by name.</summary>
+public sealed record NetBiggestRow(string When, string Size, IReadOnlyList<NetSegment> Segments, string AppsText)
+{
+    public bool HasAppsText => AppsText.Length > 0;
+
+    /// <summary>The same row: the same words and the same parts (not the same list object), so the card keeps its rows.</summary>
+    public bool Equals(NetBiggestRow? other) =>
+        other is not null && When == other.When && Size == other.Size && AppsText == other.AppsText && Segments.SequenceEqual(other.Segments);
+
+    public override int GetHashCode() => HashCode.Combine(When, Size, AppsText);
+}
 
 /// <summary>A quarter hour of the connection strip: online, a drop, or nothing (the PC was off, or it's still to come).</summary>
 public enum NetQuarter { Online, Dropped, None, Unrecorded }
 
-/// <summary>A quarter hour on the strip and what hovering it says ("2:00 – 2:15 PM · Online").</summary>
+/// <summary>A quarter hour on the strip and what hovering it says ("2:00 – 2:15 PM · Up").</summary>
 public sealed record NetStripCell(NetQuarter State, string Tip);
+
+/// <summary>A day's square on a week's, month's or year's connection strip, and what hovering it says.</summary>
+public sealed record NetDayCell(NetDayState State, string Tip);
+
+/// <summary>A year's month on the connection strip: its name and a square for each of its days.</summary>
+public sealed record NetMonthRow(string Month, IReadOnlyList<NetDayCell> Days)
+{
+    public bool Equals(NetMonthRow? other) => other is not null && Month == other.Month && Days.SequenceEqual(other.Days);
+    public override int GetHashCode() => HashCode.Combine(Month, Days.Count);
+}
+
+/// <summary>A drop as the week's or month's list has it: "Fri 2 Oct, 6:12 PM", and how long it lasted.</summary>
+public sealed record NetDropRow(string When, string Length);
 
 /// <summary>
 /// The Network page: the internet right now (speeds, the connection, who's using it), then the period's use: totals, a
@@ -97,7 +125,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     // ── The period (Day, Week, Month or Year; today unless picked otherwise) ──
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(PeriodWord), nameof(EmptyText))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(RangeNote), nameof(PeriodWord), nameof(EmptyText), nameof(NoBiggestText))]
     private ReportRange _unit = ReportRange.Day;
 
     [ObservableProperty]
@@ -120,7 +148,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     public string PeriodWord => Controls.PeriodPicker.Words(Unit, Anchor);
 
     /// <summary>What the page says when the period has nothing.</summary>
-    public string EmptyText => $"Nothing recorded {PeriodWord} yet. Internet use is recorded while the agent runs as admin.";
+    public string EmptyText => $"Not recorded {PeriodWord}. Internet use is recorded while the agent runs as admin.";
 
     partial void OnUnitChanged(ReportRange value) { SelectedBin = -1; _ = RefreshAsync(); }
     partial void OnAnchorChanged(DateTime value) { SelectedBin = -1; _ = RefreshAsync(); }
@@ -256,7 +284,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     private bool _wholeOnly;
 
     public string BackgroundCaption => WholeOnly ? "WHILE YOU WERE AWAY" : "IN THE BACKGROUND";
-    public string NoAppsText => WholeOnly ? "Each app's internet use needs admin rights on this PC." : "Nothing here.";
+    public string NoAppsText => WholeOnly ? "Each app's internet use needs admin rights on this PC." : "No app used 1 MB or more.";
     [ObservableProperty] private string _totalText = "—";
     [ObservableProperty] private string _totalNote = "";
 
@@ -303,15 +331,42 @@ public sealed partial class NetworkViewModel : ObservableObject
     public ObservableCollection<NetAppRow> Apps { get; } = [];
     [ObservableProperty] private bool _hasApps;
 
+    /// <summary>The period's biggest hours (a day) or days (longer), whole: everything every app moved then.</summary>
     [ObservableProperty] private string _downloadsTitle = "Biggest hours";
-    [ObservableProperty] private IReadOnlyList<NetDownloadRow> _downloads = [];
+    [ObservableProperty] private IReadOnlyList<NetBiggestRow> _downloads = [];
     public bool HasDownloads => Downloads.Count > 0;
-    partial void OnDownloadsChanged(IReadOnlyList<NetDownloadRow> value) => OnPropertyChanged(nameof(HasDownloads));
+    partial void OnDownloadsChanged(IReadOnlyList<NetBiggestRow> value) => OnPropertyChanged(nameof(HasDownloads));
+    /// <summary>What the card says when no hour (or day) reached <see cref="NetReportBuilder.MinBiggest"/>.</summary>
+    public string NoBiggestText => IsDay ? $"No hour reached {Units.Data(NetReportBuilder.MinBiggest)}." : $"No day reached {Units.Data(NetReportBuilder.MinBiggest)}.";
+
+    /// <summary>The room a biggest hour's bar is drawn in: its parts' widths add up to this (the view stretches it).</summary>
+    public const double BarRoom = 1000;
 
     [ObservableProperty] private string _dropsTitle = "";
     [ObservableProperty] private string _dropsNote = "";
     [ObservableProperty] private bool _dropsWarn;
     [ObservableProperty] private IReadOnlyList<NetStripCell> _strip = [];
+
+    /// <summary>A week's or month's days on the connection strip (empty for a day and a year), and its two ends' names.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDays), nameof(HasDayLegend))]
+    private IReadOnlyList<NetDayCell> _days = [];
+    public bool HasDays => Days.Count > 0;
+    [ObservableProperty] private string _daysFrom = "";
+    [ObservableProperty] private string _daysTo = "";
+
+    /// <summary>A year's days on the connection strip: a row for each month.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMonths), nameof(HasDayLegend))]
+    private IReadOnlyList<NetMonthRow> _months = [];
+    public bool HasMonths => Months.Count > 0;
+    public bool HasDayLegend => HasDays || HasMonths;
+
+    /// <summary>A week's or month's drops, each with its day, time and length, under the strip.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDropRows))]
+    private IReadOnlyList<NetDropRow> _dropRows = [];
+    public bool HasDropRows => DropRows.Count > 0;
 
     private NetReport? _report;
 
@@ -356,6 +411,9 @@ public sealed partial class NetworkViewModel : ObservableObject
             SelectedBin = -1;
             Downloads = [];
             Strip = [];
+            Days = [];
+            Months = [];
+            DropRows = [];
             return;
         }
         bool now = IncludesToday;
@@ -395,10 +453,9 @@ public sealed partial class NetworkViewModel : ObservableObject
 
         FillApps();
 
-        // Each app's biggest hours (a day) or days (longer), everything it moved then.
+        // The biggest hours (a day) or days (longer), whole, each with the apps that made it in the chart's colours.
         DownloadsTitle = r.Range == ReportRange.Day ? $"Biggest hours {PeriodWord}" : $"Biggest days {PeriodWord}";
-        Downloads = Models.Kept.Or(Downloads, [.. r.Downloads.Select(d => new NetDownloadRow(d.App, d.Path,
-            r.Range == ReportRange.Day ? $"{d.Start:h tt} – {d.End:h tt}" : d.Start.ToString("ddd d MMM"), "", Units.Data(d.Bytes)))]);
+        Downloads = Models.Kept.Or(Downloads, [.. r.Biggest.Select(s => BiggestRow(s, r.Range, ColorApps, AppNames))]);
 
         FillDrops(r);
     }
@@ -496,6 +553,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         DropsWarn = r.Insights.Any(i => i.Key == "net-drops");
         (DropsTitle, DropsNote) = DropsText(r, PeriodWord);
+        FillDays(r);
         if (r.Range != ReportRange.Day || r.Quarters.Length != 96)
         {
             Strip = [];
@@ -505,12 +563,13 @@ public sealed partial class NetworkViewModel : ObservableObject
         Strip = Models.Kept.Or(Strip, [.. StripStates(r).Select((state, i) =>
         {
             var (from, to) = (day.AddMinutes(i * 15), day.AddMinutes(i * 15 + 15));
+            // The words of the week's and month's squares: up, dropped, not recorded (the PC off is nothing recorded too).
             string what = state switch
             {
-                NetQuarter.Online => "Online",
+                NetQuarter.Online => "Up",
                 NetQuarter.Dropped => "Dropped",
                 NetQuarter.Unrecorded => "Not recorded",
-                _ => from > DateTime.Now ? "Still to come" : "No record",
+                _ => from > DateTime.Now ? "Still to come" : "Not recorded",
             };
             string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
             return new NetStripCell(state, $"{span} · {what}");
@@ -529,21 +588,107 @@ public sealed partial class NetworkViewModel : ObservableObject
             2 => "Dropped twice",
             var n => $"Dropped {n} times",
         };
-        string note;
-        if (drops.Count > 0)
+        var parts = new List<string>();
+        // A week or a month lists every drop under its strip, the longest among them: the line doesn't pick one out.
+        if (drops.Count > 0 && r.Range is ReportRange.Day or ReportRange.Year)
         {
             var longest = drops.MaxBy(d => d.Seconds)!;
             var at = TimeUtil.FromUnix(longest.Start);
-            note = $"Longest {Took(TimeSpan.FromSeconds(longest.Seconds))} {(r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"on {at:ddd d MMM}")}";
+            parts.Add($"Longest {Took(longest.Seconds)} {(r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"on {at:ddd d MMM}")}");
         }
-        else note = r.Range == ReportRange.Day ? "" : $"The internet stayed up {periodWord}";
+        else if (drops.Count == 0 && r.Range != ReportRange.Day) parts.Add($"The internet stayed up {periodWord}");
         // Time the PC was on with nothing written isn't time without drops: say how long, so "No drops" isn't read as the whole day.
         if (r.Unrecorded.Count > 0)
         {
-            string missing = $"{Took(TimeSpan.FromSeconds(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds)))} not recorded";
-            note = note.Length == 0 ? missing : $"{note} · {missing}";
+            string missing = $"{Took(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds))} not recorded";
+            // Alone on the line, a longer period's part says which period it is ("7h 30m not recorded this month").
+            parts.Add(parts.Count == 0 && r.Range != ReportRange.Day ? $"{missing} {periodWord}" : missing);
         }
-        return (title, note);
+        // A year isn't searched for stretches not recorded: it says when recording began, when that was inside it.
+        if (r.Range == ReportRange.Year && r.RecordedSince is { } since) parts.Add($"recorded since {since:d MMM}");
+        return (title, string.Join(" · ", parts));
+    }
+
+    /// <summary>The connection strip of a week or month (a square a day) or a year (a row a month), and a week's or month's drops.</summary>
+    private void FillDays(NetReport r)
+    {
+        var today = DateTime.Today;
+        bool year = r.Range == ReportRange.Year;
+        Days = Models.Kept.Or(Days, year ? [] : [.. r.Days.Select(d => new NetDayCell(d.State, DayTip(d, today)))]);
+        Months = Models.Kept.Or(Months, year ? YearRows(r.Days, today) : []);
+        if (r.Days.Count > 0)
+        {
+            // A week's ends by their weekday (it always runs Monday to Sunday), a month's by their date.
+            string format = r.Range == ReportRange.Week ? "ddd" : "d MMM";
+            (DaysFrom, DaysTo) = (r.Days[0].Day.ToString(format), r.Days[^1].Day.ToString(format));
+        }
+        // Listed under a week's or month's strip only: a day's strip shows its drops' times, a year's line its longest.
+        DropRows = Models.Kept.Or(DropRows, r.Range is ReportRange.Week or ReportRange.Month ? DropList(r.Drops) : []);
+    }
+
+    /// <summary>The drops as the week's or month's list has them: when each began, and how long it lasted.</summary>
+    internal static List<NetDropRow> DropList(IEnumerable<NetDrop> drops) =>
+        [.. drops.OrderBy(d => d.Start).Select(d => new NetDropRow($"{TimeUtil.FromUnix(d.Start):ddd d MMM}, {TimeUtil.FromUnix(d.Start):h:mm tt}", Took(d.Seconds)))];
+
+    /// <summary>A year's days as twelve rows, each with as many squares as its month has days.</summary>
+    internal static List<NetMonthRow> YearRows(IReadOnlyList<NetDayLink> days, DateTime today) =>
+        [.. days.GroupBy(d => (d.Day.Year, d.Day.Month))
+            .Select(g => new NetMonthRow(g.First().Day.ToString("MMM"), [.. g.Select(d => new NetDayCell(d.State, DayTip(d, today)))]))];
+
+    /// <summary>
+    /// What hovering a day's square says: the day, then how it went ("Up all day", each drop's time and length, "Not
+    /// recorded", "Still to come"), then how much of it was recorded. Today isn't over: no drops yet isn't "all day".
+    /// </summary>
+    internal static string DayTip(NetDayLink d, DateTime today)
+    {
+        static string Drop(NetDrop x) => $"{TimeUtil.FromUnix(x.Start):h:mm tt}, {Took(x.Seconds)}";
+        var lines = new List<string> { d.Day.ToString("ddd d MMM") };
+        switch (d.State)
+        {
+            case NetDayState.ToCome:
+                lines.Add("Still to come");
+                break;
+            case NetDayState.NotRecorded:
+                lines.Add("Not recorded");
+                break;
+            case NetDayState.Up:
+                lines.Add(d.Day.Date == today.Date ? "No drops so far" : "Up all day");
+                break;
+            default:
+                if (d.Drops.Count == 1) lines.Add($"Dropped once: {Drop(d.Drops[0])}");
+                else
+                {
+                    lines.Add(d.Drops.Count == 2 ? "Dropped twice" : $"Dropped {d.Drops.Count} times");
+                    lines.AddRange(d.Drops.Select(Drop));
+                }
+                break;
+        }
+        if (d.State is NetDayState.Up or NetDayState.Dropped && d.RecordedMinutes > 0) lines.Add($"Recorded {Took(d.RecordedMinutes * 60.0)}");
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// A biggest hour's or day's row: when, everything moved, a bar of the apps with a colour of their own on the chart
+    /// (in it) and every other app (in its grey), biggest first, and the top three apps by name.
+    /// </summary>
+    internal static NetBiggestRow BiggestRow(NetStretch s, ReportRange range, IReadOnlyList<long> colorApps, IReadOnlyDictionary<long, string> names)
+    {
+        // An app can have two rows for a date the PC's time zone changed in: added up.
+        var apps = s.Apps.GroupBy(u => u.App).Select(g => (App: g.Key, Bytes: g.Sum(u => u.Total)))
+            .Where(a => a.Bytes > 0 && names.ContainsKey(a.App)).OrderByDescending(a => a.Bytes).ToList();
+        var keys = Controls.NetBarsChart.AppBrushKeys;
+        var colored = colorApps.Take(keys.Length).ToList();
+        var parts = apps.Where(a => colored.Contains(a.App)).Select(a => (Key: keys[colored.IndexOf(a.App)], a.Bytes, Name: names[a.App])).ToList();
+        long rest = s.Bytes - parts.Sum(p => p.Bytes);
+        // No app's use read (a standard account): the PC's, as the chart has it then.
+        if (apps.Count == 0) parts.Add(("SkyBrush", s.Bytes, "This PC"));
+        else if (rest >= 1 << 20) parts.Add((Controls.NetBarsChart.OtherBrushKey, rest, "Every other app"));
+        double sum = Math.Max(1, parts.Sum(p => p.Bytes));
+        return new NetBiggestRow(
+            range == ReportRange.Day ? $"{s.Start:h tt} – {s.End:h tt}" : $"{s.Start:ddd d MMM}",
+            Units.Data(s.Bytes),
+            [.. parts.Select(p => new NetSegment(p.Key, BarRoom * p.Bytes / sum, $"{p.Name} · {Units.Data(p.Bytes)}"))],
+            string.Join(" · ", apps.Take(3).Select(a => $"{names[a.App]} {Units.Data(a.Bytes)}")));
     }
 
     /// <summary>A day's 96 quarter hours: online where anything was used, then what wasn't recorded, then the drops.</summary>
@@ -580,7 +725,6 @@ public sealed partial class NetworkViewModel : ObservableObject
         return ratio >= 1.25 ? $"{ratio:0.0}× {last}" : ratio <= 0.8 ? $"{(1 - ratio) * 100:0}% less than {last}" : $"About the same as {last}";
     }
 
-    /// <summary>"21 min", "2 h 51 min", "40 s".</summary>
-    internal static string Took(TimeSpan t) => t.TotalHours >= 1 ? $"{(int)t.TotalHours} h {t.Minutes} min"
-        : t.TotalMinutes >= 1 ? $"{(int)t.TotalMinutes} min" : $"{Math.Max(1, (int)t.TotalSeconds)} s";
+    /// <summary>"21m", "2h 51m", "40s", as every duration in the app is written (a drop is never "0s").</summary>
+    internal static string Took(double seconds) => Units.Duration(Math.Max(1, seconds));
 }

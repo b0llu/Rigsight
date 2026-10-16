@@ -31,8 +31,15 @@ public sealed partial class LiveData : ObservableObject
         _settings = settings;
         ProcsView = CollectionViewSource.GetDefaultView(Procs);
         ProcsView.SortDescriptions.Add(new SortDescription(nameof(ProcRow.MemMB), ListSortDirection.Descending));
-        if (ProcsView is ICollectionViewLiveShaping live && live.CanChangeLiveSorting)
+        // Kept sorted all the time, the Memory page shown or not: turning live sorting off while the page was away and on
+        // again when it came back left its rows out of step with the list (one app on two rows, Microsoft Defender twice:
+        // ProcessRowsTests), and reading the list anew on each visit to set them right made every switch to Processes
+        // take over 100 ms. Kept on, it costs about 0.2 ms an update (measured with 200 apps, 2026-10-16).
+        if (ProcsView is ICollectionViewLiveShaping { CanChangeLiveSorting: true } live)
+        {
             live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
+            live.IsLiveSorting = true;
+        }
         ProcsView.Filter = o => o is ProcRow p && Listed(p);
     }
 
@@ -135,16 +142,64 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>The Temperatures page's week, hour by hour (see <see cref="Controls.HeatGrid"/>).</summary>
     [ObservableProperty] private IReadOnlyList<HeatHour> _heatWeek = [];
 
-    /// <summary>The board's temperature sensors and the drives', as one row of tiles.</summary>
+    /// <summary>The Temperatures page's "Drives": a row a drive that reads a temperature, against its own limit.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasPartTemps))]
-    private IReadOnlyList<PartTemp> _partTemps = [];
-    public bool HasPartTemps => PartTemps.Count > 0;
+    [NotifyPropertyChangedFor(nameof(HasDriveTemps), nameof(HasPartTemps))]
+    private IReadOnlyList<DriveTemp> _driveTemps = [];
+    public bool HasDriveTemps => DriveTemps.Count > 0;
 
-    /// <summary>Puts <see cref="PartTemps"/> together again: the lists it is made of changed, or a sensor was hidden or renamed.</summary>
-    private void RefreshPartTemps() => PartTemps = Models.Kept.Or(PartTemps,
-        [.. BoardTemps.Where(t => !t.IsHidden).Select(t => new PartTemp(t.DisplayName, t, "40,60,80")),
-         .. Drives.Where(d => d.Temperature is not null).Select(d => new PartTemp(d.Name, d.Temperature!, "35,50,65"))]);
+    /// <summary>The Temperatures page's "Motherboard": the board's temperature sensors as tiles, grouped by the chip they're read from.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBoardTemps), nameof(HasPartTemps))]
+    private IReadOnlyList<BoardChip> _boardChips = [];
+    public bool HasBoardTemps => BoardChips.Count > 0;
+
+    /// <summary>Either card has something; with neither (no admin rights) one card across the row says why.</summary>
+    public bool HasPartTemps => HasDriveTemps || HasBoardTemps;
+
+    /// <summary>Each drive's row, made when the sensor list arrives (Windows asked once a drive for its type and size); <see cref="DriveTemps"/> are those with a temperature.</summary>
+    private readonly List<DriveTemp> _driveRows = [];
+
+    /// <summary>What Windows says of a drive by its number (tests give their own: they mustn't depend on the PC's drives).</summary>
+    internal Func<int, DriveFacts> ProbeDrive { get; set; } = DriveProbe.Read;
+    internal char WindowsLetter { get; set; } = DriveProbe.WindowsLetter;
+
+    /// <summary>Asked once a drive (by its number and name) for as long as the app runs: drives are seldom swapped, and a new hello comes often.</summary>
+    private readonly Dictionary<(int, string), DriveFacts> _driveFacts = [];
+
+    private static readonly Regex DriveNumber = new(@"^/[a-z]+/(\d+)/", RegexOptions.CultureInvariant);
+
+    /// <summary>A drive's row for "Drives": its kind and size from Windows, its limit from its own sensors.</summary>
+    private DriveTemp DriveRow(HardwareNode node, SensorItem temp, SensorItem? life)
+    {
+        // LibreHardwareMonitor numbers a drive as Windows does ("/nvme/2/…" is the third physical drive).
+        var facts = DriveFacts.None;
+        if (DriveNumber.Match(temp.Id) is { Success: true } m && int.TryParse(m.Groups[1].Value, out int disk))
+        {
+            if (!_driveFacts.TryGetValue((disk, node.Name), out var known)) _driveFacts[(disk, node.Name)] = known = ProbeDrive(disk);
+            facts = known;
+        }
+        else Log.Write("drives", $"{node.Name}: expected a drive number in its sensor's id, found \"{temp.Id}\"");
+        // Where Windows didn't say: an NVMe drive is always an SSD, and so is one that reports its wear.
+        bool nvme = temp.Id.StartsWith("/nvme/", StringComparison.Ordinal);
+        if (facts.Kind == DriveKind.Unknown && (nvme || life is not null)) facts = facts with { Kind = DriveKind.Ssd };
+        if (facts.Bus is null && nvme) facts = facts with { Bus = "NVMe" };
+        return new DriveTemp(node.Name, facts.Line(WindowsLetter), temp, DriveTemp.ReportedLimitOf(node.Sensors), facts.Kind);
+    }
+
+    /// <summary>Puts the two cards' lists together again: the lists they are made of changed, or a sensor was hidden or renamed.</summary>
+    private void RefreshPartTemps()
+    {
+        DriveTemps = Models.Kept.Or(DriveTemps, [.. _driveRows]);
+        // Chip by chip in All sensors' order; a chip whose readings are all hidden or dropped has no group.
+        BoardChips = Models.Kept.Or(BoardChips,
+            [.. Hardware.Where(n => n.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler")
+                .Select(n => (Name: BoardChip.Split(n.Name), Tiles: (IReadOnlyList<PartTemp>)[.. n.Sensors.Where(t => BoardTemps.Contains(t) && !t.IsHidden)
+                    .Select(t => new PartTemp(t.DisplayName, t, "40,60,80"))]))
+                .Where(g => g.Tiles.Count > 0)
+                .Select(g => new BoardChip(g.Name.Chip, g.Name.Board, g.Tiles))],
+            BoardChip.Same);
+    }
 
     public ObservableCollection<ChartSeries> TempSeries { get; } = [];
 
@@ -388,6 +443,7 @@ public sealed partial class LiveData : ObservableObject
         Drives.Clear();
         Fans.Clear();
         BoardTemps.Clear();
+        _driveRows.Clear();
         TempSeries.Clear();
 
         var s = _settings.Current;
@@ -462,8 +518,10 @@ public sealed partial class LiveData : ObservableObject
         {
             var temp = Find(d.Sensors, SensorKind.Temperature, "Composite Temperature", "Temperature")
                        ?? d.Sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && !x.Name.Contains("Warning") && !x.Name.Contains("Critical"));
-            Drives.Add(new DriveSummary(d.Name, temp, Find(d.Sensors, SensorKind.Level, "Life", "Remaining Life"),
+            var life = Find(d.Sensors, SensorKind.Level, "Life", "Remaining Life");
+            Drives.Add(new DriveSummary(d.Name, temp, life,
                 Find(d.Sensors, SensorKind.Load, "Used Space"), Find(d.Sensors, SensorKind.Factor, "Power On Hours")));
+            if (temp is not null) _driveRows.Add(DriveRow(d, temp, life));
         }
 
         // Fans and temperatures from the motherboard's sensor chips. Fans that never spin are left out.
@@ -748,15 +806,6 @@ public sealed partial class LiveData : ObservableObject
         }
     }
 
-    /// <summary>Keep the process list sorted as memory changes, only while the Memory page shows it.</summary>
-    public void SetProcessSorting(bool on)
-    {
-        if (ProcsView is not ICollectionViewLiveShaping { CanChangeLiveSorting: true } live || live.IsLiveSorting == on) return;
-        live.IsLiveSorting = on;
-        // Sorted again only if the order moved while it wasn't kept (reading the list anew rebuilds every row on screen).
-        if (on && !ProcsView.Cast<ProcRow>().Select(p => p.MemMB).SequenceEqual(ProcsView.Cast<ProcRow>().Select(p => p.MemMB).OrderDescending())) ProcsView.Refresh();
-    }
-
     /// <summary>
     /// Memory Windows holds compressed (the "Memory Compression" process), as a sensor of its own so it gets a
     /// tile with a chart like the real ones. It's read with the process list, every couple of seconds.
@@ -966,7 +1015,7 @@ public sealed partial class LiveData : ObservableObject
         foreach (var node in Hardware)
         {
             bool board = node.Badge == "BOARD";
-            double? reported = node.Sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && x.Name.Contains("Warning", StringComparison.OrdinalIgnoreCase))?.Value;
+            double? reported = DriveTemp.ReportedLimitOf(node.Sensors)?.Value;
             (SensorItem Sensor, double Share, string Note)? best = null;
             foreach (var sensor in node.Sensors)
             {
@@ -1038,10 +1087,10 @@ public sealed partial class LiveData : ObservableObject
     {
         var places = new List<SensorPlace>();
         var set = _settings.Current;
-        places.Add(new SensorPlace("The taskbar", set.TraySensors.Contains(sensor.Id), true,
+        places.Add(new SensorPlace("The taskbar", "", set.TraySensors.Contains(sensor.Id), true,
             () => _settings.Update(x => { if (!x.TraySensors.Remove(sensor.Id)) x.TraySensors.Add(sensor.Id); })));
         bool onOverlay = set.Overlay.Sensors.Any(o => o.Id == sensor.Id);
-        places.Add(new SensorPlace("The overlay", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
+        places.Add(new SensorPlace("The overlay", "", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
             () => _settings.Update(x =>
             {
                 if (x.Overlay.Sensors.RemoveAll(o => o.Id == sensor.Id) == 0 && x.Overlay.Sensors.Count < OverlaySettings.MaxSensors)
@@ -1055,7 +1104,7 @@ public sealed partial class LiveData : ObservableObject
             string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
             var items = WidgetCatalog.ItemsOf(w);
             bool onWidget = items.Any(i => i.Id == item);
-            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", onWidget, onWidget || items.Count < WidgetCatalog.MaxItems(layout),
+            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", "", onWidget, onWidget || items.Count < WidgetCatalog.MaxItems(layout),
                 () => _settings.Update(x =>
                 {
                     if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;
@@ -1068,7 +1117,7 @@ public sealed partial class LiveData : ObservableObject
         }
         foreach (var page in Dashboards?.Invoke() ?? [])
         {
-            places.Add(new SensorPlace($"Dashboard · {page.Name}", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
+            places.Add(new SensorPlace($"Dashboard · {page.Name}", "", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
             {
                 if (page.Tiles.FirstOrDefault(t => t.SensorRef == sensor.Id) is { } tile) page.Remove(tile);
                 else
@@ -1244,9 +1293,11 @@ public sealed partial class GlanceRow : ObservableObject
 }
 
 /// <summary>Somewhere a sensor can be shown (the taskbar, the overlay, a widget, a dashboard), and whether it is there now.</summary>
-public sealed partial class SensorPlace(string name, bool isShown, bool canToggle, Action toggle) : ObservableObject
+public sealed partial class SensorPlace(string name, string glyph, bool isShown, bool canToggle, Action toggle) : ObservableObject
 {
     public string Name { get; } = name;
+    /// <summary>The place's icon, the same as its page's in the sidebar.</summary>
+    public string Glyph { get; } = glyph;
     public bool IsShown { get; } = isShown;
     /// <summary>False when it can't be added: the place is full.</summary>
     public bool CanToggle { get; } = canToggle;

@@ -168,7 +168,7 @@ public sealed class FansPageTests
             var gpu = vm.Fans[0];
             Assert.True(gpu.IsGroup);
             Assert.Equal([GpuFan1, GpuFan2], gpu.Sensors.Select(s => s.Id));
-            Assert.Equal(("GPU fans", "2 fans · resting while cool", "Graphics card"), (gpu.Title, gpu.Note, gpu.Place));
+            Assert.Equal(("GPU fans", "2 fans · resting while cool", "GPU"), (gpu.Title, gpu.Note, gpu.Place));
             Assert.Equal(2, gpu.Series.Count);
 
             // The board's fans that spin, in the board's order; the four headers that never did are counted instead.

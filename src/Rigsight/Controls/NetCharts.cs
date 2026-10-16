@@ -213,7 +213,7 @@ public sealed class NetBarsChart : NetChartBase
     internal IReadOnlyList<string> HoverLines(NetBin b)
     {
         string? missing = b.UnrecordedMinutes >= MinUnrecorded
-            ? $"Not recorded for {(b.UnrecordedMinutes >= 60 ? $"{b.UnrecordedMinutes / 60} h {b.UnrecordedMinutes % 60} min" : $"{b.UnrecordedMinutes} min")}" : null;
+            ? $"Not recorded for {Units.Duration(b.UnrecordedMinutes * 60)}" : null;
         if (b.Total == 0) return [missing ?? "Nothing"];
         var lines = new List<string> { $"Total {Units.Data(b.Total)}" };
         if (missing is not null) lines.Add(missing);

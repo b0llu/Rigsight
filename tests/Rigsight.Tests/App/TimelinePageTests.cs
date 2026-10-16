@@ -48,7 +48,7 @@ public sealed class TimelinePageTests
             new(d.AddDays(1).AddHours(20), CrashKind.GpuDriverReset, "Graphics driver reset"),
             new(d.AddDays(1).AddHours(20.5), CrashKind.GpuDriverReset, "Graphics driver reset"),
             new(d.AddDays(1).AddHours(21), CrashKind.GpuDriverReset, "Graphics driver reset"),
-            new(d.AddDays(2).AddHours(21.7), CrashKind.SystemCrash, "Windows crashed (blue screen)"),
+            new(d.AddDays(2).AddHours(21.7), CrashKind.SystemCrash, "Windows crashed with a blue screen"),
         };
         return (changes, problems);
     }
@@ -90,7 +90,7 @@ public sealed class TimelinePageTests
 
             // A problem is found by its own words, and a version by the one it had before.
             vm.Search = "blue screen";
-            Assert.Equal(["Windows crashed (blue screen)"], vm.Days.SelectMany(d => d.Entries).Select(e => e.Title));
+            Assert.Equal(["Windows crashed with a blue screen"], vm.Days.SelectMany(d => d.Entries).Select(e => e.Title));
             vm.Search = "610.47";
             Assert.Single(vm.Days.SelectMany(d => d.Entries));
 
@@ -117,7 +117,7 @@ public sealed class TimelinePageTests
             var crash = vm.Days[0];
             Assert.Equal("HotBrush", crash.NodeBrush);
             var line = Assert.Single(crash.Entries);
-            Assert.Equal(("Windows crashed (blue screen)", "HotBrush", true, true), (line.Title, line.Brush, line.IsProblem, line.IsKey));
+            Assert.Equal(("Windows crashed with a blue screen", "HotBrush", true, true), (line.Title, line.Brush, line.IsProblem, line.IsKey));
 
             // Three resets are one line, after the update that morning (newest first).
             var resets = vm.Days[1];
@@ -495,7 +495,7 @@ public sealed class TimelinePageTests
             Assert.Equal(1, days[0].Day!.Value.Day);
 
             var crash = days.Single(c => c.Day == Today.AddDays(-5));
-            Assert.Equal((true, true, "HotBrush", "Windows crashed (blue screen)"), (crash.HasAny, crash.OnlyProblems, crash.DotBrush, crash.Tip));
+            Assert.Equal((true, true, "HotBrush", "Windows crashed with a blue screen"), (crash.HasAny, crash.OnlyProblems, crash.DotBrush, crash.Tip));
             if (Today.AddDays(-6).Month == month.Month)
             {
                 var resets = days.Single(c => c.Day == Today.AddDays(-6));

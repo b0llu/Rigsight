@@ -40,7 +40,7 @@ public static class InsightEngine
         bool enoughUse = r.ActiveSec >= MinUseForInsights;
         int usualDays = usual?.DaysWithData ?? 0;
         bool haveUsual = usual is not null && usualDays >= MinUsualDays;
-        string usualLabel = isDay ? "over the previous 7 days" : "in the 7 days before";
+        string usualLabel = "in the 7 days before";
 
         // ── Warnings first: crashes and time spent too hot matter even on a short day ──
 
@@ -49,15 +49,14 @@ public static class InsightEngine
             var latest = r.Crashes[0];
             var name = r.Apps.FirstOrDefault(a => a.Exe.Equals(latest.AppExe, StringComparison.OrdinalIgnoreCase))?.Name;
             var ex = CrashExplainer.Explain(latest, name);
-            string more = r.Crashes.Count > 1 ? $" ({r.Crashes.Count} crashes in total — see the Crashes page)" : "";
+            string more = r.Crashes.Count > 1 ? $" {r.Crashes.Count} {Wording.Problems} in all, each on the Crashes page." : "";
             string when = isDay ? $"{latest.Time:h:mm tt}" : $"{latest.Time:ddd d MMM, h:mm tt}";
-            // What most likely happened and how sure that is, in the words every other page uses for it. A problem whose
-            // cause was outside the PC (a power cut) is said plainly, not as a warning.
+            // What happened, as the fact Windows recorded, and its cause with how sure that is, in the words every other
+            // page uses for it. A problem whose cause was outside the PC (a power cut) is said plainly, not as a warning.
             if (r.CrashFindings.GetValueOrDefault(latest.Id) is { } finding)
             {
                 bool outside = r.Crashes.Count <= CrashesJudged && r.Crashes.All(c => r.CrashFindings.GetValueOrDefault(c.Id) is { Outside: true });
-                string others = r.Crashes.Count > 1 ? $" {r.Crashes.Count} problems in all, each on the Crashes page." : "";
-                list.Add(new Insight(outside ? IconInfo : IconWarn, $"{finding.Short} at {when}. {finding.Verdict}{others}", outside ? InsightTone.Neutral : InsightTone.Warn, "crash", 95, CrashDetail(r)));
+                list.Add(new Insight(outside ? IconInfo : IconWarn, $"{finding.Told(when)}{more}", outside ? InsightTone.Neutral : InsightTone.Warn, "crash", 95, CrashDetail(r)));
             }
             else
             {
@@ -259,8 +258,8 @@ public static class InsightEngine
             var (icon, text, tone, priority) = record.Kind switch
             {
                 RecordKind.LongestGameSession => (IconGame, $"Longest gaming session in {Span(record.Days)}: {record.App}, {record.Value}.", InsightTone.Good, 66),
-                RecordKind.HottestGpu => (IconTemp, $"Hottest GPU peak in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 63),
-                RecordKind.HottestCpu => (IconTemp, $"Hottest CPU peak in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 62),
+                RecordKind.HottestGpu => (IconTemp, $"Highest {Wording.Peak("GPU")} in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 63),
+                RecordKind.HottestCpu => (IconTemp, $"Highest {Wording.Peak("CPU")} in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 62),
                 _ => (IconScreen, $"Most screen time in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 61),
             };
             list.Add(new Insight(icon, text, tone, "record", priority, $"Beats every day of the {record.Days} before"));
@@ -303,7 +302,7 @@ public static class InsightEngine
                 double avg = usual!.GamingSec / usualDays;
                 double diff = total - avg;
                 if (avg > 0 && Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
-                    text += $" That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your daily average ({Units.Duration(avg)}).";
+                    text += $" That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual day ({Units.Duration(avg)}).";
             }
             // The longest session, only its part in this period (one from the night before counts from midnight). A game
             // still being played has the session that matters, not over yet: none is named until it is. Nor when it was
@@ -416,8 +415,8 @@ public static class InsightEngine
             // A day in progress can only be compared once it has passed your usual.
             if (Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
                 return (inProgress
-                    ? $"You're already {Units.Duration(diff)} past your daily average of {Units.Duration(avg)}."
-                    : $"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your daily average of {Units.Duration(avg)}.", diff < 0);
+                    ? $"You're already {Units.Duration(diff)} past your usual day of {Units.Duration(avg)}."
+                    : $"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual day of {Units.Duration(avg)}.", diff < 0);
         }
         // A whole month or year against the one before, a day at a time: February isn't short on use for being short.
         if (!inProgress && r.Range is ReportRange.Month or ReportRange.Year && previous is { HasData: true, ActiveSec: > 0 })

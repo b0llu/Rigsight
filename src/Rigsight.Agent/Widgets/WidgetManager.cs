@@ -9,6 +9,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 {
     private readonly Dictionary<string, WidgetForm> _forms = [];
     private WidgetData? _data;
+    private readonly WidgetsOverGames _overGames = new();
     private IntPtr _gameMonitor;
 
     public static string DisplayName(WidgetStyle style) => WidgetCatalog.Title(style);
@@ -63,8 +64,12 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         form.Redraw();
     }
 
-    /// <param name="gameMonitor">The screen of the game in front, or zero.</param>
-    public void Update(WidgetData data, IntPtr gameMonitor)
+    /// <param name="gameInFront">A game (not a video or another app) is in front.</param>
+    /// <param name="fillsScreen">The window in front covers its whole screen (borderless or exclusive).</param>
+    /// <param name="exclusive">A Direct3D game is in exclusive fullscreen.</param>
+    /// <param name="overlayPlanes">The game's screen has overlay planes (see <see cref="OverlayPlanes"/>).</param>
+    /// <param name="gameMonitor">The screen of the window in front, or zero with no game.</param>
+    public void Update(WidgetData data, bool gameInFront, bool fillsScreen, bool exclusive, bool overlayPlanes, IntPtr gameMonitor)
     {
         if (_forms.Values.Any(f => ShowsFrameRate(f.Config)))
         {
@@ -74,9 +79,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             data.RtssRunning = data.Frame is not null || Rtss.IsLive();
         }
         _data = data;
-        if (gameMonitor != _gameMonitor && _forms.Count > 0)
-            Rigsight.Core.Log.Write("widgets", gameMonitor == IntPtr.Zero ? "Showing again" : $"Stepping aside for {data.Activity.Name ?? "a game"}");
-        _gameMonitor = gameMonitor;
+        // Decided on every activity tick, so a game switching between windowed and borderless (Alt+Enter) is caught.
+        _gameMonitor = _overGames.Update(gameInFront, fillsScreen, exclusive, overlayPlanes, gameMonitor, data.Activity.Name, out var log);
+        if (log is not null && _forms.Count > 0) Rigsight.Core.Log.Write("widgets", log);
         UpdateVisibility();
         foreach (var form in _forms.Values)
             form.UpdateData(data);
@@ -93,9 +98,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     }
 
     /// <summary>
-    /// Widgets are for the desktop and apps (fullscreen videos too): on the screen of a game in front, windowed or
-    /// not, they step aside and the overlay takes over (a window over a game makes Windows compose its frames: later
-    /// on screen, G-Sync/FreeSync off). Widgets on other screens stay.
+    /// Widgets step aside for a game in exclusive fullscreen, and for a borderless one on a screen without overlay planes
+    /// (see <see cref="WidgetsOverGames"/>), on that screen only, and the overlay takes over: a window over such a game
+    /// makes Windows compose its frames (later on screen, G-Sync/FreeSync off). Over a windowed game, a borderless one on
+    /// a screen with overlay planes, fullscreen videos and apps they stay, as do widgets on other screens.
     /// </summary>
     private void UpdateVisibility()
     {

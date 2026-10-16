@@ -190,7 +190,7 @@ public class CrashNoticeTests
         };
         var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
             crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Rocket League"), new AlertSettings()) { AppName = "Rocket League" });
-        Assert.Equal("Rocket League stopped as it was starting. Likely at start-up. You played for 33s. Click for the full picture.",
+        Assert.Equal("Likely as it was starting, after 33s of play. Click for the full picture.",
             CrashNotices.Body(finding, game: true, activeSec: 33));
     }
 
@@ -201,16 +201,16 @@ public class CrashNoticeTests
         var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
             crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Game"), new AlertSettings()) { AppName = "Game" });
         string body = CrashNotices.Body(finding, game: false, activeSec: 2880);
-        Assert.Equal("Game stopped responding. Windows didn't record what it was waiting for. Not enough to say why. You used it for 48m. Click for the full picture.", body);
+        Assert.Equal("After 48m of use. Not enough on record to say why. Click for the full picture.", body);
         Assert.DoesNotContain("Likely cause", body);
     }
 
     [Fact]
     public void A_crash_that_could_not_be_stored_only_says_it_happened()
     {
-        Assert.Equal("You played for 48m. Click to see what most likely happened.", CrashNotices.Body(null, game: true, activeSec: 2880));
+        Assert.Equal("After 48m of play. Click for the full picture.", CrashNotices.Body(null, game: true, activeSec: 2880));
         // The example in Settings is a made-up crash through the real rules: what it shows is what would be sent.
-        Assert.Equal("Dota 2 crashed inside the NVIDIA driver. Confirmed by Windows. You played for 48m. Click for the full picture.", CrashNotices.Sample);
+        Assert.Equal("Inside the NVIDIA driver, after 48m of play. Click for the full picture.", CrashNotices.Sample);
         // The second look comes once Windows has had time to file its report.
         Assert.InRange(CrashNotices.SecondLook.TotalSeconds, 10, 60);
     }

@@ -150,7 +150,7 @@ internal sealed class OverlayManager : IDisposable
     }
 
     /// <summary>A Direct3D game is running in exclusive fullscreen in front (not borderless, not minimised).</summary>
-    private static bool IsExclusiveFullscreen() =>
+    internal static bool IsExclusiveFullscreen() =>
         Win32.SHQueryUserNotificationState(out int state) == 0 && state == Win32.QUNS_RUNNING_D3D_FULL_SCREEN;
 
     /// <summary>The screen (in pixels) of whatever is in front.</summary>

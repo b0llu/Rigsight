@@ -98,7 +98,7 @@ public sealed class CloseUpWordsTests
         Assert.Equal(said, point is not null);
         if (point is not null)
         {
-            Assert.Equal(("warn", "Possible: graphics memory was 11.6 of 12 GB"), (point.Kind, point.Title));
+            Assert.Equal(("warn", "GPU memory was possibly running out: 11.6 of 12 GB"), (point.Kind, point.Title));
             Assert.StartsWith("In the last 30 seconds. Apex Legends usually uses about 9.8 GB on this PC.", point.Detail);
         }
     }
@@ -125,8 +125,8 @@ public sealed class CloseUpWordsTests
 
         var listed = CrashCases.Of(db, [crash], new RigsightSettings())[crash.Id];
         var opened = CrashCases.Of(db, [crash], new RigsightSettings(), upClose: true)[crash.Id];
-        Assert.DoesNotContain(listed.Points, p => p.Title.StartsWith("Possible: graphics memory"));
-        Assert.Contains(opened.Points, p => p.Title == "Possible: graphics memory was 11.6 of 12 GB" && p.Detail.Contains("In its last minute"));
+        Assert.DoesNotContain(listed.Points, p => p.Title.StartsWith("GPU memory was possibly"));
+        Assert.Contains(opened.Points, p => p.Title == "GPU memory was possibly running out: 11.6 of 12 GB" && p.Detail.Contains("In its last minute"));
         // The same answer either way: only what it rests on grows.
         Assert.Equal((listed.Head, listed.Confidence, listed.Advice), (opened.Head, opened.Confidence, opened.Advice));
     }

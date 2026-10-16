@@ -100,8 +100,10 @@
                                     <ColumnDefinition Width="{Binding Live.MemCompressedWidth}" />
                                     <ColumnDefinition Width="{Binding Live.MemFreeWidth}" />
                                 </Grid.ColumnDefinitions>
-                                <Border Background="{DynamicResource RamBrush}" CornerRadius="4,0,0,4" />
-                                <Border Grid.Column="1" Background="{DynamicResource RamBrush}" Opacity="0.45" />
+                                <!-- The used part is one rounded piece (compressed, lighter), with the apps' share laid over it, also
+                                     rounded: so it ends round like every other bar, whatever the split (it ended square on Compressed). -->
+                                <Border Grid.ColumnSpan="2" Background="{DynamicResource RamBrush}" Opacity="0.45" CornerRadius="4" />
+                                <Border Background="{DynamicResource RamBrush}" CornerRadius="4" />
                             </Grid>
                         </Border>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -149,7 +151,7 @@
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="Today's biggest memory users" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                    <!-- Rows share the peak/avg column widths, so every bar starts and ends at the same place. -->
+                    <!-- Rows share the peak/average column widths, so every bar starts and ends at the same place. -->
                     <ItemsControl ItemsSource="{Binding TodayTop}" Grid.IsSharedSizeScope="True">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -172,7 +174,7 @@
                                         <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                     </TextBlock>
                                     <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0">
-                                        <Run Text="avg" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
+                                        <Run Text="average" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
                                     </TextBlock>
                                 </Grid>
                             </DataTemplate>

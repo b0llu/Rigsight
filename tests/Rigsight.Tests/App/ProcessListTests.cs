@@ -117,7 +117,6 @@ public sealed class ProcessListTests
         var live = Greeted();
         Ui.Run(() =>
         {
-            live.SetProcessSorting(true);
             live.ApplyProcs(Apps());
             Assert.Equal(["game.exe", "chrome.exe", "svchost.exe", "discord.exe"], Sorted(live));
             var next = Apps();
@@ -129,15 +128,10 @@ public sealed class ProcessListTests
         Ui.Run(() =>
         {
             Assert.Equal(["discord.exe", "game.exe", "chrome.exe", "svchost.exe"], Sorted(live));
-            live.SetProcessSorting(false);
-            live.SetProcessSorting(false); // twice is harmless
-            var next = Apps();
-            live.ApplyProcs(next);
+            live.ApplyProcs(Apps());
         });
         Ui.Pump();
-        // Not sorted live while the Memory page is closed: the order stays until it's shown again.
-        Assert.Equal(["discord.exe", "game.exe", "chrome.exe", "svchost.exe"], Ui.Run(() => Sorted(live)));
-        Ui.Run(() => live.SetProcessSorting(true));
+        // Sorted live with no page shown too (the Memory page's list is kept in order all the time).
         Assert.Equal(["game.exe", "chrome.exe", "svchost.exe", "discord.exe"], Ui.Run(() => Sorted(live)));
     }
 
@@ -152,11 +146,7 @@ public sealed class ProcessListTests
             return [.. Enumerable.Range(0, 60).Select(i => Kit.Proc($"app{i:00}.exe", Math.Round(100 + random.NextDouble() * 900, 1))).OrderByDescending(p => p.MemMB).Take(40)];
         }
         var live = Greeted();
-        Ui.Run(() =>
-        {
-            live.ApplyProcs(List(0));
-            live.SetProcessSorting(true);
-        });
+        Ui.Run(() => live.ApplyProcs(List(0)));
         for (int round = 1; round < 10; round++)
         {
             int r = round;

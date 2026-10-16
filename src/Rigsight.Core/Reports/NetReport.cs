@@ -57,6 +57,27 @@ public sealed record NetDownload(string App, string Exe, string? Path, DateTime 
     public TimeSpan Took => TimeSpan.FromSeconds(Math.Max(1, (End - Start).TotalSeconds));
 }
 
+/// <summary>
+/// One of the period's biggest hours (a day's report) or days (longer), whole: everything every app moved then, both
+/// ways, as the chart's bar for it says, and the apps it was, biggest first. (An app's own biggest hours listed the same
+/// day once for each app that was busy in it.)
+/// </summary>
+public sealed record NetStretch(DateTime Start, DateTime End, long Bytes, IReadOnlyList<NetAppUse> Apps);
+
+/// <summary>How a day of a week, month or year went for the connection: one square of the Connection card's strip.</summary>
+public enum NetDayState { Up, Dropped, NotRecorded, ToCome }
+
+/// <summary>A day of the connection strip: its state, the minutes of it recorded, and its drops in order.</summary>
+public sealed record NetDayLink(DateTime Day, NetDayState State, int RecordedMinutes, IReadOnlyList<NetDrop> Drops)
+{
+    /// <summary>The same day: the same state, minutes and drops (not the same list object), so a report read again
+    /// with nothing new hands the strip nothing new.</summary>
+    public bool Equals(NetDayLink? other) =>
+        other is not null && Day == other.Day && State == other.State && RecordedMinutes == other.RecordedMinutes && Drops.SequenceEqual(other.Drops);
+
+    public override int GetHashCode() => HashCode.Combine(Day, State, RecordedMinutes, Drops.Count);
+}
+
 /// <summary>The internet over a period: totals, the chart, every app, big downloads, drops, and what's worth saying.</summary>
 public sealed class NetReport
 {
@@ -92,7 +113,15 @@ public sealed class NetReport
     public List<NetBin> Bins { get; set; } = [];
     public List<NetAppStat> Apps { get; set; } = [];
     public List<NetDownload> Downloads { get; set; } = [];
+    /// <summary>The period's biggest hours (a day) or days (longer), whole, biggest first: the "Biggest days" card.</summary>
+    public List<NetStretch> Biggest { get; set; } = [];
     public List<NetDrop> Drops { get; set; } = [];
+    /// <summary>A week's, month's or year's days for the connection strip, its first to its last (empty for a day,
+    /// which has <see cref="Quarters"/>).</summary>
+    public List<NetDayLink> Days { get; set; } = [];
+    /// <summary>The first day internet use was recorded, when it falls inside the period. A year isn't searched for
+    /// stretches not recorded (see <see cref="Unrecorded"/>), so this is the part of it the Connection card can say.</summary>
+    public DateTime? RecordedSince { get; set; }
     /// <summary>A day's quarter hours (96), each true when the PC was on and online in it: the connection strip.</summary>
     public bool[] Quarters { get; set; } = [];
     /// <summary>The stretches the PC was on with no internet use written and no drop to explain it: not recorded (see
@@ -242,7 +271,17 @@ public static class NetReportBuilder
         var stretch = range == ReportRange.Day ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
         r.Downloads = [.. busiest.Where(u => u.Total >= MinBiggest && apps.ContainsKey(u.App)).OrderByDescending(u => u.Total).Take(DownloadsShown).Select(u =>
             new NetDownload(NameOf(apps, settings, u.App), apps[u.App].Exe, apps[u.App].Path, TimeUtil.FromUnix(u.Ts), TimeUtil.FromUnix(u.Ts) + stretch, u.Total, 0))];
+        // The biggest hours or days, whole: the chart's own bars, so a row and its bar say the same (a year's bars are
+        // months: its days are added up here).
+        IEnumerable<NetBin> wholes = range == ReportRange.Year ? YearDays(db, days, f, t) : r.Bins;
+        r.Biggest = [.. wholes.Where(b => b.Total >= MinBiggest).OrderByDescending(b => b.Total).Take(DownloadsShown)
+            .Select(b => new NetStretch(b.Start, b.Start + stretch, b.Total, b.Apps))];
         r.Drops = db.GetNetDrops(f, t);
+        if (range != ReportRange.Day)
+        {
+            r.Days = DayLinks(from, to, now, days, r.Drops);
+            if (db.FirstNetDay() is long firstNet && TimeUtil.FromUnix(firstNet).Date > from) r.RecordedSince = TimeUtil.FromUnix(firstNet).Date;
+        }
         // Not recorded: the PC on, nothing written, and no drop that says why. A year's bars are months: not looked for.
         if (range != ReportRange.Year)
         {
@@ -295,6 +334,39 @@ public static class NetReportBuilder
     public const int ColorDays = 30;
     /// <summary>The days of history there must be before the colours are remembered.</summary>
     public const int ColorSettleDays = 7;
+
+    /// <summary>A year's days with any use, as bars of a day each with their apps (the year's chart has months).</summary>
+    private static IEnumerable<NetBin> YearDays(RigsightDb db, List<NetDay> days, long from, long to)
+    {
+        var appDays = db.GetNetAppDays(from, to).ToLookup(u => TimeUtil.FromUnix(u.Ts).Date);
+        return days.GroupBy(d => TimeUtil.FromUnix(d.Day).Date)
+            .Select(g => new NetBin(g.Key, g.Sum(d => d.Down), 0, g.Sum(d => d.Up)) { Apps = Biggest(appDays[g.Key]) });
+    }
+
+    /// <summary>
+    /// Each day from <paramref name="from"/> to <paramref name="to"/> for the connection strip: still to come after
+    /// today; dropped when a drop began in it; up when any internet use was recorded in it; else not recorded (the PC
+    /// off, or nothing being read). The minutes recorded are the day's minutes with use written, already added up in
+    /// net_day: nothing more is read for them. A drop belongs to the day it began in.
+    /// </summary>
+    internal static List<NetDayLink> DayLinks(DateTime from, DateTime to, DateTime now, IEnumerable<NetDay> days, IEnumerable<NetDrop> drops)
+    {
+        // A date has two rows only where the PC's time zone changed during it: added up.
+        var minutes = days.GroupBy(d => TimeUtil.FromUnix(d.Day).Date).ToDictionary(g => g.Key, g => g.Sum(d => d.Minutes));
+        var dropsOn = drops.ToLookup(d => TimeUtil.FromUnix(d.Start).Date);
+        var list = new List<NetDayLink>();
+        for (var day = from.Date; day < to; day = day.AddDays(1))
+        {
+            int recorded = minutes.GetValueOrDefault(day);
+            var dropped = dropsOn[day].OrderBy(d => d.Start).ToList();
+            var state = day > now.Date ? NetDayState.ToCome
+                : dropped.Count > 0 ? NetDayState.Dropped
+                : recorded > 0 ? NetDayState.Up
+                : NetDayState.NotRecorded;
+            list.Add(new NetDayLink(day, state, state == NetDayState.ToCome ? 0 : recorded, dropped));
+        }
+        return list;
+    }
 
     private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;

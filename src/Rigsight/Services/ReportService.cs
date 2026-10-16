@@ -350,7 +350,7 @@ public sealed class ReportService(SettingsModel settings)
             // What came after it, in words, among what stood out: the app opened again, or the PC back on.
             var stood = built.StoodOut;
             // The PC going down is marked as what it was, not as "Crash".
-            string word = e.Kind switch { Core.Stability.CrashKind.UnexpectedShutdown => "Shut off", Core.Stability.CrashKind.SystemCrash => "Blue screen", Core.Stability.CrashKind.GpuDriverReset => "Driver reset", _ => "Crash" };
+            string word = e.Kind switch { Core.Stability.CrashKind.UnexpectedShutdown => "Sudden shut-off", Core.Stability.CrashKind.SystemCrash => "Blue screen", Core.Stability.CrashKind.GpuDriverReset => "Graphics driver reset", _ => "Crash" };
             for (int i = 0; i < built.Marks.Count; i++)
                 if (built.Marks[i].IsCrash && !group.IsIncident) built.Marks[i] = built.Marks[i] with { Label = word };
             if (After(e, ts, to, row, db, NameOf) is { } after)
@@ -393,7 +393,7 @@ public sealed class ReportService(SettingsModel settings)
                         others.Count == 1 ? null : string.Join(", ", names.Take(4)) + (names.Count > 4 ? $" and {names.Count - 4} more" : ""),
                         others.Count == 1 ? $"~{others[0].Time:ddd d MMM, h:mm tt}" : $"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}"));
                 }
-                if (changes.Count == 0) noChanges = "Nothing changed on the PC in the week before.";
+                if (changes.Count == 0) noChanges = "Nothing changed on the PC in the 7 days before.";
             }
 
             // Earlier times of the same problem.
@@ -439,7 +439,7 @@ public sealed class ReportService(SettingsModel settings)
             }
             string title = group.IsIncident ? "What failed, in order" : e.Kind switch
             {
-                Core.Stability.CrashKind.UnexpectedShutdown => bars.Count > 0 ? "Shut-offs like this, by month" : "Shut-offs like this",
+                Core.Stability.CrashKind.UnexpectedShutdown => bars.Count > 0 ? "Sudden shut-offs like this, by month" : "Sudden shut-offs like this",
                 Core.Stability.CrashKind.SystemCrash => "This blue screen on this PC",
                 Core.Stability.CrashKind.GpuDriverReset => bars.Count > 0 ? "Graphics driver resets, by month" : "Graphics driver resets",
                 _ => bars.Count > 0 ? $"{row.AppName ?? e.AppExe}: this problem, by month" : $"{row.AppName ?? e.AppExe} on this PC",
@@ -545,7 +545,7 @@ public sealed class ReportService(SettingsModel settings)
 
     /// <summary>
     /// Everything the Timeline page shows: every change recorded (with the days a drive's space jumped), the problems
-    /// a change can explain (blue screens, sudden shutdowns and graphics driver resets: the PC's own, not one app
+    /// a change can explain (blue screens, sudden shut-offs and graphics driver resets: the PC's own, not one app
     /// crashing, which is the Crashes page's), and the PC as it is now.
     /// </summary>
     public Task<TimelineData?> TimelineAsync()
@@ -568,7 +568,7 @@ public sealed class ReportService(SettingsModel settings)
                         : s.AppNames.TryGetValue(e.AppExe, out var alias) ? alias
                         : Core.Apps.AppCatalog.KnownName(e.AppExe) ?? (byExe.TryGetValue(e.AppExe, out var row) ? row.Name : Core.Apps.AppCatalog.FallbackName(e.AppExe));
                     var finding = found.GetValueOrDefault(e.Id);
-                    return new TimelineProblem(e.Time, e.Kind, finding is null ? Core.Stability.CrashExplainer.Explain(e, name).Title : $"{finding.Short}. {finding.Verdict}") { Outside = finding is { Outside: true } };
+                    return new TimelineProblem(e.Time, e.Kind, finding is null ? Core.Stability.CrashExplainer.Explain(e, name).Title : finding.Said) { Outside = finding is { Outside: true } };
                 }).ToList();
             // How the PC ran after each big change against before it (same game, same load; problems per hour of use).
             var names = byExe.Values.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
@@ -587,13 +587,13 @@ public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, Lis
     public Dictionary<DateTime, ChangeEffect> Effects { get; init; } = [];
 }
 
-/// <summary>A crash, freeze or sudden shutdown as one line on the timeline.</summary>
+/// <summary>A crash, freeze or sudden shut-off as one line on the timeline.</summary>
 public sealed record TimelineProblem(DateTime Time, Core.Stability.CrashKind Kind, string Title)
 {
     /// <summary>Its cause was most likely outside the PC (a power cut): listed, not counted as a fault.</summary>
     public bool Outside { get; init; }
 
-    /// <summary>The PC itself went down (a blue screen, a sudden shutdown), not one app, and not for a reason outside it.</summary>
+    /// <summary>The PC itself went down (a blue screen, a sudden shut-off), not one app, and not for a reason outside it.</summary>
     public bool IsCritical => !Outside && Kind is Core.Stability.CrashKind.SystemCrash or Core.Stability.CrashKind.UnexpectedShutdown && !Outside;
 }
 

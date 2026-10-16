@@ -203,9 +203,9 @@
                                         <TextBlock Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
                                     </Grid>
                                     <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="4" Text="MIN" Style="{StaticResource StatHeader}" ToolTip="Lowest today, since midnight" />
-                                    <TextBlock Grid.Column="5" Text="MAX" Style="{StaticResource StatHeader}" ToolTip="Highest today, since midnight" />
-                                    <TextBlock Grid.Column="6" Text="AVG" Style="{StaticResource StatHeader}" ToolTip="Average since you opened this window" />
+                                    <TextBlock Grid.Column="4" Text="LOWEST" Style="{StaticResource StatHeader}" ToolTip="Lowest today, since midnight" />
+                                    <TextBlock Grid.Column="5" Text="HIGHEST" Style="{StaticResource StatHeader}" ToolTip="Highest today, since midnight" />
+                                    <TextBlock Grid.Column="6" Text="AVERAGE" Style="{StaticResource StatHeader}" ToolTip="Average since you opened this window" />
                                 </Grid>
                             </StackPanel>
                         </ctl:SmoothBorder>
@@ -362,15 +362,38 @@
                             </Button.Template>
                         </Button>
                     </DataTemplate>
+                    <!-- The bar's strip is always this wide, shown or not, so the rows sit 20 from both edges of the card
+                         either way (it came and went, and the right side was 6 against the left's 20 on a short window). -->
+                    <Style x:Key="PaneScroll" TargetType="ScrollViewer" BasedOn="{StaticResource GutterScroll}">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid Background="{TemplateBinding Background}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                        </Grid.ColumnDefinitions>
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                        <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" HorizontalAlignment="Center" Orientation="Vertical"
+                                                   Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
                     <Style x:Key="GlanceTitle" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                         <Setter Property="Margin" Value="0,18,0,4" />
                     </Style>
                 </ctl:SmoothBorder.Resources>
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Right now" Style="{StaticResource H2}" />
-                    <!-- Its scrollbar has its own strip, most of it in the card's right padding: laid over the rows, it sat on the figures. -->
-                    <ScrollViewer Style="{StaticResource GutterScroll}" Padding="0" Margin="0,0,-14,0" ctl:WheelChain.Enabled="True">
-                <StackPanel>
+                    <!-- Its scrollbar has its own strip in the card's right padding (laid over the rows, it sat on the figures). The
+                         scroller reaches 8 into the left padding and the rows step 8 back in, so a row's hover shade, which
+                         stands 8 out on each side, isn't cut off at its left. -->
+                    <ScrollViewer Style="{StaticResource PaneScroll}" Margin="-8,0,-20,0" ctl:WheelChain.Enabled="True">
+                <StackPanel Margin="8,0">
                     <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,26"
                                  Visibility="{Binding ReadingsPending, Converter={StaticResource Vis}}" />
                     <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">

@@ -146,7 +146,7 @@ public static class NetInsights
             long usual = NetReportBuilder.Median(days);
             if (app.Use.Up < usual * UploadTimes) continue;
             list.Add(new Insight(IconUp, usual >= MB
-                    ? $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}, against about {Units.Data(usual)} on a usual day."
+                    ? $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}, against its usual of about {Units.Data(usual)} a day."
                     : $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}. It usually uploads next to nothing.",
                 usual >= MB ? InsightTone.Neutral : InsightTone.Warn, "net-upload", 68,
                 $"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"));

@@ -5,7 +5,7 @@ namespace Rigsight.Models;
 
 /// <summary>
 /// A stretch of the minutes before with nothing recorded, and why as far as Windows' own log says ("PC was off",
-/// "PC shut off unexpectedly", "PC was asleep"; "Not recorded" where it doesn't say).
+/// "PC shut off suddenly", "PC was asleep"; "Not recorded" where it doesn't say).
 /// </summary>
 public sealed record CaseGap(DateTime From, DateTime To, string Why);
 
@@ -48,10 +48,9 @@ public sealed partial class CrashCase : ObservableObject
     public string Title => Group.Title;
     public string KindLabel => Group.KindLabel;
     public CrashSeverity Severity => Group.Severity;
+    /// <summary>The chip, cause included: the same as the list's for this crash.</summary>
     public string Chip => Finding.Chip;
     public string Sure => Finding.Confidence.ToString();
-    /// <summary>The confidence alone for the case's own chip: its cause is the headline beside it.</summary>
-    public string SureWord => Finding.Confidence switch { Confidence.Named => "CONFIRMED", Confidence.Likely => "LIKELY", Confidence.Possible => "POSSIBLE", _ => "NOT ENOUGH TO SAY" };
     /// <summary>The chip's hover: where "Confirmed" comes from, or what the word means.</summary>
     public string SureHint => Finding.Confidence == Confidence.Named ? "Windows' own record says this."
         : "How sure Rigsight is of what happened, by what it rests on";
@@ -91,12 +90,12 @@ public sealed partial class CrashCase : ObservableObject
     /// <summary>What the lanes, the box and the lines above them show now.</summary>
     public CaseView View => UpClose && Close is not null ? Close : Wide;
 
-    /// <summary>"Around the crash", "Around the shut-off", "Around the blue screen".</summary>
+    /// <summary>"Around the crash", "Around the sudden shut-off", "Around the blue screen".</summary>
     public string AroundTitle => Row.Event.Kind switch
     {
-        CrashKind.UnexpectedShutdown => "Around the shut-off",
+        CrashKind.UnexpectedShutdown => "Around the sudden shut-off",
         CrashKind.SystemCrash => "Around the blue screen",
-        CrashKind.GpuDriverReset => "Around the driver reset",
+        CrashKind.GpuDriverReset => "Around the graphics driver reset",
         _ => "Around the crash",
     };
 

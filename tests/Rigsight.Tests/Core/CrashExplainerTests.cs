@@ -141,7 +141,7 @@ public sealed class CrashExplainerTests
     public void An_app_without_an_exe_is_an_app()
     {
         Assert.Equal("an app crashed", Crash("").Title);
-        Assert.Equal("an app stopped responding", CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.AppHang }).Title);
+        Assert.Equal("an app froze", CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.AppHang }).Title);
     }
 
     // ---- Windows' own parts ----
@@ -169,26 +169,26 @@ public sealed class CrashExplainerTests
     public void A_hang_is_explained()
     {
         var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.AppHang, AppExe = "chrome.exe" }, "Chrome");
-        Assert.Equal("Chrome stopped responding", e.Title);
+        Assert.Equal("Chrome froze", e.Title);
         Assert.Equal("Chrome froze and was closed.", e.Reason);
-        Assert.Equal("Not responding", e.Culprit);
+        Assert.Equal("Froze", e.Culprit);
     }
 
     [Fact]
     public void A_hang_of_a_Windows_part_is_still_a_hang() =>
-        Assert.Equal("explorer stopped responding", CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.AppHang, AppExe = "explorer.exe" }).Title);
+        Assert.Equal("explorer froze", CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.AppHang, AppExe = "explorer.exe" }).Title);
 
     [Fact]
     public void A_driver_reset_is_explained()
     {
         var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.GpuDriverReset, Module = "nvlddmkm" });
         Assert.Equal("Graphics driver reset", e.Title);
-        Assert.Equal("GPU driver", e.Culprit);
+        Assert.Equal("Graphics driver", e.Culprit);
     }
 
     [Theory]
-    [InlineData(false, "PC shut off unexpectedly", "Power / hard freeze")]
-    [InlineData(true, "PC lost power while asleep", "Power while asleep")]
+    [InlineData(false, "The PC shut off suddenly", "Power / hard freeze")]
+    [InlineData(true, "The PC shut off while asleep", "Asleep")]
     public void An_unexpected_shutdown_is_explained(bool asleep, string title, string culprit)
     {
         var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.UnexpectedShutdown, DuringSleep = asleep });
@@ -199,7 +199,7 @@ public sealed class CrashExplainerTests
     public void A_shutdown_that_did_not_finish_is_explained_as_such_not_as_sleep()
     {
         var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.UnexpectedShutdown, Moment = PowerMoment.ShuttingDown });
-        Assert.Equal(("PC didn't finish shutting down", "Shutdown"), (e.Title, e.Culprit));
+        Assert.Equal(("The PC didn't finish shutting down", "Shutdown"), (e.Title, e.Culprit));
         Assert.Null(e.Cause);
         Assert.Contains("Fast Startup", e.Advice);
         Assert.DoesNotContain("asleep", e.Reason);
@@ -233,7 +233,7 @@ public sealed class CrashExplainerTests
         foreach (var code in new[] { $"0x{bugcheck:X}", $"0x{bugcheck:x8}", $"0X{bugcheck:X}", $"{bugcheck:X}" })
         {
             var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.SystemCrash, Code = code });
-            Assert.Equal("Windows crashed (blue screen)", e.Title);
+            Assert.Equal("Windows crashed with a blue screen", e.Title);
             Assert.Equal(name, e.Culprit);
             Assert.EndsWith($"({name}, {code})", e.Reason);
             Assert.False(string.IsNullOrWhiteSpace(e.Advice));
@@ -257,7 +257,7 @@ public sealed class CrashExplainerTests
     {
         var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.SystemCrash });
         Assert.Equal("Bugcheck", e.Culprit);
-        Assert.Equal("Windows crashed (blue screen)", e.Title);
+        Assert.Equal("Windows crashed with a blue screen", e.Title);
     }
 
     public static TheoryData<CrashKind> Kinds => [.. Enum.GetValues<CrashKind>()];

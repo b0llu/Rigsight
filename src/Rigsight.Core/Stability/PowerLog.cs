@@ -57,7 +57,7 @@ public static class PowerLog
     public static string? Words(GapReason reason) => reason switch
     {
         GapReason.Off => "PC was off",
-        GapReason.ShutOff => "PC shut off unexpectedly",
+        GapReason.ShutOff => "PC shut off suddenly",
         GapReason.Crashed => "Windows crashed",
         GapReason.Asleep => "PC was asleep",
         GapReason.NotRunning => "Rigsight wasn't running",

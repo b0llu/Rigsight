@@ -141,8 +141,8 @@ public sealed class CrashModelTests
         var g = Assert.Single(CrashGroup.Build(rows));
         Assert.True(g.IsIncident);
         Assert.Equal("PC FROZE", g.KindLabel);
-        Assert.Equal("Your PC froze", g.Title);
-        Assert.Contains("a and b stopped responding", g.Reason);
+        Assert.Equal("The PC froze", g.Title);
+        Assert.Contains("a and b froze", g.Reason);
     }
 
     [Fact]
@@ -255,10 +255,10 @@ public sealed class CrashModelTests
 
     [Theory]
     [InlineData(CrashKind.AppCrash, "APP CRASH", false)]
-    [InlineData(CrashKind.AppHang, "NOT RESPONDING", false)]
-    [InlineData(CrashKind.GpuDriverReset, "GPU DRIVER RESET", true)]
+    [InlineData(CrashKind.AppHang, "FROZE", false)]
+    [InlineData(CrashKind.GpuDriverReset, "GRAPHICS DRIVER RESET", true)]
     [InlineData(CrashKind.SystemCrash, "BLUE SCREEN", true)]
-    [InlineData(CrashKind.UnexpectedShutdown, "UNEXPECTED SHUTDOWN", true)]
+    [InlineData(CrashKind.UnexpectedShutdown, "SUDDEN SHUT-OFF", true)]
     public void Kind_labels(CrashKind kind, string label, bool system)
     {
         var r = Crashes.Row(kind, Noon, "x.exe");
@@ -288,7 +288,7 @@ public sealed class CrashModelTests
             // Nothing was recorded before it: said, so the missing temperatures don't read as a PC that stayed cool.
             var e = Crashes.App(Noon).Event;
             var unrecorded = new CrashRow { Event = e, Explanation = CrashExplainer.Explain(e, "Game"), AppName = "Game", NoReadingsBefore = true };
-            Assert.Equal("no readings recorded", unrecorded.ContextText);
+            Assert.Equal("not recorded", unrecorded.ContextText);
 
             var playing = Crashes.Row(CrashKind.AppCrash, Noon, "game.exe", "Crimson Desert", session: 4320, game: true, front: "Discord", cpu: 60, gpu: 78);
             Assert.Equal("1h 12m into playing Crimson Desert  ·  CPU 60°, GPU 78°", playing.ContextText);
@@ -348,7 +348,7 @@ public sealed class CrashModelTests
             var lines = CrashesViewModel.Report(incident);
             Assert.StartsWith("Problem: The graphics driver reset and apps failed with it (several at once)", lines);
             Assert.Contains($"When: {Noon:dddd d MMMM yyyy, h:mm tt} – {Noon.AddSeconds(50):h:mm tt}", lines);
-            Assert.Contains("Graphics driver: gpu driver reset", lines);
+            Assert.Contains("Graphics driver: graphics driver reset", lines);
             Assert.Contains("a: app crash (a.exe  ·  module ntdll.dll  ·  code 0xc0000005)", lines);
             Assert.DoesNotContain("Technical:", lines);
         });
@@ -447,7 +447,7 @@ public sealed class CrashesPageTests
             int apps = vm.GroupsShown.Count, appCrashes = vm.Crashes.Count;
             vm.Filter = "Pc";
             Assert.All(vm.GroupsShown, g => Assert.True(g.IsIncident || g.Latest.IsSystem));
-            Assert.Equal("No PC crashes, driver resets or sudden shutdowns on record", vm.EmptyText);
+            Assert.Equal("No blue screens, sudden shut-offs or graphics driver resets on record", vm.EmptyText);
             Assert.Equal(all, apps + vm.GroupsShown.Count);
             Assert.Equal(crashes, appCrashes + vm.Crashes.Count);
             // Counts are of the whole period, whatever the filter.
@@ -722,8 +722,8 @@ public sealed class CrashesPageTests
 
     [Theory]
     [InlineData(CrashKind.SystemCrash, "Blue screen", "HotBrush")]
-    [InlineData(CrashKind.UnexpectedShutdown, "Your PC shut off unexpectedly", "HotBrush")]
-    [InlineData(CrashKind.GpuDriverReset, "Graphics trouble", "WarmBrush")]
+    [InlineData(CrashKind.UnexpectedShutdown, "The PC shut off suddenly", "HotBrush")]
+    [InlineData(CrashKind.GpuDriverReset, "Graphics driver reset", "WarmBrush")]
     public void Status_a_recent_serious_problem(CrashKind kind, string title, string brush)
     {
         var (vm, _) = Page();
@@ -743,7 +743,7 @@ public sealed class CrashesPageTests
         Show(vm, [Crashes.Hang(t, "a.exe"), Crashes.Hang(t.AddMinutes(1), "b.exe"), Crashes.Hang(t.AddMinutes(2), "c.exe")]);
         Ui.Run(() =>
         {
-            Assert.Equal("Your PC froze 2 days ago", vm.StatusTitle);
+            Assert.Equal("The PC froze 2 days ago", vm.StatusTitle);
             Assert.Equal("WarmBrush", vm.StatusBrush);
         });
     }
@@ -776,8 +776,8 @@ public sealed class CrashesPageTests
         Show(vm, [cut, load, unfinished]);
         Ui.Run(() =>
         {
-            Assert.Equal("Your PC shut off unexpectedly 5 days ago", vm.StatusTitle);
-            Assert.Equal("Possible: mains or power supply · also 1 likely power cut this month.", vm.StatusDetail);
+            Assert.Equal("The PC shut off suddenly 5 days ago", vm.StatusTitle);
+            Assert.Equal("Possibly mains or power supply · also 1 likely power cut this month.", vm.StatusDetail);
             // Two shut-offs counted, one of them a power cut; the shutdown that didn't finish listed, not counted.
             Assert.Equal((2, 1, 1), (vm.SystemCount, vm.PowerCutCount, vm.UnfinishedCount));
             Assert.Equal("1 likely power cut", vm.PowerCutText);
@@ -826,8 +826,8 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("No serious problems", vm.StatusTitle);
-            Assert.Contains("2 power losses while asleep (not a fault)", vm.StatusDetail);
-            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 of 2 unexpected shutdowns happened while the PC was asleep"));
+            Assert.Contains("2 sudden shut-offs while asleep (not a fault)", vm.StatusDetail);
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 of 2 sudden shut-offs happened while the PC was asleep"));
         });
     }
 
@@ -840,7 +840,7 @@ public sealed class CrashesPageTests
         {
             Assert.Equal("No serious problems", vm.StatusTitle);
             Assert.Contains("2 shutdowns that didn't finish (usually harmless)", vm.StatusDetail);
-            Assert.Contains("1 power loss while asleep (not a fault)", vm.StatusDetail);
+            Assert.Contains("1 sudden shut-off while asleep (not a fault)", vm.StatusDetail);
             Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 more shutdowns didn't finish while Windows was shutting down"));
             Assert.DoesNotContain(vm.Patterns, p => p.Text.Contains("while the PC was asleep"));
         });
@@ -874,7 +874,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("No problems yesterday", vm.StatusTitle);
-            Assert.Equal("Nothing crashed, froze or shut down unexpectedly.", vm.StatusDetail);
+            Assert.Equal("No crashes, freezes, blue screens, sudden shut-offs or graphics driver resets.", vm.StatusDetail);
         });
         // The day is called what it is: today is "today", and a day further back goes by its date.
         SetPeriod(vm, ReportRange.Day, DateTime.Today);
@@ -925,7 +925,7 @@ public sealed class CrashesPageTests
             var unfinished = vm.GroupsShown.Single(g => g.Latest.Event.Kind == CrashKind.UnexpectedShutdown);
             Assert.Equal(("CONFIRMED", "Named", "Windows was already shutting down. Usually harmless."), (unfinished.Chip, unfinished.Sure, unfinished.Line));
             var bug = vm.GroupsShown.Single(g => g.AppExe == "own-bug.exe");
-            Assert.Equal(("POSSIBLE: A FAULT IN THE APP", "Possible"), (bug.Chip, bug.Sure));
+            Assert.Equal(("POSSIBLY A FAULT IN THE APP", "Possible"), (bug.Chip, bug.Sure));
         });
     }
 
@@ -943,7 +943,7 @@ public sealed class CrashesPageTests
         var groups = CrashGroup.Build([Power(noon, 5, false), Power(noon.AddHours(-5), 4, false), Power(noon.AddHours(-9), 95, false)]);
         Assert.Equal(2, groups.Count);
         Assert.Equal(("LIKELY A POWER CUT", 2, CrashSeverity.Info), (groups[0].Chip, groups[0].Count, groups[0].Severity));
-        Assert.Equal(("POSSIBLE: MAINS OR POWER SUPPLY", 1, CrashSeverity.Critical), (groups[1].Chip, groups[1].Count, groups[1].Severity));
+        Assert.Equal(("POSSIBLY MAINS OR POWER SUPPLY", 1, CrashSeverity.Critical), (groups[1].Chip, groups[1].Count, groups[1].Severity));
     }
 
     [Fact]
@@ -952,7 +952,7 @@ public sealed class CrashesPageTests
         var row = Crashes.Row(CrashKind.AppCrash, DateTime.Today.AddHours(-5), "g.exe", "Game", "nvwgf2umx.dll", "c0000005", cpu: 60, gpu: 70);
         string text = CrashesViewModel.Report(CrashGroup.Build([row]).Single());
         Assert.Contains("What happened: The NVIDIA graphics driver failed while running Game.", text);
-        Assert.Contains("How sure: Confirmed by Windows.", text);
+        Assert.Contains("How sure: Confirmed", text);
         Assert.Contains("What it wasn't:", text);
         Assert.Contains("  - It wasn't overheating: The CPU was at 60° and the GPU at 70°, under your alert limits.", text);
         Assert.Contains("What to try: Update the NVIDIA driver", text);

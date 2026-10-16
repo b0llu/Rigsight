@@ -92,6 +92,20 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.26.0", 10, 16,
+            added: ["Widgets stay over windowed games, and over borderless ones on screens that can show them without turning off G-Sync.",
+                "Drag across a graph on Reports, Temperatures or Fans to zoom into that stretch, and one button zooms back out.",
+                "Reports' minute-by-minute graph can show each minute's average, highest or lowest.",
+                "Apps can be sorted by most internet use, and an app's card shows what it downloaded and uploaded.",
+                "Temperatures shows drives in a card of their own, each against its own safe limit."],
+            better: ["A crash's cause reads Confirmed, Likely, Possibly or Not enough to say, the same in the list and when opened.",
+                "Crash notifications say what happened in the title, such as \"Dota 2 crashed\" or \"Chrome froze\".",
+                "Network's biggest days add up each whole day with the apps that used it, and its connection card covers a week, month or year.",
+                "Temperatures groups the motherboard's sensors by the chip they are read from.",
+                "Storage shows a loader while it looks for space you could free, instead of an empty card.",
+                "The menu beside each sensor in All sensors shows an icon for every place it can be added."],
+            fixedBugs: ["An app no longer shows up twice in the Memory and Processes lists after switching pages.",
+                "Home's yesterday card shows one loader while it loads, instead of two."]),
         V("0.25.0", 10, 15,
             feature: new("Crash close-ups", "An opened crash shows the seconds around it and what came after, and graphics driver resets are counted.",
                 ["An app or game crash keeps its last five minutes and the two after, a reading every 2 to 3 seconds.",

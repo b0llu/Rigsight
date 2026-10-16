@@ -181,7 +181,19 @@ public sealed record Stretch(DateTime Start, DateTime End, string? App)
     public double Seconds => (End - Start).TotalSeconds;
 }
 
-public sealed record TempPoint(DateTime Time, double? Cpu, double? Gpu);
+/// <summary>
+/// A minute of the temperature curve: its average for each part, and its highest and lowest (the lowest is kept since
+/// 0.16.1: an older minute has none, and a line of lowest readings stops there rather than pass an average off as one).
+/// </summary>
+public sealed record TempPoint(DateTime Time, double? Cpu, double? Gpu,
+    double? CpuHigh = null, double? GpuHigh = null, double? CpuLow = null, double? GpuLow = null)
+{
+    /// <summary>The CPU's value as the curve draws it: the minute's average ("Avg"), highest ("High") or lowest ("Low").</summary>
+    public double? CpuFor(string plot) => plot == "High" ? CpuHigh : plot == "Low" ? CpuLow : Cpu;
+
+    /// <summary>The GPU's value as the curve draws it (see <see cref="CpuFor"/>).</summary>
+    public double? GpuFor(string plot) => plot == "High" ? GpuHigh : plot == "Low" ? GpuLow : Gpu;
+}
 
 public sealed class DayBucket
 {

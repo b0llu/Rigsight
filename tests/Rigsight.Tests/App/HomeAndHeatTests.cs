@@ -11,7 +11,7 @@ namespace Rigsight.Tests.App;
 
 /// <summary>
 /// Home's recap card that fills its height and its three small cards, and the foot of the Temperatures page: the
-/// week by hour, the chips at rest as lines, and the board's and drives' tiles.
+/// week by hour and the chips at rest as lines (its drives and board cards: <see cref="TemperaturePartCardsTests"/>).
 /// </summary>
 [Collection("UI")]
 public sealed class HomeAndHeatTests
@@ -84,19 +84,19 @@ public sealed class HomeAndHeatTests
     {
         var fine = HomeViewModel.HealthLines(0, 0, [], "C drive: 272 of 465 GB used", null, 4);
         Assert.Equal(
-            ["No crashes or sudden shutdowns | In the last 7 days | GoodBrush", "Drive space | C drive: 272 of 465 GB used | GoodBrush", "Fans as usual | 4 spinning now | GoodBrush"],
+            ["No problems | In the last 7 days | GoodBrush", "Drive space | C drive: 272 of 465 GB used | GoodBrush", "Fans as usual | 4 spinning now | GoodBrush"],
             fine.Select(l => $"{l.Text} | {l.Detail} | {l.Brush}"));
 
         var bad = HomeViewModel.HealthLines(2, 1, [], null, "Your GPU fans didn't spin under load.", 0);
-        Assert.Equal(["2 times the PC went down, 1 app crash", "Your GPU fans didn't spin under load."], bad.Select(l => l.Text));
+        Assert.Equal(["2 blue screens or sudden shut-offs, 1 app crash", "Your GPU fans didn't spin under load."], bad.Select(l => l.Text));
         Assert.All(bad, l => Assert.Equal("WarmBrush", l.Brush));
-        Assert.Equal("1 time the PC went down", HomeViewModel.HealthLines(1, 0, [], null, null, 0)[0].Text);
+        Assert.Equal("1 blue screen or sudden shut-off", HomeViewModel.HealthLines(1, 0, [], null, null, 0)[0].Text);
         Assert.Equal("3 app crashes", HomeViewModel.HealthLines(0, 3, [], null, null, 0)[0].Text);
         // Shut-offs that were most likely power cuts are said apart, and alone they are no warning.
         var mains = HomeViewModel.HealthLines(3, 3, [], null, null, 0, mains: 4)[0];
-        Assert.Equal(("3 times the PC went down, 4 shut-offs that look like power cuts, 3 app crashes", "WarmBrush"), (mains.Text, mains.Brush));
+        Assert.Equal(("3 blue screens or sudden shut-offs, 4 likely power cuts, 3 app crashes", "WarmBrush"), (mains.Text, mains.Brush));
         var only = HomeViewModel.HealthLines(0, 0, [], null, null, 0, mains: 1)[0];
-        Assert.Equal(("1 shut-off that looks like a power cut", "MutedBrush"), (only.Text, only.Brush));
+        Assert.Equal(("1 likely power cut", "MutedBrush"), (only.Text, only.Brush));
         // Nothing known of the drives or the fans (no admin rights, a laptop): only what there is.
         Assert.Single(HomeViewModel.HealthLines(0, 0, [], null, null, 0));
         Assert.Equal("1 spinning now", HomeViewModel.HealthLines(0, 0, [], null, null, 1)[^1].Detail);
@@ -125,8 +125,8 @@ public sealed class HomeAndHeatTests
         Assert.Equal("Thu 7 PM · CPU 66° (up to 74°), GPU 68° · Apex Legends",
             HeatGrid.TipOf(hour, new HeatHour(hour, 66, 68, "Apex Legends") { CpuHigh = 74, GpuHigh = 68.2 }));
         Assert.Equal("Thu 7 PM · CPU 52°", HeatGrid.TipOf(hour, new HeatHour(hour, 52, null, null)));
-        Assert.Equal("Thu 7 PM · Nothing recorded", HeatGrid.TipOf(hour, null));
-        Assert.Equal("Thu 7 PM · Nothing recorded", HeatGrid.TipOf(hour, new HeatHour(hour, null, null, "Idle")));
+        Assert.Equal("Thu 7 PM · Not recorded", HeatGrid.TipOf(hour, null));
+        Assert.Equal("Thu 7 PM · No reading", HeatGrid.TipOf(hour, new HeatHour(hour, null, null, "Idle")));
     }
 
     // ── At rest, as lines ──
@@ -198,27 +198,6 @@ public sealed class HomeAndHeatTests
             sensor.SetTodayRange(50, 50);
             sensor.Push(t + 4000, 50);
             Assert.Equal(50, sensor.RangeShare);
-        });
-    }
-
-    [Fact]
-    public void The_boards_sensors_and_the_drives_are_one_row_of_tiles()
-    {
-        var (_, live) = Kit.Greeted();
-        Ui.Run(() =>
-        {
-            Assert.Equal(live.BoardTemps.Count(t => !t.IsHidden) + live.Drives.Count(d => d.Temperature is not null), live.PartTemps.Count);
-            Assert.Equal(live.PartTemps.Count > 0, live.HasPartTemps);
-            Assert.All(live.PartTemps.Take(live.BoardTemps.Count(t => !t.IsHidden)), p => Assert.Equal("40,60,80", p.Steps));
-            if (live.BoardTemps.FirstOrDefault(t => !t.IsHidden) is { } board)
-            {
-                // Hidden on the All sensors page: its tile goes.
-                int before = live.PartTemps.Count;
-                board.ToggleHidden();
-                Assert.Equal(before - 1, live.PartTemps.Count);
-                board.ToggleHidden();
-                Assert.Equal(before, live.PartTemps.Count);
-            }
         });
     }
 }

@@ -152,7 +152,7 @@ public sealed class CrashCaseTests
         Assert.Equal(("LIKELY A POWER CUT", true), (idle.Chip, idle.Outside));
         Assert.Equal("Idle and cool for 35 minutes. Back on 6 minutes later.", idle.Line);
         var blind = found[crashes.Single(c => c.Ts != T0).Id];
-        Assert.Equal(("POSSIBLE: POWER LOST", false), (blind.Chip, blind.Outside));
+        Assert.Equal(("POSSIBLY A POWER CUT OR A RESET", false), (blind.Chip, blind.Outside));
         // The later one has the earlier one as an earlier time; the earlier one has none.
         Assert.Contains(blind.Points, p => p.Title == "It has happened once before");
         Assert.DoesNotContain(idle.Points, p => p.Title.StartsWith("It has happened"));
@@ -168,8 +168,8 @@ public sealed class CrashCaseTests
         var crash = t.Db.GetCrashes(0, T0 + 1).Single();
         var f = CrashCases.Of(t.Db, [crash], new RigsightSettings())[crash.Id];
         Assert.Equal("LIKELY A POWER CUT", f.Chip);
-        var heat = Assert.Single(f.RuledOut, p => p.Title == "The graphics card wasn't overheating");
-        Assert.Equal("The GPU was at 51°, under your alert limit. The CPU's temperature wasn't recorded, so this only covers the graphics card.", heat.Detail);
+        var heat = Assert.Single(f.RuledOut, p => p.Title == "The GPU wasn't overheating");
+        Assert.Equal("The GPU was at 51°, under your alert limit. The CPU's temperature wasn't recorded, so this only covers the GPU.", heat.Detail);
         // No use anywhere in what was recorded: "for some time", never a figure nobody measured.
         Assert.Equal("The PC had been idle for some time, Windows logged no error, and it recorded no press of the power button.", f.Text);
         Assert.Contains(f.Points, p => p.Title == "Nobody was using it" && p.Detail.StartsWith("No use on record in the hours before."));
@@ -182,14 +182,14 @@ public sealed class CrashCaseTests
         t.Db.InsertCrashes([ShutOff(T0)]);
         var report = ReportBuilder.Build(t.Db, ReportRange.Day, L(T0), new RigsightSettings());
         var insight = Assert.Single(report.Insights, i => i.Key == "crash");
-        Assert.Equal("PC lost power while idle at 10:21 AM. Likely a power cut.", insight.Text);
+        Assert.Equal("The PC shut off suddenly at 10:21 AM, likely a power cut.", insight.Text);
         Assert.Equal(InsightTone.Neutral, insight.Tone);
 
         // One that is the PC's own (a held power button means it had frozen) stays a warning, and is said first.
         t.Db.InsertCrashes([ShutOff(T0 + 1800, button: true)]);
         report = ReportBuilder.Build(t.Db, ReportRange.Day, L(T0), new RigsightSettings());
         insight = Assert.Single(report.Insights, i => i.Key == "crash");
-        Assert.StartsWith("PC was switched off by its power button at 10:51 AM. Confirmed by Windows. 2 problems in all", insight.Text);
+        Assert.StartsWith("The PC shut off suddenly at 10:51 AM: someone held the power button. 2 problems in all", insight.Text);
         Assert.Equal(InsightTone.Warn, insight.Tone);
     }
 }

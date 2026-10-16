@@ -41,5 +41,5 @@ public sealed record HeatHour(DateTime Hour, double? Cpu, double? Gpu, string? A
     public double? GpuHigh { get; init; }
 }
 
-/// <summary>A tile of the Temperatures page's "Motherboard and drives": a board sensor or a drive, with the steps its colour goes by.</summary>
+/// <summary>A tile of the Temperatures page's "Motherboard" (in its chip's group, <see cref="BoardChip"/>): a board sensor, with the steps its colour goes by.</summary>
 public sealed record PartTemp(string Name, SensorItem Sensor, string Steps);

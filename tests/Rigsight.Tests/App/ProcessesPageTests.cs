@@ -244,13 +244,15 @@ public sealed class ProcessesPageTests
             AssertInOrder(page, by, descending: !flipped, $"{column}, list {round}");
         }
 
-        // Left and come back to: in order again at once, and kept so from then on.
+        // Left and come back to: kept in order while away too (rows move once data binding runs, before the page is drawn).
         Ui.Run(() =>
         {
             page.Vm.SetShown(false);
             page.Live.ApplyProcs(Moving(20));
-            page.Vm.SetShown(true);
         });
+        Ui.Pump();
+        AssertInOrder(page, by, descending: !flipped, $"{column}, while away");
+        Ui.Run(() => page.Vm.SetShown(true));
         AssertInOrder(page, by, descending: !flipped, $"{column}, shown again");
         Ui.Run(() => page.Live.ApplyProcs(Moving(21)));
         Ui.Pump();
@@ -258,7 +260,7 @@ public sealed class ProcessesPageTests
     }
 
     [Fact]
-    public void The_list_follows_the_figures_only_while_the_page_is_shown()
+    public void The_list_follows_the_figures_whether_the_page_is_shown_or_not()
     {
         var page = Page();
         Ui.Run(() =>
@@ -276,7 +278,9 @@ public sealed class ProcessesPageTests
             page.Live.ApplyProcs(Apps());
         });
         Ui.Pump();
-        Assert.Equal("Discord.exe", page.Order[0]); // not kept in order while it isn't on screen
+        // Kept in order while it isn't on screen too: switching that off and on again left one app on two rows, and
+        // reading the list anew on each visit made every switch to the page slow (ProcessRowsTests).
+        Assert.Equal(["game.exe", "chrome.exe", "svchost.exe", "Discord.exe"], page.Order.Take(4));
         Ui.Run(() => page.Vm.SetShown(true));
         Assert.Equal(["game.exe", "chrome.exe", "svchost.exe", "Discord.exe"], page.Order.Take(4));
     }
@@ -365,6 +369,7 @@ public sealed class ProcessesPageTests
             page.Vm.SetShown(true);
             Assert.Equal(5_000_000, page.Row("chrome.exe").Net);
         });
+        Ui.Pump(); // the row moves once data binding runs, before the page is drawn
         Assert.Equal("chrome.exe", page.Order[0]);
     }
 

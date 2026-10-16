@@ -55,7 +55,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     // ── The five figures on top, each against something ──
 
-    /// <summary>Under the time in use: how it compares ("4h 38m more than your daily average of 8h 47m"), or how long the PC was on.</summary>
+    /// <summary>Under the time in use: how it compares ("4h 38m more than your usual day of 8h 47m"), or how long the PC was on.</summary>
     public string ActiveLine => Report is not { } r ? ""
         : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? Bare(compare.Text)
         : $"PC on for {Units.Duration(r.OnSec)}";
@@ -77,7 +77,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         get
         {
-            if (Report?.Net is not { Down: > 0 } net) return "Nothing recorded";
+            // Not read at all is "Not recorded"; read, and nothing came down, is what didn't happen.
+            if (Report?.Net is not { } read) return Core.Wording.NotRecorded;
+            if (read is not { Down: > 0 } net) return "No internet use";
             if (net.PreviousDown is not > 0) return $"{Units.Data(net.Up)} uploaded";
             double change = (net.Down - net.PreviousDown.Value) / (double)net.PreviousDown.Value * 100;
             string before = Range switch { ReportRange.Day => "the day before", ReportRange.Week => "the week before", ReportRange.Month => "the month before", ReportRange.Year => "the year before", _ => "the period before" };
@@ -100,9 +102,49 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             int mains = Crashes.Count(c => c.Event is { Kind: Core.Stability.CrashKind.UnexpectedShutdown, Moment: Core.Stability.PowerMoment.Running } && c.Finding is { Outside: true });
             int down = Crashes.Count(c => c.Event.Kind == Core.Stability.CrashKind.SystemCrash || c.Event.Kind == Core.Stability.CrashKind.UnexpectedShutdown) - mains;
             int apps = Crashes.Count - down - mains;
-            if (Crashes.Count == 0) return "No crashes or sudden shutdowns";
+            if (Crashes.Count == 0) return Core.Wording.NoProblems;
             static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
-            return string.Join(", ", new[] { down > 0 ? Count(down, "time the PC went down", "times the PC went down") : null, mains > 0 ? Count(mains, "shut-off that looks like a power cut", "shut-offs that look like power cuts") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
+            return string.Join(", ", new[] { down > 0 ? Count(down, "blue screen or sudden shut-off", "blue screens or sudden shut-offs") : null, mains > 0 ? Count(mains, "likely power cut", "likely power cuts") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
+        }
+    }
+
+    // ── Your day, minute by minute: what its curves are drawn from ──
+
+    private readonly LiveData? _live;
+    private string _localPlot = "Avg";
+
+    /// <summary>
+    /// The Temperatures page's data (set by the window): its graph's Average / Highest / Lowest choice is this page's too,
+    /// one remembered pick for both, so changing it on either page changes it on the other.
+    /// </summary>
+    public LiveData? Live
+    {
+        get => _live;
+        init
+        {
+            _live = value;
+            if (value is null) return;
+            value.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName != nameof(LiveData.ChartPlot)) return;
+                OnPropertyChanged(nameof(ChartPlot));
+            };
+        }
+    }
+
+    /// <summary>What the minute-by-minute curves are: each minute's average ("Avg"), highest ("High") or lowest ("Low").</summary>
+    public string ChartPlot
+    {
+        get => Live?.ChartPlot ?? _localPlot;
+        set
+        {
+            if (value == ChartPlot) return;
+            if (Live is { } live) live.ChartPlot = value; // says so back (above)
+            else
+            {
+                _localPlot = value;
+                OnPropertyChanged();
+            }
         }
     }
 
@@ -222,7 +264,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private string When => Controls.PeriodPicker.Words(Range, Anchor, CustomFrom, CustomTo);
 
     /// <summary>What the page says when the period has nothing.</summary>
-    public string EmptyTitle => $"Nothing recorded {When}";
+    public string EmptyTitle => $"{Core.Wording.NotRecorded} {When}";
 
     /// <summary>
     /// Another period was picked and is taking a moment to read (a week or a month, the first time): the page shows
@@ -306,12 +348,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (r.CpuTempPeak is { } a) rows.Add(new("CPU temperature", Units.TempShort(a.Value), When(a), a.App, TempBrush(a.Value)));
         if (r.GpuTempPeak is { } b) rows.Add(new("GPU temperature", Units.TempShort(b.Value), When(b), b.App, TempBrush(b.Value)));
         if (r.GpuHotPeak is { } c) rows.Add(new("GPU hot spot", Units.TempShort(c.Value), When(c), c.App, TempBrush(c.Value - 10)));
-        if (r.GpuPowerPeak is { } g) rows.Add(new("GPU power (1-min avg)", $"{g.Value:0} W", When(g), g.App, plain));
+        if (r.GpuPowerPeak is { } g) rows.Add(new("GPU power (1-minute average)", $"{g.Value:0} W", When(g), g.App, plain));
         if (r.RamPeak is { } m) rows.Add(new("Memory in use", $"{m.Value:0.0} GB", When(m), m.App, plain));
         if (r.Net is { TopSpeed: > 0, TopSpeedAt: { } at } net) rows.Add(new("Fastest download", Units.Speed(net.TopSpeed.Value), At(at), net.TopSpeedApp, plain));
         if (r.CpuVoltPeak is { } d) rows.Add(new("CPU core voltage", $"{d.Value:0.000} V", When(d), d.App, plain));
         if (r.GpuVoltPeak is { } e) rows.Add(new("GPU core voltage", $"{e.Value:0.000} V", When(e), e.App, plain));
-        if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-min avg)", $"{f.Value:0} W", When(f), f.App, plain));
+        if (r.CpuPowerPeak is { } f) rows.Add(new("CPU power (1-minute average)", $"{f.Value:0} W", When(f), f.App, plain));
         return rows;
     }
 

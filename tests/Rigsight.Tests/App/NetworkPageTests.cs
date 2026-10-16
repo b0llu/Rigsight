@@ -41,12 +41,11 @@ public sealed class NetworkPageTests
             Assert.Equal(100, vm.Apps[0].DownBar + vm.Apps[0].UpBar, 6); // the biggest app fills the bar
             Assert.Equal(24, vm.Bins.Count);
             Assert.Equal("Usage each hour", vm.ChartTitle);
-            // The biggest hours: an app and an hour, with everything it moved then (no speed, no kind of use).
+            // The biggest hours, whole: an hour with everything every app moved then, and the apps it was.
             Assert.StartsWith("Biggest hours", vm.DownloadsTitle);
             Assert.InRange(vm.Downloads.Count, 1, Rigsight.Core.Reports.NetReportBuilder.DownloadsShown);
-            Assert.Equal("Steam", vm.Downloads[0].Name);
+            Assert.StartsWith("Steam ", vm.Downloads[0].AppsText);
             Assert.Matches(@"^\d{1,2} [AP]M – \d{1,2} [AP]M$", vm.Downloads[0].When);
-            Assert.Equal("", vm.Downloads[0].How);
             // Everything used, both ways, leads the tiles.
             Assert.NotEqual("—", vm.TotalText);
             Assert.StartsWith("download and upload · ", vm.TotalNote);
@@ -100,13 +99,13 @@ public sealed class NetworkPageTests
         Assert.Equal(NetQuarter.Online, strip[82]);
         Assert.Equal(NetQuarter.None, strip[88]);
         // It isn't "No drops" for the whole day: the line under it says how much wasn't recorded.
-        Assert.Equal(("No drops", "7 h 30 min not recorded"), NetworkViewModel.DropsText(r, "that day"));
+        Assert.Equal(("No drops", "7h 30m not recorded"), NetworkViewModel.DropsText(r, "that day"));
         // A quarter hour with any use in it stays online; a drop goes over both.
         r = DayReport([(8, 13.25)], unrecorded: [(13.1, 20.5)], drops: [(14, 14.25)]);
         strip = NetworkViewModel.StripStates(r);
         Assert.Equal([NetQuarter.Online, NetQuarter.Unrecorded], [strip[52], strip[53]]);
         Assert.Equal(NetQuarter.Dropped, strip[56]);
-        Assert.Equal(("Dropped once", "Longest 15 min at 2:00 PM · 7 h 24 min not recorded"), NetworkViewModel.DropsText(r, "that day"));
+        Assert.Equal(("Dropped once", "Longest 15m at 2:00 PM · 7h 24m not recorded"), NetworkViewModel.DropsText(r, "that day"));
     }
 
     [Fact]
@@ -212,8 +211,8 @@ public sealed class NetworkPageTests
             Assert.Contains(chart.HoverLines(bin), l => l.StartsWith("In the background "));
             Assert.Equal(["Nothing"], chart.HoverLines(new NetBin(bin.Start, 0, 0, 0)));
             // An hour that wasn't recorded says so: alone when it is empty (it isn't "nothing"), under the total when part of it was.
-            Assert.Equal(["Not recorded for 1 h 0 min"], chart.HoverLines(new NetBin(bin.Start, 0, 0, 0) { UnrecordedMinutes = 60 }));
-            Assert.Equal("Not recorded for 30 min", chart.HoverLines(bin with { UnrecordedMinutes = 30 })[1]);
+            Assert.Equal(["Not recorded for 1h 00m"], chart.HoverLines(new NetBin(bin.Start, 0, 0, 0) { UnrecordedMinutes = 60 }));
+            Assert.Equal("Not recorded for 30m", chart.HoverLines(bin with { UnrecordedMinutes = 30 })[1]);
             Assert.DoesNotContain(chart.HoverLines(bin with { UnrecordedMinutes = 5 }), l => l.StartsWith("Not recorded"));
 
             // A click picks the bar, a second lets go; an empty bar can't be picked.
@@ -365,11 +364,11 @@ public sealed class NetworkPageTests
         Ui.Run(() =>
         {
             Assert.Equal("Dropped once", vm.DropsTitle);
-            Assert.StartsWith("Longest 3 min at 1:00", vm.DropsNote);
+            Assert.StartsWith("Longest 3m at 1:00", vm.DropsNote);
             Assert.Equal(NetQuarter.Dropped, vm.Strip[4].State);
             // Hovering a quarter hour says when it was and what happened.
             Assert.Equal("1:00 – 1:15 AM · Dropped", vm.Strip[4].Tip);
-            Assert.Equal("12:00 – 12:15 AM · " + (vm.Strip[0].State == NetQuarter.Online ? "Online" : "No record"), vm.Strip[0].Tip);
+            Assert.Equal("12:00 – 12:15 AM · " + (vm.Strip[0].State == NetQuarter.Online ? "Up" : "Not recorded"), vm.Strip[0].Tip);
             Assert.StartsWith("11:45 PM – 12:00 AM · ", vm.Strip[^1].Tip);
             if (DateTime.Now < DateTime.Today.AddHours(23.75)) Assert.EndsWith("· Still to come", vm.Strip[^1].Tip);
         });

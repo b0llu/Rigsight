@@ -82,7 +82,7 @@ public sealed partial class FanCard : ObservableObject
         Sensors = sensors;
         Sensor = sensors[0];
         IsGpu = Sensor.HardwareType.StartsWith("Gpu", StringComparison.OrdinalIgnoreCase);
-        Place = IsGpu ? "Graphics card" : Sensor.HardwareType == "Cooler" ? Sensor.HardwareName : "Motherboard";
+        Place = IsGpu ? "GPU" : Sensor.HardwareType == "Cooler" ? Sensor.HardwareName : "Motherboard";
         Series = [.. sensors.Select((x, i) => new ChartSeries(x.DisplayName, x, IsGpu ? Colors[i % Colors.Length] : i == 0 ? "CpuColor" : Colors[i % Colors.Length]))];
     }
 
@@ -520,7 +520,7 @@ public sealed partial class FansViewModel : ObservableObject
         {
             QuietLabel = "QUIET TIME";
             QuietText = card?.Facts is { StoppedMinutes: > 0 } q ? Units.Duration(q.StoppedMinutes * 60) : card is null ? "—" : "None";
-            QuietNote = card is null ? "No graphics card fans reported" : card.Facts is { StoppedMinutes: > 0 } ? "GPU fans stood still while the card was cool" : "GPU fans turned the whole time";
+            QuietNote = card is null ? "No GPU fans reported" : card.Facts is { StoppedMinutes: > 0 } ? "GPU fans stood still while the GPU was cool" : "GPU fans turned the whole time";
         }
 
         // The app that made a fan on a curve work hardest: the card's first, else any that follows a chip.
@@ -623,13 +623,13 @@ public sealed partial class FansViewModel : ObservableObject
         foreach (var (ts, rpm) in speed)
             if (minutes.TryGetValue(ts, out var m) && (onGpu ? m.GpuTemp : m.CpuTemp) is double t)
                 points.Add(new System.Windows.Point(t, rpm));
-        // Gathered into dots (half a degree, 25 rpm) and a typical speed per degree for the hover.
+        // Gathered into dots (half a degree, 25 rpm) and an average speed per degree (while turning) for the hover.
         var dots = points.GroupBy(p => (T: Math.Round(p.X * 2) / 2, R: Math.Round(p.Y / 25) * 25))
             .Select(g => new Controls.FanDot(g.Key.T, g.Key.R, g.Count())).ToList();
         var tempBins = points.GroupBy(p => (int)Math.Floor(p.X)).Select(g =>
         {
             var turningHere = g.Where(p => p.Y >= FanCard.MinSpinRpm).Select(p => p.Y).Order().ToList();
-            return new Controls.FanTempBin(g.Key, turningHere.Count > 0 ? turningHere[turningHere.Count / 2] : 0, g.Count(), 1 - turningHere.Count / (double)g.Count());
+            return new Controls.FanTempBin(g.Key, turningHere.Count > 0 ? turningHere.Average() : 0, g.Count(), 1 - turningHere.Count / (double)g.Count());
         }).OrderBy(b => b.Temp).ToList();
 
         // Where it stands still: up to the warmest degree at which it was seen still in most minutes (not beyond: with no
@@ -702,7 +702,7 @@ public sealed partial class FansViewModel : ObservableObject
             ? ("Steadiness", $"Within {Math.Round(100 * (turning.Max() - turning.Min()) / turning.Average()):0}%", "From its slowest to its fastest")
             : ("Fastest", card.FastestText, card.FastestLine);
 
-        // Three more facts. Every fan: its average while turning. A fan on a curve: its typical speed while its chip works
+        // Three more facts. Every fan: its average while turning. A fan on a curve: its average speed while its chip works
         // hard, and (a card's zero-rpm fans) how often they started up; a set speed: its range, and its usual speed the 30
         // days before (a slower fan shows there first).
         string Rpm(double? v) => Units.Format(SensorKind.Fan, v);
@@ -718,19 +718,20 @@ public sealed partial class FansViewModel : ObservableObject
         int usualN = usual.Sum(d => d.RpmN);
         var usualFact = new FanFact("Usual", usualN > 0 ? Rpm(usual.Sum(d => d.RpmSum) / usualN) : "—",
             newSetting ? $"{(usualN > 0 ? "Since" : "Nothing since")} its setting changed on {changed:d MMM}"
-            : usualN > 0 ? $"Over the {UsualDays} days before" : "Nothing recorded before this");
+            : usualN > 0 ? $"The {UsualDays} days before" : "Not recorded before this");
         if (steady)
         {
-            more.Add(new("Range", turning.Count > 0 ? $"{turning.Min():N0} – {turning.Max():N0}" : "—", "Slowest to fastest while spinning, RPM"));
+            more.Add(new("Range", turning.Count > 0 ? $"{turning.Min():N0} to {turning.Max():N0}" : "—", "Slowest to fastest while spinning, RPM"));
             more.Add(usualFact);
         }
         else
         {
             var hard = speed.Where(x => minutes.TryGetValue(x.Key, out var m)
                     && (onGpu ? m.GpuLoad >= LoadBands.GpuHeavyLoad : m.CpuLoad >= LoadBands.CpuHeavyLoad) && x.Value >= FanCard.MinSpinRpm)
-                .Select(x => x.Value).Order().ToList();
-            more.Add(new("Under heavy load", hard.Count >= 5 ? Rpm(hard[hard.Count / 2]) : "—",
-                hard.Count >= 5 ? $"Typical while {(onGpu ? "games pushed the GPU" : "work pushed the CPU")}" : $"The {chip} didn't work hard for long"));
+                .Select(x => x.Value).ToList();
+            // The mean of those minutes, called what it is: a middle figure of a period is an average.
+            more.Add(new("Under heavy load", hard.Count >= 5 ? Rpm(hard.Average()) : "—",
+                hard.Count >= 5 ? $"Average while {(onGpu ? "games pushed the GPU" : "work pushed the CPU")}" : $"The {chip} didn't work hard for long"));
             if (card.IsGpu && speed.Count > 0)
             {
                 int starts = 0;
@@ -830,7 +831,7 @@ public sealed partial class FansViewModel : ObservableObject
         };
         string fastestWhen = top is null ? "" : $"On {TimeUtil.FromUnix(top.Day):ddd d MMM}";
 
-        // Three more for a year: its typical speed in games (the temperature it spent most time at), the days it has, and
+        // Three more for a year: its average speed in games (the temperature it spent most time at), the days it has, and
         // how its speed at the same heat (a set speed: its speed) changed from the first month with data to the last.
         string Rpm(double? v) => Units.Format(SensorKind.Fan, v);
         var busiest = bins.Count > 0 ? bins.MaxBy(b => b.N) : default;
@@ -848,7 +849,7 @@ public sealed partial class FansViewModel : ObservableObject
             new("Average", average is double av2 ? Rpm(av2) : "—", "Across the year's days"),
             new("Fastest", top is null ? "—" : Rpm(top.RpmMax), fastestWhen),
             new("Under heavy load", busiest.N > 0 ? Rpm(busiest.Rpm) : "—",
-                busiest.N > 0 ? $"Typical at {Units.TempShort(busiest.Temp + FanCurves.BinDegrees / 2.0)}, where it spent most time" : "No steady load recorded"),
+                busiest.N > 0 ? $"Average at {Units.TempShort(busiest.Temp + FanCurves.BinDegrees / 2.0)}, where it spent most time" : "No steady load"),
             new("Days recorded", $"{days.Select(d => d.Day).Distinct().Count()}", "Days with this fan's speeds"),
             new("Change over the year", changeValue, changeNote),
         };

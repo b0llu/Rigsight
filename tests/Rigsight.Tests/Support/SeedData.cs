@@ -93,6 +93,7 @@ public static class SeedData
             VALUES($app, $start, $end, $act, $ct, $gt, $game)
             """);
         var hours = new Dictionary<(long Ts, long App), AppHour>();
+        DateTime yesterdayFrom = default, yesterdayTo = default;
 
         for (var day = start; day <= end.Date; day = day.AddDays(1))
         {
@@ -110,6 +111,7 @@ public static class SeedData
                 to = end;
             }
             var gamingFrom = from + (to - from) * (0.4 + rnd.NextDouble() * 0.3);
+            if (day == end.Date.AddDays(-1)) (yesterdayFrom, yesterdayTo) = (from, to);
 
             // Foreground blocks: an app in front for a while, then the next.
             var t = TimeUtil.LocalMinuteStart(from);
@@ -213,6 +215,13 @@ public static class SeedData
                     ("$module", module), ("$code", code), ("$detail", detail), ("$sleep", kind == CrashKind.UnexpectedShutdown && rnd.Next(4) == 0 ? 1 : 0));
                 crash.ExecuteNonQuery();
             }
+            // One app crash always lands while the PC was on and recording (the middle of yesterday's time on), so an opened
+            // crash has minutes before it whatever the date; the random ones above can all fall while it was off.
+            var sure = apps[0];
+            Set(crash, ("$ts", TimeUtil.ToUnix(TimeUtil.LocalMinuteStart(yesterdayFrom + (yesterdayTo - yesterdayFrom) / 2)) + 20), ("$kind", nameof(CrashKind.AppCrash)),
+                ("$exe", sure.Exe), ("$path", $@"C:\Program Files\Synthetic\{sure.Exe}"), ("$module", "KERNELBASE.dll"), ("$code", "0xc0000005"),
+                ("$detail", null), ("$sleep", 0));
+            crash.ExecuteNonQuery();
         }
 
         // ── Drives filling up slowly ──

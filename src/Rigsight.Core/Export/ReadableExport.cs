@@ -31,7 +31,7 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
             yield break;
         }
         yield return ("What happened", $"{f.Head} {f.Text}");
-        yield return ("How sure", f.Verdict);
+        yield return ("How sure", f.HowSure);
         yield return ("What points to this", f.Points.Count == 0 ? null : string.Join("; ", f.Points.Select(p => p.Detail.Length > 0 ? $"{p.Title} ({p.Detail.TrimEnd('.')})" : p.Title)));
         yield return ("What it wasn't", f.RuledOut.Count == 0 ? null : string.Join("; ", f.RuledOut.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
         yield return ("Could not be checked", f.NotChecked.Count == 0 ? null : string.Join("; ", f.NotChecked.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
@@ -98,11 +98,11 @@ public static class ReadableExport
                 a.Name, AppCatalog.Label(a.Category), Units.Duration(a.ActiveSec), a.BackgroundSec > 0 ? Units.Duration(a.BackgroundSec) : null,
                 a.CpuTempMax is double c ? Units.TempShort(c) : null, a.GpuTempMax is double g ? Units.TempShort(g) : null, a.MemMax is double m ? Units.Megabytes(m) : null,
             }).ToList();
-            foreach (var line in DataExport.TextTable(["App", "Kind", "In use", "Background", "Peak CPU", "Peak GPU", "Peak memory"], rows)) sb.AppendLine("  " + line);
+            foreach (var line in DataExport.TextTable(["App", "Kind", "In use", "Background", "CPU peak", "GPU peak", "Memory peak"], rows)) sb.AppendLine("  " + line);
         }
         if (r.Crashes.Count > 0)
         {
-            Heading(sb, "Crashes and unexpected shutdowns");
+            Heading(sb, "Crashes and sudden shut-offs");
             foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeUtil.FromUnix(c.Ts):d MMM, h:mm tt}  {CrashExplainer.Explain(c).Title}");
         }
         return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
@@ -127,9 +127,9 @@ public static class ReadableExport
                     rows.Add(("Just before", string.Join(", ", new[] { c.CpuBefore is double cpu ? $"CPU up to {Units.TempShort(cpu)}" : null, c.GpuBefore is double gpu ? $"GPU up to {Units.TempShort(gpu)}" : null }.Where(x => x is not null))));
                 if (c.SessionSec is double sec && sec >= 60) rows.Add(("Had been running", Units.Duration(sec)));
             }
-            else if (s.Context is { NoReadings: true }) rows.Add(("Just before", "No readings recorded"));
+            else if (s.Context is { NoReadings: true }) rows.Add(("Just before", Wording.NotRecorded));
             rows.Add(("In front", s.AppInFront));
-            if (s.ChangesBefore.Count > 0) rows.Add(("Changed in the week before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})"))));
+            if (s.ChangesBefore.Count > 0) rows.Add(("Changed in the 7 days before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})"))));
             rows.Add(("Module", s.Crash.Module));
             rows.Add(("Code", s.Crash.Code));
             var shown = rows.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToList();
@@ -255,7 +255,7 @@ public static class ReadableExport
         if (apps.Count > 0)
         {
             double top = Math.Max(1, apps.Max(a => a.ActiveSec));
-            sb.Append("<h2>Apps you used</h2><div class=\"scroll\"><table><thead><tr><th>APP</th><th>IN USE</th><th>BACKGROUND</th><th>PEAK CPU</th><th>PEAK GPU</th><th>PEAK MEMORY</th></tr></thead><tbody>");
+            sb.Append("<h2>Apps you used</h2><div class=\"scroll\"><table><thead><tr><th>APP</th><th>IN USE</th><th>BACKGROUND</th><th>CPU PEAK</th><th>GPU PEAK</th><th>MEMORY PEAK</th></tr></thead><tbody>");
             foreach (var a in apps)
                 sb.Append($"<tr><td>{H(a.Name)} <span class=\"sub\">· {H(AppCatalog.Label(a.Category))}</span><div class=\"bar\" style=\"width:{Math.Max(1, a.ActiveSec / top * 100).ToString("0", CultureInfo.InvariantCulture)}%\"></div></td>")
                     .Append($"<td>{H(Units.Duration(a.ActiveSec))}</td><td>{H(a.BackgroundSec > 0 ? Units.Duration(a.BackgroundSec) : "–")}</td>")
@@ -265,7 +265,7 @@ public static class ReadableExport
 
         if (r.Crashes.Count > 0)
         {
-            sb.Append("<h2>Crashes and unexpected shutdowns</h2><ul>");
+            sb.Append("<h2>Crashes and sudden shut-offs</h2><ul>");
             foreach (var c in r.Crashes.OrderBy(c => c.Ts))
                 sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString("d MMM, h:mm tt"))}: {H(CrashExplainer.Explain(c).Title)}</li>");
             sb.Append("</ul>");
@@ -333,9 +333,9 @@ public static class ReadableExport
                     Row("Just before", string.Join(", ", new[] { c.CpuBefore is double cpu ? $"CPU up to {Units.TempShort(cpu)}" : null, c.GpuBefore is double gpu ? $"GPU up to {Units.TempShort(gpu)}" : null }.Where(x => x is not null)));
                 if (c.SessionSec is double sec && sec >= 60) Row("Had been running", Units.Duration(sec));
             }
-            else if (s.Context is { NoReadings: true }) Row("Just before", "No readings recorded");
+            else if (s.Context is { NoReadings: true }) Row("Just before", Wording.NotRecorded);
             Row("In front", s.AppInFront);
-            if (s.ChangesBefore.Count > 0) Row("Changed in the week before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})")));
+            if (s.ChangesBefore.Count > 0) Row("Changed in the 7 days before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})")));
             Row("Module", s.Crash.Module);
             Row("Code", s.Crash.Code);
             sb.Append("</dl></div>");

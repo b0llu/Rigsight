@@ -112,7 +112,7 @@ public sealed class HistoryPageTests
     [Fact]
     public void A_reports_words_under_its_figures()
     {
-        Assert.Equal("4h 38m more than your daily average of 8h 47m", ReportsViewModel.Bare("That's 4h 38m more than your daily average of 8h 47m."));
+        Assert.Equal("4h 38m more than your usual day of 8h 47m", ReportsViewModel.Bare("That's 4h 38m more than your usual day of 8h 47m."));
         Assert.Equal("Fifth day in a row", ReportsViewModel.Bare("fifth day in a row."));
         Assert.Equal("", ReportsViewModel.Bare(""));
         Assert.Equal("1.9 kWh", ReportsViewModel.EnergyOf(1940));
@@ -169,7 +169,7 @@ public sealed class HistoryPageTests
             Assert.NotEqual("", vm.GamesLine);
             Assert.NotEqual("", vm.InternetLine);
             Assert.Equal(vm.Crashes.Count > 0, vm.HasProblems);
-            Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No crashes or sudden shutdowns");
+            Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No problems");
             Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
             Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
             // The totals are the tiles: not the first line of the list as well. Every other line shows, with no button to press.

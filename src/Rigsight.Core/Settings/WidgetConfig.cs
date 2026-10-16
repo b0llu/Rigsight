@@ -55,8 +55,9 @@ public sealed class WidgetItem
 public enum WidgetTheme { Dark, Light, System, Black, Grey }
 
 /// <summary>
-/// No longer a choice: widgets always step aside on the screen of a game in front, and the overlay takes over (a
-/// window over a game costs it latency and turns G-Sync/FreeSync off). Kept so older settings files still load.
+/// No longer a choice: widgets step aside on the screen of a game that fills it (borderless or exclusive fullscreen),
+/// and the overlay takes over (a window over such a game can cost it latency and turn G-Sync/FreeSync off); over a
+/// windowed game they stay. Kept so older settings files still load.
 /// </summary>
 public enum WidgetVisibility
 {

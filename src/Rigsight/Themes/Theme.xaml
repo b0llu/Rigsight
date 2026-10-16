@@ -277,6 +277,34 @@
         <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
 
+    <!-- Text beside an icon (the alignment rule, WORDING.md): the icon sits at the top of its row and the text is centred
+         in the row, so one line sits on the icon's middle and several lines start level with its top. Every list of
+         icon-and-text rows is built on this, so no page can drift: the icon goes in Header, the text in Content, the
+         gap between them in Padding. -->
+    <Style x:Key="IconRow" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Padding" Value="13,0,0,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="HeaderedContentControl">
+                    <DockPanel Background="{TemplateBinding Background}">
+                        <ContentPresenter DockPanel.Dock="Left" ContentSource="Header" VerticalAlignment="Top" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The 30 by 30 square an icon of an IconRow sits in. -->
+    <Style x:Key="IconBox" TargetType="Border">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+    </Style>
+
     <Style x:Key="AppIcon" TargetType="Image">
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="28" />

@@ -21,11 +21,10 @@ public partial class MemoryView : UserControl
         LiveList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, e) => AlignHeadings(e.ViewportWidth)));
     }
 
-    // Sorting the list live, and keeping the cards up with it, costs work on every update: only while this page is shown.
+    // Keeping the cards up costs work on every update: only while this page is shown.
     private void SetShown(bool shown)
     {
         if (DataContext is not MemoryViewModel vm) return;
-        vm.Live.SetProcessSorting(shown);
         vm.SetShown(shown);
     }
 

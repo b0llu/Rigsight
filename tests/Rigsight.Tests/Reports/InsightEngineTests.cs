@@ -112,7 +112,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Apps.Add(App("Dota 2", AppCategory.Game, 3600, "dota2.exe"));
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.AppHang, AppExe = "DOTA2.exe" });
         var crash = Assert.Single(Gen(r), i => i.Key == "crash");
-        Assert.Equal("Dota 2 stopped responding at 3:04 PM.", crash.Text);
+        Assert.Equal("Dota 2 froze at 3:04 PM.", crash.Text);
         Assert.Equal((InsightTone.Warn, 95), (crash.Tone, crash.Priority));
     }
 
@@ -123,21 +123,21 @@ public sealed class InsightEngineTests : IDisposable
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.SystemCrash, Code = "0x00000124" });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-1)), Kind = CrashKind.GpuDriverReset });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-2)), Kind = CrashKind.UnexpectedShutdown });
-        Assert.Equal("Windows crashed (blue screen) at Wed 12 Mar, 3:04 PM: WHEA_UNCORRECTABLE_ERROR. (3 crashes in total — see the Crashes page)",
+        Assert.Equal("Windows crashed with a blue screen at Wed 12 Mar, 3:04 PM: WHEA_UNCORRECTABLE_ERROR. 3 problems in all, each on the Crashes page.",
             Line(Gen(r), "crash"));
     }
 
     [Theory]
     [InlineData(CrashKind.GpuDriverReset, "", null, null, "Graphics driver reset at 3:04 PM.")]
-    [InlineData(CrashKind.UnexpectedShutdown, "", null, null, "PC shut off unexpectedly at 3:04 PM: a power cut or a hard freeze.")]
-    [InlineData(CrashKind.AppHang, "unknown.exe", null, null, "unknown stopped responding at 3:04 PM.")]
+    [InlineData(CrashKind.UnexpectedShutdown, "", null, null, "The PC shut off suddenly at 3:04 PM: a power cut or a hard freeze.")]
+    [InlineData(CrashKind.AppHang, "unknown.exe", null, null, "unknown froze at 3:04 PM.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "nvwgf2umx.dll", "c0000005", "game crashed at 3:04 PM: NVIDIA driver.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "game.exe", "c0000005", "game crashed at 3:04 PM, in its own code.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "SomeMod.dll", null, "game crashed at 3:04 PM: SomeMod.dll.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "", null, "game crashed at 3:04 PM.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "unknown", null, "game crashed at 3:04 PM.")] // what Windows writes when it couldn't tell
-    [InlineData(CrashKind.SystemCrash, "", null, "0x00000124", "Windows crashed (blue screen) at 3:04 PM: WHEA_UNCORRECTABLE_ERROR.")]
-    [InlineData(CrashKind.SystemCrash, "", null, "0x0000ABCD", "Windows crashed (blue screen) at 3:04 PM: 0x0000ABCD.")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x00000124", "Windows crashed with a blue screen at 3:04 PM: WHEA_UNCORRECTABLE_ERROR.")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x0000ABCD", "Windows crashed with a blue screen at 3:04 PM: 0x0000ABCD.")]
     public void Each_kind_of_crash_reads_naturally_and_names_a_cause_only_where_it_adds_one(CrashKind kind, string exe, string? module, string? code, string text)
     {
         var r = Past();
@@ -310,9 +310,9 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     [Theory]
-    [InlineData(3 * 3600, 2 * 3600, "That's 1h 00m more than your daily average of 2h 00m.")]
-    [InlineData(1 * 3600, 2 * 3600, "That's 1h 00m less than your daily average of 2h 00m.")]
-    [InlineData(2 * 3600 + 15 * 60, 2 * 3600, "That's 15m more than your daily average of 2h 00m.")]
+    [InlineData(3 * 3600, 2 * 3600, "That's 1h 00m more than your usual day of 2h 00m.")]
+    [InlineData(1 * 3600, 2 * 3600, "That's 1h 00m less than your usual day of 2h 00m.")]
+    [InlineData(2 * 3600 + 15 * 60, 2 * 3600, "That's 15m more than your usual day of 2h 00m.")]
     public void A_past_day_is_compared_with_the_daily_average(double active, double avg, string text)
     {
         Assert.Equal(text, Line(Gen(Past(active: active, on: active + 60), Past(active: 100), Usual(4, avg * 4)), "screen-compare"));
@@ -335,7 +335,7 @@ public sealed class InsightEngineTests : IDisposable
     [Fact]
     public void A_day_in_progress_is_only_compared_once_past_the_average()
     {
-        Assert.Equal("You're already 1h 00m past your daily average of 2h 00m.", Line(Gen(Now(active: 3 * 3600), null, Usual(4, 8 * 3600)), "screen-compare"));
+        Assert.Equal("You're already 1h 00m past your usual day of 2h 00m.", Line(Gen(Now(active: 3 * 3600), null, Usual(4, 8 * 3600)), "screen-compare"));
         None(Gen(Now(active: 1 * 3600), null, Usual(4, 8 * 3600)), "screen-compare");
     }
 
@@ -522,8 +522,8 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     [Theory]
-    [InlineData(3600, 1800, " That's 30m more than your daily average (30m).")]
-    [InlineData(1800, 3600, " That's 30m less than your daily average (1h 00m).")]
+    [InlineData(3600, 1800, " That's 30m more than your usual day (30m).")]
+    [InlineData(1800, 3600, " That's 30m less than your usual day (1h 00m).")]
     [InlineData(3600, 3000, "")] // 10 minutes apart: not worth saying
     public void A_days_gaming_is_compared_with_the_daily_average(double gamed, double average, string compare)
     {
@@ -539,7 +539,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Apps.Add(App("Dota 2", AppCategory.Game, 1800));
         Assert.Equal("You gamed for 30m (Dota 2).", Line(Gen(r, usual: Usual(4, 4 * 3600, 4 * 3600)), "gaming"));
         r.Apps[0].ActiveSec = 2 * 3600;
-        Assert.Equal("You gamed for 2h 00m (Dota 2). That's 1h 00m more than your daily average (1h 00m).", Line(Gen(r, usual: Usual(4, 4 * 3600, 4 * 3600)), "gaming"));
+        Assert.Equal("You gamed for 2h 00m (Dota 2). That's 1h 00m more than your usual day (1h 00m).", Line(Gen(r, usual: Usual(4, 4 * 3600, 4 * 3600)), "gaming"));
     }
 
     [Fact]
@@ -795,7 +795,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Records = [new RecordNote(RecordKind.LongestGameSession, "4h 12m", "Dota 2", 90), new RecordNote(RecordKind.HottestGpu, "84°", null, 30),
             new RecordNote(RecordKind.HottestCpu, "88°", null, 30), new RecordNote(RecordKind.MostScreenTime, "11h 20m", null, 365)];
         var lines = Gen(r).Where(i => i.Key == "record").ToList();
-        Assert.Equal(["Longest gaming session in three months: Dota 2, 4h 12m.", "Hottest GPU peak in a month: 84°.", "Hottest CPU peak in a month: 88°.",
+        Assert.Equal(["Longest gaming session in three months: Dota 2, 4h 12m.", "Highest GPU peak in a month: 84°.", "Highest CPU peak in a month: 88°.",
             "Most screen time in a year: 11h 20m."], lines.Select(i => i.Text));
         Assert.Equal([InsightTone.Good, InsightTone.Neutral, InsightTone.Neutral, InsightTone.Neutral], lines.Select(i => i.Tone));
         Assert.Equal("Beats every day of the 90 before", lines[0].Detail);
@@ -886,9 +886,9 @@ public sealed class InsightEngineTests : IDisposable
     {
         var r = Past();
         r.Crashes.Add(new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown, DuringSleep = true });
-        Assert.Equal("PC lost power while asleep at 3:04 PM.", Line(Gen(r), "crash"));
+        Assert.Equal("The PC shut off while asleep at 3:04 PM.", Line(Gen(r), "crash"));
         r.Crashes[0] = new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown };
-        Assert.Equal("PC shut off unexpectedly at 3:04 PM: a power cut or a hard freeze.", Line(Gen(r), "crash"));
+        Assert.Equal("The PC shut off suddenly at 3:04 PM: a power cut or a hard freeze.", Line(Gen(r), "crash"));
     }
 
     [Fact]

@@ -150,7 +150,7 @@ public sealed class NetReportTests : IDisposable
         long app = OneDriveUsually(100 * MB, days: 8);
         Use(Day, null, (app, MB, 2 * GB, 0, 0, 0));
         var line = Said("net-upload");
-        Assert.Equal("OneDrive uploaded 2.0 GB that day, against about 100 MB on a usual day.", line?.Text);
+        Assert.Equal("OneDrive uploaded 2.0 GB that day, against its usual of about 100 MB a day.", line?.Text);
         Assert.Equal(InsightTone.Neutral, line!.Tone);
     }
 

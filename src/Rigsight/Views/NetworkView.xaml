@@ -63,6 +63,41 @@
             <Setter Property="Margin" Value="6,0,14,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- A day's square on a week's, month's or year's connection strip, in the day strip's colours: up, dropped, not
+             recorded; a day still to come is an empty outline. Hover: it lights up and says the day and how it went.
+             The transparent frame takes the mouse in the gaps too, so moving along the strip never flickers. -->
+        <DataTemplate DataType="{x:Type vm:NetDayCell}">
+            <Border x:Name="Slot" Background="Transparent" Padding="1.5,0" ToolTip="{Binding Tip}"
+                    ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.Placement="Top">
+                <Rectangle x:Name="Cell" RadiusX="2" RadiusY="2" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding State}" Value="Dropped">
+                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource WarmBrush}" />
+                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="NotRecorded">
+                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource FaintBrush}" />
+                    <Setter TargetName="Cell" Property="Opacity" Value="0.6" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="ToCome">
+                    <Setter TargetName="Cell" Property="Fill" Value="Transparent" />
+                    <Setter TargetName="Cell" Property="Stroke" Value="{DynamicResource StrokeBrush}" />
+                    <Setter TargetName="Cell" Property="StrokeThickness" Value="1" />
+                    <Setter TargetName="Cell" Property="StrokeDashArray" Value="2 2" />
+                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                </DataTrigger>
+                <Trigger SourceName="Slot" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Cell" Property="Opacity" Value="1" />
+                    <Setter TargetName="Slot" Property="RenderTransformOrigin" Value="0.5,0.5" />
+                    <Setter TargetName="Slot" Property="RenderTransform">
+                        <Setter.Value>
+                            <ScaleTransform ScaleY="1.25" />
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -129,9 +164,9 @@
                             </StackPanel>
                             <ctl:NetLiveChart Grid.Column="1" Height="150" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
                         </Grid>
-                        <TextBlock Text="App network use is read while the agent runs as admin." Style="{StaticResource TileNote}" Margin="0,8,0,0"
+                        <TextBlock Text="Each app's internet use is read while the agent runs as admin." Style="{StaticResource TileNote}" Margin="0,8,0,0"
                                    Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <TextBlock Text="Network use isn't being recorded right now. Restarting your PC should bring it back."
+                        <TextBlock Text="Internet use isn't being recorded right now. Restarting your PC should bring it back."
                                    FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
                                    Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                         <ItemsControl ItemsSource="{Binding Facts}" Margin="-5,12,-5,0" Focusable="False">
@@ -159,7 +194,7 @@
                 <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource RowCard}" VerticalAlignment="Top" Height="{Binding ActualHeight, ElementName=LiveCard}">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Using it now" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <TextBlock DockPanel.Dock="Top" Text="Nothing's moving right now." Style="{StaticResource TileNote}"
+                        <TextBlock DockPanel.Dock="Top" Text="No app is using the internet right now." Style="{StaticResource TileNote}"
                                    Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
                         <TextBlock DockPanel.Dock="Top" Text="Each app's speed shows here while the agent runs as admin." Style="{StaticResource TileNote}"
                                    TextWrapping="Wrap" Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
@@ -380,27 +415,50 @@
 
                 <!-- ── Two even cards ── -->
                 <UniformGrid Rows="1" Margin="-9,0">
+                    <!-- The biggest hours (a day) or days (longer), whole: everything every app moved then, a bar of the
+                         apps that made it in their colours on the chart above, and the top apps by name. -->
                     <ctl:SmoothBorder Style="{StaticResource RowCard}">
                         <StackPanel>
                             <TextBlock Text="{Binding DownloadsTitle}" Style="{StaticResource H2}" />
-                            <TextBlock Text="Nothing big." Style="{StaticResource TileNote}" Margin="0,10,0,0"
+                            <TextBlock Text="{Binding NoBiggestText}" Style="{StaticResource TileNote}" Margin="0,10,0,0"
                                        Visibility="{Binding HasDownloads, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <ItemsControl ItemsSource="{Binding Downloads}" Margin="0,6,0,0" Focusable="False">
+                            <ItemsControl ItemsSource="{Binding Downloads}" Margin="0,6,0,0" Focusable="False" AutomationProperties.Name="Biggest">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:NetDownloadRow}">
-                                        <Grid Margin="0,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="1" Margin="10,0">
-                                                <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding When}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{Binding Size}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                        </Grid>
+                                    <DataTemplate DataType="{x:Type vm:NetBiggestRow}">
+                                        <StackPanel Margin="0,6">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Size}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                <TextBlock Text="{Binding When}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                            <!-- The parts are laid out in a room NetworkViewModel.BarRoom wide and stretched to the
+                                                 row's width. Each part is 12 tall to hover, its colour 4 of it. -->
+                                            <Viewbox Stretch="Fill" Height="12" Margin="0,2,0,0">
+                                                <ItemsControl ItemsSource="{Binding Segments}" Width="{x:Static vm:NetworkViewModel.BarRoom}" Height="12" Focusable="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:NetSegment}">
+                                                            <Border x:Name="Part" Width="{Binding Width}" Height="12" Background="Transparent" ToolTip="{Binding Tip}"
+                                                                    ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.Placement="Top">
+                                                                <Rectangle x:Name="Fill" Height="4" VerticalAlignment="Center" Opacity="0.85"
+                                                                           Fill="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <Trigger SourceName="Part" Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Fill" Property="Opacity" Value="1" />
+                                                                </Trigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Viewbox>
+                                            <TextBlock Text="{Binding AppsText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True"
+                                                       Visibility="{Binding HasAppsText, Converter={StaticResource Vis}}" />
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -440,8 +498,9 @@
                                                 <Rectangle x:Name="Cell" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
                                             </Border>
                                             <DataTemplate.Triggers>
+                                                <!-- The warm colour, as a week's, month's and year's dropped days have it. -->
                                                 <DataTrigger Binding="{Binding State}" Value="Dropped">
-                                                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource HotBrush}" />
+                                                    <Setter TargetName="Cell" Property="Fill" Value="{DynamicResource WarmBrush}" />
                                                     <Setter TargetName="Cell" Property="Opacity" Value="1" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding State}" Value="None">
@@ -472,6 +531,67 @@
                                     <TextBlock Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
                                 </Grid>
                             </StackPanel>
+                            <!-- A week or a month: a square a day (NetDayCell's template above), its first and last day under it. -->
+                            <StackPanel Visibility="{Binding HasDays, Converter={StaticResource Vis}}" Margin="0,12,0,0">
+                                <ItemsControl ItemsSource="{Binding Days}" Height="22" Focusable="False" AutomationProperties.Name="Days">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <Grid Margin="0,6,0,0">
+                                    <TextBlock Text="{Binding DaysFrom}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{Binding DaysTo}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+                            <!-- A year: a row a month, 31 places wide so the days line up; a month has only its own days. -->
+                            <ItemsControl ItemsSource="{Binding Months}" Margin="0,12,0,0" Focusable="False" AutomationProperties.Name="Months"
+                                          Visibility="{Binding HasMonths, Converter={StaticResource Vis}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NetMonthRow}">
+                                        <Grid Margin="0,1.5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="32" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Month}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                            <ItemsControl Grid.Column="1" ItemsSource="{Binding Days}" Height="10" Focusable="False">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <UniformGrid Rows="1" Columns="31" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                            </ItemsControl>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- A week's or month's drops, each with when and how long; a long list scrolls in its box. -->
+                            <StackPanel Visibility="{Binding HasDropRows, Converter={StaticResource Vis}}" Margin="0,14,0,0">
+                                <TextBlock Text="DROPS" Style="{StaticResource Caption}" />
+                                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="128" Margin="0,4,0,0">
+                                    <ItemsControl ItemsSource="{Binding DropRows}" Focusable="False" AutomationProperties.Name="Drops">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:NetDropRow}">
+                                                <DockPanel Margin="0,4">
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Length}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                    <Ellipse Width="7" Height="7" Fill="{DynamicResource WarmBrush}" VerticalAlignment="Center" Margin="0,1,9,0" />
+                                                    <TextBlock Text="{Binding When}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                            <WrapPanel Margin="0,12,0,0" Visibility="{Binding HasDayLegend, Converter={StaticResource Vis}}">
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                                <TextBlock Text="Up all day" Style="{StaticResource LegendText}" />
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource WarmBrush}" />
+                                <TextBlock Text="Dropped" Style="{StaticResource LegendText}" />
+                                <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource FaintBrush}" Opacity="0.6" />
+                                <TextBlock Text="Not recorded" Style="{StaticResource LegendText}" />
+                            </WrapPanel>
                         </StackPanel>
                     </ctl:SmoothBorder>
                 </UniformGrid>

@@ -437,7 +437,8 @@ public static class ReportBuilder
         foreach (var m in minutes)
         {
             var time = TimeUtil.FromUnix(m.Ts);
-            report.Temps.Add(new TempPoint(time, m.CpuTemp, m.GpuTemp));
+            // With each minute's highest and lowest, for the curve's Average / Highest / Lowest switch.
+            report.Temps.Add(new TempPoint(time, m.CpuTemp, m.GpuTemp, m.CpuTempMax, m.GpuTempMax, m.CpuTempMin, m.GpuTempMin));
 
             bool away = m.IdleSec > m.ActiveSec;
             long? app = m.ActiveSec == 0 && m.IdleSec == 0 ? null : m.FgApp;

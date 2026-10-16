@@ -102,7 +102,7 @@ internal static class CloseUpBuilder
         Strip("Hardest on the GPU", p => Hardest(p, a => a.Gpu), null);
 
         // ── The crash, and how far the close-up reaches ──
-        string word = crash.Kind switch { CrashKind.UnexpectedShutdown => "Shut off", CrashKind.SystemCrash => "Blue screen", CrashKind.GpuDriverReset => "Driver reset", _ => "Crash" };
+        string word = crash.Kind switch { CrashKind.UnexpectedShutdown => "Sudden shut-off", CrashKind.SystemCrash => "Blue screen", CrashKind.GpuDriverReset => "Graphics driver reset", _ => "Crash" };
         var marks = new List<CaseMark> { new(at, word, true) };
         var from = points[0].Time;
         var to = crash.Time.AddSeconds(CloseUp.AfterSec);
@@ -129,7 +129,7 @@ internal static class CloseUpBuilder
     /// <summary>What it was, as the box beside the lanes says it.</summary>
     internal static string WordOf(CrashKind kind) => kind switch
     {
-        CrashKind.UnexpectedShutdown => "shut-off", CrashKind.SystemCrash => "blue screen", CrashKind.GpuDriverReset => "driver reset", _ => "crash",
+        CrashKind.UnexpectedShutdown => "sudden shut-off", CrashKind.SystemCrash => "blue screen", CrashKind.GpuDriverReset => "graphics driver reset", _ => "crash",
     };
 
     /// <summary>What stands out at one reading against half a minute before it: a part warming fast, power jumping.</summary>

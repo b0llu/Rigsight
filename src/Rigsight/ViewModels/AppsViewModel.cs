@@ -4,6 +4,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Apps;
+using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -23,6 +24,15 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 {
     private List<AppStat> _all = [];
     private Report? _report;
+
+    /// <summary>Each app's internet use over the period shown, as the Network page reads it for the same period.</summary>
+    private AppInternet _net = AppInternet.None;
+
+    /// <summary>
+    /// Apps in the list only for their internet use (a command-line tool, a VPN: no window, so no time): listed under
+    /// "Most internet use" alone, so the list holds every app the Network page does.
+    /// </summary>
+    private readonly HashSet<long> _netOnly = [];
     private string? _pendingSelection;
 
     public ObservableCollection<AppListRow> Apps { get; } = [];
@@ -87,7 +97,24 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(EmptyText), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary))]
+    [NotifyPropertyChangedFor(nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground))]
     private AppStat? _selected;
+
+    /// <summary>The selected app's internet use over the period, or null when it moved nothing (or none was recorded).</summary>
+    private NetAppUse? SelectedNet => Selected is { } a ? _net.Use.GetValueOrDefault(a.Id) : null;
+
+    /// <summary>The Internet group's main figure: "3.5 GB" (then "used"), "None", or "Not recorded" when the period has no internet use on record.</summary>
+    public string InternetMain => SelectedNet is { } u ? Core.Units.Data(u.Total) : _net.Recorded ? "None" : "Not recorded";
+
+    /// <summary>The muted word after the main figure: "used" after an amount, nothing after "None".</summary>
+    public string InternetWord => SelectedNet is null ? "" : "used";
+
+    // The rows say nothing rather than a misleading 0 B when there is no amount to split.
+    public string InternetDown => SelectedNet is { } u ? Core.Units.Data(u.Down) : "—";
+    public string InternetUp => SelectedNet is { } u ? Core.Units.Data(u.Up) : "—";
+
+    /// <summary>The share of it moved while another app was in front or nobody was there, worked out as the Network page does.</summary>
+    public string InternetBackground => SelectedNet is { Total: > 0 } u ? $"{Math.Round(100.0 * u.Background / u.Total):0}%" : "—";
 
     [ObservableProperty] private AppListRow? _selectedRow;
 
@@ -138,8 +165,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     public bool ShowEmpty => Ready && !HasSelection;
 
-    /// <summary>What the page says when the period has nothing ("Nothing recorded today yet…").</summary>
-    public string EmptyText => $"Nothing recorded {Controls.PeriodPicker.Words(Unit, Anchor, CustomFrom, CustomTo)} yet. Use your PC for a bit and come back.";
+    /// <summary>What the page says when the period has nothing ("No apps used today yet…").</summary>
+    public string EmptyText => $"No apps used {Controls.PeriodPicker.Words(Unit, Anchor, CustomFrom, CustomTo)} yet. Use your PC for a bit and come back.";
 
     /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
     [ObservableProperty] private List<SessionInfo> _selectedSessions = [];
@@ -285,13 +312,25 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         IsLoading = true;
         var (from, to) = Period;
         var first = await reports.FirstDayAsync();
+        var netTask = reports.QueryAsync((db, s) => AppInternet.Of(db, from, to, db.LoadApps().ToDictionary(a => a.Id), s));
         var report = await reports.BuildRangeAsync(from, to);
+        var net = await netTask ?? AppInternet.None;
         if (id != _loadId) return; // a newer range or day was picked meanwhile
         IsLoading = false;
         FirstDay = first;
         _report = report;
         (_from, _to) = (from, to);
         _all = _report?.Apps.Where(a => a.OpenSec >= 30 || a.MemMax >= 150).ToList() ?? [];
+        _net = net;
+        _netOnly.Clear();
+        var listed = _all.Select(a => a.Id).ToHashSet();
+        var own = _report?.Apps.ToDictionary(a => a.Id) ?? [];
+        foreach (var a in net.Apps.Where(a => !listed.Contains(a.Id)))
+        {
+            // An app with a little time of its own keeps its own entry, so its time and temperatures come with it.
+            _all.Add(own.GetValueOrDefault(a.Id) ?? a);
+            _netOnly.Add(a.Id);
+        }
         var keep = _pendingSelection ?? Selected?.Exe;
         ApplyView();
         if (keep is not null) SelectExe(keep);
@@ -305,6 +344,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
         Ready = true;
         OnPropertyChanged(nameof(Summary));
+        foreach (var name in (string[])[nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground)])
+            OnPropertyChanged(name);
         if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected));
     }
 
@@ -315,6 +356,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         "Memory" => a.MemMax ?? -1,
         "Background" => a.BackgroundSec + a.MinimizedSec,
         "Cpu" => a.CpuAvg ?? -1,
+        // Download plus upload; an app that moved nothing goes last.
+        "Internet" => _net.Use.TryGetValue(a.Id, out var u) ? u.Total : -1,
         _ => a.ActiveSec,
     };
 
@@ -346,6 +389,10 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     /// <summary>Whether the app belongs in the list under the current sort.</summary>
     private bool Listed(AppStat a) => Sort switch
     {
+        // Every app that moved anything, then the ones open a while that moved nothing ("None"), so an app being
+        // looked for is still there.
+        "Internet" => _net.Use.ContainsKey(a.Id) || (a.OpenSec >= 30 && !_netOnly.Contains(a.Id)),
+        _ when _netOnly.Contains(a.Id) => false,
         "GpuTemp" or "CpuTemp" => a.ActiveSec >= 60,
         "Memory" or "Cpu" => true,
         // Time-based sorts: hide background services you never actually had open.
@@ -380,6 +427,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         "Memory" => a.MemMax is double m ? Core.Units.Megabytes(m) : "—",
         "Background" => Core.Units.Duration(a.BackgroundSec + a.MinimizedSec),
         "Cpu" => a.CpuAvg is double c ? $"{c:0.0}%" : "—",
+        "Internet" => _net.Use.TryGetValue(a.Id, out var u) ? Core.Units.Data(u.Total) : _net.Recorded ? "None" : "Not recorded",
         _ => Core.Units.Duration(a.ActiveSec),
     };
 }

@@ -44,10 +44,10 @@ public sealed class CrashFindingTests
         Assert.Equal("The PC had been idle for 34 minutes, it was cool, Windows logged no error, and it recorded no press of the power button. It was back on 6 minutes later.", f.Text);
         // A row's line: what it was doing and when it came back. The rest is in the case.
         Assert.Equal("Idle and cool for 34 minutes. Back on 6 minutes later.", f.Line);
-        Assert.Equal("PC lost power while idle", f.Short);
+        Assert.Equal("The PC shut off suddenly, likely a power cut.", f.Told());
         Assert.Equal("Likely a power cut.", f.Verdict);
         Assert.Contains(f.Points, p => p.Title == "Nobody held the power button");
-        Assert.Contains(f.Points, p => p.Title == "Nobody was using it" && p.Detail == "Idle since 9:47 AM. Processor at 2%, graphics card at 11%.");
+        Assert.Contains(f.Points, p => p.Title == "Nobody was using it" && p.Detail == "Idle since 9:47 AM. CPU at 2%, GPU at 11%.");
         Assert.Contains(f.Points, p => p.Title == "It came back on at 10:27 AM");
         Assert.Contains(f.RuledOut, p => p is { Title: "It wasn't overheating", Detail: "The CPU was at 47° and the GPU at 50°, close to the 49° and 48° this PC sits at when idle." });
         Assert.Contains(f.RuledOut, p => p is { Title: "Memory wasn't full", Detail: "7.6 of 16 GB was in use." });
@@ -62,8 +62,8 @@ public sealed class CrashFindingTests
     {
         // Back that fast, it lost power for a moment or reset itself (an unstable processor setting does that at idle).
         var quick = CrashFindings.Judge(Input(ShutOff(), Idle() with { BackOn = TimeUtil.ToUnix(At.AddMinutes(2)) }));
-        Assert.Equal((Confidence.Possible, "POSSIBLE: A POWER DIP OR A RESET", false), (quick.Confidence, quick.Chip, quick.Outside));
-        Assert.Equal("It went off and was running again 2 minutes later.", quick.Head);
+        Assert.Equal((Confidence.Possible, "POSSIBLY A POWER DIP OR A RESET", false), (quick.Confidence, quick.Chip, quick.Outside));
+        Assert.Equal("It shut off and was running again 2 minutes later.", quick.Head);
         Assert.Contains("Curve Optimizer", quick.Advice);
         // Three minutes, and it is the mains' usual way again.
         Assert.Equal("LIKELY A POWER CUT", CrashFindings.Judge(Input(ShutOff(), Idle() with { BackOn = TimeUtil.ToUnix(At.AddMinutes(3)) })).Chip);
@@ -77,8 +77,8 @@ public sealed class CrashFindingTests
         var e = ShutOff();
         var drive = new CrashSign(e.Ts - 300, SignKind.Drive, "A drive failed to read or write");
         var f = CrashFindings.Judge(Input(e, Idle()) with { Signs = [drive] });
-        Assert.Equal((Confidence.Possible, "POSSIBLE: POWER LOST", false), (f.Confidence, f.Chip, f.Outside));
-        Assert.Contains(f.Points, p => p.Title == "A drive failed to read or write" && p.Detail == "5 minutes before the crash.");
+        Assert.Equal((Confidence.Possible, "POSSIBLY A POWER CUT OR A RESET", false), (f.Confidence, f.Chip, f.Outside));
+        Assert.Contains(f.Points, p => p.Title == "A drive failed to read or write" && p.Detail == "5 minutes before the shut-off.");
         // Memory nearly full, or a driver this began with, do the same.
         Assert.False(CrashFindings.Judge(Input(e, Idle() with { RamUsed = 15.5 })).Outside);
         var driver = new SystemChange(At.AddDays(-1), ChangeKind.Driver, "NVIDIA graphics driver 617.42") { Subject = "nvidia-graphics" };
@@ -94,7 +94,7 @@ public sealed class CrashFindingTests
         var e = ShutOff();
         var corrected = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 17, null)!.Value.Detail);
         var f = CrashFindings.Judge(Input(e, Gaming()) with { Signs = [corrected] });
-        Assert.Equal("POSSIBLE: MAINS OR POWER SUPPLY", f.Chip);
+        Assert.Equal("POSSIBLY MAINS OR POWER SUPPLY", f.Chip);
         Assert.Contains(f.Points, p => p.Title == "The hardware reported an error it corrected");
         var fatal = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 18, null)!.Value.Detail);
         Assert.Equal("LIKELY A HARDWARE FAULT", CrashFindings.Judge(Input(e, Gaming()) with { Signs = [fatal] }).Chip);
@@ -114,12 +114,12 @@ public sealed class CrashFindingTests
     {
         // 7 Oct 2026, 5:21 PM: No Man's Sky, the card at 95% and 292 W.
         var f = CrashFindings.Judge(Input(ShutOff(), Gaming(), front: "No Man's Sky"));
-        Assert.Equal((Confidence.Possible, "POSSIBLE: MAINS OR POWER SUPPLY", false), (f.Confidence, f.Chip, f.Outside));
-        Assert.Equal("In No Man's Sky, graphics card drawing 292 W.", f.Line);
-        Assert.StartsWith("It went off in No Man's Sky with the graphics card drawing 292 W. Windows recorded no press", f.Text);
+        Assert.Equal((Confidence.Possible, "POSSIBLY MAINS OR POWER SUPPLY", false), (f.Confidence, f.Chip, f.Outside));
+        Assert.Equal("In No Man's Sky, GPU drawing 292 W.", f.Line);
+        Assert.StartsWith("It shut off in No Man's Sky with the GPU drawing 292 W. Windows recorded no press", f.Text);
         // Where the card's power isn't read, the sentence still reads as one.
-        Assert.StartsWith("It went off in No Man's Sky. Windows", CrashFindings.Judge(Input(ShutOff(), Gaming() with { GpuPower = null }, front: "No Man's Sky")).Text);
-        Assert.Equal("PC lost power in No Man's Sky", f.Short);
+        Assert.StartsWith("It shut off in No Man's Sky. Windows", CrashFindings.Judge(Input(ShutOff(), Gaming() with { GpuPower = null }, front: "No Man's Sky")).Text);
+        Assert.Equal("The PC shut off suddenly, possibly the mains or the power supply.", f.Told());
         Assert.Contains(f.Points, p => p.Title == "It was working hard");
     }
 
@@ -143,7 +143,7 @@ public sealed class CrashFindingTests
     public void With_nothing_from_windows_and_nothing_recorded_it_says_it_cannot_say()
     {
         var f = CrashFindings.Judge(Input(ShutOff(button: null)));
-        Assert.Equal((Confidence.NotEnough, "NOT ENOUGH TO SAY", "Not enough to say why."), (f.Confidence, f.Chip, f.Verdict));
+        Assert.Equal((Confidence.NotEnough, "NOT ENOUGH TO SAY", "Not enough on record to say why."), (f.Confidence, f.Chip, f.Verdict));
         Assert.False(f.Outside);
         // What wasn't recorded is not "ruled out": it stands in its own list.
         Assert.Contains(f.NotChecked, p => p is { Title: "Temperatures weren't recorded", Detail: "Nothing was being recorded in those minutes." });
@@ -176,14 +176,14 @@ public sealed class CrashFindingTests
     {
         // An older Windows, or a crash stored before the button was read: a freeze switched off by hand can't be told apart.
         var f = CrashFindings.Judge(Input(ShutOff(button: null), Idle()));
-        Assert.Equal((Confidence.Possible, "POSSIBLE: POWER LOST", false), (f.Confidence, f.Chip, f.Outside));
+        Assert.Equal((Confidence.Possible, "POSSIBLY A POWER CUT OR A FREEZE", false), (f.Confidence, f.Chip, f.Outside));
     }
 
     [Fact]
     public void No_readings_but_no_button_held_is_possible_power_lost()
     {
         var f = CrashFindings.Judge(Input(ShutOff(), new CrashContext(null, null, null, null, NoReadings: true)));
-        Assert.Equal((Confidence.Possible, "POSSIBLE: POWER LOST"), (f.Confidence, f.Chip));
+        Assert.Equal((Confidence.Possible, "POSSIBLY A POWER CUT OR A RESET"), (f.Confidence, f.Chip));
         Assert.Contains("Nothing was being recorded", f.Line);
     }
 
@@ -192,10 +192,10 @@ public sealed class CrashFindingTests
     {
         // 84° is over the default 83° limit: possible heat. With the limit at 90° the same reading is ruled out.
         var hot = CrashFindings.Judge(Input(ShutOff(), Gaming(gpu: 84)));
-        Assert.Equal("POSSIBLE: HEAT", hot.Chip);
+        Assert.Equal("POSSIBLY HEAT", hot.Chip);
         Assert.Contains(hot.Points, p => p.Title == "It was running hot" && p.Detail.Contains("above your alert limit of 83°"));
         var relaxed = Input(ShutOff(), Gaming(gpu: 84)) with { Alerts = new AlertSettings { GpuLimit = 90 } };
-        Assert.Equal("POSSIBLE: MAINS OR POWER SUPPLY", CrashFindings.Judge(relaxed).Chip);
+        Assert.Equal("POSSIBLY MAINS OR POWER SUPPLY", CrashFindings.Judge(relaxed).Chip);
         Assert.Contains(CrashFindings.Judge(relaxed).RuledOut, p => p is { Title: "It wasn't overheating", Detail: "The CPU was at 57° and the GPU at 84°, under your alert limits." });
     }
 
@@ -204,8 +204,8 @@ public sealed class CrashFindingTests
     {
         // A standard account reads no CPU temperature.
         var f = CrashFindings.Judge(Input(ShutOff(), Idle() with { CpuBefore = null }));
-        var heat = Assert.Single(f.RuledOut, p => p.Title == "The graphics card wasn't overheating");
-        Assert.Equal("The GPU was at 50°, under your alert limit. The CPU's temperature wasn't recorded, so this only covers the graphics card.", heat.Detail);
+        var heat = Assert.Single(f.RuledOut, p => p.Title == "The GPU wasn't overheating");
+        Assert.Equal("The GPU was at 50°, under your alert limit. The CPU's temperature wasn't recorded, so this only covers the GPU.", heat.Detail);
         Assert.DoesNotContain("cool", f.Text + f.Line);
         Assert.Equal("LIKELY A POWER CUT", f.Chip);
     }
@@ -217,7 +217,7 @@ public sealed class CrashFindingTests
         var e = ShutOff();
         var sign = new CrashSign(e.Facts!.NextStart!.Value + 60, SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering");
         var f = CrashFindings.Judge(Input(e, Idle()) with { Signs = [sign] });
-        Assert.Equal((Confidence.Possible, "POSSIBLE: THE GRAPHICS CARD HUNG", false), (f.Confidence, f.Chip, f.Outside));
+        Assert.Equal((Confidence.Possible, "POSSIBLY THE GPU HUNG", false), (f.Confidence, f.Chip, f.Outside));
         Assert.Contains("the time it was filed, not the time of the hang", f.CantTell);
         // The same report from the day before has nothing to do with it.
         var old = Input(e, Idle()) with { Signs = [sign with { Ts = e.Ts - 86400 }] };
@@ -238,9 +238,9 @@ public sealed class CrashFindingTests
         var e = ShutOff();
         e.Moment = PowerMoment.ShuttingDown;
         var f = CrashFindings.Judge(Input(e));
-        Assert.Equal((Confidence.Named, true, "PC went off while it was shutting down"), (f.Confidence, f.Outside, f.Short));
+        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly: Windows was already shutting down."), (f.Confidence, f.Outside, f.Told()));
         e.Moment = PowerMoment.Asleep;
-        Assert.Equal((Confidence.Named, true, "PC lost power while asleep"), (CrashFindings.Judge(Input(e)).Confidence, CrashFindings.Judge(Input(e)).Outside, CrashFindings.Judge(Input(e)).Short));
+        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly: it was asleep."), (CrashFindings.Judge(Input(e)).Confidence, CrashFindings.Judge(Input(e)).Outside, CrashFindings.Judge(Input(e)).Told()));
     }
 
     // ── A new driver is a lead only when the problem is new ──
@@ -257,7 +257,7 @@ public sealed class CrashFindingTests
         // No record of changes reaching back that far: nothing is said either way.
         var unknown = CrashFindings.Judge(Input(ShutOff(), Idle()));
         Assert.DoesNotContain(unknown.RuledOut.Concat(unknown.Points), p => p.Title.Contains("driver", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(CrashFindings.Judge(Input(ShutOff(), Idle()) with { Changes = [] }).RuledOut, p => p is { Title: "Nothing new was installed", Detail: "No new driver or Windows update in the week before." });
+        Assert.Contains(CrashFindings.Judge(Input(ShutOff(), Idle()) with { Changes = [] }).RuledOut, p => p is { Title: "Nothing new was installed", Detail: "No new driver or Windows update in the 7 days before." });
     }
 
     // ── Windows crashed ──
@@ -291,7 +291,7 @@ public sealed class CrashFindingTests
     {
         var e = new CrashEvent { Kind = CrashKind.SystemCrash, Code = "0x133", Facts = new CrashFacts { Driver = "ntoskrnl.exe" } };
         var f = CrashFindings.Judge(Input(e));
-        Assert.Equal((Confidence.Possible, "POSSIBLE", "Windows crashed (blue screen)"), (f.Confidence, f.Chip, f.Short));
+        Assert.Equal((Confidence.Possible, "POSSIBLY", "Windows crashed with a blue screen."), (f.Confidence, f.Chip, f.Told()));
         Assert.Contains("Windows didn't name one", f.CantTell);
         // A hardware error's own code is likely hardware.
         Assert.Equal("LIKELY A HARDWARE FAULT", CrashFindings.Judge(Input(new CrashEvent { Kind = CrashKind.SystemCrash, Code = "0x124" })).Chip);
@@ -309,7 +309,7 @@ public sealed class CrashFindingTests
         Assert.Contains(f.Points, p => p.Title == "Windows Explorer was waiting on wallpaper64.exe" && p.Detail == "Windows recorded this in its report (wallpaper64.exe version 2.8.0.42).");
         // Without that, nothing is guessed.
         var plain = CrashFindings.Judge(Input(new CrashEvent { Kind = CrashKind.AppHang, AppExe = "game.exe" }, name: "Game"));
-        Assert.Equal((Confidence.NotEnough, "Game stopped responding"), (plain.Confidence, plain.Short));
+        Assert.Equal((Confidence.NotEnough, "Game froze. Not enough on record to say why."), (plain.Confidence, plain.Told()));
     }
 
     [Fact]
@@ -317,7 +317,7 @@ public sealed class CrashFindingTests
     {
         var e = new CrashEvent { Kind = CrashKind.AppHang, AppExe = "game.exe" };
         var f = CrashFindings.Judge(Input(e, new CrashContext(60, 60, null, null) { Minutes = 10, RamUsed = 15.2 }, "Game"));
-        Assert.Equal("POSSIBLE: OUT OF MEMORY", f.Chip);
+        Assert.Equal("POSSIBLY OUT OF MEMORY", f.Chip);
         // A figure above what is installed is a reading not to be trusted: nothing is said of memory.
         var odd = CrashFindings.Judge(Input(e, new CrashContext(60, 60, null, null) { Minutes = 10, RamUsed = 20.8 }, "Game"));
         Assert.DoesNotContain(odd.Points.Concat(odd.RuledOut), p => p.Title.Contains("emory"));
@@ -332,7 +332,7 @@ public sealed class CrashFindingTests
         var e = new CrashEvent { Id = 2, Ts = ts, Kind = CrashKind.AppCrash, AppExe = "RocketLeague.exe", Module = "unknown", Code = "00000000", Facts = new CrashFacts { AppVersion = "0.0.0.0", ReportType = "BEX64", RanSec = 4 } };
         var f = CrashFindings.Judge(Input(e, new CrashContext(47, 44, null, 0) { Minutes = 10, CpuLoad = 10, GpuLoad = 12 }, "Rocket League") with { Earlier = [first] });
         Assert.Equal((Confidence.Likely, "LIKELY AT START-UP"), (f.Confidence, f.Chip));
-        Assert.Equal("Rocket League stopped as it was starting, twice in 9 seconds.", f.Head);
+        Assert.Equal("Rocket League crashed as it was starting, twice in 9 seconds.", f.Head);
         Assert.Contains(f.Points, p => p.Title == "Windows stopped it for touching memory it shouldn't");
         Assert.Contains(f.Points, p => p.Title == "Windows couldn't tell which file it crashed in");
         Assert.Contains(f.Points, p => p.Title == "It crashed 4 seconds after starting");
@@ -385,7 +385,7 @@ public sealed class CrashFindingTests
     {
         var e = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "Tool.exe", Module = "KERNELBASE.dll", Code = "e0434352", Facts = new CrashFacts { Error = "System.IO.FileNotFoundException", ErrorAt = "Tool.Program.Main" } };
         var f = CrashFindings.Judge(Input(e, name: "Tool"));
-        Assert.Equal((Confidence.Named, "Tool stopped on an error it didn't handle: System.IO.FileNotFoundException."), (f.Confidence, f.Head));
+        Assert.Equal((Confidence.Named, "Tool crashed on a .NET error: System.IO.FileNotFoundException."), (f.Confidence, f.Head));
         Assert.Contains("thrown in Tool.Program.Main", f.Text);
     }
 
@@ -394,7 +394,7 @@ public sealed class CrashFindingTests
     {
         var e = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "warp.exe", Module = "dcomp.dll", Code = "e0464645" };
         var f = CrashFindings.Judge(Input(e, new CrashContext(59, 53, null, 600) { Minutes = 10 }, "Cloudflare One Client"));
-        Assert.Equal((Confidence.NotEnough, "Cloudflare One Client crashed"), (f.Confidence, f.Short));
+        Assert.Equal((Confidence.NotEnough, "Cloudflare One Client crashed. Not enough on record to say why."), (f.Confidence, f.Told()));
         Assert.Contains(f.RuledOut, p => p.Title == "It wasn't overheating");
     }
 
@@ -433,7 +433,7 @@ public sealed class CrashFindingTests
         Assert.Contains(f.Points, p => p.Title == "3 things failed from 1:03 to 1:08 PM" && p.Detail == "Settings, Windows Explorer, Crimson Desert.");
 
         var plain = CrashFindings.Together([Hang(0, "a.exe", "A"), Hang(30, "b.exe", "B"), Hang(50, "c.exe", "C")]);
-        Assert.Equal((Confidence.Possible, "POSSIBLE: SEVERAL THINGS AT ONCE", "Possible: several things at once."), (plain.Confidence, plain.Chip, plain.Verdict));
+        Assert.Equal((Confidence.Possible, "POSSIBLY SEVERAL THINGS AT ONCE", "Possibly several things at once."), (plain.Confidence, plain.Chip, plain.Verdict));
     }
 
     [Fact]
@@ -459,7 +459,7 @@ public sealed class CrashFindingTests
         var found = CrashCases.Findings(inputs);
         Assert.Same(found[1], found[2]);
         Assert.Same(found[2], found[3]);
-        Assert.Equal("POSSIBLE: SEVERAL THINGS AT ONCE", found[1].Chip);
+        Assert.Equal("POSSIBLY SEVERAL THINGS AT ONCE", found[1].Chip);
         Assert.Equal(found[1].Chip, CrashCases.Together([.. inputs.Values]).Chip);
         // Alone, each is only its own.
         Assert.Equal("NOT ENOUGH TO SAY", CrashCases.Findings(new() { [1] = inputs[1] })[1].Chip);
@@ -474,7 +474,7 @@ public sealed class CrashFindingTests
             .ToDictionary(x => x.Crash.Id);
         var found = CrashCases.Findings(inputs)[2];
         Assert.Equal((Confidence.Likely, "LIKELY THE DRIVER INSTALL", true), (found.Confidence, found.Chip, found.Outside));
-        Assert.Equal("NVIDIA graphics driver 617.42 was being installed; 3 apps went down with it.", found.Line);
+        Assert.Equal("NVIDIA graphics driver 617.42 was being installed; 3 apps failed with it.", found.Line);
     }
 
     [Fact]
@@ -494,7 +494,7 @@ public sealed class CrashFindingTests
         long ts = TimeUtil.ToUnix(At);
         var first = new CrashEvent { Id = 1, Ts = ts, Kind = CrashKind.AppCrash, AppExe = "g.exe", Module = "x.dll" };
         var e = new CrashEvent { Id = 2, Ts = ts, Kind = CrashKind.AppCrash, AppExe = "g.exe", Module = "x.dll", Facts = new CrashFacts { RanSec = 3 } };
-        Assert.Equal("Game stopped as it was starting, twice in the same second.", CrashFindings.Judge(Input(e, name: "Game") with { Earlier = [first] }).Head);
+        Assert.Equal("Game crashed as it was starting, twice in the same second.", CrashFindings.Judge(Input(e, name: "Game") with { Earlier = [first] }).Head);
     }
 
     [Fact]

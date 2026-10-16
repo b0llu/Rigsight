@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -103,18 +104,43 @@ public partial class SensorsView : UserControl
     {
         if (sender is not Button { DataContext: Models.SensorItem item } button || DataContext is not ViewModels.LiveData live) return;
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
-        menu.Items.Add(new MenuItem { Header = "Show it on", IsEnabled = false });
+
+        // Every item has an icon (each place its page's from the sidebar), so their words line up, as in the Apps and
+        // Processes menus; a place the sensor is on has a tick at its right instead of Windows' tick, which went where
+        // the icon is.
+        static MenuItem Item(object header, string glyph) => new()
+        {
+            Header = header,
+            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 },
+            FocusVisualStyle = null,
+        };
+
+        // The heading too (the eye, as on each row of the list): without one, its words stood left of everything under it.
+        var heading = Item("Show it on", "");
+        heading.IsEnabled = false;
+        menu.Items.Add(heading);
         foreach (var place in live.PlacesFor(item))
         {
-            var entry = new MenuItem { Header = place.CanToggle ? place.Name : place.Name + " (full)", IsCheckable = true, IsChecked = place.IsShown, IsEnabled = place.CanToggle };
+            var header = new DockPanel { LastChildFill = true, MinWidth = 150 };
+            if (place.IsShown)
+            {
+                var tick = new TextBlock { Text = "", Style = (Style)Application.Current.FindResource("Icon"), FontSize = 12, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+                tick.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+                DockPanel.SetDock(tick, Dock.Right);
+                header.Children.Add(tick);
+            }
+            header.Children.Add(new TextBlock { Text = place.CanToggle ? place.Name : place.Name + " (full)" });
+            var entry = Item(header, place.Glyph);
+            entry.IsEnabled = place.CanToggle;
+            AutomationProperties.SetName(entry, place.Name + (place.IsShown ? ", on" : ""));
             entry.Click += (_, _) => place.ToggleCommand.Execute(null);
             menu.Items.Add(entry);
         }
         menu.Items.Add(new Separator());
-        var copy = new MenuItem { Header = "Copy value" };
+        var copy = Item("Copy value", "");
         copy.Click += (_, _) => live.Copy(item);
         menu.Items.Add(copy);
-        var hide = new MenuItem { Header = item.IsHidden ? "Show in the list" : "Hide" };
+        var hide = Item(item.IsHidden ? "Show in the list" : "Hide", item.IsHidden ? "" : "");
         hide.Click += (_, _) => item.ToggleHidden();
         menu.Items.Add(hide);
         menu.IsOpen = true;

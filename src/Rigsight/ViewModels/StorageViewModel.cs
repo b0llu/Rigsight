@@ -105,6 +105,9 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
 
     [ObservableProperty] private string _scanView = "Map";
 
+    /// <summary>"Space you could free" has been worked out at least once; until then its card shows the loader.</summary>
+    [ObservableProperty] private bool _cleanupRead;
+
     public IReadOnlyList<FolderNode> CurrentItems => Current?.Children ?? [];
     public bool CanGoUp => Current?.Parent is not null;
 
@@ -156,16 +159,28 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     private async Task LoadCleanupAsync()
     {
         CleanupLoading = true;
-        if (CleanupDelay > TimeSpan.Zero) await Task.Delay(CleanupDelay);
-        var items = await Task.Factory.StartNew(() =>
+        try
         {
-            var thread = Thread.CurrentThread;
-            thread.Priority = ThreadPriority.BelowNormal;
-            return FindCleanup();
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        Cleanup.Clear();
-        foreach (var i in items) Cleanup.Add(i);
-        CleanupLoading = false;
+            if (CleanupDelay > TimeSpan.Zero) await Task.Delay(CleanupDelay);
+            var items = await Task.Factory.StartNew(() =>
+            {
+                var thread = Thread.CurrentThread;
+                thread.Priority = ThreadPriority.BelowNormal;
+                return FindCleanup();
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            Cleanup.Clear();
+            foreach (var i in items) Cleanup.Add(i);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("storage: Space you could free (expected the list of caches)", ex);
+        }
+        finally
+        {
+            // The loader goes either way: a failed read must not spin for ever.
+            CleanupLoading = false;
+            CleanupRead = true;
+        }
     }
 
     private static List<CleanupItem> FindCleanupItems()

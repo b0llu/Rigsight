@@ -28,7 +28,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Home = new HomeViewModel(Reports, Live);
-        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash };
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, Live = Live };
         Apps = new AppsViewModel(Reports, Settings);
         Crashes = new CrashesViewModel(Reports, Settings);
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>

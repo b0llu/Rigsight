@@ -2,9 +2,8 @@ namespace Rigsight.Core.Stability;
 
 /// <summary>
 /// A crash described in plain language. <see cref="Culprit"/> is the short label the Crashes page shows in its own
-/// column ("NVIDIA driver", "Not responding"); <see cref="Cause"/> is that label only when it adds to the title, for a
-/// sentence like "Game crashed at 3:04 PM: NVIDIA driver" (null where it would only repeat the title: "stopped
-/// responding: not responding").
+/// column ("NVIDIA driver", "Froze"); <see cref="Cause"/> is that label only when it adds to the title, for a
+/// sentence like "Game crashed at 3:04 PM: NVIDIA driver" (null where it would only repeat the title: "froze: froze").
 /// </summary>
 public sealed record CrashExplanation(string Title, string Reason, string Advice, string Culprit, string? Cause = null);
 
@@ -27,10 +26,10 @@ public static class CrashExplainer
         ("atiumd", "AMD driver", "The AMD graphics driver failed while running {app}.", "Update the AMD Adrenalin driver."),
         ("amdxc", "AMD driver", "The AMD graphics driver failed while running {app}.", "Update the AMD Adrenalin driver."),
         ("igd", "Intel graphics driver", "The Intel graphics driver failed while running {app}.", "Update the Intel graphics driver."),
-        ("d3d11", "DirectX", "DirectX 11 failed inside {app} — usually a graphics driver or game problem.", "Update the GPU driver and the game; verify the game files."),
-        ("d3d12", "DirectX", "DirectX 12 failed inside {app} — usually a graphics driver or game problem.", "Update the GPU driver and the game; verify the game files."),
-        ("dxgi", "DirectX", "The DirectX graphics layer failed inside {app}.", "Update the GPU driver; disable overlays if it keeps happening."),
-        ("vulkan-1", "Vulkan", "The Vulkan graphics layer failed inside {app}.", "Update the GPU driver."),
+        ("d3d11", "DirectX", "DirectX 11 failed inside {app} — usually a graphics driver or game problem.", "Update the graphics driver and the game; verify the game files."),
+        ("d3d12", "DirectX", "DirectX 12 failed inside {app} — usually a graphics driver or game problem.", "Update the graphics driver and the game; verify the game files."),
+        ("dxgi", "DirectX", "The DirectX graphics layer failed inside {app}.", "Update the graphics driver; disable overlays if it keeps happening."),
+        ("vulkan-1", "Vulkan", "The Vulkan graphics layer failed inside {app}.", "Update the graphics driver."),
         ("gameoverlayrenderer", "Steam overlay", "The Steam overlay crashed inside {app}.", "Try disabling the Steam overlay for this game."),
         ("discordhook", "Discord overlay", "The Discord overlay crashed inside {app}.", "Try turning off Discord's in-game overlay."),
         ("rtsshooks", "RivaTuner overlay", "The RivaTuner/MSI Afterburner overlay crashed inside {app}.", "Update or disable RivaTuner Statistics Server."),
@@ -59,16 +58,16 @@ public static class CrashExplainer
         [0x124] = ("WHEA_UNCORRECTABLE_ERROR", "The hardware reported an error it couldn't recover from — usually CPU or RAM instability.", "Undo overclocks/undervolts (including Curve Optimizer and XMP/EXPO), update the BIOS, and check temperatures."),
         [0x101] = ("CLOCK_WATCHDOG_TIMEOUT", "A CPU core stopped responding — commonly an unstable CPU overclock or undervolt.", "Reset CPU tuning (Curve Optimizer / PBO) to default and update the BIOS."),
         [0x133] = ("DPC_WATCHDOG_VIOLATION", "A driver took too long to respond — often storage, network or chipset drivers.", "Update chipset, storage (NVMe/SATA) and network drivers, and the SSD firmware."),
-        [0x116] = ("VIDEO_TDR_FAILURE", "The graphics driver stopped responding and couldn't be recovered.", "Update or clean-reinstall the GPU driver; undo GPU overclocks; check GPU temperatures."),
-        [0x119] = ("VIDEO_SCHEDULER_INTERNAL_ERROR", "The graphics scheduler hit an error — usually the GPU driver.", "Update or clean-reinstall the GPU driver."),
+        [0x116] = ("VIDEO_TDR_FAILURE", "The graphics driver stopped responding and couldn't be recovered.", "Update or clean-reinstall the graphics driver; undo GPU overclocks; check GPU temperatures."),
+        [0x119] = ("VIDEO_SCHEDULER_INTERNAL_ERROR", "The graphics scheduler hit an error — usually the graphics driver.", "Update or clean-reinstall the graphics driver."),
         [0x1A] = ("MEMORY_MANAGEMENT", "Windows found a memory management error — often faulty or unstable RAM.", "Disable XMP/EXPO to test, and run Windows Memory Diagnostic or MemTest86."),
         [0x50] = ("PAGE_FAULT_IN_NONPAGED_AREA", "Invalid memory was accessed — bad RAM or a faulty driver.", "Test RAM (disable XMP/EXPO) and update drivers."),
         [0x4E] = ("PFN_LIST_CORRUPT", "Memory bookkeeping got corrupted — often RAM.", "Test your RAM and disable XMP/EXPO to check stability."),
         [0x3B] = ("SYSTEM_SERVICE_EXCEPTION", "A system service or driver crashed.", "Update Windows and your drivers (especially GPU and anti-cheat)."),
         [0x7E] = ("SYSTEM_THREAD_EXCEPTION_NOT_HANDLED", "A driver crashed.", "Update drivers; recently installed software is a common cause."),
-        [0xD1] = ("DRIVER_IRQL_NOT_LESS_OR_EQUAL", "A driver accessed memory incorrectly.", "Update network, audio and GPU drivers."),
+        [0xD1] = ("DRIVER_IRQL_NOT_LESS_OR_EQUAL", "A driver accessed memory incorrectly.", "Update network, audio and graphics drivers."),
         [0xA] = ("IRQL_NOT_LESS_OR_EQUAL", "A driver or hardware accessed memory incorrectly.", "Update drivers; test RAM if it repeats."),
-        [0x9F] = ("DRIVER_POWER_STATE_FAILURE", "A driver failed during sleep or wake.", "Update chipset and GPU drivers; try disabling fast startup."),
+        [0x9F] = ("DRIVER_POWER_STATE_FAILURE", "A driver failed during sleep or wake.", "Update chipset and graphics drivers; try disabling fast startup."),
         [0xEF] = ("CRITICAL_PROCESS_DIED", "A critical Windows process stopped.", "Run 'sfc /scannow' and check the drive's health."),
         [0x7A] = ("KERNEL_DATA_INPAGE_ERROR", "Windows couldn't read data from the drive.", "Check the drive health (Storage page) and cables."),
         [0x154] = ("UNEXPECTED_STORE_EXCEPTION", "The storage system hit an error.", "Check SSD health and update its firmware."),
@@ -94,38 +93,38 @@ public static class CrashExplainer
         switch (e.Kind)
         {
             case CrashKind.AppHang:
-                return new($"{app} stopped responding",
+                return new(Wording.Event(CrashKind.AppHang, app),
                     $"{app} froze and was closed.",
                     "If it keeps happening, update the app and your drivers. Running low on memory or overheating can cause freezes too.",
-                    "Not responding"); // no cause: the title says it all
+                    "Froze"); // no cause: the title says it all
 
             case CrashKind.GpuDriverReset:
-                return new("Graphics driver reset",
+                return new(Wording.Title(CrashKind.GpuDriverReset, ""),
                     "The GPU took too long to respond, so Windows reset the graphics driver. The screen may have gone black for a moment.",
                     "Usually a driver problem, an unstable GPU overclock, or overheating. Update the driver and check GPU temperatures around this time.",
-                    "GPU driver"); // no cause: "graphics driver reset: GPU driver" says nothing new
+                    "Graphics driver"); // no cause: "graphics driver reset: graphics driver" says nothing new
 
             case CrashKind.SystemCrash:
             {
                 uint code = ParseHex(e.Code);
                 if (Bugchecks.TryGetValue(code, out var b))
-                    return new("Windows crashed (blue screen)", $"{b.Reason} ({b.Name}, {e.Code})", b.Advice, b.Name, b.Name);
-                return new("Windows crashed (blue screen)", $"Windows stopped with error {e.Code}.",
+                    return new(Wording.Event(CrashKind.SystemCrash, ""), $"{b.Reason} ({b.Name}, {e.Code})", b.Advice, b.Name, b.Name);
+                return new(Wording.Event(CrashKind.SystemCrash, ""), $"Windows stopped with error {e.Code}.",
                     "Search the code online together with your recently installed drivers or software.", e.Code ?? "Bugcheck", e.Code);
             }
 
             case CrashKind.UnexpectedShutdown:
                 return e.Moment switch
                 {
-                    PowerMoment.Asleep => new("PC lost power while asleep",
-                        "The PC was asleep (or waking up) when it went down, and no crash report was saved.",
+                    PowerMoment.Asleep => new("The PC shut off while asleep",
+                        "The PC was asleep (or waking up) when it shut off, and no crash report was saved.",
                         "Common if power is switched off at the wall while the PC sleeps. Otherwise try updating the BIOS and chipset drivers, or turning off hybrid sleep.",
-                        "Power while asleep"), // no cause: the title says it
-                    PowerMoment.ShuttingDown => new("PC didn't finish shutting down",
-                        "Windows was shutting down or restarting when the PC went off, before it could record a clean finish. No crash report was saved.",
+                        "Asleep"), // no cause: the title says it
+                    PowerMoment.ShuttingDown => new("The PC didn't finish shutting down",
+                        "Windows was shutting down or restarting when the PC shut off, before it could record a clean finish. No crash report was saved.",
                         "Usually harmless. If it keeps happening, try turning off Fast Startup, or update the BIOS and chipset drivers.",
                         "Shutdown"), // no cause: the title says it
-                    _ => new("PC shut off unexpectedly",
+                    _ => new(Wording.Event(CrashKind.UnexpectedShutdown, ""),
                         "The PC turned off without shutting down, and no crash report was saved — a power cut, a held power button, or a hard freeze.",
                         "If it happened while gaming, check the temperatures just before, and consider the power supply.",
                         "Power / hard freeze", "a power cut or a hard freeze"),
@@ -160,6 +159,9 @@ public static class CrashExplainer
             }
         }
     }
+
+    /// <summary>One of Windows' own parts, whose crash is said as what the user saw ("Windows' display crashed").</summary>
+    public static bool IsWindowsPart(string exe) => exe.ToLowerInvariant() is "dwm.exe" or "explorer.exe" or "svchost.exe";
 
     /// <summary>Windows' own parts crashing mean something different from an app crashing: say what the user saw.</summary>
     private static CrashExplanation? WindowsPart(CrashEvent e)

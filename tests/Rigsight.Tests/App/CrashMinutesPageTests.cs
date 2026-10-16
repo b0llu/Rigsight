@@ -195,15 +195,15 @@ public sealed class CrashMinutesPageTests
         var view = Ui.Run(() => CloseUpBuilder.Build(t.Db, Kit.OfflineSettings().Current, new CloseUp(ts, "", CloseUpKind.App, true, points), reset, DateTime.Now))!;
 
         var crashMark = Assert.Single(view.Marks, m => m.IsCrash);
-        Assert.Equal(("Driver reset", at), (crashMark.Label, crashMark.At));
+        Assert.Equal(("Graphics driver reset", at), (crashMark.Label, crashMark.At));
         Assert.Equal(at.AddSeconds(CloseUp.AfterSec), view.ChartTo);
         // The GPU's lines are a break for those seconds, not a drop to zero.
         var gpuLoad = view.Lanes.Single(l => l.Name == "Load").Series.Single(x => x.Label == "GPU").Values;
         Assert.All(Enumerable.Range(151, 3), i => Assert.Null(gpuLoad[i]));
         Assert.NotNull(gpuLoad[155]);
-        Assert.StartsWith("Last reading before the driver reset, ", view.Readout!.Title);
+        Assert.StartsWith("Last reading before the graphics driver reset, ", view.Readout!.Title);
         view.Readout.Show(0);
-        Assert.EndsWith("before the driver reset", view.Readout.When);
+        Assert.EndsWith("before the graphics driver reset", view.Readout.When);
         Assert.Contains(view.StoodOut, x => x.Warn && x.Text.StartsWith("GPU power jumped to about"));
     }
 

@@ -106,7 +106,7 @@ public sealed class InsightScenarioTests : IDisposable
         // From the last day the card's fans turn 30% slower at every temperature, in the same game as every evening.
         string path = Pc("gpu-fan-worn", Healthy with { Seed = 7, GameChance = 1, Game = 0, GpuFanWornFrom = End.AddDays(-1) });
         var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-slower");
-        Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm over the previous 7 days\. "
+        Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm in the 7 days before\. "
             + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", line.Text);
         Assert.Contains(line.Tone, new[] { InsightTone.Warn, InsightTone.Hot });
         Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-stopped");

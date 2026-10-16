@@ -18,7 +18,7 @@ public enum CrashSeverity
 
 /// <summary>
 /// Crashes that belong together: the same app failing the same way (one row instead of 36 identical cards),
-/// or several things failing within minutes of each other (one incident: "your PC froze").
+/// or several things failing within minutes of each other (one incident: "the PC froze").
 /// </summary>
 public sealed partial class CrashGroup : ObservableObject
 {
@@ -118,7 +118,7 @@ public sealed partial class CrashGroup : ObservableObject
     public string DetailsText => ShowDetails ? "Hide details" : "Details";
     partial void OnShowDetailsChanged(bool value) => OnPropertyChanged(nameof(DetailsText));
 
-    /// <summary>What to search the web for.</summary>
+    /// <summary>What to search the web for: in Windows' own words where it has some, as that is what finds the answers.</summary>
     public string SearchQuery
     {
         get
@@ -150,7 +150,7 @@ public sealed partial class CrashGroup : ObservableObject
 
     private List<string> IncidentApps => [.. Rows.OrderBy(r => r.Time).Select(r => r.Event.Kind == CrashKind.GpuDriverReset ? "the graphics driver" : r.AppName ?? r.Event.AppExe).Distinct()];
 
-    private string IncidentTitle => Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "Your PC froze"
+    private string IncidentTitle => Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "The PC froze"
         : Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset) ? "The graphics driver reset and apps failed with it"
         : "Several things failed at once";
 
@@ -167,8 +167,8 @@ public sealed partial class CrashGroup : ObservableObject
                 return $"The graphics driver reset, and {JoinAnd(others)} {(others.Count == 1 ? "was" : "were")} affected {within}.";
             }
             string list = apps.Count <= 3 ? JoinAnd(apps) : $"{string.Join(", ", apps.Take(3))} and {apps.Count - 3} more";
-            string what = Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "stopped responding" : "crashed or froze";
-            return $"{Count} problems within {minutes} minute{(minutes == 1 ? "" : "s")}: {list} {what}, starting at {First.Time:h:mm tt}.";
+            string what = Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "froze" : "crashed or froze";
+            return $"{Count} {Core.Wording.Problems} within {minutes} minute{(minutes == 1 ? "" : "s")}: {list} {what}, starting at {First.Time:h:mm tt}.";
         }
     }
 

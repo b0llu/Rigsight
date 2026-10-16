@@ -40,21 +40,16 @@ internal sealed class CrashNoticeGate
     }
 }
 
-/// <summary>What the notification for an app that closed unexpectedly says.</summary>
+/// <summary>What the notification for an app that crashed or froze says.</summary>
 internal static class CrashNotices
 {
     /// <summary>How long after the first look the crash is looked at again, when the first found too little to say.</summary>
     public static readonly TimeSpan SecondLook = TimeSpan.FromSeconds(20);
 
     /// <summary>
-    /// The finding as its own case says it, with how sure that is ("Rocket League stopped as it was starting. Likely
-    /// at start-up."), then how long it had been in use. Without a finding (the crash couldn't be stored), only that
-    /// it happened: a notification never states a cause nothing was read for.
-    /// </summary>
-    /// <summary>
     /// The example Settings shows: a made-up crash put through the real rules and the real wording, so the preview is
-    /// always what a notification of that crash would say ("Dota 2 crashed inside the NVIDIA driver. Confirmed by Windows.
-    /// You played for 48m. Click for the full picture.").
+    /// always what a notification of that crash would say ("Inside the NVIDIA driver, after 48m of play. Click for the
+    /// full picture.", under the title "Dota 2 crashed").
     /// </summary>
     public static string Sample
     {
@@ -66,10 +61,18 @@ internal static class CrashNotices
         }
     }
 
+    /// <summary>
+    /// Under the title, which says what happened ("Dota 2 crashed"): its cause as its own case says it, with how sure
+    /// that is ("Likely as it was starting"), then how long it had been in use. Without a finding (the crash couldn't
+    /// be stored), or with nothing on record to say why, no cause: a notification never states one nothing was read for.
+    /// </summary>
     public static string Body(Rigsight.Core.Stability.CrashFinding? finding, bool game, double activeSec)
     {
-        string used = $"You {(game ? "played" : "used it")} for {Rigsight.Core.Units.Duration(activeSec)}.";
-        return finding is null ? $"{used} Click to see what most likely happened." : $"{finding.Said} {used} Click for the full picture.";
+        string used = $"after {Rigsight.Core.Units.Duration(activeSec)} of {(game ? "play" : "use")}";
+        string cause = finding?.Verdict ?? "";
+        if (finding is null or { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } || cause.Length == 0)
+            return $"{char.ToUpperInvariant(used[0])}{used[1..]}.{(finding is { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } ? " " + Rigsight.Core.Wording.NotEnoughWhy : "")} {Rigsight.Core.Wording.FullPicture}";
+        return $"{cause.TrimEnd('.')}, {used}. {Rigsight.Core.Wording.FullPicture}";
     }
 }
 

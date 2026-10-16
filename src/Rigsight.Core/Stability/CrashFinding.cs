@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 
@@ -25,13 +25,20 @@ public sealed record CrashFinding(Confidence Confidence, string Head, string Tex
     /// <summary>After the confidence word on the chip, where a few words say the cause ("A POWER CUT").</summary>
     public string? Cause { get; init; }
 
-    private readonly string? _short;
+    /// <summary>
+    /// What happened, as a fact with no time and no full stop ("Dota 2 crashed", "The PC shut off suddenly"): an event
+    /// Windows recorded is never in doubt, only its cause is (see <see cref="Wording"/>).
+    /// </summary>
+    public string Event { get; init; } = "";
+
+    private readonly string? _why;
 
     /// <summary>
-    /// What happened in a few words with no full stop, to carry a time after it ("PC lost power while idle"):
-    /// <see cref="Line"/> where that is already one short sentence.
+    /// The cause in running words, to read after the event with no confidence word ("a power cut", "as it was
+    /// starting", "inside the NVIDIA driver"): the chip's cause where that already reads so; null where there is none.
     /// </summary>
-    public string Short { get => _short ?? Line.TrimEnd('.'); init => _short = value; }
+    public string? Why { get => _why ?? (Cause is null ? null : Wording.Running(Cause)); init => _why = value; }
+
     public List<Evidence> Points { get; init; } = [];
     /// <summary>What was looked at and found not to be the cause (each with the reading that says so).</summary>
     public List<Evidence> RuledOut { get; init; } = [];
@@ -45,29 +52,25 @@ public sealed record CrashFinding(Confidence Confidence, string Head, string Tex
     /// </summary>
     public bool Outside { get; init; }
 
-    /// <summary>"LIKELY A POWER CUT", "POSSIBLE: MAINS OR POWER SUPPLY", "CONFIRMED", "NOT ENOUGH TO SAY".</summary>
-    public string Chip => Confidence switch
-    {
-        Confidence.Named => "CONFIRMED",
-        Confidence.Likely => Cause is null ? "LIKELY" : $"LIKELY {Cause}",
-        Confidence.Possible => Cause is null ? "POSSIBLE" : $"POSSIBLE: {Cause}",
-        _ => "NOT ENOUGH TO SAY",
-    };
+    /// <summary>"LIKELY A POWER CUT", "POSSIBLY MAINS OR POWER SUPPLY", "CONFIRMED", "NOT ENOUGH TO SAY": the same in a list and opened.</summary>
+    public string Chip => Wording.Chip(Confidence, Cause);
 
-    /// <summary>The confidence as a sentence, for a line of text with no chip: "Likely a power cut.", "Confirmed by Windows.", "Not enough to say why."</summary>
-    public string Verdict => Confidence switch
-    {
-        Confidence.Named => "Confirmed by Windows.",
-        Confidence.Likely => Cause is null ? "Likely." : $"Likely {Lowered(Cause)}.",
-        Confidence.Possible => Cause is null ? "Possible, not certain." : $"Possible: {Lowered(Cause)}.",
-        _ => "Not enough to say why.",
-    };
+    /// <summary>The cause with how sure it is, as a sentence of its own: "Likely a power cut.", "Inside the NVIDIA driver.", "Not enough on record to say why."</summary>
+    public string Verdict => Wording.CauseSentence(Confidence, Why);
 
-    /// <summary>A chip's capitals as running text; "PC" stays "PC".</summary>
-    private static string Lowered(string cause) => cause.ToLowerInvariant().Replace(" pc", " PC");
+    /// <summary>How sure, for a cell: "Confirmed", "Likely a power cut", "Not enough to say".</summary>
+    public string HowSure => Wording.HowSure(Confidence, Cause);
 
-    /// <summary>What happened and how sure that is, in one line: for a recap, a notification, a row.</summary>
-    public string Said => $"{Line} {Verdict}";
+    /// <summary>
+    /// The event and its cause in one sentence, with the time where one is given: "Rocket League crashed at 11:07 PM,
+    /// likely as it was starting.", "Dota 2 crashed at 9:14 PM: a .NET error (NullReferenceException).", "The PC shut
+    /// off suddenly at 3:12 AM. Not enough on record to say why."
+    /// </summary>
+    public string Told(string? when = null) =>
+        $"{Event}{(when is null ? "" : $" at {when}")}{Wording.CauseAfter(Confidence, Why)}.{(Confidence == Confidence.NotEnough ? " " + Wording.NotEnoughWhy : "")}";
+
+    /// <summary>The event and its cause with no time: for a recap, a row.</summary>
+    public string Said => Told();
 }
 
 /// <summary>Everything a finding is worked out from. Only the crash itself is always there.</summary>
@@ -115,7 +118,7 @@ public static class CrashFindings
         return t.Minutes == 0 ? Of((int)t.TotalHours, "hour") : $"{Of((int)t.TotalHours, "hour")} and {Of(t.Minutes, "minute")}";
     }
 
-    /// <summary>"CPU 59°, GPU 65°" as the start of a sentence: "The CPU was at 59° and the GPU at 65°".</summary>
+    /// <summary>"CPU 59Â°, GPU 65Â°" as the start of a sentence: "The CPU was at 59Â° and the GPU at 65Â°".</summary>
     private static string Sentence(string readings)
     {
         var parts = readings.Split(", ").Select(p => p.Split(' ', 2)).ToList();
@@ -139,14 +142,24 @@ public static class CrashFindings
         _ => $"{e.Kind}|{e.AppExe.ToLowerInvariant()}|{e.Module?.ToLowerInvariant()}",
     };
 
-    public static CrashFinding Judge(CrashInput x) => Tidy(UpClose(x, x.Crash.Kind switch
+    public static CrashFinding Judge(CrashInput x) => Tidy(UpClose(x, Told(x, x.Crash.Kind switch
     {
         CrashKind.UnexpectedShutdown => ShutOff(x),
         CrashKind.SystemCrash => BlueScreen(x),
         CrashKind.GpuDriverReset => DriverReset(x),
         CrashKind.AppHang => Hang(x),
         _ => AppCrash(x),
-    }));
+    })));
+
+    /// <summary>
+    /// The event as a fact, where the rule didn't word it itself: an app's by its explanation's title (Windows' own
+    /// parts read as what the user saw: "Windows' display crashed"), the rest by its kind.
+    /// </summary>
+    private static CrashFinding Told(CrashInput x, CrashFinding f) => f.Event.Length > 0 ? f : f with
+    {
+        Event = x.Crash.Kind == CrashKind.AppCrash && CrashExplainer.IsWindowsPart(x.Crash.AppExe) ? x.Explanation.Title
+            : Wording.Event(x.Crash.Kind, x.AppName ?? x.NameOf(x.Crash.AppExe)),
+    };
 
     /// <summary>
     /// What only an opened crash looks at adds to what the finding rests on, never to what it says: the graphics card's
@@ -172,17 +185,17 @@ public static class CrashFindings
         NotChecked = [.. f.NotChecked, .. f.RuledOut.Where(e => e.Kind == "unknown")],
     };
 
-    // ── The PC went off ─────────────────────────────────────────────────
+    // â”€â”€ The PC went off â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static CrashFinding ShutOff(CrashInput x)
     {
         var (e, f, c, ex) = (x.Crash, x.Crash.Facts, x.Context, x.Explanation);
         if (e.Moment == PowerMoment.ShuttingDown)
-            return new(Confidence.Named, "Windows was already shutting down when the PC went off.", "It went off before Windows could record a clean finish. No crash report was saved.", ex.Advice,
-                "Windows was already shutting down. Usually harmless.") { Short = "PC went off while it was shutting down", Outside = true, Points = [new("info", "Windows was already shutting down", "Its record from the next start says it was shutting down, restarting or hibernate was under way.")] };
+            return new(Confidence.Named, "Windows was already shutting down when the PC shut off.", "It shut off before Windows could record a clean finish. No crash report was saved.", ex.Advice,
+                "Windows was already shutting down. Usually harmless.") { Why = "Windows was already shutting down", Outside = true, Points = [new("info", "Windows was already shutting down", "Its record from the next start says it was shutting down, restarting or hibernate was under way.")] };
         if (e.Moment == PowerMoment.Asleep)
-            return new(Confidence.Named, "The PC lost power while it was asleep.", "It was asleep or waking up when it went down, and no crash report was saved.", ex.Advice,
-                "The PC was asleep when the power went.") { Short = "PC lost power while asleep", Outside = true, Points = [new("info", "The PC was asleep", "Windows' record from the next start says so.")] };
+            return new(Confidence.Named, "The PC shut off while it was asleep.", "It was asleep or waking up when it shut off, and no crash report was saved.", ex.Advice,
+                "The PC was asleep when it shut off.") { Why = "it was asleep", Outside = true, Points = [new("info", "The PC was asleep", "Windows' record from the next start says so.")] };
 
         bool has = c is { Minutes: > 0 };
         var heat = Heat(x);
@@ -224,7 +237,7 @@ public static class CrashFindings
             string loads = Loads(c!);
             if (light && idle >= 5) points.Add(new("pc", "Nobody was using it", $"{(idle == int.MaxValue ? "No use on record in the hours before." : $"Idle since {TimeUtil.FromUnix(e.Ts - idle.Value * 60L):h:mm tt}.")}{loads}"));
             else if (light) points.Add(new("pc", "It wasn't doing much", $"{(x.FrontApp is null ? "" : x.FrontApp + " was in front.")}{loads}".Trim()));
-            else if (loads.Length > 0) points.Add(new("pc", "It was working hard", $"{(x.FrontApp is null ? "" : x.FrontApp + " was in front.")}{loads}{(c!.GpuPower is double w ? $" The graphics card was drawing {w:0} W." : "")}".Trim()));
+            else if (loads.Length > 0) points.Add(new("pc", "It was working hard", $"{(x.FrontApp is null ? "" : x.FrontApp + " was in front.")}{loads}{(c!.GpuPower is double w ? $" The GPU was drawing {w:0} W." : "")}".Trim()));
         }
         if (backOn is int n) points.Add(new("clock", $"It came back on at {TimeUtil.FromUnix(c!.BackOn!.Value):h:mm tt}", $"{Capital(Minutes(n))} later."));
         if (Before(x) is { } before) points.Add(before);
@@ -238,50 +251,50 @@ public static class CrashFindings
             return new(Confidence.Named, "It was switched off by holding the power button.", "Windows recorded a long press of the power button at the start after. That is usually done when the PC has frozen.",
                 "If it had frozen, look at what was running just before, below. One freeze is not a pattern; several with the same app in front are.",
                 $"Switched off by holding the power button{(x.FrontApp is null ? "" : $", with {x.FrontApp} in front")}.")
-            { Short = "PC was switched off by its power button", Points = points, RuledOut = ruled, CantTell = "Why it had frozen, if it had." };
+            { Why = "someone held the power button", Points = points, RuledOut = ruled, CantTell = "Why it had frozen, if it had." };
         if (hardware)
-            return new(Confidence.Likely, "The hardware reported an error.", "Windows logged a hardware error it couldn't correct around the time the PC went down. That points at the processor, the memory or the motherboard, or at tuning that is too tight for them.",
+            return new(Confidence.Likely, "The hardware reported an error.", "Windows logged a hardware error it couldn't correct around the time the PC shut off. That points at the processor, the memory or the motherboard, or at tuning that is too tight for them.",
                 "Undo any overclock or undervolt (Curve Optimizer, XMP or EXPO included), update the BIOS, and check the temperatures.",
                 "Windows logged a hardware error around it.")
-            { Short = "PC went down with a hardware error", Cause = "A HARDWARE FAULT", Points = [new("warn", "Windows logged a hardware error", f?.HardwareErrors > 0 ? $"{f.HardwareErrors} handed over by the firmware at the next start." : "In the minutes around it."), .. points], RuledOut = ruled, CantTell = "Which part reported it." };
+            { Cause = "A HARDWARE FAULT", Points = [new("warn", "Windows logged a hardware error", f?.HardwareErrors > 0 ? $"{f.HardwareErrors} handed over by the firmware at the next start." : "In the minutes around it."), .. points], RuledOut = ruled, CantTell = "Which part reported it." };
         if (hungAt is not null)
         {
             var at = TimeUtil.FromUnix(hungAt.Ts);
             string starting = f?.NextStart is long next && next > hungAt.Ts ? $" The PC was starting again at {TimeUtil.FromUnix(next):h:mm:ss tt}." : "";
-            return new(Confidence.Likely, "The graphics card hung, and the PC went down with it.", $"Windows recorded the graphics card hanging at {at:h:mm:ss tt}, while the PC was still running.{starting} A card that stops answering can take the whole PC down.",
-                "Update or clean-reinstall the graphics driver and undo any overclock of the card. If it happens again, check the card's power cables.",
-                $"The graphics card hung at {at:h:mm:ss tt}{where}, then the PC went down.{(backOn is int b2 ? $" Back on {Minutes(b2)} later." : "")}")
+            return new(Confidence.Likely, "The GPU hung, and the PC shut off with it.", $"Windows recorded the GPU hanging at {at:h:mm:ss tt}, while the PC was still running.{starting} A GPU that stops answering can take the whole PC with it.",
+                "Update or clean-reinstall the graphics driver and undo any overclock of the GPU. If it happens again, check the GPU's power cables.",
+                $"The GPU hung at {at:h:mm:ss tt}{where}, then the PC shut off.{(backOn is int b2 ? $" Back on {Minutes(b2)} later." : "")}")
             {
-                Short = "PC went down after the graphics card hung", Cause = "THE GRAPHICS CARD HUNG",
-                Points = [new("warn", $"Windows recorded the graphics card hanging at {at:h:mm:ss tt}", "Its report gives the moment of the hang, before the PC went down."), .. points],
-                RuledOut = ruled, CantTell = "Why the card hung: its driver, heat, power, or the card itself.",
+                Cause = "THE GPU HUNG", Why = "after the GPU hung",
+                Points = [new("warn", $"Windows recorded the GPU hanging at {at:h:mm:ss tt}", "Its report gives the moment of the hang, before the PC shut off."), .. points],
+                RuledOut = ruled, CantTell = "Why the GPU hung: its driver, heat, power, or the GPU itself.",
             };
         }
         if (hang is not null)
-            return new(Confidence.Possible, "The graphics card may have stopped answering.", $"Windows filed a graphics-hang report at the start after, {hang.Time:h:mm tt}. A screen that freezes or goes black, and a PC that then has to be switched off, fit that.",
-                "Update or clean-reinstall the graphics driver and undo any overclock of the card.", "Windows filed a graphics-hang report at the next start.")
-            { Short = "PC went down, and Windows filed a graphics-hang report", Cause = "THE GRAPHICS CARD HUNG", Points = [new("warn", "Windows reported that the graphics card hung", $"It filed the report at {hang.Time:h:mm tt}, when the PC started again."), .. points], RuledOut = ruled, CantTell = "When the card hung: the report carries the time it was filed, not the time of the hang." };
+            return new(Confidence.Possible, "The GPU may have stopped answering.", $"Windows filed a graphics-hang report at the start after, {hang.Time:h:mm tt}. A screen that freezes or goes black, and a PC that then has to be switched off, fit that.",
+                "Update or clean-reinstall the graphics driver and undo any overclock of the GPU.", "Windows filed a graphics-hang report at the next start.")
+            { Cause = "THE GPU HUNG", Why = "after the GPU hung", Points = [new("warn", "Windows reported that the GPU hung", $"It filed the report at {hang.Time:h:mm tt}, when the PC started again."), .. points], RuledOut = ruled, CantTell = "When the GPU hung: the report carries the time it was filed, not the time of the hang." };
         if (f is null && !has)
-            return new(Confidence.NotEnough, "Not enough on record to say why.", ex.Reason, ex.Advice, "No crash report was saved, and nothing was being recorded.") { Short = "PC shut off unexpectedly", Points = points, RuledOut = ruled, CantTell = cant };
+            return new(Confidence.NotEnough, "Not enough on record to say why.", ex.Reason, ex.Advice, "No crash report was saved, and nothing was being recorded.") { Points = points, RuledOut = ruled, CantTell = cant };
         if (heat.Hot)
-            return new(Confidence.Possible, "It was running hot when it went off.", $"{heat.Evidence.Detail} A PC that overheats switches itself off to protect its parts; a power cut at the same moment would look the same.",
-                "Check the fans and airflow, and the temperatures on the Temperatures page for the minutes before.", $"Running hot{where} when it went off: {heat.Short}.{back}")
-            { Short = "PC went off while running hot", Cause = "HEAT", Points = points, RuledOut = ruled, CantTell = cant };
+            return new(Confidence.Possible, "It was running hot when it shut off.", $"{heat.Evidence.Detail} A PC that overheats switches itself off to protect its parts; a power cut at the same moment would look the same.",
+                "Check the fans and airflow, and the temperatures on the Temperatures page for the minutes before.", $"Running hot{where} when it shut off: {heat.Short}.{back}")
+            { Cause = "HEAT", Points = points, RuledOut = ruled, CantTell = cant };
         if (!has)
-            return new(Confidence.Possible, "The power went, and nothing was being recorded.", $"{(noPress ? "Windows recorded no press of the power button and saved no crash" : "Windows saved no crash")}, so the PC lost power or was reset. What it was doing isn't on record.",
+            return new(Confidence.Possible, "The PC shut off, and nothing was being recorded.", $"{(noPress ? "Windows recorded no press of the power button and saved no crash" : "Windows saved no crash")}, so the PC lost power or was reset. What it was doing isn't on record.",
                 ex.Advice, $"No crash saved. Nothing was being recorded.{back}")
-            { Short = "PC lost power", Cause = "POWER LOST", Points = points, RuledOut = ruled, CantTell = cant };
+            { Cause = "A POWER CUT OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
         if (light && noPress && backOn is <= QuickBack)
             // Running again within a minute or two: the power dipped for a moment, or the PC reset itself.
-            return new(Confidence.Possible, $"It went off and was running again {Minutes(backOn.Value)} later.",
+            return new(Confidence.Possible, $"It shut off and was running again {Minutes(backOn.Value)} later.",
                 "Windows saved no crash and recorded no press of the power button. A PC that is back that fast either lost power for a moment, or reset itself, which a processor or memory setting that is unstable at idle can do.",
                 "If the lights or other devices flickered too, it was the mains. If it repeats with nothing else affected, undo any undervolt or memory tuning (Curve Optimizer, XMP or EXPO) and see whether it stops.",
                 $"{(idle >= 5 ? $"Idle for {idleFor}" : x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}. Running again {Minutes(backOn.Value)} later.")
-            { Short = "PC went off and came straight back", Cause = "A POWER DIP OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
+            { Cause = "A POWER DIP OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
         if (light && noPress && trouble)
-            return new(Confidence.Possible, "The power went while the PC was doing little.", "Windows saved no crash and recorded no press of the power button, but there was trouble on record just before it (above), so this one isn't put down to the mains.",
+            return new(Confidence.Possible, "The PC shut off while it was doing little.", "Windows saved no crash and recorded no press of the power button, but there was trouble on record just before it (above), so this one isn't put down to the mains.",
                 ex.Advice, $"{(idle >= 5 ? $"Idle for {idleFor}" : x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}, with trouble logged just before.{back}")
-            { Short = "PC lost power while doing little", Cause = "POWER LOST", Points = points, RuledOut = ruled, CantTell = cant };
+            { Cause = "A POWER CUT OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
         if (light && noPress)
         {
             string doing = idle >= 5 ? $"had been idle for {idleFor}" : $"was doing little{where}";
@@ -289,21 +302,21 @@ public static class CrashFindings
             string cool = heat.Full ? " it was cool," : "";
             return new(Confidence.Likely, "Most likely a power cut.", $"The PC {doing},{cool} Windows logged no error, and it recorded no press of the power button.{(backOn is int m ? $" It was back on {Minutes(m)} later." : "")}",
                 "If other things in the room lost power too, it was the mains, and a battery backup (UPS) stops these. If nothing else did, look at the PC's power cable and power supply.",
-                $"{(idle >= 5 ? $"Idle{(heat.Full ? " and cool" : "")} for {idleFor}" : $"{(x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}{(c!.GpuLoad is double g ? $", graphics card at {g:0}%" : "")}")}.{back}")
-            { Short = idle >= 5 ? "PC lost power while idle" : "PC lost power while doing little", Cause = "A POWER CUT", Outside = true, Points = points, RuledOut = ruled, CantTell = cant };
+                $"{(idle >= 5 ? $"Idle{(heat.Full ? " and cool" : "")} for {idleFor}" : $"{(x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}{(c!.GpuLoad is double g ? $", GPU at {g:0}%" : "")}")}.{back}")
+            { Cause = "A POWER CUT", Outside = true, Points = points, RuledOut = ruled, CantTell = cant };
         }
         if (light)
-            return new(Confidence.Possible, "The power went while the PC was doing little.", "No crash report was saved. Whether the power button was held isn't on record for this one, so a freeze that was switched off by hand can't be told from a power cut.",
+            return new(Confidence.Possible, "The PC shut off while it was doing little.", "No crash report was saved. Whether the power button was held isn't on record for this one, so a freeze that was switched off by hand can't be told from a power cut.",
                 ex.Advice, $"{(x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}, no crash saved.{back}")
-            { Short = "PC lost power while doing little", Cause = "POWER LOST", Points = points, RuledOut = ruled, CantTell = cant };
-        string watts = c!.GpuPower is double p ? $" with the graphics card drawing {p:0} W" : "";
-        return new(Confidence.Possible, "The power went while the PC was working hard.", $"It went off{where}{watts}. {(noPress ? "Windows recorded no press of the power button and saved no crash" : "Windows saved no crash")}, which fits a power cut, and also a power supply that can't keep up.",
+            { Cause = "A POWER CUT OR A FREEZE", Points = points, RuledOut = ruled, CantTell = cant };
+        string watts = c!.GpuPower is double p ? $" with the GPU drawing {p:0} W" : "";
+        return new(Confidence.Possible, "The PC shut off while it was working hard.", $"It shut off{where}{watts}. {(noPress ? "Windows recorded no press of the power button and saved no crash" : "Windows saved no crash")}, which fits a power cut, and also a power supply that can't keep up.",
             "If it only ever happens under load, suspect the power supply. If it happens at idle too, suspect the mains.",
-            $"{(x.FrontApp is null ? "Working hard" : $"In {x.FrontApp}")}{(c.GpuPower is double drawn ? $", graphics card drawing {drawn:0} W" : "")}.{back}")
-        { Short = x.FrontApp is null ? "PC lost power while working hard" : $"PC lost power in {x.FrontApp}", Cause = "MAINS OR POWER SUPPLY", Points = points, RuledOut = ruled, CantTell = cant };
+            $"{(x.FrontApp is null ? "Working hard" : $"In {x.FrontApp}")}{(c.GpuPower is double drawn ? $", GPU drawing {drawn:0} W" : "")}.{back}")
+        { Cause = "MAINS OR POWER SUPPLY", Why = "the mains or the power supply", Points = points, RuledOut = ruled, CantTell = cant };
     }
 
-    // ── Windows crashed ─────────────────────────────────────────────────
+    // â”€â”€ Windows crashed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static CrashFinding BlueScreen(CrashInput x)
     {
@@ -331,7 +344,7 @@ public static class CrashFindings
                 known?.Advice ?? $"Update or reinstall {(what == file ? "the driver that file belongs to" : $"the {Plain(what)}")}. If the crashes began after new hardware or a new driver, that is the first thing to undo.",
                 what == file ? $"Windows crashed inside {file}." : $"Windows crashed inside the {Plain(what)} ({file}).")
             {
-                Short = what == file ? $"Windows crashed inside {file}" : $"Windows crashed inside the {Plain(what)}",
+                Why = what == file ? $"inside {file}" : $"inside the {Plain(what)}",
                 Points = [new("info", $"Windows blames {file}", "It wrote this beside the crash when the PC next started."), new("info", "The blue screen's code", code), .. points],
                 RuledOut = ruled,
                 CantTell = x.Context is { Minutes: > 0 } ? "Whether the driver itself failed, or the hardware under it." : "What was running at the time: nothing was being recorded.",
@@ -341,7 +354,7 @@ public static class CrashFindings
         bool hardware = e.Code is "0x124" or "0x101";
         return new(hardware ? Confidence.Likely : Confidence.Possible, ex.Reason, "Windows recorded the kind of crash but named no driver for it.", ex.Advice, ex.Reason)
         {
-            Short = "Windows crashed (blue screen)", Cause = hardware ? "A HARDWARE FAULT" : null,
+            Cause = hardware ? "A HARDWARE FAULT" : null,
             Points = [new("info", "The blue screen's code", code), .. points], RuledOut = ruled,
             CantTell = "Which driver or part was at fault: Windows didn't name one.",
         };
@@ -360,18 +373,18 @@ public static class CrashFindings
         var f = x.Crash.Facts;
         // Read from Windows' hang report (most PCs), or from its older display entry (event 4101).
         var said = f?.HangKey is not null
-            ? new Evidence("info", "Windows reported that the graphics card stopped answering", f.Driver is { } driver
+            ? new Evidence("info", "Windows reported that the GPU stopped answering", f.Driver is { } driver
                 ? $"Its report names {driver}{(CrashExplainer.Module(driver)?.Culprit is { } known ? $", {Lower(known)}" : "")}, and Windows restarted it." : "Windows restarted the graphics driver and filed a report.")
             : new Evidence("info", "Windows restarted the graphics driver", "It recorded this at that moment.");
         string advice = x.FrontApp is null
-            ? "Update or clean-reinstall the graphics driver and undo any overclock of the card. If it keeps happening, check the card's temperatures around these times."
-            : $"If it keeps happening in {x.FrontApp}, lower its graphics settings or cap its frame rate first. If it happens in other games too, update or clean-reinstall the graphics driver and undo any overclock of the card.";
-        return new(Confidence.Named, "The graphics card stopped answering and Windows reset its driver.", "The screen may have gone black for a moment. Windows records the reset, not why the card stopped.",
+            ? "Update or clean-reinstall the graphics driver and undo any overclock of the GPU. If it keeps happening, check the GPU's temperatures around these times."
+            : $"If it keeps happening in {x.FrontApp}, lower its graphics settings or cap its frame rate first. If it happens in other games too, update or clean-reinstall the graphics driver and undo any overclock of the GPU.";
+        return new(Confidence.Named, "The GPU stopped answering and Windows reset its driver.", "The screen may have gone black for a moment. Windows records the reset, not why the GPU stopped.",
             advice, $"Windows reset the graphics driver{(x.FrontApp is null ? "" : $" while {x.FrontApp} was in front")}.")
-        { Short = x.FrontApp is null ? "The graphics driver was reset" : $"The graphics driver was reset in {x.FrontApp}", Points = [said, .. points], RuledOut = ruled, CantTell = "Why the card stopped answering: its driver, heat, power, or the card itself." };
+        { Event = x.FrontApp is null ? Wording.Event(CrashKind.GpuDriverReset, "") : $"{Wording.Event(CrashKind.GpuDriverReset, "")} in {x.FrontApp}", Points = [said, .. points], RuledOut = ruled, CantTell = "Why the GPU stopped answering: its driver, heat, power, or the GPU itself." };
     }
 
-    // ── One app ─────────────────────────────────────────────────────────
+    // â”€â”€ One app â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static CrashFinding Hang(CrashInput x)
     {
@@ -387,6 +400,7 @@ public static class CrashFindings
             return new(Confidence.Likely, $"{app} was stuck waiting on {name}.", "Windows' report of the freeze names the program it was waiting for.",
                 $"Update {name}, or close it and see whether {app} still freezes.", $"{app} was stuck waiting on {name}.")
             {
+                Why = $"stuck waiting on {name}",
                 Points = [new("info", $"{app} was waiting on {other}", $"Windows recorded this in its report{(f.WaitedOnVersion is null ? "" : $" ({other} version {f.WaitedOnVersion})")}."), .. points],
                 RuledOut = ruled, CantTell = $"Why {name} didn't answer.",
             };
@@ -395,13 +409,13 @@ public static class CrashFindings
         var drive = x.Signs.FirstOrDefault(s => s.Kind == SignKind.Drive && s.Ts <= e.Ts + 120 && s.Ts >= e.Ts - 600);
         if (full is not null)
             return new(Confidence.Possible, $"{app} froze with memory nearly full.", full.Detail, "Close what you aren't using, and see the Memory page for what was holding the most.", $"{app} froze with memory nearly full.")
-            { Cause = "OUT OF MEMORY", Points = points, RuledOut = ruled, CantTell = "Whether low memory caused it, or only happened at the same time." };
+            { Cause = "OUT OF MEMORY", Why = "with memory nearly full", Points = points, RuledOut = ruled, CantTell = "Whether low memory caused it, or only happened at the same time." };
         if (drive is not null)
-            return new(Confidence.Possible, $"{app} froze while a drive was reporting errors.", $"{drive.Detail}, at {drive.Time:h:mm tt}. A program waiting on a drive that doesn't answer stops responding.",
+            return new(Confidence.Possible, $"{app} froze while a drive was reporting errors.", $"{drive.Detail}, at {drive.Time:h:mm tt}. A program waiting on a drive that doesn't answer freezes.",
                 "Check the drive's health on the Storage page, and its cable.", $"{app} froze while a drive was reporting errors.")
-            { Cause = "A DRIVE", Points = points, RuledOut = ruled, CantTell = "Whether the app was using that drive." };
-        return new(Confidence.NotEnough, $"{app} stopped responding and was closed.", "Windows recorded the freeze, but not what the app was waiting for.", ex.Advice, $"{app} stopped responding. Windows didn't record what it was waiting for.")
-        { Short = $"{app} stopped responding", Points = points, RuledOut = ruled, CantTell = "What it was waiting for." };
+            { Cause = "A DRIVE", Why = "a drive that wasn't answering", Points = points, RuledOut = ruled, CantTell = "Whether the app was using that drive." };
+        return new(Confidence.NotEnough, $"{app} froze and was closed.", "Windows recorded the freeze, but not what the app was waiting for.", ex.Advice, $"{app} froze. Windows didn't record what it was waiting for.")
+        { Points = points, RuledOut = ruled, CantTell = "What it was waiting for." };
     }
 
     private static CrashFinding AppCrash(CrashInput x)
@@ -436,35 +450,35 @@ public static class CrashFindings
         string what = module.Length == 0 ? "Which file it crashed in: Windows didn't name one." : $"Why it failed inside {module}.";
 
         if (f?.Error is { } error)
-            return new(Confidence.Named, $"{app} stopped on an error it didn't handle: {error}.", f.ErrorAt is null ? "The .NET runtime recorded the error as it ended the program." : $"The .NET runtime recorded it as it ended the program. It was thrown in {f.ErrorAt}.",
-                "This is a fault in the program. Update it; if it keeps happening, the error's name above is what its makers need.", $"{app} stopped on an unhandled error: {error}.")
-            { Points = [new("info", "The app recorded its error", f.ErrorAt is null ? error : $"{error}, in {f.ErrorAt}."), .. points], RuledOut = ruled, CantTell = "What caused the error inside the app." };
+            return new(Confidence.Named, $"{app} crashed on a .NET error: {error}.", f.ErrorAt is null ? "The .NET runtime recorded the error as it ended the program." : $"The .NET runtime recorded it as it ended the program. It was thrown in {f.ErrorAt}.",
+                "This is a fault in the program. Update it; if it keeps happening, the error's name above is what its makers need.", $"{app} crashed on a .NET error: {error}.")
+            { Why = $"a .NET error ({ErrorName(error)})", Points = [new("info", "The app recorded its error", f.ErrorAt is null ? error : $"{error}, in {f.ErrorAt}."), .. points], RuledOut = ruled, CantTell = "What caused the error inside the app." };
         if (known is { } m && !string.IsNullOrEmpty(module))
             return new(Confidence.Named, First(ex.Reason), $"{Rest(ex.Reason)}Windows names the file it crashed in: {module}.", ex.Advice, $"{app} crashed inside {Lower(m.Culprit)}.")
-            { Short = $"{app} crashed inside {Lower(m.Culprit)}", Points = points, RuledOut = ruled, CantTell = what };
+            { Why = $"inside {Lower(m.Culprit)}", Points = points, RuledOut = ruled, CantTell = what };
         if (same.Count >= 2)
             return new(Confidence.Likely, $"{app} crashes at the same spot every time.", $"{same.Count + 1} crashes on record, all at the same place in {module}. A fault that repeats exactly is a fault in the program, not hardware that is unstable.",
                 "Update the app. If it has add-ons or mods, try without them.", $"{app} crashed at the same spot as {same.Count} times before.")
             { Cause = "A FAULT IN THE APP", Points = points, RuledOut = ruled, CantTell = what };
         if (atStart)
-            return new(Confidence.Likely, twin is null ? $"{app} stopped as it was starting." : $"{app} stopped as it was starting, twice {Apart(e.Ts - twin.Ts)}.",
+            return new(Confidence.Likely, twin is null ? $"{app} crashed as it was starting." : $"{app} crashed as it was starting, twice {Apart(e.Ts - twin.Ts)}.",
                 "A crash within seconds of starting points at the program's own start-up (its files, an add-on, or anti-cheat for a game), not at heat or load.",
                 x.IsGame ? "Verify the game's files in its launcher, and repair its anti-cheat if it has one." : "Repair or reinstall it. For a game, verify its files in its launcher and repair its anti-cheat if it has one.",
-                $"{app} stopped as it was starting{(twin is null ? "" : $", twice {Apart(e.Ts - twin.Ts)}")}.")
-            { Cause = "AT START-UP", Points = points, RuledOut = ruled, CantTell = "Which part of its start-up failed." };
+                $"{app} crashed as it was starting{(twin is null ? "" : $", twice {Apart(e.Ts - twin.Ts)}")}.")
+            { Cause = "AT START-UP", Why = "as it was starting", Points = points, RuledOut = ruled, CantTell = "Which part of its start-up failed." };
         if (ex.Culprit == "The app itself")
             return new(Confidence.Possible, First(ex.Reason), Rest(ex.Reason) + (ownCode ? "Windows names the program's own file as where it crashed." : "It crashed in a part of Windows every program uses, so the fault is most often the program's own."),
                 ex.Advice, ex.Reason)
-            { Short = ex.Title, Cause = "A FAULT IN THE APP", Points = points, RuledOut = ruled, CantTell = what };
+            { Cause = "A FAULT IN THE APP", Points = points, RuledOut = ruled, CantTell = what };
         if (ex.Culprit is "Graphics driver" or "Windows Explorer" or "Windows service")
-            return new(Confidence.Possible, ex.Title + ".", ex.Reason, ex.Advice, ex.Reason) { Short = ex.Title, Points = points, RuledOut = ruled, CantTell = what };
+            return new(Confidence.Possible, ex.Title + ".", ex.Reason, ex.Advice, ex.Reason) { Points = points, RuledOut = ruled, CantTell = what };
         return new(Confidence.NotEnough, First(ex.Reason), Rest(ex.Reason) + (module.Length == 0 ? "Windows recorded the crash but couldn't name the file it happened in." : $"Windows names {module} as where it crashed. That file alone doesn't say why."),
             ex.Advice, ex.Reason)
-        { Short = ex.Title, Points = points, RuledOut = ruled, CantTell = what };
+        { Points = points, RuledOut = ruled, CantTell = what };
     }
 
     /// <summary>
-    /// An app that went down while a graphics driver was being put in: that explains it by itself, whatever it crashed in.
+    /// An app that crashed while a graphics driver was being put in: that explains it by itself, whatever it crashed in.
     /// </summary>
     public static CrashFinding DriverSwap(CrashInput x, SystemChange driver)
     {
@@ -473,8 +487,8 @@ public static class CrashFindings
         return Tidy(new(Confidence.Likely, $"{name} was being installed at that moment.", "Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.",
             "Nothing to do. If it keeps crashing with no driver being installed, that is a different problem.", $"{name} was being installed at that moment.")
         {
-            Short = $"{app} crashed while a graphics driver was being installed", Cause = "THE DRIVER INSTALL", Outside = true,
-            Points = [new("change", $"{name} was being installed", $"Windows logged it at {driver.Time:h:mm:ss tt}; {app} went down at {x.Crash.Time:h:mm:ss tt}.")],
+            Event = Wording.Event(CrashKind.AppCrash, app), Cause = "THE DRIVER INSTALL", Why = "as a graphics driver was being installed", Outside = true,
+            Points = [new("change", $"{name} was being installed", $"Windows logged it at {driver.Time:h:mm:ss tt}; {app} crashed at {x.Crash.Time:h:mm:ss tt}.")],
             CantTell = null,
         });
     }
@@ -502,10 +516,10 @@ public static class CrashFindings
         if (driver is not null)
         {
             string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
-            return Tidy(new(Confidence.Likely, $"{name} was being installed at that moment.", $"{Capital(appCount)} went down {within} of it. Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.",
-                "Nothing to do. If they keep failing with no driver being installed, that is a different problem.", $"{name} was being installed; {appCount} went down with it.")
+            return Tidy(new(Confidence.Likely, $"{name} was being installed at that moment.", $"{Capital(appCount)} failed {within} of it. Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.",
+                "Nothing to do. If they keep failing with no driver being installed, that is a different problem.", $"{name} was being installed; {appCount} failed with it.")
             {
-                Short = $"{Capital(appCount)} went down while a graphics driver was being installed", Cause = "THE DRIVER INSTALL", Outside = true,
+                Event = $"{Capital(appCount)} failed {within}", Cause = "THE DRIVER INSTALL", Why = "as a graphics driver was being installed", Outside = true,
                 Points = [new("change", $"{name} was being installed", $"Windows logged it at {driver.Time:h:mm:ss tt}."), .. points], RuledOut = ruled,
                 CantTell = null,
             });
@@ -518,6 +532,7 @@ public static class CrashFindings
             return Tidy(new(Confidence.Likely, $"{app} was stuck waiting on {other}.", $"Windows' report of the freeze names the program {app} was waiting for. {rest} other thing{(rest == 1 ? "" : "s")} froze or failed {within}.",
                 $"Update {other}, or close it and see whether the freezes stop.", $"{app} was stuck waiting on {other}; {rest} more froze {within}.")
             {
+                Event = $"{names.Count} things froze or failed {within}", Why = $"{app} was stuck waiting on {other}",
                 Points = [new("info", $"{app} was waiting on {stuck.Crash.Facts.WaitedOn}", $"Windows recorded this in its report{version}."), .. points], RuledOut = ruled,
                 CantTell = "Whether every one of them had the same cause.",
             });
@@ -525,13 +540,13 @@ public static class CrashFindings
         if (members.Any(m => m.Crash.Kind == CrashKind.GpuDriverReset))
             // Windows records the reset. That the apps failed because of it is the likely reading, not a record.
             return Tidy(new(Confidence.Likely, "The graphics driver reset, and apps failed around it.", $"Windows reset the graphics driver, and {appCount} failed {within}. Apps that are drawing when the driver resets often go down with it.",
-                "Update or clean-reinstall the graphics driver, and undo any overclock of the card.", $"The graphics driver reset; {appCount} failed {within}.")
-            { Cause = "THE GRAPHICS DRIVER", Points = points, RuledOut = ruled, CantTell = "Why the card stopped answering, and whether every app failed because of it." });
+                "Update or clean-reinstall the graphics driver, and undo any overclock of the GPU.", $"The graphics driver reset; {appCount} failed {within}.")
+            { Event = $"{names.Count} things failed {within}", Cause = "THE GRAPHICS DRIVER", Why = "the graphics driver reset", Points = points, RuledOut = ruled, CantTell = "Why the GPU stopped answering, and whether every app failed because of it." });
         return Tidy(new(Confidence.Possible, $"{names.Count} things failed {within}.", "Nothing on record names one cause for all of them.", advice, $"{names.Count} things failed {within}.")
-        { Cause = "SEVERAL THINGS AT ONCE", Points = points, RuledOut = ruled, CantTell = "What they had in common." });
+        { Event = $"{names.Count} things failed {within}", Cause = "SEVERAL THINGS AT ONCE", Points = points, RuledOut = ruled, CantTell = "What they had in common." });
     }
 
-    // ── Evidence shared by the rules ────────────────────────────────────
+    // â”€â”€ Evidence shared by the rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>Heat, memory, logged trouble and earlier times: looked at for every app problem.</summary>
     private static void Shared(CrashInput x, List<Evidence> points, List<Evidence> ruled)
@@ -550,7 +565,7 @@ public static class CrashFindings
     }
 
     /// <summary>
-    /// The temperatures just before against the user's own alert limits (83° is where many graphics cards sit in every
+    /// The temperatures just before against the user's own alert limits (83Â° is where many graphics cards sit in every
     /// game, so no fixed figure), and for a PC doing little, against how it usually runs at rest.
     /// </summary>
     /// <returns>Known: at least one of the two was read. Full: both were, so "cool" can be said of the PC.</returns>
@@ -575,8 +590,8 @@ public static class CrashFindings
         }
         string usual = rest.Count == parts.Count && rest.Count > 0 ? $", close to the {string.Join(" and ", rest)} this PC sits at when idle." : $", under your alert limit{(parts.Count == 2 ? "s" : "")}.";
         // One of the two wasn't read (a standard account has no CPU temperature): the other can't clear it.
-        string missing = parts.Count == 2 ? "" : c.CpuBefore is null ? " The CPU's temperature wasn't recorded, so this only covers the graphics card." : " The GPU's temperature wasn't recorded, so this only covers the processor.";
-        return (new("ok", parts.Count == 2 ? "It wasn't overheating" : c.CpuBefore is null ? "The graphics card wasn't overheating" : "The processor wasn't overheating",
+        string missing = parts.Count == 2 ? "" : c.CpuBefore is null ? " The CPU's temperature wasn't recorded, so this only covers the GPU." : " The GPU's temperature wasn't recorded, so this only covers the CPU.";
+        return (new("ok", parts.Count == 2 ? "It wasn't overheating" : c.CpuBefore is null ? "The GPU wasn't overheating" : "The CPU wasn't overheating",
             $"{Sentence(now)}{usual}{missing}"), false, true, parts.Count == 2, now);
     }
 
@@ -599,7 +614,7 @@ public static class CrashFindings
         {
             if (s.Kind == SignKind.Hardware && e.Kind is CrashKind.UnexpectedShutdown && s.Detail.Contains("couldn't correct", StringComparison.Ordinal)) continue; // said by the finding itself
             int before = (int)Math.Max(0, (e.Ts - s.Ts) / 60);
-            string what = e.Kind == CrashKind.GpuDriverReset ? "reset" : "crash";
+            string what = e.Kind switch { CrashKind.GpuDriverReset => "reset", CrashKind.UnexpectedShutdown => "shut-off", CrashKind.SystemCrash => "blue screen", CrashKind.AppHang => "freeze", _ => "crash" };
             yield return new("warn", s.Detail, before <= 1 ? $"In the same minute as the {what}." : $"{Capital(Minutes(before))} before the {what}.");
         }
     }
@@ -630,7 +645,7 @@ public static class CrashFindings
         var at = x.Crash.Time;
         var change = x.Changes.Where(c => c.Earliest < at && c.Time >= at.AddDays(-7) && (c.IsGraphicsDriver || c.Kind is ChangeKind.WindowsUpdate or ChangeKind.Windows or ChangeKind.Firmware || (anyDriver && c.IsSystemLevel)))
             .OrderByDescending(c => c.IsGraphicsDriver).ThenByDescending(c => c.Time).FirstOrDefault();
-        if (change is null) return new("ok", "Nothing new was installed", "No new driver or Windows update in the week before.");
+        if (change is null) return new("ok", "Nothing new was installed", "No new driver or Windows update in the 7 days before.");
         string name = change.Title.EndsWith(" installed", StringComparison.Ordinal) ? change.Title[..^" installed".Length] : change.Title;
         int days = (int)(at.Date - change.Time.Date).TotalDays;
         string when = days switch { 0 => "the same day", 1 => "the day before", _ => $"{days} days before" };
@@ -644,11 +659,14 @@ public static class CrashFindings
     private static string Loads(CrashContext c) =>
         (c.CpuLoad, c.GpuLoad) switch
         {
-            (double cpu, double gpu) => $" Processor at {cpu:0}%, graphics card at {gpu:0}%.",
-            (double cpu, null) => $" Processor at {cpu:0}%.",
-            (null, double gpu) => $" Graphics card at {gpu:0}%.",
+            (double cpu, double gpu) => $" CPU at {cpu:0}%, GPU at {gpu:0}%.",
+            (double cpu, null) => $" CPU at {cpu:0}%.",
+            (null, double gpu) => $" GPU at {gpu:0}%.",
             _ => "",
         };
+
+    /// <summary>A .NET error's own name without its namespace: "System.NullReferenceException" as "NullReferenceException".</summary>
+    private static string ErrorName(string error) => error.LastIndexOf('.') is var i and >= 0 && i < error.Length - 1 ? error[(i + 1)..] : error;
 
     private static string Apart(long sec) => sec <= 0 ? "in the same second" : sec == 1 ? "in a second" : $"in {sec} seconds";
 

@@ -1011,7 +1011,7 @@ internal sealed class AgentContext : ApplicationContext
         // Our own windows can report as fullscreen-sized; only treat other apps as fullscreen.
         bool otherFullscreen = fullscreen && activity.Exe is not null &&
             !activity.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase);
-        // Widgets are for the desktop and apps: with a game in front (any window mode) the overlay takes over.
+        // Widgets step aside only for a game in exclusive fullscreen, or borderless on a screen without overlay planes (see WidgetsOverGames).
         bool gameInFront = activity.Category == AppCategory.Game && activity.Exe is not null && !activity.Paused;
 
         // Tray health dot: amber within 12° of a limit, red at or over it.
@@ -1028,7 +1028,16 @@ internal sealed class AgentContext : ApplicationContext
             bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings, settings.TrayGrayscale);
             if (settings.TrayStyle != TrayStyle.Strip) _taskbarStrip.Hide();
             _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale);
-            _widgets.Update(data, gameInFront ? Win32.MonitorFromWindow(Win32.GetForegroundWindow(), 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero);
+            // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
+            // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
+            var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
+            bool fillsScreen = gameInFront && Tracking.ActivityMonitor.IsFullscreen(front);
+            var gameMonitor = gameInFront ? Win32.MonitorFromWindow(front, 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero;
+            // Overlay planes are asked of Windows once a screen, and only when a game fills it.
+            _widgets.Update(data, gameInFront, fillsScreen,
+                exclusive: gameInFront && OverlayManager.IsExclusiveFullscreen(),
+                overlayPlanes: fillsScreen && OverlayPlanes.On(gameMonitor),
+                gameMonitor);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
@@ -1261,7 +1270,7 @@ internal sealed class AgentContext : ApplicationContext
         if (report.CpuTempPeak is { } cpu) parts.Add($"CPU peak {Units.TempShort(cpu.Value)}");
         if (report.GpuTempPeak is { } gpu) parts.Add($"GPU peak {Units.TempShort(gpu.Value)}");
 
-        string text = string.Join("  ·  ", parts) + ". Click for the full recap.";
+        string text = string.Join("  ·  ", parts) + ". " + Wording.FullPicture;
         _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: DailyRecap.Key(day))), null);
     }
 
@@ -1301,12 +1310,13 @@ internal sealed class AgentContext : ApplicationContext
                         finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); }) ?? finding;
                     }
                     string body = CrashNotices.Body(finding, row.IsGame, row.ActiveSec);
-                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, $"{name} closed unexpectedly", body,
+                    // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
+                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, name), body,
                         app.Path, "crashes", crash.Time.Ticks.ToString())), null);
                     return;
                 }
                 if (!summaryWanted) return;
-                string text = $"Played for {Units.Duration(row.ActiveSec)}. Peak CPU {Units.TempShort(row.CpuTempMax)}, GPU {Units.TempShort(row.GpuTempMax)}. Click for the full breakdown.";
+                string text = $"Played for {Units.Duration(row.ActiveSec)}. {Wording.Peak("CPU")} {Units.TempShort(row.CpuTempMax)}, {Wording.Peak("GPU")} {Units.TempShort(row.GpuTempMax)}. {Wording.FullPicture}";
                 _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "apps", app.Exe)), null);
             }
             catch (Exception ex)
@@ -1476,9 +1486,10 @@ internal sealed class AgentContext : ApplicationContext
                 // A graphics card that hangs again and again within minutes: the first is said, the rest are on the page.
                 if (e.Kind == CrashKind.GpuDriverReset && !_crashNotices.Allow("graphics driver", e.Time)) continue;
                 var ex = CrashExplainer.Explain(e);
-                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Said : ex.Reason;
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, ex.Title,
-                    $"{e.Time:ddd h:mm tt}. {said} Click for the full picture.", Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
+                // The title by its kind ("Sudden shut-off"), the event with its time and cause under it.
+                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Told(e.Time.ToString("ddd h:mm tt")) : $"{e.Time:ddd h:mm tt}. {ex.Reason}";
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(e.Kind, ""),
+                    $"{said} {Wording.FullPicture}", Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
             }
         }
         catch (Exception ex)
@@ -1587,10 +1598,10 @@ internal sealed class AgentContext : ApplicationContext
             "alert" => new(NoticeKind.Alert, "Running hot",
                 $"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)} has been above your limit for {s.Alerts.SustainSeconds}+ seconds while Cyberpunk 2077 was running.", Page: "temperatures", Urgent: true),
             "session" => new(NoticeKind.Session, "Dota 2 session",
-                $"Played for 2h 14m. Peak CPU {Units.TempShort(71)}, GPU {Units.TempShort(68)}. Click for the full breakdown.", activity.Path, "apps"),
-            "crash" => new(NoticeKind.Crash, "Dota 2 closed unexpectedly", CrashNotices.Sample, activity.Path, "crashes"),
+                $"Played for 2h 14m. {Wording.Peak("CPU")} {Units.TempShort(71)}, {Wording.Peak("GPU")} {Units.TempShort(68)}. {Wording.FullPicture}", activity.Path, "apps"),
+            "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
             _ => new(NoticeKind.Recap, "Yesterday on your PC",
-                $"Active 6h 12m  ·  Dota 2 3h 05m  ·  CPU peak {Units.TempShort(78)}  ·  GPU peak {Units.TempShort(72)}. Click for the full recap.", Page: "reports", Arg: "yesterday"),
+                $"Active 6h 12m  ·  Dota 2 3h 05m  ·  CPU peak {Units.TempShort(78)}  ·  GPU peak {Units.TempShort(72)}. {Wording.FullPicture}", Page: "reports", Arg: "yesterday"),
         };
         _notices.Show(notice with { Title = notice.Title + " (preview)" }, bypassQuiet: true);
     }

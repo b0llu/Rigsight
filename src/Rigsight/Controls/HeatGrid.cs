@@ -64,7 +64,9 @@ public sealed class HeatGrid : FrameworkElement
     internal static string TipOf(DateTime hour, HeatHour? read)
     {
         string when = hour.ToString("ddd h tt", CultureInfo.CurrentCulture);
-        if (read is null || (read.Cpu is null && read.Gpu is null)) return $"{when} · Nothing recorded";
+        // No hour on record: Rigsight wasn't recording; an hour with no temperature in it: it was, and read none.
+        if (read is null) return $"{when} · {Wording.NotRecorded}";
+        if (read.Cpu is null && read.Gpu is null) return $"{when} · {Wording.NoReading}";
         // The highest beside the average only where it says more (it rounds to another figure).
         static string? Part(string name, double? average, double? high) => average is not double a ? null
             : high is double h && Units.TempShort(h) != Units.TempShort(a) ? $"{name} {Units.TempShort(a)} (up to {Units.TempShort(h)})" : $"{name} {Units.TempShort(a)}";
