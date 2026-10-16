@@ -2,7 +2,7 @@
 
 > Rigsight is a free, open-source (MIT) PC monitoring app for Windows 10 and 11 that records your hardware all day and keeps it as history. It logs CPU and GPU temperatures, fans, clocks, power, app and game usage (screen time), internet use per app, and crashes, so you can open any past day, week, month or year and see how hot the PC ran, what was running and what went wrong. No account, no telemetry: everything stays on the PC.
 
-Rigsight is a history tool, not only a live monitor. Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what the PC is doing right now; Rigsight reads the same kind of sensors but keeps recording in the background (about 0.02% CPU, about 40 MB of memory) even with its window closed, and can be used alongside them. Hardware is read through LibreHardwareMonitor (NVIDIA, AMD and Intel graphics cards; Intel and AMD processors).
+Rigsight is a history tool, not only a live monitor. Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what the PC is doing right now; Rigsight reads the same kind of sensors but keeps recording in the background (about 0.02% CPU and 30 to 45 MB of memory on a Ryzen 7 5700X3D test PC) even with its window closed, and can be used alongside them. Hardware is read through LibreHardwareMonitor (NVIDIA, AMD and Intel graphics cards; Intel and AMD processors).
 
 ## Install
 

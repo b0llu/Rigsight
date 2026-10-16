@@ -1,231 +1,178 @@
-// Rigsight site. No framework, no build step.
-(() => {
-  const REPO = "b0llu/Rigsight";
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Rigsight site. No framework, no build step (built from the design artifact by tools\site-refresh\build.py).
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ── Counting what gets clicked (Umami, loaded after this file; nothing happens if it's blocked) ──
-  const count = name => { try { window.umami?.track?.(name); } catch { /* counting never gets in the way */ } };
-  const where = el => el.closest(".nav") ? "top bar" : el.closest(".hero") ? "first screen" : el.closest(".install") ? "install steps" : el.closest(".footer") ? "footer" : "end";
-  document.querySelectorAll("[data-download]").forEach(a => a.addEventListener("click", () => count(`Download (${where(a)})`)));
-  document.querySelectorAll('a[href*="buymeacoffee.com"]').forEach(a => a.addEventListener("click", () => count(`Buy me a coffee (${where(a)})`)));
-
-  // ── Groups of pages under one heading: pick one by name ──
-  // The page works without this (every page shows, one under the other); html.js is what turns the names on.
-  document.documentElement.classList.add("js");
-  document.querySelectorAll("[data-tabs]").forEach((group, g) => {
-    const tabs = [...group.querySelectorAll(".tab")];
-    const panes = [...group.querySelectorAll(".pane")];
-    const show = (i, focus) => {
-      tabs.forEach((tab, n) => {
-        tab.setAttribute("aria-selected", n === i ? "true" : "false");
-        tab.tabIndex = n === i ? 0 : -1;
-        panes[n].inert = n !== i;
-      });
-      if (focus) tabs[i].focus();
-      // A clip in a page that isn't showing doesn't play.
-      panes.forEach((pane, n) => pane.querySelectorAll("video").forEach(v => { if (n !== i) v.pause(); else if (v.dataset.on) v.play().catch(() => { }); }));
-    };
-    tabs.forEach((tab, i) => {
-      tab.id = `tab-${g}-${i}`;
-      panes[i].id = `pane-${g}-${i}`;
-      panes[i].setAttribute("role", "tabpanel");
-      panes[i].setAttribute("aria-labelledby", tab.id);
-      tab.setAttribute("aria-controls", panes[i].id);
-      tab.addEventListener("click", () => {
-        show(i);
-        count(`Tab: ${tab.textContent.trim()}`);
-        // On a phone the names ride along under the top bar: picked from there, the new page starts right below them
-        // (not wherever the last page had been scrolled to).
-        const row = tab.parentElement, at = row.getBoundingClientRect(), top = panes[i].getBoundingClientRect().top;
-        if (getComputedStyle(row).position === "sticky" && top < at.bottom) scrollBy({ top: top - at.bottom - 16, behavior: reduceMotion ? "auto" : "smooth" });
-      });
-      tab.addEventListener("keydown", e => {
-        const to = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length
-          : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
-        if (to < 0) return;
-        e.preventDefault();
-        show(to, true);
-      });
-    });
-    show(0);
-  });
+  // Counting what gets clicked (Umami, loaded after this file; nothing happens if it's blocked).
+  var count = function (name) { try { window.umami && window.umami.track && window.umami.track(name); } catch (e) {} };
+  var where = function (el) { return el.closest('.nav') ? 'top bar' : el.closest('.hero') ? 'first screen' : el.closest('.install') ? 'install steps' : el.closest('.footer') ? 'footer' : 'end'; };
+  document.querySelectorAll('[data-download]').forEach(function (a) { a.addEventListener('click', function () { count('Download (' + where(a) + ')'); }); });
+  document.querySelectorAll('a[href*="buymeacoffee.com"]').forEach(function (a) { a.addEventListener('click', function () { count('Buy me a coffee (' + where(a) + ')'); }); });
+  document.querySelectorAll('[role="tab"]').forEach(function (t) { t.addEventListener('click', function () { count('Tab: ' + t.textContent.trim()); }); });
+  document.querySelectorAll('#copy, [data-copy]').forEach(function (b) { b.addEventListener('click', function () { count('Copy the PowerShell command (' + where(b) + ')'); }); });
+  document.querySelectorAll('#parts .pane-copy').forEach(function (c) { c.addEventListener('click', function () { if (window.matchMedia('(max-width: 640px)').matches) count('Phone: open ' + c.querySelector('.label').textContent.trim()); }); });
 
 
-  // ── Latest release: every Download button points straight at the newest installer ──
-  // Buttons start as links to the Releases page, so they still work if this request fails.
-  const CACHE_KEY = "rigsight-latest-release";
-
-  async function latestRelease() {
-    try {
-      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
-      if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.data;
-    } catch { /* storage unavailable */ }
-
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-    const r = await res.json();
-    const exe = (r.assets || []).find(a => /\.exe$/i.test(a.name));
-    const data = {
-      tag: r.tag_name,
-      version: (r.tag_name || "").replace(/^v/i, ""),
-      url: exe ? exe.browser_download_url : r.html_url,
-      size: exe ? exe.size : 0,
-      page: r.html_url,
-      date: r.published_at,
-    };
-    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data })); } catch { }
-    return data;
+  // The peek: lies back under the opening screen, lies flat as it scrolls up.
+  var peek = document.getElementById('peekwin'), peekT = false;
+  function peekTilt() {
+    peekT = false;
+    var r = peek.getBoundingClientRect(), vh = window.innerHeight;
+    var k = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.75)));
+    peek.style.setProperty('--tilt', (16 * (1 - k)).toFixed(2) + 'deg');
   }
+  if (!reduce) { requestAnimationFrame(peekTilt); window.addEventListener('scroll', function () { if (!peekT) { peekT = true; requestAnimationFrame(peekTilt); } }, { passive: true }); }
 
-  function ago(iso) {
-    const days = Math.floor((Date.now() - new Date(iso)) / 86400000);
-    if (days <= 0) return "today";
-    if (days === 1) return "yesterday";
-    if (days < 30) return `${days} days ago`;
-    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-  }
+  // Top bar: hidden over the opening screen, shown once the page has scrolled a little.
+  var nav = document.querySelector('.nav');
+  function navCheck() { nav.classList.toggle('show', window.scrollY > window.innerHeight * 0.35); }
+  navCheck(); window.addEventListener('scroll', navCheck, { passive: true });
 
-  latestRelease().then(r => {
-    document.querySelectorAll("[data-download]").forEach(a => {
-      a.href = r.url;
-      a.setAttribute("download", "");
-    });
-    const mb = r.size ? ` · ${Math.round(r.size / 1048576)} MB` : "";
-    document.querySelectorAll("[data-version]").forEach(el => {
-      el.textContent = `Version ${r.version}${mb}`;
-      el.title = `Released ${ago(r.date)}`;
-    });
-  }).catch(() => { /* keep the Releases-page links */ });
-
-  // ── The top bar stays out of the way over the hero and slides in once you scroll ──
-  // A mark 80 px down the page says when: watching it costs no layout, where reading scrollY here forced one.
-  const nav = document.getElementById("nav");
-  const mark = document.createElement("div");
-  mark.style.cssText = "position:absolute;top:80px;left:0;width:1px;height:1px;pointer-events:none";
-  document.body.append(mark);
-  new IntersectionObserver(([e]) => nav.classList.toggle("scrolled", !e.isIntersecting && e.boundingClientRect.top < 0)).observe(mark);
-
-  // ── The hero's rows of screenshots only move while the hero is on screen and the tab is visible ──
-  const hero = document.getElementById("hero");
-  let heroOn = true;
-  const heroMotion = () => hero.classList.toggle("paused", !heroOn || document.hidden);
-  new IntersectionObserver(([e]) => { heroOn = e.isIntersecting; heroMotion(); }, { threshold: 0.02 }).observe(hero);
-  document.addEventListener("visibilitychange", heroMotion);
-
-  // On a phone the cards off to the side start empty, so the first screen isn't waiting on twenty pictures.
-  // They get theirs once the page has loaded (or after two and a half seconds), well before they slide into view.
-  let filled = false;
-  const fillHero = () => { if (filled) return; filled = true; hero.querySelectorAll("picture > source").forEach(s => s.remove()); };
-  if (document.readyState === "complete") fillHero(); else addEventListener("load", fillHero);
-  setTimeout(fillHero, 2500);
-
-  // ── The overlay clip (real footage): loaded only when shown, plays while on screen, poster with reduced motion ──
-  const clips = [...document.querySelectorAll("video[data-src]")];
-  if (!reduceMotion && clips.length) {
-    const seen = new IntersectionObserver(entries => {
-      for (const { target: v, isIntersecting } of entries) {
-        // A clip that is never shown (hidden at this width) never gets its sources.
-        if (isIntersecting && !v.childElementCount) {
-          const webm = document.createElement("source"); webm.src = `${v.dataset.src}.webm`; webm.type = "video/webm";
-          const mp4 = document.createElement("source"); mp4.src = `${v.dataset.src}.mp4`; mp4.type = "video/mp4";
-          v.append(webm, mp4);   // adding sources is enough: the browser fetches when play() asks for it
+  // Page background: streams in the part colours, all following one slowly changing flow so they move together in
+  // bands. Each keeps its own tail, fading to nothing at the end, and the canvas is cleared every frame, so no ghost
+  // paths build up and no bright head shows. Phones get fewer at about 30 frames a second, after load.
+  (function () {
+    var canvas = document.getElementById('flow');
+    if (!canvas || reduce) return;
+    var c = canvas.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2), small = window.innerWidth < 700;
+    var W, H, t = 0, ps = [], odd = false, cols = ['#5b8def', '#22d3ee', '#a78bfa', '#f472b6'], CH = 5;
+    function h2(x, y) { var n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return n - Math.floor(n); }
+    function noise(x, y) {
+      var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      var a = h2(ix, iy), b = h2(ix + 1, iy), cc = h2(ix, iy + 1), d = h2(ix + 1, iy + 1);
+      var ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+      return a + (b - a) * ux + (cc - a) * uy + (a - b - cc + d) * ux * uy;
+    }
+    function spawn(p) {
+      p.x = Math.random() * W; p.y = Math.random() * H; p.tr = [];
+      p.n = 30 + Math.floor(Math.random() * 45);       // tail length, in steps
+      p.life = 0; p.max = 300 + Math.random() * 600;
+      p.c = cols[Math.floor(Math.random() * cols.length)];
+      // Three kinds: a faint, thin, slower layer behind (depth), the usual streaks, and about one in ten "leads",
+      // thicker and brighter, so the part colours read at a glance.
+      var r = Math.random();
+      if (r < 0.35) { p.a = 0.12 + Math.random() * 0.08; p.w = 0.8; p.v = 0.55; }
+      else if (r < 0.9) { p.a = 0.22 + Math.random() * 0.14; p.w = 1.2; p.v = 1; }
+      else { p.a = 0.5 + Math.random() * 0.2; p.w = 1.9; p.v = 1.1; }
+      return p;
+    }
+    function resize() {
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr; c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var n = Math.round(Math.min(small ? 90 : 260, W * H / 5000));
+      while (ps.length < n) { var q = spawn({}); q.life = Math.random() * q.max; ps.push(q); }
+      ps.length = n;
+    }
+    function draw() {
+      requestAnimationFrame(draw);
+      if (document.hidden || (small && (odd = !odd))) return;
+      c.clearRect(0, 0, W, H);
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      // Full strength on the opening screen, easing to about half once the reader is past it, so text stays quiet.
+      var dim = 1 - 0.5 * Math.min(1, window.scrollY / (H * 0.9));
+      for (var i = 0; i < ps.length; i++) {
+        var p = ps[i];
+        var ang = noise(p.x * 0.004 + t * 0.0008, p.y * 0.004 + 100) * Math.PI * 6;
+        var sp = 1 + noise(p.x * 0.003, p.y * 0.003 + 50) * 1.5;
+        p.x += Math.cos(ang) * sp * p.v; p.y += Math.sin(ang) * sp * p.v; p.life++;
+        if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20 || p.life > p.max) { spawn(p); continue; }
+        p.tr.push(p.x, p.y); if (p.tr.length > p.n * 2) p.tr.splice(0, 2);
+        var pts = p.tr.length / 2; if (pts < 3) continue;
+        var fade = Math.min(1, p.life / 80, (p.max - p.life) / 80);
+        // The tail in a few pieces, faintest at the far end and strongest near the front.
+        c.strokeStyle = p.c; c.lineWidth = p.w;
+        for (var k = 0; k < CH; k++) {
+          var from = Math.floor(pts * k / CH), to = Math.min(pts - 1, Math.floor(pts * (k + 1) / CH));
+          if (to <= from) continue;
+          c.globalAlpha = p.a * fade * dim * Math.pow((k + 1) / CH, 1.6);
+          c.beginPath(); c.moveTo(p.tr[from * 2], p.tr[from * 2 + 1]);
+          for (var j = from + 1; j <= to; j++) c.lineTo(p.tr[j * 2], p.tr[j * 2 + 1]);
+          c.stroke();
         }
-        v.dataset.on = isIntersecting ? "1" : "";
-        if (isIntersecting && !document.hidden && !v.closest("[inert]")) v.play().catch(() => { /* blocked: the poster stays */ });
-        else if (!v.paused) v.pause();
       }
-    }, { threshold: 0.05 });
-    for (const v of clips) {
-      v.muted = true;
-      seen.observe(v);
+      c.globalAlpha = 1; t++;
     }
-    document.addEventListener("visibilitychange", () => clips.forEach(v => { document.hidden ? v.pause() : v.dataset.on && v.play().catch(() => { }); }));
-  }
+    function start() { resize(); window.addEventListener('resize', resize); draw(); }
+    if (!small || document.readyState === 'complete') start(); else window.addEventListener('load', start);
+  })();
 
-  // ── Reveal on scroll ──
-  const io = new IntersectionObserver(entries => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      e.target.classList.add("in");
-      e.target.querySelectorAll(".meters").forEach(m => m.classList.add("in"));
-      if (e.target.classList.contains("meters")) e.target.classList.add("in");
-      io.unobserve(e.target);
-    }
-  }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-  // The hero is on screen from the start: show it straight away rather than waiting for a scroll.
-  document.querySelectorAll(".hero .reveal").forEach(el => requestAnimationFrame(() => el.classList.add("in")));
-  document.querySelectorAll(".reveal:not(.hero .reveal)").forEach(el => io.observe(el));
-
-  // ── Dark / light comparison slider ──
-  const cmp = document.getElementById("compare");
-  if (cmp) {
-    const input = cmp.querySelector("input");
-    const set = v => cmp.style.setProperty("--pos", `${v}%`);
-    input.addEventListener("input", () => set(input.value));
-    // A gentle nudge the first time it scrolls into view, so it's obvious it moves.
-    if (!reduceMotion) {
-      const nudge = new IntersectionObserver(([e]) => {
+  // Pictures: start loading each one about a screen and a half before it scrolls into view, so it is ready when the
+  // reader gets there; when a section with tabs comes near, every tab's picture loads, so switching never shows a gap.
+  if ('IntersectionObserver' in window) {
+    var near = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
         if (!e.isIntersecting) return;
-        nudge.disconnect();
-        const start = performance.now();
-        const frame = now => {
-          const p = Math.min(1, (now - start) / 1600);
-          const v = 50 + Math.sin(p * Math.PI * 2) * 18 * (1 - p);
-          set(v); input.value = v;
-          if (p < 1) requestAnimationFrame(frame);
-        };
-        setTimeout(() => requestAnimationFrame(frame), 500);
-      }, { threshold: 0.5 });
-      nudge.observe(cmp);
-    }
+        var box = e.target.closest('.panes') || e.target;
+        (box.tagName === 'IMG' ? [box] : box.querySelectorAll('img[loading="lazy"]')).forEach(function (im) { im.loading = 'eager'; near.unobserve(im); });
+      });
+    }, { rootMargin: '150% 0px 150% 0px' });
+    document.querySelectorAll('img[loading="lazy"]').forEach(function (im) { near.observe(im); });
   }
 
-  // ── Click a screenshot to see it full size ──
-  const lb = document.getElementById("lightbox");
-  const lbImg = lb.querySelector("img");
-  document.querySelectorAll("[data-zoom] img").forEach(img => {
-    const open = () => {
-      lbImg.src = img.src; // the full-size shot, whatever size the page shows
-      lbImg.alt = img.alt;
-      lb.hidden = false;
-      document.body.style.overflow = "hidden";
-    };
-    img.addEventListener("click", open);
-    // The picture's frame takes the keyboard: Enter opens it too.
-    img.closest("[data-zoom]").addEventListener("keydown", e => { if (e.key === "Enter") open(); });
-  });
-  const closeLb = () => { lb.hidden = true; document.body.style.overflow = ""; };
-  lb.addEventListener("click", closeLb);
-  addEventListener("keydown", e => { if (e.key === "Escape" && !lb.hidden) closeLb(); });
-
-  // ── Copy the PowerShell install command ──
-  document.querySelectorAll("[data-copy]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy);
-        btn.classList.add("done");
-        setTimeout(() => btn.classList.remove("done"), 1800);
-        showToast("Copied. Paste it into PowerShell.");
-        count(`Copy the PowerShell command (${where(btn)})`);
-      } catch { /* clipboard blocked */ }
+  // Questions: answers slide open and closed instead of jumping.
+  document.querySelectorAll('.faq-list details').forEach(function (d) {
+    var sum = d.querySelector('summary'), ans = d.querySelector('p'), busy = null;
+    sum.addEventListener('click', function (e) {
+      if (reduce || !ans.animate) return;
+      e.preventDefault();
+      if (busy) busy.cancel();
+      if (!d.open) {
+        d.open = true;
+        var h = ans.offsetHeight;
+        busy = ans.animate([{ height: '0px', opacity: 0, transform: 'translateY(-6px)' }, { height: h + 'px', opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        busy.onfinish = function () { busy = null; };
+      } else {
+        busy = ans.animate([{ height: ans.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 240, easing: 'ease-in' });
+        busy.onfinish = function () { d.open = false; busy = null; };
+      }
     });
   });
 
-  // ── Phone visitors: copy the link to open on their PC ──
-  const toast = document.getElementById("toast");
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add("show");
-    clearTimeout(showToast.t);
-    showToast.t = setTimeout(() => toast.classList.remove("show"), 2200);
-  }
-  document.getElementById("copy-link").addEventListener("click", async () => {
-    const url = location.href.split("#")[0];
-    count("Phone: copy the link");
-    try {
-      if (navigator.share) { await navigator.share({ title: "Rigsight", text: "Rigsight — know your rig", url }); return; }
-      await navigator.clipboard.writeText(url);
-      showToast("Link copied. Open it on your PC.");
-    } catch { /* share sheet dismissed */ }
+  var phone = window.matchMedia('(max-width: 640px)');
+  // Phones: each part opens and closes on a tap (its name and figure always show).
+  document.querySelectorAll('#parts .pane-copy').forEach(function (c) {
+    var pane = c.closest('.pane');
+    c.addEventListener('click', function (e) {
+      if (!phone.matches || e.target.closest('a')) return;
+      pane.classList.toggle('open');
+      c.setAttribute('aria-expanded', pane.classList.contains('open'));
+    });
+  });
+
+  // Tabs: panes share one grid cell, so switching never moves the page.
+  var repicks = [];
+  phone.addEventListener('change', function () { repicks.forEach(function (f) { f(); }); });
+  document.querySelectorAll('[role="tablist"]').forEach(function (list) {
+    var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]')), current = tabs[0];
+    repicks.push(function () { pick(current); });
+    function pick(t) {
+      current = t;
+      tabs.forEach(function (x) {
+        var on = x === t, p = document.getElementById(x.getAttribute('aria-controls'));
+        x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+        // On phones every pane shows, one under another, so none is hidden or inert there.
+        var all = phone.matches;
+        p.setAttribute('aria-hidden', !on && !all); p.inert = !on && !all;
+      });
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { pick(t); });
+      t.addEventListener('keydown', function (e) {
+        var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!d) return;
+        var n = tabs[(i + d + tabs.length) % tabs.length]; pick(n); n.focus();
+      });
+    });
+    pick(tabs[0]);
+  });
+
+  // Copy the install command.
+  var toast = document.getElementById('toast');
+  function say(t) { toast.textContent = t; toast.classList.add('show'); clearTimeout(say.t); say.t = setTimeout(function () { toast.classList.remove('show'); }, 1800); }
+  document.querySelectorAll('#copy, [data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var text = 'irm https://rigsight.app/install.ps1 | iex';
+      function pick() { var r = document.createRange(); r.selectNodeContents(b.parentNode.querySelector('code')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); say('Selected. Press Ctrl+C to copy'); }
+      try { navigator.clipboard.writeText(text).then(function () { say('Copied'); }, pick); } catch (e) { pick(); }
+    });
   });
 })();
