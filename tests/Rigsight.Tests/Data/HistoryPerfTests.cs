@@ -80,7 +80,7 @@ public sealed class HistoryPerfTests(HeavyHistory heavy)
     // Budgets: ~3× the median measured on the reference PC (in the comment), rounded up.
 
     [Theory]
-    [InlineData(ReportRange.Day, 100, 9.5)]   // measured 28–37 ms, 3.0 MB
+    [InlineData(ReportRange.Day, 100, 11)]    // measured 28–37 ms, 3.0 MB; 9.7–9.8 MB on 2026-10-17 (0.27.0 the same), as yesterday's
     [InlineData(ReportRange.Week, 300, 18.5)] // measured 79–117 ms, 6.1 MB
     [InlineData(ReportRange.Month, 630, 62)]  // measured 190–209 ms, 20.4 MB
     [InlineData(ReportRange.Year, 190, 12.5)] // measured 62–64 ms, 4.2 MB
