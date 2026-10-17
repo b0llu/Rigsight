@@ -354,12 +354,12 @@ public sealed class SensorModelTests
     }
 
     [Fact]
-    public void Minute_history_holds_a_day_and_an_hour()
+    public void Minute_history_holds_three_days()
     {
         var series = new ChartSeries("X", Sensor(SensorKind.Temperature), "CpuColor", m => m.CpuTemp);
-        series.LoadMinutes(Enumerable.Range(0, 3000).Select(i => new SystemMinute { Ts = 1_750_000_000 + i * 60L, CpuTemp = i }));
-        Assert.Equal(1500, series.Minutes.Count);
-        Assert.Equal(2999, series.Minutes.ValueAt(1499));
+        series.LoadMinutes(Enumerable.Range(0, 5000).Select(i => new SystemMinute { Ts = 1_750_000_000 + i * 60L, CpuTemp = i }));
+        Assert.Equal(ChartSeries.MostPoints, series.Minutes.Count);
+        Assert.Equal(4999, series.Minutes.ValueAt(ChartSeries.MostPoints - 1));
     }
 
     // ── Drives ───────────────────────────────────────────────────────────
