@@ -108,4 +108,36 @@ public partial class WidgetsView : UserControl
         }
         BuiltInRow.ScrollToHorizontalOffset(now + gap * 0.22);
     }
+
+    // ── The reading picker ──
+
+    private ViewModels.WidgetCard? PickerCard => PickBox.DataContext as ViewModels.WidgetCard;
+
+    /// <summary>Into the field: the list opens (a click there too, when it was closed with Esc while the field kept focus).</summary>
+    private void PickBox_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (PickerCard is { } card) card.PickerOpen = true;
+    }
+
+    private void PickBox_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (PickerCard is { PickerOpen: false } card && PickBox.IsKeyboardFocusWithin) card.PickerOpen = true;
+    }
+
+    /// <summary>Esc closes the list; Down goes into it, to pick with the keyboard (Enter or Space adds).</summary>
+    private void PickBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (PickerCard is not { } card) return;
+        if (e.Key == System.Windows.Input.Key.Escape && card.PickerOpen)
+        {
+            card.PickerOpen = false;
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.Down)
+        {
+            card.PickerOpen = true;
+            PickScroll.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+            e.Handled = true;
+        }
+    }
 }

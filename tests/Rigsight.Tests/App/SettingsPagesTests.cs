@@ -407,6 +407,90 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
+    public void Switching_layouts_back_and_forth_keeps_the_readings_both_can_show()
+    {
+        // A user: "if I add FPS and time to a bar, move it to tiles and come back to bar, FPS and time of day are gone".
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var mine = Assert.Single(vm.Custom);
+            foreach (var m in new[] { OverlayMetric.CpuLoad, OverlayMetric.GpuLoad, OverlayMetric.Fps, OverlayMetric.Clock })
+            {
+                mine.ReadingToAdd = mine.Offered.Single(o => o.Metric == m);
+                mine.AddReadingCommand.Execute(null);
+            }
+            // Seven: more than Tiles holds (6).
+            string[] five = ["CpuTemp", "GpuTemp", "Ram", "CpuLoad", "GpuLoad", "Fps", "Clock"];
+            Assert.Equal(five, mine.Items.Select(i => i.Id));
+            mine.Layout = "Tiles";
+            // Kept, not dropped: Tiles shows six, the seventh is greyed with why.
+            Assert.Equal(five, mine.Items.Select(i => i.Id));
+            Assert.Equal("Tiles shows 6", mine.Items.Last().NotShown);
+            Assert.All(mine.Items.Take(6), i => Assert.True(i.IsShown));
+            Assert.Equal("6 of 6", mine.ItemsCount);
+            Assert.False(mine.CanAddMore);
+            mine.Layout = "Bar";
+            Assert.Equal(five, mine.Items.Select(i => i.Id));
+            Assert.All(mine.Items, i => Assert.True(i.IsShown));
+            Assert.Equal(five, link.Settings.Current.Widgets.Single(w => w.Id == mine.Id).Items!.Select(i => i.Id));
+        });
+    }
+
+    [Fact]
+    public void The_reading_picker_searches_groups_and_adds_on_a_click()
+    {
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var mine = Assert.Single(vm.Custom);
+
+            // Typing opens the list and finds a reading by any word of it; matches only.
+            mine.PickerText = "screen";
+            Assert.True(mine.PickerOpen);
+            var screen = Assert.Single(mine.PickerOptions);
+            Assert.Equal(("ScreenTime", "Screen time today", true), (screen.Id, screen.Name, screen.IsNew));
+            Assert.Equal("TODAY", screen.Header);
+
+            // A click adds it at once; the list stays open, without it.
+            mine.PickOptionCommand.Execute(screen);
+            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "ScreenTime"], mine.Items.Select(i => i.Id));
+            Assert.True(mine.PickerOpen);
+            Assert.True(mine.PickerEmpty);
+            Assert.Equal("Nothing matches \"screen\"", mine.PickerEmptyText);
+
+            // A chip narrows to a part; nothing there, matches elsewhere: it says so and offers the rest.
+            mine.PickerText = "peak";
+            mine.PickerCategory = "Gpu";
+            Assert.True(mine.PickerEmpty);
+            Assert.Equal("Nothing matches \"peak\" in GPU", mine.PickerEmptyText);
+            Assert.True(mine.CanSearchAll);
+            Assert.Equal(2, mine.PickerChips.Single(c => c.Key == "Today").Count); // CPU and GPU peak today
+            mine.SearchAllCommand.Execute(null);
+            Assert.Equal(["CpuPeakToday", "GpuPeakToday"], mine.PickerOptions.Select(o => o.Id));
+
+            // Gauges: what a gauge can't show stays in the list, dimmed, with why.
+            mine.PickerText = "";
+            mine.Layout = "Gauges";
+            var top = mine.PickerOptions.Single(o => o.Id == "TopApp");
+            Assert.Equal("Gauges show a temperature or a percentage", top.Off);
+            Assert.False(top.CanAdd);
+            Assert.True(mine.PickerOptions.Single(o => o.Id == "CpuLoad").CanAdd);
+            // And the screen time already on it says the same in the list of readings.
+            Assert.Equal("Gauges show a temperature or a percentage", mine.Items.Single(i => i.Id == "ScreenTime").NotShown);
+
+            // Full: every line says so, none adds.
+            mine.PickOptionCommand.Execute(mine.PickerOptions.Single(o => o.Id == "CpuLoad"));
+            Assert.False(mine.CanAddMore);
+            Assert.All(mine.PickerOptions, o => Assert.False(o.CanAdd));
+            Assert.Contains(mine.PickerOptions, o => o.Off == "Full: remove one to add another");
+        });
+    }
+
+    [Fact]
     public void Making_renaming_copying_and_deleting_widgets_of_your_own()
     {
         using var link = new AgentLink();
@@ -629,7 +713,8 @@ public sealed class OverlayPageTests
         Ui.Run(() =>
         {
             Assert.Equal(["GAME", "CPU", "GPU", "MEMORY", "OTHER"], vm.Groups.Select(g => g.Title));
-            Assert.Equal(Enum.GetValues<OverlayMetric>().Length, vm.Groups.Sum(g => g.Options.Count));
+            // Every reading but the widgets' own (today so far, the app in front), which come after the clock.
+            Assert.Equal(Enum.GetValues<OverlayMetric>().Count(m => m < OverlayMetric.ScreenTime), vm.Groups.Sum(g => g.Options.Count));
             var clock = vm.Groups.Single(g => g.Title == "OTHER").Options.Single(o => o.Label == "Time of day");
             var fps = vm.Groups[0].Options[0];
             Assert.False(clock.IsOn);

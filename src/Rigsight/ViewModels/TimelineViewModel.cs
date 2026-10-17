@@ -35,6 +35,9 @@ public sealed partial class TimelineEntry : ObservableObject
     /// <summary>A problem's day, to open on the Crashes page.</summary>
     public DateTime? CrashDay { get; init; }
 
+    /// <summary>The first day of the problems a line folds together ("12–15 Oct"): the Crashes page opens on all of them.</summary>
+    public DateTime? CrashFrom { get; init; }
+
     /// <summary>The problem's own time, where the line is one problem: it opens as its own case.</summary>
     public DateTime? CrashTime { get; init; }
     public string OpenText => CrashTime is null ? "See on Crashes" : "Open";
@@ -138,7 +141,9 @@ public sealed record NowFact(string Label, string Value, string? Since)
 /// drive space) with the problems that happened in between, a calendar to jump around in, and the PC as it is now.
 /// </summary>
 /// <param name="scan">Has the agent look for new changes and problems now; done when it has (or it can't be reached).</param>
-public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null, Action<DateTime>? openCrash = null) : ObservableObject
+/// <param name="openProblems">Opens the Crashes page on a span of days with the PC's own problems only (see CrashesViewModel.ShowPcProblems).</param>
+public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null, Action<DateTime>? openCrash = null,
+    Action<DateTime, DateTime>? openProblems = null) : ObservableObject
 {
     /// <summary>
     /// Days built at a time: the newest first (about a screenful, so opening the page or changing the filter is quick),
@@ -454,6 +459,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             entries.Add(new TimelineEntry
             {
                 TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = last.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !last.Outside, CrashDay = last.Time.Date,
+                CrashFrom = group.Min(p => p.Time).Date,
                 CrashTime = n == 1 ? last.Time : null,
                 Title = n == 1 ? last.Title : last.Outside ? $"{n} likely power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
@@ -546,7 +552,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private void OpenCrashes(TimelineEntry entry)
     {
         if (entry.CrashTime is { } time && openCrash is not null) openCrash(time);
-        else if (entry.CrashDay is { } day) openCrashes(day);
+        else if (entry.CrashDay is { } day && openProblems is not null) openProblems(entry.CrashFrom ?? day, day);
+        else if (entry.CrashDay is { } day1) openCrashes(day1);
     }
 
     // ── The calendar ────────────────────────────────────────────────────

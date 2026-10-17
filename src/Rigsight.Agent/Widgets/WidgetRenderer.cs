@@ -128,7 +128,7 @@ internal static partial class WidgetRenderer
             switch (WidgetCatalog.LayoutOf(cfg))
             {
                 case WidgetLayout.Bar:
-                    return $"{p.Light}|" + string.Join('|', WidgetCatalog.ItemsOf(cfg).Select(i => Read(i, d, p)).Select(r => $"{r.Label}={r.Text}#{r.ValueColor.ToArgb():X}"));
+                    return $"{p.Light}|" + string.Join('|', WidgetCatalog.ShownItems(cfg).Select(i => Read(i, d, p)).Select(r => $"{r.Label}={r.Text}#{r.ValueColor.ToArgb():X}"));
                 case WidgetLayout.NowPlaying:
                     var a = d.Activity;
                     return $"{p.Light}|{a.Paused}|{a.Name}|{a.Path}|{a.Category}|{a.Present}|{Units.Duration(a.SessionActiveSec)}"
@@ -159,7 +159,7 @@ internal static partial class WidgetRenderer
         TextShadow = ShadowFor(cfg.BackgroundOpacity, pal.Light);
         var d = data ?? new WidgetData();
         var layout = WidgetCatalog.LayoutOf(cfg);
-        var readings = WidgetCatalog.ItemsOf(cfg).Select(i => Read(i, d, pal)).ToList();
+        var readings = WidgetCatalog.ShownItems(cfg).Select(i => Read(i, d, pal)).ToList();
         SizeF size;
         using (var tmp = new Bitmap(1, 1))
         using (var mg = Graphics.FromImage(tmp))
@@ -168,13 +168,6 @@ internal static partial class WidgetRenderer
         var bmp = new Bitmap((int)Math.Ceiling(size.Width * scale), (int)Math.Ceiling(size.Height * scale), PixelFormat.Format32bppArgb);
         // The readings go on their own layer, so they can have their own opacity (see Compose).
         using var content = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(content);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        g.Clear(Color.Transparent);
-        g.ScaleTransform(scale, scale);
 
         float w = size.Width, h = size.Height;
         bool pill = layout == WidgetLayout.Bar;
@@ -182,19 +175,63 @@ internal static partial class WidgetRenderer
         // Built-in widgets are signed "Rigsight"; the user's own carry their name.
         string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "RIGSIGHT";
 
-        switch (layout)
+        void DrawContent(Graphics g)
         {
-            case WidgetLayout.Bar: DrawBar(g, readings, pal); break;
-            case WidgetLayout.Tiles: DrawTiles(g, readings, d, pal, w, caption); break;
-            case WidgetLayout.Gauges: DrawGauges(g, readings, d, pal, caption); break;
-            case WidgetLayout.Graph: DrawGraph(g, readings, d, pal, w, h); break;
-            case WidgetLayout.NowPlaying: DrawNowPlaying(g, d, pal, w, h); break;
-            default: DrawToday(g, d, pal); break;
+            switch (layout)
+            {
+                case WidgetLayout.Bar: DrawBar(g, readings, pal); break;
+                case WidgetLayout.Tiles: DrawTiles(g, readings, d, pal, w, caption); break;
+                case WidgetLayout.Gauges: DrawGauges(g, readings, d, pal, caption); break;
+                case WidgetLayout.Graph: DrawGraph(g, readings, d, pal, w, h); break;
+                case WidgetLayout.NowPlaying: DrawNowPlaying(g, d, pal, w, h); break;
+                default: DrawToday(g, d, pal); break;
+            }
+        }
+
+        using (var g = Graphics.FromImage(content))
+        {
+            Prepare(g, scale, TextRenderingHint.AntiAliasGridFit);
+            g.Clear(Color.Transparent);
+            DrawContent(g);
+        }
+
+        // Readings at full opacity (the usual) are drawn again with ClearType on a solid copy of the panel, and the panel's
+        // own opacity is put back around them: text as sharp as Windows' own. (ClearType can't be drawn on clear pixels,
+        // which is why see-through widgets used greyscale text and looked soft.) Only on a panel solid enough to be what's
+        // behind the letters: on a very see-through one the panel's colour stayed on their edges as an outline (dark
+        // around light text over a bright wallpaper), and the greyscale drawing is the cleaner one there.
+        bool sharpText = cfg.ContentOpacity >= 0.99 && cfg.BackgroundOpacity >= SharpFrom;
+        if (sharpText)
+        {
+            using var sharp = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(sharp))
+            {
+                g.Clear(Color.FromArgb(255, pal.Bg));
+                Prepare(g, scale, TextRenderingHint.ClearTypeGridFit);
+                DrawContent(g);
+            }
+            using var shape = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(shape))
+            {
+                Prepare(g, scale, TextRenderingHint.AntiAliasGridFit);
+                g.Clear(Color.Transparent);
+                using var fill = new SolidBrush(Color.White);
+                g.FillPath(fill, panel);
+            }
+            Sharpen(bmp, sharp, content, shape, Math.Max(1, (int)Math.Round(pal.Bg.A * cfg.BackgroundOpacity)), Gray);
+            using var border = Graphics.FromImage(bmp);
+            int borderAlpha = (int)Math.Round(pal.Border.A * cfg.BackgroundOpacity);
+            if (borderAlpha > 0)
+            {
+                Prepare(border, scale, TextRenderingHint.AntiAliasGridFit);
+                using var pen = new Pen(Color.FromArgb(borderAlpha, pal.Border), 1);
+                border.DrawPath(pen, panel);
+            }
         }
 
         using (var final = Graphics.FromImage(bmp))
         {
-            Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
+            if (!sharpText) Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
             // The close button stays fully visible, whatever the opacity: it's how you get rid of the widget.
             var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
             if (hover && !cfg.Locked)
@@ -239,7 +276,12 @@ internal static partial class WidgetRenderer
                 OverlayMetric.Fps => (Fps, SensorKind.Frequency, d.Frame?.Fps),
                 OverlayMetric.FrameTime => (Fps, SensorKind.Factor, d.Frame?.FrameTimeMs),
                 OverlayMetric.OnePercentLow => (Fps, SensorKind.Frequency, d.Frame?.OnePercentLow),
-                _ => (SensorAccent, SensorKind.Factor, (double?)null), // the time of day
+                OverlayMetric.CpuPeakToday => (Cpu, SensorKind.Temperature, d.Today.CpuPeak),
+                OverlayMetric.GpuPeakToday => (Gpu, SensorKind.Temperature, d.Today.GpuPeak),
+                OverlayMetric.ScreenTime => (SensorAccent, SensorKind.Factor, d.Today.ActiveSec > 0 ? d.Today.ActiveSec : null),
+                OverlayMetric.PcOn => (SensorAccent, SensorKind.Factor, d.Today.OnSec > 0 ? d.Today.OnSec : null),
+                OverlayMetric.Session => (Fps, SensorKind.Factor, d.Activity is { Name: not null, Paused: false } ? d.Activity.SessionActiveSec : null),
+                _ => (SensorAccent, SensorKind.Factor, (double?)null), // the time of day, the date, an app's name
             };
             string text = m switch
             {
@@ -247,9 +289,14 @@ internal static partial class WidgetRenderer
                 OverlayMetric.FrameTime => value is double t ? $"{t:0.0} ms" : "—",
                 OverlayMetric.GpuMemory => value is double mb ? Units.Megabytes(mb) : "—",
                 OverlayMetric.Clock => DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture),
+                OverlayMetric.Date => DateTime.Now.ToString("ddd d MMM", System.Globalization.CultureInfo.CurrentCulture),
+                OverlayMetric.ScreenTime or OverlayMetric.PcOn or OverlayMetric.Session => value is double sec ? Units.Duration(sec) : "—",
+                OverlayMetric.TopApp => Short(d.Today.TopApp),
+                OverlayMetric.InFront => Short(d.Activity is { Paused: false } ? d.Activity.Name : null),
                 _ => Units.Short(kind, value),
             };
-            Color color = kind == SensorKind.Temperature ? TempColor(value, p) : value is null && m != OverlayMetric.Clock ? p.Faint : p.Text;
+            bool words = m is OverlayMetric.Clock or OverlayMetric.Date or OverlayMetric.TopApp or OverlayMetric.InFront;
+            Color color = kind == SensorKind.Temperature ? TempColor(value, p) : value is null && !(words && text != "—") ? p.Faint : p.Text;
             return new Reading(item.Label ?? WidgetCatalog.ShortLabel(m), accent, text, color, value, kind, m);
         }
         var sensor = WidgetCatalog.Sensor(item.Id) is { } id ? d.Readings.GetValueOrDefault(id) : null;
@@ -257,6 +304,9 @@ internal static partial class WidgetRenderer
         return new Reading(item.Label ?? sensor?.Label ?? "Sensor", SensorAccent, Units.Short(sensorKind, sensor?.Value),
             sensorKind == SensorKind.Temperature ? TempColor(sensor?.Value, p) : sensor?.Value is null ? p.Faint : p.Text, sensor?.Value, sensorKind, null);
     }
+
+    /// <summary>An app's name on a widget: at most 16 letters, so one long name doesn't stretch the whole widget.</summary>
+    private static string Short(string? name) => string.IsNullOrWhiteSpace(name) ? "—" : name.Length <= 16 ? name : name[..15].TrimEnd() + "…";
 
     /// <summary>The last five minutes of a reading, where the agent keeps them (key temperatures and loads).</summary>
     private static float[] History(Reading r, WidgetData d) => r.Metric switch
@@ -428,6 +478,61 @@ internal static partial class WidgetRenderer
         }
     }
 
+    /// <summary>The background opacity from which text is drawn with ClearType (see RenderStyle).</summary>
+    internal const double SharpFrom = 0.6;
+
+    private static void Prepare(Graphics g, float scale, TextRenderingHint text)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = text;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.ScaleTransform(scale, scale);
+    }
+
+    /// <summary>
+    /// The sharp widget: each pixel takes its colour from <paramref name="sharp"/> (ClearType text on the solid panel) and
+    /// its opacity from the panel's shape at the background opacity, raised to full where the readings cover it (their
+    /// greyscale layer, <paramref name="content"/>, says how much). Outside the panel it stays clear. On a grayscale widget
+    /// ClearType's coloured edges are turned to their own brightness: hinted like ClearType, and grey.
+    /// </summary>
+    private static unsafe void Sharpen(Bitmap target, Bitmap sharp, Bitmap content, Bitmap shape, int bgAlpha, bool gray)
+    {
+        var rect = new Rectangle(0, 0, target.Width, target.Height);
+        var t = target.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        var s = sharp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        var c = content.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        var p = shape.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        try
+        {
+            for (int y = 0; y < rect.Height; y++)
+            {
+                uint* tr = (uint*)((byte*)t.Scan0 + y * t.Stride), sr = (uint*)((byte*)s.Scan0 + y * s.Stride);
+                uint* cr = (uint*)((byte*)c.Scan0 + y * c.Stride), pr = (uint*)((byte*)p.Scan0 + y * p.Stride);
+                for (int x = 0; x < rect.Width; x++)
+                {
+                    int inPanel = (int)(pr[x] >> 24), cover = (int)(cr[x] >> 24);
+                    int alpha = inPanel * (bgAlpha + (255 - bgAlpha) * cover / 255) / 255;
+                    uint rgb = sr[x] & 0x00FFFFFF;
+                    if (gray)
+                    {
+                        // ClearType's sub-pixel colour on a grayscale widget: each pixel's own brightness, in grey.
+                        uint l = ((rgb >> 16 & 0xFF) * 299 + (rgb >> 8 & 0xFF) * 587 + (rgb & 0xFF) * 114) / 1000;
+                        rgb = l << 16 | l << 8 | l;
+                    }
+                    tr[x] = alpha == 0 ? 0 : ((uint)alpha << 24) | rgb;
+                }
+            }
+        }
+        finally
+        {
+            target.UnlockBits(t);
+            sharp.UnlockBits(s);
+            content.UnlockBits(c);
+            shape.UnlockBits(p);
+        }
+    }
+
     /// <summary>
     /// Paints the panel at the background opacity, then the readings layer at the content opacity. The panel never
     /// goes fully transparent (1 of 255 at 0%): a layered window lets clicks through where it's clear, and a widget
@@ -553,8 +658,10 @@ internal static partial class WidgetRenderer
         }
         if (TextShadow.A > 0)
         {
-            // Scaled with the text, so it reads the same at every size (see ShadowFor).
-            float o = Math.Max(0.6f, px / 16f);
+            // Scaled with the text, so it reads the same at every size (see ShadowFor), and on whole screen pixels: a
+            // fraction of a pixel smeared the text (the soft look of small sizes).
+            float device = g.Transform.Elements[0];
+            float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
             using var shadow = new SolidBrush(TextShadow);
             Draw(shadow, o, o);
             using var soft = new SolidBrush(Color.FromArgb(TextShadow.A / 2, TextShadow));

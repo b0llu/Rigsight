@@ -1203,7 +1203,7 @@ public sealed partial class LiveData : ObservableObject
             string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
             var items = WidgetCatalog.ItemsOf(w);
             bool onWidget = items.Any(i => i.Id == item);
-            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", "", onWidget, onWidget || items.Count < WidgetCatalog.MaxItems(layout),
+            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", "", onWidget, onWidget || (WidgetCatalog.ShownItems(w).Count < WidgetCatalog.MaxItems(layout) && items.Count < WidgetCatalog.MaxKept),
                 () => _settings.Update(x =>
                 {
                     if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;

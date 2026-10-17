@@ -35,7 +35,7 @@ public class WidgetCatalogTests
     [Theory]
     [InlineData("Fps", OverlayMetric.Fps)]
     [InlineData("GpuMemory", OverlayMetric.GpuMemory)]
-    [InlineData("Session", null)]   // the app and time: not a reading
+    [InlineData("Session", OverlayMetric.Session)] // "This session", since widgets have it too
     [InlineData("3", null)]         // numbers aren't names
     [InlineData("fps", null)]       // written as saved
     [InlineData("sensor:/cpu/0/temperature/0", null)]
@@ -53,7 +53,9 @@ public class WidgetCatalogTests
     {
         Assert.True(WidgetCatalog.Allows(WidgetLayout.Bar, OverlayMetric.Fps));
         Assert.True(WidgetCatalog.Allows(WidgetLayout.Tiles, OverlayMetric.Clock));
-        Assert.False(WidgetCatalog.Allows(WidgetLayout.Bar, OverlayMetric.Session));
+        Assert.True(WidgetCatalog.Allows(WidgetLayout.Bar, OverlayMetric.Session));
+        Assert.True(WidgetCatalog.Allows(WidgetLayout.Tiles, OverlayMetric.ScreenTime));
+        Assert.False(WidgetCatalog.Allows(WidgetLayout.Gauges, OverlayMetric.TopApp)); // a name has no circle
         Assert.True(WidgetCatalog.Allows(WidgetLayout.Gauges, OverlayMetric.GpuLoad));
         Assert.False(WidgetCatalog.Allows(WidgetLayout.Gauges, OverlayMetric.CpuPower)); // no full circle for watts
         Assert.True(WidgetCatalog.Allows(WidgetLayout.Graph, OverlayMetric.Ram));
@@ -67,7 +69,7 @@ public class WidgetCatalogTests
     }
 
     [Fact]
-    public void Cleaning_keeps_known_readings_once_within_the_layouts_share()
+    public void Cleaning_keeps_known_readings_once_and_the_layout_shows_its_share()
     {
         var w = new WidgetConfig
         {
@@ -79,9 +81,18 @@ public class WidgetCatalogTests
             ],
         };
         WidgetCatalog.Clean(w);
-        Assert.Equal(["CpuTemp", "GpuTemp", "sensor:/a", "Ram"], w.Items!.Select(i => i.Id)); // four gauges at most
+        // Every known reading kept once (a clock speed or power too: another layout shows them), the unknown one dropped.
+        Assert.Equal(["CpuTemp", "CpuPower", "GpuTemp", "sensor:/a", "Ram", "GpuLoad", "CpuLoad"], w.Items!.Select(i => i.Id));
         Assert.Equal("Chip", w.Items![0].Label);
-        Assert.Equal(OverlaySettings.MaxLabelLength, w.Items[1].Label!.Length);
+        Assert.Equal(OverlaySettings.MaxLabelLength, w.Items[2].Label!.Length);
+        // Gauges show what a gauge can, four at most.
+        Assert.Equal(["CpuTemp", "GpuTemp", "sensor:/a", "Ram"], WidgetCatalog.ShownItems(w).Select(i => i.Id));
+        w.Layout = WidgetLayout.Bar;
+        Assert.Equal(7, WidgetCatalog.ShownItems(w).Count);
+        // Never more than the roomiest layout holds.
+        w.Items = [.. Enum.GetValues<OverlayMetric>().Where(m => m != OverlayMetric.Session).Select(m => new WidgetItem { Id = m.ToString() })];
+        WidgetCatalog.Clean(w);
+        Assert.Equal(WidgetCatalog.MaxKept, w.Items!.Count);
     }
 
     [Fact]
@@ -101,7 +112,7 @@ public class WidgetCatalogTests
     [Fact]
     public void A_widget_of_your_own_always_shows_something()
     {
-        var w = new WidgetConfig { Style = WidgetStyle.Custom, Layout = WidgetLayout.Tiles, Items = [new() { Id = "Session" }] };
+        var w = new WidgetConfig { Style = WidgetStyle.Custom, Layout = WidgetLayout.Tiles, Items = [new() { Id = "Nope" }] };
         WidgetCatalog.Clean(w);
         Assert.Equal(["CpuTemp", "GpuTemp", "Ram"], w.Items!.Select(i => i.Id));
         w.Items = null;

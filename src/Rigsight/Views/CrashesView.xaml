@@ -305,7 +305,7 @@
                 <DockPanel MaxWidth="{StaticResource PageWidth}">
                     <!-- Back where it was opened from: the Timeline, Reports, Home; else this page's list. -->
                     <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center"
-                            AutomationProperties.Name="{Binding BackText, StringFormat=Back to {0}}" Command="{Binding BackCommand}">
+                            AutomationProperties.Name="{Binding BackName}" Command="{Binding BackCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="12" Margin="0,1,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding BackText}" FontSize="13" VerticalAlignment="Center" />

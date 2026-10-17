@@ -35,7 +35,11 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Crashes.ShowDay(day);
             CurrentPage = "crashes";
-        }, scan: ScanNowAsync, openCrash: OpenCrash);
+        }, scan: ScanNowAsync, openCrash: OpenCrash, openProblems: (first, last) =>
+        {
+            Crashes.ShowPcProblems(first, last);
+            CurrentPage = "crashes";
+        });
         Memory = new MemoryViewModel(Reports, Live);
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);

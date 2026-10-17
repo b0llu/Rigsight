@@ -206,6 +206,9 @@
                                                 <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                            Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
+                                                <!-- Kept for another layout: greyed, with why. -->
+                                                <TextBlock Text="{Binding NotShown, StringFormat=Not shown: {0}}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
+                                                           Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>
@@ -213,55 +216,129 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <StackPanel Visibility="{Binding CanAddMore, Converter={StaticResource Vis}}">
-                            <DockPanel Margin="0,4,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Add" Margin="8,0,0,0" Command="{Binding AddReadingCommand}" />
-                                <Grid>
-                                    <ComboBox ItemsSource="{Binding Offered}" SelectedItem="{Binding ReadingToAdd}" DisplayMemberPath="Name"
-                                              AutomationProperties.Name="Reading to add" ToolTip="A reading to add" />
-                                    <TextBlock Text="Add a reading…" FontSize="13" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
-                                               Margin="12,0,32,0" VerticalAlignment="Center"
-                                               Visibility="{Binding ReadingToAdd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                </Grid>
-                            </DockPanel>
-                            <DockPanel Margin="0,8,0,0" Visibility="{Binding CanAddSensors, Converter={StaticResource Vis}}">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Add" Margin="8,0,0,0" Command="{Binding AddSensorCommand}" />
-                                <Grid>
-                                <ComboBox x:Name="SensorBox" ItemsSource="{Binding OfferedSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
-                                          TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360"
-                                          AutomationProperties.Name="Sensor to add" ToolTip="Any sensor on your PC (type to search)">
-                                    <ComboBox.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <VirtualizingStackPanel />
-                                        </ItemsPanelTemplate>
-                                    </ComboBox.ItemsPanel>
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding DisplayName}" FontSize="13" />
-                                                <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                        <!-- The reading picker: one search field for the usual readings and every sensor. Typing opens the list,
+                             chips narrow it to a part, a click adds a line at once and the list stays open for the next. It floats
+                             over the editor (nothing moves). -->
+                        <Grid Margin="0,4,0,0">
+                            <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="Add a reading… type to search" Height="36"
+                                     Text="{Binding PickerText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Add a reading"
+                                     GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown" />
+                            <Popup x:Name="PickPopup" PlacementTarget="{Binding ElementName=PickBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+                                   AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}"
+                                   Width="{Binding ActualWidth, ElementName=PickBox}">
+                                <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                        CornerRadius="12" Padding="0,10,0,6" Margin="0,0,8,8">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                    </Border.Effect>
+                                    <DockPanel>
+                                        <!-- Chips: a part each, with how many there are to add under what's typed. -->
+                                        <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding PickerChips}" Margin="10,0,10,8" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Focusable="False" Cursor="Hand" Margin="0,0,6,6" AutomationProperties.Name="{Binding Name}"
+                                                            Command="{Binding DataContext.PickChipCommand, ElementName=PickBox}" CommandParameter="{Binding}">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" CornerRadius="11" Padding="10,3">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                                        <TextBlock x:Name="Count" Text="{Binding Count}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}"
+                                                                                   Margin="6,1,0,0" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                        <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    </Trigger>
+                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                                                        <Setter TargetName="Count" Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                                                    </DataTrigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
+                                        <TextBlock DockPanel.Dock="Bottom" Text="Click to add · Esc to close" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
+                                        <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource StrokeBrush}" />
+                                        <Grid>
+                                            <ScrollViewer x:Name="PickScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                                          Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                <ItemsControl ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Header}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
+                                                                           Visibility="{Binding HasHeader, Converter={StaticResource Vis}}" />
+                                                                <Button Cursor="Hand" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
+                                                                        Command="{Binding DataContext.PickOptionCommand, ElementName=PickBox}" CommandParameter="{Binding}">
+                                                                    <Button.Template>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="8,6">
+                                                                                <DockPanel>
+                                                                                    <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                                                             Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}" />
+                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                                                                               VerticalAlignment="Center" Margin="10,0,0,0" MaxWidth="230" TextTrimming="CharacterEllipsis" />
+                                                                                    <StackPanel VerticalAlignment="Center">
+                                                                                        <StackPanel Orientation="Horizontal">
+                                                                                            <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                                                            <Border Background="{DynamicResource WarmBrush}" CornerRadius="4" Padding="5,0" Margin="8,1,0,0" VerticalAlignment="Center"
+                                                                                                    Visibility="{Binding IsNew, Converter={StaticResource Vis}}">
+                                                                                                <TextBlock Text="NEW" FontSize="9.5" FontWeight="Bold" Foreground="Black" />
+                                                                                            </Border>
+                                                                                        </StackPanel>
+                                                                                        <TextBlock Text="{Binding Source}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                                                                   Visibility="{Binding HasSource, Converter={StaticResource Vis}}" />
+                                                                                    </StackPanel>
+                                                                                </DockPanel>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                                </Trigger>
+                                                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                                                </Trigger>
+                                                                                <Trigger Property="IsEnabled" Value="False">
+                                                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                                                                                    <Setter TargetName="Bd" Property="Background" Value="Transparent" />
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Button.Template>
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                            <!-- Nothing to show: says so, and where else there's a match. -->
+                                            <StackPanel Margin="16,24,16,22" HorizontalAlignment="Center" Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}}">
+                                                <TextBlock Text="{Binding PickerEmptyText}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                                                <TextBlock Text="{Binding PickerEmptyHint}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"
+                                                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Visibility="{Binding PickerEmptyHint, Converter={StaticResource Vis}}" />
+                                                <Button Style="{StaticResource GhostButton}" Content="Search all groups" HorizontalAlignment="Center" Margin="0,10,0,0"
+                                                        Command="{Binding SearchAllCommand}" Visibility="{Binding CanSearchAll, Converter={StaticResource Vis}}" />
                                             </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                                <TextBlock Text="Add a sensor…" FontSize="13" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
-                                           Margin="12,0,32,0" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Text, ElementName=SensorBox}" Value="">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                </Grid>
-                            </DockPanel>
-                        </StackPanel>
-                        <TextBlock Text="That's the most this layout shows. Remove one to add another." Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0"
-                                   Visibility="{Binding CanAddMore, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                        </Grid>
+                                    </DockPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
                         <Button Style="{StaticResource GhostButton}" Content="Reset to default" Command="{Binding ResetCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
                                 Visibility="{Binding CanReset, Converter={StaticResource Vis}}" ToolTip="Back to this widget's own readings" />
                     </StackPanel>

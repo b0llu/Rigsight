@@ -212,6 +212,24 @@ public class WidgetRendererTests
     public static TheoryData<WidgetStyle> Styles() => [.. Enum.GetValues<WidgetStyle>()];
 
     [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.2)]
+    [InlineData(0.59)]
+    [InlineData(0.6)]
+    [InlineData(1.0)]
+    public void Readings_are_drawn_at_every_background_opacity(double background)
+    {
+        // Solid enough panels get ClearType text (from 60%), see-through ones the greyscale drawing: both must draw the text.
+        foreach (var theme in new[] { WidgetTheme.Dark, WidgetTheme.Light })
+        {
+            var cfg = new WidgetConfig { Style = WidgetStyle.Pill, Theme = theme, BackgroundOpacity = background };
+            using var bmp = WidgetRenderer.Render(cfg, Full(), 1.5f, false, out _);
+            int opaque = Pixels(bmp).Count(p => p.A > 200);
+            Assert.True(opaque > 150, $"{theme} at {background:P0}: {opaque} solid pixels, the readings aren't drawn");
+        }
+    }
+
+    [Theory]
     [MemberData(nameof(Styles))]
     public void Grayscale_takes_the_colour_out_of_every_style(WidgetStyle style)
     {

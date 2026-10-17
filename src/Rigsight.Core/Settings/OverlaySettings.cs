@@ -19,6 +19,8 @@ public enum OverlayMetric
     GpuTemp, GpuHotSpot, GpuLoad, GpuClock, GpuPower, GpuMemory,
     Ram,
     Session, Clock,
+    // Widgets only (the overlay lists its own): today so far, and what's in front. Added at the end: the order is saved.
+    ScreenTime, PcOn, TopApp, CpuPeakToday, GpuPeakToday, Date, InFront,
 }
 
 /// <summary>A sensor on the overlay: its identifier and, optionally, a short name to show instead of its own.</summary>

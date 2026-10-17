@@ -1,5 +1,8 @@
 namespace Rigsight.Core.Settings;
 
+/// <summary>The groups a widget's readings are picked from (the picker's chips).</summary>
+public enum WidgetCategory { Game, Cpu, Gpu, Ram, Storage, Network, Fans, Board, Today }
+
 /// <summary>
 /// What widgets are made of: the built-in ones and their readings, the layouts, and which readings each layout can
 /// show. A widget is a layout, a list of readings (<see cref="WidgetItem"/>) and its look; the built-in ones are the
@@ -82,6 +85,23 @@ public static class WidgetCatalog
 
     public static List<WidgetItem> Items(params OverlayMetric[] metrics) => [.. metrics.Select(m => new WidgetItem { Id = m.ToString() })];
 
+    /// <summary>
+    /// The most readings a widget keeps: what the roomiest layout shows. A widget keeps its whole list whatever its
+    /// layout, so moving a bar of 8 to tiles (6) and back loses nothing; each layout shows what it can of it.
+    /// </summary>
+    public const int MaxKept = 8;
+
+    /// <summary>Whether <paramref name="layout"/> can show this reading at all (a graph can't show a sensor, gauges a clock speed).</summary>
+    public static bool Shows(WidgetLayout layout, WidgetItem item) =>
+        Metric(item.Id) is { } m ? Allows(layout, m) : Sensor(item.Id) is not null && AllowsSensor(layout);
+
+    /// <summary>What the widget shows in its layout: the readings it can show, in order, as many as it holds.</summary>
+    public static List<WidgetItem> ShownItems(WidgetConfig w)
+    {
+        var layout = LayoutOf(w);
+        return [.. ItemsOf(w).Where(i => Shows(layout, i)).Take(MaxItems(layout))];
+    }
+
     public static int MaxItems(WidgetLayout layout) => layout switch
     {
         WidgetLayout.Bar => 8,
@@ -92,7 +112,7 @@ public static class WidgetCatalog
 
     /// <summary>The overlay reading an item is, if it's one (not a sensor, not unknown).</summary>
     public static OverlayMetric? Metric(string id) =>
-        Enum.TryParse<OverlayMetric>(id, out var m) && Enum.IsDefined(m) && m != OverlayMetric.Session && !int.TryParse(id, out _) ? m : null;
+        Enum.TryParse<OverlayMetric>(id, out var m) && Enum.IsDefined(m) && !int.TryParse(id, out _) ? m : null;
 
     /// <summary>The sensor an item is ("sensor:…"), if it's one.</summary>
     public static string? Sensor(string id) => id.StartsWith(SensorPrefix, StringComparison.Ordinal) && id.Length > SensorPrefix.Length ? id[SensorPrefix.Length..] : null;
@@ -111,7 +131,7 @@ public static class WidgetCatalog
     /// <summary>Whether <paramref name="layout"/> can show the overlay reading <paramref name="metric"/>.</summary>
     public static bool Allows(WidgetLayout layout, OverlayMetric metric) => layout switch
     {
-        WidgetLayout.Bar or WidgetLayout.Tiles => metric != OverlayMetric.Session,
+        WidgetLayout.Bar or WidgetLayout.Tiles => true,
         WidgetLayout.Gauges => GaugeMetrics.Contains(metric),
         WidgetLayout.Graph => GraphMetrics.Contains(metric),
         _ => false,
@@ -146,8 +166,75 @@ public static class WidgetCatalog
         OverlayMetric.GpuMemory => "Video memory",
         OverlayMetric.Ram => "RAM in use",
         OverlayMetric.Clock => "Time of day",
+        OverlayMetric.Session => "This session",
+        OverlayMetric.ScreenTime => "Screen time today",
+        OverlayMetric.PcOn => "PC on today",
+        OverlayMetric.TopApp => "Most used app today",
+        OverlayMetric.CpuPeakToday => "CPU peak today",
+        OverlayMetric.GpuPeakToday => "GPU peak today",
+        OverlayMetric.Date => "Date",
+        OverlayMetric.InFront => "App in front",
         _ => m.ToString(),
     };
+
+    /// <summary>What a reading is, in a few words, where its name doesn't say it all (the picker's second line).</summary>
+    public static string MetricDetail(OverlayMetric m) => m switch
+    {
+        OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow => "From RivaTuner, in the game you're playing",
+        OverlayMetric.Session => "How long the app in front has been in use",
+        OverlayMetric.ScreenTime => "Time you were using the PC today",
+        OverlayMetric.PcOn => "Time the PC was on today",
+        OverlayMetric.InFront => "The game or app you're using",
+        _ => "",
+    };
+
+    /// <summary>Readings new to widgets in 0.27.0 (the picker marks them NEW).</summary>
+    public static bool IsNew(OverlayMetric m) => m is OverlayMetric.Session or >= OverlayMetric.ScreenTime;
+
+    /// <summary>The group a reading is picked from.</summary>
+    public static WidgetCategory CategoryOf(OverlayMetric m) => m switch
+    {
+        OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow or OverlayMetric.Session or OverlayMetric.InFront => WidgetCategory.Game,
+        OverlayMetric.CpuTemp or OverlayMetric.CpuLoad or OverlayMetric.CpuClock or OverlayMetric.CpuPower => WidgetCategory.Cpu,
+        OverlayMetric.GpuTemp or OverlayMetric.GpuHotSpot or OverlayMetric.GpuLoad or OverlayMetric.GpuClock or OverlayMetric.GpuPower or OverlayMetric.GpuMemory => WidgetCategory.Gpu,
+        OverlayMetric.Ram => WidgetCategory.Ram,
+        _ => WidgetCategory.Today,
+    };
+
+    /// <summary>The group a sensor is picked from, by its part (LibreHardwareMonitor's hardware type) and kind.</summary>
+    public static WidgetCategory CategoryOf(string hardwareType, SensorKind kind) => hardwareType switch
+    {
+        "Cpu" => WidgetCategory.Cpu,
+        "GpuNvidia" or "GpuAmd" or "GpuIntel" => WidgetCategory.Gpu,
+        "Memory" => WidgetCategory.Ram,
+        "Storage" => WidgetCategory.Storage,
+        "Network" => WidgetCategory.Network,
+        _ when kind is SensorKind.Fan or SensorKind.Control => WidgetCategory.Fans,
+        "Cooler" => WidgetCategory.Fans,
+        _ => WidgetCategory.Board,
+    };
+
+    public static string CategoryName(WidgetCategory c) => c switch
+    {
+        WidgetCategory.Cpu => "CPU",
+        WidgetCategory.Gpu => "GPU",
+        WidgetCategory.Ram => "RAM",
+        WidgetCategory.Board => "Motherboard",
+        _ => c.ToString(),
+    };
+
+    /// <summary>
+    /// Why <paramref name="layout"/> can't show a reading, for the picker and the editor's list; null when it can. A
+    /// gauge needs a temperature or a percentage; a graph needs the five minutes the agent keeps of its main readings.
+    /// </summary>
+    public static string? WhyNot(WidgetLayout layout, OverlayMetric? metric, SensorKind? sensorKind = null) =>
+        (metric is { } m ? Allows(layout, m) : AllowsSensor(layout, sensorKind)) ? null
+        : layout switch
+        {
+            WidgetLayout.Gauges => "Gauges show a temperature or a percentage",
+            WidgetLayout.Graph => "A graph keeps five minutes of the main readings only",
+            _ => $"{LayoutName(layout)} can't show this",
+        };
 
     /// <summary>A reading's label on the widget itself (short, like the slim bar's "CPU").</summary>
     public static string ShortLabel(OverlayMetric m) => m switch
@@ -167,12 +254,21 @@ public static class WidgetCatalog
         OverlayMetric.GpuMemory => "VRAM",
         OverlayMetric.Ram => "RAM",
         OverlayMetric.Clock => "Time",
+        OverlayMetric.Session => "Session",
+        OverlayMetric.ScreenTime => "Screen",
+        OverlayMetric.PcOn => "PC on",
+        OverlayMetric.TopApp => "Top app",
+        OverlayMetric.CpuPeakToday => "CPU peak",
+        OverlayMetric.GpuPeakToday => "GPU peak",
+        OverlayMetric.Date => "Date",
+        OverlayMetric.InFront => "App",
         _ => m.ToString(),
     };
 
     /// <summary>
-    /// Keeps a widget's readings to what its layout can show: known readings, each once, at most
-    /// <see cref="MaxItems"/>, short names trimmed. A built-in widget's own list goes back to null (its default).
+    /// Keeps a widget's readings tidy: known readings, each once, at most <see cref="MaxKept"/>, short names trimmed. What
+    /// its layout can't show is kept, not dropped (see <see cref="ShownItems"/>). A built-in widget's own list goes back
+    /// to null (its default).
     /// </summary>
     public static void Clean(WidgetConfig w)
     {
@@ -183,14 +279,14 @@ public static class WidgetCatalog
             return;
         }
         var items = w.Items
-            .Where(i => i is not null && (Metric(i.Id) is { } m ? Allows(layout, m) : Sensor(i.Id) is not null && AllowsSensor(layout)))
+            .Where(i => i is not null && (Metric(i.Id) is not null || Sensor(i.Id) is not null))
             .DistinctBy(i => i.Id)
-            .Take(MaxItems(layout))
+            .Take(MaxKept)
             .Select(i => new WidgetItem { Id = i.Id, Label = Label(i.Label) })
             .ToList();
         bool isDefault = items.Select(i => (i.Id, i.Label)).SequenceEqual(DefaultItems(w.Style).Select(i => (i.Id, (string?)null)));
         if (w.Style == WidgetStyle.Custom)
-            w.Items = items.Count > 0 || MaxItems(layout) == 0 ? items : DefaultItems(WidgetStyle.Custom).Where(i => Metric(i.Id) is { } m && Allows(layout, m)).ToList();
+            w.Items = items.Count > 0 || MaxItems(layout) == 0 ? items : DefaultItems(WidgetStyle.Custom);
         else
             w.Items = items.Count == 0 || isDefault ? null : items;
 

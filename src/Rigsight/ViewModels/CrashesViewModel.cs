@@ -169,6 +169,26 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         Unit = Core.Reports.ReportRange.Day;
     }
 
+    /// <summary>
+    /// The days a Timeline line spans ("3 graphics driver resets, 12–15 Oct"), with only the PC's own problems: that
+    /// line's problems, without the app crashes of those days.
+    /// </summary>
+    public void ShowPcProblems(DateTime first, DateTime last)
+    {
+        CloseCase();
+        SearchText = "";
+        Filter = "Pc";
+        if (first.Date == last.Date)
+        {
+            ShowDay(first);
+            return;
+        }
+        // The days first, then the period: one load, not one for the old custom days and another for these.
+        CustomFrom = first.Date;
+        CustomTo = last.Date.AddDays(1);
+        Unit = Core.Reports.ReportRange.Custom;
+    }
+
     /// <summary>Which dates are covered. Windows' crash log is read back 90 days when Rigsight is installed,
     /// so "All time" can reach further back than the rest of the app's history.</summary>
     public string RangeNote => PeriodPicker.Span(Unit, Anchor, Since, CustomFrom, CustomTo);
@@ -338,7 +358,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private string? _returnTo;
 
     /// <summary>What the back button says: the page it goes back to.</summary>
-    [ObservableProperty] private string _backText = "Crashes";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BackName))]
+    private string _backText = "Crashes";
+
+    /// <summary>The back button's name for screen readers: always "Back to …".</summary>
+    public string BackName => BackText.StartsWith("Back to ", StringComparison.Ordinal) ? BackText : $"Back to {BackText}";
 
     /// <summary>Shows another page (set by the window).</summary>
     public Action<string>? GoBackTo { get; set; }
@@ -355,7 +380,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private void ComeFrom((string Page, string Name)? from)
     {
         _returnTo = from?.Page;
-        BackText = from?.Name ?? "Crashes";
+        // "Back to Timeline": a page name alone, beside the crash's headline, read as this page's title.
+        BackText = from is { Name: var name } ? $"Back to {name}" : "Crashes";
     }
 
     [RelayCommand]

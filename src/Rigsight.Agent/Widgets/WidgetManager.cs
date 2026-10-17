@@ -89,7 +89,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     /// <summary>Whether a widget shows anything from RivaTuner (frame rate, frame time, 1% low).</summary>
     public static bool ShowsFrameRate(WidgetConfig cfg) =>
-        WidgetCatalog.ItemsOf(cfg).Any(i => WidgetCatalog.Metric(i.Id) is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow);
+        WidgetCatalog.ShownItems(cfg).Any(i => WidgetCatalog.Metric(i.Id) is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow);
 
     private static int ForegroundPid()
     {

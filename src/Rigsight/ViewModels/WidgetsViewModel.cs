@@ -15,6 +15,13 @@ namespace Rigsight.ViewModels;
 public sealed partial class WidgetItemRow(WidgetCard card, string id, string name, string detail) : ObservableObject
 {
     public string Id { get; } = id;
+
+    /// <summary>Why the widget's layout doesn't show it ("Tiles shows 6"), or null when it does. Kept, not dropped.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShown))]
+    private string? _notShown;
+
+    public bool IsShown => NotShown is null;
     /// <summary>What the reading is ("CPU temperature", or the sensor's name): shown when no short name is set.</summary>
     public string Name { get; } = name;
     /// <summary>Where it comes from: the sensor's hardware, or nothing for the usual readings.</summary>
@@ -31,6 +38,45 @@ public sealed partial class WidgetItemRow(WidgetCard card, string id, string nam
 
 /// <summary>A reading that can be added to a widget.</summary>
 public sealed record WidgetMetricOption(OverlayMetric Metric, string Name);
+
+/// <summary>
+/// A line of the reading picker: a usual reading or a sensor, where it comes from, its value now, and why it can't be
+/// added where it can't (the layout can't show it, or the widget is full). <see cref="Header"/>: the group heading above
+/// it, when it's the first of its group.
+/// </summary>
+public sealed record PickerOption(string Id, string Name, string Source, string Value, WidgetCategory Category, bool IsNew, string? Off)
+{
+    /// <summary>A fan's speed (the Fans chip lists the graphics card's fans too).</summary>
+    public bool IsSensorFan { get; init; }
+
+    /// <summary>A sensor's kind in words ("Temperature", "Clock"), so "temp" finds "Core (Tctl/Tdie)".</summary>
+    public string? Kind { get; init; }
+    public string? Header { get; init; }
+    public bool HasHeader => Header is not null;
+    public bool CanAdd => Off is null;
+    /// <summary>What stands at the right: its value, or why it can't be added.</summary>
+    public string Side => Off ?? Value;
+    public bool HasSource => Source.Length > 0;
+    /// <summary>The dot's colour: the part's (CPU blue, GPU cyan, RAM purple), muted for the rest.</summary>
+    public string DotBrush => Category switch
+    {
+        WidgetCategory.Cpu => "CpuBrush",
+        WidgetCategory.Gpu => "GpuBrush",
+        WidgetCategory.Ram => "PurpleBrush",
+        WidgetCategory.Game => "PinkBrush",
+        WidgetCategory.Storage or WidgetCategory.Network => "SkyBrush",
+        _ => "FaintBrush",
+    };
+}
+
+/// <summary>A chip of the picker: a group of readings, with how many there are to add (under the words typed).</summary>
+public sealed partial class PickerChip(string key, string name) : ObservableObject
+{
+    public string Key { get; } = key;
+    public string Name { get; } = name;
+    [ObservableProperty] private int _count;
+    [ObservableProperty] private bool _isSelected;
+}
 
 /// <summary>One widget: its card on the Widgets page, and everything its editor changes.</summary>
 public sealed partial class WidgetCard : ObservableObject
@@ -87,7 +133,7 @@ public sealed partial class WidgetCard : ObservableObject
         get
         {
             if (IsBuiltIn) return WidgetCatalog.Description(Style);
-            int n = WidgetCatalog.ItemsOf(Config).Count;
+            int n = WidgetCatalog.ShownItems(Config).Count;
             return $"{WidgetCatalog.LayoutName(LayoutValue)} · {n} reading{(n == 1 ? "" : "s")}";
         }
     }
@@ -129,8 +175,8 @@ public sealed partial class WidgetCard : ObservableObject
     public ObservableCollection<WidgetItemRow> Items { get; } = [];
 
     public int MaxItems => WidgetCatalog.MaxItems(LayoutValue);
-    public bool CanAddMore => Items.Count < MaxItems;
-    public string ItemsCount => $"{Items.Count} of {MaxItems}";
+    public bool CanAddMore => Items.Count(i => i.IsShown) < MaxItems && Items.Count < WidgetCatalog.MaxKept;
+    public string ItemsCount => $"{Items.Count(i => i.IsShown)} of {MaxItems}";
 
     /// <summary>The readings that can still be added, in the overlay's order.</summary>
     public IReadOnlyList<WidgetMetricOption> Offered =>
@@ -142,6 +188,148 @@ public sealed partial class WidgetCard : ObservableObject
             : [.. _live.PickableSensors.Where(s => WidgetCatalog.AllowsSensor(LayoutValue, s.Kind) && Items.All(i => i.Id != WidgetCatalog.SensorPrefix + s.Id))];
 
     public bool CanAddSensors => WidgetCatalog.AllowsSensor(LayoutValue) && _live is not null;
+
+    // ── The reading picker: one searchable list of the usual readings and every sensor, by part ──
+
+    /// <summary>What's typed in the picker: every word must be in a reading's name, its part's name or its group.</summary>
+    [ObservableProperty] private string _pickerText = "";
+
+    [ObservableProperty] private bool _pickerOpen;
+
+    /// <summary>The chip picked ("all", or a <see cref="WidgetCategory"/>'s name).</summary>
+    [ObservableProperty] private string _pickerCategory = "all";
+
+    public List<PickerChip> PickerChips { get; } =
+        [new("all", "All"), .. Enum.GetValues<WidgetCategory>().Select(c => new PickerChip(c.ToString(), WidgetCatalog.CategoryName(c)))];
+
+    [ObservableProperty] private List<PickerOption> _pickerOptions = [];
+    [ObservableProperty] private bool _pickerEmpty;
+    [ObservableProperty] private string _pickerEmptyText = "";
+    [ObservableProperty] private string _pickerEmptyHint = "";
+    [ObservableProperty] private bool _canSearchAll;
+
+    partial void OnPickerTextChanged(string value)
+    {
+        if (value.Length > 0) PickerOpen = true;
+        BuildPicker();
+    }
+
+    partial void OnPickerOpenChanged(bool value)
+    {
+        if (value) BuildPicker();
+    }
+
+    partial void OnPickerCategoryChanged(string value) => BuildPicker();
+
+    [RelayCommand]
+    private void PickChip(PickerChip chip) => PickerCategory = chip.Key;
+
+    [RelayCommand]
+    private void SearchAll() => PickerCategory = "all";
+
+    /// <summary>A click on a line adds it at once; the picker stays open for the next one.</summary>
+    [RelayCommand]
+    private void PickOption(PickerOption option)
+    {
+        if (!option.CanAdd || Items.Any(i => i.Id == option.Id)) return;
+        EditItems(list => list.Add(new WidgetItem { Id = option.Id }));
+        BuildPicker();
+    }
+
+    /// <summary>Everything that can go on a widget, grouped by part: the usual readings first, then the sensors.</summary>
+    private List<PickerOption> AllOptions()
+    {
+        var layout = LayoutValue;
+        bool full = !CanAddMore;
+        string? Off(string? why) => why ?? (full ? "Full: remove one to add another" : null);
+        var list = new List<PickerOption>();
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+        {
+            string id = m.ToString();
+            if (WidgetCatalog.Metric(id) is null || Items.Any(i => i.Id == id)) continue;
+            list.Add(new PickerOption(id, WidgetCatalog.MetricName(m), WidgetCatalog.MetricDetail(m), ValueOf(m), WidgetCatalog.CategoryOf(m),
+                WidgetCatalog.IsNew(m), Off(WidgetCatalog.WhyNot(layout, m))));
+        }
+        if (_live is not null)
+            foreach (var sensor in _live.PickableSensors)
+            {
+                string id = WidgetCatalog.SensorPrefix + sensor.Id;
+                if (Items.Any(i => i.Id == id)) continue;
+                list.Add(new PickerOption(id, sensor.DisplayName, sensor.HardwareName, sensor.ShortValue, WidgetCatalog.CategoryOf(sensor.HardwareType, sensor.Kind),
+                    false, Off(WidgetCatalog.WhyNot(layout, null, sensor.Kind))) { IsSensorFan = sensor.Kind == Core.SensorKind.Fan, Kind = sensor.TypeLabel });
+            }
+        return list;
+    }
+
+    /// <summary>A usual reading's value now, where the app has it (the frame rate and what's in front are the agent's alone).</summary>
+    private string ValueOf(OverlayMetric m)
+    {
+        if (_live is not { } live) return "";
+        var today = live.Today;
+        return m switch
+        {
+            OverlayMetric.CpuTemp => live.CpuTemp?.ShortValue ?? "",
+            OverlayMetric.CpuLoad => live.CpuLoad?.ShortValue ?? "",
+            OverlayMetric.CpuClock => live.CpuClock?.ShortValue ?? "",
+            OverlayMetric.CpuPower => live.CpuPower?.ShortValue ?? "",
+            OverlayMetric.GpuTemp => live.GpuTemp?.ShortValue ?? "",
+            OverlayMetric.GpuHotSpot => live.GpuHotSpot?.ShortValue ?? "",
+            OverlayMetric.GpuLoad => live.GpuLoad?.ShortValue ?? "",
+            OverlayMetric.GpuClock => live.GpuClock?.ShortValue ?? "",
+            OverlayMetric.GpuPower => live.GpuPower?.ShortValue ?? "",
+            OverlayMetric.GpuMemory => live.GpuVramUsed?.ShortValue ?? "",
+            OverlayMetric.Ram => live.RamLoad?.ShortValue ?? "",
+            OverlayMetric.ScreenTime => today.ActiveSec > 0 ? Core.Units.Duration(today.ActiveSec) : "",
+            OverlayMetric.PcOn => today.OnSec > 0 ? Core.Units.Duration(today.OnSec) : "",
+            OverlayMetric.TopApp => today.TopApp ?? "",
+            OverlayMetric.CpuPeakToday => Core.Units.TempShort(today.CpuPeak) is var t && today.CpuPeak is not null ? t : "",
+            OverlayMetric.GpuPeakToday => Core.Units.TempShort(today.GpuPeak) is var g && today.GpuPeak is not null ? g : "",
+            OverlayMetric.Clock => DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture),
+            OverlayMetric.Date => DateTime.Now.ToString("ddd d MMM", System.Globalization.CultureInfo.CurrentCulture),
+            _ => "",
+        };
+    }
+
+    /// <summary>The picker's list for what's typed and the chip picked, with each chip's count, or why nothing shows.</summary>
+    private void BuildPicker()
+    {
+        if (!PickerOpen) return;
+        var words = Core.TextMatch.Words(PickerText);
+        bool Matches(PickerOption o) => words.Length == 0
+            || Core.TextMatch.Has(words, o.Name, o.Source, WidgetCatalog.CategoryName(o.Category), o.Kind, o.IsSensorFan ? "fan" : null, o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "sensor" : null);
+        // The Fans chip has every fan, the graphics card's too.
+        bool In(PickerOption o, string key) => key == "all" || o.Category.ToString() == key || (key == nameof(WidgetCategory.Fans) && o.IsSensorFan);
+        var matching = AllOptions().Where(Matches).ToList();
+        foreach (var chip in PickerChips)
+        {
+            chip.Count = matching.Count(o => In(o, chip.Key));
+            chip.IsSelected = chip.Key == PickerCategory;
+        }
+        bool all = PickerCategory == "all";
+        var shown = matching.Where(o => In(o, PickerCategory))
+            .OrderBy(o => all ? (int)o.Category : 0)
+            .ThenBy(o => o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal))
+            .ThenBy(o => o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? o.Source : "", StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        // A heading over each group: the part under All, else the usual readings apart from the sensors.
+        string Group(PickerOption o) => all ? WidgetCatalog.CategoryName(o.Category).ToUpperInvariant()
+            : o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "SENSORS" : "USUAL READINGS";
+        string? last = null;
+        PickerOptions = [.. shown.Select(o =>
+        {
+            string g = Group(o);
+            var line = g == last ? o : o with { Header = g };
+            last = g;
+            return line;
+        })];
+        PickerEmpty = shown.Count == 0;
+        string name = PickerChips.First(c => c.Key == PickerCategory).Name;
+        int elsewhere = all ? 0 : matching.Count;
+        PickerEmptyText = words.Length == 0 ? (all ? "Nothing left to add" : $"Nothing left to add in {name}")
+            : $"Nothing matches \"{PickerText.Trim()}\"{(all ? "" : $" in {name}")}";
+        CanSearchAll = PickerEmpty && elsewhere > 0;
+        PickerEmptyHint = CanSearchAll ? $"{elsewhere} match{(elsewhere == 1 ? "es" : "")} in other groups." : words.Length > 0 ? "Try another word, such as a part's name or \"fan\"." : "";
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddReadingCommand))]
@@ -229,7 +417,15 @@ public sealed partial class WidgetCard : ObservableObject
         var wanted = WidgetCatalog.ItemsOf(Config);
         if (!Items.Select(i => i.Id).SequenceEqual(wanted.Select(i => i.Id)))
             Rebuild(wanted);
-        foreach (var row in Items) row.Refresh();
+        // What this layout doesn't show stays in the list, greyed, with why: switching back shows it again.
+        var shown = WidgetCatalog.ShownItems(Config).Select(i => i.Id).ToHashSet();
+        foreach (var row in Items)
+        {
+            row.NotShown = shown.Contains(row.Id) ? null
+                : WidgetCatalog.Shows(LayoutValue, new WidgetItem { Id = row.Id }) ? $"{LayoutName} shows {MaxItems}"
+                : WidgetCatalog.WhyNot(LayoutValue, WidgetCatalog.Metric(row.Id), SensorKindOf(row.Id)) ?? $"{LayoutName} can't show this";
+            row.Refresh();
+        }
         OnPropertyChanged(nameof(CanAddMore));
         OnPropertyChanged(nameof(ItemsCount));
         OnPropertyChanged(nameof(MaxItems));
@@ -240,7 +436,11 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(LayoutName));
         AddReadingCommand.NotifyCanExecuteChanged();
         AddSensorCommand.NotifyCanExecuteChanged();
+        BuildPicker();
     }
+
+    private Core.SensorKind? SensorKindOf(string id) =>
+        WidgetCatalog.Sensor(id) is { } sensorId ? _live?.AllSensors.FirstOrDefault(s => s.Id == sensorId)?.Kind : null;
 
     private void Rebuild(List<WidgetItem> wanted)
     {

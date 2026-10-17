@@ -32,6 +32,21 @@ public sealed class CrashMinutesPageTests
         vm.GroupsShown.First(g => g.Latest.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang && g.Latest.Input?.Context is { NoReadings: false, CpuBefore: not null }));
 
     [Fact]
+    public void A_timeline_line_of_several_days_opens_those_days_with_only_the_pcs_own_problems()
+    {
+        var vm = Loaded();
+        var first = new DateTime(2026, 10, 12);
+        Ui.Run(() =>
+        {
+            vm.Filter = "Apps";
+            vm.ShowPcProblems(first, first.AddDays(3));
+            Assert.Equal((Rigsight.Core.Reports.ReportRange.Custom, first, first.AddDays(4), "Pc"), (vm.Unit, vm.CustomFrom, vm.CustomTo, vm.Filter));
+            vm.ShowPcProblems(first, first.AddHours(20));
+            Assert.Equal((Rigsight.Core.Reports.ReportRange.Day, first, "Pc"), (vm.Unit, vm.Anchor, vm.Filter));
+        });
+    }
+
+    [Fact]
     public void A_crash_opened_from_another_page_goes_back_there_by_its_name()
     {
         var vm = Loaded();
@@ -42,7 +57,7 @@ public sealed class CrashMinutesPageTests
         Ui.Run(() =>
         {
             Assert.NotNull(vm.Case);
-            Assert.Equal("Timeline", vm.BackText);
+            Assert.Equal("Back to Timeline", vm.BackText);
             vm.BackCommand.Execute(null);
             Assert.Null(vm.Case);
             Assert.Equal(["timeline"], went);
