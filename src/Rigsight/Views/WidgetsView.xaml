@@ -176,10 +176,10 @@
                                      LostKeyboardFocus="PickBox_LostKeyboardFocus" TextChanged="PickBox_TextChanged" />
                             <Popup x:Name="PickPopup" PlacementTarget="{Binding ElementName=PickBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="True"
                                    PreviewKeyDown="PickPopup_KeyDown" LostKeyboardFocus="PickBox_LostKeyboardFocus"
-                                   AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}"
-                                   Width="{Binding ActualWidth, ElementName=PickBox}">
+                                   AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}">
+                                <!-- As wide as the field above it; the popup is 8 px wider and taller for the shadow. -->
                                 <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                        CornerRadius="12" Padding="0,10,0,6" Margin="0,0,8,8">
+                                        CornerRadius="12" Padding="0,10,0,6" Margin="0,0,8,8" Width="{Binding ActualWidth, ElementName=PickBox}">
                                     <Border.Effect>
                                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                                     </Border.Effect>

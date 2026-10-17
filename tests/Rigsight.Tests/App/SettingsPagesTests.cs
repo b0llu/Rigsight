@@ -510,6 +510,9 @@ public sealed class SettingsPageTests
                 Ui.Pump(300);
                 var popup = (System.Windows.Controls.Primitives.Popup)view.FindName("PickPopup");
                 Assert.True(popup.IsOpen);
+                // A user: the list was 8 px narrower than the field above it (its shadow's margin came off its width).
+                var field = (System.Windows.FrameworkElement)view.FindName("PickBox");
+                Assert.Equal(field.ActualWidth, ((System.Windows.FrameworkElement)popup.Child).ActualWidth, 0.5);
                 var chip = Visuals.Descendants<System.Windows.Controls.Button>(popup.Child).First(b => b.DataContext is PickerChip { Key: "Today" });
                 void Click(System.Windows.UIElement on) => on.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
                     { RoutedEvent = System.Windows.UIElement.PreviewMouseDownEvent, Source = on });

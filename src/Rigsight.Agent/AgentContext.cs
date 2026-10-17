@@ -1529,6 +1529,20 @@ internal sealed class AgentContext : ApplicationContext
             if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
             // Found by this check, so it happened since the last one (which may be last night's).
             if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];
+            // Apps and startup programs to the second, where the registry says when it was written in between.
+            if (found.Count > 0)
+            {
+                try
+                {
+                    var exact = Inventory.Exact(found, Inventory.ReadWriteTimes());
+                    for (int i = 0; i < found.Count; i++)
+                        Log.Write("changes", exact[i].IsApproximate
+                            ? $"{found[i].Title}: between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}"
+                            : $"{found[i].Title}: at {exact[i].Time:HH:mm:ss} (registry), found between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}");
+                    found = exact;
+                }
+                catch (Exception ex) { Log.Error("changes", ex); }
+            }
             if (graphics is not null)
                 found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = Inventory.ExactPrefix + c.Subject, NoticedFrom = null } : c)];
 

@@ -29,7 +29,7 @@ public static partial class Inventory
     /// <summary>How often the agent reads the inventory: a change found by it happened within this long before.</summary>
     public const int ScanMinutes = 10;
 
-    /// <summary>Marks a change found in the inventory whose exact time is known after all (from Windows' logs).</summary>
+    /// <summary>Marks a change found in the inventory whose exact time is known after all (from Windows' logs or its registry, see <see cref="Exact"/>).</summary>
     public const string ExactPrefix = "logged-";
 
     /// <summary>One of the inventory's kinds (the start of the subject of every change found by it).</summary>
@@ -87,14 +87,16 @@ public static partial class Inventory
 
     private const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 
+    private static readonly (RegistryHive, RegistryView)[] UninstallPlaces =
+        [(RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.LocalMachine, RegistryView.Registry32), (RegistryHive.CurrentUser, RegistryView.Default)];
+
     private static List<InventoryItem> ReadApps() => AppItems(ListedApps().Select(a => (a.Name, a.Version)));
 
     /// <summary>The apps Windows lists as installed, as they're written there, with the folder each says it's in ("" for none).</summary>
     private static List<(string Name, string Version, string Folder)> ListedApps()
     {
         var found = new List<(string Name, string Version, string Folder)>();
-        foreach (var (hive, view) in new[] { (RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.LocalMachine, RegistryView.Registry32),
-                     (RegistryHive.CurrentUser, RegistryView.Default) })
+        foreach (var (hive, view) in UninstallPlaces)
         {
             using var root = RegistryKey.OpenBaseKey(hive, view);
             using var apps = root.OpenSubKey(UninstallKey);
@@ -576,6 +578,112 @@ public static partial class Inventory
 
         static string? Text(string? s) => string.IsNullOrEmpty(s) ? null : s;
     }
+
+    // ── Exact times ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When Windows last wrote what apps and startup programs are read from: a registry key keeps the moment of its last
+    /// write, to the second.
+    /// </summary>
+    /// <param name="Apps">Each app, by its key, and the latest write to its entries under Uninstall.</param>
+    /// <param name="AppLists">The Uninstall keys themselves: written when an entry is added under them or deleted.</param>
+    /// <param name="Startup">The Run and StartupApproved keys, the startup folders, and when each file in them was put there.</param>
+    public sealed record WriteTimes(IReadOnlyDictionary<string, DateTime> Apps, IReadOnlyList<DateTime> AppLists, IReadOnlyList<DateTime> Startup);
+
+    public static WriteTimes ReadWriteTimes()
+    {
+        var apps = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        var lists = new List<DateTime>();
+        foreach (var (hive, view) in UninstallPlaces)
+        {
+            using var root = RegistryKey.OpenBaseKey(hive, view);
+            using var list = root.OpenSubKey(UninstallKey);
+            if (list is null) continue;
+            if (Written(list) is { } listed) lists.Add(listed);
+            foreach (string name in list.GetSubKeyNames())
+            {
+                using var app = list.OpenSubKey(name);
+                if (app?.GetValue("DisplayName") is not string { Length: > 0 } display || Written(app) is not { } written) continue;
+                if (app.GetValue("SystemComponent") is 1 || app.GetValue("ParentKeyName") is string { Length: > 0 }) continue;
+                string key = SplitName(display, app.GetValue("DisplayVersion") as string ?? "").Name.ToLowerInvariant();
+                if (!apps.TryGetValue(key, out var seen) || written > seen) apps[key] = written;
+            }
+        }
+
+        var startup = new List<DateTime>();
+        foreach (var (hive, view) in new[] { (RegistryHive.CurrentUser, RegistryView.Default), (RegistryHive.LocalMachine, RegistryView.Registry64), (RegistryHive.LocalMachine, RegistryView.Registry32) })
+        {
+            using var root = RegistryKey.OpenBaseKey(hive, view);
+            using var run = root.OpenSubKey(RunKey);
+            if (run is not null && Written(run) is { } at) startup.Add(at);
+        }
+        foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            foreach (string approved in new[] { "Run", "Run32", "StartupFolder" })
+            {
+                using var root = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64);
+                using var state = root.OpenSubKey(ApprovedKey + approved);
+                if (state is not null && Written(state) is { } at) startup.Add(at);
+            }
+        foreach (var folder in new[] { Environment.SpecialFolder.Startup, Environment.SpecialFolder.CommonStartup })
+        {
+            string path = Environment.GetFolderPath(folder);
+            if (path.Length == 0 || !Directory.Exists(path)) continue;
+            startup.Add(Directory.GetLastWriteTime(path));
+            foreach (string file in Directory.EnumerateFiles(path)) startup.Add(File.GetCreationTime(file));
+        }
+        return new(apps, lists, startup);
+    }
+
+    /// <summary>
+    /// Changes found by a check (they happened since the check before), dated to the second where Windows' registry says
+    /// when, and then no longer approximate. A time is taken only when it falls between the two checks; any other keeps
+    /// the "~" (a key written for another reason, or an update held while the old version still ran, see
+    /// <see cref="HoldRunningUpdates"/>, whose write came before the check before).
+    /// <list type="bullet">
+    /// <item>An app installed or updated: the last write to its entries.</item>
+    /// <item>An app removed: its entry is gone, so the Uninstall key it was in, when it's the only app change in the check
+    /// and only one such key was written in between (another install or update would have written one too).</item>
+    /// <item>A startup program: when it's the only startup change in the check and only one write (within a few seconds)
+    /// fell in between.</item>
+    /// </list>
+    /// </summary>
+    public static List<SystemChange> Exact(List<SystemChange> found, WriteTimes written)
+    {
+        int apps = found.Count(c => c.Kind is ChangeKind.AppInstalled or ChangeKind.AppUpdated or ChangeKind.AppRemoved);
+        int startups = found.Count(c => c.Kind == ChangeKind.Startup);
+        return [.. found.Select(c => When(c) is { } t ? c with { Time = t, Subject = ExactPrefix + c.Subject, NoticedFrom = null } : c)];
+
+        DateTime? When(SystemChange c)
+        {
+            if (!c.IsApproximate || c.NoticedFrom is not { } from) return null;
+            bool In(DateTime t) => t > from && t <= c.Time;
+            string key = c.Subject[(c.Subject.IndexOf(':') + 1)..];
+            switch (c.Kind)
+            {
+                case ChangeKind.AppInstalled or ChangeKind.AppUpdated:
+                    return written.Apps.TryGetValue(key, out var t) && In(t) ? t : null;
+                case ChangeKind.AppRemoved when apps == 1:
+                    var lists = written.AppLists.Where(In).ToList();
+                    return lists.Count == 1 ? lists[0] : null;
+                case ChangeKind.Startup when startups == 1:
+                    // A shortcut put in a startup folder writes the folder and the file in the same second: one write.
+                    var writes = written.Startup.Where(In).Order().ToList();
+                    return writes.Count > 0 && writes[^1] - writes[0] <= TimeSpan.FromSeconds(5) ? writes[^1] : null;
+                default:
+                    return null;
+            }
+        }
+    }
+
+    /// <summary>When a registry key was last written (null if Windows won't say).</summary>
+    private static DateTime? Written(RegistryKey key) =>
+        RegQueryInfoKeyW(key.Handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero,
+            IntPtr.Zero, out long fileTime) == 0 && fileTime > 0 ? DateTime.FromFileTime(fileTime) : null;
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
+    private static extern int RegQueryInfoKeyW(Microsoft.Win32.SafeHandles.SafeRegistryHandle key, IntPtr className, IntPtr classLength, IntPtr reserved,
+        IntPtr subKeys, IntPtr maxSubKeyLength, IntPtr maxClassLength, IntPtr values, IntPtr maxValueNameLength, IntPtr maxValueLength,
+        IntPtr securityDescriptor, out long lastWriteTime);
 
     [DllImport("kernel32.dll")]
     private static extern bool GetPhysicallyInstalledSystemMemory(out long kilobytes);

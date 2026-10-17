@@ -465,6 +465,93 @@ public sealed class InventoryTests
     public void What_Windows_logged_or_a_whole_days_reading_isnt_approximate(string subject) =>
         Assert.False(new SystemChange(At, ChangeKind.Driver, "x") { Subject = subject }.IsApproximate);
 
+    // ---- Exact times from the registry ----
+
+    private static readonly DateTime Before = At.AddMinutes(-10);
+
+    private static List<SystemChange> Found(params (string Kind, InventoryItem? Was, InventoryItem? Now)[] diffs) =>
+        [.. diffs.SelectMany(d => Inventory.Diff(d.Kind, d.Was is { } w ? [w] : [], d.Now is { } n ? [n] : [], At)).Select(c => c with { NoticedFrom = Before })];
+
+    private static InventoryItem AppItem(string name, string version) => new(Inventory.App, name.ToLowerInvariant(), name, version);
+
+    private static Inventory.WriteTimes Writes(Dictionary<string, DateTime>? apps = null, DateTime[]? lists = null, DateTime[]? startup = null) =>
+        new(apps ?? [], lists ?? [], startup ?? []);
+
+    [Fact]
+    public void An_app_installed_or_updated_is_dated_by_its_registry_entry_when_that_falls_between_the_checks()
+    {
+        // A user: "~9:02 PM" on every app line; the installer wrote its entry at 9:01:37.
+        var written = At.AddMinutes(-3).AddSeconds(-23);
+        var found = Found((Inventory.App, null, AppItem("THE FINALS", "1.0")), (Inventory.App, AppItem("Discord", "1.0.9261"), AppItem("Discord", "1.0.9262")));
+        var exact = Inventory.Exact(found, Writes(apps: new() { ["the finals"] = written, ["discord"] = written.AddSeconds(40) }));
+        Assert.All(exact, c => Assert.False(c.IsApproximate));
+        Assert.Equal([written, written.AddSeconds(40)], exact.Select(c => c.Time));
+        Assert.All(exact, c => Assert.Null(c.NoticedFrom));
+        Assert.All(exact, c => Assert.Equal(c.Time, c.Earliest));
+        Assert.Equal(["THE FINALS installed", "Discord updated to 1.0.9262"], exact.Select(c => c.Title));
+    }
+
+    [Theory]
+    [InlineData(-11)]   // before the check before: an update held while the old version ran, or a key written long ago
+    [InlineData(1)]     // after this check's time: written while it read
+    public void A_registry_time_outside_the_two_checks_keeps_the_approximate_time(int minutes)
+    {
+        var found = Found((Inventory.App, AppItem("Discord", "1.0.9261"), AppItem("Discord", "1.0.9262")));
+        var c = Assert.Single(Inventory.Exact(found, Writes(apps: new() { ["discord"] = At.AddMinutes(minutes) })));
+        Assert.True(c.IsApproximate);
+        Assert.Equal(At, c.Time);
+        Assert.Equal(Before, c.NoticedFrom);
+    }
+
+    [Fact]
+    public void An_app_removed_is_dated_by_its_list_only_when_nothing_else_could_have_written_it()
+    {
+        var removed = (Inventory.App, (InventoryItem?)AppItem("Just Cause 3", "1.0"), (InventoryItem?)null);
+        var list = At.AddMinutes(-4);
+        Assert.Equal(list, Assert.Single(Inventory.Exact(Found(removed), Writes(lists: [list, At.AddDays(-3)]))).Time);
+        // Two lists written in between, or another app installed in the same check: which write was it? Approximate.
+        Assert.True(Assert.Single(Inventory.Exact(Found(removed), Writes(lists: [list, list.AddMinutes(2)]))).IsApproximate);
+        var two = Inventory.Exact(Found(removed, (Inventory.App, null, AppItem("THE FINALS", "1.0"))), Writes(apps: new() { ["the finals"] = list }, lists: [list]));
+        Assert.True(two.Single(c => c.Kind == ChangeKind.AppRemoved).IsApproximate);
+        Assert.False(two.Single(c => c.Kind == ChangeKind.AppInstalled).IsApproximate);
+    }
+
+    [Fact]
+    public void A_startup_program_is_dated_when_it_was_the_one_startup_write_in_between()
+    {
+        var added = (Inventory.Startup, (InventoryItem?)null, (InventoryItem?)new(Inventory.Startup, "discord", "Discord", Inventory.On));
+        var write = At.AddMinutes(-6);
+        // A shortcut in the startup folder: the folder and the file in the same second or two.
+        Assert.Equal(write.AddSeconds(1), Assert.Single(Inventory.Exact(Found(added), Writes(startup: [write, write.AddSeconds(1), At.AddDays(-9)]))).Time);
+        // Two writes minutes apart: one of them was something else.
+        Assert.True(Assert.Single(Inventory.Exact(Found(added), Writes(startup: [write, write.AddMinutes(3)]))).IsApproximate);
+        // Two startup changes in one check: which one is the write?
+        var both = Inventory.Exact(Found(added, (Inventory.Startup, null, new(Inventory.Startup, "steam", "Steam", Inventory.On))), Writes(startup: [write]));
+        Assert.All(both, c => Assert.True(c.IsApproximate));
+    }
+
+    [Fact]
+    public void Other_changes_and_changes_with_no_check_before_are_left_as_they_are()
+    {
+        var bios = Inventory.Diff(Inventory.Bios, [new(Inventory.Bios, Inventory.Bios, "BIOS", "F66d")], [new(Inventory.Bios, Inventory.Bios, "BIOS", "F67")], At)
+            .Select(c => c with { NoticedFrom = Before }).ToList();
+        Assert.True(Assert.Single(Inventory.Exact(bios, Writes(lists: [At.AddMinutes(-2)], startup: [At.AddMinutes(-2)]))).IsApproximate);
+        var first = Inventory.Diff(Inventory.App, [], [AppItem("THE FINALS", "1.0")], At);
+        Assert.True(Assert.Single(Inventory.Exact(first, Writes(apps: new() { ["the finals"] = At.AddMinutes(-2) }))).IsApproximate);
+    }
+
+    [Fact]
+    public void This_PCs_registry_says_when_its_apps_were_written()
+    {
+        var written = Inventory.ReadWriteTimes();
+        Assert.NotEmpty(written.Apps);
+        Assert.NotEmpty(written.AppLists);
+        Assert.All(written.Apps.Values.Concat(written.AppLists), t => Assert.InRange(t, new DateTime(2000, 1, 1), DateTime.Now.AddMinutes(1)));
+        // Keyed as the inventory keys its apps, so a change finds its entry.
+        var listed = Inventory.Read()[Inventory.App].Select(a => a.Key).ToList();
+        Assert.True(listed.Count(written.Apps.ContainsKey) >= listed.Count * 0.9, $"{listed.Count(written.Apps.ContainsKey)} of {listed.Count}");
+    }
+
     [Fact]
     public void Every_inventory_kind_is_known_as_one()
     {
