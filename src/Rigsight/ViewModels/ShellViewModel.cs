@@ -161,9 +161,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private async void OpenChange(DateTime day)
     {
-        CurrentPage = "timeline";
+        // The change is read and opened first, then the page shown: shown first, the Timeline's list flashed up for a
+        // moment before the change opened over it (as a crash opened from another page did).
         await Timeline.LoadAsync(onlyIfChanged: true);
-        if (!Timeline.OpenChange(day)) Timeline.JumpTo(day);
+        bool opened = Timeline.OpenChange(day);
+        CurrentPage = "timeline";
+        if (!opened) Timeline.JumpTo(day);
     }
     public MemoryViewModel Memory { get; }
     public ProcessesViewModel Processes { get; }
