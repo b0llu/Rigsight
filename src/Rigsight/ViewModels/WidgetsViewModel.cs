@@ -94,6 +94,7 @@ public sealed partial class WidgetCard : ObservableObject
         _settings = settings;
         _live = live;
         _page = page;
+        if (live is not null) live.PropertyChanged += OnLiveChanged;
         LoadItems();
     }
 
@@ -452,13 +453,49 @@ public sealed partial class WidgetCard : ObservableObject
         var names = new Dictionary<string, SensorItem>();
         if (_live is not null) foreach (var s in _live.AllSensors) names.TryAdd(s.Id, s);
         Items.Clear();
+        // Before the agent's first readings there are no sensors to name them by: said as such, not as missing.
+        bool read = names.Count > 0;
+        _namedSensors = read;
         foreach (var item in wanted)
         {
             if (WidgetCatalog.Metric(item.Id) is { } m) Items.Add(new WidgetItemRow(this, item.Id, WidgetCatalog.MetricName(m), ""));
             else if (WidgetCatalog.Sensor(item.Id) is { } sensorId)
-                Items.Add(new WidgetItemRow(this, item.Id, names.TryGetValue(sensorId, out var s) ? s.DisplayName : sensorId,
-                    names.TryGetValue(sensorId, out var hw) ? hw.HardwareName : "Not found on this PC right now"));
+                Items.Add(names.TryGetValue(sensorId, out var s)
+                    ? new WidgetItemRow(this, item.Id, s.DisplayName, s.HardwareName)
+                    : new WidgetItemRow(this, item.Id, SensorName(sensorId), read ? "Not found on this PC right now" : "Waiting for the readings"));
         }
+    }
+
+    /// <summary>Whether the rows were named from the agent's sensors (else they're named again once those arrive).</summary>
+    private bool _namedSensors;
+
+    /// <summary>A sensor's name from its identifier while it can't be looked up ("/gpu-nvidia/0/fan/1" is "GPU fan 1").</summary>
+    internal static string SensorName(string id)
+    {
+        var parts = id.Trim('/').Split('/');
+        if (parts.Length < 2) return id;
+        string part = parts[0] switch
+        {
+            var p when p.StartsWith("gpu", StringComparison.OrdinalIgnoreCase) => "GPU ",
+            var p when p.Contains("cpu", StringComparison.OrdinalIgnoreCase) => "CPU ",
+            var p when p.Contains("lpc", StringComparison.OrdinalIgnoreCase) || p.Contains("mainboard", StringComparison.OrdinalIgnoreCase) => "Motherboard ",
+            _ => "",
+        };
+        string kind = parts[^2].Replace('-', ' ');
+        string number = parts[^1];
+        return $"{part}{kind} {number}".Trim() is var name && name.Length > 0 ? char.ToUpperInvariant(name[0]) + name[1..] : id;
+    }
+
+    /// <summary>The agent's sensors arrived (or changed): sensor rows named from them, and the picker's list with them.</summary>
+    private void OnLiveChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LiveData.PickableSensors)) return;
+        if (!_namedSensors && Items.Any(i => WidgetCatalog.Sensor(i.Id) is not null))
+        {
+            Rebuild(WidgetCatalog.ItemsOf(Config));
+            LoadItems(); // the rows' "not shown" notes, and the picker
+        }
+        else BuildPicker();
     }
 
     // ── Page actions ──

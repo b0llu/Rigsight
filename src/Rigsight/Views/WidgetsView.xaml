@@ -165,61 +165,11 @@
                             <TextBlock DockPanel.Dock="Right" Text="{Binding ItemsCount}" Style="{StaticResource Caption}" />
                             <TextBlock Text="READINGS" Style="{StaticResource Caption}" />
                         </DockPanel>
-                        <ItemsControl ItemsSource="{Binding Items}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
-                                        <DockPanel>
-                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
-                                                        Command="{Binding DataContext.MoveItemUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                    <TextBlock Text="&#xE70E;" />
-                                                </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
-                                                        Command="{Binding DataContext.MoveItemDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                    <TextBlock Text="&#xE70D;" />
-                                                </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Remove from the widget" AutomationProperties.Name="Remove"
-                                                        Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                    <TextBlock Text="&#xE711;" />
-                                                </Button>
-                                            </StackPanel>
-                                            <!-- Short name on the widget: typed over its usual one, which shows as the hint. -->
-                                            <Grid DockPanel.Dock="Right" Width="110" Margin="10,0,6,0" VerticalAlignment="Center">
-                                                <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12"
-                                                         ToolTip="Short name on the widget (up to 18 letters). Leave empty for the usual one." />
-                                                <TextBlock Text="Short name" FontSize="12" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
-                                                           Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Text, ElementName=LabelBox}" Value="">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Grid>
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
-                                                           Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
-                                                <!-- Kept for another layout: greyed, with why. -->
-                                                <TextBlock Text="{Binding NotShown, StringFormat=Not shown: {0}}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
-                                                           Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- The reading picker: one search field for the usual readings and every sensor. Typing opens the list,
+                        <!-- Above the readings: adding one grows the list below it, so the field and its open list stay put.
+                             The reading picker: one search field for the usual readings and every sensor. Typing opens the list,
                              chips narrow it to a part, a click adds a line at once and the list stays open for the next. It floats
                              over the editor (nothing moves). -->
-                        <Grid Margin="0,4,0,0">
+                        <Grid Margin="0,0,0,8">
                             <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="Add a reading… type to search" Height="36"
                                      ctl:Debounce.Text="{Binding PickerText}" AutomationProperties.Name="Add a reading"
                                      GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown"
@@ -294,10 +244,11 @@
                                                                 <TextBlock Text="{Binding Header}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
                                                                            Visibility="{Binding HasHeader, Converter={StaticResource Vis}}" />
                                                                 <Button Cursor="Hand" Focusable="False" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
+                                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                                         Command="{Binding DataContext.PickOptionCommand, ElementName=PickBox}" CommandParameter="{Binding}">
                                                                     <Button.Template>
                                                                         <ControlTemplate TargetType="Button">
-                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="8,6">
+                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="8,6" HorizontalAlignment="Stretch">
                                                                                 <DockPanel>
                                                                                     <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,10,0" VerticalAlignment="Center"
                                                                                              Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}" />
@@ -349,6 +300,57 @@
                                 </Border>
                             </Popup>
                         </Grid>
+                        <ItemsControl ItemsSource="{Binding Items}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                                        Command="{Binding DataContext.MoveItemUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <TextBlock Text="&#xE70E;" />
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                                        Command="{Binding DataContext.MoveItemDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <TextBlock Text="&#xE70D;" />
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}" ToolTip="Remove from the widget" AutomationProperties.Name="Remove"
+                                                        Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <TextBlock Text="&#xE711;" />
+                                                </Button>
+                                            </StackPanel>
+                                            <!-- Short name on the widget: typed over its usual one, which shows as the hint. -->
+                                            <Grid DockPanel.Dock="Right" Width="110" Margin="10,0,6,0" VerticalAlignment="Center">
+                                                <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12"
+                                                         ToolTip="Short name on the widget (up to 18 letters). Leave empty for the usual one." />
+                                                <TextBlock Text="Short name" FontSize="12" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
+                                                           Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Text, ElementName=LabelBox}" Value="">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
+                                                <!-- Kept for another layout: greyed, with why. -->
+                                                <TextBlock Text="{Binding NotShown, StringFormat=Not shown: {0}}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
+                                                           Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
                         <Button Style="{StaticResource GhostButton}" Content="Reset to default" Command="{Binding ResetCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
                                 Visibility="{Binding CanReset, Converter={StaticResource Vis}}" ToolTip="Back to this widget's own readings" />
                     </StackPanel>

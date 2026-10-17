@@ -530,6 +530,30 @@ public sealed class SettingsPageTests
         });
     }
 
+    [Theory]
+    [InlineData("/gpu-nvidia/0/fan/1", "GPU fan 1")]
+    [InlineData("/amdcpu/0/temperature/2", "CPU temperature 2")]
+    [InlineData("/lpc/it8686e/fan/0", "Motherboard fan 0")]
+    [InlineData("odd", "odd")]
+    public void A_sensor_not_read_yet_is_named_from_its_identifier(string id, string name) => Assert.Equal(name, WidgetCard.SensorName(id));
+
+    [Fact]
+    public void A_sensor_on_a_widget_before_the_first_readings_is_waiting_not_missing()
+    {
+        // A user saw "/gpu-nvidia/0/fan/1 · Not found on this PC right now": the editor opened before the agent's readings.
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var mine = vm.Custom[0];
+            link.Settings.Update(x => x.Widgets.Single(w => w.Id == mine.Id).Items = [new WidgetItem { Id = "sensor:/gpu-nvidia/0/fan/1" }]);
+            vm.Duplicate(mine);
+            var row = vm.Custom[1].Items.Single();
+            Assert.Equal(("GPU fan 1", "Waiting for the readings"), (row.Name, row.Detail));
+        });
+    }
+
     [Fact]
     public void Making_renaming_copying_and_deleting_widgets_of_your_own()
     {
