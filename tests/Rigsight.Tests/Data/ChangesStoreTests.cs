@@ -220,6 +220,46 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
+    public void Read_every_minute_a_card_gone_for_two_minutes_of_a_driver_install_is_not_removed()
+    {
+        using var t = new TestDb();
+        t.Db.ApplyInventory(Cards(Intel, (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1047")), "me", T);
+        // Two minute-readings in a row on the stand-in driver: still held, nothing said.
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(1)));
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(2)));
+        Assert.Contains("616.92", Assert.Single(t.Db.ApplyInventory(Cards(Intel, (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1692")), "me", T.AddMinutes(3))).Title);
+
+        // Taken out: missing minute after minute, removed once ten minutes have passed, dated when first missed.
+        for (int m = 4; m < 14; m++) Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(m)));
+        var removed = Assert.Single(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(14)));
+        Assert.Equal("Graphics card removed: RTX 3080 Ti", removed.Title);
+        Assert.Equal(T.AddMinutes(4), removed.Time);
+    }
+
+    [Fact]
+    public void A_reading_with_nothing_changed_writes_nothing()
+    {
+        using var t = new TestDb();
+        var reading = new Dictionary<string, List<InventoryItem>>
+        {
+            [Inventory.App] = [new(Inventory.App, "discord", "Discord", "1.0.9262"), new(Inventory.App, "steam", "Steam", "2.10")],
+            [Inventory.Bios] = [new(Inventory.Bios, Inventory.Bios, "BIOS", "F67")],
+        };
+        t.Db.ApplyInventory(reading, "me", T);
+        // data_version moves when another connection commits a change to the file; read from one connection.
+        using var watch = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={t.Path};Mode=ReadOnly;Pooling=False");
+        watch.Open();
+        long Version() { using var cmd = watch.CreateCommand(); cmd.CommandText = "PRAGMA data_version"; return (long)cmd.ExecuteScalar()!; }
+        long before = Version();
+        Assert.Empty(t.Db.ApplyInventory(reading, "me", T.AddMinutes(1)));
+        Assert.Equal(before, Version());
+        // A change is written.
+        reading[Inventory.App][0] = new(Inventory.App, "discord", "Discord", "1.0.9263");
+        Assert.Single(t.Db.ApplyInventory(reading, "me", T.AddMinutes(2)));
+        Assert.NotEqual(before, Version());
+    }
+
+    [Fact]
     public void The_inventory_survives_the_agent_restarting()
     {
         using var t = new TestDb();

@@ -26,8 +26,20 @@ public static partial class Inventory
     /// <summary>The setting that isn't on or off: which power plan Windows is on, by name.</summary>
     public const string PowerPlan = "power-plan";
 
-    /// <summary>How often the agent reads the inventory: a change found by it happened within this long before.</summary>
+    /// <summary>
+    /// How often the agent read the inventory before 0.27.1, and still reads Windows' logs: a change recorded without
+    /// the time of the check before it happened within this long before.
+    /// </summary>
     public const int ScanMinutes = 10;
+
+    /// <summary>How often the agent reads the inventory (since 0.27.1): a change found by it happened in the minute before.</summary>
+    public const int CheckMinutes = 1;
+
+    /// <summary>
+    /// The longest gap between two checks that still dates a change to the minute it was found, with no "~": a minute's
+    /// check, give or take the agent being busy. Longer (the PC asleep or off in between) keeps it approximate.
+    /// </summary>
+    public static readonly TimeSpan WithinAMinute = TimeSpan.FromSeconds(90);
 
     /// <summary>Marks a change found in the inventory whose exact time is known after all (from Windows' logs or its registry, see <see cref="Exact"/>).</summary>
     public const string ExactPrefix = "logged-";
@@ -636,7 +648,8 @@ public static partial class Inventory
 
     /// <summary>
     /// Changes found by a check (they happened since the check before), dated to the second where Windows' registry says
-    /// when, and then no longer approximate. A time is taken only when it falls between the two checks; any other keeps
+    /// when, and then no longer approximate. Any change found within a minute of the check before (see
+    /// <see cref="WithinAMinute"/>) is dated to the minute it was found, with no "~" either: that's when it happened, to the minute. A time is taken only when it falls between the two checks; any other keeps
     /// the "~" (a key written for another reason, or an update held while the old version still ran, see
     /// <see cref="HoldRunningUpdates"/>, whose write came before the check before).
     /// <list type="bullet">
@@ -656,6 +669,12 @@ public static partial class Inventory
         DateTime? When(SystemChange c)
         {
             if (!c.IsApproximate || c.NoticedFrom is not { } from) return null;
+            // The registry's second where it has one; else, found within a minute of the check before, the minute found.
+            return Written(c, from) ?? (c.Time - from <= WithinAMinute ? c.Time : null);
+        }
+
+        DateTime? Written(SystemChange c, DateTime from)
+        {
             bool In(DateTime t) => t > from && t <= c.Time;
             string key = c.Subject[(c.Subject.IndexOf(':') + 1)..];
             switch (c.Kind)

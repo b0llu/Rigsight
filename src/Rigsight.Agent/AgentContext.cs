@@ -532,7 +532,7 @@ internal sealed class AgentContext : ApplicationContext
 
                 if (now >= nextChangeScan)
                 {
-                    nextChangeScan = now + Inventory.ScanMinutes * 60_000;
+                    nextChangeScan = now + Inventory.CheckMinutes * 60_000;
                     ScanChanges();
                 }
 
@@ -1504,10 +1504,14 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    /// <summary>When Windows' logs were last read for changes (null: not since the agent started).</summary>
+    private DateTime? _changeLogsRead;
+
     /// <summary>
-    /// Sampler thread: notes what changed on the PC. Drivers and Windows updates come from the event logs (all they
-    /// still hold the first time, then what's new); apps, startup programs, hardware and settings from setting the
-    /// PC's inventory against the last one.
+    /// Sampler thread, every minute: notes what changed on the PC. Apps, startup programs, hardware and settings from
+    /// setting the PC's inventory against the last one (6 ms, measured); drivers and Windows updates from the event logs
+    /// (all they still hold the first time, then what's new), every ten minutes, and at once when a graphics driver
+    /// turned up in the inventory, for the moment it was installed.
     /// </summary>
     private void ScanChanges()
     {
@@ -1515,17 +1519,24 @@ internal sealed class AgentContext : ApplicationContext
         {
             var now = DateTime.Now;
             bool first = _db.ChangesScanned is null;
-            var since = _db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned).AddHours(-1) : now.AddYears(-2);
-            var logged = ChangeLogReader.Read(since, now);
             var reading = Inventory.Read();
             var before = _db.GetInventory();
             Inventory.HoldRunningUpdates(reading, before, RunningPaths);
             Inventory.HoldDownloads(reading, before);
             var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
 
+            List<SystemChange> logged = [];
+            if (first || _changeLogsRead is not { } read || now - read >= TimeSpan.FromMinutes(Inventory.ScanMinutes) || found.Any(c => c.IsGraphicsDriver))
+            {
+                var since = (_changeLogsRead ?? (_db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned) : now.AddYears(-2))).AddHours(-1);
+                logged = ChangeLogReader.Read(since, now);
+                _changeLogsRead = now;
+            }
+
             // A graphics driver is followed by its version in the inventory (the logs often don't name it); the
-            // log entry only says when. Before the first inventory the logs are all there is.
-            var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > since.AddHours(1));
+            // log entry only says when: the last one in the hour before it was found (an install takes minutes, and
+            // may have begun before the check before). Before the first inventory the logs are all there is.
+            var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > now.AddHours(-1));
             if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
             // Found by this check, so it happened since the last one (which may be last night's).
             if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];
@@ -1536,15 +1547,14 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     var exact = Inventory.Exact(found, Inventory.ReadWriteTimes());
                     for (int i = 0; i < found.Count; i++)
-                        Log.Write("changes", exact[i].IsApproximate
-                            ? $"{found[i].Title}: between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}"
-                            : $"{found[i].Title}: at {exact[i].Time:HH:mm:ss} (registry), found between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}");
+                        Log.Write("changes", exact[i].IsApproximate ? $"{found[i].Title}: between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}"
+                            : $"{found[i].Title}: at {exact[i].Time:HH:mm:ss} ({(exact[i].Time == found[i].Time ? "the minute it was found" : "registry")}), found between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}");
                     found = exact;
                 }
                 catch (Exception ex) { Log.Error("changes", ex); }
             }
             if (graphics is not null)
-                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = Inventory.ExactPrefix + c.Subject, NoticedFrom = null } : c)];
+                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = c.IsApproximate ? Inventory.ExactPrefix + c.Subject : c.Subject, NoticedFrom = null } : c)];
 
             _db.InsertChanges(logged);
             _db.InsertChanges(found);

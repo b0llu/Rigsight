@@ -74,6 +74,8 @@ public sealed partial class RigsightDb
                     // A card gone for a second reading was last there before the first: it's dated then.
                     changes.Add(kind == Inventory.Gpu && goneSince.TryGetValue(change.Subject, out long since) && change.Title.StartsWith("Graphics card removed", StringComparison.Ordinal)
                         ? change with { Time = TimeUtil.FromUnix(since) } : change);
+            // Nothing to write when it's as it was (the check runs every minute; the disk needn't hear of it).
+            if (known.Contains(kind) && Same(before[kind], items)) continue;
             // A list is replaced whole; a fact that couldn't be read this time keeps its last value.
             if (Inventory.IsList(kind) || !known.Contains(kind))
             {
@@ -88,19 +90,36 @@ public sealed partial class RigsightDb
             }
             known.Add(kind);
         }
-        SetMeta(InventoryKindsKey, string.Join(',', known.Order()));
-        SetMeta(InventoryOwnerKey, owner);
+        SetMetaIfChanged(InventoryKindsKey, string.Join(',', known.Order()));
+        SetMetaIfChanged(InventoryOwnerKey, owner);
         tx.Commit();
         return changes;
+
+        static bool Same(IEnumerable<InventoryItem> stored, List<InventoryItem> read)
+        {
+            var was = stored.ToDictionary(i => i.Key, i => (i.Name, i.Value));
+            return was.Count == read.Count && read.All(i => was.TryGetValue(i.Key, out var w) && w == (i.Name, i.Value));
+        }
     }
+
+    private void SetMetaIfChanged(string key, string value)
+    {
+        if (GetMeta(key) != value) SetMeta(key, value);
+    }
+
+    /// <summary>
+    /// How long a graphics card must be missing to be taken as removed: as long as readings were apart before they came
+    /// every minute, so a driver install's stand-in minutes never pass for a card taken out.
+    /// </summary>
+    private const long CardGoneAfterSeconds = Inventory.ScanMinutes * 60;
 
     private const string CardsGoneKey = "inventory_cards_gone";
 
     /// <summary>
     /// A graphics card isn't taken as removed the first time it's missing from a reading: while its driver is being
     /// installed Windows runs it on a stand-in driver for a minute or two, and a reading that lands then doesn't see it
-    /// (on a PC with a second card, that was "Graphics card removed", then "added" ten minutes later). Missing once, it's
-    /// kept in the list as it was and only noted; missing again at the next reading, it's gone. Returns the cards now
+    /// (on a PC with a second card, that was "Graphics card removed", then "added" ten minutes later). Missing, it's
+    /// kept in the list as it was and only noted; still missing ten minutes later, it's gone. Returns the cards now
     /// taken as gone ("gpu:key") and when each was first missed (Unix seconds).
     /// </summary>
     private Dictionary<string, long> HoldMissingCards(Dictionary<string, List<InventoryItem>> now, HashSet<string> known, IEnumerable<InventoryItem> before, DateTime at)
@@ -116,15 +135,16 @@ public sealed partial class RigsightDb
         foreach (var card in before.ToList())
         {
             if (cards.Any(c => c.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase))) continue;
-            if (missed.TryGetValue(card.Key, out long since))
+            bool seenMissing = missed.TryGetValue(card.Key, out long since);
+            if (seenMissing && TimeUtil.ToUnix(at) - since >= CardGoneAfterSeconds)
             {
                 gone[$"{Inventory.Gpu}:{card.Key}"] = since;
                 continue;
             }
             cards.Add(card);
-            held.Add($"{card.Key}|{TimeUtil.ToUnix(at)}");
+            held.Add($"{card.Key}|{(seenMissing ? since : TimeUtil.ToUnix(at))}");
         }
-        SetMeta(CardsGoneKey, string.Join('\n', held));
+        SetMetaIfChanged(CardsGoneKey, string.Join('\n', held));
         return gone;
     }
 
@@ -163,7 +183,7 @@ public sealed partial class RigsightDb
         r.Close();
         // A check that came long after the one before it: the PC was most likely off or asleep in between.
         for (int i = 0; i < list.Count; i++)
-            if (list[i] is { IsApproximate: true, NoticedFrom: { } noticed } c && c.Time - noticed > TimeSpan.FromMinutes(2 * Inventory.ScanMinutes)
+            if (list[i] is { IsApproximate: true, NoticedFrom: { } noticed } c && c.Time - noticed > Inventory.WithinAMinute
                 && RecordingSince(TimeUtil.ToUnix(noticed), TimeUtil.ToUnix(c.Time)) is long on)
                 list[i] = c with { OnFrom = TimeUtil.FromUnix(on) };
         return list;

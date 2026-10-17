@@ -541,6 +541,30 @@ public sealed class InventoryTests
     }
 
     [Fact]
+    public void A_change_found_within_a_minute_of_the_check_before_is_the_minute_it_was_found()
+    {
+        // The user: "if it's within a min, we don't need to show ~, we just show the min we found it on".
+        var bios = Inventory.Diff(Inventory.Bios, [new(Inventory.Bios, Inventory.Bios, "BIOS", "F66d")], [new(Inventory.Bios, Inventory.Bios, "BIOS", "F67")], At);
+        var held = Inventory.Diff(Inventory.App, [AppItem("Discord", "1.0.9261")], [AppItem("Discord", "1.0.9262")], At);
+        foreach (var c in bios.Concat(held))
+        {
+            // A minute's check, and one a little late (the agent busy): the minute found, exact.
+            foreach (int seconds in new[] { 60, 85 })
+            {
+                var exact = Assert.Single(Inventory.Exact([c with { NoticedFrom = At.AddSeconds(-seconds) }], Writes()));
+                Assert.False(exact.IsApproximate);
+                Assert.Equal(At, exact.Time);
+                Assert.Null(exact.NoticedFrom);
+            }
+            // Longer since the check before (the PC asleep or off): still between the two.
+            Assert.True(Assert.Single(Inventory.Exact([c with { NoticedFrom = At.AddMinutes(-3) }], Writes())).IsApproximate);
+        }
+        // The registry's own second still wins where it has one.
+        var app = Inventory.Diff(Inventory.App, [], [AppItem("THE FINALS", "1.0")], At).Select(c => c with { NoticedFrom = At.AddSeconds(-60) }).ToList();
+        Assert.Equal(At.AddSeconds(-41), Assert.Single(Inventory.Exact(app, Writes(apps: new() { ["the finals"] = At.AddSeconds(-41) }))).Time);
+    }
+
+    [Fact]
     public void This_PCs_registry_says_when_its_apps_were_written()
     {
         var written = Inventory.ReadWriteTimes();
