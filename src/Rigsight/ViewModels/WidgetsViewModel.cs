@@ -76,6 +76,9 @@ public sealed partial class PickerChip(string key, string name) : ObservableObje
     public string Name { get; } = name;
     [ObservableProperty] private int _count;
     [ObservableProperty] private bool _isSelected;
+
+    /// <summary>The group has something on this PC (a PC without, say, readable drive sensors shows no Storage chip).</summary>
+    [ObservableProperty] private bool _isShown = true;
 }
 
 /// <summary>One widget: its card on the Widgets page, and everything its editor changes.</summary>
@@ -299,11 +302,13 @@ public sealed partial class WidgetCard : ObservableObject
             || Core.TextMatch.Has(words, o.Name, o.Source, WidgetCatalog.CategoryName(o.Category), o.Kind, o.IsSensorFan ? "fan" : null, o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "sensor" : null);
         // The Fans chip has every fan, the graphics card's too.
         bool In(PickerOption o, string key) => key == "all" || o.Category.ToString() == key || (key == nameof(WidgetCategory.Fans) && o.IsSensorFan);
-        var matching = AllOptions().Where(Matches).ToList();
+        var options = AllOptions();
+        var matching = options.Where(Matches).ToList();
         foreach (var chip in PickerChips)
         {
             chip.Count = matching.Count(o => In(o, chip.Key));
             chip.IsSelected = chip.Key == PickerCategory;
+            chip.IsShown = chip.IsSelected || chip.Key == "all" || options.Any(o => In(o, chip.Key));
         }
         bool all = PickerCategory == "all";
         var shown = matching.Where(o => In(o, PickerCategory))

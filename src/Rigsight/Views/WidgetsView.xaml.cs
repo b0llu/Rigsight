@@ -18,8 +18,19 @@ public partial class WidgetsView : UserControl
     {
         InitializeComponent();
         DataContextChanged += (_, _) => Watch(DataContext as WidgetsViewModel);
-        Unloaded += (_, _) => Watch(null);
-        Loaded += (_, _) => Watch(DataContext as WidgetsViewModel);
+        // The reading picker's list closes on a click elsewhere on the page or when the window loses focus.
+        PreviewMouseDown += ClosePickerOnClickElsewhere;
+        Unloaded += (_, _) =>
+        {
+            Watch(null);
+            if (Window.GetWindow(this) is { } w) w.Deactivated -= ClosePickerOnDeactivated;
+            ClosePickerOnDeactivated(null, EventArgs.Empty);
+        };
+        Loaded += (_, _) =>
+        {
+            Watch(DataContext as WidgetsViewModel);
+            if (Window.GetWindow(this) is { } w) { w.Deactivated -= ClosePickerOnDeactivated; w.Deactivated += ClosePickerOnDeactivated; }
+        };
     }
 
     private void Watch(WidgetsViewModel? vm)
@@ -124,7 +135,62 @@ public partial class WidgetsView : UserControl
         if (PickerCard is { PickerOpen: false } card && PickBox.IsKeyboardFocusWithin) card.PickerOpen = true;
     }
 
-    /// <summary>Esc closes the list; Down goes into it, to pick with the keyboard (Enter or Space adds).</summary>
+    /// <summary>A key typed opens the list at once (the search itself waits for a pause in the typing).</summary>
+    private void PickBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (PickerCard is { PickerOpen: false } card && PickBox.IsKeyboardFocusWithin && PickBox.Text.Length > 0) card.PickerOpen = true;
+    }
+
+    /// <summary>
+    /// The list closes when it's meant to: the keyboard left both the field and the list, a click elsewhere on the page
+    /// (see <see cref="ClosePickerOnClickElsewhere"/>), the window lost focus, or Esc.
+    /// </summary>
+    private void PickBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (e.NewFocus is DependencyObject to && (to == PickBox || IsInPicker(to))) return;
+        // Focus can pass through nothing on its way into the list: look again once it has landed.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (PickBox.IsKeyboardFocusWithin || PickPopup.Child?.IsKeyboardFocusWithin == true) return;
+            if (PickerCard is { } card) card.PickerOpen = false;
+        }, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private bool IsInPicker(DependencyObject o)
+    {
+        for (var d = o; d is not null; d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent)
+            if (d == PickPopup.Child) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// A click on the page outside the field closes the list. A click in the list comes here too (WPF passes a popup's
+    /// events up through the page it belongs to) and keeps it open: a chip or a line was what was clicked.
+    /// </summary>
+    private void ClosePickerOnClickElsewhere(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (PickerCard is not { PickerOpen: true } card || PickBox.IsMouseOver) return;
+        if (e.OriginalSource is DependencyObject source && IsInPicker(source)) return;
+        card.PickerOpen = false;
+    }
+
+    private void ClosePickerOnDeactivated(object? sender, EventArgs e)
+    {
+        if (PickerCard is { PickerOpen: true } card) card.PickerOpen = false;
+    }
+
+    private void PickPopup_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Escape || PickerCard is not { } card) return;
+        card.PickerOpen = false;
+        PickBox.Focus();
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Esc closes the list; Enter adds the first line that can be added (searched first, if the pause hasn't come yet);
+    /// Down opens it. Focus stays in the field throughout: the lines don't take it, so adding one doesn't close the list.
+    /// </summary>
     private void PickBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (PickerCard is not { } card) return;
@@ -133,10 +199,16 @@ public partial class WidgetsView : UserControl
             card.PickerOpen = false;
             e.Handled = true;
         }
+        else if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            card.PickerOpen = true;
+            card.PickerText = PickBox.Text;
+            if (card.PickerOptions.FirstOrDefault(o => o.CanAdd) is { } first) card.PickOptionCommand.Execute(first);
+            e.Handled = true;
+        }
         else if (e.Key == System.Windows.Input.Key.Down)
         {
             card.PickerOpen = true;
-            PickScroll.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
             e.Handled = true;
         }
     }

@@ -491,6 +491,46 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
+    public void A_click_in_the_picker_keeps_it_open_and_a_click_elsewhere_closes_it()
+    {
+        // A user: clicking a chip closed the list (the popup's clicks pass up through the page it belongs to).
+        using var link = new AgentLink();
+        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var card = vm.Custom[0];
+            var view = new Views.WidgetsView { DataContext = vm };
+            var window = new System.Windows.Window { Content = view, Left = -32000, Top = -32000, Width = 1400, Height = 1000, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                Ui.Pump(300);
+                card.PickerOpen = true;
+                Ui.Pump(300);
+                var popup = (System.Windows.Controls.Primitives.Popup)view.FindName("PickPopup");
+                Assert.True(popup.IsOpen);
+                var chip = Visuals.Descendants<System.Windows.Controls.Button>(popup.Child).First(b => b.DataContext is PickerChip { Key: "Today" });
+                void Click(System.Windows.UIElement on) => on.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+                    { RoutedEvent = System.Windows.UIElement.PreviewMouseDownEvent, Source = on });
+                Click(chip);
+                chip.Command.Execute(chip.CommandParameter);
+                Ui.Pump(100);
+                Assert.True(card.PickerOpen);
+                Assert.Equal("Today", card.PickerCategory);
+                Assert.True(popup.IsOpen);
+
+                // Elsewhere on the page: closed.
+                Click(Visuals.Descendants<System.Windows.Controls.TextBlock>(view).First(t => t.Text == "LOOK"));
+                Ui.Pump(100);
+                Assert.False(card.PickerOpen);
+                Assert.False(popup.IsOpen);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void Making_renaming_copying_and_deleting_widgets_of_your_own()
     {
         using var link = new AgentLink();

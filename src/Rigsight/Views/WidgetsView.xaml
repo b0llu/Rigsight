@@ -221,9 +221,11 @@
                              over the editor (nothing moves). -->
                         <Grid Margin="0,4,0,0">
                             <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="Add a reading… type to search" Height="36"
-                                     Text="{Binding PickerText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Add a reading"
-                                     GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown" />
-                            <Popup x:Name="PickPopup" PlacementTarget="{Binding ElementName=PickBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+                                     ctl:Debounce.Text="{Binding PickerText}" AutomationProperties.Name="Add a reading"
+                                     GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown"
+                                     LostKeyboardFocus="PickBox_LostKeyboardFocus" TextChanged="PickBox_TextChanged" />
+                            <Popup x:Name="PickPopup" PlacementTarget="{Binding ElementName=PickBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="True"
+                                   PreviewKeyDown="PickPopup_KeyDown" LostKeyboardFocus="PickBox_LostKeyboardFocus"
                                    AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}"
                                    Width="{Binding ActualWidth, ElementName=PickBox}">
                                 <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
@@ -240,6 +242,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <Button Focusable="False" Cursor="Hand" Margin="0,0,6,6" AutomationProperties.Name="{Binding Name}"
+                                                            Visibility="{Binding IsShown, Converter={StaticResource Vis}}"
                                                             Command="{Binding DataContext.PickChipCommand, ElementName=PickBox}" CommandParameter="{Binding}">
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
@@ -268,12 +271,20 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
-                                        <TextBlock DockPanel.Dock="Bottom" Text="Click to add · Esc to close" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
+                                        <TextBlock DockPanel.Dock="Bottom" Text="Click to add · Enter adds the first · Esc to close" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
                                         <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource StrokeBrush}" />
                                         <Grid>
-                                            <ScrollViewer x:Name="PickScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                                          Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                <ItemsControl ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False">
+                                                <ItemsControl x:Name="PickScroll" ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False" MaxHeight="340"
+                                                              Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}"
+                                                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                                              VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
+                                                    <ItemsControl.Template>
+                                                        <ControlTemplate TargetType="ItemsControl">
+                                                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True" Focusable="False">
+                                                                <ItemsPresenter />
+                                                            </ScrollViewer>
+                                                        </ControlTemplate>
+                                                    </ItemsControl.Template>
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
                                                     </ItemsControl.ItemsPanel>
@@ -282,7 +293,7 @@
                                                             <StackPanel>
                                                                 <TextBlock Text="{Binding Header}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
                                                                            Visibility="{Binding HasHeader, Converter={StaticResource Vis}}" />
-                                                                <Button Cursor="Hand" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
+                                                                <Button Cursor="Hand" Focusable="False" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
                                                                         Command="{Binding DataContext.PickOptionCommand, ElementName=PickBox}" CommandParameter="{Binding}">
                                                                     <Button.Template>
                                                                         <ControlTemplate TargetType="Button">
@@ -324,7 +335,6 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                            </ScrollViewer>
                                             <!-- Nothing to show: says so, and where else there's a match. -->
                                             <StackPanel Margin="16,24,16,22" HorizontalAlignment="Center" Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}}">
                                                 <TextBlock Text="{Binding PickerEmptyText}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
