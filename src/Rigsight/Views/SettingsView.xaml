@@ -842,7 +842,8 @@
                         </StackPanel>
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10"
-                              Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                              Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}"
+                              ToolTip="On: RigSight looks for a new version once a day and installs it. Off: it doesn't contact GitHub unless you press Check for updates.">
                         <TextBlock Text="Update automatically" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <!-- A standard account can't install an update: whether the PC does it for them, set on the Admin rights tab. -->

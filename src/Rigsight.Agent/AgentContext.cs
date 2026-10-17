@@ -266,6 +266,12 @@ internal sealed class AgentContext : ApplicationContext
             Volatile.Write(ref _updaterRunning, 0);
             return;
         }
+        // Automatic updates off: no look at GitHub by itself, not even the updater started (it would only say so).
+        if (!_settings.AutoUpdate)
+        {
+            Volatile.Write(ref _updaterRunning, 0);
+            return;
+        }
         try
         {
             bool appOpen = _pipe.ClientCount > 0;

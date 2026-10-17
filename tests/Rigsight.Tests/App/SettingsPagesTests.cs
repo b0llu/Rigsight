@@ -452,7 +452,7 @@ public sealed class SettingsPageTests
             mine.PickerText = "screen";
             Assert.True(mine.PickerOpen);
             var screen = Assert.Single(mine.PickerOptions);
-            Assert.Equal(("ScreenTime", "Screen time today", true), (screen.Id, screen.Name, screen.IsNew));
+            Assert.Equal(("ScreenTime", "Screen time today"), (screen.Id, screen.Name));
             Assert.Equal("TODAY", screen.Header);
 
             // A click adds it at once; the list stays open, without it.

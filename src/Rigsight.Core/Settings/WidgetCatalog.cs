@@ -188,9 +188,6 @@ public static class WidgetCatalog
         _ => "",
     };
 
-    /// <summary>Readings new to widgets in 0.27.0 (the picker marks them NEW).</summary>
-    public static bool IsNew(OverlayMetric m) => m is OverlayMetric.Session or >= OverlayMetric.ScreenTime;
-
     /// <summary>The group a reading is picked from.</summary>
     public static WidgetCategory CategoryOf(OverlayMetric m) => m switch
     {

@@ -46,6 +46,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     private readonly AgentClient _client;
     private readonly Func<bool> _agentCanInstall;
     private readonly Func<bool> _autoUpdate;
+    private readonly Func<bool> _checksOn;
     // A standard account can't install an update itself. Either the PC keeps Rigsight up to date for it (nothing to
     // show, nothing to press), or someone with an admin's password has to (said so, with the one button for it).
     private readonly Func<bool> _pcUpdates, _needsAdmin;
@@ -55,11 +56,14 @@ public sealed partial class UpdateViewModel : ObservableObject
     private bool _checked;
     private string? _checkError;
 
-    public UpdateViewModel(AgentClient client, Func<bool> agentCanInstall, Func<bool> autoUpdate, Func<bool>? pcUpdates = null, Func<bool>? needsAdmin = null)
+    /// <param name="checksOn">Whether RigSight may look for a new version by itself (off: only when "Check for updates" is pressed).</param>
+    public UpdateViewModel(AgentClient client, Func<bool> agentCanInstall, Func<bool> autoUpdate, Func<bool>? pcUpdates = null, Func<bool>? needsAdmin = null,
+        Func<bool>? checksOn = null)
     {
         _client = client;
         _agentCanInstall = agentCanInstall;
         _autoUpdate = autoUpdate;
+        _checksOn = checksOn ?? (() => true);
         _pcUpdates = pcUpdates ?? (() => false);
         _needsAdmin = needsAdmin ?? (() => false);
     }
@@ -207,6 +211,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// <summary>Once a day: at startup, and again if the app is still open on a new day.</summary>
     public async Task CheckIfDueAsync()
     {
+        // Automatic updates off: no look at GitHub by itself, only when "Check for updates" is pressed.
+        if (!_checksOn()) return;
         if (_checkedDay == DateTime.Today || IsBusy || State == UpdateState.Failed) return;
         _checkedDay = DateTime.Today;
         await CheckAsync(force: false, quiet: true);
@@ -290,6 +296,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PromptText));
         if (_autoUpdate() && State == UpdateState.Available) _ = DownloadAsync(automatic: true);
+        else if (_checksOn()) _ = CheckIfDueAsync(); // turned back on: today's look, which was skipped
     }
 
     /// <summary>

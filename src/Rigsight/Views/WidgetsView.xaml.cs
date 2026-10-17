@@ -23,13 +23,18 @@ public partial class WidgetsView : UserControl
         Unloaded += (_, _) =>
         {
             Watch(null);
-            if (Window.GetWindow(this) is { } w) w.Deactivated -= ClosePickerOnDeactivated;
+            if (Window.GetWindow(this) is { } w) WeakEventManager<Window, EventArgs>.RemoveHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
             ClosePickerOnDeactivated(null, EventArgs.Empty);
         };
         Loaded += (_, _) =>
         {
             Watch(DataContext as WidgetsViewModel);
-            if (Window.GetWindow(this) is { } w) { w.Deactivated -= ClosePickerOnDeactivated; w.Deactivated += ClosePickerOnDeactivated; }
+            // Weakly: a page the window held on to by this stayed in memory after it was replaced (a theme change).
+            if (Window.GetWindow(this) is { } w)
+            {
+                WeakEventManager<Window, EventArgs>.RemoveHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
+                WeakEventManager<Window, EventArgs>.AddHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
+            }
         };
     }
 

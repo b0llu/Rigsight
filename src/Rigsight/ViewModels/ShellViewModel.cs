@@ -54,7 +54,10 @@ public sealed partial class ShellViewModel : ObservableObject
             // On a PC that keeps Rigsight up to date for everyone, the PC's updater does it for an admin too: their own
             // install would close the other people's Rigsight and couldn't start it again.
             autoUpdate: () => Settings.Current.AutoUpdate && !MachineSetup.KeepUpdated,
-            pcUpdates: () => MachineSetup.KeepUpdated, needsAdmin: () => StandardAccount && !MachineSetup.KeepUpdated);
+            pcUpdates: () => MachineSetup.KeepUpdated, needsAdmin: () => StandardAccount && !MachineSetup.KeepUpdated,
+            // "Update automatically" off: RigSight doesn't contact GitHub by itself (a PC kept up to date for everyone,
+            // set by an admin, still looks: that's the PC's own updater's choice).
+            checksOn: () => Settings.Current.AutoUpdate || MachineSetup.KeepUpdated);
         SettingsPage.Update = Update;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);

@@ -155,9 +155,11 @@ public sealed class AppsInternetTests
             Assert.Contains(Units.Duration(a.MinimizedSec), time);
             Assert.Contains(a.SessionCount.ToString(), time);
 
+            // The three cards side by side at an ordinary window size (a user: they stacked at 1378 px).
+            Assert.False(new Views.GroupRow().Stacks(660));
             Assert.Equal("HARDWARE while it was in front", hardware[0]);
             Assert.Equal($"{Units.TempShort(a.CpuTempMax)} · {Units.TempShort(a.GpuTempMax)} CPU · GPU peak", hardware[1]);
-            Assert.Equal(["CPU temperature", "GPU temperature", "CPU use", "Memory"], hardware.Where((_, i) => i >= 2 && i % 2 == 1));
+            Assert.Equal(["CPU temp", "GPU temp", "CPU use", "Memory"], hardware.Where((_, i) => i >= 2 && i % 2 == 1));
             Assert.Contains($"{Units.TempShort(a.CpuTempAvg)} average", hardware);
             Assert.Contains($"{Units.TempShort(a.GpuTempAvg)} average", hardware);
             Assert.Contains(a.CpuAvg is double c ? $"{c:0.0}% average" : "— average", hardware);

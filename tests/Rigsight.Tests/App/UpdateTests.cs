@@ -143,6 +143,22 @@ public sealed class UpdateTests : IDisposable
 
     private static void Act(UpdateViewModel vm) => Kit.Wait(() => vm.ActionCommand.ExecuteAsync(null));
 
+    [Fact]
+    public void With_automatic_updates_off_nothing_looks_for_a_new_version_until_check_for_updates_is_pressed()
+    {
+        // SignPath's rule, and the user's: off means RigSight doesn't contact GitHub by itself at all.
+        _auto = false;
+        var vm = Ui.Run(() => new UpdateViewModel(new AgentClient(Ui.Dispatcher), () => _agentCanInstall, () => _auto, checksOn: () => _auto));
+        _made.Add(vm);
+        Kit.Wait(() => vm.CheckIfDueAsync());
+        Assert.Equal(0, _server.FeedRequests);
+        // Pressed: asked, as the person chose.
+        Act(vm);
+        Assert.Equal(1, _server.FeedRequests);
+        Assert.Equal(UpdateState.Available, Ui.Run(() => vm.State));
+        Assert.Equal(0, _server.SetupRequests); // and nothing downloaded by itself
+    }
+
     private string SetupPath => Path.Combine(UpdateStore.Folder, _server.AssetName);
 
     [Fact]

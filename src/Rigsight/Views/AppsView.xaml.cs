@@ -85,8 +85,11 @@ public partial class AppsView : UserControl
 /// </summary>
 public sealed class GroupRow : Panel
 {
-    /// <summary>The width from which the groups fit side by side.</summary>
-    public double Threshold { get; set; } = 680;
+    /// <summary>
+    /// The width from which the groups sit side by side, as the user had them (Time | Hardware | Internet). At 680 they
+    /// stacked at an ordinary window size; below 520 a column is too narrow for its figures.
+    /// </summary>
+    public double Threshold { get; set; } = 520;
 
     /// <summary>The space between two groups, either way.</summary>
     public double Gap { get; set; } = 12;

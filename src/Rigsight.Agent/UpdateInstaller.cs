@@ -116,6 +116,14 @@ internal static class BackgroundUpdater
         var attempt = UpdateStore.ReadAttempt();
         if (attempt is not null && attempt.Version <= ReleaseFeed.Current) UpdateStore.ClearAttempt(); // it worked
 
+        // Automatic updates off: RigSight doesn't contact GitHub by itself at all (not even to look). The app's
+        // "Check for updates" still asks when it's pressed.
+        if (!settings.AutoUpdate)
+        {
+            Log.Write("update", "Automatic updates are off: no check");
+            return UpToDate;
+        }
+
         // Windows may still be connecting at sign-in: give GitHub a few tries.
         Release? latest = null;
         for (int i = 0; ; i++)

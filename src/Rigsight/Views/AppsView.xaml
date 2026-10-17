@@ -216,7 +216,7 @@
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
                                                     <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /> <Run Text="average" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="CPU temperature" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="CPU temp" ToolTip="CPU temperature" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
@@ -224,7 +224,7 @@
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
                                                     <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /> <Run Text="average" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="GPU temperature" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="GPU temp" ToolTip="GPU temperature" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">

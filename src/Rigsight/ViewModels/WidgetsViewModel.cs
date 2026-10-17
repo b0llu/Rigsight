@@ -44,7 +44,7 @@ public sealed record WidgetMetricOption(OverlayMetric Metric, string Name);
 /// added where it can't (the layout can't show it, or the widget is full). <see cref="Header"/>: the group heading above
 /// it, when it's the first of its group.
 /// </summary>
-public sealed record PickerOption(string Id, string Name, string Source, string Value, WidgetCategory Category, bool IsNew, string? Off)
+public sealed record PickerOption(string Id, string Name, string Source, string Value, WidgetCategory Category, string? Off)
 {
     /// <summary>A fan's speed (the Fans chip lists the graphics card's fans too).</summary>
     public bool IsSensorFan { get; init; }
@@ -94,7 +94,8 @@ public sealed partial class WidgetCard : ObservableObject
         _settings = settings;
         _live = live;
         _page = page;
-        if (live is not null) live.PropertyChanged += OnLiveChanged;
+        // Weakly: the live data lives as long as the app, and held on to every card made (they're made on each visit).
+        if (live is not null) System.ComponentModel.PropertyChangedEventManager.AddHandler(live, OnLiveChanged, nameof(LiveData.PickableSensors));
         LoadItems();
     }
 
@@ -252,7 +253,7 @@ public sealed partial class WidgetCard : ObservableObject
             string id = m.ToString();
             if (WidgetCatalog.Metric(id) is null || Items.Any(i => i.Id == id)) continue;
             list.Add(new PickerOption(id, WidgetCatalog.MetricName(m), WidgetCatalog.MetricDetail(m), ValueOf(m), WidgetCatalog.CategoryOf(m),
-                WidgetCatalog.IsNew(m), Off(WidgetCatalog.WhyNot(layout, m))));
+                Off(WidgetCatalog.WhyNot(layout, m))));
         }
         if (_live is not null)
             foreach (var sensor in _live.PickableSensors)
@@ -260,7 +261,7 @@ public sealed partial class WidgetCard : ObservableObject
                 string id = WidgetCatalog.SensorPrefix + sensor.Id;
                 if (Items.Any(i => i.Id == id)) continue;
                 list.Add(new PickerOption(id, sensor.DisplayName, sensor.HardwareName, sensor.ShortValue, WidgetCatalog.CategoryOf(sensor.HardwareType, sensor.Kind),
-                    false, Off(WidgetCatalog.WhyNot(layout, null, sensor.Kind))) { IsSensorFan = sensor.Kind == Core.SensorKind.Fan, Kind = sensor.TypeLabel });
+                    Off(WidgetCatalog.WhyNot(layout, null, sensor.Kind))) { IsSensorFan = sensor.Kind == Core.SensorKind.Fan, Kind = sensor.TypeLabel });
             }
         return list;
     }

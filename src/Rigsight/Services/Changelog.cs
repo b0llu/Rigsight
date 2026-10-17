@@ -103,6 +103,8 @@ public static class Changelog
                 "Widgets can show today's screen time, PC on time, most used app and CPU and GPU peaks, the date, this session and the app in front."],
             better: ["Adding a reading to a widget is one search box: type to find any reading or sensor, narrow it by part, and a click adds it.",
                 "Widget text is sharper, drawn the way Windows draws its own on any widget with a background of 60% or more.",
+                "With Update automatically off, RigSight no longer looks for a new version by itself; Check for updates still does when you press it.",
+                "An app's Time, Hardware and Internet cards sit side by side at an ordinary window size, instead of one under another.",
                 "Week, Month and Year on the Temperatures graph are the last 7 days, 30 days and 12 months, so no empty days lie ahead.",
                 "The app is now written RigSight, with a capital S, everywhere its name is shown."],
             fixedBugs: ["A widget moved to a layout that shows fewer readings, and back again, keeps every reading it had.",

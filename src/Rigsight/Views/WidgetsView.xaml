@@ -257,10 +257,6 @@
                                                                                     <StackPanel VerticalAlignment="Center">
                                                                                         <StackPanel Orientation="Horizontal">
                                                                                             <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                                                            <Border Background="{DynamicResource WarmBrush}" CornerRadius="4" Padding="5,0" Margin="8,1,0,0" VerticalAlignment="Center"
-                                                                                                    Visibility="{Binding IsNew, Converter={StaticResource Vis}}">
-                                                                                                <TextBlock Text="NEW" FontSize="9.5" FontWeight="Bold" Foreground="Black" />
-                                                                                            </Border>
                                                                                         </StackPanel>
                                                                                         <TextBlock Text="{Binding Source}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                                                                    Visibility="{Binding HasSource, Converter={StaticResource Vis}}" />
