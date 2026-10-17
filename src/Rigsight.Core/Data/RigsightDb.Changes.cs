@@ -66,7 +66,8 @@ public sealed partial class RigsightDb
         var changes = new List<SystemChange>();
 
         using var tx = BeginTransaction();
-        var goneSince = HoldMissingCards(now, known, before[Inventory.Gpu], at);
+        var (goneSince, droppedOut) = HoldMissingCards(now, known, before, at);
+        changes.AddRange(droppedOut);
         foreach (var (kind, items) in now)
         {
             if (known.Contains(kind))
@@ -121,11 +122,17 @@ public sealed partial class RigsightDb
     /// (on a PC with a second card, that was "Graphics card removed", then "added" ten minutes later). Missing, it's
     /// kept in the list as it was and only noted; still missing ten minutes later, it's gone. Returns the cards now
     /// taken as gone ("gpu:key") and when each was first missed (Unix seconds).
+    /// A held card back within the ten minutes with the driver it had is no driver install: it dropped out while the PC
+    /// ran (a card losing its slot or its power), and that is said, from when it was first missed. Back with another
+    /// driver (or none that could be read), it was the install, which its driver's own line says.
     /// </summary>
-    private Dictionary<string, long> HoldMissingCards(Dictionary<string, List<InventoryItem>> now, HashSet<string> known, IEnumerable<InventoryItem> before, DateTime at)
+    private (Dictionary<string, long> Gone, List<SystemChange> DroppedOut) HoldMissingCards(Dictionary<string, List<InventoryItem>> now, HashSet<string> known,
+        ILookup<string, InventoryItem> stored, DateTime at)
     {
         var gone = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
-        if (!known.Contains(Inventory.Gpu) || !now.TryGetValue(Inventory.Gpu, out var cards)) return gone;
+        var droppedOut = new List<SystemChange>();
+        if (!known.Contains(Inventory.Gpu) || !now.TryGetValue(Inventory.Gpu, out var cards)) return (gone, droppedOut);
+        var before = stored[Inventory.Gpu];
 
         var missed = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in (GetMeta(CardsGoneKey) ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -134,7 +141,19 @@ public sealed partial class RigsightDb
         var held = new List<string>();
         foreach (var card in before.ToList())
         {
-            if (cards.Any(c => c.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase))) continue;
+            if (cards.Any(c => c.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase)))
+            {
+                string? driverWas = stored[Inventory.GpuDriver].FirstOrDefault(d => d.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase))?.Value;
+                string? driverNow = now.TryGetValue(Inventory.GpuDriver, out var drivers)
+                    ? drivers.FirstOrDefault(d => d.Key.Equals(card.Key, StringComparison.OrdinalIgnoreCase))?.Value : null;
+                if (missed.TryGetValue(card.Key, out long outFrom) && driverWas is not null && string.Equals(driverWas, driverNow, StringComparison.OrdinalIgnoreCase))
+                {
+                    int minutes = Math.Max(1, (int)Math.Round((TimeUtil.ToUnix(at) - outFrom) / 60.0));
+                    droppedOut.Add(new SystemChange(TimeUtil.FromUnix(outFrom), ChangeKind.Hardware,
+                        $"GPU disconnected for {minutes} minute{(minutes == 1 ? "" : "s")}: {card.Name}") { Subject = $"{Inventory.Gpu}:{card.Key}" });
+                }
+                continue;
+            }
             bool seenMissing = missed.TryGetValue(card.Key, out long since);
             if (seenMissing && TimeUtil.ToUnix(at) - since >= CardGoneAfterSeconds)
             {
@@ -145,7 +164,7 @@ public sealed partial class RigsightDb
             held.Add($"{card.Key}|{(seenMissing ? since : TimeUtil.ToUnix(at))}");
         }
         SetMetaIfChanged(CardsGoneKey, string.Join('\n', held));
-        return gone;
+        return (gone, droppedOut);
     }
 
     /// <summary>Until when the event logs were read for drivers and updates (Unix seconds), if ever.</summary>

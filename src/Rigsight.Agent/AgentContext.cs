@@ -1504,6 +1504,8 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    private static bool IsDropout(SystemChange c) => c.Kind == ChangeKind.Hardware && c.Title.StartsWith("GPU disconnected", StringComparison.Ordinal);
+
     /// <summary>When Windows' logs were last read for changes (null: not since the agent started).</summary>
     private DateTime? _changeLogsRead;
 
@@ -1526,7 +1528,7 @@ internal sealed class AgentContext : ApplicationContext
             var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
 
             List<SystemChange> logged = [];
-            if (first || _changeLogsRead is not { } read || now - read >= TimeSpan.FromMinutes(Inventory.ScanMinutes) || found.Any(c => c.IsGraphicsDriver))
+            if (first || _changeLogsRead is not { } read || now - read >= TimeSpan.FromMinutes(Inventory.ScanMinutes) || found.Any(c => c.IsGraphicsDriver || IsDropout(c)))
             {
                 var since = (_changeLogsRead ?? (_db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned) : now.AddYears(-2))).AddHours(-1);
                 logged = ChangeLogReader.Read(since, now);
@@ -1537,6 +1539,9 @@ internal sealed class AgentContext : ApplicationContext
             // log entry only says when: the last one in the hour before it was found (an install takes minutes, and
             // may have begun before the check before). Before the first inventory the logs are all there is.
             var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > now.AddHours(-1));
+            // A GPU back with the driver it had: no install, unless Windows logged one while it was gone (the same
+            // version put on again, after a driver cleaner): then that's what it was.
+            found.RemoveAll(c => IsDropout(c) && logged.Any(l => l.IsGraphicsDriver && l.Time >= c.Time.AddMinutes(-2)));
             if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
             // Found by this check, so it happened since the last one (which may be last night's).
             if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];

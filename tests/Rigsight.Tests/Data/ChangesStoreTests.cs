@@ -237,6 +237,26 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
+    public void A_GPU_gone_for_minutes_and_back_with_the_same_driver_dropped_out_and_is_said()
+    {
+        // The user: "if the graphics card was removed and connected again within 10 min, don't you think it's a big thing
+        // for the Timeline to show? Other than a driver update of course."
+        using var t = new TestDb();
+        (string, string, string) rtx = (@"pci\ven_10de&dev_2208", "RTX 3080 Ti", "32.0.16.1047");
+        t.Db.ApplyInventory(Cards(Intel, rtx), "me", T);
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(1)));
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(2)));
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel), "me", T.AddMinutes(3)));
+        var dropped = Assert.Single(t.Db.ApplyInventory(Cards(Intel, rtx), "me", T.AddMinutes(4)));
+        Assert.Equal("GPU disconnected for 3 minutes: RTX 3080 Ti", dropped.Title);
+        Assert.Equal(ChangeKind.Hardware, dropped.Kind);
+        Assert.Equal(T.AddMinutes(1), dropped.Time); // when it was first missed
+        Assert.True(dropped.IsSystemLevel);
+        // Over: the next reading says nothing.
+        Assert.Empty(t.Db.ApplyInventory(Cards(Intel, rtx), "me", T.AddMinutes(5)));
+    }
+
+    [Fact]
     public void A_reading_with_nothing_changed_writes_nothing()
     {
         using var t = new TestDb();
