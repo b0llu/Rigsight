@@ -371,6 +371,134 @@ public sealed class ChartZoomUiTests
 
     private static long TimeUtilStart(DateTime day) => new DateTimeOffset(day).ToUnixTimeSeconds();
 
+    private static IEnumerable<Rigsight.Core.Data.SystemMinute> Steps(DateTime from, int count, int step, Func<int, double> temp) =>
+        Enumerable.Range(0, count).Select(i => new Rigsight.Core.Data.SystemMinute
+            { Ts = TimeUtilStart(from) + (long)i * step, CpuTemp = temp(i), CpuTempMax = temp(i) + 5, CpuTempMin = temp(i) - 5 });
+
+    [Fact]
+    public void A_zoom_into_the_last_7_days_is_drawn_from_minutes_on_a_scale_of_its_own()
+    {
+        // A user: "why does the last 7 days zoomed in not look the same as the last 6 hours?" It drew the week's hours wider.
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var (weekFrom, _) = ChartRange.Rolling(ChartRange.Week, DateTime.Today);
+            var sensor = new SensorItem(new SensorMeta { Id = "/t/CPU", Name = "CPU", Kind = SensorKind.Temperature }, "CPU", "Cpu");
+            var series = new ChartSeries("CPU", sensor, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+            // Hours across the week, between 40° and 90°.
+            series.LoadMinutes(Steps(weekFrom, 7 * 24, 3600, i => 40 + i * 13 % 50), 3600);
+            var chart = new LineChart { WindowSeconds = ChartRange.Week, Day = DateTime.Today, Series = [series], CanZoom = true };
+            Draw.Render(chart, 900, 300);
+            Assert.Null(chart.DetailWanted);
+
+            // About six hours dragged across: minutes asked for, 15 minutes the least.
+            Drag(chart, 400, 430);
+            Assert.True(chart.IsZoomed);
+            var wanted = Assert.IsType<(DateTime From, DateTime To, int Step)>(chart.DetailWanted);
+            Assert.Equal(60, wanted.Step);
+            Assert.InRange(wanted.To - wanted.From, TimeSpan.FromHours(3), TimeSpan.FromHours(9));
+            Assert.Equal(0, wanted.From.Second);
+
+            // Until they're read, the week's hours drawn wider; then the minutes, between 60° and 64° on their own scale.
+            Draw.Render(chart, 900, 300);
+            Assert.Equal(0, Draw.Get<int>(chart, "_drawStep")); // the range's own
+            int minutes = (int)(wanted.To - wanted.From).TotalMinutes;
+            series.LoadZoomed(Steps(wanted.From, minutes, 60, i => 60 + i % 5), wanted); chart.InvalidateVisual(); // as the page's Tick does
+            Draw.Render(chart, 900, 300);
+            Assert.Equal(60, Draw.Get<int>(chart, "_drawStep"));
+            Draw.Set(chart, "_hoverX", 450.0);
+            Draw.Render(chart, 900, 300);
+            Draw.Set(chart, "_hoverX", null);
+
+            // Back out: the week's hours at once, nothing asked for, the finer points kept for next time.
+            chart.ResetZoom();
+            Assert.Null(chart.DetailWanted);
+            Draw.Render(chart, 900, 300);
+            Assert.Equal(0, Draw.Get<int>(chart, "_drawStep")); // the range's own
+            Assert.NotNull(series.Zoomed);
+
+            // A long drag (three days) stays in hours: nothing finer to ask for.
+            Drag(chart, 100, 500);
+            Assert.True(chart.IsZoomed);
+            Assert.Null(chart.DetailWanted);
+        });
+        Ui.AssertNoProblems("week zoom");
+    }
+
+    [Fact]
+    public void A_zoomed_stretchs_scale_fits_its_own_readings()
+    {
+        Ui.Run(() =>
+        {
+            var day = DateTime.Today.AddDays(-2);
+            var sensor = new SensorItem(new SensorMeta { Id = "/t/CPU", Name = "CPU", Kind = SensorKind.Temperature }, "CPU", "Cpu");
+            var series = new ChartSeries("CPU", sensor, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+            // Cool all morning (40-44°), hot in the evening (90°).
+            series.LoadMinutes(Steps(day, 1440, 60, i => i < 1080 ? 40 + i % 5 : 90));
+            var chart = new LineChart { WindowSeconds = 0, Day = day, Series = [series], CanZoom = true };
+            Draw.Render(chart, 900, 300);
+            Drag(chart, 200, 300); // a morning stretch
+            Draw.Render(chart, 900, 300);
+            // From 30° to 50°, not up to 100°.
+            Assert.True(chart.IsZoomed);
+            Assert.Equal((30.0, 50.0), Draw.Get<(double, double)>(chart, "_scale"));
+            chart.ResetZoom();
+            Draw.Render(chart, 900, 300);
+            Assert.Equal((30.0, 100.0), Draw.Get<(double, double)>(chart, "_scale"));
+        });
+    }
+
+    [Fact]
+    public void A_custom_range_of_two_days_keeps_its_first_day()
+    {
+        // 2,880 minutes: at 1,500 points kept, the first day of a 2-day custom range was dropped.
+        var sensor = new SensorItem(new SensorMeta { Id = "/t/CPU", Name = "CPU", Kind = SensorKind.Temperature }, "CPU", "Cpu");
+        var series = new ChartSeries("CPU", sensor, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+        var from = DateTime.Today.AddDays(-3);
+        series.LoadMinutes(Steps(from, 2 * 1440, 60, i => 50));
+        Assert.Equal(2 * 1440, series.Minutes.Count);
+        Assert.Equal(new DateTimeOffset(from).ToUnixTimeMilliseconds() + 30_000, series.Minutes.TimeAt(0));
+    }
+
+    [Fact]
+    public void The_temperatures_page_reads_the_finer_points_a_zoom_asks_for()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            int asked = 0;
+            live.ChartDetailWanted += () => asked++;
+            live.ChartWindowSeconds = ChartRange.Week;
+            var view = new Views.TemperaturesView { DataContext = live };
+            var window = new Window { Content = view, Left = -32000, Top = -32000, Width = 1440, Height = 900, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                Ui.Pump(150);
+                var chart = (LineChart)view.FindName("HistoryChart");
+                var (weekFrom, _) = ChartRange.Rolling(ChartRange.Week, DateTime.Today);
+                live.LoadMinuteHistory([.. Steps(weekFrom, 7 * 24, 3600, i => 40 + i % 30)], 3600);
+                Ui.Pump(150);
+                Drag(chart, chart.ActualWidth / 2, chart.ActualWidth / 2 + 20);
+                Assert.Equal(chart.DetailWanted, live.ChartDetail);
+                Assert.Equal(60, live.ChartDetail?.Step);
+                Assert.Equal(1, asked);
+                var detail = live.ChartDetail!.Value;
+                live.LoadZoomHistory([.. Steps(detail.From, (int)(detail.To - detail.From).TotalMinutes, 60, i => 55)], detail);
+                Assert.All(live.TempSeries, s => Assert.Equal(detail, s.ZoomedFor));
+                chart.ResetZoom();
+                Assert.Null(live.ChartDetail);
+            }
+            finally
+            {
+                window.Close();
+                live.ChartWindowSeconds = 86400;
+            }
+        });
+        Ui.AssertNoProblems("temperatures zoom detail");
+    }
+
     [Fact]
     public void The_history_chart_zooms_into_its_minutes_and_a_new_period_starts_whole()
     {

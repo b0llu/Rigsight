@@ -15,7 +15,8 @@ namespace Rigsight.Controls;
 /// The last 7 or 30 days (up to <see cref="Day"/>, today's up to now) are drawn from hours (each hour's average), and
 /// hovering says the hour's three; the last 12 months from days, in the same way; a custom range (<see cref="CustomFrom"/>
 /// to <see cref="CustomTo"/>) from minutes, hours or days by its length (see <see cref="Core.Reports.ChartRange"/>).
-/// From an hour up, dragging across it shows only that stretch, with the same points drawn wider (see <see cref="ChartZoom"/>).
+/// From an hour up, dragging across it shows only that stretch on a scale of its own, as finely as its length allows
+/// (2 days of the last 7 from minutes, read for it when asked: see <see cref="DetailWanted"/> and <see cref="ChartZoom"/>).
 /// </summary>
 public sealed class LineChart : FrameworkElement
 {
@@ -172,8 +173,30 @@ public sealed class LineChart : FrameworkElement
     /// <summary>A zoom keeps to the points this window has: under an hour every reading is drawn, and there's nothing to zoom into.</summary>
     private bool Zoomable => CanZoom && ByMinute;
 
-    /// <summary>How far apart the points are (a minute, an hour on a week or a month, a day on a year): a zoom is at least 15 of them.</summary>
-    private TimeSpan ZoomStep => TimeSpan.FromSeconds(Step);
+    /// <summary>
+    /// How far apart a zoom's points are: as fine as its length allows, as a custom range of that length is drawn
+    /// (minutes up to 2 days, hours up to 62, days beyond), never coarser than the range's own. A zoom is at least 15 of
+    /// them: 15 minutes into the last 7 days, as into a day. Set when the drag ends; 0 while not zoomed.
+    /// </summary>
+    private int _zoomStep;
+
+    private TimeSpan ZoomStep => TimeSpan.FromSeconds(_zoom.IsZoomed && _zoomStep > 0 ? _zoomStep : RangeStep);
+
+    private int ZoomStepFor(DateTime a, DateTime b) => Math.Min(RangeStep,
+        Core.Reports.ChartRange.StepSeconds(Core.Reports.ChartRange.Custom, a < b ? a : b, a < b ? b : a));
+
+    /// <summary>
+    /// A zoom that wants finer points than the range has: the stretch and how far apart, for the page to read (they come
+    /// back as each line's <see cref="ChartSeries.Zoomed"/>). Null otherwise. Set by the chart; bind it one way to source.
+    /// </summary>
+    public static readonly DependencyProperty DetailWantedProperty = DependencyProperty.Register(
+        nameof(DetailWanted), typeof((DateTime From, DateTime To, int Step)?), typeof(LineChart), new FrameworkPropertyMetadata(null));
+
+    public (DateTime From, DateTime To, int Step)? DetailWanted
+    {
+        get => ((DateTime From, DateTime To, int Step)?)GetValue(DetailWantedProperty);
+        set => SetValue(DetailWantedProperty, value);
+    }
 
     public void ResetZoom()
     {
@@ -183,8 +206,11 @@ public sealed class LineChart : FrameworkElement
 
     private void SyncZoom()
     {
+        if (!_zoom.IsZoomed) _zoomStep = 0;
         SetValue(IsZoomedKey, _zoom.IsZoomed);
         SetValue(ZoomTextKey, _zoom.Range is { } r ? ChartZoom.Text(r.From, r.To, ZoomStep) : "");
+        (DateTime, DateTime, int)? wanted = _zoom.Range is { } z && _zoomStep > 0 && _zoomStep < RangeStep ? (z.From, z.To, _zoomStep) : null;
+        if (DetailWanted != wanted) SetCurrentValue(DetailWantedProperty, wanted);
     }
 
     // Another period (or day) starts whole.
@@ -234,7 +260,8 @@ public sealed class LineChart : FrameworkElement
     {
         // The period changed under the drag to one that draws every reading: nothing to zoom into.
         if (!Zoomable && _zoom.CancelDrag()) return;
-        _zoom.Release(TimeAtX, _full.From, _full.To, ZoomStep);
+        int step = _zoom.Drag is { } d ? ZoomStepFor(TimeAtX(d.Start), TimeAtX(d.End)) : RangeStep;
+        if (_zoom.Release(TimeAtX, _full.From, _full.To, TimeSpan.FromSeconds(step))) _zoomStep = step;
         SyncZoom();
         InvalidateVisual();
     }
@@ -285,7 +312,14 @@ public sealed class LineChart : FrameworkElement
     private bool Long => Fixed && Step > 60;
 
     /// <summary>How long each point of the older history must stand for on this window: a minute, an hour, or a day (see <see cref="Core.Reports.ChartRange.StepSeconds"/>).</summary>
-    private int Step => Fixed ? Core.Reports.ChartRange.StepSeconds(WindowSeconds, CustomFrom, CustomTo) : 60;
+    private int RangeStep => Fixed ? Core.Reports.ChartRange.StepSeconds(WindowSeconds, CustomFrom, CustomTo) : 60;
+
+    /// <summary>How far apart the points drawn are: the range's, or a zoom's finer ones once they have been read (set each render).</summary>
+    private int Step => _drawStep > 0 ? _drawStep : RangeStep;
+    private int _drawStep;
+
+    /// <summary>The scale drawn last, bottom and top.</summary>
+    private (double Lo, double Hi) _scale;
 
     /// <summary>
     /// The series' older history, when it is the kind this window draws (minutes, hours for a week or month, days for a
@@ -305,6 +339,7 @@ public sealed class LineChart : FrameworkElement
         var plot = new Rect(AxisWidth, 6, ActualWidth - AxisWidth - 6, ActualHeight - AxisHeight - 6);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var series = Series?.ToList() ?? [];
+        _drawStep = 0;
 
         long to = series.Count == 0 ? 0 : series.Max(s => Math.Max(s.Sensor.History.LastTime, Older(s)?.LastTime ?? 0));
         // WindowSeconds 0 is one calendar day: today from midnight to now, or an earlier day in full.
@@ -320,8 +355,8 @@ public sealed class LineChart : FrameworkElement
         {
             if (periodTo <= periodFrom) return;
             (from, to) = (new DateTimeOffset(periodFrom).ToUnixTimeMilliseconds(),
-                new DateTimeOffset(Core.Reports.ChartRange.ShownEnd(periodTo, Step, DateTime.Now)).ToUnixTimeMilliseconds());
-            if (to <= from) to = from + Step * 1000L;
+                new DateTimeOffset(Core.Reports.ChartRange.ShownEnd(periodTo, RangeStep, DateTime.Now)).ToUnixTimeMilliseconds());
+            if (to <= from) to = from + RangeStep * 1000L;
         }
         if (_pastDay) to = new DateTimeOffset(day.AddDays(1)).ToUnixTimeMilliseconds();
         else if (dayMode && to - from < 300_000) to = from + 300_000;
@@ -341,6 +376,38 @@ public sealed class LineChart : FrameworkElement
             if (from < LiveStart(s) && Older(s) is { } older) Widen(ChartGeometry.Range(older, from, Shown, LiveStart(s)));
         }
 
+        // Zoomed in: only that stretch of the period, across the whole width, as finely as the zoom asked for once its
+        // points have been read (until then, the period's own, drawn wider), and on a scale of its own, as a range of
+        // that length is: a zoom into the last 7 days looks like the last 6 hours.
+        static DateTime Local(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
+        static long Ms(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
+        _full = (Local(from), Local(to));
+        if (lo <= hi && Zoomable && _zoom.IsZoomed)
+        {
+            var (zoomFrom, zoomTo) = _zoom.Shown(_full.From, _full.To, ZoomStep);
+            (from, to) = (Ms(zoomFrom), Ms(zoomTo));
+            window = (int)((to - from) / 1000);
+            if (_zoomStep < RangeStep && _zoom.Range is { } asked && series.Count > 0
+                && series.All(s => s.Zoomed is not null && s.ZoomedFor == (asked.From, asked.To, _zoomStep)))
+            {
+                series = [.. series.Select(s => s.Zoomed!)];
+                _drawStep = _zoomStep;
+            }
+            double zoomLo = double.MaxValue, zoomHi = double.MinValue;
+            foreach (var s in series)
+            {
+                foreach (var r in new[] { Fixed ? null : ChartGeometry.Range(s.Sensor.History, from, Shown, to),
+                             from < LiveStart(s) && Older(s) is { } older ? ChartGeometry.Range(older, from, Shown, Math.Min(LiveStart(s), to)) : null })
+                    if (r is { } v) (zoomLo, zoomHi) = (Math.Min(zoomLo, v.Min), Math.Max(zoomHi, v.Max));
+            }
+            // A stretch with nothing in it keeps the period's scale.
+            if (zoomLo <= zoomHi) (lo, hi) = (zoomLo, zoomHi);
+        }
+        else if (!Zoomable) _zoom.Reset();
+        _shown = (Local(from), Local(to));
+        // (Not set while drawing: the card's text would be laid out again in the middle of it.)
+        if (_zoom.IsZoomed != IsZoomed) Dispatcher.BeginInvoke(SyncZoom);
+
         if (lo > hi)
         {
             // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
@@ -350,6 +417,7 @@ public sealed class LineChart : FrameworkElement
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }
+        _plotRect = plot;
 
         if (IsTemp)
         {
@@ -364,23 +432,7 @@ public sealed class LineChart : FrameworkElement
             double step = new[] { 250.0, 500, 750, 1000, 1250, 1500, 2000, 2500 }.FirstOrDefault(s => s * Rows >= hi * 1.05, 5000);
             hi = step * Rows;
         }
-
-        // Zoomed in: only that stretch of the period, its points drawn wider across the whole width. The scale stays the
-        // period's, so a stretch keeps its place against the rest.
-        static DateTime Local(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
-        static long Ms(DateTime t) => new DateTimeOffset(t).ToUnixTimeMilliseconds();
-        _plotRect = plot;
-        _full = (Local(from), Local(to));
-        if (Zoomable && _zoom.IsZoomed)
-        {
-            var (zoomFrom, zoomTo) = _zoom.Shown(_full.From, _full.To, ZoomStep);
-            (from, to) = (Ms(zoomFrom), Ms(zoomTo));
-            window = (int)((to - from) / 1000);
-        }
-        else if (!Zoomable) _zoom.Reset();
-        _shown = (Local(from), Local(to));
-        // (Not set while drawing: the card's text would be laid out again in the middle of it.)
-        if (_zoom.IsZoomed != IsZoomed) Dispatcher.BeginInvoke(SyncZoom);
+        _scale = (lo, hi);
 
         // Horizontal grid + Y labels.
         if (_gridPen is null || _gridPen.Brush != GridBrush)

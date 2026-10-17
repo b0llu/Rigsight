@@ -130,19 +130,43 @@ public sealed partial class ChartSeries : CommunityToolkit.Mvvm.ComponentModel.O
     /// <summary>Picks this line's value out of a stored minute (null: the minute history doesn't have it).</summary>
     public Func<SystemMinute, double?>? FromMinute { get; }
 
-    /// <summary>Older history, one point per minute, for chart windows longer than the live buffer.</summary>
-    public HistoryBuffer Minutes { get; } = new(24 * 60 + 60, wholeSeconds: true); // a month of hours or a year of days too
+    /// <summary>
+    /// The most points of older history kept: two days of minutes (a custom range of up to 2 days, or a zoom into one,
+    /// is drawn from minutes), with room for the breaks between them. At 1,500 a custom 2 days lost its first day.
+    /// </summary>
+    public const int MostPoints = 3 * 24 * 60;
+
+    /// <summary>Older history, one point per minute, for chart windows longer than the live buffer (a month of hours or a year of days too).</summary>
+    public HistoryBuffer Minutes { get; } = new(MostPoints, wholeSeconds: true);
+
+    /// <summary>
+    /// A zoomed stretch's own history, finer than its range's (2 days of the last 7 from minutes, not hours): the same
+    /// line, read for that stretch alone and kept beside the range's, so going in and back out never waits for a
+    /// reading. Null until a zoom asks for it.
+    /// </summary>
+    public ChartSeries? Zoomed { get; private set; }
+
+    /// <summary>The stretch <see cref="Zoomed"/> was read for, and how far apart its points are.</summary>
+    public (DateTime From, DateTime To, int Step)? ZoomedFor { get; private set; }
+
+    public void LoadZoomed(IEnumerable<SystemMinute> minutes, (DateTime From, DateTime To, int Step) stretch)
+    {
+        Zoomed ??= new ChartSeries(Label, Sensor, _colorKey, FromMinute, MinuteStats);
+        Zoomed.Label = Label;
+        Zoomed.LoadMinutes(minutes, stretch.Step);
+        ZoomedFor = stretch;
+    }
 
     /// <summary>Picks a stored minute's average, highest and lowest (each null where the history doesn't have it).</summary>
     public Func<SystemMinute, (double? Avg, double? High, double? Low)>? MinuteStats { get; }
 
     // Beside Minutes, sample for sample: what the hover box says about each minute. Empty without MinuteStats.
-    private readonly HistoryBuffer _avg = new(24 * 60 + 60, true), _high = new(24 * 60 + 60, true), _low = new(24 * 60 + 60, true);
+    private readonly HistoryBuffer _avg = new(MostPoints, true), _high = new(MostPoints, true), _low = new(MostPoints, true);
 
     // Beside Minutes too: the line when it's drawn from each minute's highest or lowest. A minute that didn't keep the
     // one asked for (lowest readings are kept since 0.16.1, the hot spot's and the memory's since 0.20.0) has no point
     // there: the line stops rather than pass an average off as a lowest.
-    private readonly HistoryBuffer _plotHigh = new(24 * 60 + 60, true), _plotLow = new(24 * 60 + 60, true);
+    private readonly HistoryBuffer _plotHigh = new(MostPoints, true), _plotLow = new(MostPoints, true);
 
     /// <summary>
     /// The older history as the chart draws it: each minute's (hour's, day's) average, or with <paramref name="pick"/>

@@ -27,6 +27,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Live = new LiveData(Settings) { Dashboards = () => CustomPages };
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
+        Live.ChartDetailWanted += () => _ = LoadZoomHistoryAsync();
         Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange };
         ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live };
         Apps = new AppsViewModel(Reports, Settings);
@@ -559,8 +560,25 @@ public sealed partial class ShellViewModel : ObservableObject
             var power = await Task.Run(() => Core.Stability.CrashLogReader.ReadPower(since));
             if (id == _historyLoad) Live.LoadPowerEvents(power);
         }
+        // A zoom up to now gains its newest points too.
+        if (id == _historyLoad && Live.ChartDetail is { } detail && detail.To > DateTime.Now.AddMinutes(-2)) await LoadZoomHistoryAsync();
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.HeatWeekAsync(DateTime.Today) is { } week) Live.HeatWeek = Models.Kept.Or(Live.HeatWeek, week);
+    }
+
+    private int _zoomLoad;
+
+    /// <summary>
+    /// A zoom into the temperature graph short enough for finer points than its range's (2 days or less of the last 7
+    /// days or 30 from minutes, a stretch of 12 months from hours): read for that stretch alone.
+    /// </summary>
+    private async Task LoadZoomHistoryAsync()
+    {
+        int id = ++_zoomLoad;
+        if (Live.ChartDetail is not { } detail) return;
+        long from = Core.Data.TimeUtil.ToUnix(detail.From), to = Math.Min(Core.Data.TimeUtil.ToUnix(detail.To), Core.Data.TimeUtil.NowUnix() + 60);
+        var minutes = detail.Step == 60 ? await Reports.MinutesAsync(from, to) : await Reports.TempHoursAsync(from, to, byDay: detail.Step == 86400);
+        if (id == _zoomLoad && minutes is not null && Live.ChartDetail == detail) Live.LoadZoomHistory(minutes, detail);
     }
 
     private static RecapPeriod? RecapPeriodOf(string? arg) => arg switch

@@ -788,6 +788,31 @@ public sealed partial class LiveData : ObservableObject
         Tick++;
     }
 
+    /// <summary>
+    /// A zoom into the temperature graph that wants finer points than its range has (2 days of the last 7 from minutes):
+    /// the stretch and how far apart, set by the graph. Null for none.
+    /// </summary>
+    public (DateTime From, DateTime To, int Step)? ChartDetail
+    {
+        get => _chartDetail;
+        set
+        {
+            if (_chartDetail == value) return;
+            _chartDetail = value;
+            if (value is not null) ChartDetailWanted?.Invoke();
+        }
+    }
+    private (DateTime From, DateTime To, int Step)? _chartDetail;
+
+    public event Action? ChartDetailWanted;
+
+    /// <summary>The finer points read for <paramref name="stretch"/>, kept beside each line's own (see <see cref="ChartSeries.Zoomed"/>).</summary>
+    public void LoadZoomHistory(List<Rigsight.Core.Data.SystemMinute> minutes, (DateTime From, DateTime To, int Step) stretch)
+    {
+        foreach (var series in TempSeries) series.LoadZoomed(minutes, stretch);
+        Tick++;
+    }
+
     public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes, int stepSeconds = 60)
     {
         _minutes = minutes;
