@@ -104,8 +104,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     public string LineIcon => State == UpdateState.Waiting ? "" : "";
 
     public string LineTip => State == UpdateState.Waiting
-        ? $"Rigsight {Version} is downloaded. Click to install it: Rigsight closes and opens again by itself."
-        : $"Rigsight {Version} is out. Click to download it; you can keep using Rigsight meanwhile.";
+        ? $"RigSight {Version} is downloaded. Click to install it: RigSight closes and opens again by itself."
+        : $"RigSight {Version} is out. Click to download it; you can keep using RigSight meanwhile.";
 
     public string ProgressTitle => State == UpdateState.Installing ? $"Updating to {Version}…" : $"Downloading {Version}";
 
@@ -121,9 +121,9 @@ public sealed partial class UpdateViewModel : ObservableObject
     public string StatusText => State switch
     {
         _ when IsChecking => "Checking for updates…",
-        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => $"Version {Version} is out. It installs the next time Rigsight starts, or now.",
-        UpdateState.Installing when _pcUpdates() => "Updating: Rigsight closes and reopens by itself in a minute.",
-        _ when _pcUpdates() => "This PC keeps Rigsight up to date by itself.",
+        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => $"Version {Version} is out. It installs the next time RigSight starts, or now.",
+        UpdateState.Installing when _pcUpdates() => "Updating: RigSight closes and reopens by itself in a minute.",
+        _ when _pcUpdates() => "This PC keeps RigSight up to date by itself.",
         UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _needsAdmin() => $"Version {Version} is out. Installing it needs an admin's password.",
         UpdateState.Available => $"Version {Version} is available.",
         UpdateState.Downloading => $"Downloading version {Version}… {Progress:0}%",
@@ -132,7 +132,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         UpdateState.Failed => $"{Error} You can also get it from the download page.",
         _ when _checkError is not null => _checkError,
         _ when _checked => "You have the latest version.",
-        _ => "Rigsight checks for a new version once a day.",
+        _ => "RigSight checks for a new version once a day.",
     };
 
     /// <summary>The button is the next step of an update (not just "Check for updates"): it stands out.</summary>
@@ -420,7 +420,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty] private bool _overlayFailed;
 
     /// <summary>Under "The update didn't install": what is still there, and what to do.</summary>
-    public string ReleaseFeedCurrentText => $"Rigsight is still on {ReleaseFeed.Current.ToString(3)}, with nothing lost. Try again, or get the new version from the download page.";
+    public string ReleaseFeedCurrentText => $"RigSight is still on {ReleaseFeed.Current.ToString(3)}, with nothing lost. Try again, or get the new version from the download page.";
 
     /// <summary>"0.24.0 → 0.25.0" under the screen's title.</summary>
     public string OverlayVersions => $"{ReleaseFeed.Current.ToString(3)} → {Version}";
@@ -480,7 +480,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         Fill(18);
         State = UpdateState.Installing;
         Progress = 100;
-        ProgressText = "Rigsight closes and reopens by itself in a few seconds.";
+        ProgressText = "RigSight closes and reopens by itself in a few seconds.";
         if (_pcUpdates())
         {
             // The PC's own updater does it: told it may close this window (and that it is to come back), then asked to run.

@@ -258,10 +258,10 @@ public static class DataExport
     public static string ReadMe(DateTime made, string version)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Rigsight full copy, made {made.ToString("d MMMM yyyy, HH:mm", Inv)} by Rigsight {version}.");
+        sb.AppendLine($"RigSight full copy, made {made.ToString("d MMMM yyyy, HH:mm", Inv)} by RigSight {version}.");
         sb.AppendLine();
-        sb.AppendLine("rigsight.db is the history itself, a SQLite database: everything Rigsight has recorded on this PC. Putting it");
-        sb.AppendLine(@"back in %LocalAppData%\Rigsight (with Rigsight closed from its tray icon) restores the history on this or another PC.");
+        sb.AppendLine("rigsight.db is the history itself, a SQLite database: everything RigSight has recorded on this PC. Putting it");
+        sb.AppendLine(@"back in %LocalAppData%\Rigsight (with RigSight closed from its tray icon) restores the history on this or another PC.");
         sb.AppendLine("settings.json holds the settings.");
         sb.AppendLine();
         sb.AppendLine("The other files are the same history as tables (CSV: comma-separated, UTF-8), which Excel and most other");

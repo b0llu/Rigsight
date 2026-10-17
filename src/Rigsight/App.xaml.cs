@@ -152,7 +152,7 @@ public partial class App : Application
         try
         {
             MessageBox.Show($"Something went wrong:\n\n{e.Exception.Message}\n\nDetails were saved to rigsight.log in {RigsightPaths.DataDir}.",
-                "Rigsight", MessageBoxButton.OK, MessageBoxImage.Error);
+                "RigSight", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {

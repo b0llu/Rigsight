@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/Rigsight.png" width="96" alt="Rigsight logo" />
+  <img src="assets/Rigsight.png" width="96" alt="RigSight logo" />
 </p>
 
-<h1 align="center">Rigsight</h1>
+<h1 align="center">RigSight</h1>
 
 <p align="center">
   <b>Know your rig.</b><br />
@@ -18,7 +18,7 @@
 
 ---
 
-Most hardware monitors only show numbers while you're watching. Rigsight keeps them, so you can look back at any day, week, month or year: how hot your GPU got in each game, which apps took your time, where your internet went, and why your PC crashed last Tuesday.
+Most hardware monitors only show numbers while you're watching. RigSight keeps them, so you can look back at any day, week, month or year: how hot your GPU got in each game, which apps took your time, where your internet went, and why your PC crashed last Tuesday.
 
 It records quietly in the background using about **0.02% of your CPU**, and everything stays on your PC.
 
@@ -49,9 +49,9 @@ irm https://rigsight.app/install.ps1 | iex
 
 Leave **PawnIO** and **RivaTuner** ticked if the installer offers them. PawnIO reads CPU and motherboard sensors, and RivaTuner shows the overlay in fullscreen games.
 
-**Updates** arrive by themselves: a new version downloads in the background and installs the next time you start your PC, or straight away when you click *Restart*. You can turn this off in Settings, and Rigsight will just tell you when there's a new version.
+**Updates** arrive by themselves: a new version downloads in the background and installs the next time you start your PC, or straight away when you click *Restart*. You can turn this off in Settings, and RigSight will just tell you when there's a new version.
 
-**To uninstall**, go to **Settings → Apps → Rigsight → Uninstall**. Your history stays in `%LocalAppData%\Rigsight`; delete that folder too if you want it gone.
+**To uninstall**, go to **Settings → Apps → RigSight → Uninstall**. Your history stays in `%LocalAppData%\Rigsight`; delete that folder too if you want it gone.
 
 ## How much it uses
 
@@ -60,14 +60,14 @@ Measured on a Ryzen 7 5700X3D (16 threads) with an RTX 3080 Ti on Windows 11, wi
 | What's open | CPU | Memory |
 |---|---|---|
 | Nothing, just recording in the background | about 0.02% | about 30 to 45 MB |
-| The Rigsight window, on Home | about 0.2% | about 150 MB |
+| The RigSight window, on Home | about 0.2% | about 150 MB |
 | The window on a live page, such as Temperatures | about 0.3% | about 160 MB |
 
-With the window open, sensors are read every second instead of every two, so it uses a little more until you close it. On a CPU with fewer cores the share is bigger: in the background Rigsight uses about half a percent of one core. A year of history takes about 100 MB on a PC that's on most of the day.
+With the window open, sensors are read every second instead of every two, so it uses a little more until you close it. On a CPU with fewer cores the share is bigger: in the background RigSight uses about half a percent of one core. A year of history takes about 100 MB on a PC that's on most of the day.
 
 ## Privacy
 
-No account, no telemetry. The only thing Rigsight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.
+No account, no telemetry. The only thing RigSight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.
 
 It knows which app is in front, how hard your hardware is working, and how much each app downloads and uploads. It never records window titles, what you type, what's on your screen, or the websites you visit.
 
@@ -80,7 +80,7 @@ Windows only lets programs with admin rights read CPU and motherboard sensors, a
 Yes. On a standard Windows account it runs without admin rights and never asks for a password. It records everything Windows lets it read there, and Settings lists the few readings that need an admin account. On a PC several people use, setup can install it for everyone and keep it updated for them.
 
 **My CPU temperature is missing.**
-Install the PawnIO driver (`winget install namazso.PawnIO`) and restart Rigsight.
+Install the PawnIO driver (`winget install namazso.PawnIO`) and restart RigSight.
 
 **Does it slow down games?**
 No. It uses about 0.02% of your CPU and waits until you leave a fullscreen game to show anything that isn't urgent.
@@ -111,7 +111,7 @@ To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (
 
 ## Support
 
-Rigsight is free and made by one person. If it's useful to you, you can buy me a coffee.
+RigSight is free and made by one person. If it's useful to you, you can buy me a coffee.
 
 <a href="https://buymeacoffee.com/bollu"><img alt="Buy me a coffee" height="44" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" /></a>
 

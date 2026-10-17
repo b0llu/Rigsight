@@ -493,8 +493,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Controls.PeriodPicker.OnDayChanged();
     }
 
-    /// <summary>An earlier day, week or month on the temperature chart never changes; anything else includes now.</summary>
-    private bool ChartShowsNow => !(Live.IsChartPaged && Live.ChartPeriod.To <= DateTime.Today);
+    /// <summary>An earlier day, 7 days, month or custom range on the temperature chart never changes; anything else includes now.</summary>
+    private bool ChartShowsNow => !(Live.IsChartPaged && Live.ChartPeriod.To <= DateTime.Now);
 
     /// <summary>
     /// Whether this minute's tick reads the chart's history again. Minutes: every minute. A week or a month of hours
@@ -502,7 +502,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// days adds up every minute of the year (0.14 s for a year of evenings, 0.9 s for a PC that never sleeps, measured):
     /// every half hour. Changing the range or the period always reads at once.
     /// </summary>
-    private bool ChartDueNow => ChartShowsNow && (!Live.IsChartLong || _tickCount % (Live.IsChartYear ? 30 : 5) == 0);
+    private bool ChartDueNow => ChartShowsNow && (!Live.IsChartLong || _tickCount % (Live.ChartStepSeconds == 86400 ? 30 : 5) == 0);
 
     private int _historyLoad;
 
@@ -521,15 +521,19 @@ public sealed partial class ShellViewModel : ObservableObject
             : (now - 24 * 3600, now + 60);
         int window = Live.ChartWindowSeconds;
         var (periodFrom, periodTo) = Live.ChartPeriod;
+        var (customFrom, customTo) = (Live.ChartCustomFrom, Live.ChartCustomTo);
+        long periodEnd = Math.Min(Core.Data.TimeUtil.ToUnix(periodTo), now + 60);
         var minutes = Live.IsChartLong
-            ? await Reports.TempHoursAsync(Core.Data.TimeUtil.ToUnix(periodFrom), Math.Min(Core.Data.TimeUtil.ToUnix(periodTo), now + 60), byDay: Live.IsChartYear)
+            ? await Reports.TempHoursAsync(Core.Data.TimeUtil.ToUnix(periodFrom), periodEnd, byDay: Live.ChartStepSeconds == 86400)
+            : Live.IsChartFixed ? await Reports.MinutesAsync(Core.Data.TimeUtil.ToUnix(periodFrom), periodEnd)
             : await Reports.MinutesAsync(from, to);
         // Not if the range was changed again while this was read (the next load is on its way).
-        if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);
+        if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay
+            && customFrom == Live.ChartCustomFrom && customTo == Live.ChartCustomTo) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);
         // Why its empty stretches are empty, from Windows' own log (a year would mean reading all of it: those just say "Not recorded").
-        if (id == _historyLoad && !Live.IsChartYear)
+        if (id == _historyLoad && Live.ChartStepSeconds < 86400)
         {
-            var since = (Live.IsChartLong ? periodFrom : Core.Data.TimeUtil.FromUnix(from)).AddDays(-2);
+            var since = (Live.IsChartFixed ? periodFrom : Core.Data.TimeUtil.FromUnix(from)).AddDays(-2);
             var power = await Task.Run(() => Core.Stability.CrashLogReader.ReadPower(since));
             if (id == _historyLoad) Live.LoadPowerEvents(power);
         }
@@ -651,7 +655,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// a restart will), or not running at all (the admin prompt was declined, or something stopped it from starting).
     /// </summary>
     internal static string NotStartedText(bool processRunning) => processRunning
-        ? "The agent is running but not answering. Restart your PC, then open Rigsight again."
+        ? "The agent is running but not answering. Restart your PC, then open RigSight again."
         : "The agent didn't start. Try again and accept the admin prompt. If it still won't, restart your PC.";
 
     private bool _startAfterQuit;

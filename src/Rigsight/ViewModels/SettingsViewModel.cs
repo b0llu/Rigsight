@@ -93,7 +93,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool ShowKeepUpdatedForEveryone => !StandardAccount && (MachineSetup.Everyone || MachineSetup.KeepUpdated);
 
     public string KeepUpdatedHint => KeepUpdated
-        ? "Rigsight keeps itself up to date on this PC. Changing this needs an admin's password."
+        ? "RigSight keeps itself up to date on this PC. Changing this needs an admin's password."
         : "Off. An admin installs each new version on this PC. Changing this needs an admin's password.";
 
     public string KeepUpdatedWord => KeepUpdated ? "On" : "Off";
@@ -432,8 +432,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     internal static string? SkippedText(SensorStatus? status) => status switch
     {
-        { StoppedForMemory: true } => "Windows' memory kept growing while the motherboard, fan hubs and power supply were read, so Rigsight stopped reading them. Try again once your PC has restarted.",
-        { SafeMode: true } => "The last time Rigsight read your hardware it didn't finish (your PC may have frozen or been restarted), so the motherboard, fan hubs and power supply are skipped for now.",
+        { StoppedForMemory: true } => "Windows' memory kept growing while the motherboard, fan hubs and power supply were read, so RigSight stopped reading them. Try again once your PC has restarted.",
+        { SafeMode: true } => "The last time RigSight read your hardware it didn't finish (your PC may have frozen or been restarted), so the motherboard, fan hubs and power supply are skipped for now.",
         _ => null,
     };
 
@@ -709,7 +709,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     private void QuitAgent()
     {
         var answer = MessageBox.Show(Application.Current.MainWindow,
-            "Quitting stops tracking, the tray icon and widgets until the agent starts again (at next sign-in, or when you open Rigsight).\n\nQuit the Rigsight agent?",
+            "Quitting stops tracking, the tray icon and widgets until the agent starts again (at next sign-in, or when you open RigSight).\n\nQuit the RigSight agent?",
             "Quit agent", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer == MessageBoxResult.Yes) client.SendCommand("quit");
     }

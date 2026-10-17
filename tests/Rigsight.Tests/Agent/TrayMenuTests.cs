@@ -45,10 +45,10 @@ public class TrayMenuTests
         using (menu)
         {
             Opening(menu);
-            Assert.Equal(["Open Rigsight", "Widgets", "Show overlay", "Pause tracking", "-", "Quit Rigsight"], Shown(menu));
-            Find(menu.Items, "Open Rigsight").PerformClick();
+            Assert.Equal(["Open RigSight", "Widgets", "Show overlay", "Pause tracking", "-", "Quit RigSight"], Shown(menu));
+            Find(menu.Items, "Open RigSight").PerformClick();
             Find(menu.Items, "Show overlay").PerformClick();
-            Find(menu.Items, "Quit Rigsight").PerformClick();
+            Find(menu.Items, "Quit RigSight").PerformClick();
             Assert.Equal(["open", "overlay", "quit"], calls.Log);
         }
     }
@@ -74,7 +74,7 @@ public class TrayMenuTests
         {
             calls.Paused = true;
             Opening(menu);
-            Assert.Equal(["Open Rigsight", "Widgets", "Show overlay", "Resume tracking", "-", "Quit Rigsight"], Shown(menu));
+            Assert.Equal(["Open RigSight", "Widgets", "Show overlay", "Resume tracking", "-", "Quit RigSight"], Shown(menu));
             Find(menu.Items, "Resume tracking").PerformClick();
             Assert.Equal(["resume"], calls.Log);
 

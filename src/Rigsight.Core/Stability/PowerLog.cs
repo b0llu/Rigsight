@@ -60,7 +60,7 @@ public static class PowerLog
         GapReason.ShutOff => "PC shut off suddenly",
         GapReason.Crashed => "Windows crashed",
         GapReason.Asleep => "PC was asleep",
-        GapReason.NotRunning => "Rigsight wasn't running",
+        GapReason.NotRunning => "RigSight wasn't running",
         _ => null,
     };
 }

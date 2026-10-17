@@ -6,6 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Rigsight.Agent</RootNamespace>
     <AssemblyName>Rigsight.Agent</AssemblyName>
+    <AssemblyTitle>RigSight background agent</AssemblyTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\assets\Rigsight.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

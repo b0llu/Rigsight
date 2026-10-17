@@ -276,7 +276,7 @@
                     <DockPanel Style="{StaticResource Row}">
                         <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
                                   DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />
-                        <TextBlock Text="Open Rigsight on" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        <TextBlock Text="Open RigSight on" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" Margin="0,10">
                         <TextBlock Text="Start with Windows" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -625,7 +625,7 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Rigsight cards" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="RigSight cards" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="NStyle" Content="Windows notifications" IsChecked="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Windows}" />
                             </StackPanel>
                         </Border>
@@ -721,7 +721,7 @@
                     </Border>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="This is a standard account" Style="{StaticResource Title}" FontWeight="SemiBold" />
-                        <TextBlock Text="Rigsight runs without admin rights here and never asks for a password. Everything it can read is recorded as usual." Style="{StaticResource Hint}" />
+                        <TextBlock Text="RigSight runs without admin rights here and never asks for a password. Everything it can read is recorded as usual." Style="{StaticResource Hint}" />
                     </StackPanel>
                 </DockPanel>
             </ctl:SmoothBorder>
@@ -791,7 +791,7 @@
                                         <ToolTip MaxWidth="360">
                                             <StackPanel>
                                                 <TextBlock Text="How it updates without admin rights" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                                <TextBlock TextWrapping="Wrap" Text="When an admin installed Rigsight, setup left a small updater on this PC. Windows runs it when Rigsight starts, with admin rights of its own. It downloads the new Rigsight, checks that it is the real one, installs it and stops. Your account never gets admin rights." />
+                                                <TextBlock TextWrapping="Wrap" Text="When an admin installed RigSight, setup left a small updater on this PC. Windows runs it when RigSight starts, with admin rights of its own. It downloads the new RigSight, checks that it is the real one, installs it and stops. Your account never gets admin rights." />
                                             </StackPanel>
                                         </ToolTip>
                                     </TextBlock.ToolTip>
@@ -813,7 +813,7 @@
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <ctl:Spinner Margin="0,0,12,0" Visibility="{Binding Update.IsBusy, Converter={StaticResource Vis}}" />
                             <Button Style="{StaticResource GhostButton}" Content="Download page" Command="{Binding Update.OpenDownloadPageCommand}" Margin="0,0,8,0"
-                                    ToolTip="Get the latest installer from the Rigsight website"
+                                    ToolTip="Get the latest installer from the RigSight website"
                                     Visibility="{Binding Update.ShowFailed, Converter={StaticResource Vis}}" />
                             <Button Command="{Binding Update.ActionCommand}" Content="{Binding Update.ActionText}" MinWidth="150"
                                     AutomationProperties.Name="{Binding Update.ActionText}">
@@ -836,7 +836,7 @@
                         </StackPanel>
                         <StackPanel>
                             <TextBlock Style="{StaticResource Title}">
-                                <Run Text="Rigsight" /> <Run Text="{Binding AppVersion, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
+                                <Run Text="RigSight" /> <Run Text="{Binding AppVersion, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                             </TextBlock>
                             <TextBlock Text="{Binding Update.StatusText}" Style="{StaticResource Hint}" />
                         </StackPanel>
@@ -859,8 +859,8 @@
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding KeepUpdated}" Margin="0,10"
                               Visibility="{Binding ShowKeepUpdatedForEveryone, Converter={StaticResource Vis}}">
                         <StackPanel>
-                            <TextBlock Text="Keep Rigsight updated for everyone on this PC" Style="{StaticResource Title}" />
-                            <TextBlock Text="Windows updates Rigsight for every account on this PC, yours included, whatever the switch above says. Off removes the small updater." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Keep RigSight updated for everyone on this PC" Style="{StaticResource Title}" />
+                            <TextBlock Text="Windows updates RigSight for every account on this PC, yours included, whatever the switch above says. Off removes the small updater." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </CheckBox>
                 </StackPanel>
@@ -905,7 +905,7 @@
                         <StackPanel>
                             <TextBlock Text="Report a bug" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Opens a form in your browser. Rigsight itself sends nothing." />
+                                       Text="Opens a form in your browser. RigSight itself sends nothing." />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -914,7 +914,7 @@
                                 VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Copy logs" />
                         <StackPanel>
                             <TextBlock Text="Logs" Style="{StaticResource Title}" />
-                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="Rigsight's recent log, with its version and your hardware, to paste into the bug form or wherever you ask for help." />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="RigSight's recent log, with its version and your hardware, to paste into the bug form or wherever you ask for help." />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -922,8 +922,8 @@
                         <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="Buy me a coffee" Command="{Binding SupportCommand}"
                                 VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Buy me a coffee" />
                         <StackPanel>
-                            <TextBlock Text="Support Rigsight" Style="{StaticResource Title}" />
-                            <TextBlock Text="Rigsight is free and made by one person." Style="{StaticResource Hint}" />
+                            <TextBlock Text="Support RigSight" Style="{StaticResource Title}" />
+                            <TextBlock Text="RigSight is free and made by one person." Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -932,7 +932,7 @@
                         <StackPanel>
                             <TextBlock Text="Open-source notices" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="Licences of everything Rigsight includes." />
+                                       Text="Licences of everything RigSight includes." />
                         </StackPanel>
                     </DockPanel>
                     <StackPanel Margin="0,10">

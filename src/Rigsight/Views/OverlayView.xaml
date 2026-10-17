@@ -92,7 +92,7 @@
                         <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="9" Padding="12,8" Margin="0,12,0,0"
                                 Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
                             <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource WarmBrush}"
-                                       Text="Another program already uses this shortcut, so Rigsight can't hear it. Pick a different one." />
+                                       Text="Another program already uses this shortcut, so RigSight can't hear it. Pick a different one." />
                         </Border>
 
                         <Button Style="{StaticResource AccentButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}"
@@ -333,11 +333,11 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
                                Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
                     <StackPanel>
-                        <TextBlock Text="Rigsight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="RigSight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) Rigsight draws it itself. Either way it uses the readings, position, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
+                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) RigSight draws it itself. Either way it uses the readings, position, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"
-                                   Text="A game that was already open when RivaTuner started needs a restart. Rigsight itself never hooks into games, so it's safe with anti-cheat." />
+                                   Text="A game that was already open when RivaTuner started needs a restart. RigSight itself never hooks into games, so it's safe with anti-cheat." />
                     </StackPanel>
                 </DockPanel>
             </ctl:SmoothBorder>

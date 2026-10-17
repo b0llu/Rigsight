@@ -766,7 +766,7 @@ public sealed class ShellTests : IClassFixture<AppHost>
                 var lines = Visuals.Descendants<System.Windows.Controls.Button>(menu.Child).ToList();
                 Assert.Equal(7, lines.Count);
                 Assert.Equal("Settings", lines[0].Content);
-                Assert.Equal(["What's new", "Report a bug", "Copy logs", "Support Rigsight", "About Rigsight"], lines.Skip(2).Select(b => (string)b.Content));
+                Assert.Equal(["What's new", "Report a bug", "Copy logs", "Support RigSight", "About RigSight"], lines.Skip(2).Select(b => (string)b.Content));
                 Assert.All(lines, b => Assert.NotNull(b.Command));
 
                 // The update line keeps the menu open and becomes the answer itself, in the same place.

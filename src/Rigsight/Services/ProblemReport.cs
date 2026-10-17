@@ -61,7 +61,7 @@ public static class ProblemReport
     public static string Build(Facts f)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Rigsight {f.AppVersion} problem report");
+        sb.AppendLine($"RigSight {f.AppVersion} problem report");
         sb.AppendLine($"Windows: {f.Windows}");
         sb.AppendLine("Agent: " + (!f.AgentConnected ? "not running" : f.AgentIsAdmin ? "running with admin rights" : "running without admin rights")
             + (f.AgentConnected && f.AgentVersion is not null ? $", version {f.AgentVersion}" : ""));

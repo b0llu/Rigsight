@@ -10,10 +10,10 @@
 
 [Setup]
 AppId={{5AAE562A-D0E3-4CCA-82CA-6CA35DD0FF7E}
-AppName=Rigsight
+AppName=RigSight
 AppVersion={#AppVersion}
-AppVerName=Rigsight {#AppVersion}
-AppPublisher=Rigsight
+AppVerName=RigSight {#AppVersion}
+AppPublisher=RigSight
 AppPublisherURL=https://github.com/b0llu/Rigsight
 DefaultDirName={autopf}\Rigsight
 DefaultGroupName=Rigsight
@@ -27,7 +27,7 @@ OutputDir=..\dist
 OutputBaseFilename=Rigsight-Setup-{#AppVersion}
 SetupIconFile=..\assets\Rigsight.ico
 UninstallDisplayIcon={app}\Rigsight.exe
-UninstallDisplayName=Rigsight
+UninstallDisplayName=RigSight
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -41,8 +41,8 @@ Name: "pawnio"; Description: "Install the PawnIO driver (needed for CPU and moth
 Name: "rtss"; Description: "Install RivaTuner Statistics Server (shows the game overlay inside fullscreen games)"; GroupDescription: "Game overlay:"; Check: not RtssInstalled
 ; Only where it means something: a PC with more than one account (or setup started from someone's sign-in with an admin's
 ; password, which makes it two). A PC with one account sees setup exactly as before.
-Name: "everyone"; Description: "Install Rigsight for everyone on this PC (starts it for each person who signs in)"; GroupDescription: "Other accounts:"; Check: OtherAccounts
-Name: "keepupdated"; Description: "Keep Rigsight updated for everyone on this PC (leaves a small updater that Windows runs with admin rights; it only installs Rigsight)"; GroupDescription: "Other accounts:"; Check: OtherAccounts
+Name: "everyone"; Description: "Install RigSight for everyone on this PC (starts it for each person who signs in)"; GroupDescription: "Other accounts:"; Check: OtherAccounts
+Name: "keepupdated"; Description: "Keep RigSight updated for everyone on this PC (leaves a small updater that Windows runs with admin rights; it only installs RigSight)"; GroupDescription: "Other accounts:"; Check: OtherAccounts
 
 [InstallDelete]
 ; Riggy (0.16.0 to 0.17.1) was removed in 0.18.0: its model and the library that ran it, left by an update otherwise.
@@ -52,19 +52,23 @@ Type: files; Name: "{app}\onnxruntime.lib"
 Type: files; Name: "{app}\onnxruntime_providers_shared.dll"
 Type: files; Name: "{app}\onnxruntime_providers_shared.lib"
 Type: files; Name: "{app}\Microsoft.ML.OnnxRuntime.dll"
+; The shortcuts were "Rigsight" before the name became RigSight: removed first, so the new ones get the new spelling
+; (Windows keeps a file's old spelling when it is only overwritten).
+Type: files; Name: "{group}\Rigsight.lnk"
+Type: files; Name: "{autodesktop}\Rigsight.lnk"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Rigsight"; Filename: "{app}\Rigsight.exe"
-Name: "{group}\Uninstall Rigsight"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Rigsight"; Filename: "{app}\Rigsight.exe"; Tasks: desktopicon
+Name: "{group}\RigSight"; Filename: "{app}\Rigsight.exe"
+Name: "{group}\Uninstall RigSight"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\RigSight"; Filename: "{app}\Rigsight.exe"; Tasks: desktopicon
 
 [Run]
 ; PawnIO, RivaTuner and starting the agent run from CurStepChanged below, so the progress bar can show
 ; they're still working (a finished-looking bar during a 2-minute download looks stuck).
-Filename: "{app}\Rigsight.exe"; Description: "Open Rigsight"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\Rigsight.exe"; Description: "Open RigSight"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
 ; An in-app update copies the installer here before running it (the agent removes it on its next start).
@@ -299,7 +303,7 @@ begin
     Exec(Agent, '--updater off', '', SW_HIDE, ewWaitUntilTerminated, Code);
   // Setup already has admin rights: use them to register "start with Windows" and start the agent,
   // so the user never sees a second UAC prompt. After RivaTuner, so the agent can start it.
-  Code := RunStep('Starting the Rigsight background agent...', '', Agent, '--register-startup');
+  Code := RunStep('Starting the RigSight background agent...', '', Agent, '--register-startup');
   // Exit code 4: setup runs with another account's admin rights than the person at the screen (a standard account,
   // an admin's password). Nothing was registered for that admin; the person's own agent is started as them.
   ForSomeoneElse := Code = 4;
@@ -339,11 +343,11 @@ var
 begin
   if CurPageID <> wpFinished then exit;
   if ForEveryone then
-    SayMore('Rigsight now starts by itself for everyone who signs in on this PC. On accounts without admin rights, CPU temperature, drive health and each app''s internet use are off.');
+    SayMore('RigSight now starts by itself for everyone who signs in on this PC. On accounts without admin rights, CPU temperature, drive health and each app''s internet use are off.');
   if NotProtected then
-    SayMore('Rigsight wasn''t set up for the other accounts on this PC: that is only done when it is installed in Program Files, where ordinary accounts can''t change it.');
+    SayMore('RigSight wasn''t set up for the other accounts on this PC: that is only done when it is installed in Program Files, where ordinary accounts can''t change it.');
   if PawnCode > 0 then
-    SayMore('The PawnIO sensor driver couldn''t be installed. An admin who uses Rigsight on this PC can install it later from Settings; accounts without admin rights don''t use it.');
+    SayMore('The PawnIO sensor driver couldn''t be installed. An admin who uses RigSight on this PC can install it later from Settings; accounts without admin rights don''t use it.');
   if RtssCode = 0 then exit;
   if RtssCode = 2 then
     Msg := 'RivaTuner''s installer stopped responding, so setup ended it.'
@@ -351,7 +355,7 @@ begin
     Msg := 'RivaTuner Statistics Server needs winget (App Installer, from the Microsoft Store) to be installed automatically.'
   else
     Msg := 'RivaTuner Statistics Server couldn''t be installed automatically.';
-  SayMore(Msg + ' The overlay won''t show inside exclusive-fullscreen games until it is: you can install it later from the Overlay page in Rigsight.');
+  SayMore(Msg + ' The overlay won''t show inside exclusive-fullscreen games until it is: you can install it later from the Overlay page in RigSight.');
 end;
 
 // Updating over a running copy: stop it so its files can be replaced.

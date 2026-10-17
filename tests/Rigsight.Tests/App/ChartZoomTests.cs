@@ -148,9 +148,10 @@ public sealed class ChartZoomMathTests
         Assert.Equal("Whole day", LineChart.ResetTextOf(0));
         Assert.Equal("Back to 24 hours", LineChart.ResetTextOf(86400));
         Assert.Equal("Back to 6 hours", LineChart.ResetTextOf(21600));
-        Assert.Equal("Whole week", LineChart.ResetTextOf(604800));
-        Assert.Equal("Whole month", LineChart.ResetTextOf(2592000));
-        Assert.Equal("Whole year", LineChart.ResetTextOf(31536000));
+        Assert.Equal("All 7 days", LineChart.ResetTextOf(604800));
+        Assert.Equal("All 30 days", LineChart.ResetTextOf(2592000));
+        Assert.Equal("All 12 months", LineChart.ResetTextOf(31536000));
+        Assert.Equal("Whole range", LineChart.ResetTextOf(-1));
     }
 }
 

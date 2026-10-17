@@ -671,66 +671,156 @@ public sealed class LiveDataTests
     }
 
     [Fact]
-    public void A_week_or_a_month_is_picked_like_a_day()
+    public void The_week_month_and_year_end_now_and_step_by_their_own_length()
     {
         var (_, live) = Kit.Greeted();
         Ui.Run(() =>
         {
             var today = DateTime.Today;
-            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
             Assert.False(live.IsChartPaged); // 5 minutes: it ends now
             live.ChartWindowSeconds = 604800;
-            Assert.True(live.IsChartPaged);
-            Assert.Equal((monday, monday.AddDays(7)), live.ChartPeriod);
-            Assert.Equal("This week", live.ChartDayLabel);
+            Assert.True(live.IsChartPaged && live.IsChartFixed && !live.IsChartCustom);
+            // The last 7 days: six before today, and today up to now.
+            Assert.Equal((today.AddDays(-6), today.AddDays(1)), live.ChartPeriod);
+            Assert.Equal("Last 7 days", live.ChartDayLabel);
+            Assert.True(live.ChartShownPeriod.To <= DateTime.Now.AddHours(1) && live.ChartShownPeriod.To > DateTime.Now);
+            Assert.Equal(3600, live.ChartStepSeconds);
             Assert.False(live.CanChartNextDay);
             int raised = 0;
             live.ChartRangeChanged += () => raised++;
             live.ChartPreviousDayCommand.Execute(null);
-            Assert.Equal("Last week", live.ChartDayLabel);
-            Assert.Equal((monday.AddDays(-7), monday), live.ChartPeriod);
+            Assert.Equal((today.AddDays(-13), today.AddDays(-6)), live.ChartPeriod);
+            Assert.NotEqual("Last 7 days", live.ChartDayLabel);
+            Assert.Equal(live.ChartPeriod.To, live.ChartShownPeriod.To); // over: drawn whole
             Assert.True(live.CanChartNextDay);
-            // Back as far as the week the history starts in, and no further.
-            live.ChartHistoryStart = monday.AddDays(-12);
+            // Back while the 7 days begin after the history does, and no further.
+            live.ChartHistoryStart = today.AddDays(-16);
             live.ChartPreviousDayCommand.Execute(null);
-            Assert.Equal((monday.AddDays(-14), monday.AddDays(-7)), live.ChartPeriod);
+            Assert.Equal((today.AddDays(-20), today.AddDays(-13)), live.ChartPeriod);
             Assert.False(live.CanChartPreviousDay);
             live.ChartPreviousDayCommand.Execute(null);
-            Assert.Equal((monday.AddDays(-14), monday.AddDays(-7)), live.ChartPeriod);
+            Assert.Equal((today.AddDays(-20), today.AddDays(-13)), live.ChartPeriod);
             Assert.Equal(2, raised);
-            // The month that day is in; forward ends on this month.
+            live.ChartNextDayCommand.Execute(null);
+            live.ChartNextDayCommand.Execute(null);
+            live.ChartNextDayCommand.Execute(null);
+            Assert.Equal(today, live.ChartDay);
+            Assert.Equal("Last 7 days", live.ChartDayLabel);
+            // The last 30 days, hour by hour.
             live.ChartHistoryStart = null;
-            live.ChartDay = today;
             live.ChartWindowSeconds = 2592000;
-            var first = new DateTime(today.Year, today.Month, 1);
-            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
-            Assert.Equal("This month", live.ChartDayLabel);
-            Assert.False(live.CanChartNextDay);
-            live.ChartPreviousDayCommand.Execute(null);
-            Assert.Equal((first.AddMonths(-1), first), live.ChartPeriod);
-            Assert.Equal("Last month", live.ChartDayLabel);
-            live.ChartNextDayCommand.Execute(null);
-            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
-            live.ChartNextDayCommand.Execute(null);
-            Assert.Equal((first, first.AddMonths(1)), live.ChartPeriod);
-            Assert.True(live.IsChartMonth); // the picker offers months, as on Reports
+            Assert.Equal((today.AddDays(-29), today.AddDays(1)), live.ChartPeriod);
+            Assert.Equal("Last 30 days", live.ChartDayLabel);
             Assert.Equal(3600, live.ChartStepSeconds);
-            // The year: picked by year, drawn from days.
-            live.ChartWindowSeconds = 31536000;
-            Assert.True(live.IsChartYear && !live.IsChartMonth && live.IsChartPaged);
-            Assert.Equal((new DateTime(today.Year, 1, 1), new DateTime(today.Year + 1, 1, 1)), live.ChartPeriod);
-            Assert.Equal("This year", live.ChartDayLabel);
-            Assert.Equal(86400, live.ChartStepSeconds);
-            Assert.False(live.CanChartNextDay);
             live.ChartPreviousDayCommand.Execute(null);
-            Assert.Equal("Last year", live.ChartDayLabel);
+            Assert.Equal((today.AddDays(-59), today.AddDays(-29)), live.ChartPeriod);
+            // The last 12 months, day by day.
+            live.ChartDay = today;
+            live.ChartWindowSeconds = 31536000;
+            Assert.Equal((today.AddDays(1).AddYears(-1), today.AddDays(1)), live.ChartPeriod);
+            Assert.Equal("Last 12 months", live.ChartDayLabel);
+            Assert.Equal(86400, live.ChartStepSeconds);
+            Assert.Equal("Each day's", live.ChartPlotLabel);
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal(today.AddYears(-1), live.ChartDay);
             live.ChartNextDayCommand.Execute(null);
-            Assert.Equal("This year", live.ChartDayLabel);
+            Assert.Equal("Last 12 months", live.ChartDayLabel);
             // A day again: the day itself.
             live.ChartWindowSeconds = 0;
-            Assert.False(live.IsChartMonth || live.IsChartYear);
             Assert.Equal(60, live.ChartStepSeconds);
             Assert.Equal("Today", live.ChartDayLabel);
+        });
+    }
+
+    [Fact]
+    public void A_custom_range_starts_as_the_period_shown_and_opens_the_editor()
+    {
+        var (settings, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            var today = DateTime.Today;
+            live.ChartWindowSeconds = 604800;
+            int asked = 0, raised = 0;
+            live.ChartRangeEditRequested += () => asked++;
+            live.ChartRangeChanged += () => raised++;
+            live.ChartWindowSeconds = Rigsight.Core.Reports.ChartRange.Custom;
+            Assert.Equal(1, asked);
+            Assert.True(live.IsChartCustom && live.IsChartPaged && live.CanChartPlot);
+            // The 7 days shown, in whole hours up to now; the saved window stays the 7 days (a custom range isn't kept).
+            Assert.Equal(today.AddDays(-6), live.ChartCustomFrom);
+            Assert.Equal(Rigsight.Core.Reports.ReportBuilder.HourEnd(DateTime.Now), live.ChartCustomTo);
+            Assert.Equal(604800, settings.Current.ChartWindowSeconds);
+            Assert.Equal(3600, live.ChartStepSeconds);
+
+            // Picked in the editor: up to two days by the minute, then by the hour, then by the day.
+            var from = today.AddDays(-3).AddHours(8);
+            live.SetChartCustom(from, from.AddHours(5));
+            Assert.Equal((from, from.AddHours(5)), live.ChartPeriod);
+            Assert.Equal(60, live.ChartStepSeconds);
+            Assert.False(live.IsChartLong);
+            Assert.Equal(Rigsight.Core.Reports.Report.CustomTitle(from, from.AddHours(5)), live.ChartDayLabel);
+            live.SetChartCustom(from, from.AddDays(10));
+            Assert.Equal(3600, live.ChartStepSeconds);
+            live.SetChartCustom(from.AddDays(-100), from);
+            Assert.Equal(86400, live.ChartStepSeconds);
+            Assert.Equal(4, raised);
+
+            // The arrows step by its length; forward stops once it reaches now.
+            live.SetChartCustom(from, from.AddHours(5));
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.Equal((from.AddHours(-5), from), live.ChartPeriod);
+            live.ChartNextDayCommand.Execute(null);
+            live.ChartNextDayCommand.Execute(null);
+            Assert.Equal((from.AddHours(5), from.AddHours(10)), live.ChartPeriod);
+            live.SetChartCustom(DateTime.Now.AddHours(-2), Rigsight.Core.Reports.ReportBuilder.HourEnd(DateTime.Now));
+            Assert.False(live.CanChartNextDay);
+
+            // Picking Custom range… again asks for the editor again; another range leaves it.
+            live.PickChartRangeCommand.Execute("-1");
+            Assert.Equal(2, asked);
+            live.PickChartRangeCommand.Execute("3600");
+            Assert.False(live.IsChartCustom);
+            Assert.Equal(3600, settings.Current.ChartWindowSeconds);
+        });
+    }
+
+    [Fact]
+    public void The_range_menu_always_comes_back_to_now()
+    {
+        var (settings, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.ChartWindowSeconds = 604800;
+            live.ChartPreviousDayCommand.Execute(null);
+            Assert.True(live.ChartDay < DateTime.Today);
+            // The same range picked from the menu: the last 7 days again, up to now.
+            live.PickChartRangeCommand.Execute("604800");
+            Assert.Equal(DateTime.Today, live.ChartDay);
+            Assert.Equal("Last 7 days", live.ChartDayLabel);
+            live.ChartPreviousDayCommand.Execute(null);
+            live.PickChartRangeCommand.Execute("0");
+            Assert.Equal("Today", live.ChartDayLabel);
+            Assert.Equal(0, settings.Current.ChartWindowSeconds);
+            // The last minutes and hours always end now: named so, and the arrows are off.
+            foreach (var (seconds, label) in new[] { (300, "Last 5 minutes"), (3600, "Last hour"), (21600, "Last 6 hours"), (86400, "Last 24 hours") })
+            {
+                live.PickChartRangeCommand.Execute(seconds);
+                Assert.Equal(label, live.ChartDayLabel);
+                Assert.False(live.CanChartPreviousDay || live.CanChartNextDay);
+            }
+        });
+    }
+
+    [Fact]
+    public void A_custom_range_from_a_window_up_to_now_starts_as_that_window()
+    {
+        var (_, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            live.ChartWindowSeconds = 21600;
+            live.ChartWindowSeconds = Rigsight.Core.Reports.ChartRange.Custom;
+            Assert.Equal(Rigsight.Core.Reports.ReportBuilder.HourEnd(DateTime.Now), live.ChartCustomTo);
+            Assert.Equal(Rigsight.Core.Reports.ReportBuilder.HourStart(DateTime.Now.AddHours(-6)), live.ChartCustomFrom);
         });
     }
 
@@ -740,6 +830,7 @@ public sealed class LiveDataTests
         var (_, live) = Kit.Greeted();
         Ui.Run(() =>
         {
+            live.ChartWindowSeconds = 0; // a day: the last minutes and hours have no days to step through
             Assert.Equal(DateTime.Today, live.ChartDay);
             Assert.Equal("Today", live.ChartDayLabel);
             Assert.False(live.CanChartNextDay);
@@ -756,6 +847,7 @@ public sealed class LiveDataTests
         var (_, live) = Kit.Greeted();
         Ui.Run(() =>
         {
+            live.ChartWindowSeconds = 0; // a day: the last minutes and hours have no days to step through
             int raised = 0;
             live.ChartRangeChanged += () => raised++;
             Assert.True(live.CanChartPreviousDay); // no history start known yet: allowed

@@ -152,7 +152,7 @@ public sealed class UpdateTests : IDisposable
         Ui.Run(() =>
         {
             Assert.Equal(UpdateState.None, vm.State);
-            Assert.Equal("Rigsight checks for a new version once a day.", vm.StatusText);
+            Assert.Equal("RigSight checks for a new version once a day.", vm.StatusText);
             Assert.Equal("Check for updates", vm.ActionText);
             Assert.False(vm.ActionIsPrimary);
             Assert.False(vm.ShowLine || vm.ShowProgress || vm.ShowPrompt || vm.ShowFailed);
@@ -176,7 +176,7 @@ public sealed class UpdateTests : IDisposable
             Assert.True(vm.ActionIsPrimary);
             Assert.True(vm.ShowLine);
             Assert.Equal("Update available", vm.LineTitle);
-            Assert.Equal("Rigsight 99.0.0 is out. Click to download it; you can keep using Rigsight meanwhile.", vm.LineTip);
+            Assert.Equal("RigSight 99.0.0 is out. Click to download it; you can keep using RigSight meanwhile.", vm.LineTip);
         });
         // "Check for updates" only says what it found, even with automatic updates on.
         Assert.Equal(0, _server.SetupRequests);
@@ -209,7 +209,7 @@ public sealed class UpdateTests : IDisposable
             Assert.Equal(UpdateState.Waiting, vm.State);
             Assert.True(vm.ShowLine);
             Assert.Equal("Update ready", vm.LineTitle);
-            Assert.Equal("Rigsight 99.0.0 is downloaded. Click to install it: Rigsight closes and opens again by itself.", vm.LineTip);
+            Assert.Equal("RigSight 99.0.0 is downloaded. Click to install it: RigSight closes and opens again by itself.", vm.LineTip);
             Assert.Equal("Update now", vm.ActionText);
         });
     }
@@ -407,7 +407,7 @@ public sealed class UpdateTests : IDisposable
         Ui.Run(() =>
         {
             Assert.Equal(UpdateState.None, quiet.State);
-            Assert.Equal("Rigsight checks for a new version once a day.", quiet.StatusText);
+            Assert.Equal("RigSight checks for a new version once a day.", quiet.StatusText);
             Assert.False(quiet.IsChecking);
         });
         // Not counted as today's check: the next one tries again.
@@ -531,7 +531,7 @@ public sealed class UpdateTests : IDisposable
             Assert.Equal("Updating to 99.0.0…", vm.ProgressTitle);
             Assert.Equal("Installing the update…", vm.StatusText);
             Assert.Equal("Installing…", vm.ActionText);
-            Assert.Equal("Rigsight closes and reopens by itself in a few seconds.", vm.ProgressText);
+            Assert.Equal("RigSight closes and reopens by itself in a few seconds.", vm.ProgressText);
             Assert.False(vm.ActionCommand.CanExecute(null));
             // The agent started the installer: now we just wait for it to close the app.
             vm.OnAgentMessage(new AgentMessage { T = "update", UpdateStatus = "started" });
@@ -569,7 +569,7 @@ public sealed class UpdateTests : IDisposable
         {
             typeof(UpdateViewModel).GetMethod("Fail", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(vm, ["The update didn't install."]);
             Assert.True(vm.OverlayFailed);
-            Assert.StartsWith("Rigsight is still on ", vm.ReleaseFeedCurrentText);
+            Assert.StartsWith("RigSight is still on ", vm.ReleaseFeedCurrentText);
             vm.CloseOverlayCommand.Execute(null);
             Assert.False(vm.ShowOverlay);
             Assert.Equal(0, vm.OverlayFill);

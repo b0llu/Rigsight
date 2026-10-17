@@ -494,6 +494,36 @@ public sealed class ControlTests
         Ui.AssertNoProblems($"line chart, {window} s");
     }
 
+    [Theory]
+    [InlineData(5)]
+    [InlineData(24 * 10)]
+    [InlineData(24 * 100)]
+    public void A_custom_range_is_drawn_from_its_own_history(int hours)
+    {
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var to = DateTime.Today.AddDays(-1).AddHours(12);
+            var from = to.AddHours(-hours);
+            int step = Rigsight.Core.Reports.ChartRange.StepSeconds(-1, from, to);
+            long start = new DateTimeOffset(from).ToUnixTimeSeconds();
+            int count = (int)(hours * 3600L / step);
+            var series = Series("CPU", 600, 0, i => 40, "CpuColor");
+            series.LoadMinutes(Enumerable.Range(0, count).Select(i => new Rigsight.Core.Data.SystemMinute { Ts = start + (long)i * step, CpuTemp = 40 + i % 24 }), step);
+            var chart = new LineChart { WindowSeconds = -1, CustomFrom = from, CustomTo = to, Series = [series] };
+            int drawn = Draw.Inked(Draw.Render(chart, 900, 300));
+            Assert.True(drawn > 1000, $"nothing drawn for {hours} hours");
+            Draw.Set(chart, "_hoverX", 500.0);
+            chart.InvalidateVisual();
+            Assert.True(Draw.Inked(Draw.Again(chart)) > drawn + 2000, "no hover box");
+            // A range with nothing in it says so.
+            var empty = new LineChart { WindowSeconds = -1, CustomFrom = from.AddYears(-3), CustomTo = to.AddYears(-3), Series = [series] };
+            int said = Draw.Inked(Draw.Render(empty, 900, 300));
+            Assert.True(said > 100 && said < drawn);
+        });
+        Ui.AssertNoProblems($"line chart, custom {hours} hours");
+    }
+
     [Fact]
     public void Line_chart_with_nothing_says_it_is_collecting()
     {

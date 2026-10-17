@@ -943,7 +943,7 @@
                             <TextBlock Text="{Binding KindLabel}" FontSize="10" FontWeight="Bold" Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />
                         </Border>
                         <Border Style="{StaticResource Chip}" Margin="0,1,6,1" Background="{Binding Sure, Converter={StaticResource SureBrush}, ConverterParameter=soft}"
-                                Visibility="{Binding HasFinding, Converter={StaticResource Vis}}" ToolTip="How sure Rigsight is of what happened, by what it rests on">
+                                Visibility="{Binding HasFinding, Converter={StaticResource Vis}}" ToolTip="How sure RigSight is of what happened, by what it rests on">
                             <TextBlock Text="{Binding Chip}" FontSize="10" FontWeight="Bold" Foreground="{Binding Sure, Converter={StaticResource SureBrush}}" />
                         </Border>
                     </WrapPanel>

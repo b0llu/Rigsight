@@ -309,10 +309,10 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     public string RtssStatus => RtssState switch
     {
-        "stopped" => "Fullscreen games hide every window, so Rigsight shows the overlay inside them through RivaTuner Statistics Server, and it isn't running. Start it, then restart any game that's already open.",
+        "stopped" => "Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, and it isn't running. Start it, then restart any game that's already open.",
         "installing" => "This takes a minute. Restart any game that's already open once it's done.",
         "install-failed" => "Couldn't install RivaTuner automatically. Download it from Guru3D and install it, then come back here.",
-        _ => "Fullscreen games hide every window, so Rigsight shows the overlay inside them through RivaTuner Statistics Server, a free tool that anti-cheat accepts. It isn't installed yet.",
+        _ => "Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, a free tool that anti-cheat accepts. It isn't installed yet.",
     };
 
     [RelayCommand]

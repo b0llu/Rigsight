@@ -146,7 +146,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <ctl:LineChart Series="{Binding Live.TempSeries}" Version="{Binding Live.Tick}" WindowSeconds="{Binding Live.ChartWindowSeconds}" Day="{Binding Live.ChartDay}" />
+                <ctl:LineChart Series="{Binding Live.TempSeries}" Version="{Binding Live.Tick}" WindowSeconds="{Binding Live.ChartWindowSeconds}" Day="{Binding Live.ChartDay}" CustomFrom="{Binding Live.ChartCustomFrom}" CustomTo="{Binding Live.ChartCustomTo}" />
             </DockPanel>
         </DataTemplate>
 
@@ -424,11 +424,11 @@
                 <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="Start page">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="ToolTip" Value="Open Rigsight on this dashboard instead of Home" />
+                            <Setter Property="ToolTip" Value="Open RigSight on this dashboard instead of Home" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsStartPage}" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                    <Setter Property="ToolTip" Value="Rigsight opens on this dashboard. Click to open on Home again." />
+                                    <Setter Property="ToolTip" Value="RigSight opens on this dashboard. Click to open on Home again." />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

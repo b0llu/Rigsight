@@ -476,7 +476,7 @@ internal static partial class WidgetRenderer
         if (a.Paused || a.Name is null)
         {
             Caption(g, a.Paused ? "TRACKING PAUSED" : "NOTHING IN FOCUS", 16, 20, p.Faint);
-            Text(g, a.Paused ? "Resume from the tray menu" : "Rigsight is keeping an eye on things", 12, FontStyle.Regular, p.Muted, 16, 38);
+            Text(g, a.Paused ? "Resume from the tray menu" : "RigSight is keeping an eye on things", 12, FontStyle.Regular, p.Muted, 16, 38);
             return;
         }
 

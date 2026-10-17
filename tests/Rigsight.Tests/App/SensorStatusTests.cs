@@ -70,7 +70,7 @@ public class SensorStatusTests
         string report = ProblemReport.Build(new ProblemReport.Facts("v0.6.0", true, true, "Windows 11 (X64)",
             [("Cpu", "AMD Ryzen 7 5700X3D"), ("GpuNvidia", "NVIDIA GeForce RTX 3080 Ti"), ("Storage", "Samsung SSD 980"), ("Cpu", "AMD Ryzen 7 5700X3D")],
             status, ["[2026-09-26 10:00:00] [agent] Starting (admin: True)", "[2026-09-26 10:00:06] [agent] Sensors ready"]));
-        Assert.StartsWith("Rigsight v0.6.0 problem report", report);
+        Assert.StartsWith("RigSight v0.6.0 problem report", report);
         Assert.Contains("Windows: Windows 11 (X64)", report);
         Assert.Contains("Agent: running with admin rights", report);
         Assert.Contains("  Cpu: AMD Ryzen 7 5700X3D", report);

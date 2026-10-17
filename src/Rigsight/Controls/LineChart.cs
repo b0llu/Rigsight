@@ -12,9 +12,10 @@ namespace Rigsight.Controls;
 /// sensor's live buffer (one point a second); anything older from the minute history. From an hour up the
 /// whole line is one point for each minute, its average; hovering a minute says its average, highest and
 /// lowest. On a shorter window every reading is drawn, and hovering shows the exact time and each value there.
-/// A week or a month (the one <see cref="Day"/> is in, whole, on the calendar) is drawn from hours (each hour's
-/// average), and hovering says the hour's three; a year from days, in the same way. From an hour up, dragging across
-/// it shows only that stretch, with the same points drawn wider (see <see cref="ChartZoom"/>).
+/// The last 7 or 30 days (up to <see cref="Day"/>, today's up to now) are drawn from hours (each hour's average), and
+/// hovering says the hour's three; the last 12 months from days, in the same way; a custom range (<see cref="CustomFrom"/>
+/// to <see cref="CustomTo"/>) from minutes, hours or days by its length (see <see cref="Core.Reports.ChartRange"/>).
+/// From an hour up, dragging across it shows only that stretch, with the same points drawn wider (see <see cref="ChartZoom"/>).
 /// </summary>
 public sealed class LineChart : FrameworkElement
 {
@@ -99,6 +100,16 @@ public sealed class LineChart : FrameworkElement
 
     public DateTime Day { get => (DateTime)GetValue(DayProperty); set => SetValue(DayProperty, value); }
 
+    /// <summary>With <see cref="WindowSeconds"/> -1: the custom range shown, from a whole hour to another.</summary>
+    public static readonly DependencyProperty CustomFromProperty = DependencyProperty.Register(
+        nameof(CustomFrom), typeof(DateTime), typeof(LineChart), new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty CustomToProperty = DependencyProperty.Register(
+        nameof(CustomTo), typeof(DateTime), typeof(LineChart), new FrameworkPropertyMetadata(default(DateTime), FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTime CustomFrom { get => (DateTime)GetValue(CustomFromProperty); set => SetValue(CustomFromProperty, value); }
+    public DateTime CustomTo { get => (DateTime)GetValue(CustomToProperty); set => SetValue(CustomToProperty, value); }
+
     // Set per render: an earlier day draws only minute history (the live buffer only covers the last hour).
     private bool _pastDay;
     public Brush GridBrush { get => (Brush)GetValue(GridBrushProperty); set => SetValue(GridBrushProperty, value); }
@@ -145,9 +156,10 @@ public sealed class LineChart : FrameworkElement
         3600 => "Back to 1 hour",
         21600 => "Back to 6 hours",
         86400 => "Back to 24 hours",
-        604800 => "Whole week",
-        31536000 => "Whole year",
-        > 86400 => "Whole month",
+        604800 => "All 7 days",
+        2592000 => "All 30 days",
+        31536000 => "All 12 months",
+        Core.Reports.ChartRange.Custom => "Whole range",
         _ => "Back to all of it",
     };
 
@@ -179,7 +191,7 @@ public sealed class LineChart : FrameworkElement
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.Property == WindowSecondsProperty || e.Property == DayProperty)
+        if (e.Property == WindowSecondsProperty || e.Property == DayProperty || e.Property == CustomFromProperty || e.Property == CustomToProperty)
         {
             if (e.Property == WindowSecondsProperty) SetValue(ResetTextKey, ResetTextOf(WindowSeconds));
             ResetZoom();
@@ -255,7 +267,7 @@ public sealed class LineChart : FrameworkElement
     /// only: one averaged point a minute, joined by straight lines, would look like real readings there.
     /// </summary>
     private long LiveStart(ChartSeries s) =>
-        _pastDay || Long ? long.MaxValue
+        _pastDay || Fixed ? long.MaxValue
         : WindowSeconds is > 0 and < 3600 ? long.MinValue : s.Sensor.History.Count > 0 ? s.Sensor.History.FirstTime : long.MaxValue;
 
     /// <summary>
@@ -264,20 +276,16 @@ public sealed class LineChart : FrameworkElement
     /// from second to second was a smooth line that ended in a jagged patch), and stays as it is while it moves
     /// along; what the minute's readings reached is in the hover box.
     /// </summary>
-    private bool ByMinute => WindowSeconds is 0 or >= 3600;
+    private bool ByMinute => WindowSeconds is 0 or >= 3600 or Core.Reports.ChartRange.Custom;
 
-    /// <summary>A week or a month: drawn from the hours loaded for it alone (the live readings are an hour at most).</summary>
-    private bool Long => WindowSeconds > 86400;
+    /// <summary>The last 7 days, 30 days or 12 months, or a custom range: drawn from the history loaded for it alone (the live readings are an hour at most).</summary>
+    private bool Fixed => Core.Reports.ChartRange.IsRolling(WindowSeconds) || WindowSeconds == Core.Reports.ChartRange.Custom;
 
-    private Core.Reports.ReportRange LongUnit => WindowSeconds switch
-    {
-        604800 => Core.Reports.ReportRange.Week,
-        31536000 => Core.Reports.ReportRange.Year,
-        _ => Core.Reports.ReportRange.Month,
-    };
+    /// <summary>Drawn from hours or days, not minutes.</summary>
+    private bool Long => Fixed && Step > 60;
 
-    /// <summary>How long each point of the older history must stand for on this window: a minute, an hour, or a day for a year.</summary>
-    private int Step => !Long ? 60 : LongUnit == Core.Reports.ReportRange.Year ? 86400 : 3600;
+    /// <summary>How long each point of the older history must stand for on this window: a minute, an hour, or a day (see <see cref="Core.Reports.ChartRange.StepSeconds"/>).</summary>
+    private int Step => Fixed ? Core.Reports.ChartRange.StepSeconds(WindowSeconds, CustomFrom, CustomTo) : 60;
 
     /// <summary>
     /// The series' older history, when it is the kind this window draws (minutes, hours for a week or month, days for a
@@ -304,10 +312,17 @@ public sealed class LineChart : FrameworkElement
         var day = Day == default ? DateTime.Today : Day.Date;
         _pastDay = dayMode && day < DateTime.Today;
         long from = dayMode ? new DateTimeOffset(day).ToUnixTimeMilliseconds() : to - WindowSeconds * 1000L;
-        // A week (Monday to Sunday) or a month: all of it, from its first midnight, also while it's still in progress
-        // (the days to come stay empty), so the same day is in the same place whichever week is looked at.
-        var (periodFrom, periodTo) = Long ? Core.Reports.ReportBuilder.Bounds(LongUnit, day) : default;
-        if (Long) (from, to) = (new DateTimeOffset(periodFrom).ToUnixTimeMilliseconds(), new DateTimeOffset(periodTo).ToUnixTimeMilliseconds());
+        // The last 7 days, 30 days or 12 months, or a custom range: from its start to its end, or, still going on, to now
+        // (no empty days still to come on the right).
+        bool custom = WindowSeconds == Core.Reports.ChartRange.Custom;
+        var (periodFrom, periodTo) = !Fixed ? default : custom ? (CustomFrom, CustomTo) : Core.Reports.ChartRange.Rolling(WindowSeconds, day);
+        if (Fixed)
+        {
+            if (periodTo <= periodFrom) return;
+            (from, to) = (new DateTimeOffset(periodFrom).ToUnixTimeMilliseconds(),
+                new DateTimeOffset(Core.Reports.ChartRange.ShownEnd(periodTo, Step, DateTime.Now)).ToUnixTimeMilliseconds());
+            if (to <= from) to = from + Step * 1000L;
+        }
         if (_pastDay) to = new DateTimeOffset(day.AddDays(1)).ToUnixTimeMilliseconds();
         else if (dayMode && to - from < 300_000) to = from + 300_000;
         int window = (int)((to - from) / 1000);
@@ -322,7 +337,7 @@ public sealed class LineChart : FrameworkElement
         }
         foreach (var s in series)
         {
-            if (!Long) Widen(ChartGeometry.Range(s.Sensor.History, from, Shown));
+            if (!Fixed) Widen(ChartGeometry.Range(s.Sensor.History, from, Shown));
             if (from < LiveStart(s) && Older(s) is { } older) Widen(ChartGeometry.Range(older, from, Shown, LiveStart(s)));
         }
 
@@ -330,7 +345,7 @@ public sealed class LineChart : FrameworkElement
         {
             // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
             string what = Core.Wording.NotRecorded + " ";
-            string nothing = Long ? what + PeriodPicker.Words(LongUnit, day)
+            string nothing = Fixed ? what + (custom ? PeriodPicker.Words(Core.Reports.ReportRange.Custom, day) : Core.Reports.ChartRange.Words(WindowSeconds, day, DateTime.Today))
                 : _pastDay ? what + PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : "Collecting data…";
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
@@ -384,7 +399,7 @@ public sealed class LineChart : FrameworkElement
         }
 
         // X labels at "nice" steps: seconds/minutes ago for short windows, clock times for long ones.
-        if (_zoom.IsZoomed)
+        if (_zoom.IsZoomed || custom)
         {
             // A zoomed stretch: round clock times (every 15 minutes, every 2 hours, every day...), as many as fit, none
             // so near an edge that it would run past it.
@@ -410,22 +425,26 @@ public sealed class LineChart : FrameworkElement
                 DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: hr > 0);
             }
         }
-        else if (Long && LongUnit == Core.Reports.ReportRange.Year)
+        else if (Fixed && Step == 86400)
         {
-            // Its months, at their first days ("Jan", "Feb"…), as many as fit.
+            // Its months, at their first days ("Jan", "Feb"…), as many as fit; none so near an edge that it runs past it.
             int every = 1;
             while (plot.Width / 12 * every < 44) every++;
-            for (int m = 0; m < 12; m += every)
+            var first = new DateTime(periodFrom.Year, periodFrom.Month, 1);
+            if (first < periodFrom) first = first.AddMonths(1);
+            int n = 0;
+            for (var month = first; Ms(month) < to; month = month.AddMonths(1), n++)
             {
-                double x = plot.Left + plot.Width * (new DateTimeOffset(periodFrom.AddMonths(m)).ToUnixTimeMilliseconds() - from) / (to - from);
-                DrawText(dc, periodFrom.AddMonths(m).ToString("MMM", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: m > 0);
+                double x = plot.Left + plot.Width * (Ms(month) - from) / (to - from);
+                if (n % every != 0 || plot.Right - x < 16) continue;
+                DrawText(dc, month.ToString(month.Month == 1 ? "yyyy" : "MMM", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: x - plot.Left > 16);
             }
         }
-        else if (Long)
+        else if (Fixed)
         {
-            // Its days, at their midnights ("Mon 5" through a week, "1 Oct" every few days of a month), as many as fit.
+            // Its days, at their midnights ("Mon 5" through 7 days, "1 Oct" every few days of 30), as many as fit.
             double perDay = plot.Width * 86400 / window;
-            int every = LongUnit == Core.Reports.ReportRange.Week ? 1 : 5;
+            int every = WindowSeconds == Core.Reports.ChartRange.Week ? 1 : 5;
             while (perDay * every < 56) every++;
             int n = 0;
             for (var midnight = periodFrom; midnight < periodTo; midnight = midnight.AddDays(1), n++)
@@ -476,8 +495,8 @@ public sealed class LineChart : FrameworkElement
         {
             long liveStart = LiveStart(s);
             if (from < liveStart && Older(s) is { } older)
-                Draw(s, older, liveStart, Long ? null : ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs, Pick));
-            if (!Long) Draw(s, s.Sensor.History, groupMs: GroupMs);
+                Draw(s, older, liveStart, Fixed ? null : ChartGeometry.FirstPoint(s.Sensor.History, from, to, plot, GroupMs, Pick));
+            if (!Fixed) Draw(s, s.Sensor.History, groupMs: GroupMs);
         }
         dc.Pop();
 

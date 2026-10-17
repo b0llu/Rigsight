@@ -187,7 +187,7 @@ public sealed class ExportTests
             Insights = [new Insight("", "You gamed for 1h 30m.")],
         };
         var text = ReadableExport.ReportText(report, "Friday, 9 October 2026", "0.21.0").Split(Environment.NewLine);
-        Assert.Equal(["Rigsight report", "Friday, 9 October 2026"], text.Take(2));
+        Assert.Equal(["RigSight report", "Friday, 9 October 2026"], text.Take(2));
         Assert.Contains("THE PERIOD", text);
         Assert.Contains("  Active    5h 00m", text);
         Assert.Contains("  - You gamed for 1h 30m.", text);
@@ -197,7 +197,7 @@ public sealed class ExportTests
         Assert.DoesNotContain(text, l => l.Contains('<')); // text, not a page
         Assert.Contains("Nothing was recorded in this time.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
 
-        Assert.StartsWith($"Rigsight crashes{Environment.NewLine}Last 7 days: none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
+        Assert.StartsWith($"RigSight crashes{Environment.NewLine}Last 7 days: none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class ExportTests
 
         // The read-me names every file and every column.
         string readMe = DataExport.ReadMe(new DateTime(2026, 10, 10, 18, 5, 0), "9.9.9");
-        Assert.StartsWith("Rigsight full copy, made 10 October 2026, 18:05 by Rigsight 9.9.9.", readMe);
+        Assert.StartsWith("RigSight full copy, made 10 October 2026, 18:05 by RigSight 9.9.9.", readMe);
         foreach (var table in Enum.GetValues<ExportTable>())
         {
             Assert.Contains(DataExport.FileName(table), readMe);
@@ -245,8 +245,8 @@ public sealed class ExportTests
                 new("NVIDIA GeForce RTX 3080 Ti", "Temperatures", "GPU Core", "48 °C", "44 °C", "68 °C"),
             ], ["Samsung SSD 980  ·  43 °C  ·  Good"]);
         var lines = text.Split(Environment.NewLine);
-        Assert.Equal("Rigsight PC snapshot", lines[0]);
-        Assert.Equal("Saturday, 10 October 2026, 6:05 PM  ·  Rigsight 0.20.1", lines[1]);
+        Assert.Equal("RigSight PC snapshot", lines[0]);
+        Assert.Equal("Saturday, 10 October 2026, 6:05 PM  ·  RigSight 0.20.1", lines[1]);
         Assert.Contains("  CPU: Ryzen 7 5700X3D", lines);
         Assert.Contains("  Samsung SSD 980  ·  43 °C  ·  Good", lines);
         Assert.Contains("AMD Ryzen 7 5700X3D", lines);
@@ -277,7 +277,7 @@ public sealed class ExportTests
         Assert.DoesNotContain("Barely", html); // under a minute isn't listed
         Assert.Contains("<svg", html);
         Assert.DoesNotContain("http", html.Replace("http-equiv", "")); // nothing fetched from anywhere
-        Assert.Contains("Made by Rigsight 0.20.1", html);
+        Assert.Contains("Made by RigSight 0.20.1", html);
 
         // Too little to draw a line through: no drawing. Nothing recorded at all: it says so.
         Assert.Null(ReadableExport.TempChart([new TempPoint(day, 50, 40), new TempPoint(day.AddMinutes(1), 51, 41)]));
@@ -400,7 +400,7 @@ public sealed class ExportTests
             // The folder is the one picked, remembered, with the export's own folder made in it.
             vm.ChangeFolderCommand.Execute(null);
             Assert.Equal(parent, settings.Current.ExportFolder);
-            Assert.Equal(Path.Combine(parent, $"Rigsight export {DateTime.Today:yyyy-MM-dd}"), vm.Folder);
+            Assert.Equal(Path.Combine(parent, $"RigSight export {DateTime.Today:yyyy-MM-dd}"), vm.Folder);
             vm.Open();
             foreach (var item in vm.ToShare.Concat(vm.Tables).Concat(vm.Everything)) item.IsOn = true;
             vm.Period = ExportPeriod.All;
@@ -423,9 +423,9 @@ public sealed class ExportTests
         Assert.Equal(new[]
         {
             "App usage.csv", "Crashes.csv", "Crashes.html", "Drive space.csv", "Fans.csv", "Internet.csv", "Memory.csv", "PC snapshot.txt", "Report.html",
-            "Rigsight full copy.zip", "Sessions.csv", "Temperatures, load and power.csv", "Timeline changes.csv",
+            "RigSight full copy.zip", "Sessions.csv", "Temperatures, load and power.csv", "Timeline changes.csv",
         }.Order(), files);
-        Assert.StartsWith("Rigsight PC snapshot", File.ReadAllText(Path.Combine(vm.Folder, "PC snapshot.txt")));
+        Assert.StartsWith("RigSight PC snapshot", File.ReadAllText(Path.Combine(vm.Folder, "PC snapshot.txt")));
         Assert.StartsWith("<!doctype html>", File.ReadAllText(Path.Combine(vm.Folder, "Report.html")));
         Assert.StartsWith("<!doctype html>", File.ReadAllText(Path.Combine(vm.Folder, "Crashes.html")));
         // Excel reads the degree sign and names right only with the mark at the file's start.
@@ -452,8 +452,8 @@ public sealed class ExportTests
         Assert.Equal("App usage", usage[0]);
         Assert.StartsWith("Day ", usage[4]);
         Assert.Matches("^[- ]+$", usage[5]);
-        Assert.StartsWith("Rigsight report", File.ReadAllText(Path.Combine(vm.Folder, "Report.txt")));
-        Assert.StartsWith("Rigsight crashes", File.ReadAllText(Path.Combine(vm.Folder, "Crashes with their context.txt")));
+        Assert.StartsWith("RigSight report", File.ReadAllText(Path.Combine(vm.Folder, "Report.txt")));
+        Assert.StartsWith("RigSight crashes", File.ReadAllText(Path.Combine(vm.Folder, "Crashes with their context.txt")));
     }
 
     [Fact]

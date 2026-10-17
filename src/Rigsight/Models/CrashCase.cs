@@ -53,7 +53,7 @@ public sealed partial class CrashCase : ObservableObject
     public string Sure => Finding.Confidence.ToString();
     /// <summary>The chip's hover: where "Confirmed" comes from, or what the word means.</summary>
     public string SureHint => Finding.Confidence == Confidence.Named ? "Windows' own record says this."
-        : "How sure Rigsight is of what happened, by what it rests on";
+        : "How sure RigSight is of what happened, by what it rests on";
     public string Head => Finding.Head;
     /// <summary>The case's headline: the finding itself, without its full stop.</summary>
     public string Headline => Finding.Head.TrimEnd('.');

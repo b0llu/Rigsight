@@ -1,0 +1,32 @@
+<UserControl x:Class="Rigsight.Controls.RangeEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <!-- A custom range: from a date and hour to another (whole hours: history per app is kept by the hour). It takes no
+         room of its own: only the pop-up, under the control it is opened from. -->
+    <Popup x:Name="RangePopup" Placement="Custom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+        <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                          CornerRadius="12" Padding="16" Margin="0,0,8,8">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+            </Border.Effect>
+            <StackPanel Width="400">
+                <TextBlock Text="FROM" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                <DockPanel>
+                    <ComboBox x:Name="FromHour" DockPanel.Dock="Right" Width="104" Margin="8,0,0,0" AutomationProperties.Name="From hour" />
+                    <DatePicker x:Name="FromDate" FirstDayOfWeek="Monday" SelectedDateFormat="Long" AutomationProperties.Name="From date" />
+                </DockPanel>
+                <TextBlock Text="TO" Style="{StaticResource Caption}" Margin="0,14,0,6" />
+                <DockPanel>
+                    <ComboBox x:Name="ToHour" DockPanel.Dock="Right" Width="104" Margin="8,0,0,0" AutomationProperties.Name="To hour" />
+                    <DatePicker x:Name="ToDate" FirstDayOfWeek="Monday" SelectedDateFormat="Long" AutomationProperties.Name="To date" />
+                </DockPanel>
+                <TextBlock x:Name="RangeError" Foreground="{DynamicResource HotBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                    <Button Style="{StaticResource GhostButton}" Content="Cancel" Click="Cancel_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource AccentButton}" Content="Show" Click="Apply_Click" AutomationProperties.Name="Show range" />
+                </StackPanel>
+            </StackPanel>
+        </ctl:SmoothBorder>
+    </Popup>
+</UserControl>

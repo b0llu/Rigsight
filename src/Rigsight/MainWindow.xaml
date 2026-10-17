@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
         xmlns:views="clr-namespace:Rigsight.Views"
-        Title="Rigsight" Icon="Assets/Rigsight.ico"
+        Title="RigSight" Icon="Assets/Rigsight.ico"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
@@ -609,9 +609,9 @@
                                 <Border Style="{StaticResource MenuRule}" />
                                 <Button Tag="&#xEBE8;" Content="Report a bug" Command="{Binding SettingsPage.ReportBugCommand}" />
                                 <Button Tag="&#xE8C8;" Content="Copy logs" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
-                                <Button Tag="&#xEB51;" Content="Support Rigsight" Command="{Binding SettingsPage.SupportCommand}" />
+                                <Button Tag="&#xEB51;" Content="Support RigSight" Command="{Binding SettingsPage.SupportCommand}" />
                                 <Border Style="{StaticResource MenuRule}" />
-                                <Button Tag="&#xE946;" Content="About Rigsight" Command="{Binding AboutCommand}" />
+                                <Button Tag="&#xE946;" Content="About RigSight" Command="{Binding AboutCommand}" />
                                 <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="10,6,10,4">
                                     <Run Text="Version" /> <Run Text="{Binding SettingsPage.AppVersion, Mode=OneWay}" />
                                 </TextBlock>
@@ -797,14 +797,14 @@
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see
              UpdateViewModel.ShowOverlay). Opaque, so nothing on the pages behind it can be clicked meanwhile. -->
         <Grid Grid.ColumnSpan="2" DataContext="{Binding Update}" Background="{DynamicResource BgBrush}"
-              Visibility="{Binding ShowOverlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Updating Rigsight">
+              Visibility="{Binding ShowOverlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Updating RigSight">
             <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <Image Source="Assets/Rigsight.ico" Width="56" Height="56" Margin="0,0,0,18" RenderOptions.BitmapScalingMode="HighQuality" />
-                <TextBlock Text="Updating Rigsight" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Updating RigSight" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                 <TextBlock Text="{Binding OverlayVersions}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,22" />
                 <ProgressBar Style="{StaticResource Bar}" Height="8" Value="{Binding OverlayFill, Mode=OneWay}" Maximum="100" />
-                <TextBlock Text="Rigsight closes and opens again by itself." FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                <TextBlock Text="RigSight closes and opens again by itself." FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
                 <TextBlock Text="This takes about 15 seconds. Your history and settings stay as they are." FontSize="12" Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Center" Margin="0,6,0,0" />
             </StackPanel>

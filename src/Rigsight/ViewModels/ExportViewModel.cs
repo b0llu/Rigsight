@@ -35,7 +35,7 @@ public sealed partial class ExportItem(string key, string name, string file, Exp
 public sealed partial class ExportViewModel : ObservableObject
 {
     public const string SnapshotKey = "snapshot", ReportKey = "report", CrashesKey = "crash-stories", FullKey = "full";
-    public const string FullFile = "Rigsight full copy.zip";
+    public const string FullFile = "RigSight full copy.zip";
 
     private readonly ReportService _reports;
     private readonly SettingsModel _settings;
@@ -203,7 +203,7 @@ public sealed partial class ExportViewModel : ObservableObject
         ? picked : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
     /// <summary>The export's own folder, named for the day ("…\Rigsight export 2026-10-10").</summary>
-    public string Folder => Path.Combine(Parent, $"Rigsight export {DateTime.Today:yyyy-MM-dd}");
+    public string Folder => Path.Combine(Parent, $"RigSight export {DateTime.Today:yyyy-MM-dd}");
 
     /// <summary>Asks for a folder (null: none picked). Tests give their own.</summary>
     internal Func<string, string?> PickFolder { get; set; } = start =>

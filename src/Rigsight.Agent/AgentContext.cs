@@ -594,7 +594,7 @@ internal sealed class AgentContext : ApplicationContext
         var scan = Stopwatch.StartNew();
         using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
         {
-            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("Rigsight stopped reading some sensors",
+            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("RigSight stopped reading some sensors",
                 "Windows' memory kept growing while it read the motherboard and fan hubs. Restart your PC if it stays slow.", warning: true), null);
             try
             {
@@ -639,7 +639,7 @@ internal sealed class AgentContext : ApplicationContext
             var took = Stopwatch.StartNew();
             using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
             {
-                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("Rigsight stopped reading some sensors",
+                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("RigSight stopped reading some sensors",
                     "Windows' memory kept growing while it read the RAM sticks. Restart your PC if it stays slow.", warning: true), null);
                 host.OpenMemory();
                 if (guard.Tripped) _stoppedForMemory = true;
@@ -1004,7 +1004,7 @@ internal sealed class AgentContext : ApplicationContext
         };
         _lastToday = data.Today;
 
-        var tip = $"Rigsight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
+        var tip = $"RigSight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
         if (activity.Paused) tip += "\nTracking paused";
         else if (activity.Name is not null && activity.SessionActiveSec > 0) tip += $"\n{activity.Name}  ·  {Units.Duration(activity.SessionActiveSec)}";
 

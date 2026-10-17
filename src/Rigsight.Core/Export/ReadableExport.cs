@@ -60,13 +60,13 @@ public static class ReadableExport
     }
 
     private static string Foot(DateTime made, string version) =>
-        $"Made by Rigsight {version} on {made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}. Everything here was recorded on this PC.";
+        $"Made by RigSight {version} on {made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}. Everything here was recorded on this PC.";
 
     /// <summary>The period as the Reports page tells it, laid out as text: totals, peaks, what stood out, every app, the crashes.</summary>
     public static string ReportText(Report r, string title, string version)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Rigsight report");
+        sb.AppendLine("RigSight report");
         sb.AppendLine(title);
         if (!r.HasData)
         {
@@ -112,7 +112,7 @@ public static class ReadableExport
     public static string CrashesText(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Rigsight crashes");
+        sb.AppendLine("RigSight crashes");
         sb.AppendLine(stories.Count == 0 ? $"{period}: none recorded." : $"{period}: {stories.Count} recorded, latest first.");
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
@@ -146,8 +146,8 @@ public static class ReadableExport
     public static string Snapshot(DateTime at, string version, string pc, IEnumerable<SnapshotReading> readings, IEnumerable<string> notes)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Rigsight PC snapshot");
-        sb.AppendLine($"{at.ToString("dddd, d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}  ·  Rigsight {version}");
+        sb.AppendLine("RigSight PC snapshot");
+        sb.AppendLine($"{at.ToString("dddd, d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}  ·  RigSight {version}");
         sb.AppendLine();
         sb.AppendLine("THIS PC");
         foreach (var line in pc.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) sb.AppendLine("  " + line);
@@ -166,7 +166,7 @@ public static class ReadableExport
             return sb.ToString();
         }
         sb.AppendLine();
-        sb.AppendLine("READINGS  (now, then the lowest and highest since Rigsight started)");
+        sb.AppendLine("READINGS  (now, then the lowest and highest since RigSight started)");
         int name = Math.Min(44, all.Max(r => r.Name.Length)), now = all.Max(r => r.Now.Length), low = all.Max(r => r.Lowest.Length);
         foreach (var part in all.GroupBy(r => r.Part))
         {
@@ -215,7 +215,7 @@ public static class ReadableExport
 
     private static string End(StringBuilder sb, DateTime made, string version)
     {
-        sb.Append($"<footer>Made by Rigsight {H(version)} on {H(made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture))}. Everything here was recorded on this PC.</footer>");
+        sb.Append($"<footer>Made by RigSight {H(version)} on {H(made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture))}. Everything here was recorded on this PC.</footer>");
         sb.Append("</main></body></html>");
         return sb.ToString();
     }

@@ -38,7 +38,7 @@ A notification's title is the event ("Dota 2 crashed", "Chrome froze", "Sudden s
 
 ## Nothing to show: three cases
 
-- **Not recorded**: Rigsight wasn't recording (the PC was off, the agent stopped).
+- **Not recorded**: RigSight wasn't recording (the PC was off, the agent stopped).
 - **No reading**: it was recording, and the sensor gave nothing.
 - **No …**, naming what didn't happen: "No drops", "No problems", "No apps used yet today".
 

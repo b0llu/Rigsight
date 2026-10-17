@@ -1,4 +1,4 @@
-// Rigsight site. No framework, no build step (built from the design artifact by tools\site-refresh\build.py).
+// RigSight site. No framework, no build step (built from the design artifact by tools\site-refresh\build.py).
 (function () {
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

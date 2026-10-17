@@ -22,7 +22,7 @@ internal sealed class TrayController : IDisposable
         _logo = new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
         _icon.ContextMenuStrip = BuildMenu(open, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
         _icon.Icon = _logo;
-        _icon.Text = "Rigsight";
+        _icon.Text = "RigSight";
         _icon.Visible = true;
         _icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) open(); };
         _icon.BalloonTipClicked += (_, _) => _balloonAction?.Invoke();
@@ -32,7 +32,7 @@ internal sealed class TrayController : IDisposable
     internal static ContextMenuStrip BuildMenu(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         var menu = DarkMenuRenderer.Create();
-        menu.Items.Add(Item("Open Rigsight", open));
+        menu.Items.Add(Item("Open RigSight", open));
         menu.Items.Add(widgetsMenu);
         menu.Items.Add(overlayItem);
 
@@ -51,7 +51,7 @@ internal sealed class TrayController : IDisposable
         };
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Item("Quit Rigsight", quit));
+        menu.Items.Add(Item("Quit RigSight", quit));
         return menu;
     }
 

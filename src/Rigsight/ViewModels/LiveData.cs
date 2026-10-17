@@ -220,70 +220,149 @@ public sealed partial class LiveData : ObservableObject
         }
     }
 
-    /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour on a week or a month, a day on a year.</summary>
-    public string ChartPlotLabel => IsChartYear ? "Each day's" : IsChartLong ? "Each hour's" : "Each minute's";
+    /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour (the last 7 or 30 days), a day (12 months).</summary>
+    public string ChartPlotLabel => ChartStepSeconds switch { 86400 => "Each day's", 3600 => "Each hour's", _ => "Each minute's" };
 
     /// <summary>There's a choice to make: under an hour every reading is drawn as it was.</summary>
-    public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600;
+    public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600 or Core.Reports.ChartRange.Custom;
+
+    private bool _chartCustom;
+    private DateTime _chartCustomFrom, _chartCustomTo;
+
     /// <summary>
-    /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), or the week
-    /// (604800), month (2592000) or year (31536000) that day is in: a week and a month are drawn hour by hour, a year
-    /// day by day.
+    /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), the last 7 days
+    /// (604800), 30 days (2592000) or 12 months (31536000) up to <see cref="ChartDay"/>, or -1 for a custom range
+    /// (<see cref="ChartCustomFrom"/> to <see cref="ChartCustomTo"/>; not kept: the graph opens on the last one saved).
     /// </summary>
     public int ChartWindowSeconds
     {
-        get => _settings.Current.ChartWindowSeconds;
+        get => _chartCustom ? Core.Reports.ChartRange.Custom : _settings.Current.ChartWindowSeconds;
         set
         {
-            _settings.Update(s => s.ChartWindowSeconds = value);
-            OnPropertyChanged();
+            if (value == Core.Reports.ChartRange.Custom)
+            {
+                if (_chartCustom) { ChartRangeEditRequested?.Invoke(); return; }
+                // Starts as the period that was shown, in whole hours up to now, then the editor opens to change it.
+                if (!(_chartCustomTo > _chartCustomFrom))
+                {
+                    var (from, to) = IsChartPaged ? ChartShownPeriod : (DateTime.Now.AddSeconds(-ChartWindowSeconds), DateTime.Now);
+                    var end = Core.Reports.ReportBuilder.HourEnd(to);
+                    (_chartCustomFrom, _chartCustomTo) = (Core.Reports.ReportBuilder.HourStart(from), end);
+                    if (_chartCustomTo <= _chartCustomFrom) _chartCustomFrom = _chartCustomTo.AddHours(-1);
+                }
+                _chartCustom = true;
+            }
+            else
+            {
+                _chartCustom = false;
+                _settings.Update(s => s.ChartWindowSeconds = value);
+            }
+            RangeChanged(window: true);
+            if (_chartCustom) ChartRangeEditRequested?.Invoke();
+        }
+    }
+
+    /// <summary>Everything the range shown decides, said again, and the history read for it.</summary>
+    private void RangeChanged(bool window)
+    {
+        if (window)
+        {
+            OnPropertyChanged(nameof(ChartWindowSeconds));
             OnPropertyChanged(nameof(CanChartPlot));
-            OnPropertyChanged(nameof(ChartPlotLabel));
             OnPropertyChanged(nameof(IsChartDay));
             OnPropertyChanged(nameof(IsChartLong));
             OnPropertyChanged(nameof(IsChartPaged));
-            OnPropertyChanged(nameof(IsChartMonth));
-            OnPropertyChanged(nameof(IsChartYear));
-            OnPropertyChanged(nameof(ChartDayLabel));
-            OnPropertyChanged(nameof(CanChartNextDay));
-            OnPropertyChanged(nameof(CanChartPreviousDay));
-            UpdatePeaks();
-            ChartRangeChanged?.Invoke();
+            OnPropertyChanged(nameof(IsChartCustom));
         }
+        OnPropertyChanged(nameof(ChartCustomFrom));
+        OnPropertyChanged(nameof(ChartCustomTo));
+        OnPropertyChanged(nameof(ChartStepSeconds));
+        OnPropertyChanged(nameof(ChartPlotLabel));
+        OnPropertyChanged(nameof(ChartDayLabel));
+        OnPropertyChanged(nameof(CanChartNextDay));
+        OnPropertyChanged(nameof(CanChartPreviousDay));
+        UpdatePeaks();
+        ChartRangeChanged?.Invoke();
     }
 
     public bool IsChartDay => ChartWindowSeconds == 0;
 
-    /// <summary>A week, a month or a year: the chart is drawn from hours (a year: from days), not minutes.</summary>
-    public bool IsChartLong => ChartWindowSeconds > 86400;
+    /// <summary>A custom range: from one whole hour to another, picked in the range editor.</summary>
+    public bool IsChartCustom => ChartWindowSeconds == Core.Reports.ChartRange.Custom;
 
-    /// <summary>The picker offers months (or years) to choose from, as on Reports, not days.</summary>
-    public bool IsChartMonth => ChartUnit == Core.Reports.ReportRange.Month;
-    public bool IsChartYear => ChartUnit == Core.Reports.ReportRange.Year;
+    /// <summary>Start of the custom range (a whole hour).</summary>
+    public DateTime ChartCustomFrom => _chartCustomFrom;
 
-    /// <summary>How long one point of the chart's older history stands for: a minute, an hour (week, month) or a day (year).</summary>
-    public int ChartStepSeconds => ChartUnit switch { Core.Reports.ReportRange.Year => 86400, Core.Reports.ReportRange.Day => 60, _ => 3600 };
+    /// <summary>End of the custom range (a whole hour; not included).</summary>
+    public DateTime ChartCustomTo => _chartCustomTo;
 
-    /// <summary>A day, a week, a month or a year: one on the calendar, picked with the arrows and the date (the others end now).</summary>
-    public bool IsChartPaged => IsChartDay || IsChartLong;
-
-    /// <summary>What the arrows step by: the day, the Monday-to-Sunday week, the month or the year <see cref="ChartDay"/> is in.</summary>
-    public Core.Reports.ReportRange ChartUnit => ChartWindowSeconds switch
+    /// <summary>Shows a custom range (picked in the editor, or stepped through with the arrows).</summary>
+    public void SetChartCustom(DateTime from, DateTime to)
     {
-        604800 => Core.Reports.ReportRange.Week,
-        2592000 => Core.Reports.ReportRange.Month,
-        31536000 => Core.Reports.ReportRange.Year,
-        _ => Core.Reports.ReportRange.Day,
-    };
+        if (to <= from) return;
+        bool window = !_chartCustom;
+        if (!window && from == _chartCustomFrom && to == _chartCustomTo) return;
+        (_chartCustom, _chartCustomFrom, _chartCustomTo) = (true, from, to);
+        RangeChanged(window);
+    }
 
-    /// <summary>The day, week or month the chart shows, from its first midnight to the one after its last day.</summary>
-    public (DateTime From, DateTime To) ChartPeriod => Core.Reports.ReportBuilder.Bounds(ChartUnit, ChartDay);
+    /// <summary>The range editor is wanted (Custom range… picked from the menu): the page opens it.</summary>
+    public event Action? ChartRangeEditRequested;
+
+    /// <summary>
+    /// A line of the graph's range menu: the last 5 minutes to 12 months (all up to now: one picked earlier with the
+    /// arrows comes back to now), or -1 for a custom range (its editor opens, also when one is already shown).
+    /// </summary>
+    [RelayCommand]
+    private void PickChartRange(object? range)
+    {
+        // A number from the menu's XAML (text there), or from code.
+        int window = Convert.ToInt32(range, System.Globalization.CultureInfo.InvariantCulture);
+        if (window != Core.Reports.ChartRange.Custom) ChartDay = DateTime.Today;
+        ChartWindowSeconds = window;
+    }
+
+    /// <summary>
+    /// A rolling period or a custom range: drawn from the history read for it alone (hours, days, or minutes for a short
+    /// custom range), not from the live readings.
+    /// </summary>
+    public bool IsChartFixed => Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) || IsChartCustom;
+
+    /// <summary>Drawn from hours (the last 7 or 30 days, a custom range of days) or days (12 months), not minutes.</summary>
+    public bool IsChartLong => IsChartFixed && ChartStepSeconds > 60;
+
+    /// <summary>How long one point of the chart's older history stands for: a minute, an hour or a day (see <see cref="Core.Reports.ChartRange.StepSeconds"/>).</summary>
+    public int ChartStepSeconds => Core.Reports.ChartRange.StepSeconds(ChartWindowSeconds, _chartCustomFrom, _chartCustomTo);
+
+    /// <summary>A day, the last 7 or 30 days or 12 months, or a custom range: stepped through with the arrows (the others end now).</summary>
+    public bool IsChartPaged => IsChartDay || IsChartFixed;
+
+    /// <summary>What a day's arrows step by (a day: the rolling periods and custom ranges step by their own length).</summary>
+    public Core.Reports.ReportRange ChartUnit => Core.Reports.ReportRange.Day;
+
+    /// <summary>
+    /// The period the chart shows: the day (midnight to midnight), the last 7 days, 30 days or 12 months up to
+    /// <see cref="ChartDay"/> (from its first midnight to the one after that day), or the custom range.
+    /// </summary>
+    public (DateTime From, DateTime To) ChartPeriod => IsChartCustom ? (_chartCustomFrom, _chartCustomTo)
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Rolling(ChartWindowSeconds, ChartDay)
+        : Core.Reports.ReportBuilder.Bounds(Core.Reports.ReportRange.Day, ChartDay);
+
+    /// <summary>The period as drawn: one still going on ends at the point now is in, not at its end to come.</summary>
+    public (DateTime From, DateTime To) ChartShownPeriod
+    {
+        get
+        {
+            var (from, to) = ChartPeriod;
+            return (from, IsChartPaged ? Core.Reports.ChartRange.ShownEnd(to, ChartStepSeconds, DateTime.Now) : to);
+        }
+    }
 
     private DateTime _chartDay = DateTime.Today;
 
     /// <summary>
-    /// The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day); for a week or
-    /// a month, a day in the one shown.
+    /// The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day); for the last
+    /// 7 days, 30 days or 12 months, the last day of the ones shown (today: up to now).
     /// </summary>
     public DateTime ChartDay
     {
@@ -313,23 +392,43 @@ public sealed partial class LiveData : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
     private DateTime? _chartHistoryStart;
 
-    /// <summary>"Today", "Yesterday", "Last week", "5–11 Oct", "September 2026"…</summary>
-    public string ChartDayLabel => ReportsViewModel.PeriodText(ChartUnit, ChartDay);
-    // Forward while the one shown is over; back while it began after the history did.
-    public bool CanChartNextDay => ChartPeriod.To <= DateTime.Today;
-    public bool CanChartPreviousDay => ChartHistoryStart is not { } f || ChartPeriod.From > f;
+    /// <summary>"Last hour", "Today", "Yesterday", "Last 7 days", "3–9 Oct", "Thu 25 Sep, 8 AM – Fri 26 Sep, 1 AM"…: what the range menu's button says.</summary>
+    public string ChartDayLabel => IsChartCustom ? Core.Reports.Report.CustomTitle(_chartCustomFrom, _chartCustomTo)
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Label(ChartWindowSeconds, ChartDay, DateTime.Today)
+        : IsChartDay ? ReportsViewModel.PeriodText(ChartUnit, ChartDay)
+        : Core.Reports.ChartRange.WindowLabel(ChartWindowSeconds);
+
+    // Forward while the one shown is over; back while it began after the history did. Never on the last minutes or
+    // hours: those always end now.
+    public bool CanChartNextDay => IsChartPaged && (IsChartCustom ? _chartCustomTo < DateTime.Now
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? ChartDay < DateTime.Today
+        : ChartPeriod.To <= DateTime.Today);
+    public bool CanChartPreviousDay => IsChartPaged && (ChartHistoryStart is not { } f || ChartPeriod.From > f);
 
     [RelayCommand]
     private void ChartPreviousDay()
     {
-        if (CanChartPreviousDay) ChartDay = Core.Reports.ReportBuilder.Previous(ChartUnit, ChartDay);
+        if (!CanChartPreviousDay) return;
+        if (IsChartCustom) StepCustom(-1);
+        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, -1);
+        else ChartDay = Core.Reports.ReportBuilder.Previous(ChartUnit, ChartDay);
     }
 
     [RelayCommand]
     private void ChartNextDay()
     {
-        // Never past today (the 31st of last month steps to today, in this month).
-        if (CanChartNextDay) ChartDay = Core.Reports.ReportBuilder.Next(ChartUnit, ChartDay);
+        // Never past today (the 7 days to come stop at today, ending now).
+        if (!CanChartNextDay) return;
+        if (IsChartCustom) StepCustom(1);
+        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, 1);
+        else ChartDay = Core.Reports.ReportBuilder.Next(ChartUnit, ChartDay);
+    }
+
+    /// <summary>A custom range steps by its own length (three hours back, the two days before…), as on the other pages.</summary>
+    private void StepCustom(int direction)
+    {
+        var length = _chartCustomTo - _chartCustomFrom;
+        SetChartCustom(_chartCustomFrom + direction * length, _chartCustomTo + direction * length);
     }
 
     /// <summary>The chart needs different minute history (another day, or back to the last 24 hours).</summary>
@@ -731,10 +830,10 @@ public sealed partial class LiveData : ObservableObject
         if (peak is not { At: > 0 } at) { series.PeakWhen = ""; return; }
         var local = DateTimeOffset.FromUnixTimeMilliseconds(at.Named).LocalDateTime;
         var culture = System.Globalization.CultureInfo.CurrentCulture;
-        series.PeakWhen = IsChartYear ? local.ToString("ddd d MMM", culture)
+        series.PeakWhen = ChartStepSeconds == 86400 ? local.ToString("ddd d MMM", culture)
             : IsChartLong ? local.ToString("ddd d MMM, h tt", culture)
-            // The last 24 hours reach into yesterday: a time alone could be either day's.
-            : !IsChartPaged && ChartWindowSeconds >= 86400 ? local.ToString("ddd h:mm tt", culture)
+            // The last 24 hours (or a custom range) reach into another day: a time alone could be either day's.
+            : (!IsChartPaged && ChartWindowSeconds >= 86400) || IsChartCustom ? local.ToString("ddd h:mm tt", culture)
             : local.ToString("h:mm tt", culture);
     }
 

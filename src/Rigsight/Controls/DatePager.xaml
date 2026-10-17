@@ -11,7 +11,7 @@
             <TextBlock Text="&#xE76B;" />
         </Button>
         <Button x:Name="LabelButton" Style="{StaticResource GhostButton}" Margin="4,0" MinWidth="118" Height="32" Click="Label_Click"
-                ToolTip="Pick a date" AutomationProperties.Name="Pick a date">
+                ToolTip="{Binding LabelText, ElementName=Root}" AutomationProperties.Name="{Binding LabelText, ElementName=Root}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <!-- Centred on the letters, not the line: without descenders, a centred line sits a pixel low. -->

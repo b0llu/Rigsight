@@ -8,6 +8,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Rigsight</RootNamespace>
     <AssemblyName>Rigsight</AssemblyName>
+    <AssemblyTitle>RigSight</AssemblyTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\assets\Rigsight.ico</ApplicationIcon>
     <OutDir>$(SharedBinDir)</OutDir>

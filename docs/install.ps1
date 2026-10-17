@@ -1,8 +1,8 @@
-# Rigsight installer
+# RigSight installer
 #
 #   irm https://rigsight.app/install.ps1 | iex
 #
-# Downloads the latest Rigsight release from GitHub, checks it against the checksum GitHub publishes for it,
+# Downloads the latest RigSight release from GitHub, checks it against the checksum GitHub publishes for it,
 # and opens its setup. Run it again at any time to update: it always opens the newest version's setup.
 # Works in Windows PowerShell 5.1 and PowerShell 7.
 
@@ -17,7 +17,7 @@
     function Say($text, $color = 'Gray') { Write-Host $text -ForegroundColor $color }
 
     Say ''
-    Say '  Rigsight' 'White'
+    Say '  RigSight' 'White'
     Say '  Hardware and usage metrics for Windows' 'DarkGray'
     Say ''
 
@@ -41,9 +41,9 @@
     if (-not $asset) { Say "  The latest release has no setup file yet. See https://github.com/$repo/releases" 'Red'; return }
     $latest = $release.tag_name.TrimStart('v')
 
-    if ($installed -eq $latest) { Say "  Rigsight $latest is installed, and it's the latest. Opening its setup to repair or reinstall." 'Green' }
-    elseif ($installed) { Say "  Rigsight $installed is installed. Updating to $latest." 'Green' }
-    else { Say "  Installing Rigsight $latest." 'Green' }
+    if ($installed -eq $latest) { Say "  RigSight $latest is installed, and it's the latest. Opening its setup to repair or reinstall." 'Green' }
+    elseif ($installed) { Say "  RigSight $installed is installed. Updating to $latest." 'Green' }
+    else { Say "  Installing RigSight $latest." 'Green' }
 
     $file = Join-Path $env:TEMP $asset.name
     Say ("  Downloading {0} ({1:N0} MB)..." -f $asset.name, ($asset.size / 1MB))

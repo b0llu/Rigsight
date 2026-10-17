@@ -53,6 +53,11 @@ public partial class DatePager : UserControl
     public static readonly DependencyProperty LabelCommandProperty =
         DependencyProperty.Register(nameof(LabelCommand), typeof(ICommand), typeof(DatePager));
 
+    /// <summary>What a click on the label does, in words (its tooltip and its name for screen readers): "Pick a date" unless it opens something else.</summary>
+    public static readonly DependencyProperty LabelTextProperty =
+        DependencyProperty.Register(nameof(LabelText), typeof(string), typeof(DatePager), new PropertyMetadata("Pick a date"));
+
+    public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public DateTime Date { get => (DateTime)GetValue(DateProperty); set => SetValue(DateProperty, value); }
     public DateTime? MinDate { get => (DateTime?)GetValue(MinDateProperty); set => SetValue(MinDateProperty, value); }
