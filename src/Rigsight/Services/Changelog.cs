@@ -92,6 +92,13 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.27.1", 10, 17,
+            added: ["On PCs with two graphics adapters, the Timeline says when a GPU disconnected and came back within 10 minutes, outside a driver install."],
+            better: ["Zooming into a stretch of a long Temperatures range, such as the last 7 days, shows it in finer detail on its own scale.",
+                "The Timeline shows app installs, updates and startup changes at their exact time, or the minute they were found, instead of a ~ time.",
+                "A GPU is said to be removed only after 10 minutes missing, and the Timeline dates it to the minute it went missing."],
+            fixedBugs: ["A Custom range on Temperatures longer than about a day shows its first hours instead of starting partway in.",
+                "The list of readings in a widget's search box is as wide as the box above it."]),
         V("0.27.0", 10, 17,
             feature: new("What changed?", "See when a driver, Windows update, BIOS or power plan change made your PC better or worse.",
                 ["Compares the same game at the same load before and since, with the warmth of the room taken out.",
