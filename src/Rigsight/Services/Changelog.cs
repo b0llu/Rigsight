@@ -92,6 +92,17 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        V("0.27.0", 10, 17,
+            feature: new("What changed?", "See when a driver, Windows update, BIOS or power plan change made your PC better or worse.",
+                ["Compares the same game at the same load before and since, with the warmth of the room taken out.",
+                    "Counts only the problems a change can cause, such as graphics driver resets after a graphics driver.",
+                    "Open a change to see every reading, each day on a graph, how sure it is, and the crashes involved.",
+                    "Says nothing about a change that made no difference you could measure."],
+                "timeline", "\uE81C", isPage: false) { OpenText = "Open Timeline" },
+            added: ["The Temperatures graph has one range menu, from the last 5 minutes to the last 12 months, and a Custom range."],
+            better: ["Week, Month and Year on the Temperatures graph are the last 7 days, 30 days and 12 months, so no empty days lie ahead.",
+                "The app is now written RigSight, with a capital S, everywhere its name is shown."],
+            fixedBugs: ["The Timeline no longer credits a graphics driver update with fewer sudden shut-offs, which a graphics driver doesn't cause."]),
         V("0.26.0", 10, 16,
             added: ["Widgets stay over windowed games, and over borderless ones on screens that can show them without turning off G-Sync.",
                 "Drag across a graph on Reports, Temperatures or Fans to zoom into that stretch, and one button zooms back out.",

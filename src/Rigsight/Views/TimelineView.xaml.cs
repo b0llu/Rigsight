@@ -17,6 +17,7 @@ public partial class TimelineView : UserControl
             _vm = DataContext as TimelineViewModel;
             if (_vm is null) return;
             _vm.JumpRequested += OnJump;
+            _vm.ChangeOpened += OnChangeOpened;
             _vm.Days.CollectionChanged += OnDaysChanged;
             // Coming back to the page: its first days are already laid out, so nothing scrolls or changes to ask for more.
             FillAhead();
@@ -27,6 +28,7 @@ public partial class TimelineView : UserControl
             if (_vm is not null)
             {
                 _vm.JumpRequested -= OnJump;
+                _vm.ChangeOpened -= OnChangeOpened;
                 _vm.Days.CollectionChanged -= OnDaysChanged;
             }
             // As many as fill the window and the screen ahead of it: fewer, and coming back would build the rest again.
@@ -38,6 +40,9 @@ public partial class TimelineView : UserControl
             _vm = null;
         };
     }
+
+    /// <summary>A change opened: its page starts at the top.</summary>
+    private void OnChangeOpened() => ChangeScroller.ScrollToTop();
 
     private void OnDaysChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => FillAhead();
 
@@ -103,7 +108,8 @@ public sealed class TimelineEntryTemplates : DataTemplateSelector
     public DataTemplate? Plain { get; set; }
     public DataTemplate? Problem { get; set; }
     public DataTemplate? Rich { get; set; }
+    public DataTemplate? Result { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
-        item is not TimelineEntry entry ? Plain : entry.IsProblem ? Problem : entry.HasChildren || entry.Effect.Count > 0 ? Rich : Plain;
+        item is not TimelineEntry entry ? Plain : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : Plain;
 }

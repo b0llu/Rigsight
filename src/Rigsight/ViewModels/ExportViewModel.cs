@@ -398,6 +398,7 @@ public sealed partial class ExportViewModel : ObservableObject
         var changes = db.GetChanges(f - 7 * 86400, t).Where(c => Telling.Contains(c.Kind)).ToList();
         var crashes = db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe)).ToList();
         var findings = CrashCases.Of(db, crashes, s);
+        Dictionary<DateTime, Core.Reports.ChangeResult> results = changes.Any(Core.Reports.ChangeEffects.IsMajor) ? Core.Reports.ChangeEffects.Read(db, s) : [];
         return [.. crashes.Select(e =>
         {
             var at = TimeUtil.FromUnix(e.Ts);
@@ -409,6 +410,7 @@ public sealed partial class ExportViewModel : ObservableObject
                 [.. changes.Where(c => c.Time <= at && c.Time >= at.AddDays(-7)).TakeLast(6)])
             {
                 Finding = findings.GetValueOrDefault(e.Id),
+                Results = results,
                 InLastMinutes = e.Kind is CrashKind.AppCrash or CrashKind.AppHang or CrashKind.GpuDriverReset && db.GetCloseUp(e.Ts, e.AppExe) is { } close
                     ? [.. CloseUpWords.Find(close.Points, e.Ts, id => byId.TryGetValue(id, out var a) ? Name(a) : "An app",
                         e.AppExe.Length > 0 && byExe.TryGetValue(e.AppExe, out var crashed) ? crashed.Id : null).Select(x => x.Text)]

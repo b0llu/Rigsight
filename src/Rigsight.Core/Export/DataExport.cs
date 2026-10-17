@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
+using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -155,11 +156,19 @@ public static class DataExport
 
         [ExportTable.Timeline] = new("Timeline changes.csv", "What changed on the PC: drivers, Windows updates, apps installed, removed and updated, startup programs, settings, parts, drive space.",
             [C("Time", "When it changed (a change found by a check is dated when it was found)"), C("Kind", "The kind of change"), C("What", "In a sentence"),
-             C("Before", "What it was"), C("After", "What it became")],
-            "changes", "ts", 96,
-            (db, from, to, n) => db.GetChanges(from, to)
-                .Concat(StorageChanges.From(db.GetDriveDays(0)).Where(c => TimeUtil.ToUnix(c.Time) >= from && TimeUtil.ToUnix(c.Time) < to))
-                .OrderBy(c => c.Time).Select(c => new object?[] { Time(c.Time), c.Kind.ToString(), c.Title, c.Was, c.Now })),
+             C("Before", "What it was"), C("After", "What it became"),
+             C("Result", "What a big change made better or worse, measured on this PC; empty where it changed nothing measurable"),
+             C("How sure", "How sure it was the change: likely or possibly"), C("Compared", "The days compared before and after")],
+            "changes", "ts", 120,
+            (db, from, to, n) =>
+            {
+                var results = ChangeEffects.Read(db, n.Settings);
+                return db.GetChanges(from, to)
+                    .Concat(StorageChanges.From(db.GetDriveDays(0)).Where(c => TimeUtil.ToUnix(c.Time) >= from && TimeUtil.ToUnix(c.Time) < to))
+                    .OrderBy(c => c.Time).Select(c => results.TryGetValue(c.Time.Date, out var r) && r.Main == c
+                        ? new object?[] { Time(c.Time), c.Kind.ToString(), c.Title, c.Was, c.Now, r.Headline, r.HowSure, $"{r.From:d MMM yyyy} to {r.Day.AddDays(-1):d MMM yyyy} against {r.Day.AddDays(1):d MMM yyyy} to {r.To.AddDays(-1):d MMM yyyy}" }
+                        : new object?[] { Time(c.Time), c.Kind.ToString(), c.Title, c.Was, c.Now, null, null, null });
+            }),
     };
 
     public static string FileName(ExportTable table) => Tables[table].File;

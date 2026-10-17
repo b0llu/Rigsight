@@ -191,6 +191,31 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// <summary>How many changes the card lists (the Timeline has them all).</summary>
     public const int ChangesShown = 8;
 
+    /// <summary>
+    /// The period's changes, newest first; one that made something better or worse is always among them, with what it
+    /// did under it as a link to its before and after.
+    /// </summary>
+    private IReadOnlyList<HomeLine> ChangeLines(IEnumerable<Core.Stability.SystemChange> changes, IReadOnlyDictionary<DateTime, ChangeResult> results)
+    {
+        var all = changes.ToList();
+        ChangeResult? ResultOf(Core.Stability.SystemChange c) => results.TryGetValue(c.Time.Date, out var r) && r.Main == c ? r : null;
+        var shown = all.Where(c => ResultOf(c) is not null).Concat(all.Where(c => ResultOf(c) is null).OrderByDescending(c => c.Time))
+            .Take(ChangesShown).OrderByDescending(c => c.Time).ToList();
+        var lines = ChangeLines(shown);
+        return [.. lines.Select((line, i) => ResultOf(shown[i]) is { } r
+            ? line with { Result = char.ToUpperInvariant(r.Short[0]) + r.Short[1..], ResultBrush = r.Tone == EffectTone.Worse ? "WarmBrush" : "GoodBrush", ChangeDay = r.Day }
+            : line)];
+    }
+
+    /// <summary>Opens a change's before and after on the Timeline (set by the window).</summary>
+    public Action<DateTime>? OpenChange { get; set; }
+
+    [RelayCommand]
+    private void OpenLine(HomeLine line)
+    {
+        if (line.ChangeDay is { } day) OpenChange?.Invoke(day);
+    }
+
     private IReadOnlyList<HomeLine> ChangeLines(IEnumerable<Core.Stability.SystemChange> changes) =>
         HomeViewModel.ChangeLines(changes, ChangesShown, c =>
             c.Kind == Core.Stability.ChangeKind.Storage ? IsDay ? "All day" : c.Time.ToString("ddd d MMM")
@@ -423,7 +448,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         FirstDay = first;
         Report = report;
         Crashes = crashes;
-        Changes = Kept.Or(Changes, ChangeLines(changed));
+        Changes = Kept.Or(Changes, ChangeLines(changed, changed.Any(ChangeEffects.IsMajor) ? await reports.ChangeResultsAsync() : new Dictionary<DateTime, ChangeResult>()));
         _shown = period;
         IsLoading = false;
         Switching = false;

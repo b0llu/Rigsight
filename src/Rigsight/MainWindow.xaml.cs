@@ -111,6 +111,9 @@ public partial class MainWindow : Window
     {
         if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "crashes" } && _vm.CurrentPage == "crashes")
             _vm.Crashes.CloseCaseCommand.Execute(null);
+        // The same for an opened change: the sidebar's Timeline goes back to the list.
+        if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "timeline" } && _vm.CurrentPage == "timeline")
+            _vm.Timeline.CloseChangeCommand.Execute(null);
     }
 
     private void SettingsMenu_Click(object sender, RoutedEventArgs e)

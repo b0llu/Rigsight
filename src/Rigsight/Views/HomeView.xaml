@@ -23,6 +23,12 @@
                     <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
                                Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
+                    <!-- What this change made better or worse, or (PC health) the change that made things worse: opens its before and after. -->
+                    <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ChangeDay, Converter={StaticResource Vis}}">
+                        <Hyperlink Focusable="False" Foreground="{Binding ResultBrush, Converter={StaticResource ResourceBrush}}"
+                                   Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"><Run
+                                   Text="{Binding Result, Mode=OneWay, TargetNullValue='See before and after'}" /></Hyperlink>
+                    </TextBlock>
                 </StackPanel>
             </HeaderedContentControl>
         </DataTemplate>

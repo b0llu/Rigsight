@@ -1,5 +1,6 @@
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
@@ -11,7 +12,14 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>A line of one of Home's small cards: an icon in its colour (a theme brush's name), what it says, and a few words under it.</summary>
-public sealed record HomeLine(string Icon, string Brush, string Text, string? Detail = null);
+public sealed record HomeLine(string Icon, string Brush, string Text, string? Detail = null)
+{
+    /// <summary>What this change made better or worse, as a link to it; only on a change that did.</summary>
+    public string? Result { get; init; }
+    public string ResultBrush { get; init; } = "MutedBrush";
+    /// <summary>The day of the change whose before and after the line (or its <see cref="Result"/>) opens.</summary>
+    public DateTime? ChangeDay { get; init; }
+}
 
 /// <summary>
 /// A row of the recap card's list: an app with its time, or a line about the period. The card shows as many as fit
@@ -281,10 +289,13 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             bool Mains(CrashEvent e) => IsPcDown(e) && found.GetValueOrDefault(e.Id) is { Outside: true };
             return (Changes: changes, Shutdowns: crashes.Count(e => IsPcDown(e) && !Mains(e)), Crashes: crashes.Count(e => !IsPcDown(e)), Mains: crashes.Count(Mains));
         });
-        Changes = Kept.Or(Changes, ChangeLines(read.Changes ?? [], now.Date));
-        Health = Kept.Or(Health, HealthLines(read.Shutdowns, read.Crashes, Live.Drives, FullestVolume(),
+        var results = await reports.ChangeResultsAsync();
+        Changes = Kept.Or(Changes, ChangeLines(read.Changes ?? [], now.Date, results));
+        var health = HealthLines(read.Shutdowns, read.Crashes, Live.Drives, FullestVolume(),
             Today?.Insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older")?.Text,
-            Live.AllSensors.Count(x => x.Kind == SensorKind.Fan && x.Value >= FanCard.MinSpinRpm), read.Mains));
+            Live.AllSensors.Count(x => x.Kind == SensorKind.Fan && x.Value >= FanCard.MinSpinRpm), read.Mains);
+        if (WorseLine(results, now.Date) is { } worse) health.Insert(Math.Min(1, health.Count), worse);
+        Health = Kept.Or(Health, health);
     }
 
     /// <summary>The PC itself went down (a blue screen, a sudden shut-off while running), not one app.</summary>
@@ -293,6 +304,45 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     internal static List<HomeLine> ChangeLines(IEnumerable<SystemChange> changes, DateTime today) =>
         ChangeLines(changes, CardLines, c => DayWord(c.Time.Date, today));
+
+    /// <summary>How long the latest change that made a difference stays on top of "What changed lately".</summary>
+    internal const int PinDays = Core.Reports.ChangeEffects.WindowDays;
+
+    /// <summary>
+    /// The latest changes, newest first; the latest big change that made something better or worse stays on top for its
+    /// first two weeks, with what it did (an old driver that made games hotter is still the news after three app updates).
+    /// </summary>
+    internal static List<HomeLine> ChangeLines(IEnumerable<SystemChange> changes, DateTime today, IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results)
+    {
+        var list = changes.ToList();
+        var pinned = results.Values.Where(r => r.Day >= today.AddDays(-PinDays) && list.Contains(r.Main)).MaxBy(r => r.Day);
+        if (pinned is null) return ChangeLines(list, today);
+        var top = ChangeLines([pinned.Main], 1, c => DayWord(c.Time.Date, today))[0] with
+        {
+            Result = Capital(pinned.Short), ResultBrush = pinned.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush", ChangeDay = pinned.Day,
+        };
+        return [top, .. ChangeLines(list.Where(c => c != pinned.Main), CardLines - 1, c => DayWord(c.Time.Date, today))];
+    }
+
+    /// <summary>
+    /// PC health's line for a change that made things worse, when it's likely the change and still recent: the only
+    /// result Home calls out on its own.
+    /// </summary>
+    internal static HomeLine? WorseLine(IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results, DateTime today) =>
+        results.Values.Where(r => r is { Tone: Core.Reports.EffectTone.Worse, Sure: Confidence.Likely } && r.Day >= today.AddDays(-PinDays)).MaxBy(r => r.Day) is { } r
+            ? new HomeLine("\uE7BA", "WarmBrush", r.Headline, r.HowSure) { ChangeDay = r.Day }
+            : null;
+
+    /// <summary>Opens a change's before and after on the Timeline.</summary>
+    public Action<DateTime>? OpenChange { get; set; }
+
+    [RelayCommand]
+    private void OpenLine(HomeLine line)
+    {
+        if (line.ChangeDay is { } day) OpenChange?.Invoke(day);
+    }
+
+    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     /// <summary>The latest <paramref name="count"/> changes, newest first, each with its icon, its colour and what <paramref name="detail"/> says under it.</summary>
     internal static List<HomeLine> ChangeLines(IEnumerable<SystemChange> changes, int count, Func<SystemChange, string> detail) =>

@@ -12,6 +12,16 @@ public sealed record CaseGap(DateTime From, DateTime To, string Why);
 /// <summary>A line in one of the case's lists: what, a second line under it, and what stands at its right.</summary>
 public sealed record CaseLine(string Title, string? Detail, string? Side);
 
+/// <summary>
+/// A big change before the crash that made things worse: said as possibly connected (it made things worse; that alone
+/// doesn't prove this crash), with the way to its before and after.
+/// </summary>
+public sealed record ChangePointLine(string Title, string Detail, DateTime Day)
+{
+    /// <summary>The change's own title ("NVIDIA graphics driver 618.10"): the crash's line about it gives way to this one.</summary>
+    public string Change { get; init; } = "";
+}
+
 /// <summary>One bar of "how often, by month".</summary>
 public sealed record CaseBar(string Label, int Count, double Share)
 {
@@ -71,7 +81,15 @@ public sealed partial class CrashCase : ObservableObject
     /// <summary>What wasn't recorded and so couldn't be checked, and what the finding can't tell.</summary>
     public List<CaseEvidence> NotKnown { get; init; } = [];
     public bool HasNotKnown => NotKnown.Count > 0;
-    public bool HasPoints => Points.Count > 0;
+    public bool HasPoints => Points.Count > 0 || ChangePoint is not null;
+
+    /// <summary>Set once the change results are read (they're shared with the Timeline): see <see cref="ChangePointLine"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPoints), nameof(ShownPoints))]
+    private ChangePointLine? _changePoint;
+
+    /// <summary>The points as shown: the crash's own line about a change gives way to that change's point, which says it once.</summary>
+    public List<CaseEvidence> ShownPoints => ChangePoint is { Change.Length: > 0 } c ? [.. Points.Where(p => !p.Title.StartsWith(c.Change, StringComparison.Ordinal))] : Points;
 
     /// <summary>The 45 minutes before and the 10 after, a reading a minute (see <see cref="Controls.CaseLanes"/>).</summary>
     public required CaseView Wide { get; init; }

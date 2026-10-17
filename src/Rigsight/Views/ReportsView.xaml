@@ -373,10 +373,18 @@
                                         </Border>
                                         <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                <TextBlock FontSize="12" Visibility="{Binding Result, Converter={StaticResource Vis}}">
+                                                    <Run Text="  ·  " Foreground="{DynamicResource FaintBrush}" /><Hyperlink Focusable="False"
+                                                        Foreground="{Binding ResultBrush, Converter={StaticResource ResourceBrush}}"
+                                                        Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"><Run
+                                                        Text="{Binding Result, Mode=OneWay}" /></Hyperlink>
+                                                </TextBlock>
+                                            </StackPanel>
                                         </StackPanel>
                                     </DockPanel>
-                                </DataTemplate>
+</DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>

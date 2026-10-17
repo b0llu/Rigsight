@@ -27,10 +27,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Live = new LiveData(Settings) { Dashboards = () => CustomPages };
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
-        Home = new HomeViewModel(Reports, Live);
-        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, Live = Live };
+        Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange };
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live };
         Apps = new AppsViewModel(Reports, Settings);
-        Crashes = new CrashesViewModel(Reports, Settings);
+        Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page };
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>
         {
             Crashes.ShowDay(day);
@@ -147,7 +147,19 @@ public sealed partial class ShellViewModel : ObservableObject
     private async Task JumpTimelineAsync(DateTime day)
     {
         await Timeline.LoadAsync();
+        Timeline.CloseChangeCommand.Execute(null);
         Timeline.JumpTo(day);
+    }
+
+    /// <summary>
+    /// Opens what a day's big changes made better or worse, on the Timeline (from Home, Reports, Crashes): the same page
+    /// wherever it was clicked.
+    /// </summary>
+    private async void OpenChange(DateTime day)
+    {
+        CurrentPage = "timeline";
+        await Timeline.LoadAsync(onlyIfChanged: true);
+        if (!Timeline.OpenChange(day)) Timeline.JumpTo(day);
     }
     public MemoryViewModel Memory { get; }
     public ProcessesViewModel Processes { get; }
@@ -549,12 +561,23 @@ public sealed partial class ShellViewModel : ObservableObject
         _ => null,
     };
 
-    /// <summary>Opens the crash that happened at <paramref name="time"/> as its own case on the Crashes page.</summary>
-    private void OpenCrash(DateTime time)
+    /// <summary>
+    /// Opens the crash that happened at <paramref name="time"/> as its own case on the Crashes page. The case is read
+    /// first and the page shown after (shown first, the list or the last case flashed for a second while it was read),
+    /// and its back button goes back to the page it was opened from, by that page's name.
+    /// </summary>
+    private async void OpenCrash(DateTime time)
     {
+        string from = CurrentPage;
+        await Crashes.ShowCrashAsync(time, from is "crashes" or "" ? null : (from, PageName(from)));
         CurrentPage = "crashes";
-        _ = Crashes.ShowCrashAsync(time);
     }
+
+    /// <summary>A page's name as the sidebar shows it ("Timeline", a dashboard's own name).</summary>
+    private string PageName(string key) =>
+        Sidebar.Main.Concat(Sidebar.Hardware).Concat(Sidebar.OnScreen).FirstOrDefault(e => e.Key == key)?.Title
+        ?? CustomPages.FirstOrDefault(p => p.NavKey == key)?.Name
+        ?? (key.Length > 0 ? char.ToUpperInvariant(key[0]) + key[1..] : "Back");
 
     public void Navigate(string? page, string? arg)
     {

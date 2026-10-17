@@ -267,6 +267,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         int id = ++_caseId;
         var opened = await reports.CaseAsync(g);
         if (id != _caseId || opened is null) return;
+        ComeFrom(null);
         CaseTabs = g.IsIncident || g.Count < 2 ? [] : [.. g.Rows.Select(r => new CaseTab(r, t => _ = PickTab(t)))];
         _shown = CaseTabs.FirstOrDefault();
         _shown?.Set(true);
@@ -297,9 +298,70 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         return i >= 0 && i < CaseTabs.Count ? PickTab(CaseTabs[i]) : Task.CompletedTask;
     }
 
+    /// <summary>Opens a change's before and after on the Timeline (set by the window).</summary>
+    public Action<DateTime>? OpenChange { get; set; }
+
+    [RelayCommand]
+    private void OpenChangePoint(ChangePointLine line) => OpenChange?.Invoke(line.Day);
+
+    /// <summary>An opened crash learns whether a big change before it made things worse (read after it shows: they take a moment).</summary>
+    partial void OnCaseChanged(CrashCase? value)
+    {
+        if (value is not null) _ = AddChangePointAsync(value);
+    }
+
+    private async Task AddChangePointAsync(CrashCase opened)
+    {
+        var results = await reports.ChangeResultsAsync();
+        if (Case != opened || ChangePointOf(opened.Row.Event, opened.Finding, results) is not { } point) return;
+        // The crash's own line about this change ("installed 2 days before") says it already: one line, with its result.
+        var own = opened.Points.FirstOrDefault(p => p.Title.StartsWith(point.Change, StringComparison.Ordinal));
+        opened.ChangePoint = own is null ? point : point with { Title = own.Title, Detail = $"{own.Detail} {point.Detail}".Trim() };
+    }
+
+    /// <summary>
+    /// The big change whose "after" this crash fell in, when that change made things worse and could cause a crash of
+    /// this kind (a graphics driver: graphics problems only). Possibly connected, never more: it only points.
+    /// </summary>
+    internal static ChangePointLine? ChangePointOf(CrashEvent e, CrashFinding finding, IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results)
+    {
+        var r = results.Values.Where(r => r.Tone == Core.Reports.EffectTone.Worse && e.Time >= r.Main.Earliest && e.Time < r.To).MaxBy(r => r.Day);
+        if (r is null) return null;
+        bool graphics = e.Kind is CrashKind.GpuDriverReset or CrashKind.SystemCrash || finding.Head.Contains("driver", StringComparison.OrdinalIgnoreCase);
+        if (r.Changes.All(c => c.IsGraphicsDriver) && !graphics) return null;
+        int days = (e.Time.Date - r.Day).Days;
+        string when = days == 0 ? "The same day as" : days == 1 ? "A day after" : $"{days} days after";
+        return new($"{when} {r.Main.Title}", $"Since it, {r.Plain}, {Core.Wording.Running(r.Chip)}. That alone doesn't prove this crash.", r.Day) { Change = r.Main.Title };
+    }
+
+    /// <summary>The page an opened crash came from (Timeline, Reports, Home), to go back to; null when it was opened here.</summary>
+    private string? _returnTo;
+
+    /// <summary>What the back button says: the page it goes back to.</summary>
+    [ObservableProperty] private string _backText = "Crashes";
+
+    /// <summary>Shows another page (set by the window).</summary>
+    public Action<string>? GoBackTo { get; set; }
+
+    /// <summary>The back button: to the page the crash was opened from, else this page's list.</summary>
+    [RelayCommand]
+    private void Back()
+    {
+        string? to = _returnTo;
+        CloseCase();
+        if (to is not null) GoBackTo?.Invoke(to);
+    }
+
+    private void ComeFrom((string Page, string Name)? from)
+    {
+        _returnTo = from?.Page;
+        BackText = from?.Name ?? "Crashes";
+    }
+
     [RelayCommand]
     private void CloseCase()
     {
+        ComeFrom(null);
         _caseId++;
         Case = null;
         CaseTabs = [];
@@ -310,7 +372,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// Opens the crash that happened at <paramref name="time"/> (from Home, Reports, the Timeline or a notification):
     /// its own case when it is found, else the page on that day.
     /// </summary>
-    public async Task ShowCrashAsync(DateTime time)
+    /// <param name="from">The page it was opened from and its name, for the back button; null: this page, or a notification.</param>
+    public async Task ShowCrashAsync(DateTime time, (string Page, string Name)? from = null)
     {
         int id = ++_caseId;
         var rows = await reports.CrashesAsync(time.AddMinutes(-6), time.AddMinutes(6), includeMuted: true) ?? [];
@@ -320,6 +383,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         var opened = group is null ? null : await reports.CaseAsync(group);
         if (id != _caseId) return;
         CaseTabs = [];
+        ComeFrom(opened is null ? null : from);
         if (opened is null) ShowDay(time);
         else Case = opened;
     }

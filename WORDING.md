@@ -9,6 +9,7 @@ The shared words live in one place, `src/Rigsight.Core/Text/Wording.cs`. Use the
 | Idea | Say it like this | Not |
 |---|---|---|
 | How sure | Chips: **CONFIRMED**, **LIKELY &lt;CAUSE&gt;**, **POSSIBLY &lt;CAUSE&gt;**, **NOT ENOUGH TO SAY**. The chip is the same in a list and on the opened crash. | "POSSIBLE: …", a chip without its cause |
+| What a big change did | **Before and after** (the filter, the opened page). A result only when something got better or worse: "Crimson Desert runs 6° hotter on the GPU since this driver". Chips **LIKELY THE DRIVER** / **POSSIBLY THE UPDATE** / **POSSIBLY ONE OF THESE** (two big changes on one day); the causes are THE DRIVER, THE UPDATE, THE BIOS, THE NEW WINDOWS, THE NEW HARDWARE, THE POWER PLAN. "Since" while the change is still the current one, "in the N days after" once another big change came. Nothing at all when nothing moved. | "As before", "No change", "not enough to say yet" lines under a change; a bare "LIKELY" |
 | An app crash | **crashed**: "Dota 2 crashed at 9:14 PM: a .NET error." | "closed unexpectedly", "stopped on an unhandled error", "went down" |
 | An app that hangs | **froze**: "Chrome froze." Chip **FROZE**. The whole PC: "The PC froze." | "NOT RESPONDING", "stopped responding" |
 | A blue screen | **blue screen**: "Windows crashed with a blue screen." Chip **BLUE SCREEN**. | "Windows crashed (blue screen)" |

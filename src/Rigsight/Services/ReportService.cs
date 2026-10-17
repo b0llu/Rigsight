@@ -557,9 +557,7 @@ public sealed class ReportService(SettingsModel settings)
             changes.AddRange(Core.Stability.StorageChanges.From(db.GetDriveDays(0)));
 
             var byExe = db.LoadApps().ToDictionary(a => a.Exe, StringComparer.OrdinalIgnoreCase);
-            var crashes = db.GetCrashes(0, long.MaxValue / 2)
-                .Where(e => e.Kind is Core.Stability.CrashKind.SystemCrash or Core.Stability.CrashKind.GpuDriverReset
-                    || (e.Kind == Core.Stability.CrashKind.UnexpectedShutdown && e.Moment == Core.Stability.PowerMoment.Running)).ToList();
+            var crashes = PcProblems(db);
             // Each one as its case says it; one whose cause was most likely outside the PC (a power cut) is told apart.
             var found = Core.Stability.CrashCases.Of(db, crashes, s);
             var problems = crashes.Select(e =>
@@ -570,21 +568,47 @@ public sealed class ReportService(SettingsModel settings)
                     var finding = found.GetValueOrDefault(e.Id);
                     return new TimelineProblem(e.Time, e.Kind, finding is null ? Core.Stability.CrashExplainer.Explain(e, name).Title : finding.Said) { Outside = finding is { Outside: true } };
                 }).ToList();
-            // How the PC ran after each big change against before it (same game, same load; problems per hour of use).
-            var names = byExe.Values.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
-            var effects = ChangeEffects.Of(changes, db.GetHeatDays(0, long.MaxValue / 2), db.GetSystemDays(0, long.MaxValue / 2) ?? [],
-                // A driver or an update is not set against problems that came from outside the PC.
-                [.. problems.Where(p => !p.Outside).Select(p => (p.Time, p.Kind))], id => names.GetValueOrDefault(id, "a game"), DateTime.Now);
-            return new TimelineData(changes, problems, db.GetInventory()) { Effects = effects };
+            var results = Results(db, s, changes, crashes, found);
+            return new TimelineData(changes, problems, db.GetInventory()) { Results = results };
         });
+    }
+
+    private static List<Core.Stability.CrashEvent> PcProblems(RigsightDb db) => ChangeEffects.PcProblems(db);
+
+    /// <summary>What each day's big changes made better or worse, worked out once (see <see cref="ChangeEffects.Read"/>) and kept for the other pages.</summary>
+    private static Dictionary<DateTime, ChangeResult> Results(RigsightDb db, RigsightSettings s, List<Core.Stability.SystemChange>? changes = null,
+        List<Core.Stability.CrashEvent>? crashes = null, Dictionary<long, Core.Stability.CrashFinding>? found = null)
+    {
+        // The drive-space lines aren't big changes: only the recorded ones go in.
+        var results = ChangeEffects.Read(db, s, changes?.Where(c => c.Kind != Core.Stability.ChangeKind.Storage).ToList(), crashes, found);
+        lock (ResultsLock) _results = (DateTime.Now, results);
+        return results;
+    }
+
+    private static readonly object ResultsLock = new();
+    private static (DateTime At, Dictionary<DateTime, ChangeResult> Of)? _results;
+
+    /// <summary>How long a worked-out set of results is reused: changes are looked for every ten minutes.</summary>
+    private static readonly TimeSpan ResultsFor = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// What big changes made better or worse, by day (see <see cref="ChangeEffects"/>): for the pages that show a change
+    /// with its result. Reused for a few minutes, since it reads every crash's finding.
+    /// </summary>
+    public Task<Dictionary<DateTime, ChangeResult>> ChangeResultsAsync()
+    {
+        lock (ResultsLock)
+            if (_results is { } r && DateTime.Now - r.At < ResultsFor && r.At.Date == DateTime.Today) return Task.FromResult(r.Of);
+        var s = Snapshot();
+        return Run(db => Results(db, s)).ContinueWith(t => t.Result ?? [], TaskScheduler.Default);
     }
 }
 
 /// <summary>See <see cref="ReportService.TimelineAsync"/>.</summary>
 public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, List<TimelineProblem> Problems, List<Core.Stability.InventoryItem> Inventory)
 {
-    /// <summary>What was different after a day's big changes (see <see cref="ChangeEffects"/>), by day.</summary>
-    public Dictionary<DateTime, ChangeEffect> Effects { get; init; } = [];
+    /// <summary>What a day's big changes made better or worse (see <see cref="ChangeEffects"/>), by day; only days where something did.</summary>
+    public Dictionary<DateTime, ChangeResult> Results { get; init; } = [];
 }
 
 /// <summary>A crash, freeze or sudden shut-off as one line on the timeline.</summary>

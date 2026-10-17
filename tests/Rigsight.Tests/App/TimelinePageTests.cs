@@ -1,3 +1,4 @@
+using System.Windows;
 using Rigsight.Core.Stability;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
@@ -362,42 +363,103 @@ public sealed class TimelinePageTests
     }
 
     [Fact]
-    public void What_was_different_after_goes_under_the_days_biggest_change()
+    public void A_result_goes_under_the_change_that_names_it_and_nothing_goes_anywhere_without_one()
     {
         var day = Today.AddDays(-7);
         var driver = Change(day.AddHours(19), ChangeKind.Driver, "NVIDIA graphics driver 616.92", "610.47", "616.92");
         var update = Change(day.AddHours(3), ChangeKind.WindowsUpdate, "Windows update KB1");
         var vm = Ui.Run(() => new TimelineViewModel(new ReportService(Kit.OfflineSettings()), _ => { }));
-        TimelineData Data(Rigsight.Core.Reports.EffectTone tone, params string[] lines) => new([driver, update, Update(day.AddHours(20), "Steam")], [], [])
+        Rigsight.Core.Reports.ChangeResult Result(Rigsight.Core.Reports.EffectTone tone) => new()
         {
-            Effects = lines.Length == 0 ? [] : new() { [day] = new(lines.ToList(), tone) },
+            Day = day, Changes = [driver, update], From = day.AddDays(-10), To = day.AddDays(7), Open = true, DaysBefore = 10, DaysAfter = 6,
+            Tone = tone, Sure = Confidence.Possible, Cause = "ONE OF THESE", Headline = "Cyberpunk 2077 runs 7° hotter on the GPU since these changes",
+            Short = "7° hotter in Cyberpunk 2077 since",
+            Pairs = [new("GPU in Cyberpunk 2077", "", "70°", "77°", tone, "7° hotter")],
+        };
+        TimelineData Data(Rigsight.Core.Reports.ChangeResult? r) => new([driver, update, Update(day.AddHours(20), "Steam")], [], [])
+        {
+            Results = r is null ? [] : new() { [day] = r },
         };
         Ui.Run(() =>
         {
-            vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Worse, "3 graphics driver resets since, none in the 14 days before."));
+            // No result: no filter for it, nothing under any line.
+            vm.Apply(Data(null));
+            Assert.DoesNotContain(vm.Filters, f => f.Key == TimelineViewModel.ResultsKey);
+            Assert.All(vm.Days.Single().Entries, e => Assert.False(e.HasResult));
+
+            vm.Apply(Data(Result(Rigsight.Core.Reports.EffectTone.Worse)), onlyIfChanged: true);
             var entries = vm.Days.Single().Entries;
             var line = entries.Single(e => e.Title.StartsWith("NVIDIA"));
-            Assert.Equal(["3 graphics driver resets since, none in the 14 days before."], line.Effect);
-            Assert.Equal("WarmBrush", line.EffectBrush);
-            Assert.All(entries.Where(e => e != line), e => Assert.Empty(e.Effect)); // once a day, not under every change
+            Assert.True(line.HasResult);
+            Assert.Equal("WarmBrush", line.ResultBrush);
+            Assert.Equal(("70°", "77°", "WarmBrush"), (line.ResultPairs[0].Before, line.ResultPairs[0].After, line.ResultPairs[0].AfterBrush));
+            Assert.All(entries.Where(e => e != line), e => Assert.False(e.HasResult)); // once a day, under the change that names it
+            Assert.Equal("Before and after (1)", vm.Filters.Single(f => f.Key == TimelineViewModel.ResultsKey).Label);
 
-            // Better is green, nothing different is quiet, and new lines replace the old ones on a refresh.
-            vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Better, "No problems since; 2 blue screens in the 14 days before."), onlyIfChanged: true);
-            line = vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA"));
-            Assert.Equal(["No problems since; 2 blue screens in the 14 days before."], line.Effect);
-            Assert.Equal("GoodBrush", line.EffectBrush);
-            vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Same, "No problems since, as in the 14 days before."), onlyIfChanged: true);
-            Assert.Equal("MutedBrush", vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA")).EffectBrush);
-            vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Same), onlyIfChanged: true);
-            Assert.All(vm.Days.Single().Entries, e => Assert.Empty(e.Effect));
+            // The filter lists that day's big changes, the result under the driver.
+            vm.Filter = vm.Filters.Single(f => f.Key == TimelineViewModel.ResultsKey);
+            Assert.Equal(2, vm.Days.Single().Entries.Count);
+            Assert.True(vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA")).HasResult);
 
-            // With only drivers shown the line is still there; with only apps shown there's no change to hang it on.
-            vm.Apply(Data(Rigsight.Core.Reports.EffectTone.Worse, "Hotter."), onlyIfChanged: true);
+            // With only Windows shown it hangs under the update; with only apps there's no change to hang it on.
             vm.Filter = vm.Filters.Single(f => f.Key == "windows");
-            Assert.Equal(["Hotter."], vm.Days.Single().Entries.Single().Effect);
+            Assert.True(vm.Days.Single().Entries.Single().HasResult);
             vm.Filter = vm.Filters.Single(f => f.Key == "apps");
-            Assert.All(vm.Days.Single().Entries, e => Assert.Empty(e.Effect));
+            Assert.All(vm.Days.Single().Entries, e => Assert.False(e.HasResult));
+
+            // Opened, and closed; gone on a refresh when the result is.
+            Assert.True(vm.OpenChange(day));
+            Assert.True(vm.IsChangeOpen);
+            Assert.Equal("POSSIBLY ONE OF THESE", vm.Opened!.Chip);
+            Assert.False(vm.OpenChange(day.AddDays(-1)));
+            vm.Apply(Data(null), onlyIfChanged: true);
+            Assert.False(vm.IsChangeOpen);
+            Assert.DoesNotContain(vm.Filters, f => f.Key == TimelineViewModel.ResultsKey);
         });
+    }
+
+    [Fact]
+    public void The_page_draws_a_result_and_an_opened_change_without_a_binding_error()
+    {
+        var day = Today.AddDays(-7);
+        var driver = Change(day.AddHours(19), ChangeKind.Driver, "NVIDIA graphics driver 618.10", "617.42", "618.10");
+        var result = new Rigsight.Core.Reports.ChangeResult
+        {
+            Day = day, Changes = [driver], From = day.AddDays(-14), To = Today.AddDays(1), Open = true, DaysBefore = 14, DaysAfter = 6,
+            Tone = Rigsight.Core.Reports.EffectTone.Worse, Sure = Confidence.Likely, Cause = "THE DRIVER",
+            Headline = "Crimson Desert runs 10° hotter on the GPU since this driver", Plain = "Crimson Desert runs 10° hotter on the GPU",
+            Context = "Same game at the same load, and not because of the room.", Short = "10° hotter in Crimson Desert since", Advice = "Try the next driver.",
+            Pairs = [new("GPU in Crimson Desert", "", "68°", "78°", Rigsight.Core.Reports.EffectTone.Worse, "10° hotter")],
+            Rows = [new("GPU in Crimson Desert", "Same load", "68°", "78°", Rigsight.Core.Reports.EffectTone.Worse, "10° hotter"),
+                new("Not counted: sudden shut-offs", "", "5", "0", Rigsight.Core.Reports.EffectTone.Same, "See Crashes", Counted: false)],
+            Checks = [new(true, "The same game on both sides", "12h 15m before, 2h 33m since."), new(false, "A thin side", "Only 1h 03m since.")],
+            After = [new(day.AddDays(2).AddHours(22), CrashKind.GpuDriverReset, true, "The graphics driver was reset.")],
+            TempLabel = "GPU in Crimson Desert", TempBefore = 68.2, TempAfter = 78.2, Why = "14 days before, 6 days since",
+            Days = [.. Enumerable.Range(0, 21).Select(i => new Rigsight.Core.Reports.ChangeDay(day.AddDays(i - 14), i % 3 == 0 ? 70 + (i > 14 ? 8 : 0) : null, 48, i == 16 ? 1 : 0, 4))],
+        };
+        var vm = Ui.Run(() => new TimelineViewModel(new ReportService(Kit.OfflineSettings()), _ => { }));
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var window = new Window { Content = new Views.TimelineView { DataContext = vm }, Left = -32000, Top = -32000, Width = 1400, Height = 1000, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                vm.Apply(new TimelineData([driver], [], []) { Results = new() { [day] = result } });
+                Ui.Pump(300);
+                Assert.True(vm.OpenChange(day));
+                Ui.Pump(300);
+                var chart = Assert.Single(Visuals.Descendants<Controls.ChangeChart>(window));
+                Assert.True(chart.IsVisible && chart.ActualHeight > 100);
+                Assert.True(vm.Opened!.HasPlayChart);
+                Assert.Equal(("68°", "78°", "10° hotter", "WarmBrush"), (vm.Opened.BeforeTempText, vm.Opened.AfterTempText, vm.Opened.DiffText, vm.Opened.PlayBrush));
+                Assert.Equal(("Before · 5 days", "Since · 2 days"), (vm.Opened.BeforeDaysText, vm.Opened.AfterDaysText));
+                vm.CloseChangeCommand.Execute(null);
+                Ui.Pump(100);
+            }
+            finally { window.Close(); }
+        });
+        Ui.AssertNoProblems("Timeline with a result, and the opened change");
     }
 
     // ---- A long history ----

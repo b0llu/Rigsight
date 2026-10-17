@@ -17,6 +17,14 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
     /// <summary>What most likely happened and how sure that is, as every page says it (null: said from the crash's own entry alone).</summary>
     public CrashFinding? Finding { get; init; }
 
+    /// <summary>What the big changes before it made better or worse, by day (only where they did): said beside each change.</summary>
+    public IReadOnlyDictionary<DateTime, Reports.ChangeResult> Results { get; init; } = new Dictionary<DateTime, Reports.ChangeResult>();
+
+    /// <summary>"NVIDIA graphics driver 618.10 (10 Oct; since it, Crimson Desert runs 10° hotter on the GPU, likely the driver)".</summary>
+    public string Changed => string.Join("; ", ChangesBefore.Select(ch => Results.TryGetValue(ch.Time.Date, out var r) && r.Main == ch
+        ? $"{ch.Title} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})"
+        : $"{ch.Title} ({ch.Time:d MMM})"));
+
     /// <summary>What stood out in its close-up, a reading every two seconds, where one was kept (see <see cref="CloseUp"/>).</summary>
     public IReadOnlyList<string> InLastMinutes { get; init; } = [];
 
@@ -129,7 +137,7 @@ public static class ReadableExport
             }
             else if (s.Context is { NoReadings: true }) rows.Add(("Just before", Wording.NotRecorded));
             rows.Add(("In front", s.AppInFront));
-            if (s.ChangesBefore.Count > 0) rows.Add(("Changed in the 7 days before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})"))));
+            if (s.ChangesBefore.Count > 0) rows.Add(("Changed in the 7 days before", s.Changed));
             rows.Add(("Module", s.Crash.Module));
             rows.Add(("Code", s.Crash.Code));
             var shown = rows.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToList();
@@ -335,7 +343,7 @@ public static class ReadableExport
             }
             else if (s.Context is { NoReadings: true }) Row("Just before", Wording.NotRecorded);
             Row("In front", s.AppInFront);
-            if (s.ChangesBefore.Count > 0) Row("Changed in the 7 days before", string.Join("; ", s.ChangesBefore.Select(ch => $"{ch.Title} ({ch.Time:d MMM})")));
+            if (s.ChangesBefore.Count > 0) Row("Changed in the 7 days before", s.Changed);
             Row("Module", s.Crash.Module);
             Row("Code", s.Crash.Code);
             sb.Append("</dl></div>");

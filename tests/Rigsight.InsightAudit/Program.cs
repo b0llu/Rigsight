@@ -18,6 +18,41 @@ int? days = int.TryParse(arg("--days"), out int d) ? d : null;
 
 var settings = settingsFile is not null && File.Exists(settingsFile) ? SettingsStore.Load(settingsFile) : new RigsightSettings();
 
+// --changes: what each big change made better or worse instead (Timeline's "Before and after"), worked out exactly as the
+// app does, every reading and check with it; a database copy is read, never written. Nothing printed for a change means
+// it made no difference that could be measured, which is what the app shows too.
+//     Rigsight.InsightAudit [<rigsight.db>] --changes [--out <file>]
+if (args.Contains("--changes"))
+{
+    string copy = Path.Combine(Path.GetTempPath(), $"rigsight-audit-{Guid.NewGuid():N}.db");
+    using (var source = new SqliteConnection($"Data Source={db};Mode=ReadOnly"))
+    using (var target = new SqliteConnection($"Data Source={copy};Pooling=False"))
+    {
+        source.Open();
+        target.Open();
+        source.BackupDatabase(target);
+    }
+    var lines = new List<string>();
+    using (var w = RigsightDb.OpenWriter(copy))
+    {
+        var changes = w.GetChanges(0, long.MaxValue / 2);
+        var results = ChangeEffects.Read(w, settings, changes);
+        lines.Add($"# {changes.Count(ChangeEffects.IsMajor)} big changes, {results.Count} with a result");
+        foreach (var r in results.Values.OrderBy(r => r.Day))
+        {
+            lines.Add($"{r.Day:yyyy-MM-dd} {string.Join(" + ", r.Changes.Select(c => c.Title))}");
+            lines.Add($"  {r.Tone} · {r.Chip} · {r.Headline}");
+            lines.Add($"  {r.Why}");
+            foreach (var x in r.Rows) lines.Add($"    {x.Label}: {x.Before} -> {x.After} ({x.Meaning}){(x.Counted ? "" : " [not counted]")}");
+            foreach (var c in r.Checks) lines.Add($"    {(c.Ok ? "ok" : "!!")} {c.Title}: {c.Detail}");
+        }
+    }
+    SqliteConnection.ClearAllPools();
+    File.Delete(copy);
+    if (arg("--out") is { } changeFile) File.WriteAllLines(changeFile, lines); else foreach (var changeLine in lines) Console.WriteLine(changeLine);
+    return;
+}
+
 // --crashes: every crash's finding instead (what it says, how sure, what it rests on, what was ruled out), worked out
 // exactly as the app does. The database is copied first and the copy given what this PC's Windows logs still hold about
 // its crashes, as the agent does at its first start after an update; the database itself is never written.

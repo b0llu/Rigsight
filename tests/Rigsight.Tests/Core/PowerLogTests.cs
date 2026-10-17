@@ -49,7 +49,7 @@ public sealed class PowerLogTests
         Assert.Equal(GapReason.Asleep, PowerLog.Reason(At(7, 22, 11), At(7, 23, 5), Log, Margin));
         // Half an hour in the evening with no power event in or near it: the PC ran throughout.
         Assert.Equal(GapReason.NotRunning, PowerLog.Reason(At(7, 18, 0), At(7, 18, 30), Log, Margin));
-        Assert.Equal("Rigsight wasn't running", PowerLog.Words(GapReason.NotRunning));
+        Assert.Equal("RigSight wasn't running", PowerLog.Words(GapReason.NotRunning));
     }
 
     [Fact]

@@ -32,6 +32,35 @@ public sealed class CrashMinutesPageTests
         vm.GroupsShown.First(g => g.Latest.Event.Kind is CrashKind.AppCrash or CrashKind.AppHang && g.Latest.Input?.Context is { NoReadings: false, CpuBefore: not null }));
 
     [Fact]
+    public void A_crash_opened_from_another_page_goes_back_there_by_its_name()
+    {
+        var vm = Loaded();
+        var group = WithMinutes(vm);
+        var went = new List<string>();
+        Ui.Run(() => vm.GoBackTo = went.Add);
+        Kit.Wait(() => vm.ShowCrashAsync(group.Latest.Time, ("timeline", "Timeline")));
+        Ui.Run(() =>
+        {
+            Assert.NotNull(vm.Case);
+            Assert.Equal("Timeline", vm.BackText);
+            vm.BackCommand.Execute(null);
+            Assert.Null(vm.Case);
+            Assert.Equal(["timeline"], went);
+            Assert.Equal("Crashes", vm.BackText);
+        });
+
+        // Opened here (or from a notification): back is this page's list, nowhere else.
+        Kit.Wait(() => vm.ShowCrashAsync(group.Latest.Time));
+        Ui.Run(() =>
+        {
+            Assert.Equal("Crashes", vm.BackText);
+            vm.BackCommand.Execute(null);
+            Assert.Null(vm.Case);
+            Assert.Equal(["timeline"], went);
+        });
+    }
+
+    [Fact]
     public void An_opened_crash_has_its_lanes_strips_marks_and_box()
     {
         var vm = Loaded();

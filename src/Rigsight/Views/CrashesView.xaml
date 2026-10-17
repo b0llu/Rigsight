@@ -303,11 +303,12 @@
                  (the same crash repeated) each of them as a tab, newest first, with which one is shown. -->
             <Border Padding="32,18,32,10">
                 <DockPanel MaxWidth="{StaticResource PageWidth}">
-                    <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="Back to Crashes"
-                            Command="{Binding CloseCaseCommand}">
+                    <!-- Back where it was opened from: the Timeline, Reports, Home; else this page's list. -->
+                    <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center"
+                            AutomationProperties.Name="{Binding BackText, StringFormat=Back to {0}}" Command="{Binding BackCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="12" Margin="0,1,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Crashes" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding BackText}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <!-- What can be done with the case, always in sight (the user: at the foot of the page they were hidden). -->
@@ -413,7 +414,24 @@
                     <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Text="What points to this" Style="{StaticResource H2}" />
-                            <ItemsControl ItemsSource="{Binding Points}" ItemTemplate="{StaticResource EvidenceTemplate}" />
+                            <ItemsControl ItemsSource="{Binding ShownPoints}" ItemTemplate="{StaticResource EvidenceTemplate}" />
+                            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,12,0,0" Padding="12,0,0,0" DataContext="{Binding ChangePoint}"
+                                                    Visibility="{Binding Converter={StaticResource Vis}}">
+                                <HeaderedContentControl.Header>
+                                    <Border Style="{StaticResource IconBox}" Background="{Binding Source=WarmBrush, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
+                                        <TextBlock Text="&#xE81C;" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource WarmBrush}" />
+                                    </Border>
+                                </HeaderedContentControl.Header>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Detail}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                    <TextBlock FontSize="12.5" Margin="0,3,0,0">
+                                        <Hyperlink Focusable="False" Foreground="{DynamicResource TextBrush}"
+                                                   Command="{Binding DataContext.OpenChangePointCommand, ElementName=Page}" CommandParameter="{Binding}">Open its before and after</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                            </HeaderedContentControl>
                             <TextBlock Text="Nothing on record points to a cause." Style="{StaticResource Empty}"
                                        Visibility="{Binding HasPoints, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         </StackPanel>

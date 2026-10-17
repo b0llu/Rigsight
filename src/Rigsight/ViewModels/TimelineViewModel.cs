@@ -40,9 +40,13 @@ public sealed partial class TimelineEntry : ObservableObject
     public string OpenText => CrashTime is null ? "See on Crashes" : "Open";
     public bool IsProblem => CrashDay is not null;
 
-    /// <summary>What was different after this change (see <see cref="Core.Reports.ChangeEffects"/>), and the brush for it.</summary>
-    public List<string> Effect { get; set; } = [];
-    public string EffectBrush { get; set; } = "MutedBrush";
+    /// <summary>What this change made better or worse (see <see cref="Core.Reports.ChangeEffects"/>); null for nearly every change.</summary>
+    public Core.Reports.ChangeResult? Result { get; set; }
+    public bool HasResult => Result is not null;
+    public string ResultBrush => Result?.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush";
+    public string ResultIcon => Result is null ? "" : Models.ChangeCase.ResultIcon(Result);
+    public string ResultSure => Result?.Sure.ToString() ?? "";
+    public List<ResultPair> ResultPairs => Result is null ? [] : [.. Result.Pairs.Select(ResultPair.Of)];
 
     /// <summary>The app updates folded into this line.</summary>
     public List<TimelineEntry> Children { get; init; } = [];
@@ -59,6 +63,13 @@ public sealed partial class TimelineEntry : ObservableObject
 
     /// <summary>Which of a row's folded lines this is (a month has one per kind of change), to keep it open when rebuilt.</summary>
     public string Key { get; init; } = "";
+}
+
+/// <summary>A reading before a change and since, for its card: "GPU in Crimson Desert  71° → 77°".</summary>
+public sealed record ResultPair(string Label, string Before, string After, string AfterBrush)
+{
+    public static ResultPair Of(Core.Reports.ChangeFigure f) => new(f.Label, f.Before, f.After,
+        f.Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GoodBrush", _ => "TextBrush" });
 }
 
 /// <summary>A day on the timeline with everything that happened on it, newest first.</summary>
@@ -111,8 +122,16 @@ public sealed record CalendarMonthCell(DateTime Month, int Count, bool IsCurrent
     public string CountText => Count > 0 ? Count.ToString("N0") : "";
 }
 
-/// <summary>A line of "This PC now": what it runs, and since when where a change to it was seen.</summary>
-public sealed record NowFact(string Label, string Value, string? Since);
+/// <summary>
+/// A line of "This PC now": what it runs, and since when where a change to it was seen; with a link to what that change
+/// made better or worse, where it did.
+/// </summary>
+public sealed record NowFact(string Label, string Value, string? Since)
+{
+    public DateTime? ResultDay { get; init; }
+    public string? ResultText { get; init; }
+    public string ResultBrush { get; init; } = "MutedBrush";
+}
 
 /// <summary>
 /// The Timeline page: what changed on the PC day by day (drivers, Windows, apps, startup programs, hardware, settings,
@@ -132,7 +151,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     private List<SystemChange> _changes = [];
     private List<TimelineProblem> _problems = [];
-    private Dictionary<DateTime, Core.Reports.ChangeEffect> _effects = [];
+    private Dictionary<DateTime, Core.Reports.ChangeResult> _results = [];
     private string _signature = "";
 
     // Under the current filter: every row with something on it (newest first), and what's on each. A row is a day, or
@@ -225,7 +244,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     internal void Apply(TimelineData data, bool onlyIfChanged = false)
     {
-        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Effects.OrderBy(e => e.Key).SelectMany(e => e.Value.Lines))}";
+        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
         bool same = signature == _signature;
         _signature = signature;
         Now = Models.Kept.Or(Now, BuildNow(data));
@@ -233,12 +252,16 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
         _changes = data.Changes;
         _problems = data.Problems;
-        _effects = data.Effects;
+        _results = data.Results;
         Loaded = true;
+        if (Opened is { } open) Opened = _results.TryGetValue(open.Day, out var still) ? CaseOf(still) : null;
         Rebuild(keepPlace: Days.Count > 0);
     }
 
     // ── The list ────────────────────────────────────────────────────────
+
+    /// <summary>The filter that lists only the changes that made something better or worse.</summary>
+    internal const string ResultsKey = "results";
 
     private static readonly (string Key, string Name, ChangeKind[] Kinds)[] Kinds =
     [
@@ -258,6 +281,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         // The kinds there are, with their counts; the one picked stays picked.
         string key = Filter?.Key ?? "all";
         var filters = new List<TimelineFilter> { new("all", "Everything", _changes.Count) };
+        // Only when a change made something better or worse: an empty "Before and after" would be a block for its own sake.
+        if (_results.Count > 0 || key == ResultsKey) filters.Add(new(ResultsKey, "Before and after", _results.Count));
         filters.AddRange(Kinds.Select(k => new TimelineFilter(k.Key, k.Name, _changes.Count(c => k.Kinds.Contains(c.Kind)))).Where(f => f.Count > 0 || f.Key == key));
         // The same kinds and counts (only the filter or the grouping changed): the dropdown keeps its list.
         if (!filters.SequenceEqual(Filters) || Filter is null)
@@ -270,7 +295,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
         bool all = Filter.Key == "all";
         var kinds = Kinds.FirstOrDefault(k => k.Key == Filter.Key).Kinds;
-        var changes = all ? _changes : [.. _changes.Where(c => kinds.Contains(c.Kind))];
+        var changes = all ? _changes
+            : Filter.Key == ResultsKey ? [.. _changes.Where(c => _results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c))]
+            : [.. _changes.Where(c => kinds.Contains(c.Kind))];
         // Problems are context for everything together; a list of one kind is just that kind.
         var problems = all ? _problems : [];
         var words = Core.TextMatch.Words(Search);
@@ -358,17 +385,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
         var updates = changes.Where(c => c.Kind == ChangeKind.AppUpdated).OrderByDescending(c => c.Time).ToList();
         bool fold = Grouping == "Day" && updates.Count >= GroupFrom;
-        // What was different afterwards goes under the day's biggest change (a graphics driver before a Windows update).
-        var biggest = _effects.ContainsKey(day) ? changes.Where(Core.Reports.ChangeEffects.IsMajor).OrderBy(Rank).ThenBy(c => c.Time).FirstOrDefault() : null;
+        // What a day's big changes made better or worse goes under the one that names it (a graphics driver before a Windows update).
+        var result = _results.GetValueOrDefault(day);
+        var under = result?.Changes.FirstOrDefault(changes.Contains);
         foreach (var c in changes)
         {
             if (fold && c.Kind == ChangeKind.AppUpdated) continue;
             var entry = EntryOf(c);
-            if (c == biggest)
-            {
-                entry.Effect = _effects[day].Lines;
-                entry.EffectBrush = _effects[day].Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GoodBrush", _ => "MutedBrush" };
-            }
+            if (c == under) entry.Result = result;
             entries.Add((c.Time, entry));
         }
         if (fold)
@@ -392,8 +416,6 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             // Newest first; a drive's space is the whole day's (dated at its midnight) and comes last.
             Entries = [.. entries.OrderByDescending(e => e.At).Select(e => e.Entry)],
         };
-
-        static int Rank(SystemChange c) => c.IsGraphicsDriver ? 0 : c.Kind switch { ChangeKind.Firmware => 1, ChangeKind.Hardware => 2, ChangeKind.Windows => 3, _ => 4 };
     }
 
     private static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
@@ -652,24 +674,123 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         BuildCalendar();
     }
 
+    // ── An opened change ────────────────────────────────────────────────
+
+    /// <summary>The change opened from its result: the page shows it in place of the list until Back.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsChangeOpen))]
+    private Models.ChangeCase? _opened;
+
+    public bool IsChangeOpen => Opened is not null;
+
+    /// <summary>Raised when a change opens, to scroll its page to the top.</summary>
+    public event Action? ChangeOpened;
+
+    [RelayCommand]
+    private void OpenResult(TimelineEntry entry)
+    {
+        if (entry.Result is { } r) OpenChange(r.Day);
+    }
+
+    [RelayCommand]
+    private void OpenNowResult(NowFact fact)
+    {
+        if (fact.ResultDay is { } day) OpenChange(day);
+    }
+
+    /// <summary>Opens the result of a day's big changes (from this page, Home, Reports or Crashes); false when there is none.</summary>
+    public bool OpenChange(DateTime day)
+    {
+        if (!_results.TryGetValue(day.Date, out var result)) return false;
+        Opened = CaseOf(result);
+        ChangeOpened?.Invoke();
+        return true;
+    }
+
+    [RelayCommand]
+    private void CloseChange() => Opened = null;
+
+    /// <summary>An earlier driver's result opens in place.</summary>
+    [RelayCommand]
+    private void OpenDriver(Models.DriverLine line)
+    {
+        if (line.CanOpen && !line.IsThis) OpenChange(line.Day);
+    }
+
+    /// <summary>A problem counted on either side opens as its own crash.</summary>
+    [RelayCommand]
+    private void OpenProblem(Models.ChangeProblemLine line)
+    {
+        if (openCrash is not null) openCrash(line.Time);
+        else openCrashes(line.Time.Date);
+    }
+
+    [ObservableProperty] private bool _copied;
+
+    [RelayCommand]
+    private async Task CopyChange()
+    {
+        if (Opened is not { } open) return;
+        try
+        {
+            System.Windows.Clipboard.SetText(open.Report());
+            Copied = true;
+            await Task.Delay(2000);
+            Copied = false;
+        }
+        catch
+        {
+            // The clipboard can be briefly locked by another app; the user can simply click again.
+        }
+    }
+
+    private Models.ChangeCase CaseOf(Core.Reports.ChangeResult result) => new(result, result.Main.IsGraphicsDriver ? Drivers(result) : []);
+
+    /// <summary>Every graphics driver this PC had, newest first, each with what it did where it made a difference.</summary>
+    private List<Models.DriverLine> Drivers(Core.Reports.ChangeResult opened)
+    {
+        var drivers = _changes.Where(c => c.IsGraphicsDriver).OrderByDescending(c => c.Time).ToList();
+        var lines = new List<Models.DriverLine>();
+        for (int i = 0; i < drivers.Count; i++)
+        {
+            var c = drivers[i];
+            // A driver read from Windows' log has no version; the one after it says what it replaced.
+            string? version = c.Now is { Length: > 0 } now ? now : i > 0 && drivers[i - 1].Was is { Length: > 0 } was ? was : null;
+            if (version is null) continue;
+            string dates = $"{c.Time:d MMM yyyy} to {(i == 0 ? "now" : drivers[i - 1].Time.ToString("d MMM yyyy"))}";
+            var r = _results.GetValueOrDefault(c.Time.Date);
+            bool has = r is not null && r.Changes.Contains(c);
+            lines.Add(new(version, dates, has ? Capital(r!.Short) : null, has && r!.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
+                c.Time.Date, opened.Changes.Contains(c), has));
+        }
+        return lines;
+    }
+
     // ── This PC now ─────────────────────────────────────────────────────
 
     private static List<NowFact> BuildNow(TimelineData data)
     {
         var facts = new List<NowFact>();
         var items = data.Inventory.ToLookup(i => i.Kind);
-        string? Since(Func<SystemChange, bool> match) =>
-            data.Changes.LastOrDefault(match) is { } c ? $"since {c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy")}" : null;
+        // Since when, and what that last change made better or worse where it did: a link under the value.
+        NowFact Fact(string label, string value, Func<SystemChange, bool> match)
+        {
+            if (data.Changes.LastOrDefault(match) is not { } c) return new(label, value, null);
+            var fact = new NowFact(label, value, $"since {c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy")}");
+            return data.Results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c)
+                ? fact with { ResultDay = r.Day, ResultText = Capital(r.Short), ResultBrush = r.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush" }
+                : fact;
+        }
 
         if (items[Inventory.Windows].FirstOrDefault() is { } windows)
-            facts.Add(new("Windows", $"{windows.Name.Replace("Windows ", "")} {windows.Value}", Since(c => c.Kind == ChangeKind.Windows)));
+            facts.Add(Fact("Windows", $"{windows.Name.Replace("Windows ", "")} {windows.Value}", c => c.Kind == ChangeKind.Windows));
         if (items[Inventory.GpuDriver].FirstOrDefault() is { } driver)
-            facts.Add(new("Graphics driver", driver.Value, Since(c => c.IsGraphicsDriver)));
+            facts.Add(Fact("Graphics driver", driver.Value, c => c.IsGraphicsDriver));
         if (items[Inventory.Bios].FirstOrDefault() is { } bios)
-            facts.Add(new("BIOS", bios.Value, Since(c => c.Kind == ChangeKind.Firmware)));
+            facts.Add(Fact("BIOS", bios.Value, c => c.Kind == ChangeKind.Firmware));
         if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new("Memory", ram.Value, null));
         if (items[Inventory.Setting].FirstOrDefault(i => i.Key == Inventory.PowerPlan) is { } plan)
-            facts.Add(new("Power plan", plan.Value, Since(c => c.Subject == $"{Inventory.Setting}:{Inventory.PowerPlan}")));
+            facts.Add(Fact("Power plan", plan.Value, c => c.Subject == $"{Inventory.Setting}:{Inventory.PowerPlan}"));
         if (items[Inventory.App].Any()) facts.Add(new("Apps installed", items[Inventory.App].Count().ToString("N0"), null));
         if (items[Inventory.Startup].Any()) facts.Add(new("Start with Windows", items[Inventory.Startup].Count(i => i.Value == Inventory.On).ToString("N0"), null));
         return facts;
