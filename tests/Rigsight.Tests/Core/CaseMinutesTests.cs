@@ -22,8 +22,9 @@ public class CaseMinutesTests
             return m;
         })];
 
-    private static List<StoodOut> Find(List<SystemMinute> minutes, List<AppMinute>? apps = null, List<FanMinute>? fans = null, List<NetDrop>? drops = null) =>
-        CaseMinutes.Find(minutes, apps ?? [], fans ?? [], new Dictionary<long, string> { [7] = "CPU fan", [8] = "Case fan" }, drops ?? [], Crash, 32, NameOf);
+    private static List<StoodOut> Find(List<SystemMinute> minutes, List<AppMinute>? apps = null, List<FanMinute>? fans = null, List<NetDrop>? drops = null,
+        List<(long, long)>? opened = null, bool power = false) =>
+        CaseMinutes.Find(minutes, apps ?? [], fans ?? [], new Dictionary<long, string> { [7] = "CPU fan", [8] = "Case fan" }, drops ?? [], Crash, 32, NameOf, opened, power);
 
     // The CPU sits at 63° and climbs to 91° over the last six minutes.
     private static double Climb(int before) => before > 5 ? 63 : 91 - before * 4;
@@ -53,6 +54,28 @@ public class CaseMinutesTests
             new AppMinute(Crash - before * 60, 1, 26, 0, 900, 0),
         }).ToList();
         Assert.EndsWith("before the crash. No one app was doing most of the work.", Find(Minutes(Climb), apps)[0].Text);
+    }
+
+    [Fact]
+    public void A_climb_as_a_game_was_starting_before_a_power_cut_says_so_and_is_no_warning()
+    {
+        // The power went a few minutes after Rocket League was opened: its loading warmed the part, with the work
+        // counted under its launcher, so no one app was far ahead. (REMATCH, 17 Oct, 11:16 PM.)
+        var apps = Enumerable.Range(0, 7).SelectMany(before => new[]
+        {
+            new AppMinute(Crash - before * 60, 2, 9, 0, 900, 0),
+            new AppMinute(Crash - before * 60, 1, 8, 0, 900, 0),
+        }).ToList();
+        long opened = Crash - 6 * 60 + 20;
+        var said = Find(Minutes(Climb), apps, opened: [(1, opened)], power: true);
+        Assert.Equal($"CPU went from 63° to 91° as Rocket League was starting at {TimeUtil.FromUnix(opened):h:mm tt}. That's Rocket League loading; it isn't why the PC went off.", said[0].Text);
+        Assert.False(said[0].Warn);
+        // Opened long before the climb: the climb is said as before.
+        Assert.EndsWith("No one app was doing most of the work.", Find(Minutes(Climb), apps, opened: [(1, Crash - 30 * 60)], power: true)[0].Text);
+        // Not the power: the game may be why, so the climb stays the warning it was.
+        var game = Find(Minutes(Climb), apps, opened: [(1, opened)])[0];
+        Assert.True(game.Warn);
+        Assert.EndsWith("No one app was doing most of the work.", game.Text);
     }
 
     [Fact]

@@ -87,7 +87,7 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
-    public void A_startup_program_gone_and_back_within_minutes_is_no_change()
+    public void A_startup_program_gone_and_back_within_minutes_is_one_line()
     {
         using var t = new TestDb();
         // Edge deletes its startup entry and writes it again as you sign in; the minute's check landed in between.
@@ -98,8 +98,13 @@ public sealed class ChangesStoreTests
         var discordOff = new SystemChange(T.AddMinutes(2), ChangeKind.Startup, "Discord no longer starts with Windows") { Subject = "startup:discord" };
         var discordOn = discordOff with { Time = T.AddDays(1), Title = "Discord now starts with Windows" };
         t.Db.InsertChanges([gone, back, steam, discordOff, discordOn]);
-        Assert.Equal(["Steam no longer starts with Windows", "Discord no longer starts with Windows", "Discord now starts with Windows"],
-            t.Db.GetChanges(0, long.MaxValue / 2).Select(c => c.Title));
+        var read = t.Db.GetChanges(0, long.MaxValue / 2);
+        Assert.Equal(["MicrosoftEdgeAutoLaunch left startup and came straight back", "Steam no longer starts with Windows", "Discord no longer starts with Windows", "Discord now starts with Windows"],
+            read.Select(c => c.Title));
+        // At the time it went, and as found: between the check before and then.
+        Assert.Equal((T, T.AddHours(-7), "startup:microsoftedgeautolaunch"), (read[0].Time, read[0].NoticedFrom, read[0].Subject));
+        Assert.Equal("Steam was added to startup and taken off straight away", RigsightDb.FlickerTitle("Steam now starts with Windows"));
+        Assert.Equal("Steam was turned off at startup and straight back on", RigsightDb.FlickerTitle("Steam turned off at startup"));
     }
 
     [Fact]

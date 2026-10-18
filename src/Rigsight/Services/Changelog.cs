@@ -93,6 +93,9 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("0.28.1", 10, 18,
+            better: ["A startup program that leaves and comes straight back, as Edge does when you sign in, shows as one line saying so.",
+                "When the power went off just after you started a game, the minutes before it say the GPU warmed because the game was loading, not as a warning."]),
         V("0.28.0", 10, 18,
             feature: new("Normal for this PC", "RigSight now knows what is normal for your PC and says when something really isn't.",
                 ["Compares each game's temperatures with your last two months at the same power, so it works weeks after setup, not months.",

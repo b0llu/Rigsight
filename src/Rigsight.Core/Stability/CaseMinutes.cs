@@ -22,8 +22,15 @@ public static class CaseMinutes
     /// <summary>The least share (%) an app must average over a climb to be named for it, and how far ahead of the next it must be.</summary>
     public const double NameShare = 15, AheadBy = 1.5;
 
+    /// <summary>How long before a climb began an app may have opened for the climb to be put down to it starting.</summary>
+    public const int OpenedBeforeMinutes = 2;
+
+    /// <param name="opened">Apps that opened in these minutes (by id, Unix seconds): a game starting warms the GPU as it loads.</param>
+    /// <param name="power">The PC went off because the power did (see PcUsual.ShutOffOf): a climb as an app was starting is then
+    /// said as that, not as a warning. Where the app itself may be why, the climb is the warning it was.</param>
     public static List<StoodOut> Find(IReadOnlyList<SystemMinute> minutes, IReadOnlyList<AppMinute> apps, IReadOnlyList<FanMinute> fans,
-        IReadOnlyDictionary<long, string> fanNames, IReadOnlyList<NetDrop> drops, long crash, double? ramTotalGb, Func<long, string> nameOf)
+        IReadOnlyDictionary<long, string> fanNames, IReadOnlyList<NetDrop> drops, long crash, double? ramTotalGb, Func<long, string> nameOf,
+        IReadOnlyList<(long App, long Start)>? opened = null, bool power = false)
     {
         var said = new List<StoodOut>();
         var before = minutes.Where(m => m.Ts <= crash).OrderBy(m => m.Ts).ToList();
@@ -33,7 +40,14 @@ public static class CaseMinutes
         foreach (var part in new[] { Part.Cpu, Part.Gpu })
         {
             if (Climbed(before, part, crash) is { } climb)
-                said.Add(new StoodOut(ClimbText(climb, part, before, apps, crash, nameOf), true));
+            {
+                // The power went just after an app opened: its loading warmed the part, and that isn't why the PC went off.
+                var starting = power ? opened?.Where(o => o.Start >= climb.Start - OpenedBeforeMinutes * 60 && o.Start <= crash).OrderBy(o => o.Start).FirstOrDefault() : null;
+                said.Add(starting is { App: var app, Start: var at } && at > 0
+                    ? new StoodOut($"{(part == Part.Cpu ? "CPU" : "GPU")} went from {Units.TempShort(climb.From)} to {Units.TempShort(climb.To)} as {nameOf(app)} was starting at "
+                        + $"{TimeUtil.FromUnix(at):h:mm tt}. That's {nameOf(app)} loading; it isn't why the PC went off.", false)
+                    : new StoodOut(ClimbText(climb, part, before, apps, crash, nameOf), true));
+            }
             else if (before.Any(m => Temp(m, part) is not null))
                 calm.Add(part == Part.Cpu ? "CPU temperature" : "GPU temperature");
         }
@@ -136,8 +150,7 @@ public static class CaseMinutes
     private static string ClimbText(Rise climb, Part part, List<SystemMinute> minutes, IReadOnlyList<AppMinute> apps, long crash, Func<long, string> nameOf)
     {
         string what = part == Part.Cpu ? "CPU" : "GPU";
-        int span = Math.Max(1, (int)Math.Round((crash - climb.Start) / 60.0) + 1);
-        string head = $"{what} went from {Units.TempShort(climb.From)} to {Units.TempShort(climb.To)} in the {span} minutes before the crash";
+        string head = Head(climb, part, crash);
         Func<AppMinute, double> share = part == Part.Cpu ? a => a.Cpu : a => a.Gpu;
 
         // With how much, from the apps each minute kept: the one far ahead of the rest over the climb.
@@ -157,6 +170,12 @@ public static class CaseMinutes
         if (named.Count > 0 && named.GroupBy(x => x).MaxBy(g => g.Count()) is { Key: long app } most && most.Count() * 3 >= named.Count * 2)
             return $"{head}, while {nameOf(app)} was working it hardest.";
         return $"{head}.";
+    }
+
+    private static string Head(Rise climb, Part part, long crash)
+    {
+        int span = Math.Max(1, (int)Math.Round((crash - climb.Start) / 60.0) + 1);
+        return $"{(part == Part.Cpu ? "CPU" : "GPU")} went from {Units.TempShort(climb.From)} to {Units.TempShort(climb.To)} in the {span} minutes before the crash";
     }
 
     /// <summary>The app with the most of something in the last minute before the crash that has apps recorded.</summary>

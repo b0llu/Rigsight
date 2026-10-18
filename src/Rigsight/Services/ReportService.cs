@@ -318,7 +318,7 @@ public sealed class ReportService(SettingsModel settings)
             // Everything recorded about the PC in those minutes: its lanes, strips and marks, the box beside them, and
             // what stood out (see CaseMinutesBuilder).
             var built = CaseMinutesBuilder.Build(db, s, from, to, at, db.GetSessions(TimeUtil.ToUnix(from), ts + 60),
-                group.IsIncident ? "crash" : CloseUpBuilder.WordOf(e.Kind));
+                group.IsIncident ? "crash" : CloseUpBuilder.WordOf(e.Kind), power: !group.IsIncident && Core.Reports.PcUsual.LooksLikePower(e, finding));
             var points = built.Minutes;
 
             // The stretches with nothing recorded, each with why where Windows' log says (the PC was off, asleep, had

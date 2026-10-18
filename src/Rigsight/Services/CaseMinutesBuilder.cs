@@ -20,7 +20,8 @@ internal static class CaseMinutesBuilder
     /// <summary>The most fans drawn on the Fans lane (the fastest-turning); the box lists the first <see cref="CaseReadout.FanLines"/>.</summary>
     private const int FanSeries = 4;
 
-    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions, string word = "crash")
+    /// <param name="power">The crash looked like the power going off (see PcUsual.ShutOffOf).</param>
+    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions, string word = "crash", bool power = false)
     {
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to) + 60, at = TimeUtil.ToUnix(crash);
         var rows = db.GetMinutes(f, t);
@@ -133,7 +134,8 @@ internal static class CaseMinutesBuilder
 
         // Never in the way of the crash opening: what stood out is left out, and the log says why.
         List<StoodOut> stood;
-        try { stood = CaseMinutes.Find(rows, [.. apps.SelectMany(g => g)], fanRows, fans, drops, at, ramTotal, NameOf); }
+        try { stood = CaseMinutes.Find(rows, [.. apps.SelectMany(g => g)], fanRows, fans, drops, at, ramTotal, NameOf,
+            [.. sessions.Where(x => x.Start > f && x.Start < at && onStrips.Contains(NameOf(x.AppId))).Select(x => (x.AppId, x.Start))], power); }
         catch (Exception ex)
         {
             Core.Log.Error("crashes", ex);
