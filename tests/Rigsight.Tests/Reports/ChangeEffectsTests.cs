@@ -52,6 +52,40 @@ public sealed class ChangeEffectsTests
         public ChangeResult? Result(params SystemChange[] changes) => Results(changes).GetValueOrDefault(Day);
     }
 
+    private static SystemChange Fans(DateTime day) =>
+        new(day.AddHours(9), ChangeKind.Fans, "Fan speeds changed while the PC was off") { Subject = "fans|3|", Now = "Fan #2 1,600 → 1,050 rpm · likely a BIOS setting" };
+
+    [Fact]
+    public void A_fan_change_the_day_before_a_driver_never_takes_the_drivers_days()
+    {
+        // Fans set slower in the BIOS one day, a driver the next, the game hotter since the driver.
+        var pc = new Pc().Days(-12, -1, gpu: 70).Days(1, 6, gpu: 78);
+        var results = pc.Results(Fans(Day.AddDays(-1)), Driver(Day));
+        var driver = results[Day];
+        // The driver keeps its two weeks before (not cut at the fan change), and is still its own result, not "one of these".
+        Assert.Equal(Day.AddDays(-ChangeEffects.WindowDays), driver.From);
+        Assert.Equal((Confidence.Likely, "THE DRIVER"), (driver.Sure, driver.Cause));
+        // The fan change's own days end at the driver: a day after it isn't enough to say anything, so nothing is.
+        Assert.False(results.ContainsKey(Day.AddDays(-1)));
+    }
+
+    [Fact]
+    public void A_fan_change_gets_its_own_before_and_after_when_nothing_else_changed()
+    {
+        var r = new Pc().Days(-10, -1, gpu: 70, cpu: 60).Days(1, 6, gpu: 70, cpu: 72).Result(Fans(Day))!;
+        Assert.Equal((EffectTone.Worse, "THE FAN CHANGE"), (r.Tone, r.Cause));
+        Assert.Equal("Cyberpunk 2077 runs 12° hotter on the CPU since this fan change", r.Headline);
+    }
+
+    [Fact]
+    public void A_fan_change_is_judged_by_heat_only_never_by_problems_it_cant_cause()
+    {
+        // Sudden shut-offs before, none after, the game's heat the same: fans don't cause shut-offs, so nothing is said.
+        var pc = new Pc().Days(-10, -1, gpu: 70).Days(1, 6, gpu: 70);
+        for (int d = -9; d <= -1; d++) pc.Problem(d, 12, CrashKind.UnexpectedShutdown, graphics: false);
+        Assert.Null(pc.Result(Fans(Day)));
+    }
+
     // ---- Temperatures ----
 
     [Fact]

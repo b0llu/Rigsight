@@ -122,6 +122,16 @@ public static class Wording
         _ => $"{n} {Noun(kind, n != 1)}",
     };
 
+    /// <summary>Shut-offs that were most likely the mains, said the same on every page: "1 likely power cut".</summary>
+    public static string PowerCuts(int n) => n == 1 ? "1 likely power cut" : $"{n} likely power cuts";
+
+    /// <summary>
+    /// Shut-offs that look like the power, said the same on every page: "2 likely power cuts" when every one was likely,
+    /// else "3 shut-offs, likely or possibly the power" (a power cut, a dip, the mains or the power supply).
+    /// </summary>
+    public static string PowerOffs(int likely, int all) =>
+        all == likely ? PowerCuts(all) : all == 1 ? "1 shut-off, possibly the power" : likely == 0 ? $"{all} shut-offs, possibly the power" : $"{all} shut-offs, likely or possibly the power";
+
     // ── Notifications ───────────────────────────────────────────────────
 
     /// <summary>The last words of every notification.</summary>
@@ -141,5 +151,16 @@ public static class Wording
     /// <summary>A part's peak, part first: "CPU peak", "GPU peak".</summary>
     public static string Peak(string part) => $"{part} peak";
 
-    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+    /// <summary>The first letter in capitals ("graphics driver resets" as "Graphics driver resets"): every page's one copy.</summary>
+    public static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    /// <summary>"A, B and C" ("A and B", "A"; nothing for none).</summary>
+    public static string JoinAnd(IEnumerable<string> items)
+    {
+        var list = items as IReadOnlyList<string> ?? items.ToList();
+        return list.Count <= 1 ? string.Concat(list) : string.Join(", ", list.Take(list.Count - 1)) + " and " + list[^1];
+    }
+
+    /// <summary>A number of minutes in words: "1 minute", "45 minutes", and from an hour on as every other duration ("1h 30m").</summary>
+    public static string Minutes(int minutes) => minutes >= 60 ? Units.Duration(minutes * 60.0) : minutes == 1 ? "1 minute" : $"{minutes} minutes";
 }

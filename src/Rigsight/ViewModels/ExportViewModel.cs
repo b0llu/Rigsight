@@ -385,7 +385,7 @@ public sealed partial class ExportViewModel : ObservableObject
     };
 
     /// <summary>The changes that could have to do with a crash: the PC's own, not an app updating itself.</summary>
-    private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting];
+    private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
 
     private static List<CrashStory> Stories(RigsightDb db, Core.Settings.RigsightSettings s, DateTime from, DateTime to)
     {

@@ -20,7 +20,23 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
 {
     /// <summary>The detail for a tooltip: none when there's nothing to add (a bound tooltip of "" would show an empty box).</summary>
     public string? DetailOrNull => Detail.Length == 0 ? null : Detail;
+
+    /// <summary>
+    /// The line as one statement, for Home, where it's read at a glance ("Crimson Desert runs 8° hotter than usual"); the
+    /// full sentence (<see cref="Text"/>) is where it opens and on Reports.
+    /// </summary>
+    public string? Short { get; init; }
+
+    /// <summary>What Home shows: the one statement, or the sentence where a line has no shorter form.</summary>
+    public string Line => Short ?? Text;
+
+    /// <summary>Where the line opens, when that page shows something the line can't (see <see cref="InsightLinks"/>).</summary>
+    public InsightOpens Opens { get; init; }
+    public bool CanOpen => Opens != InsightOpens.None;
 }
+
+/// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>
+public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage }
 
 /// <summary>Minutes a part spent over its warm line (<see cref="Report.HotLine"/>) put down to one app.</summary>
 public sealed record HotShare(string App, int Minutes);
@@ -310,6 +326,12 @@ public sealed class Report
 
     public List<FanStat> Fans { get; set; } = [];
     public Throttling? GpuThrottle { get; set; }
+
+    /// <summary>
+    /// The period against what is normal for this PC (see <see cref="PcUsual"/>): for a day, the 7 days to its end;
+    /// null for a year or all time.
+    /// </summary>
+    public PcUsual? Usual { get; set; }
 
     /// <summary>
     /// The game in front for the last minutes of a period still going on: its session isn't over, so it isn't among

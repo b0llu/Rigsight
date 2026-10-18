@@ -231,7 +231,7 @@ public sealed class CaseLanes : FrameworkElement
         {
             double mid = (X(g[0].At) + X(g[^1].At)) / 2;
             var names = g.Select(m => m.Label).Distinct().ToList();
-            string full = (names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1]) + " opened";
+            string full = Core.Wording.JoinAnd(names) + " opened";
             var label = ChartPaint.Format(this, full, 10.5, ChartPaint.Muted);
             double lx = Math.Clamp(mid - label.Width / 2, free, w - label.Width);
             if (label.Width > 220 || lx + label.Width > w || lx < free)

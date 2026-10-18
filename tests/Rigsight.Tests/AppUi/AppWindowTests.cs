@@ -39,6 +39,21 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void Nothing_of_the_window_shows_through_the_updating_screen_and_it_all_comes_back_after()
+    {
+        // The user saw the sidebar's scrollbar over "Updating RigSight": the sidebar and the page are hidden while it's up.
+        // (The Settings menu closing with it isn't opened here: a pop-up in a window test upsets the memory tests.)
+        FrameworkElement Part(string name) => (FrameworkElement)host.Window.FindName(name);
+        Ui.Run(() => host.Shell.Update.ShowOverlay = true);
+        Ui.Pump(100);
+        Ui.Run(() => Assert.Equal((Visibility.Hidden, Visibility.Hidden, false),
+            (Part("SidebarHost").Visibility, Part("PageHost").Visibility, ((System.Windows.Controls.Primitives.ToggleButton)Part("SettingsRow")).IsChecked == true)));
+        Ui.Run(() => host.Shell.Update.ShowOverlay = false);
+        Ui.Pump(100);
+        Ui.Run(() => Assert.Equal((Visibility.Visible, Visibility.Visible), (Part("SidebarHost").Visibility, Part("PageHost").Visibility)));
+    }
+
+    [Fact]
     public void The_question_before_ending_a_part_of_Windows_shows_over_the_window()
     {
         Ui.TakeProblems();

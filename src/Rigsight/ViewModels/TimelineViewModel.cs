@@ -276,6 +276,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("startup", "Startup programs", [ChangeKind.Startup]),
         ("hardware", "Hardware", [ChangeKind.Hardware, ChangeKind.Firmware]),
         ("settings", "Settings", [ChangeKind.Setting]),
+        ("fans", "Fan speeds", [ChangeKind.Fans]),
         ("storage", "Drive space", [ChangeKind.Storage]),
         ("ended", "Ended from Processes", [ChangeKind.TaskEnded]),
     ];
@@ -384,7 +385,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
                 CrashTime = n == 1 ? first.Time : null,
-                Title = n == 1 ? first.Title : first.Outside ? $"{n} likely power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
+                Title = n == 1 ? first.Title : first.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             }));
         }
 
@@ -423,8 +424,6 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         };
     }
 
-    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
-
     // "7-Zip (x64) updated to 26.01" is "7-Zip (x64)" in the folded line.
     private static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
 
@@ -439,6 +438,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("updated", [ChangeKind.AppUpdated], "app updates"),
         ("startup", [ChangeKind.Startup], "startup changes"),
         ("settings", [ChangeKind.Setting], "settings changed"),
+        ("fans", [ChangeKind.Fans], "fan speed changes"),
         ("storage", [ChangeKind.Storage], "drive space changes"),
         ("ended", [ChangeKind.TaskEnded], "apps ended from Processes"),
     ];
@@ -461,7 +461,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 TimeText = Span(group.Select(p => p.Time)), Icon = ProblemIcon, Brush = last.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !last.Outside, CrashDay = last.Time.Date,
                 CrashFrom = group.Min(p => p.Time).Date,
                 CrashTime = n == 1 ? last.Time : null,
-                Title = n == 1 ? last.Title : last.Outside ? $"{n} likely power cuts" : Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
+                Title = n == 1 ? last.Title : last.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
         }
         foreach (var (key, kinds, many) in MonthLines)
@@ -537,6 +537,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ChangeKind.Hardware or ChangeKind.Firmware => "",
         ChangeKind.Setting => "",
         ChangeKind.TaskEnded => "",
+        ChangeKind.Fans => "",
         _ => "",
     };
 
@@ -767,7 +768,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             string dates = $"{c.Time:d MMM yyyy} to {(i == 0 ? "now" : drivers[i - 1].Time.ToString("d MMM yyyy"))}";
             var r = _results.GetValueOrDefault(c.Time.Date);
             bool has = r is not null && r.Changes.Contains(c);
-            lines.Add(new(version, dates, has ? Capital(r!.Short) : null, has && r!.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
+            lines.Add(new(version, dates, has ? Core.Wording.Capital(r!.Short) : null, has && r!.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
                 c.Time.Date, opened.Changes.Contains(c), has));
         }
         return lines;
@@ -785,7 +786,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             if (data.Changes.LastOrDefault(match) is not { } c) return new(label, value, null);
             var fact = new NowFact(label, value, $"since {c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy")}");
             return data.Results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c)
-                ? fact with { ResultDay = r.Day, ResultText = Capital(r.Short), ResultBrush = r.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush" }
+                ? fact with { ResultDay = r.Day, ResultText = Core.Wording.Capital(r.Short), ResultBrush = r.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush" }
                 : fact;
         }
 

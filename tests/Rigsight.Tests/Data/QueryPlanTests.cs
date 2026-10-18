@@ -79,7 +79,7 @@ public sealed partial class QueryPlanTests
     public static TheoryData<string> Readers => new()
     {
         "GetMinutes", "GetAppHours", "GetAppTotals", "GetSystemDays", "GetSessions", "GetLongestSessions", "GetSessionStats", "GetRecentSessions",
-        "GetCrashes", "GetCrashContext", "TempRange", "AverageTemps", "FindMinute", "GetAppMonths", "GetAppTime", "PeakTempsBefore", "FrontAppAt",
+        "GetCrashes", "GetCrashContext", "TempRange", "FindMinute", "GetAppMonths", "GetAppTime",
         "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec", "Network",
     };
 
@@ -108,12 +108,9 @@ public sealed partial class QueryPlanTests
             "GetCrashes" => () => db.GetCrashes(from, to),
             "GetCrashContext" => () => db.GetCrashContext(from, to),
             "TempRange" => () => db.TempRange(from, to),
-            "AverageTemps" => () => db.AverageTemps(from, to),
             "FindMinute" => () => db.FindMinute("cpu_temp_max", 80, day, day + 86400, "cpu_app"),
             "GetAppMonths" => () => db.GetAppMonths(U(2000, 1, 1), to),
             "GetAppTime" => () => { db.GetAppTime(1, from, to, monthly: false); db.GetAppTime(1, U(2000, 1, 1), to, monthly: true); },
-            "PeakTempsBefore" => () => db.PeakTempsBefore(day + 43200, 5),
-            "FrontAppAt" => () => db.FrontAppAt(day + 43200),
             "FirstTimes" => () => { db.FirstDataTime(); db.FirstMinuteTime(); db.FirstCrashTime(); },
             "GetDriveDays" => () => db.GetDriveDays(from),
             "Fans" => () => { db.GetFans(); db.GetFanMinutes(day, day + 86400); db.GetFanDays(U(2000, 1, 1), to); db.GetFanCurveDays(U(2000, 1, 1), to); },

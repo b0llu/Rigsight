@@ -16,6 +16,9 @@ public sealed partial class RigsightDb : IDisposable
 
     private RigsightDb(SqliteConnection conn) => _conn = conn;
 
+    /// <summary>The database's file: what a cache of things worked out from it is kept by.</summary>
+    public string Source => _conn.DataSource;
+
     public static RigsightDb OpenWriter() => OpenWriter(RigsightPaths.Database);
 
     /// <summary>Opens (creating if needed) the database at <paramref name="path"/>: <see cref="RigsightPaths.Database"/>, or a test's.</summary>
@@ -542,6 +545,14 @@ public sealed partial class RigsightDb : IDisposable
         var list = new List<FanRow>();
         while (r.Read()) list.Add(new FanRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3)));
         return list;
+    }
+
+    /// <summary>The first fan minute kept (Unix seconds), or null.</summary>
+    public long? FirstFanMinute()
+    {
+        if (!HasFans) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM fan_minute");
+        return cmd.ExecuteScalar() is long v ? v : null;
     }
 
     public List<FanMinute> GetFanMinutes(long from, long to)
@@ -1358,15 +1369,6 @@ public sealed partial class RigsightDb : IDisposable
         return r.Read() ? (D(r, 0), D(r, 1), D(r, 2), D(r, 3), D(r, 4), D(r, 5)) : default;
     }
 
-    /// <summary>Average CPU and GPU temperature over a range (for "hotter than usual" comparisons).</summary>
-    public (double? Cpu, double? Gpu) AverageTemps(long from, long to)
-    {
-        using var cmd = Cmd("SELECT avg(cpu_temp), avg(gpu_temp) FROM system_minute WHERE ts >= $from AND ts < $to",
-            ("$from", from), ("$to", to));
-        using var r = cmd.ExecuteReader();
-        return r.Read() ? (D(r, 0), D(r, 1)) : (null, null);
-    }
-
     /// <summary>
     /// The last day before <paramref name="before"/> (a local midnight) with at least <paramref name="minActiveSec"/> of
     /// use: its local midnight (Unix seconds), if any.
@@ -1428,22 +1430,6 @@ public sealed partial class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
-    /// <summary>Highest CPU and GPU temperature in the minutes before a moment (to spot heat-related crashes).</summary>
-    public (double? Cpu, double? Gpu) PeakTempsBefore(long ts, int minutes)
-    {
-        using var cmd = Cmd("SELECT max(cpu_temp_max), max(gpu_temp_max) FROM system_minute WHERE ts >= $from AND ts <= $to",
-            ("$from", ts - minutes * 60L), ("$to", ts));
-        using var r = cmd.ExecuteReader();
-        return r.Read() ? (D(r, 0), D(r, 1)) : (null, null);
-    }
-
-    /// <summary>The app in front during the last recorded minute at or before <paramref name="ts"/> (within 3 minutes).</summary>
-    public long? FrontAppAt(long ts)
-    {
-        using var cmd = Cmd("SELECT fg_app FROM system_minute WHERE ts <= $ts AND ts > $from AND fg_app IS NOT NULL ORDER BY ts DESC LIMIT 1",
-            ("$ts", ts), ("$from", ts - 180));
-        return cmd.ExecuteScalar() is long id ? id : null;
-    }
 
     private static double? D(IDataRecord r, int i) => r.IsDBNull(i) ? null : r.GetDouble(i);
 }

@@ -166,7 +166,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public bool ShowEmpty => Ready && !HasSelection;
 
     /// <summary>What the page says when the period has nothing ("No apps used today yet…").</summary>
-    public string EmptyText => $"No apps used {Controls.PeriodPicker.Words(Unit, Anchor, CustomFrom, CustomTo)} yet. Use your PC for a bit and come back.";
+    public string EmptyText => $"No apps used {Controls.PeriodPicker.Words(Unit, Anchor)} yet. Use your PC for a bit and come back.";
 
     /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
     [ObservableProperty] private List<SessionInfo> _selectedSessions = [];

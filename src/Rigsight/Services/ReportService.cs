@@ -96,13 +96,6 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>The first day with minute-by-minute history (kept for less time than daily totals).</summary>
     public Task<DateTime?> FirstMinuteDayAsync() => Run(db => db.FirstMinuteTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 
-    /// <summary>Number of days since recording started, today included.</summary>
-    public Task<int> TrackedDaysAsync() => Run(db =>
-    {
-        var first = db.FirstDataTime();
-        return first is long f ? (int)(DateTime.Today - TimeUtil.FromUnix(f).Date).TotalDays + 1 : 0;
-    });
-
     /// <summary>
     /// One app's active time across a period, in bars that suit it: per hour for a day, per day for a week or month,
     /// per month for a year or all time (from the monthly totals, so a long period stays cheap).

@@ -131,7 +131,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     public bool ShowTimeline => !IsDay;
 
     /// <summary>The period shown, as it reads after "No problems": "today", "this month", "on Fri, 9 Oct", "on record" (see <see cref="PeriodPicker.Words"/>).</summary>
-    private string When => PeriodPicker.Words(Unit, Anchor, CustomFrom, CustomTo);
+    private string When => PeriodPicker.Words(Unit, Anchor);
 
     /// <summary>List every crash newest first (default), or group repeats of the same crash into one row.</summary>
     [ObservableProperty] private bool _grouped;
@@ -173,11 +173,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// The days a Timeline line spans ("3 graphics driver resets, 12–15 Oct"), with only the PC's own problems: that
     /// line's problems, without the app crashes of those days.
     /// </summary>
-    public void ShowPcProblems(DateTime first, DateTime last)
+    public void ShowPcProblems(DateTime first, DateTime last) => ShowDays(first, last, pcOnly: true);
+
+    /// <summary>The days from <paramref name="first"/> to <paramref name="last"/>, with only the PC's own problems or everything.</summary>
+    public void ShowDays(DateTime first, DateTime last, bool pcOnly)
     {
         CloseCase();
         SearchText = "";
-        Filter = "Pc";
+        Filter = pcOnly ? "Pc" : "All";
         if (first.Date == last.Date)
         {
             ShowDay(first);
@@ -298,7 +301,6 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private CaseTab? _shown;
 
     /// <summary>Another of the open row's times.</summary>
-    [RelayCommand]
     private async Task PickTab(CaseTab tab)
     {
         if (Case is not { } open || tab == _shown) return;
@@ -609,7 +611,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     [ObservableProperty] private int _unfinishedCount;
 
     public bool HasPowerCuts => PowerCutCount > 0;
-    public string PowerCutText => PowerCutCount == 1 ? "1 likely power cut" : $"{PowerCutCount} likely power cuts";
+    public string PowerCutText => Core.Wording.PowerCuts(PowerCutCount);
 
     // ── Status line ─────────────────────────────────────────────────────
 
@@ -645,7 +647,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             return;
         }
         int daysSince = lastSerious is null ? int.MaxValue : (int)(DateTime.Today - lastSerious.Time.Date).TotalDays;
-        string powerCuts = mains.Count == 0 ? "" : mains.Count == 1 ? "1 likely power cut" : $"{mains.Count} likely power cuts";
+        string powerCuts = mains.Count == 0 ? "" : Core.Wording.PowerCuts(mains.Count);
 
         // A power cut leads only when nothing serious happened in the last week: a newer one hid a shut-off under load
         // that pointed at the power supply (the user: "what do you think is wrong with this?").

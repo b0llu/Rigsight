@@ -92,6 +92,20 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
+        // Version and date settled at release.
+        V("0.28.0", 10, 18,
+            feature: new("Normal for this PC", "RigSight now knows what is normal for your PC and says when something really isn't.",
+                ["Compares each game's temperatures with your last two months at the same power, so it works weeks after setup, not months.",
+                    "Weighs blue screens, driver resets and sudden shut-offs against your usual, with likely power cuts counted apart.",
+                    "Puts your usual beside each week and month on Reports, coloured only where something moved."],
+                "reports", "", isPage: false) { OpenText = "Open Reports" },
+            added: ["The Timeline shows when your motherboard fans came back from a restart at another speed, such as after a change in the BIOS.",
+                "One app crashing far more than it usually does gets a line of its own, apart from the PC's own problems."],
+            better: ["Every line on Home is one short statement, and only a line with more to see opens a page.",
+                "Saying a game runs hotter now gives the temperature at rest that rules the room out, instead of \"not because of the room\".",
+                "The problems tile on Reports counts the PC's own problems, with app crashes and shut-offs that look like the power said under it."],
+            fixedBugs: ["Nothing behind the Updating RigSight screen shows through it, such as the sidebar's scroll bar or an open Settings menu, and its logo is sharp.",
+                "A startup program that leaves and comes straight back, as Edge does when you sign in, no longer shows on Home and the Timeline as two changes."]),
         V("0.27.1", 10, 17,
             added: ["On PCs with two graphics adapters, the Timeline says when a GPU disconnected and came back within 10 minutes, outside a driver install."],
             better: ["Zooming into a stretch of a long Temperatures range, such as the last 7 days, shows it in finer detail on its own scale.",

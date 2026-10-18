@@ -161,7 +161,7 @@ public partial class PeriodPicker : UserControl
     /// 5–11 Oct", "in August 2026", "in 2025"); "on record" for all time. Never "on this day" or "in this period" for
     /// a period the app can name. A custom range, which has no name, is "in this time".
     /// </summary>
-    public static string Words(ReportRange unit, DateTime anchor, DateTime customFrom = default, DateTime customTo = default)
+    public static string Words(ReportRange unit, DateTime anchor)
     {
         if (unit == ReportRange.All) return "on record";
         if (unit == ReportRange.Custom) return "in this time";
@@ -291,7 +291,8 @@ public partial class PeriodPicker : UserControl
     public static (DateTime From, DateTime To, string? Error) ReadRange(DateTime? fromDate, int fromHour, DateTime? toDate, int toHour, DateTime now) =>
         RangeEditor.ReadRange(fromDate, fromHour, toDate, toHour, now);
 
-    private void RangeApply_Click(object? sender, RoutedEventArgs? e) => Editor.Apply();
+    /// <summary>The range editor's Apply, as its own Apply button does it (for the tests).</summary>
+    internal void ApplyRange() => Editor.Apply();
 
     private void Step(int direction)
     {

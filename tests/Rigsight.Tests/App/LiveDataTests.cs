@@ -470,7 +470,7 @@ public sealed class LiveDataTests
     }
 
     [Fact]
-    public void Derived_texts_for_memory_and_video_memory()
+    public void Derived_texts_for_memory()
     {
         var (_, live) = Kit.Greeted();
         Ui.Run(() =>
@@ -479,13 +479,7 @@ public sealed class LiveDataTests
             live.ApplyTick(Pc.Tick(T0, 40, ("/ram/data/0", 12.34f), ("/ram/data/1", 19.66f), ("/gpu/smalldata/0", 3072), ("/gpu/smalldata/1", 12288)));
             Assert.Equal("12.3 GB of 32.0 GB", live.RamText);
             Assert.Equal("32 GB", live.RamTotalText);
-            Assert.Equal("3.0 / 12.0 GB", live.GpuVramText);
             Assert.Equal("12.3 GB", live.MemAppsText);
-            // Without the video memory total, its load is shown instead.
-            live.ApplyTick(Pc.Tick(T0 + 1000, 40, ("/gpu/smalldata/1", null), ("/gpu/load/1", 37.4f)));
-            Assert.Equal("37%", live.GpuVramText);
-            live.ApplyTick(Pc.Tick(T0 + 2000, 40, ("/gpu/smalldata/1", 0), ("/gpu/load/1", 12f)));
-            Assert.Equal("12%", live.GpuVramText);
         });
     }
 

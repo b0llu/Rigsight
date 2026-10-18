@@ -129,7 +129,7 @@ public static class ChangeEffects
 
     /// <summary>The changes worth a before and after: what every game and app runs on.</summary>
     public static bool IsMajor(SystemChange c) =>
-        c.IsGraphicsDriver || c.Kind is ChangeKind.Firmware or ChangeKind.Hardware or ChangeKind.Windows or ChangeKind.WindowsUpdate || IsPowerPlan(c);
+        c.IsGraphicsDriver || c.Kind is ChangeKind.Firmware or ChangeKind.Hardware or ChangeKind.Windows or ChangeKind.WindowsUpdate or ChangeKind.Fans || IsPowerPlan(c);
 
     /// <summary>
     /// The results from a database, as every page and the export show them: the problems a change can be set against
@@ -143,7 +143,8 @@ public static class ChangeEffects
         crashes ??= PcProblems(db);
         found ??= CrashCases.Of(db, crashes, s);
         var names = db.LoadApps().ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
-        var against = crashes.Select(e => (e, f: found.GetValueOrDefault(e.Id))).Where(x => x.f is not { Outside: true })
+        // The PC's own problems only (PcUsual.ShutOffOf, the rule every page counts by): not the power, not what was outside the PC.
+        var against = crashes.Select(e => (e, f: found.GetValueOrDefault(e.Id))).Where(x => PcUsual.CountsAsPcProblem(x.e, x.f))
             .Select(x => new ChangeProblem(x.e.Time, x.e.Kind, IsGraphics(x.e, x.f), x.f?.Said ?? "")).ToList();
         return Of(changes, db.GetHeatDays(0, long.MaxValue / 2), db.GetSystemDays(0, long.MaxValue / 2) ?? [], against,
             id => names.GetValueOrDefault(id, "a game"), DateTime.Now);
@@ -158,21 +159,30 @@ public static class ChangeEffects
         IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf, DateTime now)
     {
         var results = new Dictionary<DateTime, ChangeResult>();
-        var days = changes.Where(IsMajor).GroupBy(c => c.Time.Date).OrderBy(g => g.Key)
-            .Select(g => (Day: g.Key, At: g.Min(c => c.Earliest), Of: g.OrderBy(Rank).ThenBy(c => c.Time).ToList())).ToList(); // a problem in the minutes before it was noticed may be its doing
+        // Fan speeds set in the BIOS are compared too, but they never take days from the others: a driver the day after
+        // a fan change keeps its days before, and two big changes on one day stay the driver's and the update's. A fan
+        // change's own days end at any other big change, so nothing is put down to the fans that another change did.
+        var major = changes.Where(IsMajor).ToList();
+        var days = Days(major.Where(c => c.Kind != ChangeKind.Fans));
+        var all = Days(major);
         var tomorrow = now.Date.AddDays(1);
-        for (int i = 0; i < days.Count; i++)
-        {
-            var (day, at, of) = days[i];
-            var from = day.AddDays(-WindowDays);
-            if (i > 0 && days[i - 1].Day.AddDays(1) > from) from = days[i - 1].Day.AddDays(1);
-            var to = day.AddDays(WindowDays + 1);
-            if (i + 1 < days.Count && days[i + 1].Day < to) to = days[i + 1].Day;
-            bool open = to >= tomorrow; // still running: "since", not "in the days after"
-            if (open) to = tomorrow;
-            if (new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf).Result() is { } result) results[day] = result;
-        }
+        foreach (var (list, isFans) in new[] { (days, false), (all.Where(d => d.Of.All(c => c.Kind == ChangeKind.Fans)).ToList(), true) })
+            foreach (var (day, at, of) in list)
+            {
+                var bounds = isFans ? all : days;
+                var from = day.AddDays(-WindowDays);
+                if (bounds.LastOrDefault(d => d.Day < day) is { Of: not null } before && before.Day.AddDays(1) > from) from = before.Day.AddDays(1);
+                var to = day.AddDays(WindowDays + 1);
+                if (bounds.FirstOrDefault(d => d.Day > day) is { Of: not null } after && after.Day < to) to = after.Day;
+                bool open = to >= tomorrow; // still running: "since", not "in the days after"
+                if (open) to = tomorrow;
+                if (!results.ContainsKey(day) && new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf).Result() is { } result) results[day] = result;
+            }
         return results;
+
+        // a problem in the minutes before it was noticed may be its doing
+        static List<(DateTime Day, DateTime At, List<SystemChange> Of)> Days(IEnumerable<SystemChange> list) =>
+            [.. list.GroupBy(c => c.Time.Date).OrderBy(g => g.Key).Select(g => (Day: g.Key, At: g.Min(c => c.Earliest), Of: g.OrderBy(Rank).ThenBy(c => c.Time).ToList()))];
     }
 
     /// <summary>Which of a day's big changes names it: what everything runs on first.</summary>
@@ -183,6 +193,7 @@ public static class ChangeEffects
         { Kind: ChangeKind.Firmware } => 2,
         { Kind: ChangeKind.Windows } => 3,
         { Kind: ChangeKind.WindowsUpdate } => 4,
+        { Kind: ChangeKind.Fans } => 6,
         _ => 5,
     };
 
@@ -194,6 +205,7 @@ public static class ChangeEffects
         { Kind: ChangeKind.Firmware } => ("this BIOS update", "THE BIOS"),
         { Kind: ChangeKind.Windows } => ("this Windows version", "THE NEW WINDOWS"),
         { Kind: ChangeKind.WindowsUpdate } => ("this update", "THE UPDATE"),
+        { Kind: ChangeKind.Fans } => ("this fan change", "THE FAN CHANGE"),
         _ => ("this power plan", "THE POWER PLAN"),
     };
 
@@ -205,6 +217,8 @@ public static class ChangeEffects
         private readonly int _daysBefore = (int)(day - from).TotalDays, _daysAfter = (int)(to - day).TotalDays - 1;
         private readonly bool _graphics = of.All(c => c.IsGraphicsDriver);
         private readonly bool _plan = of.All(IsPowerPlan);
+        // Fan speeds change how hot things run, not whether the PC crashes or the mains cuts out: only heat is set against them.
+        private readonly bool _fans = of.All(c => c.Kind == ChangeKind.Fans);
         private string Since => open ? "since" : $"in the {_daysAfter} days after";
 
         /// <summary>The thinner side's play, when under <see cref="SureMinutes"/>.</summary>
@@ -293,10 +307,10 @@ public static class ChangeEffects
             if (rows.Count > 0)
             {
                 double roomGpu = (nowRest!.Gpu ?? 0) - (wasRest!.Gpu ?? 0);
-                rows.Add(new("The GPU with nothing running", "Stands in for the room", Units.TempShort(wasRest.Gpu), Units.TempShort(nowRest.Gpu), EffectTone.Same,
-                    Math.Abs(roomGpu) < 1 ? "The room didn't change" : $"{Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")}, taken out above"));
-                checks.Add(new(true, "Not the room", Math.Abs(roomGpu) < 1 ? $"With nothing running the GPU sat at {Units.TempShort(nowRest.Gpu)} both times."
-                    : $"With nothing running the GPU is {Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")}; that much is taken out."));
+                rows.Add(new("The GPU with nothing running", "Moves with the warmth around the PC", Units.TempShort(wasRest.Gpu), Units.TempShort(nowRest.Gpu), EffectTone.Same,
+                    Math.Abs(roomGpu) < 1 ? "Same at rest" : $"{Units.Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")} at rest, taken out above"));
+                checks.Add(new(true, Math.Abs(roomGpu) < 1 ? "Same at rest" : "At rest, taken into account", Math.Abs(roomGpu) < 1 ? $"With nothing running the GPU sat at {Units.TempShort(nowRest.Gpu)} both times."
+                    : $"With nothing running the GPU is {Units.Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")}; that much is taken out."));
             }
 
             ChangeCheck? problemCheck = null;
@@ -308,8 +322,8 @@ public static class ChangeEffects
             // The change's own day is known only as a whole: its hours go with "after", where its problems from the
             // change on are counted (a rate after can then only come out lower, never falsely worse).
             double hoursBefore = Hours(from, day), hoursAfter = Hours(day, to);
-            string what = _graphics ? "Graphics problems" : Capital(Wording.Problems);
-            if (hoursBefore >= MinUseHours && hoursAfter >= MinUseHours)
+            string what = _graphics ? "Graphics problems" : Wording.Capital(Wording.Problems);
+            if (!_fans && hoursBefore >= MinUseHours && hoursAfter >= MinUseHours)
             {
                 double rateBefore = before.Count / hoursBefore, rateAfter = since.Count / hoursAfter;
                 var tone = since.Count >= 2 && rateAfter >= 2 * rateBefore ? EffectTone.Worse
@@ -382,16 +396,16 @@ public static class ChangeEffects
             double diff = now - then, room = (restNow ?? 0) - (restWas ?? 0), beyondRoom = diff - room;
             bool moved = Math.Abs(diff) >= MinDiff && Math.Abs(beyondRoom) >= MinBeyondRoom && Math.Sign(diff) == Math.Sign(beyondRoom);
             var tone = !moved ? EffectTone.Same : diff > 0 ? EffectTone.Worse : EffectTone.Better;
-            string meaning = moved ? $"{Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")}{(Math.Abs(room) >= 1 ? $", {Degrees(Math.Abs(beyondRoom))} of it not the room" : "")}"
-                : Math.Abs(diff) <= 2 ? "About the same: within 2°" : $"Not enough to say: under {Degrees(MinDiff)}";
+            string meaning = moved ? $"{Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")}{(Math.Abs(room) >= 1 ? $", {Units.Degrees(Math.Abs(beyondRoom))} beyond what rest moved" : "")}"
+                : Math.Abs(diff) <= 2 ? "About the same: within 2°" : $"Not enough to say: under {Units.Degrees(MinDiff)}";
             var row = new ChangeFigure($"{part} {where}", "", Units.TempShort(then), Units.TempShort(now), tone, meaning);
             if (!moved) return (row, null);
             string verb = open ? (plural ? "run" : "runs") : (plural ? "ran" : "ran");
             string context = _plan ? $"Same game; the power plan changes power by design, so GPU power is shown too."
-                : plural ? "Every game at the same GPU power, and not because of the room." : "Same game at the same load, and not because of the room.";
-            string plain = $"{Capital(subject)} {verb} {Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} on the {part}";
+                : (plural ? "Every game at the same GPU power" : "Same game at the same load") + (Math.Abs(room) < 1 ? ", and the same at rest." : ", with the change at rest taken out.");
+            string plain = $"{Wording.Capital(subject)} {verb} {Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} on the {part}";
             return (row, new(tone, sure, $"{plain} {Since} {thisOne}", context,
-                $"{Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} {where} {Since}", true, diff > 0 && now >= warm) { Plain = plain });
+                $"{Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} {where} {Since}", true, diff > 0 && now >= warm) { Plain = plain });
         }
 
         private bool Counts(ChangeProblem p) => !_graphics || p.Graphics;
@@ -409,6 +423,7 @@ public static class ChangeEffects
             { Kind: ChangeKind.WindowsUpdate } => "Windows lets you uninstall a recent update in Settings, Windows Update, Update history. This page will show whether it changes.",
             { Kind: ChangeKind.Firmware } => "Look for a newer BIOS from the board's maker, or load its optimized defaults. This page will show whether it changes.",
             { Kind: ChangeKind.Hardware } => "Check the new part is seated properly and has its power connected.",
+            { Kind: ChangeKind.Fans } => "Set the fans back, or to a faster curve, in the BIOS. This page will show whether it changes.",
             _ when IsPowerPlan(c) && c.Was is { Length: > 0 } was => $"Switch back to {was} in Windows' power settings. This page will show whether it changes.",
             _ => null,
         };
@@ -468,9 +483,4 @@ public static class ChangeEffects
     private static string Play(int minutes) => Units.Duration(minutes * 60.0);
 
     private static string Watts(double? w) => w is double x ? $"{x:0} W" : "–";
-
-    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0]) + s[1..];
-
-    /// <summary>A difference in the user's unit, rounded as shown.</summary>
-    private static string Degrees(double celsius) => $"{Math.Round(Units.Fahrenheit ? celsius * 9 / 5 : celsius):0}°";
 }

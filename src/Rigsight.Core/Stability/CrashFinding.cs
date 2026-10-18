@@ -204,10 +204,10 @@ public static class CrashFindings
         // How long nobody had been at it: to the minute where the last use is on record, else only "for some time"
         // (no use in the four hours looked at, of which fewer may have been recorded: no figure is made up).
         int? idle = has && c!.LastActive is long last ? (int)Math.Max(0, (e.Ts - last - 60) / 60) : has ? int.MaxValue : null;
-        string idleFor = idle == int.MaxValue ? "some time" : Minutes(idle ?? 0);
+        string idleFor = idle == int.MaxValue ? "some time" : Wording.Minutes(idle ?? 0);
         int? backOn = c?.BackOn is long on && on - e.Ts <= 3 * 3600 ? (int)Math.Max(1, (on - e.Ts) / 60) : null;
         string where = x.FrontApp is null ? "" : $" in {x.FrontApp}";
-        string back = backOn is int b ? $" Back on {Minutes(b)} later." : "";
+        string back = backOn is int b ? $" Back on {Wording.Minutes(b)} later." : "";
         // What Windows itself noted about the power button; null where it noted nothing either way.
         bool noPress = f?.PowerButton == false;
         var points = new List<Evidence>();
@@ -239,7 +239,7 @@ public static class CrashFindings
             else if (light) points.Add(new("pc", "It wasn't doing much", $"{(x.FrontApp is null ? "" : x.FrontApp + " was in front.")}{loads}".Trim()));
             else if (loads.Length > 0) points.Add(new("pc", "It was working hard", $"{(x.FrontApp is null ? "" : x.FrontApp + " was in front.")}{loads}{(c!.GpuPower is double w ? $" The GPU was drawing {w:0} W." : "")}".Trim()));
         }
-        if (backOn is int n) points.Add(new("clock", $"It came back on at {TimeUtil.FromUnix(c!.BackOn!.Value):h:mm tt}", $"{Capital(Minutes(n))} later."));
+        if (backOn is int n) points.Add(new("clock", $"It came back on at {TimeUtil.FromUnix(c!.BackOn!.Value):h:mm tt}", $"{Wording.Capital(Wording.Minutes(n))} later."));
         if (Before(x) is { } before) points.Add(before);
         points.AddRange(signs);
         if (heat.Hot) points.Add(new("warn", HotTitle, heat.Evidence.Detail)); else ruled.Add(heat.Evidence);
@@ -263,7 +263,7 @@ public static class CrashFindings
             string starting = f?.NextStart is long next && next > hungAt.Ts ? $" The PC was starting again at {TimeUtil.FromUnix(next):h:mm:ss tt}." : "";
             return new(Confidence.Likely, "The GPU hung, and the PC shut off with it.", $"Windows recorded the GPU hanging at {at:h:mm:ss tt}, while the PC was still running.{starting} A GPU that stops answering can take the whole PC with it.",
                 "Update or clean-reinstall the graphics driver and undo any overclock of the GPU. If it happens again, check the GPU's power cables.",
-                $"The GPU hung at {at:h:mm:ss tt}{where}, then the PC shut off.{(backOn is int b2 ? $" Back on {Minutes(b2)} later." : "")}")
+                $"The GPU hung at {at:h:mm:ss tt}{where}, then the PC shut off.{(backOn is int b2 ? $" Back on {Wording.Minutes(b2)} later." : "")}")
             {
                 Cause = "THE GPU HUNG", Why = "after the GPU hung",
                 Points = [new("warn", $"Windows recorded the GPU hanging at {at:h:mm:ss tt}", "Its report gives the moment of the hang, before the PC shut off."), .. points],
@@ -286,10 +286,10 @@ public static class CrashFindings
             { Cause = "A POWER CUT OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
         if (light && noPress && backOn is <= QuickBack)
             // Running again within a minute or two: the power dipped for a moment, or the PC reset itself.
-            return new(Confidence.Possible, $"It shut off and was running again {Minutes(backOn.Value)} later.",
+            return new(Confidence.Possible, $"It shut off and was running again {Wording.Minutes(backOn.Value)} later.",
                 "Windows saved no crash and recorded no press of the power button. A PC that is back that fast either lost power for a moment, or reset itself, which a processor or memory setting that is unstable at idle can do.",
                 "If the lights or other devices flickered too, it was the mains. If it repeats with nothing else affected, undo any undervolt or memory tuning (Curve Optimizer, XMP or EXPO) and see whether it stops.",
-                $"{(idle >= 5 ? $"Idle for {idleFor}" : x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}. Running again {Minutes(backOn.Value)} later.")
+                $"{(idle >= 5 ? $"Idle for {idleFor}" : x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}. Running again {Wording.Minutes(backOn.Value)} later.")
             { Cause = "A POWER DIP OR A RESET", Points = points, RuledOut = ruled, CantTell = cant };
         if (light && noPress && trouble)
             return new(Confidence.Possible, "The PC shut off while it was doing little.", "Windows saved no crash and recorded no press of the power button, but there was trouble on record just before it (above), so this one isn't put down to the mains.",
@@ -300,7 +300,7 @@ public static class CrashFindings
             string doing = idle >= 5 ? $"had been idle for {idleFor}" : $"was doing little{where}";
             // "Cool" only where both the processor's and the graphics card's temperature were read.
             string cool = heat.Full ? " it was cool," : "";
-            return new(Confidence.Likely, "Most likely a power cut.", $"The PC {doing},{cool} Windows logged no error, and it recorded no press of the power button.{(backOn is int m ? $" It was back on {Minutes(m)} later." : "")}",
+            return new(Confidence.Likely, "Most likely a power cut.", $"The PC {doing},{cool} Windows logged no error, and it recorded no press of the power button.{(backOn is int m ? $" It was back on {Wording.Minutes(m)} later." : "")}",
                 "If other things in the room lost power too, it was the mains, and a battery backup (UPS) stops these. If nothing else did, look at the PC's power cable and power supply.",
                 $"{(idle >= 5 ? $"Idle{(heat.Full ? " and cool" : "")} for {idleFor}" : $"{(x.FrontApp is null ? "Doing little" : $"In {x.FrontApp}")}{(c!.GpuLoad is double g ? $", GPU at {g:0}%" : "")}")}.{back}")
             { Cause = "A POWER CUT", Outside = true, Points = points, RuledOut = ruled, CantTell = cant };
@@ -509,17 +509,17 @@ public static class CrashFindings
         var names = members.Select(m => m.Crash.Kind == CrashKind.GpuDriverReset ? "the graphics driver" : m.AppName ?? m.NameOf(m.Crash.AppExe)).Distinct().ToList();
         string span = minutes <= 1 ? $"at {first.Crash.Time:h:mm tt}" : $"from {first.Crash.Time:h:mm} to {members[^1].Crash.Time:h:mm tt}";
         points.Add(new("clock", $"{names.Count} things failed {span}", string.Join(", ", names) + "."));
-        string within = $"within {Minutes(minutes)}";
+        string within = $"within {Wording.Minutes(minutes)}";
         string appCount = apps.Count == 1 ? "1 app" : $"{apps.Count} apps";
         const string advice = "When several apps fail together, the cause is usually the whole PC and not one app. Check the drive's health on the Storage page and the temperatures for those minutes.";
 
         if (driver is not null)
         {
             string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
-            return Tidy(new(Confidence.Likely, $"{name} was being installed at that moment.", $"{Capital(appCount)} failed {within} of it. Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.",
+            return Tidy(new(Confidence.Likely, $"{name} was being installed at that moment.", $"{Wording.Capital(appCount)} failed {within} of it. Apps that are open can crash while a graphics driver is replaced under them. It says nothing about the new driver.",
                 "Nothing to do. If they keep failing with no driver being installed, that is a different problem.", $"{name} was being installed; {appCount} failed with it.")
             {
-                Event = $"{Capital(appCount)} failed {within}", Cause = "THE DRIVER INSTALL", Why = "as a graphics driver was being installed", Outside = true,
+                Event = $"{Wording.Capital(appCount)} failed {within}", Cause = "THE DRIVER INSTALL", Why = "as a graphics driver was being installed", Outside = true,
                 Points = [new("change", $"{name} was being installed", $"Windows logged it at {driver.Time:h:mm:ss tt}."), .. points], RuledOut = ruled,
                 CantTell = null,
             });
@@ -615,7 +615,7 @@ public static class CrashFindings
             if (s.Kind == SignKind.Hardware && e.Kind is CrashKind.UnexpectedShutdown && s.Detail.Contains("couldn't correct", StringComparison.Ordinal)) continue; // said by the finding itself
             int before = (int)Math.Max(0, (e.Ts - s.Ts) / 60);
             string what = e.Kind switch { CrashKind.GpuDriverReset => "reset", CrashKind.UnexpectedShutdown => "shut-off", CrashKind.SystemCrash => "blue screen", CrashKind.AppHang => "freeze", _ => "crash" };
-            yield return new("warn", s.Detail, before <= 1 ? $"In the same minute as the {what}." : $"{Capital(Minutes(before))} before the {what}.");
+            yield return new("warn", s.Detail, before <= 1 ? $"In the same minute as the {what}." : $"{Wording.Capital(Wording.Minutes(before))} before the {what}.");
         }
     }
 
@@ -681,13 +681,6 @@ public static class CrashFindings
                || f.StartsWith("dxgkrnl", StringComparison.Ordinal) || f.StartsWith("dxgmms", StringComparison.Ordinal);
     }
 
-    internal static string Minutes(int n) => n switch
-    {
-        1 => "1 minute",
-        < 120 => $"{n} minutes",
-        _ => $"{n / 60} hours",
-    };
-
     /// <summary>A driver's own description as it reads after "the": "Realtek USB Audio Driver" as "Realtek USB audio driver".</summary>
     private static string Plain(string name) =>
         string.Join(' ', name.Split(' ').Select((w, i) => i > 0 && w.Length > 1 && char.IsUpper(w[0]) && w.Skip(1).All(char.IsLower) ? w.ToLowerInvariant() : w));
@@ -700,8 +693,6 @@ public static class CrashFindings
 
     /// <summary>What follows a reason's first sentence, ready to have more put after it ("" when it is one sentence).</summary>
     private static string Rest(string reason) => reason.IndexOf(". ", StringComparison.Ordinal) is > 0 and var i ? reason[(i + 2)..] + " " : "";
-
-    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpper(s[0]) + s[1..];
 
     /// <summary>"NVIDIA driver" reads as "the NVIDIA driver" in a sentence; names keep their capitals.</summary>
     private static string Lower(string culprit) => culprit.StartsWith("The ", StringComparison.Ordinal) ? "the " + culprit[4..] : $"the {culprit}";

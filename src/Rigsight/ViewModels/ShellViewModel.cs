@@ -28,7 +28,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ProcessDetailChanged += apps => _client.SendCommand("procs-detail", apps);
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Live.ChartDetailWanted += () => _ = LoadZoomHistoryAsync();
-        Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange };
+        Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange, Open = OpenPage };
         ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live };
         Apps = new AppsViewModel(Reports, Settings);
         Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page };
@@ -65,7 +65,6 @@ public sealed partial class ShellViewModel : ObservableObject
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
         Export = new ExportViewModel(Reports, Settings, Live);
         SettingsPage.OpenExport = Export.Open;
-        Sidebar.Changed += UpdateDashboardsInNav;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
         // With its sensors counted by kind: a CPU listed with loads only is one read without its driver.
@@ -152,13 +151,6 @@ public sealed partial class ShellViewModel : ObservableObject
     public AppsViewModel Apps { get; }
     public CrashesViewModel Crashes { get; }
     public TimelineViewModel Timeline { get; }
-    private async Task JumpTimelineAsync(DateTime day)
-    {
-        await Timeline.LoadAsync();
-        Timeline.CloseChangeCommand.Execute(null);
-        Timeline.JumpTo(day);
-    }
-
     /// <summary>
     /// Opens what a day's big changes made better or worse, on the Timeline (from Home, Reports, Crashes): the same page
     /// wherever it was clicked.
@@ -189,12 +181,6 @@ public sealed partial class ShellViewModel : ObservableObject
     public PresetPickerViewModel Presets { get; }
     /// <summary>The Export box over the window, opened from Settings.</summary>
     public ExportViewModel Export { get; }
-
-    /// <summary>A dashboard is in the sidebar as its entry there is: hidden or in a folded group, only while it's the page you're on.</summary>
-    private void UpdateDashboardsInNav()
-    {
-        foreach (var page in CustomPages) page.InNav = Sidebar.EntryOf(page.NavKey)?.IsVisible ?? true;
-    }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
     public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];
@@ -476,7 +462,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 default:
                     if (FindCustomPage(CurrentPage) is { } custom)
                     {
-                        await custom.RefreshAsync(quiet: true);
+                        await custom.RefreshAsync();
                         if (ChartDueNow) await LoadTemperatureHistoryAsync();
                     }
                     break;
@@ -599,6 +585,30 @@ public sealed partial class ShellViewModel : ObservableObject
         string from = CurrentPage;
         await Crashes.ShowCrashAsync(time, from is "crashes" or "" ? null : (from, PageName(from)));
         CurrentPage = "crashes";
+    }
+
+    /// <summary>
+    /// Opens where a line of Home leads (see InsightLinks), on the days the line speaks of: what moved against the usual
+    /// opens the report of those days at its "Against your usual" card, problems open Crashes on those days; the rest
+    /// open their page.
+    /// </summary>
+    private void OpenPage(HomeOpen open)
+    {
+        switch (open.Opens)
+        {
+            case Core.Reports.InsightOpens.Usual:
+                ReportsPage.ShowUsual(open.Range, open.From, open.To);
+                CurrentPage = "reports";
+                break;
+            case Core.Reports.InsightOpens.Crashes:
+                Crashes.ShowDays(open.From, open.To.AddTicks(-1), open.PcOnly);
+                CurrentPage = "crashes";
+                break;
+            case Core.Reports.InsightOpens.Temperatures: CurrentPage = "temperatures"; break;
+            case Core.Reports.InsightOpens.Fans: CurrentPage = "fans"; break;
+            case Core.Reports.InsightOpens.Network: CurrentPage = "network"; break;
+            case Core.Reports.InsightOpens.Storage: CurrentPage = "storage"; break;
+        }
     }
 
     /// <summary>A page's name as the sidebar shows it ("Timeline", a dashboard's own name).</summary>

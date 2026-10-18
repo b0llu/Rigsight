@@ -220,14 +220,8 @@ public sealed class ConverterTests
             Assert.Equal("—", Convert(new TempShortConverter(), null));
             Assert.Equal("—", Convert(new TempShortConverter(), "46"));
             Assert.Equal("—", Convert(new TempShortConverter(), double.NaN));
-            Assert.Equal("50°C", Convert(new TempDisplayConverter(), 50.0));
-            Assert.Equal("50.4°C", Convert(new TempDisplayConverter(), 50.4, "0.0"));
-            Assert.Equal("—", Convert(new TempDisplayConverter(), null));
-            Assert.Equal("—", Convert(new TempDisplayConverter(), 50));
             Ui.Run(() => Units.Fahrenheit = true);
             Assert.Equal("115°", Convert(new TempShortConverter(), 46.0));
-            Assert.Equal("122°F", Convert(new TempDisplayConverter(), 50.0));
-            Assert.Equal("-40°F", Convert(new TempDisplayConverter(), -40.0));
         }
         finally
         {
@@ -490,7 +484,7 @@ public sealed class ConverterTests
             new TempToBrushConverter(), new EqualsToVisibilityConverter(), new VisibilityConverter(), new ScaleConverter(), new DurationConverter(),
             new TempShortConverter(), new MegabytesConverter(), new BytesConverter(), new IconConverter(), new CategoryBrushConverter(),
             new InitialConverter(), new CategoryLabelConverter(), new ToneBrushConverter(), new SeverityBrushConverter(), new KindBrushConverter(),
-            new ResourceBrushConverter(), new TempDisplayConverter(), new DataSizeConverter(), new InsightBrushConverter(),
+            new ResourceBrushConverter(), new DataSizeConverter(), new InsightBrushConverter(),
         ];
         foreach (var c in oneWay) Assert.Same(Binding.DoNothing, c.ConvertBack(Visibility.Visible, typeof(object), null!, Culture));
     }
@@ -568,7 +562,7 @@ public sealed class ConverterTests
             typeof(TempToBrushConverter), typeof(EqualsConverter), typeof(EqualsToVisibilityConverter), typeof(VisibilityConverter), typeof(ScaleConverter),
             typeof(DurationConverter), typeof(TempShortConverter), typeof(MegabytesConverter), typeof(BytesConverter), typeof(IconConverter),
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
-            typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(TempDisplayConverter), typeof(FractionConverter),
+            typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
             typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter),
         ];

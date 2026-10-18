@@ -168,8 +168,9 @@ public sealed class HistoryPageTests
             Assert.False(vm.ActiveLine.EndsWith('.'));
             Assert.NotEqual("", vm.GamesLine);
             Assert.NotEqual("", vm.InternetLine);
-            Assert.Equal(vm.Crashes.Count > 0, vm.HasProblems);
-            Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No problems");
+            // The tile counts the PC's own problems; power cuts and app crashes are said under the number.
+            Assert.Equal(vm.Crashes.Any(c => PcUsual.CountsAsPcProblem(c.Event, c.Finding)), vm.ProblemsText != "0");
+            Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No PC problems");
             Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
             Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
             // The totals are the tiles: not the first line of the list as well. Every other line shows, with no button to press.
@@ -374,8 +375,7 @@ public sealed class HistoryPageTests
             Assert.Null(vm.CoverageNote); // never for a day
             Assert.Equal("Active time per day", vm.BarsTitle);
             Assert.NotNull(vm.FirstDay);
-            Assert.Equal((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1, vm.TrackedDays);
-            Assert.InRange(vm.TrackedDays, 2, 15);
+            Assert.InRange((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1, 2, 15);
         });
     }
 
@@ -517,8 +517,8 @@ public sealed class HistoryPageTests
         {
             var note = vm.CoverageNote;
             // (Early in January the year is no longer than the history: nothing to explain.)
-            if (DateTime.Today.DayOfYear <= vm.TrackedDays) Assert.Null(note);
-            else Assert.Equal($"History starts on {vm.FirstDay:d MMMM}, so this year has {vm.TrackedDays} days of data.", note);
+            if (DateTime.Today.DayOfYear <= ((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1)) Assert.Null(note);
+            else Assert.Equal($"History starts on {vm.FirstDay:d MMMM}, so this year has {((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1)} days of data.", note);
         });
     }
 

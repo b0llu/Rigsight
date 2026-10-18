@@ -69,7 +69,6 @@ public sealed class CrashModelTests
         Assert.Same(rows[1], g.First);
         Assert.Equal("×3", g.CountText);
         Assert.Equal($"First: {rows[1].Time:d MMM} · Last: {rows[0].TimeText}", g.WhenText);
-        Assert.Equal("Last time, just before: ", g.ContextLabel);
         Assert.Equal(CrashSeverity.Minor, g.Severity);
         Assert.Equal("game.exe", g.AppExe);
         Assert.True(g.CanMute);
@@ -84,7 +83,6 @@ public sealed class CrashModelTests
         Assert.All(groups, g => Assert.Equal(1, g.Count));
         Assert.Equal(groups.OrderByDescending(g => g.LastTime), groups);
         Assert.Equal(rows[0].TimeText, groups[0].WhenText);
-        Assert.Equal("Just before: ", groups[0].ContextLabel);
     }
 
     [Fact]
@@ -274,13 +272,10 @@ public sealed class CrashModelTests
     {
         Ui.Run(() =>
         {
-            Assert.Null(Crashes.App(Noon).TempsText);
             Assert.Null(Crashes.App(Noon).ContextText);
             var cool = Crashes.Row(CrashKind.AppCrash, Noon, "game.exe", "Game", cpu: 60, gpu: 70);
-            Assert.Equal("Just before: CPU 60°, GPU 70°", cool.TempsText);
             Assert.Equal("CPU 60°, GPU 70°", cool.ContextText);
             var hot = Crashes.Row(CrashKind.AppCrash, Noon, "game.exe", "Game", cpu: 60, gpu: 83);
-            Assert.EndsWith("running hot, which may have played a part.", hot.TempsText);
             Assert.EndsWith("(running hot)", hot.ContextText);
             Assert.EndsWith("(running hot)", Crashes.Row(CrashKind.AppCrash, Noon, cpu: 88).ContextText);
             Assert.Equal("CPU —, GPU 50°", Crashes.Row(CrashKind.AppCrash, Noon, gpu: 50).ContextText);

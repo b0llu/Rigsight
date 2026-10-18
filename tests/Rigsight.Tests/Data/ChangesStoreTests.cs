@@ -87,6 +87,22 @@ public sealed class ChangesStoreTests
     }
 
     [Fact]
+    public void A_startup_program_gone_and_back_within_minutes_is_no_change()
+    {
+        using var t = new TestDb();
+        // Edge deletes its startup entry and writes it again as you sign in; the minute's check landed in between.
+        var gone = new SystemChange(T, ChangeKind.Startup, "MicrosoftEdgeAutoLaunch no longer starts with Windows") { Subject = "startup:microsoftedgeautolaunch", NoticedFrom = T.AddHours(-7) };
+        var back = new SystemChange(T.AddSeconds(20), ChangeKind.Startup, "MicrosoftEdgeAutoLaunch now starts with Windows") { Subject = Inventory.ExactPrefix + "startup:microsoftedgeautolaunch" };
+        // Steam really left startup and stayed away; Discord came back, but the next day.
+        var steam = new SystemChange(T.AddMinutes(1), ChangeKind.Startup, "Steam no longer starts with Windows") { Subject = "startup:steam" };
+        var discordOff = new SystemChange(T.AddMinutes(2), ChangeKind.Startup, "Discord no longer starts with Windows") { Subject = "startup:discord" };
+        var discordOn = discordOff with { Time = T.AddDays(1), Title = "Discord now starts with Windows" };
+        t.Db.InsertChanges([gone, back, steam, discordOff, discordOn]);
+        Assert.Equal(["Steam no longer starts with Windows", "Discord no longer starts with Windows", "Discord now starts with Windows"],
+            t.Db.GetChanges(0, long.MaxValue / 2).Select(c => c.Title));
+    }
+
+    [Fact]
     public void A_driver_counts_once_per_version()
     {
         using var t = new TestDb();

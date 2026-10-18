@@ -1504,6 +1504,43 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    /// <summary>When the fans' speeds were last looked through for a setting changed while the PC was off.</summary>
+    private DateTime? _fanSettingsRead;
+
+    /// <summary>
+    /// Once an hour (and the first time over all the history): motherboard fans that came back from a restart at another
+    /// set speed (see <see cref="FanSettings"/>), from the fan minutes already written. A restart is looked at only once
+    /// its fans have run for an hour after it, so a fan still settling isn't taken for a setting, and only once.
+    /// </summary>
+    private void ScanFanSettings(DateTime now)
+    {
+        if (_fanSettingsRead is { } read && now - read < TimeSpan.FromHours(1)) return;
+        _fanSettingsRead = now;
+        try
+        {
+            long through = long.TryParse(_db.GetMeta(FanSettingsKey), out long t) ? t : 0, settled = TimeUtil.ToUnix(now.AddHours(-1)), end = TimeUtil.ToUnix(now);
+            var fans = _db.GetFans();
+            if (fans.Count == 0) return;
+            // A week at a time (the first scan reads all the history: months of every fan's minutes at once would be a
+            // spike), each restart in exactly one week: the 3 days before it are what it's set against, a day after it
+            // lets its fans settle.
+            const long Day = 86400, Week = 7 * Day;
+            int weeks = 0;
+            for (long w = through > 0 ? through : _db.FirstFanMinute() ?? settled; w < settled; w += Week, weeks++)
+            {
+                long upTo = Math.Min(w + Week, settled);
+                var minutes = _db.GetFanMinutes(w - 3 * Day, Math.Min(upTo + Day, end));
+                var found = FanSettings.Find(fans, minutes).Where(c => TimeUtil.ToUnix(c.Time) > w && TimeUtil.ToUnix(c.Time) <= upTo).ToList();
+                foreach (var c in _db.InsertChanges(found)) Log.Write("changes", $"{c.Title} at {c.Time:d MMM HH:mm}: {c.Now}");
+            }
+            _db.SetMeta(FanSettingsKey, settled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (weeks > 1) CompactMemory();
+        }
+        catch (Exception ex) { Log.Error("changes", ex); }
+    }
+
+    private const string FanSettingsKey = "fan_settings_through";
+
     private static bool IsDropout(SystemChange c) => c.Kind == ChangeKind.Hardware && c.Title.StartsWith("GPU disconnected", StringComparison.Ordinal);
 
     /// <summary>When Windows' logs were last read for changes (null: not since the agent started).</summary>
@@ -1564,6 +1601,7 @@ internal sealed class AgentContext : ApplicationContext
             _db.InsertChanges(logged);
             _db.InsertChanges(found);
             _db.ChangesScanned = TimeUtil.ToUnix(now);
+            ScanFanSettings(now);
         }
         catch (Exception ex)
         {

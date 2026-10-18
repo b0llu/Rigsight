@@ -82,7 +82,6 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private SensorItem? _gpuVramLoad;
     [ObservableProperty] private SensorItem? _gpuVramUsed;
     [ObservableProperty] private SensorItem? _gpuVramTotal;
-    [ObservableProperty] private string _gpuVramText = "";
 
     /// <summary>Every graphics processor, the main one first (the one the GPU readings above, and history, are of).</summary>
     public ObservableCollection<GpuView> Gpus { get; } = [];
@@ -1054,10 +1053,6 @@ public sealed partial class LiveData : ObservableObject
         }
         UpdateMemorySplit();
 
-        if (GpuVramUsed?.Value is double vUsed && GpuVramTotal?.Value is double vTotal && vTotal > 0)
-            GpuVramText = $"{vUsed / 1024:0.0} / {vTotal / 1024:0.0} GB";
-        else if (GpuVramLoad?.Value is double vLoad)
-            GpuVramText = $"{vLoad:0}%";
         foreach (var gpu in Gpus) gpu.Refresh();
     }
 

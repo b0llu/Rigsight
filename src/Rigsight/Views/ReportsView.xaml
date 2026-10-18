@@ -104,21 +104,24 @@
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
-                            <TextBlock Text="PROBLEMS" Style="{StaticResource Caption}" />
-                            <!-- Amber with any, green with none (in the style: a colour set on the element would win over the trigger). -->
+                            <TextBlock Text="PC PROBLEMS" Style="{StaticResource Caption}" />
+                            <!-- Amber when more than usual, green with none, plain as usual (in the style: a colour set on the element would win over the trigger). -->
                             <TextBlock Text="{Binding ProblemsText}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
-                                        <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasProblems}" Value="False">
+                                            <DataTrigger Binding="{Binding ProblemsTone}" Value="Warm">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ProblemsTone}" Value="Good">
                                                 <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding ProblemsLine}" Style="{StaticResource TileLine}" />
+                            <!-- Up to three parts: two lines rather than cut short. -->
+                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding ProblemsLine}" Style="{StaticResource TileLine}" TextWrapping="Wrap" MaxHeight="34" />
                         </StackPanel>
                     </Border>
                 </ctl:TileWrap>
@@ -144,6 +147,70 @@
                                             <Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Text, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                         </TextBlock>
                                     </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- Against your usual: the period's temperatures, fans and problems beside what is normal for this PC. Only
+                     what moved is coloured; the rest is said in grey. Not on a day (Home's PC health says that). -->
+                <ctl:SmoothBorder x:Name="UsualCard" Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasUsual, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <TextBlock DockPanel.Dock="Right" Text="This PC's own history" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
+                            <TextBlock Text="Against your usual" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.4*" />
+                                <ColumnDefinition Width="1*" />
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="1.2*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="WHAT" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="1" Text="{Binding UsualNow}" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="2" Text="YOUR USUAL" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="3" Text="WHAT IT MEANS" Style="{StaticResource Caption}" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding UsualRows}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="1*" />
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="1.2*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Margin="0,0,14,0">
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Body}" FontSize="13" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="Now" Grid.Column="1" Text="{Binding Now}" Style="{StaticResource Body}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,14,0" />
+                                            <StackPanel Grid.Column="2" Margin="0,0,14,0">
+                                                <TextBlock Text="{Binding Usual}" Style="{StaticResource Body}" FontSize="13" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding UsualDetail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock x:Name="Means" Text="{Binding Means}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding MeansDetail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
+                                                           Visibility="{Binding MeansDetail, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Tone}" Value="Worse">
+                                            <Setter TargetName="Means" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            <Setter TargetName="Means" Property="FontWeight" Value="SemiBold" />
+                                            <Setter TargetName="Now" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Tone}" Value="Better">
+                                            <Setter TargetName="Means" Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                            <Setter TargetName="Means" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

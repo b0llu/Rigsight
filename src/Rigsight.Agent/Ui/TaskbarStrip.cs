@@ -76,7 +76,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
                 MakeChild(_window.Handle, taskbar);
                 _taskbar = taskbar;
                 _follow.Start();
-                Watch(taskbar, tray);
+                Watch(tray);
             }
 
             bool light = WidgetRenderer.TaskbarIsLight();
@@ -135,7 +135,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     }
 
     /// <summary>Asks Windows to say when the taskbar's windows move (on this thread, from its message loop).</summary>
-    private void Watch(IntPtr taskbar, IntPtr tray)
+    private void Watch(IntPtr tray)
     {
         Unwatch();
         _trayWindow = tray;

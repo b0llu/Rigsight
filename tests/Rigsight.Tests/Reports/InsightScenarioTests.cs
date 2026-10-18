@@ -158,7 +158,8 @@ public sealed class InsightScenarioTests : IDisposable
         string path = Pc("dust", Healthy with { Seed = 4, DustPerMonth = 3, DustFrom = Start, GameChance = 1 });
         var drift = Reports(path, days: 14).SelectMany(r => r.Insights.Where(i => i.Key == "drift").Select(i => (R: r, I: i))).ToList();
         Assert.NotEmpty(drift);
-        Assert.All(drift, x => Assert.Matches(@"^In (Cyberpunk 2077|Dota 2|Hades), your (GPU|CPU) (runs|ran) \d+° hotter than in (January|February|March|April|May)( 2025)? \(\d+° vs \d+°\), and not because of the room\. Dust or old thermal paste are the usual causes\.$", x.I.Text));
+        Assert.All(drift, x => Assert.Matches(@"^In (Cyberpunk 2077|Dota 2|Hades), your (GPU|CPU) (runs|ran) \d+° hotter than in (January|February|March|April|May)( 2025)?: \d+° against \d+°, at the same power\. "
+            + @"With nothing running it(( sits| sat) at \d+°, as it did then|'s only \d+° (warmer|cooler) than then), so dust or old thermal paste are the likely causes\.$", x.I.Text));
         Assert.All(drift, x => Assert.Equal(InsightTone.Warn, x.I.Tone));
     }
 

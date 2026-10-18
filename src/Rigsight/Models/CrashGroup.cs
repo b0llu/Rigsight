@@ -96,7 +96,6 @@ public sealed partial class CrashGroup : ObservableObject
     public string Advice => Finding?.Advice ?? (IsIncident ? IncidentAdvice : Latest.Advice);
     public string? IconPath => IsIncident ? null : Latest.IconPath;
     public string? ContextText => Latest.ContextText;
-    public string ContextLabel => Count == 1 ? "Just before: " : "Last time, just before: ";
     public string TechnicalText => Latest.TechnicalText;
     public string? DumpPath => Rows.Select(r => r.DumpPath).FirstOrDefault(p => p is not null);
     public bool HasDump => DumpPath is not null;
@@ -164,9 +163,9 @@ public sealed partial class CrashGroup : ObservableObject
             if (Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset))
             {
                 var others = apps.Where(a => a != "the graphics driver").ToList();
-                return $"The graphics driver reset, and {JoinAnd(others)} {(others.Count == 1 ? "was" : "were")} affected {within}.";
+                return $"The graphics driver reset, and {Core.Wording.JoinAnd(others)} {(others.Count == 1 ? "was" : "were")} affected {within}.";
             }
-            string list = apps.Count <= 3 ? JoinAnd(apps) : $"{string.Join(", ", apps.Take(3))} and {apps.Count - 3} more";
+            string list = apps.Count <= 3 ? Core.Wording.JoinAnd(apps) : $"{string.Join(", ", apps.Take(3))} and {apps.Count - 3} more";
             string what = Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "froze" : "crashed or froze";
             return $"{Count} {Core.Wording.Problems} within {minutes} minute{(minutes == 1 ? "" : "s")}: {list} {what}, starting at {First.Time:h:mm tt}.";
         }
@@ -174,13 +173,6 @@ public sealed partial class CrashGroup : ObservableObject
 
     private const string IncidentAdvice =
         "When several apps fail together, the cause is usually the whole PC rather than one app: the graphics driver, the drive, running out of memory, or overheating. Check the temperatures below and the drive health on the Storage page.";
-
-    private static string JoinAnd(List<string> items) => items.Count switch
-    {
-        0 => "",
-        1 => items[0],
-        _ => $"{string.Join(", ", items.Take(items.Count - 1))} and {items[^1]}",
-    };
 
     // ── Grouping ────────────────────────────────────────────────────────
 

@@ -88,7 +88,6 @@ public sealed class ReportServiceTests
         var first = TimeUtil.FromUnix(db.FirstDataTime()!.Value).Date;
         Assert.Equal(first, Wait(_service.FirstDayAsync()));
         Assert.Equal(TimeUtil.FromUnix(db.FirstMinuteTime()!.Value).Date, Wait(_service.FirstMinuteDayAsync()));
-        Assert.Equal((int)(DateTime.Today - first).TotalDays + 1, Wait(_service.TrackedDaysAsync()));
         var crashDay = Wait(_service.FirstCrashDayAsync());
         Assert.NotNull(crashDay);
         Assert.True(crashDay <= first);

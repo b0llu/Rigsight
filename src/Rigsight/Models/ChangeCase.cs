@@ -78,13 +78,11 @@ public sealed class ChangeCase(ChangeResult result, IReadOnlyList<DriverLine> dr
     private static string Played(IEnumerable<ChangeDay> days) => days.Count(d => d.Temp is not null) is var n && n == 1 ? "1 day" : $"{n} days";
 
     private static ChangeProblemLine Line(ChangeProblem p, string side) =>
-        new(p.Time, p.Time.ToString("ddd d MMM, h:mm tt"), p.Title.Length > 0 ? p.Title : Capital(Wording.Count(p.Kind, 1)), side);
+        new(p.Time, p.Time.ToString("ddd d MMM, h:mm tt"), p.Title.Length > 0 ? p.Title : Wording.Capital(Wording.Count(p.Kind, 1)), side);
 
     /// <summary>An icon for what moved: heat, or problems.</summary>
     public static string ResultIcon(ChangeResult r) => r.TempLabel is not null && r.Pairs.FirstOrDefault()?.Label == r.TempLabel ? ""
         : r.Tone == EffectTone.Worse ? "" : "";
-
-    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     /// <summary>The whole result as text, for a forum post or a support request.</summary>
     public string Report()

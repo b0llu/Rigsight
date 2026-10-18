@@ -10,27 +10,91 @@
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
 
-        <!-- A line of one of the three small cards: its icon in a square, in its own colour, and a few words under it. -->
+        <!-- Home is read at a glance: every line is one statement (it may wrap to a second line), its icon in a square in
+             its own colour. Amber says it needs a look. Only a line with more behind it opens a page: it takes the
+             pointer and has an arrow; a complete fact is plain text and opens nothing (see InsightLinks). -->
+        <Style x:Key="LineText" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="LineArrow" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+            <Setter Property="Text" Value="&#xE76C;" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="10,0,0,0" />
+        </Style>
+
+        <!-- A line of "What changed lately" or "PC health". -->
         <DataTemplate x:Key="CardLine">
-            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,7">
-                <HeaderedContentControl.Header>
-                    <Border Style="{StaticResource IconBox}">
-                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                                   Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
-                    </Border>
-                </HeaderedContentControl.Header>
-                <StackPanel>
-                    <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
-                               Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
-                    <!-- What this change made better or worse, or (PC health) the change that made things worse: opens its before and after. -->
-                    <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ChangeDay, Converter={StaticResource Vis}}">
-                        <Hyperlink Focusable="False" Foreground="{Binding ResultBrush, Converter={StaticResource ResourceBrush}}"
-                                   Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"><Run
-                                   Text="{Binding Result, Mode=OneWay, TargetNullValue='See before and after'}" /></Hyperlink>
-                    </TextBlock>
-                </StackPanel>
-            </HeaderedContentControl>
+            <Button Style="{StaticResource FlatRowButton}" Margin="-8,1" IsEnabled="{Binding CanOpen}" AutomationProperties.Name="{Binding Text}"
+                    Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,6">
+                    <HeaderedContentControl.Header>
+                        <Border Style="{StaticResource IconBox}">
+                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                       Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                        </Border>
+                    </HeaderedContentControl.Header>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource LineArrow}" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                   Visibility="{Binding When, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{Binding Text}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LineText}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TextBrush}" Value="WarmBrush">
+                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding TextBrush}" Value="GoodBrush">
+                                            <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </DockPanel>
+                </HeaderedContentControl>
+            </Button>
+        </DataTemplate>
+
+        <!-- A line of "What stands out today": the insight's one statement; the full sentence is on Reports. -->
+        <DataTemplate x:Key="InsightLine">
+            <Button Style="{StaticResource FlatRowButton}" Margin="-8,1" IsEnabled="{Binding CanOpen}" AutomationProperties.Name="{Binding Line}"
+                    ToolTip="{Binding DetailOrNull}" ToolTipService.ShowOnDisabled="True"
+                    Command="{Binding DataContext.OpenInsightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,6">
+                    <HeaderedContentControl.Header>
+                        <Border Style="{StaticResource IconBox}">
+                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                       Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
+                        </Border>
+                    </HeaderedContentControl.Header>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource LineArrow}" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{Binding Line}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LineText}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Tone}" Value="Warn">
+                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Tone}" Value="Hot">
+                                            <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </DockPanel>
+                </HeaderedContentControl>
+            </Button>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -276,16 +340,22 @@
                                             <TextBlock Grid.Column="3" Text="{Binding App.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                        VerticalAlignment="Center" />
                                         </Grid>
-                                        <DockPanel x:Name="Line" Margin="0,5" ToolTip="{Binding Line.DetailOrNull}" Visibility="{Binding IsApp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                            <TextBlock Text="{Binding Line.Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="2,2,12,0"
-                                                       Foreground="{Binding Line, Converter={StaticResource InsightBrush}}" />
-                                            <TextBlock Text="{Binding Line.Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                                        </DockPanel>
+                                        <Button x:Name="Line" Style="{StaticResource FlatRowButton}" Margin="-6,1" ToolTip="{Binding Line.DetailOrNull}" ToolTipService.ShowOnDisabled="True"
+                                                IsEnabled="{Binding Line.CanOpen, FallbackValue=False}" AutomationProperties.Name="{Binding Line.Line}"
+                                                Command="{Binding DataContext.OpenRecapInsightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Line}"
+                                                Visibility="{Binding IsApp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                            <DockPanel Margin="6,4">
+                                                <TextBlock Text="{Binding Line.Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="2,2,12,0"
+                                                           Foreground="{Binding Line, Converter={StaticResource InsightBrush}}" />
+                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource LineArrow}" Visibility="{Binding Line.CanOpen, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                                <TextBlock Text="{Binding Line.Line}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                        </Button>
                                     </Grid>
                                     <DataTemplate.Triggers>
                                         <!-- A gap between the apps and the lines about the period. -->
                                         <DataTrigger Binding="{Binding StartsLines}" Value="True">
-                                            <Setter TargetName="Line" Property="Margin" Value="0,13,0,5" />
+                                            <Setter TargetName="Line" Property="Margin" Value="-6,9,-6,1" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -319,21 +389,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
                     <StackPanel>
                         <TextBlock Text="What stands out today" Style="{StaticResource H2}" Margin="0,0,0,7" />
-                        <ItemsControl ItemsSource="{Binding TodayInsights}" Focusable="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,7" ToolTip="{Binding DetailOrNull}">
-                                        <HeaderedContentControl.Header>
-                                            <Border Style="{StaticResource IconBox}">
-                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
-                                                           Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
-                                            </Border>
-                                        </HeaderedContentControl.Header>
-                                        <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextWrapping="Wrap" />
-                                    </HeaderedContentControl>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding TodayInsights}" ItemTemplate="{StaticResource InsightLine}" Focusable="False" />
                         <TextBlock Text="Nothing out of the ordinary so far." Style="{StaticResource Muted}" Margin="0,7"
                                    Visibility="{Binding ShowNoInsights, Converter={StaticResource Vis}}" />
                         <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,22"

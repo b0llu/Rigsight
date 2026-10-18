@@ -77,6 +77,31 @@ internal sealed class PcSim
 
         /// <summary>Always this one of <see cref="Games"/> (else mostly the heavy one, sometimes the others).</summary>
         public int? Game { get; init; }
+
+        /// <summary>
+        /// From this moment the GPU's cooler is this many degrees worse at full load (paste gone dry, a fan curve set
+        /// lower, a dried pump): all at once, not over months like dust. At rest it shows a tenth as much.
+        /// </summary>
+        public DateTime? CoolerWorseFrom { get; init; }
+        public double CoolerWorseBy { get; init; } = 8;
+        /// <summary>…until this moment, when it's put right (a clean, new paste).</summary>
+        public DateTime? CoolerWorseUntil { get; init; }
+
+        /// <summary>A graphics driver reset this many times a day the PC is on, from this moment until <see cref="ResetsUntil"/>.</summary>
+        public DateTime? ResetsFrom { get; init; }
+        public DateTime? ResetsUntil { get; init; }
+        public int ResetsPerDay { get; init; } = 1;
+
+        /// <summary>
+        /// A sudden shut-off while the PC was in use (no power button, no crash saved: what a power cut leaves) every this
+        /// many days the PC is on, and each day from <see cref="ShutOffsDailyFrom"/> (a power supply giving out).
+        /// </summary>
+        public int ShutOffEveryDays { get; init; }
+        public DateTime? ShutOffsDailyFrom { get; init; }
+
+        /// <summary>On this day a test tool crashes this many times (it isn't the PC's fault, nor a game's).</summary>
+        public DateTime? ToolCrashesOn { get; init; }
+        public int ToolCrashes { get; init; } = 20;
     }
 
     private readonly Options _o;
@@ -151,6 +176,7 @@ internal sealed class PcSim
     {
         foreach (var day in _pending.GroupBy(p => TimeUtil.FromUnix(p.Minute.Ts).Date))
         {
+            Problems(day.Key);
             var list = day.ToList();
             using (var tx = raw.BeginTransaction())
             {
@@ -196,6 +222,29 @@ internal sealed class PcSim
         }
         _hours.Clear();
         _sessions.Clear();
+    }
+
+    /// <summary>The crashes the options make happen on <paramref name="day"/>, at times the PC was on.</summary>
+    private readonly HashSet<DateTime> _problemDays = [];
+
+    private void Problems(DateTime day)
+    {
+        // A day's minutes can come in two flushes (an evening past midnight is the next day's): its problems once.
+        if (!_problemDays.Add(day)) return;
+        var on = _pending.Where(p => TimeUtil.FromUnix(p.Minute.Ts).Date == day).Select(p => p.Minute.Ts).ToList();
+        if (on.Count == 0) return;
+        var list = new List<global::Rigsight.Core.Stability.CrashEvent>();
+        if (_o.ResetsFrom is { } rf && day >= rf.Date && (_o.ResetsUntil is not { } ru || day < ru.Date))
+            for (int i = 0; i < _o.ResetsPerDay; i++)
+                list.Add(new() { Ts = on[(i + 1) * on.Count / (_o.ResetsPerDay + 1)], Kind = global::Rigsight.Core.Stability.CrashKind.GpuDriverReset, AppExe = "", Module = "nvlddmkm.sys" });
+        bool shutOff = (_o.ShutOffEveryDays > 0 && (day - _start).Days % _o.ShutOffEveryDays == 0) || (_o.ShutOffsDailyFrom is { } sd && day >= sd.Date);
+        if (shutOff)
+            list.Add(new() { Ts = on[^1] + 30, Kind = global::Rigsight.Core.Stability.CrashKind.UnexpectedShutdown, AppExe = "", Moment = global::Rigsight.Core.Stability.PowerMoment.Running,
+                Facts = new global::Rigsight.Core.Stability.CrashFacts { PowerButton = false, HardwareErrors = 0 } });
+        if (_o.ToolCrashesOn is { } tc && day == tc.Date)
+            for (int i = 0; i < _o.ToolCrashes; i++)
+                list.Add(new() { Ts = on[(i + 1) * on.Count / (_o.ToolCrashes + 1)] + i, Kind = global::Rigsight.Core.Stability.CrashKind.AppCrash, AppExe = "probe.exe", Module = "probe.exe", Code = "c0000005" });
+        if (list.Count > 0) _db.InsertCrashes(list);
     }
 
     /// <summary>
@@ -294,7 +343,8 @@ internal sealed class PcSim
         bool gpuFanDead = From(_o.GpuFanDeadFrom, t);
 
         // Each chip heads for where its heat and its cooler balance out, about a third of the way each minute.
-        double gpuTarget = room + 6 + l.GpuPower * 0.14 + dust * l.GpuPower / 300 + (gpuFanDead ? 8 + l.GpuPower * 0.06 : 0);
+        double worse = From(_o.CoolerWorseFrom, t) && !From(_o.CoolerWorseUntil, t) ? _o.CoolerWorseBy : 0;
+        double gpuTarget = room + 6 + l.GpuPower * 0.14 + (dust + worse) * l.GpuPower / 300 + (gpuFanDead ? 8 + l.GpuPower * 0.06 : 0);
         double cpuTarget = room + 8 + l.CpuPower * 0.45 + dust * l.CpuPower / 100;
         _gpuTemp += (gpuTarget - _gpuTemp) * 0.3;
         _cpuTemp += (cpuTarget - _cpuTemp) * 0.35;

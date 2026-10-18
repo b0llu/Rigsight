@@ -664,7 +664,10 @@ public sealed class InsightEngineTests : IDisposable
     {
         var list = Gen(Playing(gpu: 77, cpu: 66, restGpu: 41, restCpu: 42), context: new InsightContext(Then: Then()));
         var line = Assert.Single(list, i => i.Key == "drift");
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 7° hotter than in December 2024 (77° vs 70°), and not because of the room. Dust or old thermal paste are the usual causes.", line.Text);
+        // What rules the room out is said as the figure that does (the GPU at rest), not as "not because of the room".
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 7° hotter than in December 2024: 77° against 70°, at the same power. With nothing running it sat at 41°, as it did then, so dust or old thermal paste are the likely causes.", line.Text);
+        Assert.Equal("Cyberpunk 2077 ran 7° hotter than in December 2024", line.Short);
+        Assert.Equal(InsightOpens.Usual, line.Opens);
         Assert.Equal((InsightTone.Warn, 72), (line.Tone, line.Priority));
         Assert.Equal("90 minutes of steady play now, 300 in December 2024; at rest 41° now, 40° then", line.Detail);
     }
@@ -684,7 +687,7 @@ public sealed class InsightEngineTests : IDisposable
     public void Running_cooler_than_months_ago_is_good_news()
     {
         var line = Assert.Single(Gen(Playing(gpu: 64, cpu: 64, restGpu: 40, restCpu: 42), context: new InsightContext(Then: Then())), i => i.Key == "drift");
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 6° cooler than in December 2024 (64° vs 70°).", line.Text);
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 6° cooler than in December 2024: 64° against 70°, at the same power. With nothing running it sat at 40°, as it did then.", line.Text);
         Assert.Equal((InsightTone.Good, 40), (line.Tone, line.Priority));
     }
 
@@ -724,7 +727,7 @@ public sealed class InsightEngineTests : IDisposable
         // 75.4 vs 69.6 is 5.8° apart, shown as 75° vs 70°: the line says 5°, what the two shown numbers make, not 6°.
         var then = new ThenHeat([Steady(Cyberpunk, 300, 69.6, 65, 300, 8)], new LoadTemps(42, 40, 400), Wed.AddDays(-120), Wed.AddDays(-30));
         var line = Line(Gen(Playing(gpu: 75.4, cpu: 65, restGpu: 40, restCpu: 42), context: new InsightContext(Then: then)), "drift");
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 5° hotter than in December 2024 (75° vs 70°), and not because of the room. Dust or old thermal paste are the usual causes.", line);
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 5° hotter than in December 2024: 75° against 70°, at the same power. With nothing running it sat at 40°, as it did then, so dust or old thermal paste are the likely causes.", line);
     }
 
     [Fact]

@@ -199,8 +199,7 @@ public sealed class WhatsNewTests
             var feature = card.Shown[0].Feature!;
             // Something true about this PC, asked for the feature's page.
             Assert.Equal(["timeline"], asked);
-            Assert.Equal("31 changes already found on this PC, back to June 2025.", card.FeatureFact);
-            Assert.Equal(card.FeatureFact, feature.Fact); // shown in the feature's own block
+            Assert.Equal("31 changes already found on this PC, back to June 2025.", feature.Fact); // shown in the feature's own block
 
             card.OpenFeatureCommand.Execute(feature);
             Assert.False(card.IsOpen);
@@ -214,7 +213,7 @@ public sealed class WhatsNewTests
     {
         var (card, _) = Make(seen: "0.6.0"); // up to 0.7.0: no feature in those
         Ui.Run(card.CheckOnStart);
-        Ui.Run(() => Assert.Null(card.FeatureFact));
+        Ui.Run(() => Assert.All(card.Shown, n => Assert.Null(n.Feature)));
 
         var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = "0.14.4" });
         var quiet = Ui.Run(() => new WhatsNewViewModel(settings, new Version(0, 15, 0), _ => { }, _ => Task.FromResult<string?>(null)));
@@ -223,7 +222,6 @@ public sealed class WhatsNewTests
         Ui.Run(() =>
         {
             Assert.True(quiet.IsOpen);
-            Assert.Null(quiet.FeatureFact);
             Assert.Null(quiet.Shown[0].Feature!.Fact); // and the one from the card before is gone
         });
     }

@@ -31,8 +31,6 @@ public sealed record FanDetail(
 {
     public bool HasApps => Apps.Count > 0;
 
-    public bool HasAppsNote => AppsNote.Length > 0;
-
     /// <summary>The six facts shown (two rows of three): the three above first, then three more for the kind of fan.</summary>
     public IReadOnlyList<FanFact> Facts { get; init; } = [];
 

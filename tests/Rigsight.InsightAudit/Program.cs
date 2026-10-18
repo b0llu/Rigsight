@@ -114,6 +114,13 @@ if (args.Contains("--crashes"))
 }
 
 using var reader = RigsightDb.OpenReader(db) ?? throw new Exception($"Can't open {db}");
+// The fan speeds set while the PC was off, as the agent finds them (it writes them as changes; this only reads).
+if (args.Contains("--fans"))
+{
+    foreach (var c in Rigsight.Core.Stability.FanSettings.Find(reader.GetFans(), reader.GetFanMinutes(0, long.MaxValue / 2)))
+        Console.WriteLine($"{c.Time:ddd d MMM HH:mm}  {c.Title}: {c.Now}   [{c.Subject}]");
+    return;
+}
 var (first, last) = Span(db);
 if (days is int n && last.Date.AddDays(1 - n) > first) first = last.Date.AddDays(1 - n);
 
@@ -126,7 +133,15 @@ void Run(ReportRange range, DateTime anchor, string label)
     if (!r.HasData) return;
     output.Add($"## {label}  ({r.ActiveSec / 3600:0.0} h in use)");
     foreach (var i in r.Insights)
+    {
         output.Add($"  [{i.Key}|{i.Priority}|{i.Tone}] {i.Text}{(i.Detail is { } detail ? "   {" + detail + "}" : "")}");
+        // Home's one statement for it, and where it opens (nothing for a complete fact).
+        output.Add($"      home: {i.Line}{(i.Opens == InsightOpens.None ? "" : $"  -> {i.Opens}")}");
+    }
+    // Against the usual: what Home's PC health and the Reports card read.
+    if (r.Usual is { } u)
+        foreach (var row in u.Rows())
+            output.Add($"    usual: {row.Label} [{row.Detail}] now {row.Now} · usual {row.Usual} ({row.UsualDetail}) = {row.Tone} {row.Means}{(row.MeansDetail is { } md ? $" / {md}" : "")}");
 }
 for (var day = first.Date; day <= last.Date; day = day.AddDays(1)) Run(ReportRange.Day, day.AddHours(12), $"DAY {day:ddd yyyy-MM-dd}");
 for (var week = first.Date.AddDays(-(((int)first.DayOfWeek + 6) % 7)); week <= last.Date; week = week.AddDays(7)) Run(ReportRange.Week, week.AddHours(12), $"WEEK {week:yyyy-MM-dd}");

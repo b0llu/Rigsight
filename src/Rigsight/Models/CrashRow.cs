@@ -50,11 +50,6 @@ public sealed class CrashRow
 
     public bool IsSystem => Event.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset;
 
-    /// <summary>"Just before: CPU 72°, GPU 84°" — only when Rigsight was recording at the time.</summary>
-    public string? TempsText => CpuBefore is null && GpuBefore is null ? null
-        : $"Just before: CPU {Core.Units.TempShort(CpuBefore)}, GPU {Core.Units.TempShort(GpuBefore)}" +
-          (GpuBefore >= 83 || CpuBefore >= 88 ? " — running hot, which may have played a part." : "");
-
     /// <summary>"1h 12m into playing Crimson Desert · CPU 60°, GPU 78°" — what was going on, in one line.</summary>
     public string? ContextText
     {

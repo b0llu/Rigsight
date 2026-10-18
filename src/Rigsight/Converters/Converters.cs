@@ -429,6 +429,7 @@ public sealed class InsightBrushConverter : IValueConverter
         Core.Reports.InsightTone.Hot => "HotBrush",
         _ => insight.Key switch
         {
+            "power-cuts" or "pc-problems" => "MutedBrush",
             "gaming" or "game-heat" => ThemeManager.CategoryHex(Core.Settings.AppCategory.Game),
             "stretch" or "span" or "early" or "away" or "streak" => "PurpleBrush",
             "memory" or "idle-app" or "background-work" => ThemeManager.CategoryHex(Core.Settings.AppCategory.Media),
@@ -439,15 +440,6 @@ public sealed class InsightBrushConverter : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is Core.Reports.Insight insight ? ResourceBrushConverter.Of(KeyOf(insight)) : null;
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
-}
-
-/// <summary>Converts a temperature in °C to the display unit, formatted with ConverterParameter (default "0").</summary>
-public sealed class TempDisplayConverter : IValueConverter
-{
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is double c ? Units.Temp(c).ToString(parameter as string ?? "0", culture) + Units.TempUnit : "—";
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

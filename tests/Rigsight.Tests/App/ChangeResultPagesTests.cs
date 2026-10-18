@@ -40,30 +40,29 @@ public sealed class ChangeResultPagesTests
     [Fact]
     public void Home_pins_the_latest_change_that_made_a_difference_with_what_it_did()
     {
-        var lines = HomeViewModel.ChangeLines(Changes(), Today, new Dictionary<DateTime, ChangeResult> { [Day] = Result() });
+        var lines = HomeViewModel.HomeChangeLines(Changes(), Today, new Dictionary<DateTime, ChangeResult> { [Day] = Result() });
         Assert.Equal(HomeViewModel.CardLines, lines.Count);
-        Assert.Equal("NVIDIA graphics driver 618.10", lines[0].Text); // a week old, above three newer app updates
-        Assert.Equal("10° hotter in Crimson Desert since", lines[0].Result);
-        Assert.Equal("WarmBrush", lines[0].ResultBrush);
-        Assert.Equal(Day, lines[0].ChangeDay);
+        // A week old, above three newer app updates: one statement of what it did, amber, opening its before and after.
+        Assert.Equal(("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", "WarmBrush", (DateTime?)Day), (lines[0].Text, lines[0].TextBrush, lines[0].ChangeDay));
         Assert.All(lines.Skip(1), l => Assert.Null(l.ChangeDay));
 
         // Without a result it's just the newest four, nothing pinned or linked.
-        var plain = HomeViewModel.ChangeLines(Changes(), Today, new Dictionary<DateTime, ChangeResult>());
-        Assert.Equal("NVIDIA App updated to 11.0.9.565", plain[0].Text);
-        Assert.All(plain, l => Assert.Null(l.Result));
+        var plain = HomeViewModel.HomeChangeLines(Changes(), Today, new Dictionary<DateTime, ChangeResult>());
+        Assert.Equal("NVIDIA App updated", plain[0].Text);
+        Assert.All(plain, l => Assert.False(l.CanOpen));
 
         // Two weeks on it's no longer pinned.
-        var old = HomeViewModel.ChangeLines(Changes(), Today.AddDays(HomeViewModel.PinDays), new Dictionary<DateTime, ChangeResult> { [Day] = Result() });
-        Assert.DoesNotContain(old, l => l.Text == "NVIDIA graphics driver 618.10");
+        var old = HomeViewModel.HomeChangeLines(Changes(), Today.AddDays(HomeViewModel.PinDays), new Dictionary<DateTime, ChangeResult> { [Day] = Result() });
+        Assert.DoesNotContain(old, l => l.ChangeDay is not null);
     }
 
     [Fact]
     public void PC_health_calls_out_only_a_change_that_likely_made_things_worse()
     {
         var line = HomeViewModel.WorseLine(new Dictionary<DateTime, ChangeResult> { [Day] = Result() }, Today)!;
-        Assert.Equal("Crimson Desert runs 10° hotter on the GPU since this driver", line.Text);
-        Assert.Equal("Likely the driver", line.Detail);
+        // One statement on Home, amber, opening the change's before and after.
+        Assert.Equal("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", line.Text);
+        Assert.Equal(("WarmBrush", true), (line.TextBrush, line.CanOpen));
         Assert.Equal(Day, line.ChangeDay);
         Assert.Null(HomeViewModel.WorseLine(new Dictionary<DateTime, ChangeResult> { [Day] = Result(sure: Confidence.Possible) }, Today));
         Assert.Null(HomeViewModel.WorseLine(new Dictionary<DateTime, ChangeResult> { [Day] = Result(EffectTone.Better) }, Today));

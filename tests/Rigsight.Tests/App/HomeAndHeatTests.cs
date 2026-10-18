@@ -59,19 +59,19 @@ public sealed class HomeAndHeatTests
     {
         var today = new DateTime(2026, 10, 10);
         SystemChange Change(int daysAgo, ChangeKind kind, string title) => new(today.AddDays(-daysAgo).AddHours(9), kind, title);
-        var lines = HomeViewModel.ChangeLines(
+        var lines = HomeViewModel.HomeChangeLines(
         [
             Change(9, ChangeKind.WindowsUpdate, "Windows update installed"), Change(2, ChangeKind.AppUpdated, "Discord updated"),
             Change(0, ChangeKind.Storage, "63 GB added to the C drive"), Change(0, ChangeKind.AppInstalled, "Grounded 2 installed"),
             Change(1, ChangeKind.Driver, "Graphics driver updated"), Change(20, ChangeKind.Setting, "Fast Startup turned off"),
-        ], today);
+        ], today, new Dictionary<DateTime, ChangeResult>());
         Assert.Equal(HomeViewModel.CardLines, lines.Count);
-        Assert.Equal(["Today", "Today", "Yesterday", "Thursday"], lines.Select(l => l.Detail));
+        Assert.Equal(["Today", "Today", "Yesterday", "Thursday"], lines.Select(l => l.When));
         Assert.Contains("63 GB added to the C drive", lines.Select(l => l.Text));
         Assert.Equal("Graphics driver updated", lines[2].Text);
         Assert.Equal(("PurpleBrush", "GpuBrush", "CpuBrush"), (lines.Single(l => l.Text.StartsWith("63")).Brush, lines[2].Brush, lines[3].Brush));
         Assert.All(lines, l => Assert.False(string.IsNullOrEmpty(l.Icon)));
-        Assert.Empty(HomeViewModel.ChangeLines([], today));
+        Assert.Empty(HomeViewModel.HomeChangeLines([], today, new Dictionary<DateTime, ChangeResult>()));
 
         Assert.Equal("Today", HomeViewModel.DayWord(today, today));
         Assert.Equal("Yesterday", HomeViewModel.DayWord(today.AddDays(-1), today));
@@ -80,28 +80,77 @@ public sealed class HomeAndHeatTests
     }
 
     [Fact]
-    public void Pc_health_says_fine_or_what_needs_a_look()
+    public void Pc_health_says_each_part_against_the_usual_in_one_statement_and_only_what_needs_a_look_opens()
     {
-        var fine = HomeViewModel.HealthLines(0, 0, [], "C drive: 272 of 465 GB used", null, 4);
-        Assert.Equal(
-            ["No problems | In the last 7 days | GoodBrush", "Drive space | C drive: 272 of 465 GB used | GoodBrush", "Fans as usual | 4 spinning now | GoodBrush"],
-            fine.Select(l => $"{l.Text} | {l.Detail} | {l.Brush}"));
+        static CrashEvent Down(CrashKind kind) => new() { Kind = kind, Moment = PowerMoment.Running, Ts = 1 };
+        var day = DateTime.Today;
+        // Today's report as Home has it: its usual, and the lines worded from it (the same words as Reports).
+        static Report Today(PcUsual? usual, params Insight[] more)
+        {
+            var r = new Report { Range = ReportRange.Day, From = DateTime.Today, To = DateTime.Today.AddDays(1), Usual = usual };
+            var lines = new List<Insight>();
+            if (usual is not null && UsualLines.Heat(usual, true, DateTime.Today) is { } heat) lines.Add(heat);
+            if (usual?.Problems is { } pr && UsualLines.Problems(pr, UsualLines.ProblemsSpan(r, DateTime.Today)) is { } problems) lines.Add(problems);
+            r.Insights = InsightLinks.Apply(lines.Concat(more));
+            return r;
+        }
+        static UsualHeat Heat(double now, EffectTone tone) => new("Crimson Desert", "GPU", now, 68, 67, 69, 300, 735, 5, 48, 48, 294, 295, tone) { LastDay = DateTime.Today, LastTemp = now };
 
-        var bad = HomeViewModel.HealthLines(2, 1, [], null, "Your GPU fans didn't spin under load.", 0);
-        Assert.Equal(["2 blue screens or sudden shut-offs, 1 app crash", "Your GPU fans didn't spin under load."], bad.Select(l => l.Text));
-        Assert.All(bad, l => Assert.Equal("WarmBrush", l.Brush));
-        Assert.Equal("1 blue screen or sudden shut-off", HomeViewModel.HealthLines(1, 0, [], null, null, 0)[0].Text);
-        Assert.Equal("3 app crashes", HomeViewModel.HealthLines(0, 3, [], null, null, 0)[0].Text);
-        // Shut-offs that were most likely power cuts are said apart, and alone they are no warning.
-        var mains = HomeViewModel.HealthLines(3, 3, [], null, null, 0, mains: 4)[0];
-        Assert.Equal(("3 blue screens or sudden shut-offs, 4 likely power cuts, 3 app crashes", "WarmBrush"), (mains.Text, mains.Brush));
-        var only = HomeViewModel.HealthLines(0, 0, [], null, null, 0, mains: 1)[0];
-        Assert.Equal(("1 likely power cut", "MutedBrush"), (only.Text, only.Brush));
-        // Nothing known of the drives or the fans (no admin rights, a laptop): only what there is.
-        Assert.Single(HomeViewModel.HealthLines(0, 0, [], null, null, 0));
-        Assert.Equal("1 spinning now", HomeViewModel.HealthLines(0, 0, [], null, null, 1)[^1].Detail);
+        var calm = new PcUsual
+        {
+            Parts = [Heat(70, EffectTone.Same)], Heat = Heat(70, EffectTone.Same),
+            RestNow = new LoadTemps(49, 48, 300), RestUsual = new LoadTemps(49, 48, 3000),
+            Fans = [new UsualFan("Fan #2", 1645, 1630, 1655, null)],
+            Problems = new UsualProblems([], 9, 80, 190, 2.4, EffectTone.Same, 1, 12) { PowerLikelyNow = 1 },
+        };
+        var fine = HomeViewModel.HealthLines(Today(calm), [], 0, [], "the E drive is 73% full", null);
+        Assert.Equal(["Temperatures as usual", "Fans at their usual speeds", "No PC problems in the last 7 days", "1 likely power cut in the last 7 days", "The E drive is 73% full"],
+            fine.Select(l => l.Text));
+        // Nothing in it needs a look: nothing is amber and nothing opens.
+        Assert.All(fine, l => Assert.False(l.CanOpen));
+        Assert.All(fine, l => Assert.Null(l.TextBrush));
+        Assert.Equal("MutedBrush", fine.Single(l => l.Text.Contains("power cut")).Brush);
 
-        Assert.Equal("C drive: 272 of 465 GB used", HomeViewModel.VolumeText(@"C:\", 272L << 30, 465L << 30));
+        var off = new PcUsual
+        {
+            Parts = [Heat(77, EffectTone.Worse)], Heat = Heat(77, EffectTone.Worse),
+            Problems = new UsualProblems([Down(CrashKind.GpuDriverReset), Down(CrashKind.GpuDriverReset), Down(CrashKind.GpuDriverReset)], 0, 80, 190, 2.4, EffectTone.Worse, 0, 0),
+        };
+        var fan = new Insight("", "Fan #2 on your motherboard stopped for 12 minutes from 3:10 PM, when it always turns. Check it isn't blocked or unplugged.", InsightTone.Warn, "fan-stopped")
+            { Short = "Fan #2 on your motherboard stopped for 12 minutes" };
+        var worseDriver = new HomeLine("", "WarmBrush", "Driver 618.10: Crimson Desert runs 10° hotter on the GPU") { TextBrush = "WarmBrush", ChangeDay = day.AddDays(-3) };
+        var bad = HomeViewModel.HealthLines(Today(off, fan), [], 0, [], null, worseDriver);
+        // The same words as the insight list; the driver's own line isn't said here too (PC health already says the heat).
+        Assert.Equal(["Crimson Desert runs 9° hotter than usual", "Fan #2 on your motherboard stopped for 12 minutes", "3 graphics driver resets in the last 7 days"], bad.Select(l => l.Text));
+        Assert.All(bad, l => Assert.Equal("WarmBrush", l.TextBrush));
+        Assert.Equal([InsightOpens.Usual, InsightOpens.Fans, InsightOpens.Crashes], bad.Select(l => l.Opens));
+        // A worse driver with nothing else saying it: it's PC health's first line.
+        Assert.Equal(worseDriver, HomeViewModel.HealthLines(Today(calm), [], 0, [], null, worseDriver)[0]);
+
+        // Too little history for a usual: the last 7 days' problems as they are, and nothing else is claimed.
+        var young = HomeViewModel.HealthLines(Today(null), [CrashKind.GpuDriverReset, CrashKind.SystemCrash, CrashKind.GpuDriverReset], 1, [], null, null);
+        Assert.Equal(["2 graphics driver resets and 1 blue screen in the last 7 days", "1 likely power cut in the last 7 days"], young.Select(l => l.Text));
+        Assert.Equal(InsightOpens.Crashes, young[0].Opens);
+        Assert.Equal("No PC problems in the last 7 days", HomeViewModel.HealthLines(Today(null), [], 0, [], null, null).Single().Text);
+
+        // Fewer problems than usual is good news, with the figures one click away.
+        var better = HomeViewModel.HealthLines(Today(new PcUsual { Problems = new UsualProblems([], 30, 80, 190, 8.6, EffectTone.Better, 0, 0) }), [], 0, [], null, null);
+        Assert.Equal(("Fewer PC problems than usual", "GoodBrush", InsightOpens.Usual), (better[0].Text, better[0].Brush, better[0].Opens));
+
+        Assert.Equal("the C drive is 58% full", HomeViewModel.FullText(@"C:\", 272L << 30, 465L << 30));
+    }
+
+    [Fact]
+    public void What_changed_lately_is_one_statement_a_change_with_when_at_the_right_and_a_result_on_top()
+    {
+        var today = new DateTime(2026, 10, 17);
+        var driver = new SystemChange(today.AddDays(-7).AddHours(17), ChangeKind.Driver, "NVIDIA graphics driver 618.10") { Now = "618.10" };
+        var chrome = new SystemChange(today.AddDays(-1).AddHours(9), ChangeKind.AppUpdated, "Google Chrome updated to 155.0.8059.80");
+        var result = new ChangeResult { Day = driver.Time.Date, Changes = [driver], Tone = EffectTone.Worse, Plain = "Crimson Desert runs 10° hotter on the GPU" };
+        var lines = HomeViewModel.HomeChangeLines([driver, chrome], today, new Dictionary<DateTime, ChangeResult> { [result.Day] = result });
+        Assert.Equal(("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", "WarmBrush", true), (lines[0].Text, lines[0].TextBrush, lines[0].CanOpen));
+        Assert.Equal(("Google Chrome updated", "Yesterday", false), (lines[1].Text, lines[1].When, lines[1].CanOpen));
+        Assert.All(lines, l => Assert.Null(l.Detail));
     }
 
     // ── The week by hour ──

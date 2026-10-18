@@ -21,6 +21,9 @@ The shared words live in one place, `src/Rigsight.Core/Text/Wording.cs`. Use the
 | A peak | The part first: **CPU peak**, **GPU peak** (CPU PEAK in capitals). | "Peak CPU", "Hottest GPU" |
 | Compared with before | **your usual**, only for this PC's own past: "49m less than your usual Wednesday". | "your daily average", "on a usual day" |
 | A week back | **the last 7 days**; comparing: **the 7 days before**. | "the week before", "over the previous 7 days" |
+| Hotter or cooler than usual | Both figures and the load: "77° against 67–69°, at the same power". What rules the room out is said as the figure that does: "With nothing running it sits at its usual 48°". | "and not because of the room", "Not the room", "stands in for the room" |
+| The PC's own problems | **PC problems**: blue screens, graphics driver resets and sudden shut-offs while in use. Likely power cuts are said apart, in grey, and never judged. | counting power cuts or app crashes as PC problems |
+| A line on Home | One statement (it may wrap to a second line), nothing under it. Amber only for what needs a look. It opens a page only where that page shows more (`InsightLinks`); a complete fact opens nothing. | a second line of detail, "…" cutting it short, a link on every line |
 | How long | **2h 35m**, **43m**, **40s** (`Units.Duration`). | "7 h 30 min", "43 min" |
 | The graphics part | **GPU** in labels and sentences. "graphics driver" stays. | "graphics card", "GPU driver" |
 | Internet amounts | **Internet** for amounts used: "Internet 66 GB". **Network** is only the page's name. | "network use", "data" |

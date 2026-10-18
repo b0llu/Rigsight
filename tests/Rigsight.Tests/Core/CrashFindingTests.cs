@@ -92,11 +92,11 @@ public sealed class CrashFindingTests
     {
         // Corrected errors are logged all day on some healthy PCs.
         var e = ShutOff();
-        var corrected = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 17, null)!.Value.Detail);
+        var corrected = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 17)!.Value.Detail);
         var f = CrashFindings.Judge(Input(e, Gaming()) with { Signs = [corrected] });
         Assert.Equal("POSSIBLY MAINS OR POWER SUPPLY", f.Chip);
         Assert.Contains(f.Points, p => p.Title == "The hardware reported an error it corrected");
-        var fatal = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 18, null)!.Value.Detail);
+        var fatal = new CrashSign(e.Ts - 120, SignKind.Hardware, CrashLogReader.SignOf("Microsoft-Windows-WHEA-Logger", 18)!.Value.Detail);
         Assert.Equal("LIKELY A HARDWARE FAULT", CrashFindings.Judge(Input(e, Gaming()) with { Signs = [fatal] }).Chip);
     }
 
@@ -568,14 +568,14 @@ public sealed class CrashFindingTests
     [InlineData("nvlddmkm", 13, SignKind.Graphics)]
     [InlineData("Microsoft-Windows-Resource-Exhaustion-Detector", 2004, SignKind.Memory)]
     public void Trouble_windows_logs_is_kept_as_a_sign(string provider, int id, string kind) =>
-        Assert.Equal(kind, CrashLogReader.SignOf(provider, id, null)?.Kind);
+        Assert.Equal(kind, CrashLogReader.SignOf(provider, id)?.Kind);
 
     [Theory]
     [InlineData("nvlddmkm", 153)] // logged on healthy PCs all the time (232 on one day here)
     [InlineData("disk", 153)]     // a retry that worked
     [InlineData("Ntfs", 98)]
     [InlineData("volmgr", 162)]
-    public void Routine_entries_are_not_signs(string provider, int id) => Assert.Null(CrashLogReader.SignOf(provider, id, null));
+    public void Routine_entries_are_not_signs(string provider, int id) => Assert.Null(CrashLogReader.SignOf(provider, id));
 
     [Fact]
     public void A_drivers_description_is_made_plain_and_its_registry_path_resolved()

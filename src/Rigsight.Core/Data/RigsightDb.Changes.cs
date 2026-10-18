@@ -200,12 +200,40 @@ public sealed partial class RigsightDb
             });
         }
         r.Close();
+        DropFlickers(list);
         // A check that came long after the one before it: the PC was most likely off or asleep in between.
         for (int i = 0; i < list.Count; i++)
             if (list[i] is { IsApproximate: true, NoticedFrom: { } noticed } c && c.Time - noticed > Inventory.WithinAMinute
                 && RecordingSince(TimeUtil.ToUnix(noticed), TimeUtil.ToUnix(c.Time)) is long on)
                 list[i] = c with { OnFrom = TimeUtil.FromUnix(on) };
         return list;
+    }
+
+    /// <summary>How close together a startup program going and coming back is a flicker, not two changes.</summary>
+    private static readonly TimeSpan FlickerWithin = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Takes out a startup program that went and came back within minutes (or came and went): nothing changed. Edge
+    /// deletes its startup entry and writes it again as you sign in, and the minute's check can land in between.
+    /// </summary>
+    private static void DropFlickers(List<SystemChange> list)
+    {
+        var drop = new HashSet<SystemChange>(ReferenceEqualityComparer.Instance);
+        foreach (var item in list.Where(c => c.Kind == ChangeKind.Startup).GroupBy(c => Item(c.Subject), StringComparer.OrdinalIgnoreCase))
+        {
+            var changes = item.OrderBy(c => c.Time).ToList();
+            for (int i = 0; i + 1 < changes.Count; i++)
+                if (changes[i + 1].Time - changes[i].Time <= FlickerWithin)
+                {
+                    // Two flips of a startup program put it back as it was.
+                    drop.Add(changes[i]);
+                    drop.Add(changes[i + 1]);
+                    i++;
+                }
+        }
+        if (drop.Count > 0) list.RemoveAll(drop.Contains);
+
+        static string Item(string subject) => subject.StartsWith(Inventory.ExactPrefix, StringComparison.Ordinal) ? subject[Inventory.ExactPrefix.Length..] : subject;
     }
 
     /// <summary>

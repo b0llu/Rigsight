@@ -281,7 +281,6 @@ public sealed class ShellTests : IClassFixture<AppHost>
             Ui.Run(() =>
             {
                 Assert.False(Button()!.IsVisible);
-                Assert.False(dash.InNav);
                 Assert.Contains(dash, Shell.CustomPages);
                 Assert.Contains(Shell.Settings.Current.CustomPages, p => p.Id == dash.Id);
                 Assert.Contains(Shell.SettingsPage.StartPageOptions, o => o.Key == key);
@@ -439,7 +438,6 @@ public sealed class ShellTests : IClassFixture<AppHost>
             {
                 Shell.Sidebar.ToggleSectionCommand.Execute(SidebarViewModel.Dashboards);
                 Assert.True(Shell.Sidebar.DashboardsCollapsed);
-                Assert.All(Shell.CustomPages, p => Assert.Equal(p.IsSelected, p.InNav));
 
                 Shell.Presets.OpenCommand.Execute(null);
                 Assert.True(Shell.Presets.IsOpen);
@@ -448,7 +446,6 @@ public sealed class ShellTests : IClassFixture<AppHost>
                 Assert.False(Shell.Presets.IsOpen);
                 Assert.Equal("My day", made.Name);
                 Assert.False(Shell.Sidebar.DashboardsCollapsed); // the new page is where you can see it
-                Assert.All(Shell.CustomPages, p => Assert.True(p.InNav));
             });
         }
         finally

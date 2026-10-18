@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         // Listened to weakly: the card outlives any one window (the tests host several).
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
         PropertyChangedEventManager.AddHandler(vm.Processes.Question, OnEndQuestionOpened, nameof(EndQuestionViewModel.IsOpen));
+        PropertyChangedEventManager.AddHandler(vm.Update, OnUpdateScreen, nameof(UpdateViewModel.ShowOverlay));
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Processes.Question.IsOpen)
@@ -88,6 +89,18 @@ public partial class MainWindow : Window
         WhatsNewLayer.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
             { FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop });
         Motion.PopIn(WhatsNewCardHost);
+    }
+
+    /// <summary>
+    /// While "Updating RigSight" is up, nothing of the window behind it may show through: the sidebar and the page are
+    /// hidden (a scrollbar fading out was seen drawn over it), and the Settings menu, a window of its own, is closed (it
+    /// stayed over the screen when the update was started from it). Back as they were if the update didn't install.
+    /// </summary>
+    private void OnUpdateScreen(object? sender, PropertyChangedEventArgs e)
+    {
+        bool up = _vm.Update.ShowOverlay;
+        SidebarHost.Visibility = PageHost.Visibility = up ? Visibility.Hidden : Visibility.Visible;
+        if (up) SettingsRow.IsChecked = false;
     }
 
     /// <summary>

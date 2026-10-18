@@ -34,10 +34,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     [ObservableProperty] private bool _isLoading;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CoverageNote))]
-    private int _trackedDays;
-
     [ObservableProperty] private bool _showBackgroundApps;
 
     // The report is read again on every visit and every minute, and most of it comes back the same: lists that say
@@ -48,7 +44,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         foreach (var name in new[]
                  {
                      nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText),
-                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights),
+                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights), nameof(UsualRows), nameof(HasUsual), nameof(UsualNow), nameof(ProblemsLine), nameof(ProblemsTone),
                  })
             OnPropertyChanged(name);
     }
@@ -92,19 +88,34 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public string EnergyText => Report?.EnergyWh is > 0 and var wh ? EnergyOf(wh) : "—";
     internal static string EnergyOf(double wattHours) => wattHours >= 1000 ? $"{wattHours / 1000:0.0} kWh" : $"{wattHours:0} Wh";
 
-    public string ProblemsText => Crashes.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
-    public bool HasProblems => Crashes.Count > 0;
+    // The PC's own problems (blue screens, graphics driver resets, sudden shut-offs in use), as Home and the "Against your
+    // usual" card count them; likely power cuts and app crashes are said under the number, apart.
+    private List<CrashRow> PcProblems => [.. Crashes.Where(c => PcUsual.CountsAsPcProblem(c.Event, c.Finding))];
+    private int PowerCount => Crashes.Count(c => PcUsual.LooksLikePower(c.Event, c.Finding));
+    private int PowerLikelyCount => Crashes.Count(c => PcUsual.ShutOffOf(c.Event, c.Finding) == ShutOff.PowerLikely);
+
+    public string ProblemsText => PcProblems.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// The number's colour, by the same rule as everywhere in R4: amber only when more than usual (or, where there is no
+    /// usual to go by, when there were any), green with none, plain when there were some as usual.
+    /// </summary>
+    public string ProblemsTone => PcProblems.Count == 0 ? "Good"
+        : (Report?.Usual?.Problems is { } pr && PcUsual.CardRows(Report).Count > 0 ? pr.Tone == EffectTone.Worse : true) ? "Warm" : "Plain";
+
     public string ProblemsLine
     {
         get
         {
-            // As Home counts them: a shut-off that was most likely a power cut is said apart from the PC going down.
-            int mains = Crashes.Count(c => c.Event is { Kind: Core.Stability.CrashKind.UnexpectedShutdown, Moment: Core.Stability.PowerMoment.Running } && c.Finding is { Outside: true });
-            int down = Crashes.Count(c => c.Event.Kind == Core.Stability.CrashKind.SystemCrash || c.Event.Kind == Core.Stability.CrashKind.UnexpectedShutdown) - mains;
-            int apps = Crashes.Count - down - mains;
-            if (Crashes.Count == 0) return Core.Wording.NoProblems;
-            static string Count(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
-            return string.Join(", ", new[] { down > 0 ? Count(down, "blue screen or sudden shut-off", "blue screens or sudden shut-offs") : null, mains > 0 ? Count(mains, "likely power cut", "likely power cuts") : null, apps > 0 ? Count(apps, "app crash", "app crashes") : null }.Where(t => t is not null));
+            var pc = PcProblems;
+            int apps = Crashes.Count(c => !PcUsual.IsPcProblem(c.Event));
+            // Against the usual where the period has its card (a week, a month); else what they were.
+            // ("As usual" only for some: none is said as none, and app crashes after it aren't "usual").
+            string? first = pc.Count > 0 && PcUsual.CardRows(Report).FirstOrDefault(r => r.Key == "problems") is { } row ? row.Means
+                : pc.Count > 0 ? string.Join(", ", pc.GroupBy(c => c.Event.Kind).Select(g => Core.Wording.Count(g.Key, g.Count()))) : null;
+            var parts = new[] { first, apps > 0 ? Core.Wording.Count(Core.Stability.CrashKind.AppCrash, apps) : null, PowerCount > 0 ? Core.Wording.PowerOffs(PowerLikelyCount, PowerCount) : null }
+                .Where(t => t is not null).ToList();
+            return parts.Count == 0 ? "No PC problems" : string.Join(" · ", parts);
         }
     }
 
@@ -175,6 +186,43 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         return parts;
     }
 
+    // ── Against your usual ──
+
+    /// <summary>
+    /// The period against what is normal for this PC: a week, a month, or a custom range of a week or more (a day is
+    /// Home's PC health to say). The temperatures, the fans, the PC's problems and the power cuts, each now and usually;
+    /// only what moved is coloured.
+    /// </summary>
+    private List<UsualRow> _usualRows = [];
+    public List<UsualRow> UsualRows => _usualRows = Kept.Or(_usualRows, UsualOf(Report));
+    public bool HasUsual => UsualRows.Count > 0;
+
+    /// <summary>The column of this period's figures: "THIS WEEK", "THIS MONTH", "THESE DAYS".</summary>
+    public string UsualNow => Range switch { ReportRange.Week => IncludesNow ? "THIS WEEK" : "THAT WEEK", ReportRange.Month => IncludesNow ? "THIS MONTH" : "THAT MONTH", _ => "THESE DAYS" };
+
+    internal static List<UsualRow> UsualOf(Report? r) => PcUsual.CardRows(r);
+
+    /// <summary>
+    /// Opened from a line of Home about the usual: the days it speaks of (a week, a month, or the 7 days Home's usual is
+    /// read over), with their card in view.
+    /// </summary>
+    public void ShowUsual(ReportRange range, DateTime from, DateTime to)
+    {
+        WantUsual = true;
+        if (range == ReportRange.Custom)
+        {
+            // The days first, then the range: one load.
+            CustomFrom = from;
+            CustomTo = to;
+            Range = ReportRange.Custom;
+        }
+        else ShowPeriod(range, from);
+        if (!IsLoading) OnPropertyChanged(nameof(UsualRows));
+    }
+
+    /// <summary>The page should bring the "Against your usual" card into view once it's there (the view does, then clears it).</summary>
+    public bool WantUsual { get; set; }
+
     // ── What stood out ──
 
     // The totals are the tiles above: not said again as the first line.
@@ -230,7 +278,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public List<Insight> Insights => _insights = Kept.Or(_insights, Report?.Insights ?? []);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText), nameof(ProblemsText), nameof(ProblemsLine), nameof(HasProblems))]
+    [NotifyPropertyChangedFor(nameof(CrashesShown), nameof(HasMoreCrashes), nameof(MoreCrashesText), nameof(ProblemsText), nameof(ProblemsLine), nameof(ProblemsTone))]
     private List<CrashRow> _crashes = [];
 
     // A month can list dozens of crashes. The list sits mid-page (more sections follow), so it starts short and grows
@@ -286,7 +334,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public bool ShowEmpty => Ready && !HasData && !Switching;
 
     /// <summary>The period shown as it reads after a statement: "today", "last week", "in August 2026" (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
-    private string When => Controls.PeriodPicker.Words(Range, Anchor, CustomFrom, CustomTo);
+    private string When => Controls.PeriodPicker.Words(Range, Anchor);
 
     /// <summary>What the page says when the period has nothing.</summary>
     public string EmptyTitle => $"{Core.Wording.NotRecorded} {When}";
@@ -429,7 +477,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var (customFrom, customTo) = (CustomFrom, CustomTo);
         var period = (range, anchor, range == ReportRange.Custom ? customFrom : default, range == ReportRange.Custom ? customTo : default);
         if (Ready && _shown != period) _ = SwitchingAfterAsync(id);
-        var tracked = await reports.TrackedDaysAsync();
         var first = await reports.FirstDayAsync();
         var report = range != ReportRange.Custom ? await reports.BuildAsync(range, anchor)
             : customTo > customFrom ? await reports.BuildCustomAsync(customFrom, customTo) : null;
@@ -444,7 +491,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (id != _loadId) return;
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
         if (report?.From != Report?.From || report?.To != Report?.To) _crashLimit = CrashesPage;
-        TrackedDays = tracked;
         FirstDay = first;
         Report = report;
         Crashes = crashes;

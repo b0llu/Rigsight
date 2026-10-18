@@ -97,6 +97,12 @@ public static class ReadableExport
             Heading(sb, "What stood out");
             foreach (var i in r.Insights) sb.AppendLine("  - " + i.Text);
         }
+        if (PcUsual.CardRows(r) is { Count: > 0 } usual)
+        {
+            Heading(sb, "Against your usual");
+            var rows = usual.Select(u => new object?[] { u.Label, u.Now, $"{u.Usual} ({u.UsualDetail})", u.MeansDetail is null ? u.Means : $"{u.Means}: {u.MeansDetail}" }).ToList();
+            foreach (var line in DataExport.TextTable(["What", "This period", "Your usual", "What it means"], rows)) sb.AppendLine("  " + line);
+        }
         var apps = r.Apps.Where(a => a.ActiveSec >= 60).ToList();
         if (apps.Count > 0)
         {
@@ -251,6 +257,13 @@ public static class ReadableExport
             sb.Append("<h2>What stood out</h2><ul>");
             foreach (var i in r.Insights) sb.Append($"<li>{H(i.Text)}</li>");
             sb.Append("</ul>");
+        }
+        if (PcUsual.CardRows(r) is { Count: > 0 } usual)
+        {
+            sb.Append("<h2>Against your usual</h2><table><tr><th>What</th><th>This period</th><th>Your usual</th><th>What it means</th></tr>");
+            foreach (var u in usual)
+                sb.Append($"<tr><td>{H(u.Label)}</td><td>{H(u.Now)}</td><td>{H(u.Usual)} <span style=\"color:var(--muted)\">{H(u.UsualDetail)}</span></td><td>{H(u.MeansDetail is null ? u.Means : $"{u.Means}: {u.MeansDetail}")}</td></tr>");
+            sb.Append("</table>");
         }
 
         if (TempChart(r.Temps) is { } chart)

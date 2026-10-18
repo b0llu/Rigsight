@@ -24,6 +24,11 @@ public enum ChangeKind
     Storage,
     /// <summary>An app or one of its processes was ended from the Processes page (see <see cref="TaskEnded"/>).</summary>
     TaskEnded,
+    /// <summary>
+    /// Motherboard fans came back from a restart at another speed and held it: a setting in the BIOS (see
+    /// <see cref="FanSettings"/>). Worked out from the fan speeds already recorded, nothing else is read for it.
+    /// </summary>
+    Fans,
 }
 
 /// <summary>
@@ -75,6 +80,7 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     /// <summary>A second line under the title: what it was before.</summary>
     public string? Detail => Kind == ChangeKind.Storage ? $"Was {Was} used, now {Now}"
         : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : $"It held {Now}.")
+        : Kind == ChangeKind.Fans ? Now
         : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
 
     /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>

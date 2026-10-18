@@ -82,9 +82,6 @@ public sealed partial class CustomPageViewModel : ObservableObject
 
     [ObservableProperty] private bool _isEditing;
 
-    /// <summary>In the sidebar: as its entry there is (hidden, or in a folded group, it shows only while it's the one you're on).</summary>
-    [ObservableProperty] private bool _inNav = true;
-
     /// <summary>Bound to this page's sidebar button.</summary>
     [ObservableProperty] private bool _isSelected;
     partial void OnIsSelectedChanged(bool value)
@@ -99,8 +96,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
     private void DeletePage() => _delete(this);
 
     /// <summary>Loads the history the page's tiles need (only what's on it).</summary>
-    /// <param name="quiet">The minute refresh: the crash list is only rebuilt if a crash arrived.</param>
-    public async Task RefreshAsync(bool quiet = false)
+    public async Task RefreshAsync()
     {
         var kinds = Tiles.Select(t => t.Kind).ToHashSet();
         if (kinds.Overlaps(["most-used", "insights", "yesterday"])) await Home.RefreshAsync();

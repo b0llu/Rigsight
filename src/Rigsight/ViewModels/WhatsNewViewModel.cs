@@ -23,15 +23,11 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     [NotifyPropertyChangedFor(nameof(Heading))]
     private IReadOnlyList<ReleaseNotes> _shown = [];
 
-    /// <summary>What the newest shown feature already has to show on this PC (null: nothing to say).</summary>
-    [ObservableProperty] private string? _featureFact;
-
     partial void OnShownChanged(IReadOnlyList<ReleaseNotes> value) => _ = LoadFactsAsync([.. value.Where(r => r.Feature is not null).Select(r => r.Feature!)]);
 
     /// <summary>Asks each shown feature's page what it already has for this PC (most have nothing to add).</summary>
     private async Task LoadFactsAsync(List<ReleaseFeature> features)
     {
-        FeatureFact = null;
         foreach (var feature in features)
         {
             feature.Fact = null;
@@ -40,7 +36,6 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
             if (factFor is null || feature != features[0] || !feature.IsPage) continue;
             try { feature.Fact = await factFor(feature.Page); }
             catch (Exception ex) { Core.Log.Error("whatsnew", ex); }
-            if (feature == features[0]) FeatureFact = feature.Fact;
         }
     }
 

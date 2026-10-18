@@ -1434,7 +1434,7 @@ public sealed class ControlTests
             Assert.Equal(8, p.FromHour.SelectedIndex);
             Assert.Equal(20, p.ToHour.SelectedIndex);
 
-            void Apply() => typeof(PeriodPicker).GetMethod("RangeApply_Click", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(p, [null, null]);
+            void Apply() => p.ApplyRange();
             p.ToHour.SelectedIndex = 6;
             Apply();
             Assert.True(EditorOpen(p));

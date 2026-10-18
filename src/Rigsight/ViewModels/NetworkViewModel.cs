@@ -30,7 +30,6 @@ public sealed partial class NetAppRow : ObservableObject
     public required NetAppStat Stat { get; set; }
     public string Name => Stat.Name;
     public string? Path => Stat.Path;
-    public string CategoryText => AppCatalog.Label(Stat.Category);
 
     /// <summary>What the row's numbers count: all of it, or only what moved while it wasn't in front.</summary>
     public required bool BackgroundOnly { get; set; }

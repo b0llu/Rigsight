@@ -56,7 +56,7 @@ public static class CaseMinutes
         if (faster.Count == 1)
             said.Add(new StoodOut($"{faster[0].Name} sped up from {faster[0].From:N0} to {faster[0].To:N0} rpm from {TimeUtil.FromUnix(faster[0].Start):h:mm tt}.", false));
         else if (faster.Count > 1)
-            said.Add(new StoodOut($"{Join([.. faster.Select(x => x.Name)])} sped up from {TimeUtil.FromUnix(faster.Min(x => x.Start)):h:mm tt}, "
+            said.Add(new StoodOut($"{Wording.JoinAnd([.. faster.Select(x => x.Name)])} sped up from {TimeUtil.FromUnix(faster.Min(x => x.Start)):h:mm tt}, "
                 + $"to as much as {faster.Max(x => x.To):N0} rpm.", false));
 
         // Memory: what Windows had promised to apps (where recorded), and what was in use.
@@ -107,7 +107,7 @@ public static class CaseMinutes
             said.Add(new StoodOut($"The connection dropped at {TimeUtil.FromUnix(drop.Start):h:mm tt}, for {Units.Duration(drop.Seconds)}.", false));
         else calm.Add("the connection");
 
-        if (calm.Count > 0) said.Add(new StoodOut($"Nothing unusual in these minutes: {Join(calm)}.", false, IsCalm: true));
+        if (calm.Count > 0) said.Add(new StoodOut($"Nothing unusual in these minutes: {Wording.JoinAnd(calm)}.", false, IsCalm: true));
         return said;
     }
 
@@ -171,10 +171,4 @@ public static class CaseMinutes
         var sorted = values.Order().ToList();
         return sorted.Count == 0 ? 0 : sorted.Count % 2 == 1 ? sorted[sorted.Count / 2] : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2;
     }
-
-    private static string Join(List<string> parts) => parts.Count switch
-    {
-        1 => parts[0],
-        _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
-    };
 }

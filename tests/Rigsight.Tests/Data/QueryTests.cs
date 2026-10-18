@@ -55,43 +55,6 @@ public sealed class QueryTests
     }
 
     [Fact]
-    public void Average_temperatures_skip_missing_readings()
-    {
-        using var t = new TestDb();
-        t.Db.WriteMinute(Minute(T0, cpu: 40, gpu: null));
-        t.Db.WriteMinute(Minute(T0 + 60, cpu: 50, gpu: 60));
-        t.Db.WriteMinute(Minute(T0 + 120, cpu: null, gpu: 70));
-        Assert.Equal((45.0, 65.0), t.Db.AverageTemps(T0, T0 + 180));
-        Assert.Equal((null, null), t.Db.AverageTemps(0, 1));
-    }
-
-    [Fact]
-    public void Peak_temperatures_before_a_moment_cover_the_minutes_up_to_it()
-    {
-        using var t = new TestDb();
-        t.Db.WriteMinute(Minute(T0 - 301, cpuMax: 99, gpuMax: 99));
-        t.Db.WriteMinute(Minute(T0 - 300, cpuMax: 70, gpuMax: 60));
-        t.Db.WriteMinute(Minute(T0, cpuMax: 75, gpuMax: 50));
-        t.Db.WriteMinute(Minute(T0 + 60, cpuMax: 98, gpuMax: 98));
-        Assert.Equal((75.0, 60.0), t.Db.PeakTempsBefore(T0, 5));
-        Assert.Equal((null, null), t.Db.PeakTempsBefore(0, 5));
-    }
-
-    [Fact]
-    public void Front_app_is_the_latest_known_one_within_three_minutes()
-    {
-        using var t = new TestDb();
-        t.Db.WriteMinute(Minute(T0 - 180, app: 1));
-        t.Db.WriteMinute(Minute(T0 - 120, app: 2));
-        t.Db.WriteMinute(Minute(T0 - 60, app: null));
-        t.Db.WriteMinute(Minute(T0 + 60, app: 3));
-        Assert.Equal(2, t.Db.FrontAppAt(T0));        // app 1's minute is exactly 3 minutes back: out
-        Assert.Equal(3, t.Db.FrontAppAt(T0 + 60));
-        Assert.Equal(1, t.Db.FrontAppAt(T0 - 121));
-        Assert.Null(t.Db.FrontAppAt(T0 - 181));
-    }
-
-    [Fact]
     public void Find_minute_gives_the_first_minute_with_the_value_in_the_range_and_the_app_doing_the_work()
     {
         using var t = new TestDb();

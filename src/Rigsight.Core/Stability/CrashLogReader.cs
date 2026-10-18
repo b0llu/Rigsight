@@ -489,7 +489,7 @@ public static partial class CrashLogReader
             {
                 using (record)
                 {
-                    if (record.TimeCreated is not { } time || SignOf(record.ProviderName, record.Id, Prop(record, 1)) is not { } sign) continue;
+                    if (record.TimeCreated is not { } time || SignOf(record.ProviderName, record.Id) is not { } sign) continue;
                     found.Add((TimeUtil.ToUnix(time) / 60 * 60, sign.Kind, sign.Detail));
                 }
             }
@@ -552,7 +552,7 @@ public static partial class CrashLogReader
     }
 
     /// <summary>Which of Windows' own entries count as a sign, and what each says in plain words (null: routine noise).</summary>
-    internal static (string Kind, string Detail)? SignOf(string? provider, int id, string? second) => provider?.ToLowerInvariant() switch
+    internal static (string Kind, string Detail)? SignOf(string? provider, int id) => provider?.ToLowerInvariant() switch
     {
         "microsoft-windows-whea-logger" => id is 1 or 18 or 20 or 46 or 47 ? (SignKind.Hardware, "The hardware reported an error it couldn't correct")
             : id is 17 or 19 ? (SignKind.Hardware, "The hardware reported an error it corrected") : null,

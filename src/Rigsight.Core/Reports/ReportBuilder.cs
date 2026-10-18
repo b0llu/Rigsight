@@ -131,6 +131,10 @@ public static class ReportBuilder
         var previous = RecordedFrom(db, pFrom) ? Period(pFrom, pTo) : null;
 
         var usual = BuildRaw(db, ReportRange.Week, from.Date.AddDays(-7), from.Date, apps, settings);
+        // A week or more is set against the PC's usual like a week; less like a day, with the 6 days before it (the same
+        // usual as the Day report, so a fan set in the BIOS or a game's heat is read the same in both).
+        if (!IsLong(ReportRange.Custom, from, to))
+            report.Usual = PcUsual.Read(db, settings, to - from >= TimeSpan.FromDays(7) ? from : from.Date.AddDays(-6), to, PcUsual.UsualDaysFor(ReportRange.Week), DateTime.Now, id => NameOf(apps, settings, id));
         if (report.Crashes.Count > 0)
         {
             report.CrashContexts = db.GetCrashContext(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), forFindings: false);
@@ -157,6 +161,9 @@ public static class ReportBuilder
         // And further back: the same weekday over recent weeks, and how the PC ran a few months ago.
         var context = new InsightContext(range == ReportRange.Day ? WeekdayUsualOf(db, from, apps, settings) : null,
             IsLong(range) ? null : ThenHeatOf(db, from, id => NameOf(apps, settings, id)), IsLong(range) ? null : ThenFansOf(db, from));
+        // What is normal for this PC: a day with the 6 days before it (a day alone is too little to set against a usual).
+        if (!IsLong(range))
+            report.Usual = PcUsual.Read(db, settings, range == ReportRange.Day ? from.AddDays(-6) : from, to, PcUsual.UsualDaysFor(range), DateTime.Now, id => NameOf(apps, settings, id));
         if (range == ReportRange.Day)
         {
             report.Records = RecordsOf(db, report, from, [.. apps.Values.Where(a => CategoryOf(apps, settings, a.Id) == AppCategory.Game).Select(a => a.Id)]);
@@ -384,7 +391,7 @@ public static class ReportBuilder
         // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and
         // temperature sums and highs, so days without minutes use them rather than showing "0 active".
         var minuteDays = minutes.Select(m => TimeUtil.FromUnix(m.Ts).Date).ToHashSet();
-        AddHourlyFallback(report, [.. hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date))], minutes.Count * 60, NameOf);
+        AddHourlyFallback(report, [.. hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date))], minutes.Count * 60);
 
         // Per-app statistics.
         var stats = AppStats(hours, apps, NameOf, CategoryOf);
@@ -511,7 +518,7 @@ public static class ReportBuilder
     /// per-app rows for two years): their time in front and away, temperatures and highs come from those rows, so
     /// they don't show as "0 active". <paramref name="minuteSec"/> is the time the minutes cover (for blending averages).
     /// </summary>
-    private static void AddHourlyFallback(Report report, List<AppHour> older, double minuteSec, Func<long?, string> NameOf)
+    private static void AddHourlyFallback(Report report, List<AppHour> older, double minuteSec)
     {
         if (older.Count == 0) return;
         double oldActive = older.Sum(h => h.FgSec);
@@ -604,7 +611,7 @@ public static class ReportBuilder
         // Older history without minutes (only ever at the start, where old versions thinned it out).
         long firstMinuteDay = days.Count > 0 ? days[0].Day : t;
         var older = firstMinuteDay > f ? db.GetAppHours(f, firstMinuteDay) : [];
-        AddHourlyFallback(report, older, report.OnSec, NameOf);
+        AddHourlyFallback(report, older, report.OnSec);
 
         // Apps: per-app totals and session counts, summed by the database (as on the Apps page).
         var totals = db.GetAppTotals(f, t);

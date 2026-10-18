@@ -426,8 +426,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 if (i < 0) byApp.Add((app, [p.Part.ToLowerInvariant()]));
                 else byApp[i].Parts.Add(p.Part.ToLowerInvariant());
             }
-        static string Join(List<string> parts) => parts.Count == 1 ? parts[0] : string.Join(", ", parts[..^1]) + " and " + parts[^1];
-        return "Not read right now: " + string.Join(", ", byApp.Select(x => $"{Join(x.Parts)} ({x.App})")) + ".";
+        return "Not read right now: " + string.Join(", ", byApp.Select(x => $"{Core.Wording.JoinAnd(x.Parts)} ({x.App})")) + ".";
     }
 
     internal static string? SkippedText(SensorStatus? status) => status switch

@@ -187,4 +187,14 @@ public static class Units
         double mbps = bytesPerSec * 8 / 1_000_000;
         return mbps >= 1000 ? $"{mbps / 1000:0.0} Gbps" : mbps >= 10 ? $"{mbps:0} Mbps" : $"{mbps:0.0} Mbps";
     }
+
+    /// <summary>A temperature difference in the user's unit, rounded ("5°"), its sign dropped.</summary>
+    public static string Degrees(double celsiusDiff) => $"{Math.Round(Math.Abs(celsiusDiff) * (Fahrenheit ? 9.0 / 5 : 1)):0}°";
+
+    /// <summary>The difference between two temperatures as they're shown (each rounded), so "3° hotter (63° vs 60°)" adds up.</summary>
+    public static string ShownDiff(double a, double b)
+    {
+        static double Shown(double c) => Math.Round(Fahrenheit ? c * 9 / 5 + 32 : c);
+        return $"{Math.Abs(Shown(a) - Shown(b)):0}°";
+    }
 }

@@ -60,7 +60,8 @@ public static class NetInsights
                         ? $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(bg.Use.AwayDown)} of it while you were away."
                         : $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(behind)} of it in the background.",
                     InsightTone.Neutral, "net-background", 57,
-                    $"In the background {Units.Data(bg.Use.BgDown)} · while you were away {Units.Data(bg.Use.AwayDown)}"));
+                    $"In the background {Units.Data(bg.Use.BgDown)} · while you were away {Units.Data(bg.Use.AwayDown)}")
+                    { Short = $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {(away ? "while you were away" : "in the background")}" });
             }
         }
 
@@ -69,7 +70,7 @@ public static class NetInsights
             && sharing.Use.Up >= (isDay ? SharingDayBytes : 4 * SharingDayBytes))
             list.Add(new Insight(IconUp,
                 $"Windows uploaded {Units.Data(sharing.Use.Up)} of updates to other PCs on the internet {period}. You can turn this off in Windows Update settings, under Delivery Optimization.",
-                InsightTone.Neutral, "net-sharing", 59));
+                InsightTone.Neutral, "net-sharing", 59) { Short = $"Windows shared {Units.Data(sharing.Use.Up)} of updates with other PCs" });
 
         // 3. An app uploading far more than it usually does: a backup or sync running wild, or something sending files out.
         if (isDay) UnusualUpload(db, r, list, period);
@@ -82,13 +83,14 @@ public static class NetInsights
         if (isDay && r.Apps.MaxBy(a => a.Use.GameDown) is { } behindGame && behindGame.Use.GameDown >= GameBytes)
         {
             string game = gamesPlayed.Count == 1 ? $"while you played {gamesPlayed[0]}" : "while you were in a game";
-            list.Add(new Insight(IconDown, $"{behindGame.Name} downloaded {Units.Data(behindGame.Use.GameDown)} {game}.", InsightTone.Neutral, "net-game", 54));
+            list.Add(new Insight(IconDown, $"{behindGame.Name} downloaded {Units.Data(behindGame.Use.GameDown)} {game}.", InsightTone.Neutral, "net-game", 54)
+                { Short = $"{behindGame.Name} downloaded {Units.Data(behindGame.Use.GameDown)} during a game" });
         }
 
         // 6. The biggest download day in a month, three months or a year.
         if (isDay && r.Down >= RecordBytes && RecordDays(db, r) is int days)
             list.Add(new Insight(IconRecord, $"Your biggest download day in {Span(days)}: {Units.Data(r.Down)}{(inProgress ? " so far" : "")}.",
-                InsightTone.Neutral, "net-record", 60, $"Beats every day of the {days} before"));
+                InsightTone.Neutral, "net-record", 60, $"Beats every day of the {days} before") { Short = $"Biggest download day in {Span(days)}" });
 
         // 7. The period in a line, against the one before.
         if (r.Down >= 100 * MB)
@@ -113,7 +115,8 @@ public static class NetInsights
             }
             var top = r.Apps.FirstOrDefault();
             string mostly = top is not null && top.Use.Down >= r.Down * 0.4 ? $", mostly {top.Name}" : "";
-            list.Add(new Insight(IconRecap, $"{Units.Data(r.Down)} downloaded{(inProgress ? " " + period : "")}{against}{mostly}.", InsightTone.Neutral, "net-recap", 45));
+            list.Add(new Insight(IconRecap, $"{Units.Data(r.Down)} downloaded{(inProgress ? " " + period : "")}{against}{mostly}.", InsightTone.Neutral, "net-recap", 45)
+                { Short = $"{Units.Data(r.Down)} downloaded{mostly}" });
         }
 
         // 8. The internet dropping more than usual.
@@ -127,7 +130,7 @@ public static class NetInsights
             list.Add(new Insight(IconDrop,
                 $"Your internet dropped {r.Drops.Count} times {period}, the longest for {Units.Duration(longest.Seconds)} at {TimeUtil.FromUnix(longest.Start):h:mm tt}.{why}",
                 InsightTone.Warn, "net-drops", 74,
-                string.Join(" · ", r.Drops.Select(d => $"{TimeUtil.FromUnix(d.Start):h:mm tt} {Units.Duration(d.Seconds)}"))));
+                string.Join(" · ", r.Drops.Select(d => $"{TimeUtil.FromUnix(d.Start):h:mm tt} {Units.Duration(d.Seconds)}"))) { Short = $"Your internet dropped {r.Drops.Count} times" });
         }
 
         return list;
@@ -149,7 +152,8 @@ public static class NetInsights
                     ? $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}, against its usual of about {Units.Data(usual)} a day."
                     : $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}. It usually uploads next to nothing.",
                 usual >= MB ? InsightTone.Neutral : InsightTone.Warn, "net-upload", 68,
-                $"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"));
+                $"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before")
+                { Short = usual >= MB ? $"{app.Name} uploaded {(double)app.Use.Up / usual:0}× its usual" : $"{app.Name} uploaded {Units.Data(app.Use.Up)}, usually next to nothing" });
             return;
         }
     }
