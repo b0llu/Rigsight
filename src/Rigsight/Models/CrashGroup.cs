@@ -54,7 +54,7 @@ public sealed partial class CrashGroup : ObservableObject
             if (_judged) return _finding;
             _judged = true;
             return _finding = !IsIncident ? Latest.Finding
-                : Rows.All(r => r.Input is not null) ? CrashCases.Together([.. Rows.OrderBy(r => r.Time).Select(r => r.Input!)]) : null;
+                : Rows.Count > 0 && Rows.All(r => r.Input is not null) ? CrashCases.Together([.. Rows.OrderBy(r => r.Time).Select(r => r.Input!)]) : null;
         }
     }
 

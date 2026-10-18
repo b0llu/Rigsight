@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -123,13 +123,16 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         Volumes.Clear();
         foreach (var d in DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady))
         {
+            long total, free;
+            try { (total, free) = (d.TotalSize, d.TotalFreeSpace); }
+            catch (IOException) { continue; } // gone between "ready" and reading its size (a drive unplugged): left out
             string growth = "";
             bool up = false;
             var weekAgo = history.Where(h => h.Drive == d.Name && TimeUtil.FromUnix(h.Day) <= DateTime.Today.AddDays(-6)).MinBy(h => h.Day)
                           ?? history.Where(h => h.Drive == d.Name && TimeUtil.FromUnix(h.Day) < DateTime.Today).MinBy(h => h.Day);
             if (weekAgo is not null)
             {
-                double usedGb = (d.TotalSize - d.TotalFreeSpace) / 1073741824.0;
+                double usedGb = (total - free) / 1073741824.0;
                 double diff = usedGb - weekAgo.UsedGb;
                 int days = (int)(DateTime.Today - TimeUtil.FromUnix(weekAgo.Day)).TotalDays;
                 if (Math.Abs(diff) >= 0.1)
@@ -142,7 +145,9 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
                     growth = $"No change in {days} day{(days == 1 ? "" : "s")}";
                 }
             }
-            Volumes.Add(new VolumeRow(d.Name, d.VolumeLabel, d.TotalSize, d.TotalFreeSpace, growth, up));
+            string label;
+            try { label = d.VolumeLabel; } catch (IOException) { label = ""; }
+            Volumes.Add(new VolumeRow(d.Name, label, total, free, growth, up));
         }
     }
 

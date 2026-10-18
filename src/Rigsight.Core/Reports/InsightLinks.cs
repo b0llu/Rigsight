@@ -18,7 +18,9 @@ public static class InsightLinks
         "pc-problems" or "usual-power" => InsightOpens.Crashes,
         "drive-unwell" => InsightOpens.Storage,
         // Moved against the usual, with the figures behind it.
-        "usual-heat" or "drift" => InsightOpens.Usual,
+        // A game hotter than its usual: that game's plays against its usual, on the Games page.
+        "usual-heat" => i.Game is null ? InsightOpens.Usual : InsightOpens.Game,
+        "drift" => InsightOpens.Usual,
         // Warnings with more to see where they're measured.
         "over-limit" or "throttle" or "hotspot" => InsightOpens.Temperatures,
         "peak" => i.Tone is InsightTone.Warn or InsightTone.Hot ? InsightOpens.Temperatures : InsightOpens.None,

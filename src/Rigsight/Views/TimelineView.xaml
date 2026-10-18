@@ -69,6 +69,24 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!-- A game's update: its line, and the way to the game (its plays before and since). -->
+        <DataTemplate x:Key="GameEntry">
+            <Grid Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="72" />
+                    <ColumnDefinition Width="26" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" VerticalAlignment="Top" Margin="0,2,0,0"
+                           Foreground="{DynamicResource MutedBrush}" />
+                <TextBlock Grid.Column="2" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                        Command="{Binding DataContext.OpenGameCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="Open game" /></Hyperlink>
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
+
         <DataTemplate x:Key="ProblemEntry">
             <Grid Margin="0,5">
                 <Grid.ColumnDefinitions>
@@ -183,7 +201,7 @@
         </DataTemplate>
 
         <views:TimelineEntryTemplates x:Key="EntryTemplates" Plain="{StaticResource PlainEntry}" Problem="{StaticResource ProblemEntry}" Rich="{StaticResource RichEntry}"
-                                      Result="{StaticResource ResultEntry}" />
+                                      Result="{StaticResource ResultEntry}" Game="{StaticResource GameEntry}" />
 
         <!-- A day: its dot on the line that runs down the list, its name, and its lines. -->
         <DataTemplate x:Key="DayTemplate">

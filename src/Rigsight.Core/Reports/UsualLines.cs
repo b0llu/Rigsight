@@ -45,7 +45,7 @@ public static class UsualLines
             ? $"{part.App} ran {part.LastDiff} {how} than usual{cpu} on {last:ddd d MMM}"
             : $"{part.App} {verb} {part.LastDiff} {how} than usual{cpu}";
         return new Insight(IconCompare, text, hotter ? InsightTone.Warn : InsightTone.Good, "usual-heat", hotter ? 74 : 41,
-            $"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days") { Short = line };
+            $"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days") { Short = line, Game = part.App };
     }
 
     /// <summary>The PC's own problems when they were more or fewer than usual; null when as usual.</summary>

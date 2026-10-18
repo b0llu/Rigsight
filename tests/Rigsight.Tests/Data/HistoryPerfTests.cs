@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
@@ -80,8 +80,8 @@ public sealed class HistoryPerfTests(HeavyHistory heavy)
     // Budgets: ~3× the median measured on the reference PC (in the comment), rounded up.
 
     [Theory]
-    [InlineData(ReportRange.Day, 100, 11)]    // measured 28–37 ms, 3.0 MB; 9.7–9.8 MB on 2026-10-17 (0.27.0 the same), as yesterday's
-    [InlineData(ReportRange.Week, 300, 18.5)] // measured 79–117 ms, 6.1 MB
+    [InlineData(ReportRange.Day, 100, 12.5)]  // measured 28–37 ms, 3.0 MB; 9.7–9.8 MB on 2026-10-17 (0.27.0 the same); 11.5 MB on 2026-10-18 for 0.28.1 itself and 11.7 MB for 0.29.0 (the made-up history is dated from today)
+    [InlineData(ReportRange.Week, 300, 21)]   // measured 79–117 ms, 6.1 MB; 19.25 MB on 2026-10-18 for 0.28.1 itself, 19.8 MB for 0.29.0
     [InlineData(ReportRange.Month, 630, 62)]  // measured 190–209 ms, 20.4 MB
     [InlineData(ReportRange.Year, 190, 12.5)] // measured 62–64 ms, 4.2 MB
     [InlineData(ReportRange.All, 75, 5.5)]    // measured 20–28 ms, 1.7 MB; 46 ms, 4.0 MB since each report works out its newest crashes' findings

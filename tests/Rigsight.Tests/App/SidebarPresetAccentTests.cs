@@ -31,7 +31,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar();
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
             Assert.All(sidebar.Main.Concat(sidebar.Hardware).Concat(sidebar.OnScreen), e => Assert.True(e.IsVisible));
@@ -52,14 +52,14 @@ public sealed class SidebarPresetAccentTests
 
             // Dropped on a place: the index counts the rows as they are, the moved one included.
             var apps = sidebar.Main.Single(e => e.Key == "apps");
-            Assert.True(sidebar.MoveTo(apps, sidebar.MainGroup, 6));
-            Assert.Equal(["home", "reports", "processes", "crashes", "timeline", "apps"], Keys(sidebar.Main));
-            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 6)); // where it already is
-            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 5));
+            Assert.True(sidebar.MoveTo(apps, sidebar.MainGroup, 7));
+            Assert.Equal(["home", "reports", "games", "processes", "crashes", "timeline", "apps"], Keys(sidebar.Main));
+            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 7)); // where it already is
+            Assert.False(sidebar.MoveTo(apps, sidebar.MainGroup, 6));
             Assert.True(sidebar.MoveTo(apps, sidebar.MainGroup, 1));
-            Assert.Equal(["home", "apps", "reports", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "apps", "reports", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
 
-            Assert.Equal(["home", "apps", "reports", "processes", "crashes", "timeline", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
+            Assert.Equal(["home", "apps", "reports", "games", "processes", "crashes", "timeline", "fans", "temperatures", "memory", "storage", "network", "sensors", "widgets", "overlay", "taskbar"],
                 settings.Current.Sidebar.Order);
             Assert.Empty(settings.Current.Sidebar.Groups); // nothing left its own group
         });
@@ -76,7 +76,7 @@ public sealed class SidebarPresetAccentTests
             Assert.True(sidebar.MoveTo(memory, sidebar.MainGroup, 2));
             var widgets = sidebar.OnScreen.Single(e => e.Key == "widgets");
             Assert.True(sidebar.MoveTo(widgets, sidebar.HardwareGroup, 0));
-            Assert.Equal(["home", "reports", "memory", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "memory", "apps", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["widgets", "temperatures", "fans", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["overlay", "taskbar"], Keys(sidebar.OnScreen));
             Assert.Equal("main", settings.Current.Sidebar.Groups["memory"]);
@@ -106,7 +106,7 @@ public sealed class SidebarPresetAccentTests
         var again = Ui.Run(() => new SidebarViewModel(Kit.OfflineSettings(SettingsStore.Deserialize(SettingsStore.Serialize(settings.Current))), _ => { }));
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(again.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(again.Main));
             Assert.Equal(["widgets", "temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(again.Hardware));
             Assert.Equal(["overlay", "taskbar"], Keys(again.OnScreen));
         });
@@ -247,10 +247,10 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar(old);
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "crashes", "timeline", "processes"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "crashes", "timeline", "processes"], Keys(sidebar.Main));
             Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(sidebar.OnScreen));
-            Assert.Equal(["Home", "Reports", "Apps", "Crashes", "Timeline", "Processes"], sidebar.Main.Select(e => e.Title));
+            Assert.Equal(["Home", "Reports", "Apps", "Games", "Crashes", "Timeline", "Processes"], sidebar.Main.Select(e => e.Title));
             Assert.Equal(["DASHBOARDS", "HARDWARE", "ON SCREEN"], sidebar.Groups.Where(g => g.HasHeading).Select(g => g.Heading));
             Assert.All(sidebar.Groups.Where(g => g.HasHeading), g => Assert.True(g.ShowHeading));
             Assert.True(sidebar.OnScreenCollapsed);
@@ -268,7 +268,7 @@ public sealed class SidebarPresetAccentTests
         (sidebar, _, _) = Sidebar(odd);
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline", "taskbar"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "processes", "crashes", "timeline", "taskbar"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware)); // a group that isn't one: its own
             Assert.Equal(["fans"], Keys(sidebar.DashboardsGroup.Pages));
             Assert.Equal("Start", sidebar.Main[0].Title);
@@ -285,7 +285,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar(start);
         Ui.Run(() =>
         {
-            Assert.Equal(["home", "memory", "reports", "apps", "crashes", "processes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "memory", "reports", "apps", "games", "crashes", "processes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["sensors", "temperatures", "fans", "storage", "network"], Keys(sidebar.Hardware));
         });
     }
@@ -311,7 +311,7 @@ public sealed class SidebarPresetAccentTests
                 s.Sidebar.Names["memory"] = "RAM";
             });
             sidebar.Refresh();
-            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal("RAM", sidebar.Hardware[2].Title);
         });
@@ -341,15 +341,15 @@ public sealed class SidebarPresetAccentTests
 
                 // A grip, a name box and a switch for each page; a name box and a switch for each heading.
                 var grips = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
-                Assert.Equal(15, grips.Count);
+                Assert.Equal(16, grips.Count);
                 Assert.All(grips, g => Assert.True(g.Focusable && g.ActualHeight > 0));
                 Assert.Contains(grips, g => NameOf(g) == "Move Memory: drag it, or use the arrow keys");
                 var boxes = Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Where(b => b.IsVisible).ToList();
-                Assert.Equal(15 + 3, boxes.Count);
+                Assert.Equal(16 + 3, boxes.Count);
                 var switches = Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Where(c => c.IsVisible).Select(NameOf).ToList();
                 Assert.Contains("Show Memory", switches);
                 Assert.Contains("Show the Hardware heading", switches);
-                Assert.Equal(15 + 3, switches.Count);
+                Assert.Equal(16 + 3, switches.Count);
                 Assert.False(Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Single(c => NameOf(c) == "Show Home").IsEnabled);
 
                 // Typing over a name renames the page with each letter.
@@ -419,7 +419,7 @@ public sealed class SidebarPresetAccentTests
         var (sidebar, _, _) = Sidebar(start);
         Ui.Run(() =>
         {
-            Assert.Equal(["crashes", "home", "reports", "apps", "processes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["crashes", "home", "reports", "apps", "games", "processes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["storage", "memory", "temperatures", "fans", "network", "sensors"], Keys(sidebar.Hardware));
         });
     }

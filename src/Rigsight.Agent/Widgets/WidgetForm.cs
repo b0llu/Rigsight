@@ -11,7 +11,8 @@ namespace Rigsight.Agent.Widgets;
 internal sealed class WidgetForm : Form
 {
     private const int WM_NCHITTEST = 0x84, WM_MOUSEMOVE = 0x200, WM_NCMOUSEMOVE = 0xA0, WM_LBUTTONUP = 0x202;
-    private const int WM_RBUTTONUP = 0x205, WM_NCRBUTTONUP = 0xA5, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
+    private const int WM_RBUTTONUP = 0x205, WM_NCRBUTTONUP = 0xA5, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
+    private const uint GW_HWNDPREV = 3;
     private const int HTCLIENT = 1, HTCAPTION = 2, HTTRANSPARENT = -1;
 
     private readonly WidgetManager _manager;
@@ -81,6 +82,7 @@ internal sealed class WidgetForm : Form
             _drawn = null; // shown again, it's drawn whatever it says
             return;
         }
+        if (UnderTaskbar()) KeepOnTop();
         // New readings that come to the same picture: nothing to draw. (A changed setting, the pointer over it and a
         // changed screen scale all go through Redraw itself.)
         if (WidgetRenderer.ChangeKey(Config, data) is { } key && key == _drawn) return;
@@ -95,6 +97,34 @@ internal sealed class WidgetForm : Form
         using var bmp = WidgetRenderer.Render(Config, _data, scale, _hover, out _closeRect);
         if (Size != bmp.Size) Size = bmp.Size;
         Win32.SetLayeredBitmap(Handle, bmp, Location, 255); // opacity is in the bitmap (background and content apart)
+    }
+
+    /// <summary>
+    /// To the front of the always-on-top windows. The taskbar is one of them too, and Windows puts whichever was raised
+    /// last in front: the taskbar comes back above a widget left on it when a fullscreen game closes or it's clicked.
+    /// </summary>
+    public void KeepOnTop() =>
+        Win32.SetWindowPos(Handle, Win32.HWND_TOPMOST, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
+
+    /// <summary>
+    /// A taskbar is above this widget and over it. Only the taskbar: a menu or a flyout opened over the widget stays in front.
+    /// </summary>
+    private bool UnderTaskbar()
+    {
+        var bounds = Bounds;
+        int steps = 0;
+        for (var h = Win32.GetWindow(Handle, GW_HWNDPREV); h != IntPtr.Zero && steps++ < 256; h = Win32.GetWindow(h, GW_HWNDPREV))
+        {
+            if (!Win32.IsWindowVisible(h) || Win32.ClassName(h) is not ("Shell_TrayWnd" or "Shell_SecondaryTrayWnd")) continue;
+            if (Win32.GetWindowRect(h, out var r) && bounds.IntersectsWith(Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom))) return true;
+        }
+        return false;
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible && IsHandleCreated) KeepOnTop(); // back after stepping aside for a game: in front again
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -136,7 +166,12 @@ internal sealed class WidgetForm : Form
                 _manager.ShowMenu(this, Cursor.Position);
                 return;
 
+            case WM_ENTERSIZEMOVE:
+                KeepOnTop(); // picked up: over everything while it's dragged, the taskbar included
+                break;
+
             case WM_EXITSIZEMOVE:
+                KeepOnTop();
                 _manager.Mutate(Config.Id, c => { c.X = Left; c.Y = Top; });
                 break;
 

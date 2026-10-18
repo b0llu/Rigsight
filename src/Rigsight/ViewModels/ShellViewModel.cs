@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,6 +7,7 @@ using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
+using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
@@ -15,6 +16,40 @@ namespace Rigsight.ViewModels;
 public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly AgentClient _client;
+
+    // ── The history file's card (see HistoryRepair) ──────────────────────
+
+    // Pages whose reading hit the damaged part of the history: each says so at its top until the file is repaired.
+    private readonly HashSet<string> _unreadablePages = [];
+    private bool _historyWasDamaged;
+
+    /// <summary>The page on screen couldn't read part of its history (see <see cref="NoteUnreadable"/>).</summary>
+    public bool PageUnreadable => _unreadablePages.Contains(CurrentPage) && Settings.Current.HistoryFile is { Damaged: true } or { Outcome: "waiting" };
+
+    /// <summary>
+    /// A reading on the page on screen failed because the history file is damaged (HistoryRepair.DamageSeen, any thread).
+    /// The page loads right as it's opened, so the page on screen is the one that read it.
+    /// </summary>
+    private void NoteUnreadable() => Application.Current?.Dispatcher.BeginInvoke(() =>
+    {
+        if (_unreadablePages.Add(CurrentPage)) OnPropertyChanged(nameof(PageUnreadable));
+    });
+
+    /// <summary>The sidebar card about the history file, or null when there's nothing to say.</summary>
+    public HistoryCard? HistoryCard => HistoryCard.Of(Settings.Current.HistoryFile);
+
+    [RelayCommand]
+    private void RepairHistory() => _client.SendCommand("repair-history");
+
+    [RelayCommand]
+    private void DismissHistoryCard() => _client.SendCommand("history-dismiss");
+
+    [RelayCommand]
+    private static void OpenHistoryFolder()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(RigsightPaths.DataDir) { UseShellExecute = true })?.Dispose(); }
+        catch (Exception ex) { Log.Write("history", $"The data folder couldn't be opened ({ex.Message})"); }
+    }
     private readonly DispatcherTimer _refresh;
     private DispatcherTimer? _startTimeout;
     private bool _elevationRequested;
@@ -29,9 +64,9 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Live.ChartDetailWanted += () => _ = LoadZoomHistoryAsync();
         Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange, Open = OpenPage };
-        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live };
-        Apps = new AppsViewModel(Reports, Settings);
-        Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page };
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live, OpenGame = OpenGame };
+        Apps = new AppsViewModel(Reports, Settings) { OpenGame = exe => OpenGame(exe) };
+        Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page, OpenGame = OpenGame };
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>
         {
             Crashes.ShowDay(day);
@@ -41,6 +76,7 @@ public sealed partial class ShellViewModel : ObservableObject
             Crashes.ShowPcProblems(first, last);
             CurrentPage = "crashes";
         });
+        Timeline.OpenGameAt = key => OpenGame(key);
         Memory = new MemoryViewModel(Reports, Live);
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);
@@ -49,6 +85,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
+        Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin,
@@ -92,7 +129,15 @@ public sealed partial class ShellViewModel : ObservableObject
             SettingsPage.Refresh();
             Sidebar.Refresh();
             UpdateSettingsAttention();
+            OnPropertyChanged(nameof(HistoryCard));
+            // Repaired (or found fine): every page reads its history whole again. Only on that change: a page that hit
+            // the damage before the agent's check confirmed it keeps its note.
+            bool damaged = Settings.Current.HistoryFile is { Damaged: true } or { Outcome: "waiting" };
+            if (_historyWasDamaged && !damaged) _unreadablePages.Clear();
+            _historyWasDamaged = damaged;
+            OnPropertyChanged(nameof(PageUnreadable));
         };
+        Rigsight.Core.Data.HistoryRepair.DamageSeen += _ => NoteUnreadable();
         client.MessageReceived += OnMessage;
         client.ConnectionChanged += OnConnectionChanged;
 
@@ -149,6 +194,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public HomeViewModel Home { get; }
     public ReportsViewModel ReportsPage { get; }
     public AppsViewModel Apps { get; }
+    public GamesViewModel Games { get; }
     public CrashesViewModel Crashes { get; }
     public TimelineViewModel Timeline { get; }
     /// <summary>
@@ -366,6 +412,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
+        OnPropertyChanged(nameof(PageUnreadable));
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
         _ = RefreshCurrentPageAsync();
@@ -389,6 +436,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "home": await Home.RefreshAsync(); break;
             case "reports": await ReportsPage.LoadAsync(); break;
             case "apps": await Apps.LoadAsync(); break;
+            case "games": await Games.LoadAsync(); break;
             // Coming back: rebuilt only if the crashes changed (rebuilding its cards froze the window for a quarter second).
             case "crashes": await Crashes.LoadAsync(onlyIfChanged: Crashes.Loaded); break;
             case "timeline": await Timeline.LoadAsync(); break;
@@ -451,6 +499,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "home": await Home.RefreshAsync(); break;
                 case "reports": if (ReportsPage.IncludesNow) await ReportsPage.LoadAsync(); break;
                 case "apps": if (Apps.IncludesToday) await Apps.LoadAsync(); break;
+                // A play ending or a game installed shows within two minutes; the live banner follows each second by itself.
+                case "games": if (_tickCount % 2 == 0) await Games.LoadAsync(); break;
                 case "crashes": if (Crashes.IncludesToday) await Crashes.LoadAsync(onlyIfChanged: true); break;
                 case "timeline": await Timeline.LoadAsync(onlyIfChanged: true); break;
                 case "memory": await Memory.RefreshAsync(); break;
@@ -608,6 +658,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case Core.Reports.InsightOpens.Fans: CurrentPage = "fans"; break;
             case Core.Reports.InsightOpens.Network: CurrentPage = "network"; break;
             case Core.Reports.InsightOpens.Storage: CurrentPage = "storage"; break;
+            case Core.Reports.InsightOpens.Game when open.Game is { } game: OpenGame(game); break;
         }
     }
 
@@ -616,6 +667,14 @@ public sealed partial class ShellViewModel : ObservableObject
         Sidebar.Main.Concat(Sidebar.Hardware).Concat(Sidebar.OnScreen).FirstOrDefault(e => e.Key == key)?.Title
         ?? CustomPages.FirstOrDefault(p => p.NavKey == key)?.Name
         ?? (key.Length > 0 ? char.ToUpperInvariant(key[0]) + key[1..] : "Back");
+
+    /// <summary>A game named on another page, opened on the Games page with "Back to" that page.</summary>
+    public void OpenGame(string key)
+    {
+        var from = CurrentPage;
+        _ = Games.OpenKeyAsync(key, (from, PageName(from)));
+        CurrentPage = "games";
+    }
 
     public void Navigate(string? page, string? arg)
     {
@@ -654,6 +713,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
             if (page == "apps" && arg is not null) Apps.ShowToday(arg);
+            // The after-game notification: that game's page (by its program).
+            if (page == "games" && arg is not null) _ = Games.OpenKeyAsync(arg);
             if (page == "widgets" && arg is not null) Widgets.Edit(arg); // "Edit widget…" on a widget on the desktop
             CurrentPage = page;
         }

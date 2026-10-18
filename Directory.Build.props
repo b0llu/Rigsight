@@ -1,6 +1,6 @@
-<Project>
+﻿<Project>
   <PropertyGroup>
-    <Version>0.28.1</Version>
+    <Version>0.29.0</Version>
     <Product>RigSight</Product>
     <Company>RigSight</Company>
     <Copyright>RigSight</Copyright>

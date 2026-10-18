@@ -46,6 +46,9 @@ public sealed class ActivityInfo
     public double SessionActiveSec { get; set; }
     public double? SessionCpuMax { get; set; }
     public double? SessionGpuMax { get; set; }
+    /// <summary>The game in front's frames a second and 1% low right now, while RivaTuner measures it (the Games page's live view).</summary>
+    public double? Fps { get; set; }
+    public double? FpsLow { get; set; }
 }
 
 /// <summary>Running totals for today, kept live by the agent.</summary>

@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
@@ -29,6 +29,7 @@ public sealed class ReportService(SettingsModel settings)
         catch (Exception ex)
         {
             Log.Error("reports", ex);
+            HistoryRepair.Report(ex);
             return default;
         }
     });
@@ -532,8 +533,11 @@ public sealed class ReportService(SettingsModel settings)
         catch (Exception ex)
         {
             Log.Error("reports", ex);
+            HistoryRepair.Report(ex);
         }
-        return Core.Stability.ChangeLogReader.Read(from, to);
+        // Windows' own log instead: it can fail too (the event log service stopped), and the page must still finish loading.
+        try { return Core.Stability.ChangeLogReader.Read(from, to); }
+        catch (Exception ex) { Log.Error("reports", ex); return []; }
     });
 
     /// <summary>

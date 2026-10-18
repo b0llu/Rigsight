@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Converters;
@@ -250,7 +250,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         var shown = all.Where(c => ResultOf(c) is not null).Concat(all.Where(c => ResultOf(c) is null).OrderByDescending(c => c.Time))
             .Take(ChangesShown).OrderByDescending(c => c.Time).ToList();
         var lines = ChangeLines(shown);
-        return [.. lines.Select((line, i) => ResultOf(shown[i]) is { } r
+        return [.. lines.Select((line, i) => ResultOf(shown[i]) is { Short.Length: > 0 } r
             ? line with { Result = char.ToUpperInvariant(r.Short[0]) + r.Short[1..], ResultBrush = r.Tone == EffectTone.Worse ? "WarmBrush" : "GoodBrush", ChangeDay = r.Day }
             : line)];
     }
@@ -294,6 +294,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     /// <summary>Opens a crash as its own case on the Crashes page (set by the window).</summary>
     public Action<DateTime>? OpenCrash { get; set; }
+
+    /// <summary>Opens a game on the Games page, by its program (set by the window).</summary>
+    public Action<string>? OpenGame { get; set; }
+
+    [RelayCommand]
+    private void OpenGameRow(string? exe)
+    {
+        if (exe is not null) OpenGame?.Invoke(exe);
+    }
 
     [RelayCommand]
     private void OpenCase(CrashRow row) => OpenCrash?.Invoke(row.Time);

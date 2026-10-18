@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -201,7 +201,7 @@ public sealed class CaseLanes : FrameworkElement
         {
             double x = X(mark.At);
             var label = ChartPaint.Format(this, mark.Label, 10.5, ChartPaint.Hot);
-            double lx = Math.Clamp(x - label.Width / 2, plotLeft, w - label.Width);
+            double lx = Math.Max(plotLeft, Math.Min(x - label.Width / 2, w - label.Width)); // Math.Clamp throws where the word is wider than the room
             if ((End(c) - mark.At).TotalSeconds > c.BreakSec && plotRight - x > 40)
             {
                 dc.DrawRectangle(ChartPaint.After, null, new Rect(x, Top, plotRight - x, markBottom - Top));
@@ -233,11 +233,13 @@ public sealed class CaseLanes : FrameworkElement
             var names = g.Select(m => m.Label).Distinct().ToList();
             string full = Core.Wording.JoinAnd(names) + " opened";
             var label = ChartPaint.Format(this, full, 10.5, ChartPaint.Muted);
-            double lx = Math.Clamp(mid - label.Width / 2, free, w - label.Width);
-            if (label.Width > 220 || lx + label.Width > w || lx < free)
+            // Not Math.Clamp: the room left after the label before can be narrower than this one, and that throws.
+            double lx = Math.Max(free, Math.Min(mid - label.Width / 2, w - label.Width));
+            if (label.Width > 220 || lx + label.Width > w)
             {
                 label = ChartPaint.Format(this, names.Count == 1 ? "An app opened" : $"{names.Count} apps opened", 10.5, ChartPaint.Muted);
-                lx = Math.Clamp(mid - label.Width / 2, free, w - label.Width);
+                lx = Math.Max(free, Math.Min(mid - label.Width / 2, w - label.Width));
+                if (lx + label.Width > w) continue; // no room left at all on the right
             }
             dc.DrawText(label, new Point(lx, AppRow));
             free = lx + label.Width + 10;

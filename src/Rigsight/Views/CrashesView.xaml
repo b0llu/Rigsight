@@ -312,6 +312,15 @@
                         </StackPanel>
                     </Button>
                     <!-- What can be done with the case, always in sight (the user: at the foot of the page they were hidden). -->
+                    <!-- A game's crash: how far into the play it came, opening the game's page (its other plays and problems). -->
+                    <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Command="{Binding OpenCaseGameCommand}"
+                            Visibility="{Binding CaseGameText, Converter={StaticResource Vis}}" ToolTip="Open the game: every play, how it runs and its problems">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="12" Margin="0,1,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CaseGameText}" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,-9,0" DataContext="{Binding Case.Group}">
                         <Button Style="{StaticResource ActionButton}" Content="{Binding CopyText}"
                                 Command="{Binding DataContext.CopyCommand, ElementName=Page}" CommandParameter="{Binding}"

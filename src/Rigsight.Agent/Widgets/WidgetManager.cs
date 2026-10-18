@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Rigsight.Agent.Ui;
 using Rigsight.Core.Settings;
 
@@ -41,7 +41,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     private void PlaceInitially(WidgetForm form, WidgetConfig cfg)
     {
-        var screen = Screen.PrimaryScreen!.WorkingArea;
+        // No screen at all (a remote session as it starts, say): a usual size, not an error that stops the agent starting.
+        var screen = (Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault())?.WorkingArea ?? new Rectangle(0, 0, 1920, 1040);
         if (cfg.X is int cx && cfg.Y is int cy && Screen.AllScreens.Any(s => s.WorkingArea.Contains(cx + 20, cy + 20)))
         {
             form.Location = new Point(cx, cy);

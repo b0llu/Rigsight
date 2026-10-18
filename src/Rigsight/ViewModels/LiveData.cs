@@ -440,6 +440,9 @@ public sealed partial class LiveData : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
     private TodayInfo _today = new();
 
+    /// <summary>What's in front right now and its session (with a game's frame rate while RivaTuner measures it): the Games page's live view.</summary>
+    [ObservableProperty] private ActivityInfo? _activity;
+
     /// <summary>
     /// Home's CPU tile says how busy the CPU got instead of how hot: on a standard account, on a day with no CPU
     /// temperature (a day that has one, read while admin rights were on for a while, shows its peak as usual).
@@ -742,6 +745,7 @@ public sealed partial class LiveData : ObservableObject
             ReadingsPending = false;
         }
         if (tick.Today is not null) Today = tick.Today;
+        if (tick.Activity is not null) Activity = tick.Activity;
         if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
         Tick++;
     }

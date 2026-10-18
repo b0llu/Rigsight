@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.HomeView"
+﻿<UserControl x:Class="Rigsight.Views.HomeView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
@@ -114,7 +114,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,14">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0"
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
                                     Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="reports">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Full report" />
@@ -399,7 +399,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,7">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0" VerticalAlignment="Center"
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                                     Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="timeline"
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">

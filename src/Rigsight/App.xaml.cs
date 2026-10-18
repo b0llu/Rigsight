@@ -1,7 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using Rigsight.Core;
+using Rigsight.Core.Data;
 using Rigsight.Services;
 using Rigsight.ViewModels;
 
@@ -25,6 +26,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnUnhandledException;
+        // Off the UI thread nothing above sees an error: one on a thread of its own ends the app, so it's logged first;
+        // one in a task nobody waited on is logged and kept from mattering.
+        AppDomain.CurrentDomain.UnhandledException += (_, ev) => { if (ev.ExceptionObject is Exception ex) Log.Error("app", ex); };
+        TaskScheduler.UnobservedTaskException += (_, ev) => { Log.Error("app", ev.Exception); ev.SetObserved(); };
 
         if (!AcquireSingleInstance())
         {
@@ -39,6 +44,16 @@ public partial class App : Application
         }
 
         _client = new AgentClient(Dispatcher);
+        // A page's reading that failed because the history file is damaged: the agent checks it (the check decides,
+        // never the error), at most once in 10 minutes from here.
+        long lastDamage = 0;
+        HistoryRepair.DamageSeen += _ =>
+        {
+            long now = Environment.TickCount64;
+            if (lastDamage != 0 && now - Interlocked.Read(ref lastDamage) < 600_000) return;
+            Interlocked.Exchange(ref lastDamage, now);
+            _client?.SendCommand("history-damage");
+        };
         var shell = new ShellViewModel(_client);
         _settings = shell.Settings;
         ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent, shell.Settings.Current.KeepStatusColors);

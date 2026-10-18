@@ -1,4 +1,4 @@
-using Rigsight.Agent.Network;
+﻿using Rigsight.Agent.Network;
 using Rigsight.Agent.Sensors;
 using Rigsight.Core;
 using Rigsight.Core.Data;
@@ -27,6 +27,15 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     /// </summary>
     private const int SessionBreakSeconds = 10 * 60;
 
+    /// <summary>
+    /// The frame rate and 1% low of the process in front, or null when nothing measures it. RivaTuner's, while it runs
+    /// (the overlay and FPS widgets read the same); a test sets its own.
+    /// </summary>
+    private (double Fps, double? Low)? _frames;
+
+    internal Func<int, (double Fps, double? Low)?> ReadFrames { get; set; } = pid =>
+        Widgets.Rtss.ReadFrameStats(pid) is { } f && f.Fps > 0 ? (f.Fps, f.OnePercentLow) : null;
+
     private sealed class MinuteAcc
     {
         public double Seconds, Active, Idle;
@@ -52,6 +61,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public int VramN;
         public int? Battery;
         public bool? OnBattery;
+        /// <summary>The game in front's frame rate and 1% low, a reading a second while RivaTuner measured it.</summary>
+        public double FpsSum, FpsLowSum;
+        public int FpsN, FpsLowN;
         /// <summary>How many process samples the minute has had, and what each app with something to show added up to over them.</summary>
         public int Samples;
         public readonly Dictionary<string, AppAcc> Apps = new(StringComparer.OrdinalIgnoreCase);
@@ -193,6 +205,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         bool present = !s.Locked && (s.IdleMs < _settings.Tracking.IdleMinutes * 60_000 || fullscreenActive);
 
         AppInfo? app = null;
+        _frames = null;
         if (s.Exe is not null && !s.Locked && !Excluded(s.Exe))
             app = apps.Get(s.Exe, s.Pid);
 
@@ -227,6 +240,13 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 session.LastActive = now;
 
                 LearnGame(app, s.Fullscreen, dt);
+                if (AppResolver.Category(app, _settings) == AppCategory.Game && ReadFrames(s.Pid) is var (fps, low))
+                {
+                    _frames = (fps, low);
+                    _minute.FpsSum += fps;
+                    _minute.FpsN++;
+                    if (low is double l) { _minute.FpsLowSum += l; _minute.FpsLowN++; }
+                }
             }
             else
             {
@@ -268,6 +288,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             SessionActiveSec = session?.ActiveSec ?? 0,
             SessionCpuMax = session?.CpuMax,
             SessionGpuMax = session?.GpuMax,
+            Fps = _frames?.Fps,
+            FpsLow = _frames?.Low,
         };
     }
 
@@ -677,6 +699,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     OnBattery = m.OnBattery,
                     VramUsed = Avg(m.VramSum, m.VramN),
                     VramTotal = m.VramTotal,
+                    // Ten seconds of frames at least, so a game glimpsed while switching away doesn't give the minute a rate.
+                    Fps = m.FpsN >= 10 ? m.FpsSum / m.FpsN : null,
+                    FpsLow = m.FpsN >= 10 && m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null,
                 });
                 db.WriteAppMinutes(_minuteTs, [.. TopApps(m.Apps, m.Samples)
                     .Select(a => new AppMinute(_minuteTs, apps.Get(a.Exe, a.Pid).Id, a.Cpu, a.Gpu, a.MemMb, a.Disk))]);
@@ -710,6 +735,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         catch (Exception ex)
         {
             Log.Error("tracker", ex);
+            HistoryRepair.Report(ex); // the file itself damaged: checked, and repaired if it really is
         }
 
         // The minute itself carries on until it ends (see RollMinute): saved early (Windows signing out), it's written
@@ -756,7 +782,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             IsGame = AppResolver.Category(session.App, _settings) == AppCategory.Game,
         };
         try { session.Row = db.SaveSession(row, session.Row); }
-        catch (Exception ex) { Log.Error("tracker", ex); }
+        catch (Exception ex) { Log.Error("tracker", ex); HistoryRepair.Report(ex); }
         return row;
     }
 

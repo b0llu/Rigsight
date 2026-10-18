@@ -47,7 +47,7 @@ public partial class ExportBox : UserControl
     {
         if (Vm is not { } vm) return;
         var today = DateTime.Today;
-        var first = vm.FirstDay is { } f && f <= today ? f : today;
+        var first = vm.FirstDay is { } f && f.Date <= today ? f.Date : today; // the day alone: a time of day would turn the blacked-out range round
         var (from, to) = (Clamp(vm.CustomFrom, first, today), Clamp(vm.CustomTo, first, today));
         _first = null;
         _marking = true;

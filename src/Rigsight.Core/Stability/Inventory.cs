@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -19,7 +19,7 @@ public sealed record InventoryItem(string Kind, string Key, string Name, string 
 public static partial class Inventory
 {
     public const string App = "app", Startup = "startup", Gpu = "gpu", GpuDriver = "gpudriver", Disk = "disk",
-        Cpu = "cpu", Ram = "ram", Board = "board", Bios = "bios", Windows = "windows", Setting = "setting";
+        Cpu = "cpu", Ram = "ram", Board = "board", Bios = "bios", Windows = "windows", Setting = "setting", Game = "game";
 
     public const string On = "on", Off = "off";
 
@@ -45,10 +45,10 @@ public static partial class Inventory
     public const string ExactPrefix = "logged-";
 
     /// <summary>One of the inventory's kinds (the start of the subject of every change found by it).</summary>
-    public static bool IsKind(string kind) => kind is App or Startup or Gpu or GpuDriver or Disk or Cpu or Ram or Board or Bios or Windows or Setting;
+    public static bool IsKind(string kind) => kind is App or Startup or Gpu or GpuDriver or Disk or Cpu or Ram or Board or Bios or Windows or Setting or Game;
 
     /// <summary>Kinds whose items come and go (an app, a drive); the others are single facts that only change value.</summary>
-    public static bool IsList(string kind) => kind is App or Startup or Gpu or Disk;
+    public static bool IsList(string kind) => kind is App or Startup or Gpu or Disk or Game;
 
     /// <summary>
     /// Whose registry this is. The agent can run as the person at the PC or, on a PC where an administrator approved
@@ -89,7 +89,19 @@ public static partial class Inventory
         Add(Bios, () => Fact(Bios, "BIOS", Machine(@"HARDWARE\DESCRIPTION\System\BIOS", "BIOSVersion")));
         Add(Windows, ReadWindows);
         Add(Setting, ReadSettings);
+        Add(Game, ReadGames);
         return all;
+    }
+
+    /// <summary>
+    /// Each installed game's version as its launcher keeps it, so a new build shows as "updated" (Steam games carry no
+    /// version in Windows' list of programs). The same reading tells the app catalogue which folders hold games.
+    /// </summary>
+    private static List<InventoryItem> ReadGames()
+    {
+        var games = Games.GameLibrary.Scan(Games.GameSources.ThisPc());
+        Apps.AppCatalog.InstalledGames = games;
+        return games.Where(g => g.Version is not null).Select(g => new InventoryItem(Game, g.Key, g.Name, g.Version!)).ToList();
     }
 
     private static List<InventoryItem> Fact(string kind, string name, string? value) =>
@@ -161,7 +173,7 @@ public static partial class Inventory
     internal static void HoldRunningUpdates(List<InventoryItem> apps, IEnumerable<InventoryItem> before, Func<Dictionary<string, List<string>>> folders,
         Func<IEnumerable<(string Path, string Version)>> running)
     {
-        var was = before.Where(i => i.Kind == App).ToDictionary(i => i.Key, StringComparer.OrdinalIgnoreCase);
+        var was = ByKey(before.Where(i => i.Kind == App));
         Dictionary<string, List<string>>? where = null;
         List<(string Path, string Version)>? programs = null;
         for (int i = 0; i < apps.Count; i++)
@@ -538,11 +550,22 @@ public static partial class Inventory
     /// <summary>
     /// The changes from <paramref name="before"/> to <paramref name="after"/> (both of one kind), dated <paramref name="at"/>.
     /// </summary>
+    /// <summary>
+    /// Items by key, the first of any two that share one (in any case): a key twice must not stop every change from being
+    /// recorded, minute after minute.
+    /// </summary>
+    private static Dictionary<string, InventoryItem> ByKey(IEnumerable<InventoryItem> items)
+    {
+        var map = new Dictionary<string, InventoryItem>(StringComparer.OrdinalIgnoreCase);
+        foreach (var i in items) map.TryAdd(i.Key, i);
+        return map;
+    }
+
     public static List<SystemChange> Diff(string kind, IEnumerable<InventoryItem> before, IEnumerable<InventoryItem> after, DateTime at)
     {
         var changes = new List<SystemChange>();
-        var was = before.ToDictionary(i => i.Key, StringComparer.OrdinalIgnoreCase);
-        var now = after.ToDictionary(i => i.Key, StringComparer.OrdinalIgnoreCase);
+        var was = ByKey(before);
+        var now = ByKey(after);
         void Add(ChangeKind k, InventoryItem item, string title, string? old = null, string? value = null) =>
             changes.Add(new SystemChange(at, k, title) { Subject = $"{kind}:{item.Key}", Was = Text(old), Now = Text(value) });
 
@@ -573,6 +596,8 @@ public static partial class Inventory
                 case Windows: Add(ChangeKind.Windows, item, $"{item.Name} updated to {item.Value}", old.Value, item.Value); break;
                 case Setting when item.Key == PowerPlan: Add(ChangeKind.Setting, item, $"{item.Name} changed to {item.Value}", old.Value, item.Value); break;
                 case Setting: Add(ChangeKind.Setting, item, $"{item.Name} turned {item.Value}"); break;
+                // Installs and removals come from the apps above; a game's own record only adds its new version.
+                case Game: Add(ChangeKind.GameUpdated, item, $"{item.Name} updated", old.Value, item.Value); break;
             }
         }
         if (IsList(kind))

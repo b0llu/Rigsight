@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using Rigsight.Agent.Native;
 
@@ -105,7 +105,8 @@ internal sealed class TrayController : IDisposable
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.Clear(Color.Transparent);
-            using (var logo = new Icon(_logo, size, size).ToBitmap())
+            using (var icon = new Icon(_logo, size, size))
+            using (var logo = icon.ToBitmap())
                 g.DrawImage(logo, 0, 0, size, size);
 
             var color = health switch

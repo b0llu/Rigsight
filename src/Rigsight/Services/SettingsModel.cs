@@ -34,7 +34,11 @@ public sealed class SettingsModel
 
     public void Update(Action<RigsightSettings> change)
     {
+        // A "change" that changes nothing is dropped: every page refreshes on Changed, and a control writing back the
+        // value it just read would otherwise go round that loop until the app ran out of stack.
+        string before = SettingsStore.Serialize(Current);
         change(Current);
+        if (SettingsStore.Serialize(Current) == before) return;
         Units.Fahrenheit = Current.UseFahrenheit;
         _dirty = true;
         _debounce.Stop();

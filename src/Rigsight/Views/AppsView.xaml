@@ -160,10 +160,16 @@
                                              ToolTip="{Binding Selected.Path, StringFormat='{}Click to rename this app everywhere.&#x0a;{0}', TargetNullValue='Click to rename this app everywhere.'}" />
                                     <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
                                 </StackPanel>
-                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
+                                <Button Style="{StaticResource GhostButton}" Height="34" Padding="12,0" Margin="0,0,8,0" Command="{Binding OpenGameHistoryCommand}"
+                                        Visibility="{Binding SelectedIsGame, Converter={StaticResource Vis}}" ToolTip="Every play, how it runs and its problems, on the Games page">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Game history" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
                                         Click="More_Click" ToolTip="Category, tracking and file location" AutomationProperties.Name="More options">
                                     <TextBlock Text="&#xE712;" />
                                 </Button>
+                                </StackPanel>
                             </Grid>
 
                             <!-- Three groups side by side (one above the other on a narrow window), each the same parts in the

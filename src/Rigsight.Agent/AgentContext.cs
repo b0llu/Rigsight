@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
@@ -158,7 +158,15 @@ internal sealed class AgentContext : ApplicationContext
                 : "First start: no RGB or fan apps running");
         }
 
-        _db = RigsightDb.OpenWriter();
+        // Checked first when the last run didn't end normally, and repaired when it really is damaged (see HistoryRepair).
+        _db = HistoryRepair.Open(RigsightPaths.Database, out var history);
+        HistoryRepair.MarkRunning(RigsightPaths.DataDir);
+        HistoryRepair.DamageSeen += OnHistoryDamageSeen;
+        // Which folders the launchers say hold games, before the apps are loaded: an app filed wrongly by an older
+        // version (an Epic game outside "Epic Games") is put right as they load. Read again with each change check.
+        Core.Apps.AppCatalog.InstalledGames = Core.Games.GameLibrary.Scan(Core.Games.GameSources.ThisPc());
+        Log.Write("games", $"Launchers list {Core.Apps.AppCatalog.InstalledGames.Count} installed games: "
+            + string.Join(", ", Core.Apps.AppCatalog.InstalledGames.GroupBy(g => g.Launcher).Select(g => $"{g.Key} {g.Count()}")));
         _apps = new AppResolver(_db);
         _tracker = new Tracker(_db, _apps);
         _tracker.SetSettings(_settings);
@@ -204,6 +212,10 @@ internal sealed class AgentContext : ApplicationContext
 
         // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
         // the real startup task alone.
+        // What opening the history found, for the app: here, once everything settings changes reach exists (noted where
+        // the file is opened, it ended the agent before it had started).
+        NoteHistory(history);
+
         _startupEnabled = StartupTask.IsEnabled();
         if (!_isAdmin && MachineSetup.Everyone) _startupEnabled = _settings.StartAtSignIn;
         bool manageStartup = _isAdmin && !RigsightPaths.IsTestInstance;
@@ -325,21 +337,28 @@ internal sealed class AgentContext : ApplicationContext
     {
         // Today's totals come from the database, not the sensors: load and send them first, so the app's
         // Home page isn't left waiting while hardware discovery runs (several seconds on a fresh start).
-        _tracker.Initialize();
-        _lastToday = _tracker.Today();
-        if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
+        // Each start-up step on its own: this is a thread of its own, where an error nobody catches ends the agent.
+        Step("today's totals", () =>
+        {
+            _tracker.Initialize();
+            _lastToday = _tracker.Today();
+            if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
+        });
 
-        _safeMode = ScanGuard.LastScanUnfinished(ScanMarker);
-        if (_safeMode) Log.Write("sensors", "The last hardware scan didn't finish: skipping the motherboard, fan hubs and power supply");
-        OpenSensors();
+        Step("sensors", () =>
+        {
+            _safeMode = ScanGuard.LastScanUnfinished(ScanMarker);
+            if (_safeMode) Log.Write("sensors", "The last hardware scan didn't finish: skipping the motherboard, fan hubs and power supply");
+            OpenSensors();
+        });
 
         // Hardware discovery allocates a lot of short-lived data; hand it back once so the
         // always-running agent settles at its real (small) footprint.
-        CompactMemory();
+        Step("memory", CompactMemory);
 
-        RecordDrives();
-        RestoreExtremes();
-        StartNetwork();
+        Step("drives", RecordDrives);
+        Step("extremes", RestoreExtremes);
+        Step("network", StartNetwork);
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
@@ -496,6 +515,7 @@ internal sealed class AgentContext : ApplicationContext
                     nextMinuteCheck = now + 60_000;
                     MaybeShowDailyRecap();
                     SaveExtremes();
+                    RetryWaitingRepair();
                 }
 
                 if (now >= nextHardwareApps)
@@ -552,15 +572,24 @@ internal sealed class AgentContext : ApplicationContext
             }
         }
 
-        _tracker.Flush(closeAllSessions: true);
-        SaveExtremes(force: true);
-        _appCrashWatch?.Dispose();
-        _netTrace?.Dispose();
+        // Each closing step on its own too: a full disk at quit must not end the agent with a crash report.
+        Step("last minute", () => _tracker.Flush(closeAllSessions: true));
+        Step("extremes", () => SaveExtremes(force: true));
+        Step("crash watch", () => _appCrashWatch?.Dispose());
+        Step("network trace", () => _netTrace?.Dispose());
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
-        _sensors.Close();
-        _gpuSampler.Dispose();
-        _db.Dispose();
+        Step("sensors", _sensors.Close);
+        Step("GPU sampler", _gpuSampler.Dispose);
+        Step("database", _db.Dispose);
+        Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir)); // closed normally: no check at the next start
+    }
+
+    /// <summary>One step of the sampler thread's start or end: an error is logged with what failed, and the rest goes on.</summary>
+    private static void Step(string what, Action step)
+    {
+        try { step(); }
+        catch (Exception ex) { Log.Write("sampler", $"{what} failed: {ex}"); }
     }
 
     /// <summary>
@@ -883,7 +912,8 @@ internal sealed class AgentContext : ApplicationContext
     /// </summary>
     private void OnSessionEnding(object? sender, SessionEndingEventArgs e)
     {
-        using var done = new ManualResetEventSlim();
+        // Not disposed: after the 3 s wait the sampler may still get to Set it, which would throw on a disposed one.
+        var done = new ManualResetEventSlim();
         RunOnSampler(() =>
         {
             try
@@ -900,7 +930,8 @@ internal sealed class AgentContext : ApplicationContext
                 done.Set();
             }
         });
-        done.Wait(TimeSpan.FromSeconds(3));
+        // Everything saved: Windows ending the agent from here on isn't a power cut, so no check at the next start.
+        if (done.Wait(TimeSpan.FromSeconds(3))) HistoryRepair.MarkStopped(RigsightPaths.DataDir);
         Log.Write("agent", $"Saved before Windows {(e.Reason == SessionEndReasons.SystemShutdown ? "shut down" : "signed out")}");
     }
 
@@ -1323,7 +1354,7 @@ internal sealed class AgentContext : ApplicationContext
                 }
                 if (!summaryWanted) return;
                 string text = $"Played for {Units.Duration(row.ActiveSec)}. {Wording.Peak("CPU")} {Units.TempShort(row.CpuTempMax)}, {Wording.Peak("GPU")} {Units.TempShort(row.GpuTempMax)}. {Wording.FullPicture}";
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "apps", app.Exe)), null);
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "games", app.Exe)), null);
             }
             catch (Exception ex)
             {
@@ -1671,7 +1702,7 @@ internal sealed class AgentContext : ApplicationContext
             "alert" => new(NoticeKind.Alert, "Running hot",
                 $"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)} has been above your limit for {s.Alerts.SustainSeconds}+ seconds while Cyberpunk 2077 was running.", Page: "temperatures", Urgent: true),
             "session" => new(NoticeKind.Session, "Dota 2 session",
-                $"Played for 2h 14m. {Wording.Peak("CPU")} {Units.TempShort(71)}, {Wording.Peak("GPU")} {Units.TempShort(68)}. {Wording.FullPicture}", activity.Path, "apps"),
+                $"Played for 2h 14m. {Wording.Peak("CPU")} {Units.TempShort(71)}, {Wording.Peak("GPU")} {Units.TempShort(68)}. {Wording.FullPicture}", activity.Path, "games"),
             "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
             _ => new(NoticeKind.Recap, "Yesterday on your PC",
                 $"Active 6h 12m  ·  Dota 2 3h 05m  ·  CPU peak {Units.TempShort(78)}  ·  GPU peak {Units.TempShort(72)}. {Wording.FullPicture}", Page: "reports", Arg: "yesterday"),
@@ -1814,6 +1845,19 @@ internal sealed class AgentContext : ApplicationContext
             case "restart-elevated":
                 _ui.Post(_ => RestartElevated(), null);
                 break;
+            case "history-damage":
+                RunOnSampler(() => OnHistoryDamage(fromSave: false));
+                break;
+            case "check-history":
+                RunOnSampler(CheckHistoryNow);
+                break;
+            case "repair-history":
+                HistoryRepair.AskRepair(RigsightPaths.DataDir, "you asked for a repair");
+                _ui.Post(_ => Restart("a history repair asked for in the app"), null);
+                break;
+            case "history-dismiss":
+                MutateSettings(s => s.HistoryFile.Dismissed = true);
+                break;
             case "install-update" when !RigsightPaths.IsTestInstance:
                 _ = Task.Run(async () =>
                 {
@@ -1838,6 +1882,7 @@ internal sealed class AgentContext : ApplicationContext
         incoming.HardwareAppsChecked = current.HardwareAppsChecked;
         incoming.StartAtSignIn = current.StartAtSignIn;
         incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
+        incoming.HistoryFile = current.HistoryFile; // the agent's alone: dismissing goes through a command
         foreach (var w in incoming.Widgets)
         {
             var mine = current.Widgets.FirstOrDefault(x => x.Id == w.Id);
@@ -2016,6 +2061,135 @@ internal sealed class AgentContext : ApplicationContext
         {
             // UAC declined: keep running without admin.
         }
+    }
+
+    // ── The history file ─────────────────────────────────────────────────
+
+    /// <summary>What opening the history found, for the sidebar card and Settings → History.</summary>
+    private void NoteHistory(HistoryReport r)
+    {
+        if (r.Outcome == HistoryOutcome.Fine && r.Why is null) return; // a normal start: nothing was checked
+        MutateSettings(s =>
+        {
+            var h = s.HistoryFile;
+            h.CheckedAt = DateTime.Now;
+            h.CheckedWhy = r.Why switch
+            {
+                "it wouldn't open" => "when it wouldn't open",
+                "a reading failed to save" => "after a reading failed to save",
+                "you asked for a repair" => "when you asked for a repair",
+                "a repair was waiting for room on the drive" => "once there was room on the drive",
+                _ => "after RigSight last closed suddenly",
+            };
+            h.Checking = false;
+            switch (r.Outcome)
+            {
+                case HistoryOutcome.Fine:
+                    h.Damaged = false;
+                    break;
+                case HistoryOutcome.ListsRebuilt:
+                    h.Damaged = false;
+                    h.Outcome = "lists";
+                    h.RepairedAt = DateTime.Now;
+                    break;
+                case HistoryOutcome.Repaired or HistoryOutcome.NothingSaved:
+                    h.Damaged = false;
+                    h.Outcome = r.Outcome == HistoryOutcome.NothingSaved ? "nothing" : HistoryRepair.LostAny(r) ? "repaired" : "whole";
+                    h.RepairedAt = DateTime.Now;
+                    h.Summary = HistoryRepair.Summary(r);
+                    h.DamagedCopy = r.DamagedCopy;
+                    h.WaitingReason = null;
+                    h.Dismissed = false;
+                    break;
+                case HistoryOutcome.Waiting:
+                    h.Damaged = true;
+                    h.Outcome = "waiting";
+                    h.WaitingReason = r.WaitingReason;
+                    h.Dismissed = false;
+                    break;
+            }
+        });
+    }
+
+    private long _historyDamageTicks;
+
+    /// <summary>A save said the file is damaged (any thread): checked on the sampler thread, at most once in 10 minutes.</summary>
+    private void OnHistoryDamageSeen(Exception ex)
+    {
+        long now = Environment.TickCount64, last = Interlocked.Read(ref _historyDamageTicks);
+        if (last != 0 && now - last < 600_000) return;
+        if (Interlocked.CompareExchange(ref _historyDamageTicks, now, last) != last) return;
+        Log.Write("history", $"A save failed as damaged ({ex.Message}): checking the file");
+        RunOnSampler(() => OnHistoryDamage(fromSave: true));
+    }
+
+    /// <summary>
+    /// The check decides, never the error: fine, nothing; only lookup lists, rebuilt here; real damage, repaired at once
+    /// when new readings can't be saved (a restart, as the file has to be closed), else the card, and the user picks when.
+    /// </summary>
+    private void OnHistoryDamage(bool fromSave)
+    {
+        var health = _db.CheckHealth();
+        if (health.Ok)
+        {
+            Log.Write("history", $"{(fromSave ? "A save" : "A reading in the app")} said the history file is damaged, but the check finds it fine: nothing done");
+            return;
+        }
+        if (health.OnlyLists && _db.RebuildLists())
+        {
+            Log.Write("history", "Only the history's lookup lists were damaged: rebuilt, no readings lost");
+            MutateSettings(s => { s.HistoryFile.CheckedAt = DateTime.Now; s.HistoryFile.Outcome = "lists"; s.HistoryFile.RepairedAt = DateTime.Now; });
+            return;
+        }
+        Log.Write("history", $"The check confirms the history file is damaged: {string.Join("; ", health.Problems.Take(6))}");
+        if (fromSave)
+        {
+            HistoryRepair.AskRepair(RigsightPaths.DataDir);
+            _ui.Post(_ => Restart("a history repair (new readings couldn't be saved)"), null);
+            return;
+        }
+        MutateSettings(s =>
+        {
+            s.HistoryFile.Damaged = true;
+            s.HistoryFile.Dismissed = false;
+            s.HistoryFile.CheckedAt = DateTime.Now;
+            s.HistoryFile.CheckedWhy = "after a reading failed";
+        });
+    }
+
+    /// <summary>Settings → History → Check now.</summary>
+    private void CheckHistoryNow()
+    {
+        MutateSettings(s => s.HistoryFile.Checking = true);
+        HistoryHealth health;
+        try { health = _db.CheckHealth(); }
+        catch (Exception ex) { Log.Error("history", ex); health = HistoryHealth.Fine; }
+        bool rebuilt = !health.Ok && health.OnlyLists && _db.RebuildLists();
+        Log.Write("history", health.Ok ? "Checked the history file when asked: it's fine"
+            : rebuilt ? "Checked the history file when asked: its lookup lists were damaged, rebuilt with nothing lost"
+            : $"Checked the history file when asked: damaged ({string.Join("; ", health.Problems.Take(6))})");
+        MutateSettings(s =>
+        {
+            var h = s.HistoryFile;
+            h.Checking = false;
+            h.CheckedAt = DateTime.Now;
+            h.CheckedWhy = "when you asked";
+            h.Damaged = !health.Ok && !rebuilt;
+            if (rebuilt) { h.Outcome = "lists"; h.RepairedAt = DateTime.Now; }
+            if (h.Damaged) h.Dismissed = false;
+        });
+    }
+
+    private long _nextRepairRetry;
+
+    /// <summary>A repair that waited for room on the drive: once there is, the agent restarts to do it (checked every 10 minutes).</summary>
+    private void RetryWaitingRepair()
+    {
+        if (_settings.HistoryFile.Outcome != "waiting" || Environment.TickCount64 < _nextRepairRetry) return;
+        _nextRepairRetry = Environment.TickCount64 + 600_000;
+        if (!HistoryRepair.RoomFor(RigsightPaths.Database)) return;
+        HistoryRepair.AskRepair(RigsightPaths.DataDir, "a repair was waiting for room on the drive");
+        _ui.Post(_ => Restart("a history repair that was waiting for room on the drive"), null);
     }
 
     /// <summary>Starts a new copy that takes over (with the same rights, so nothing to accept), then exits.</summary>

@@ -129,12 +129,19 @@ public sealed partial class SidebarViewModel : ObservableObject
 {
     public const string MainSection = "main", Dashboards = "dashboards", HardwareSection = "hardware", OnScreenSection = "onscreen";
 
+    /// <summary>
+    /// Pages added after people could save their own sidebar order: one goes right after the page before it here (Games
+    /// under Apps) rather than at the end of its group.
+    /// </summary>
+    private static readonly HashSet<string> AddedLater = ["games"];
+
     /// <summary>Every built-in page, in its usual group and order. A new page is one more line here.</summary>
     private static readonly (string Key, string Title, string Icon, string Group)[] BuiltIn =
     [
         ("home", "Home", "", MainSection),
         ("reports", "Reports", "", MainSection),
         ("apps", "Apps", "", MainSection),
+        ("games", "Games", "", MainSection),
         ("processes", "Processes", "", MainSection),
         ("crashes", "Crashes", "", MainSection),
         ("timeline", "Timeline", "", MainSection),
@@ -427,14 +434,21 @@ public sealed partial class SidebarViewModel : ObservableObject
         S.Groups.TryGetValue(entry.Key, out var moved) && Groups.Any(g => g.Key == moved) ? moved : entry.Home;
 
     /// <summary>
-    /// Puts every page in its group, in the saved order; pages the saved order doesn't know (new ones) keep their place
-    /// at the end of their own group. Only what is out of place is touched, so reading the same settings again changes nothing.
+    /// Puts every page in its group, in the saved order; a page the saved order doesn't know (a new one, like Games in
+    /// 0.29.0) goes right after the built-in page before it (Games under Apps), else at the end of its own group. Only
+    /// what is out of place is touched, so reading the same settings again changes nothing.
     /// </summary>
     private void Arrange()
     {
         var order = S.Order;
-        var wanted = Groups.ToDictionary(g => g, g => _entries.Where(e => GroupKeyOf(e) == g.Key)
-            .OrderBy(e => order.IndexOf(e.Key) is var i and >= 0 ? i : int.MaxValue).ToList());
+        double Rank(NavEntry e)
+        {
+            if (order.IndexOf(e.Key) is var i and >= 0) return i;
+            int b = Array.FindIndex(BuiltIn, x => x.Key == e.Key);
+            if (AddedLater.Contains(e.Key) && b > 0 && order.IndexOf(BuiltIn[b - 1].Key) is var before and >= 0) return before + 0.5;
+            return int.MaxValue;
+        }
+        var wanted = Groups.ToDictionary(g => g, g => _entries.Where(e => GroupKeyOf(e) == g.Key).OrderBy(Rank).ToList());
         foreach (var (group, pages) in wanted)
             foreach (var gone in group.Pages.Except(pages).ToList()) group.Pages.Remove(gone);
         foreach (var (group, pages) in wanted)

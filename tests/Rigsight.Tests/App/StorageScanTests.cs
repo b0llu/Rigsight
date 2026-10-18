@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
@@ -15,6 +15,21 @@ public sealed class StorageScanTests
     private const int K = 4096;
 
     private static Task<ScanResult> Scan(string root) => StorageScanner.ScanAsync(root, new Progress<(long, long)>(), TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Folders_nested_hundreds_deep_are_counted_without_running_out_of_stack()
+    {
+        // A folder copied into itself over and over: one call per level used to end the app (a stack overflow can't be caught).
+        var root = TestEnvironment.NewFolder("deep");
+        var dir = root;
+        for (int i = 0; i < 400; i++) dir = Path.Combine(dir, "d");
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "deepest.bin"), new byte[K]);
+
+        var r = await Scan(root);
+        Assert.Equal(1, r.Root.Files);
+        Assert.True(r.Root.Size >= K);
+    }
 
     [Fact]
     public async Task A_file_under_two_names_is_counted_once()

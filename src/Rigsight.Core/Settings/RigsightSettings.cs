@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Rigsight.Core.Settings;
 
@@ -154,7 +154,31 @@ public sealed class RigsightSettings
     /// <summary>Exports are tables for a spreadsheet (CSV) and pages for a browser, not laid-out text files (the format picked last).</summary>
     public bool ExportAsCsv { get; set; }
 
+    /// <summary>The history file's last check and repair, as the agent found them (it alone writes this).</summary>
+    public HistoryFileState HistoryFile { get; set; } = new();
+
     public RigsightSettings Clone() => SettingsStore.Deserialize(SettingsStore.Serialize(this));
+}
+
+/// <summary>What the sidebar card and Settings → History say about the history file (see <see cref="Data.HistoryRepair"/>).</summary>
+public sealed class HistoryFileState
+{
+    /// <summary>When the file was last checked, and why ("after the PC lost power", "when you asked").</summary>
+    public DateTime? CheckedAt { get; set; }
+    public string? CheckedWhy { get; set; }
+    /// <summary>Being checked right now (Settings → History → Check now).</summary>
+    public bool Checking { get; set; }
+    /// <summary>Damage the check confirmed in a file still in use: old readings can't be read, new ones save.</summary>
+    public bool Damaged { get; set; }
+    /// <summary>"repaired", "whole" (repaired, nothing lost), "nothing", "waiting", "lists", or null.</summary>
+    public string? Outcome { get; set; }
+    public DateTime? RepairedAt { get; set; }
+    /// <summary>What was kept and what wasn't, as the card says it.</summary>
+    public string? Summary { get; set; }
+    public string? DamagedCopy { get; set; }
+    public string? WaitingReason { get; set; }
+    /// <summary>The card was put away (it comes back with the next damage or repair).</summary>
+    public bool Dismissed { get; set; }
 }
 
 public sealed class TrackingSettings

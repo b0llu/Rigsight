@@ -80,7 +80,7 @@ public sealed partial class QueryPlanTests
     {
         "GetMinutes", "GetAppHours", "GetAppTotals", "GetSystemDays", "GetSessions", "GetLongestSessions", "GetSessionStats", "GetRecentSessions",
         "GetCrashes", "GetCrashContext", "TempRange", "FindMinute", "GetAppMonths", "GetAppTime",
-        "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec", "Network",
+        "FirstTimes", "GetDriveDays", "Fans", "GetHeatDays", "LongestGameSessionSec", "Network", "Games",
     };
 
     [Theory]
@@ -121,6 +121,10 @@ public sealed partial class QueryPlanTests
                 db.GetNetMinutes(day, day + 86400); db.GetNetDays(U(2000, 1, 1), to); db.GetNetAppHours(day, day + 86400);
                 db.GetNetAppDays(from, to); db.GetNetAppTotals(U(2000, 1, 1), to); db.GetNetTransfers(from, to, 4); db.GetNetDrops(from, to);
                 db.FirstNetDay();
+            },
+            "Games" => () =>
+            {
+                db.GetSessionTotals(); db.GetAppSessions(1); db.GetPlayStats(1, from, to); db.GetAppGpuLoads(); db.GetAppFrontSec(1, from, to);
             },
             _ => throw new ArgumentException(method),
         };

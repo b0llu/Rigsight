@@ -1,4 +1,4 @@
-using System.Diagnostics.Eventing.Reader;
+﻿using System.Diagnostics.Eventing.Reader;
 using System.Text.RegularExpressions;
 
 namespace Rigsight.Core.Stability;
@@ -29,6 +29,11 @@ public enum ChangeKind
     /// <see cref="FanSettings"/>). Worked out from the fan speeds already recorded, nothing else is read for it.
     /// </summary>
     Fans,
+    /// <summary>
+    /// A game got a new version from its launcher (Steam's build number, Epic's version), which Windows' list of
+    /// programs doesn't show for most games. See <see cref="Games.GameLibrary"/>.
+    /// </summary>
+    GameUpdated,
 }
 
 /// <summary>
@@ -162,7 +167,7 @@ public static partial class ChangeLogReader
                 if (provider.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) && inf.StartsWith("nv", StringComparison.OrdinalIgnoreCase))
                 {
                     // NVIDIA's installer logs its audio and helper parts, not the display driver itself: one entry per install.
-                    if (list.Any(c => c.Kind == ChangeKind.Driver && c.Title.StartsWith("NVIDIA graphics") && Math.Abs((c.Time - r.TimeCreated!.Value).TotalHours) < 2)) continue;
+                    if (list.Any(c => c.Kind == ChangeKind.Driver && c.Title.StartsWith("NVIDIA graphics") && Math.Abs((c.Time - (r.TimeCreated ?? from)).TotalHours) < 2)) continue;
                     title = "NVIDIA graphics driver installed";
                     (subject, now) = ("nvidia-graphics", null);
                 }

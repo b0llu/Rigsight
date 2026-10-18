@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.Data.Sqlite;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
@@ -26,17 +26,26 @@ public sealed partial class RigsightDb : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var conn = new SqliteConnection($"Data Source={path};Mode=ReadWriteCreate;Pooling=False");
-        conn.Open();
-        var db = new RigsightDb(conn);
-        db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
-        // All of an upgrade or none of it: a step is "done" when its table or column exists, so an agent ended between
-        // making a table and filling it from the older history (the installer restarting it) left that table empty for good.
-        using (var upgrade = db.BeginTransaction())
+        try
         {
-            db.EnsureSchema();
-            upgrade.Commit();
+            conn.Open();
+            var db = new RigsightDb(conn);
+            db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
+            // All of an upgrade or none of it: a step is "done" when its table or column exists, so an agent ended between
+            // making a table and filling it from the older history (the installer restarting it) left that table empty for good.
+            using (var upgrade = db.BeginTransaction())
+            {
+                db.EnsureSchema();
+                upgrade.Commit();
+            }
+            return db;
         }
-        return db;
+        catch
+        {
+            // Closed, not left holding the file: a damaged file that won't open has to be moved aside next.
+            conn.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Opens the database for reading, or returns null if the agent hasn't created it yet.</summary>
@@ -118,6 +127,9 @@ public sealed partial class RigsightDb : IDisposable
         // …and the graphics card's memory in use, against all it has.
         if (!HasColumn("system_minute", "vram_used"))
             Exec("ALTER TABLE system_minute ADD COLUMN vram_used INTEGER; ALTER TABLE system_minute ADD COLUMN vram_total INTEGER");
+        // The game in front's frames a second and 1% low over the minute, as RivaTuner measured them (0.29.0, the Games page).
+        if (!HasColumn("system_minute", "fps"))
+            Exec("ALTER TABLE system_minute ADD COLUMN fps REAL; ALTER TABLE system_minute ADD COLUMN fps_low REAL");
         Exec("CREATE TABLE IF NOT EXISTS app_minute(ts INTEGER NOT NULL, app INTEGER NOT NULL, cpu REAL NOT NULL, gpu REAL NOT NULL,"
             + " mem INTEGER NOT NULL, disk INTEGER NOT NULL, PRIMARY KEY(ts, app)) WITHOUT ROWID");
 
@@ -316,6 +328,15 @@ public sealed partial class RigsightDb : IDisposable
 
     public SqliteTransaction BeginTransaction() => _conn.BeginTransaction();
 
+    /// <summary>The open connection, for the history check and repair (see <see cref="HistoryRepair"/>).</summary>
+    internal SqliteConnection Connection => _conn;
+
+    /// <summary>SQLite's integrity check of this file (see <see cref="HistoryRepair.Check"/>).</summary>
+    public HistoryHealth CheckHealth() => HistoryRepair.Check(_conn);
+
+    /// <summary>Rebuilds the lookup lists in place; true if the file is fine afterwards.</summary>
+    public bool RebuildLists() => HistoryRepair.RebuildLists(_conn);
+
     private void Exec(string sql)
     {
         using var cmd = _conn.CreateCommand();
@@ -364,19 +385,30 @@ public sealed partial class RigsightDb : IDisposable
         return (long)cmd.ExecuteScalar()!;
     }
 
+    /// <summary>
+    /// Files an app under another category and makes its saved sessions agree, so every figure that counts games
+    /// (Reports' time in games, Home's lines) counts it the new way, past included.
+    /// </summary>
+    public void Recategorize(long appId, AppCategory category)
+    {
+        using (var cmd = Cmd("UPDATE apps SET category = $cat WHERE id = $id", ("$cat", category.ToString()), ("$id", appId))) cmd.ExecuteNonQuery();
+        using (var cmd = Cmd("UPDATE sessions SET is_game = $g WHERE app_id = $id", ("$g", category == AppCategory.Game ? 1 : 0), ("$id", appId))) cmd.ExecuteNonQuery();
+    }
+
     public void WriteMinute(SystemMinute m)
     {
         using var cmd = Cmd("""
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
                 cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg, gpu_hot_min, gpu_mem_min, disk_rate, disk_rate_max, commit_pct, battery, on_battery,
-                vram_used, vram_total)
+                vram_used, vram_total, fps, fps_low)
             VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma, $ghl, $gml,
-                $disk, $diskMax, $commit, $battery, $onBattery, $vram, $vramTotal)
+                $disk, $diskMax, $commit, $battery, $onBattery, $vram, $vramTotal, $fps, $fpsLow)
             """,
             // Whole numbers: nothing shows a fraction of a byte a second or of a percent, and the row stays short.
             ("$disk", WholeOrNull(m.DiskRate)), ("$diskMax", WholeOrNull(m.DiskRateMax)), ("$commit", WholeOrNull(m.CommitPct)),
             ("$vram", WholeOrNull(m.VramUsed)), ("$vramTotal", WholeOrNull(m.VramTotal)),
+            ("$fps", Tenth(m.Fps)), ("$fpsLow", Tenth(m.FpsLow)),
             ("$battery", m.Battery), ("$onBattery", m.OnBattery is bool onBattery ? (onBattery ? 1 : 0) : null),
             ("$ghl", m.GpuHotMin), ("$gml", m.GpuMemMin),
             ("$ctl", m.CpuTempMin), ("$gtl", m.GpuTempMin), ("$gha", Tenth(m.GpuHotAvg)), ("$gma", Tenth(m.GpuMemAvg)),
@@ -1071,7 +1103,7 @@ public sealed partial class RigsightDb : IDisposable
                    {(HasTempLows ? "cpu_temp_min, gpu_temp_min" : "NULL, NULL")}, {(HasHotAvgs ? "gpu_hot_avg, gpu_mem_avg" : "NULL, NULL")},
                    {(HasHotLows ? "gpu_hot_min, gpu_mem_min" : "NULL, NULL")},
                    {(HasDrives ? "disk_rate, disk_rate_max, commit_pct, battery, on_battery" : "NULL, NULL, NULL, NULL, NULL")},
-                   {(HasVram ? "vram_used, vram_total" : "NULL, NULL")}
+                   {(HasVram ? "vram_used, vram_total" : "NULL, NULL")}, {(HasFps ? "fps, fps_low" : "NULL, NULL")}
             FROM system_minute WHERE ts >= $from AND ts < $to ORDER BY ts
             """, ("$from", from), ("$to", to));
         using var r = cmd.ExecuteReader();
@@ -1091,7 +1123,7 @@ public sealed partial class RigsightDb : IDisposable
                 GpuHotMin = D(r, 25), GpuMemMin = D(r, 26),
                 DiskRate = D(r, 27), DiskRateMax = D(r, 28), CommitPct = D(r, 29),
                 Battery = r.IsDBNull(30) ? null : r.GetInt32(30), OnBattery = r.IsDBNull(31) ? null : r.GetInt64(31) != 0,
-                VramUsed = D(r, 32), VramTotal = D(r, 33),
+                VramUsed = D(r, 32), VramTotal = D(r, 33), Fps = D(r, 34), FpsLow = D(r, 35),
             });
         }
         return list;

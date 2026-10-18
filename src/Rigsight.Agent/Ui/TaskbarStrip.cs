@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Runtime.InteropServices;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
@@ -139,7 +139,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     {
         Unwatch();
         _trayWindow = tray;
-        _trayMoved ??= (_, _, hwnd, idObject, _, _, _) => { if (hwnd == _trayWindow && idObject == OBJID_WINDOW) Follow(); };
+        // Called from Windows' own code: an error here would unwind through it, so none gets out.
+        _trayMoved ??= (_, _, hwnd, idObject, _, _, _) =>
+        {
+            try { if (hwnd == _trayWindow && idObject == OBJID_WINDOW) Follow(); }
+            catch (Exception ex) { Rigsight.Core.Log.Write("taskbar", $"Following the tray failed: {ex.Message}"); }
+        };
         // Only the thread the tray's window lives on: all of Explorer would send every move of every File Explorer
         // window here, to be thrown away.
         uint thread = GetWindowThreadProcessId(tray, out int explorer);

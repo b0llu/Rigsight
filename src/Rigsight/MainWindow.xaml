@@ -1,4 +1,4 @@
-<Window x:Class="Rigsight.MainWindow"
+﻿<Window x:Class="Rigsight.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -22,8 +22,18 @@
                                 </Button>
                                 <TextBlock Text="{Binding Heading}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                             </DockPanel>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="28,0,12,0" Padding="0,0,16,0">
-                                <ItemsControl ItemsSource="{Binding Shown}" Focusable="False" Margin="0,0,0,24">
+                            <!-- Virtualized: "See all updates" builds only the releases in view, not every one of them at once. -->
+                            <ItemsControl ItemsSource="{Binding Shown}" Focusable="False" Margin="28,0,12,0" AlternationCount="100000"
+                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard" VirtualizingPanel.ScrollUnit="Pixel"
+                                          ScrollViewer.CanContentScroll="True">
+                                <ItemsControl.Template>
+                                    <ControlTemplate TargetType="ItemsControl">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,16,0" CanContentScroll="True" Focusable="False">
+                                            <ItemsPresenter Margin="0,0,0,24" />
+                                        </ScrollViewer>
+                                    </ControlTemplate>
+                                </ItemsControl.Template>
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <!-- One version: a line above it (not above the first), then its number, date and groups. -->
@@ -31,7 +41,7 @@
                                                 <Border.Style>
                                                     <Style TargetType="Border">
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
                                                                 <Setter Property="BorderThickness" Value="0" />
                                                                 <Setter Property="Padding" Value="0,6,0,4" />
                                                                 <Setter Property="Margin" Value="0" />
@@ -218,8 +228,7 @@
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                            </ItemsControl>
                         </DockPanel>
                     </ctl:SmoothBorder>
         </DataTemplate>
@@ -482,6 +491,51 @@
                         </StackPanel>
                     </ctl:SmoothBorder>
 
+                    <!-- The history file: damage the check confirmed, a repair waiting, or what a repair kept (see HistoryRepair). -->
+                    <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" BorderThickness="1" AutomationProperties.Name="History file"
+                                      DataContext="{Binding HistoryCard}" Visibility="{Binding Converter={StaticResource Vis}}">
+                        <ctl:SmoothBorder.Style>
+                            <Style TargetType="ctl:SmoothBorder">
+                                <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource GoodBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWarm}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource WarmBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ctl:SmoothBorder.Style>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <!-- Equal halves, one height (a lone button takes the whole width): collapsed buttons take no cell. -->
+                            <UniformGrid Rows="1" Margin="-3,0">
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="Repair" AutomationProperties.Name="Repair history"
+                                        Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Visibility="{Binding CanRepair, Converter={StaticResource Vis}}" />
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="Try again" AutomationProperties.Name="Try the history repair again"
+                                        Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Visibility="{Binding CanRetry, Converter={StaticResource Vis}}" />
+                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="Open folder" AutomationProperties.Name="Open the history folder"
+                                        Command="{Binding DataContext.OpenHistoryFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Visibility="{Binding CanOpenFolder, Converter={StaticResource Vis}}" />
+                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{Binding DismissText}"
+                                        Command="{Binding DataContext.DismissHistoryCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Visibility="{Binding CanDismiss, Converter={StaticResource Vis}}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
                     <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
                             BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                             Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}">
@@ -713,8 +767,21 @@
             </DockPanel>
         </Border>
 
-        <!-- Pages (created on first visit, then kept) -->
-        <ContentControl x:Name="PageHost" Grid.Column="1" Focusable="False" />
+        <!-- Pages (created on first visit, then kept), with a note at the top of one that couldn't read part of its history. -->
+        <DockPanel Grid.Column="1">
+            <Border DockPanel.Dock="Top" Margin="28,14,28,0" Padding="14,10" CornerRadius="10" Background="{DynamicResource WarmSoftBrush}"
+                    AutomationProperties.Name="Part of this page can't be read" Visibility="{Binding PageUnreadable, Converter={StaticResource Vis}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Repair" Command="{Binding RepairHistoryCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <Ellipse Width="8" Height="8" Fill="{DynamicResource WarmBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource MutedBrush}">
+                        <Run Text="Part of this page's history can't be read." FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <Run Text="It may show less than was recorded, or nothing. A repair brings back everything that can still be read." />
+                    </TextBlock>
+                </DockPanel>
+            </Border>
+            <ContentControl x:Name="PageHost" Focusable="False" />
+        </DockPanel>
 
         <!-- What's new: once after an update, over the whole window. Closed with the x, Esc or a click outside; every update is in Settings. -->
         <!-- It fades in from code (MainWindow.xaml.cs): a style-triggered animation here kept closed pages in memory. -->

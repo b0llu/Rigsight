@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Tests.Core;
@@ -33,6 +33,16 @@ public sealed class InventoryTests
     [InlineData("Riot Client ", "", "Riot Client", "")]
     public void An_apps_name_is_split_from_its_version(string display, string listed, string name, string version) =>
         Assert.Equal((name, version), Inventory.SplitName(display, listed));
+
+    [Fact]
+    public void A_key_listed_twice_still_lets_the_changes_through()
+    {
+        // Two games under one key (in two cases, as an old reading stored them) used to throw on every reading, so nothing
+        // more was ever recorded: no installs, no driver changes, no game updates.
+        var before = new List<InventoryItem> { new(Inventory.Game, "epic:Sugar", "Rocket League", "1.0"), new(Inventory.Game, "epic:sugar", "Rocket League", "1.0") };
+        var after = new List<InventoryItem> { new(Inventory.Game, "epic:Sugar", "Rocket League", "2.0"), new(Inventory.Game, "epic:sugar", "Rocket League", "2.0") };
+        Assert.Equal(ChangeKind.GameUpdated, Assert.Single(Inventory.Diff(Inventory.Game, before, after, At)).Kind);
+    }
 
     [Fact]
     public void An_update_keeps_the_apps_key_so_it_reads_as_one_app()

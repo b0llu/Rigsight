@@ -85,7 +85,7 @@ public sealed class SidebarDashboardTests
             Assert.All(sidebar.DashboardsGroup.Pages, e => Assert.Equal("", e.Icon));
             Assert.False(sidebar.DashboardsGroup.ShowDropBox);
             // The other groups are as they were, and nothing is saved about a layout nobody changed.
-            Assert.Equal(["home", "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Empty(boards.Saved.Order);
             Assert.Empty(boards.Saved.Groups);
@@ -118,7 +118,7 @@ public sealed class SidebarDashboardTests
         Ui.Run(() =>
         {
             Assert.Equal([Gaming, Work], Keys(boards.Sidebar.DashboardsGroup.Pages)); // in the order they were made
-            Assert.Equal(["home", "reports", "apps", "crashes", "timeline", "processes"], Keys(boards.Sidebar.Main));
+            Assert.Equal(["home", "reports", "apps", "games", "crashes", "timeline", "processes"], Keys(boards.Sidebar.Main));
             Assert.Equal(["fans", "temperatures", "memory", "storage", "network", "sensors"], Keys(boards.Sidebar.Hardware));
             Assert.True(boards.Sidebar.DashboardsCollapsed);
             Assert.All(boards.Sidebar.DashboardsGroup.Pages, e => Assert.True(e is { IsShown: true, IsVisible: false }));
@@ -161,7 +161,7 @@ public sealed class SidebarDashboardTests
             Assert.True(sidebar.MoveTo(boards.Entry(Gaming), sidebar.MainGroup, 1));
             Assert.True(sidebar.MoveTo(boards.Entry(Work), sidebar.OnScreenGroup, 3));
             Assert.True(sidebar.MoveTo(boards.Entry("memory"), sidebar.DashboardsGroup, 0));
-            Assert.Equal(["home", Gaming, "reports", "apps", "processes", "crashes", "timeline"], Keys(sidebar.Main));
+            Assert.Equal(["home", Gaming, "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(sidebar.Main));
             Assert.Equal(["memory"], Keys(sidebar.DashboardsGroup.Pages));
             Assert.Equal(["temperatures", "fans", "storage", "network", "sensors"], Keys(sidebar.Hardware));
             Assert.Equal(["widgets", "overlay", "taskbar", Work], Keys(sidebar.OnScreen));
@@ -194,7 +194,7 @@ public sealed class SidebarDashboardTests
         var again = Again(boards);
         Ui.Run(() =>
         {
-            Assert.Equal(["home", Gaming, "reports", "apps", "processes", "crashes", "timeline"], Keys(again.Sidebar.Main));
+            Assert.Equal(["home", Gaming, "reports", "apps", "games", "processes", "crashes", "timeline"], Keys(again.Sidebar.Main));
             Assert.Equal(["memory", Work], Keys(again.Sidebar.DashboardsGroup.Pages));
             Assert.Equal(["widgets", "overlay", "taskbar"], Keys(again.Sidebar.OnScreen));
         });
@@ -306,7 +306,7 @@ public sealed class SidebarDashboardTests
             Assert.False(sidebar.DashboardsGroup.ShowDropBox);
             Assert.Empty(boards.Opened);
             // The deleted dashboard is let go of: renaming it no longer reaches anything here.
-            Assert.Equal(15 + 1, sidebar.Groups.Sum(g => g.Pages.Count));
+            Assert.Equal(16 + 1, sidebar.Groups.Sum(g => g.Pages.Count));
         });
     }
 
@@ -355,11 +355,11 @@ public sealed class SidebarDashboardTests
 
                 // Grip, name box and switch, like every other page; under the DASHBOARDS heading, in their order.
                 var grips = Visuals.Descendants<Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
-                Assert.Equal(15 + 2, grips.Count);
-                Assert.Equal(["timeline", Gaming, Work, "temperatures"], grips.Select(g => ((NavEntry)g.DataContext).Key).Skip(5).Take(4));
+                Assert.Equal(16 + 2, grips.Count);
+                Assert.Equal(["timeline", Gaming, Work, "temperatures"], grips.Select(g => ((NavEntry)g.DataContext).Key).Skip(6).Take(4));
                 Assert.Contains(grips, g => NameOf(g) == "Move Gaming: drag it, or use the arrow keys");
                 var boxes = Visuals.Descendants<TextBox>(panel).Where(b => b.IsVisible).ToList();
-                Assert.Equal(15 + 2 + 3, boxes.Count);
+                Assert.Equal(16 + 2 + 3, boxes.Count);
                 var box = boxes.Single(b => b.DataContext == boards.Entry(Gaming));
                 Assert.Equal(("Gaming", "Dashboard"), (box.Text, box.Tag));
                 var switches = Visuals.Descendants<CheckBox>(panel).Where(c => c.IsVisible).ToList();
@@ -419,7 +419,7 @@ public sealed class SidebarDashboardTests
                 boards.Page(Gaming).DeletePageCommand.Execute(null);
                 Ui.Pump(50);
                 Assert.DoesNotContain(Visuals.Descendants<Thumb>(panel), g => g.DataContext is NavEntry { Key: Gaming });
-                Assert.Equal(15 + 1, Visuals.Descendants<Thumb>(panel).Count(t => t.DataContext is NavEntry));
+                Assert.Equal(16 + 1, Visuals.Descendants<Thumb>(panel).Count(t => t.DataContext is NavEntry));
             }
             finally
             {

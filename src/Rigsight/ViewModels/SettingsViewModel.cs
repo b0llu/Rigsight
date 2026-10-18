@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -10,6 +10,7 @@ using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
+using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
@@ -655,8 +656,12 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     [RelayCommand]
     private static void OpenDataFolder()
     {
-        Directory.CreateDirectory(RigsightPaths.DataDir);
-        Process.Start(new ProcessStartInfo(RigsightPaths.DataDir) { UseShellExecute = true });
+        try
+        {
+            Directory.CreateDirectory(RigsightPaths.DataDir);
+            Process.Start(new ProcessStartInfo(RigsightPaths.DataDir) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception ex) { Log.Write("settings", $"The data folder couldn't be opened ({ex.Message})"); }
     }
 
     /// <summary>Settings → About: opens the licences of what Rigsight includes (a text file installed next to the app).</summary>
@@ -686,6 +691,80 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     [RelayCommand]
     private void Export() => OpenExport?.Invoke();
+
+    // ── The history file (see HistoryRepair) ─────────────────────────────
+
+    private HistoryFileState H => S.HistoryFile ?? new();
+
+    public bool HistoryChecking => H.Checking;
+    public bool HistoryDamaged => H.Damaged && !H.Checking;
+
+    /// <summary>"Healthy · checked Sat 18 Oct, 4:47 PM, after RigSight last closed suddenly", or what's wrong.</summary>
+    public string HistoryStatus
+    {
+        get
+        {
+            var h = H;
+            if (h.Checking) return "Checking every page of the file…";
+            if (h.Outcome == "waiting") return h.WaitingReason ?? "A repair is waiting.";
+            if (h.Damaged) return "Some older readings can't be read. New readings save as usual.";
+            return h.CheckedAt is { } at ? $"Healthy · checked {at:ddd d MMM, h:mm tt}, {h.CheckedWhy ?? "when you asked"}" : "Healthy";
+        }
+    }
+
+    /// <summary>The last repair, if there was one: when, and what it kept.</summary>
+    public string? HistoryLastRepair => H.RepairedAt is not { } at ? null : H.Outcome switch
+    {
+        "lists" => $"Lookup lists rebuilt {at:ddd d MMM}. Nothing was lost.",
+        "whole" => $"Repaired {at:ddd d MMM}. Nothing was lost.",
+        "repaired" or "nothing" => $"Repaired {at:ddd d MMM}. {H.Summary}",
+        _ => null,
+    };
+
+    /// <summary>Damaged files kept by a repair, newest first.</summary>
+    public List<DamagedCopy> DamagedCopies
+    {
+        get
+        {
+            try
+            {
+                return [.. new DirectoryInfo(RigsightPaths.DataDir).GetFiles("rigsight-damaged-*.db").OrderByDescending(f => f.LastWriteTime)
+                    .Select(f => new DamagedCopy(f.Name, f.FullName, Units.Bytes(f.Length)))];
+            }
+            catch (Exception) { return []; }
+        }
+    }
+
+    [RelayCommand]
+    private void CheckHistory()
+    {
+        if (!client.IsConnected)
+        {
+            StatusMessage = "The history wasn't checked: the agent isn't running.";
+            return;
+        }
+        client.SendCommand("check-history");
+    }
+
+    [RelayCommand]
+    private void RepairHistory() => client.SendCommand("repair-history");
+
+    [RelayCommand]
+    private void DeleteDamagedCopy(DamagedCopy? copy)
+    {
+        if (copy is null) return;
+        var answer = MessageBox.Show(Application.Current.MainWindow,
+            $"This permanently deletes {copy.Name}, the damaged history file a repair kept. The repaired history isn't touched.\n\nDelete it?",
+            "Delete damaged copy", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+        foreach (var side in new[] { "", "-wal", "-shm" })
+        {
+            try { if (File.Exists(copy.Path + side)) File.Delete(copy.Path + side); }
+            catch (Exception ex) { StatusMessage = $"{copy.Name} couldn't be deleted: {ex.Message}"; return; }
+        }
+        Log.Write("history", $"Deleted the damaged copy {copy.Name} (asked in Settings)");
+        OnPropertyChanged(nameof(DamagedCopies));
+    }
 
     [RelayCommand]
     private void ClearHistory()

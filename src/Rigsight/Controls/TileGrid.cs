@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -48,9 +48,10 @@ public sealed class TileGrid : Panel
         ((int)Math.Round((edge.X - x * (CellWidth + Gap) + Gap) / (CellWidth + Gap)),
          (int)Math.Round((edge.Y - y * (RowHeight + Gap) + Gap) / (RowHeight + Gap)));
 
+    // At least one cell each way: a tile of no width (an old or hand-edited layout) would give a negative size, which throws.
     private Rect Slot(TileViewModel t) => new(
         t.X * (CellWidth + Gap), t.Y * (RowHeight + Gap),
-        t.W * CellWidth + (t.W - 1) * Gap, t.H * RowHeight + (t.H - 1) * Gap);
+        Math.Max(1, t.W) * CellWidth + (Math.Max(1, t.W) - 1) * Gap, Math.Max(1, t.H) * RowHeight + (Math.Max(1, t.H) - 1) * Gap);
 
     /// <summary>The grid cell under a tile whose top-left corner is at <paramref name="topLeft"/>.</summary>
     public (int Col, int Row) CellAt(Point topLeft) =>

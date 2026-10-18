@@ -134,6 +134,12 @@ public sealed class SystemMinute
     /// <summary>The graphics card's memory in use (the minute's average) and all it has, in MB. Null before 0.24.0 or where the card doesn't say.</summary>
     public double? VramUsed { get; set; }
     public double? VramTotal { get; set; }
+    /// <summary>
+    /// The game in front's frames a second over the minute and its 1% low (the rate of its slowest frames), as RivaTuner
+    /// measured them. Null when no game was in front, RivaTuner wasn't measuring it, and in minutes from before 0.29.0.
+    /// </summary>
+    public double? Fps { get; set; }
+    public double? FpsLow { get; set; }
 }
 
 /// <summary>

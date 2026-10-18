@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
@@ -197,7 +197,7 @@ public sealed class NetBarsChart : NetChartBase
                 {
                     var dashed = new Pen(grey, 1) { DashStyle = new DashStyle([3, 3], 0) };
                     dashed.Freeze();
-                    dc.DrawRoundedRectangle(null, dashed, new Rect(x + 0.5, plot.Bottom - 28.5, bar - 1, 28), 2.5, 2.5);
+                    dc.DrawRoundedRectangle(null, dashed, new Rect(x + 0.5, plot.Bottom - 28.5, Math.Max(0, bar - 1), 28), 2.5, 2.5);
                 }
             }
             if (AxisLabel(b.Start, i) is { } text) Label(dc, text, new Point(plot.Left + i * slot + slot / 2, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, center: true);

@@ -1,4 +1,4 @@
-using LibreHardwareMonitor.Hardware;
+﻿using LibreHardwareMonitor.Hardware;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
 
@@ -399,6 +399,9 @@ internal sealed class SensorHost
             }
         }
         Unwell = failed;
+        // Sized to the sensors as they are: a rebuild that failed halfway leaves the old flags longer than the list, and
+        // reading past its end every second would stop all sampling for good.
+        if (_fresh.Length != _sensorHardware.Count) _fresh = new bool[_sensorHardware.Count];
         for (int i = 0; i < _fresh.Length; i++) _fresh[i] = _updatedNow.Contains(_sensorHardware[i]);
         // SMART health is read here, on the sampler thread, right after the drives were updated: the
         // library isn't thread-safe, so the app's connection thread only ever reads this cached copy.
@@ -654,7 +657,14 @@ internal sealed class SensorHost
     public void Close()
     {
         // The memory group may still be opening: let it finish, or closing would pull the library out from under it.
-        try { _memoryTask?.Wait(TimeSpan.FromSeconds(30)); } catch { }
+        bool finished = true;
+        try { finished = _memoryTask?.Wait(TimeSpan.FromSeconds(30)) ?? true; } catch { }
+        if (!finished)
+        {
+            // Still stuck in the memory bus: closing under it can crash inside the driver, so the library is left open.
+            Log.Write("sensors", "The RAM scan hadn't finished after 30 s: the sensor library is left open rather than closed under it");
+            return;
+        }
         try { _computer.Close(); } catch { }
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core.Settings;
@@ -170,7 +170,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
     {
         if (_resized is not { } tile) return;
         // A tile from the first grid can sit where its minimum width doesn't fit: then it's as wide as there's room.
-        int maxW = TileConfig.Columns - tile.X;
+        int maxW = Math.Max(1, TileConfig.Columns - tile.X); // at least one cell: a clamp with max under min throws
         w = Math.Clamp(w, Math.Min(tile.MinW, maxW), maxW);
         h = Math.Clamp(h, tile.MinH, TileConfig.MaxHeight);
         if (w == tile.W && h == tile.H) return;

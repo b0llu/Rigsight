@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Rigsight.Core.Settings;
@@ -8,6 +8,8 @@ public static class SettingsStore
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
+        // A NaN or infinity in a setting is written and read back, not thrown on (copying the settings goes through JSON).
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
         Converters = { new JsonStringEnumConverter() },
     };
 
@@ -103,6 +105,7 @@ public static class SettingsStore
         s.Tracking ??= new TrackingSettings();
         s.Tracking.ExcludedApps ??= [];
         s.Alerts ??= new AlertSettings();
+        s.HistoryFile ??= new HistoryFileState();
         s.CustomPages = [.. (s.CustomPages ?? []).Where(p => p is not null)];
         s.SensorLabels ??= [];
         s.HiddenSensors ??= [];

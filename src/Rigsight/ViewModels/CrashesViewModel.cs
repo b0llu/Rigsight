@@ -330,6 +330,21 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     partial void OnCaseChanged(CrashCase? value)
     {
         if (value is not null) _ = AddChangePointAsync(value);
+        OnPropertyChanged(nameof(CaseGameText));
+    }
+
+    /// <summary>"1h 12m into playing Crimson Desert": an opened crash of a game says how far into a play it came, and opens the game's page.</summary>
+    public string? CaseGameText => Case?.Row is { IsGame: true, AppName: { } name } r
+        ? (r.SessionSec is double s && s >= 60 ? $"{Core.Units.Duration(s)} into playing {name}" : $"While playing {name}")
+        : null;
+
+    /// <summary>Opens a game on the Games page, by its program (set by the window).</summary>
+    public Action<string>? OpenGame { get; set; }
+
+    [RelayCommand]
+    private void OpenCaseGame()
+    {
+        if (Case?.Row is { IsGame: true } r && r.Event.AppExe.Length > 0) OpenGame?.Invoke(r.Event.AppExe);
     }
 
     private async Task AddChangePointAsync(CrashCase opened)

@@ -96,10 +96,11 @@ public sealed class UsualScenarioTests : IDisposable
         Assert.Equal(InsightTone.Warn, line.Tone);
         Assert.Matches(@"^In Cyberpunk 2077, your GPU (runs|ran) \d+° hotter than usual: \d+° against \d+(–\d+)?°, at the same power\. With nothing running it (sits|sat) at its usual \d+°, so dust or old thermal paste are the likely causes\.$", line.Text);
         Assert.Matches(@"^Cyberpunk 2077 (runs|ran) \d+° hotter than usual$", line.Line);
-        Assert.Equal(InsightOpens.Usual, line.Opens);
+        // It opens the game: its plays against its usual, on the Games page.
+        Assert.Equal((InsightOpens.Game, "Cyberpunk 2077"), (line.Opens, line.Game));
 
         var health = Health(today);
-        Assert.Equal(("WarmBrush", InsightOpens.Usual), (health[0].TextBrush, health[0].Opens));
+        Assert.Equal(("WarmBrush", InsightOpens.Game, "Cyberpunk 2077"), (health[0].TextBrush, health[0].Opens, health[0].Game));
         Assert.Equal(line.Line, health[0].Text); // the same words as the list
 
         var row = ReportsViewModel.UsualOf(Build(path, ReportRange.Week, End)).Single(r => r.Key == "heat-gpu");

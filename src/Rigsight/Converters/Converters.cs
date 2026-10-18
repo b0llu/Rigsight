@@ -379,7 +379,7 @@ public sealed class SureBrushConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        string key = value as string switch { "Named" => "GoodBrush", "Likely" => "TextBrush", "Possible" => "WarmBrush", "NotEnough" => "MutedBrush", string other => other, _ => "MutedBrush" };
+        string key = (value as string) switch { "Named" => "GoodBrush", "Likely" => "TextBrush", "Possible" => "WarmBrush", "NotEnough" => "MutedBrush", string other => other, _ => "MutedBrush" };
         var brush = ResourceBrushConverter.Of(key);
         if (parameter as string != "soft" || brush is not SolidColorBrush solid) return brush;
         var soft = new SolidColorBrush(solid.Color) { Opacity = 0.15 };

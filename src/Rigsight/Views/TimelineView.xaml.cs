@@ -109,7 +109,8 @@ public sealed class TimelineEntryTemplates : DataTemplateSelector
     public DataTemplate? Problem { get; set; }
     public DataTemplate? Rich { get; set; }
     public DataTemplate? Result { get; set; }
+    public DataTemplate? Game { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
-        item is not TimelineEntry entry ? Plain : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : Plain;
+        item is not TimelineEntry entry ? Plain : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : entry.GameKey is not null ? Game : Plain;
 }

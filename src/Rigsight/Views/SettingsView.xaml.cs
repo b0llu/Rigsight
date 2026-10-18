@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -192,11 +192,11 @@ public partial class SettingsView : UserControl
             if (EditorGroups.ItemContainerGenerator.ContainerFromItem(group) is not ContentPresenter host) continue;
             if (group.Pages.Count == 0)
             {
-                if (host.ContentTemplate.FindName("DropBox", host) is FrameworkElement { IsVisible: true } box)
-                    slots.Add(new(group, 0, Place(box).Top + box.ActualHeight / 2, host.ContentTemplate.FindName("DropEdge", host) as Shape));
+                if (Part(host, "DropBox") is FrameworkElement { IsVisible: true } box)
+                    slots.Add(new(group, 0, Place(box).Top + box.ActualHeight / 2, Part(host, "DropEdge") as Shape));
                 continue;
             }
-            if (host.ContentTemplate.FindName("Pages", host) is not ItemsControl pages) continue;
+            if (Part(host, "Pages") is not ItemsControl pages) continue;
             for (int i = 0; i < group.Pages.Count; i++)
             {
                 if (pages.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement row) continue;
@@ -208,6 +208,14 @@ public partial class SettingsView : UserControl
         return slots;
     }
 
+    /// <summary>A named part of a group's template, or null while the group isn't drawn yet (FindName throws then).</summary>
+    private static object? Part(ContentPresenter host, string name)
+    {
+        if (host.ContentTemplate is not { } template || !host.IsLoaded) return null;
+        try { return template.FindName(name, host); }
+        catch (InvalidOperationException) { return null; }
+    }
+
     private Rect Place(FrameworkElement element) =>
         element.TransformToAncestor(EditorRows).TransformBounds(new Rect(element.RenderSize));
 
@@ -216,7 +224,7 @@ public partial class SettingsView : UserControl
         foreach (var group in _sidebar?.Groups ?? [])
         {
             if (EditorGroups.ItemContainerGenerator.ContainerFromItem(group) is ContentPresenter host
-                && host.ContentTemplate.FindName("Pages", host) is ItemsControl pages
+                && Part(host, "Pages") is ItemsControl pages
                 && pages.ItemContainerGenerator.ContainerFromItem(entry) is { } row)
                 return Descendant<Thumb>(row);
         }

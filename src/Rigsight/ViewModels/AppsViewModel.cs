@@ -96,7 +96,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [ObservableProperty] private double _maxValue = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(EmptyText), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(EmptyText), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary), nameof(SelectedIsGame))]
     [NotifyPropertyChangedFor(nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground))]
     private AppStat? _selected;
 
@@ -196,6 +196,18 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         }
     }
 
+    /// <summary>A game: its plays, frames and problems are one click away on the Games page.</summary>
+    public bool SelectedIsGame => Selected is not null && SelectedCategory == AppCategory.Game;
+
+    /// <summary>Opens a game on the Games page, by its program (set by the window).</summary>
+    public Action<string>? OpenGame { get; set; }
+
+    [RelayCommand]
+    private void OpenGameHistory()
+    {
+        if (Selected is { } app) OpenGame?.Invoke(app.Exe);
+    }
+
     public AppCategory SelectedCategory
     {
         get => Selected is null ? AppCategory.Other : settings.Current.AppCategories.GetValueOrDefault(Selected.Exe, Selected.Category);
@@ -205,6 +217,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             var exe = Selected.Exe;
             settings.Update(s => s.AppCategories[exe] = value);
             OnPropertyChanged(nameof(Summary));
+            OnPropertyChanged(nameof(SelectedIsGame));
             ApplyView(); // the app may leave the category shown, or bring a new one to the list
         }
     }

@@ -93,6 +93,22 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("0.29.0", 10, 18,
+            feature: new("Games", "Every game on your PC in one library, from any launcher, with how it runs on your PC.",
+                ["See each game's frame rate and 1% low for every play, and whether its last update or a driver changed them.",
+                    "Find out what holds a game back: your graphics card at full load, or a frame cap or the CPU.",
+                    "Every play with its temperatures, power and how it ended, and the driver and game updates between plays.",
+                    "Play, open the game's folder or uninstall it through its own launcher, and see installed games you haven't played lately."],
+                "games", "") { OpenText = "Open Games" },
+            better: ["Games from Epic, Riot, GOG, Ubisoft, EA and Battle.net are recognised wherever they're installed, so Rocket League in its own folder counts as a game.",
+                "Anti-cheat starters, launchers' own helpers and Wallpaper Engine no longer count as games in Reports and on Home.",
+                "The Timeline shows when a game got an update, and a game running hotter than usual on Home opens that game."],
+            added: ["If the history file is ever damaged, by a power cut for example, RigSight repairs it, keeps everything that can still be read and says which hours couldn't be.",
+                "Settings → History can check the history file and repair it, and keeps the damaged copy until you delete it."],
+            fixedBugs: ["A widget dragged onto the taskbar stays over it, even after a game has been open.",
+                "Scanning a folder nested hundreds of levels deep on the Storage page no longer closes RigSight.",
+                "The crash close-up draws even when several apps opened just before the crash.",
+                "The background agent keeps running when one of its start-up or closing steps fails, instead of stopping."]),
         V("0.28.1", 10, 18,
             better: ["A startup program that leaves and comes straight back, as Edge does when you sign in, shows as one line saying so.",
                 "When the power went off just after you started a game, the minutes before it say the GPU warmed because the game was loading, not as a warning."]),

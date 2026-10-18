@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -409,7 +409,8 @@ public sealed partial class FansViewModel : ObservableObject
         if (id != _load) return;
         FirstDay = first ?? today;
 
-        var bySensor = history.Fans.ToDictionary(f => f.Sensor, f => f.Id);
+        // The first of any two rows for one sensor: a duplicate must not leave the page loading for good.
+        var bySensor = history.Fans.GroupBy(f => f.Sensor).ToDictionary(g => g.Key, g => g.First().Id);
         var spun = history.Days.Where(d => d.RpmMax >= FanCard.MinSpinRpm).Select(d => d.Fan).ToHashSet();
         var minutes = history.System.ToDictionary(m => m.Ts);
         var byFan = history.Minutes.GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.ToList());

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using Rigsight.Core.Settings;
 
@@ -37,6 +37,13 @@ public static class AppCatalog
         ["battle.net.exe"] = AppCategory.Launcher, ["eadesktop.exe"] = AppCategory.Launcher, ["upc.exe"] = AppCategory.Launcher,
         ["ubisoftconnect.exe"] = AppCategory.Launcher, ["galaxyclient.exe"] = AppCategory.Launcher, ["riotclientservices.exe"] = AppCategory.Launcher,
         ["xboxpcapp.exe"] = AppCategory.Launcher, ["playnite.desktopapp.exe"] = AppCategory.Launcher, ["rockstarlauncher.exe"] = AppCategory.Launcher,
+        ["riot client.exe"] = AppCategory.Launcher, ["riotclientux.exe"] = AppCategory.Launcher, ["eawebhelper.exe"] = AppCategory.Launcher,
+        ["epicwebhelper.exe"] = AppCategory.Launcher, ["upcwebcore.exe"] = AppCategory.Launcher, ["uplaywebcore.exe"] = AppCategory.Launcher,
+        // Anti-cheat starters sit in a game's folder and open the game; their seconds aren't play.
+        ["start_protected_game.exe"] = AppCategory.Launcher, ["eaanticheat.gameservicelauncher.exe"] = AppCategory.Launcher,
+        ["easyanticheat_eos_setup.exe"] = AppCategory.Launcher,
+        // Installed through Steam like games, but they aren't.
+        ["wallpaper32.exe"] = AppCategory.Other, ["wallpaper64.exe"] = AppCategory.Other, ["stremio-shell-ng.exe"] = AppCategory.Media,
         // Productivity
         ["winword.exe"] = AppCategory.Productivity, ["excel.exe"] = AppCategory.Productivity, ["powerpnt.exe"] = AppCategory.Productivity,
         ["onenote.exe"] = AppCategory.Productivity, ["notion.exe"] = AppCategory.Productivity, ["obsidian.exe"] = AppCategory.Productivity,
@@ -57,6 +64,27 @@ public static class AppCatalog
 
     private static readonly string[] NotGamesInGameFolders = ["unitycrashhandler64.exe", "crashreportclient.exe", "easyanticheat.exe", "setup.exe"];
 
+    // The launchers' own programs under a game-library folder name ("Epic Games\Launcher", "Riot Games\Riot Client"):
+    // they aren't games, though the folder rule would call them one.
+    private static readonly string[] LauncherFolders =
+    [
+        @"\epic games\launcher\", @"\epic games\epic online services\", @"\riot games\riot client\",
+        @"\ubisoft game launcher\", @"\ea desktop\", @"\battle.net\", @"\gog galaxy\",
+    ];
+
+    private static bool InLauncherFolder(string path)
+    {
+        var p = path.ToLowerInvariant();
+        // A launcher's games folder ("Ubisoft Game Launcher\games\", "GOG Galaxy\Games\") holds games, not the launcher.
+        return LauncherFolders.Any(p.Contains) && !p.Contains(@"game launcher\games\") && !p.Contains(@"gog galaxy\games\") && !p.Contains(@"battle.net\games\");
+    }
+
+    /// <summary>
+    /// The games the launchers say are installed (see <see cref="Games.GameLibrary"/>), set by whoever scanned them.
+    /// A program inside one of their folders is a game wherever that folder is (Rocket League in E:\rocketleague).
+    /// </summary>
+    public static IReadOnlyList<Games.InstalledGame> InstalledGames { get; set; } = [];
+
     /// <summary>
     /// Category for an app. <paramref name="overrides"/> (the user's choices) win, then the known list,
     /// then the install folder (Steam/Epic/… libraries mean it's a game).
@@ -65,15 +93,43 @@ public static class AppCatalog
     {
         if (overrides is not null && overrides.TryGetValue(exe, out var chosen)) return chosen;
         if (Known.TryGetValue(exe, out var known)) return known;
+        if (IsAntiCheatStarter(exe) && !NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase)) return AppCategory.Launcher;
 
         if (path is not null && !NotGamesInGameFolders.Contains(exe, StringComparer.OrdinalIgnoreCase))
         {
-            var p = path.ToLowerInvariant();
-            if (GameFolders.Any(p.Contains)) return AppCategory.Game;
+            if (Games.GameLibrary.Find(InstalledGames, path) is not null) return AppCategory.Game;
+            if (InLauncherFolder(path)) return AppCategory.Launcher;
+            if (GameFolders.Any(path.ToLowerInvariant().Contains)) return AppCategory.Game;
         }
         if (path is not null && path.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.Windows), StringComparison.OrdinalIgnoreCase))
             return AppCategory.System;
         return AppCategory.Other;
+    }
+
+    /// <summary>
+    /// The category an app saved by an older version should change to now, or null to keep it. Only where something is
+    /// certain: a launcher lists the app's folder (Other → Game), or the app is known not to be a game (a launcher's
+    /// own program, an anti-cheat starter, Wallpaper Engine). A game learned from play keeps Game.
+    /// </summary>
+    public static AppCategory? Reclassified(string exe, string? path, AppCategory saved)
+    {
+        var now = Classify(exe, path);
+        if (now == saved) return null;
+        if (now == AppCategory.Game && saved == AppCategory.Other) return now;
+        if (saved == AppCategory.Game && (Known.ContainsKey(exe) || IsAntiCheatStarter(exe) || path is not null && InLauncherFolder(path))) return now;
+        return null;
+    }
+
+    /// <summary>
+    /// A game's anti-cheat starter, which sits in the game's own folder and only starts it: "RocketLeague_EAC.exe"
+    /// (Easy Anti-Cheat), "TslGame_BE.exe" (BattlEye). Not the game: its time isn't play time.
+    /// </summary>
+    internal static bool IsAntiCheatStarter(string exe)
+    {
+        var name = Path.GetFileNameWithoutExtension(exe);
+        return name.EndsWith("_eac", StringComparison.OrdinalIgnoreCase) || name.EndsWith("_be", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith("_eac_launcher", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("easyanticheat", StringComparison.OrdinalIgnoreCase) || name.Contains("battleye", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>"eldenring.exe" → "Eldenring". Used when an exe has no description.</summary>

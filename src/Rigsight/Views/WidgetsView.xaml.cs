@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -163,7 +163,8 @@ public partial class WidgetsView : UserControl
 
     private bool IsInPicker(DependencyObject o)
     {
-        for (var d = o; d is not null; d = System.Windows.Media.VisualTreeHelper.GetParent(d) ?? (d as FrameworkElement)?.Parent)
+        // A Run or a Hyperlink isn't a Visual: asking VisualTreeHelper for its parent throws, so those go by the logical tree.
+        for (var d = o; d is not null; d = (d is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(d) : null) ?? LogicalTreeHelper.GetParent(d))
             if (d == PickPopup.Child) return true;
         return false;
     }

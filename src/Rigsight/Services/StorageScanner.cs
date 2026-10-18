@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -53,6 +53,7 @@ public readonly record struct DiskEntry(string Name, FileAttributes Attributes, 
 public static class StorageScanner
 {
     private const int KeepChildren = 60;
+    private const int MaxDepth = 200;
     private const int KeepLargestFiles = 40;
 
     /// <param name="hold">While reset, the scan waits (between folders): the drive is left to something the user is
@@ -101,7 +102,37 @@ public static class StorageScanner
 
                 // Parallelize the top levels; deeper levels are walked sequentially.
                 FolderNode[] children;
-                if (depth < 2 && subdirs.Count > 1)
+                if (depth >= MaxDepth && subdirs.Count > 0)
+                {
+                    // Folders nested this deep (a copy of a folder inside itself, over and over): what's below is added up
+                    // here in a loop, not walked one call per level, which would run out of stack and end the app.
+                    var below = new Stack<string>(subdirs.Select(d => System.IO.Path.Combine(path, d)));
+                    long deepSize = 0, deepFiles = 0;
+                    while (below.Count > 0)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var dir = below.Pop();
+                        foreach (var entry in Entries(dir))
+                        {
+                            if (entry.IsFolder)
+                            {
+                                if ((entry.Attributes & FileAttributes.ReparsePoint) == 0) below.Push(System.IO.Path.Combine(dir, entry.Name));
+                                continue;
+                            }
+                            deepFiles++;
+                            if (entry.OnDisk <= 0) continue;
+                            lock (seen)
+                                if (!seen.Add(entry.Id)) continue;
+                            deepSize += entry.OnDisk;
+                        }
+                    }
+                    Interlocked.Add(ref files, deepFiles);
+                    Interlocked.Add(ref bytes, deepSize);
+                    directSize += deepSize;
+                    directFiles += deepFiles;
+                    children = [];
+                }
+                else if (depth < 2 && subdirs.Count > 1)
                 {
                     children = new FolderNode[subdirs.Count];
                     Parallel.For(0, subdirs.Count, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },

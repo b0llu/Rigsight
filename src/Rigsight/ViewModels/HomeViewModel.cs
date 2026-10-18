@@ -29,6 +29,8 @@ public sealed record HomeLine(string Icon, string Brush, string Text, string? De
     public InsightOpens Opens { get; init; }
     /// <summary>The insight the line says (null: a change, a drive).</summary>
     public string? Key { get; init; }
+    /// <summary>The game the line is about, which it opens (see <see cref="Insight.Game"/>).</summary>
+    public string? Game { get; init; }
     public bool CanOpen => Opens != InsightOpens.None || ChangeDay is not null;
 }
 
@@ -40,7 +42,7 @@ public sealed record HomeLine(string Icon, string Brush, string Text, string? De
 /// Where a line of Home leads: its page, on the days it speaks of (<see cref="From"/> to <see cref="To"/>, as a week, a
 /// month, a day or a custom range), with only the PC's own problems when that's what it counted.
 /// </summary>
-public sealed record HomeOpen(InsightOpens Opens, ReportRange Range, DateTime From, DateTime To, bool PcOnly);
+public sealed record HomeOpen(InsightOpens Opens, ReportRange Range, DateTime From, DateTime To, bool PcOnly, string? Game = null);
 
 public sealed record RecapRow(AppStat? App, Insight? Line, int Rank, bool Essential, bool StartsLines = false)
 {
@@ -371,19 +373,19 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     private void OpenLine(HomeLine line)
     {
         if (line.ChangeDay is { } day) OpenChange?.Invoke(day);
-        else if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Today));
+        else if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Today) with { Game = line.Game });
     }
 
     [RelayCommand]
     private void OpenInsight(Insight line)
     {
-        if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Today));
+        if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Today) with { Game = line.Game });
     }
 
     [RelayCommand]
     private void OpenRecapInsight(Insight line)
     {
-        if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Recap));
+        if (line.Opens != InsightOpens.None) Open?.Invoke(OpenOf(line.Opens, line.Key, Recap) with { Game = line.Game });
     }
 
     /// <summary>
@@ -412,6 +414,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
                 ChangeKind.AppInstalled => ("\uE896", "CpuBrush"),
                 ChangeKind.AppRemoved => ("\uE74D", "CpuBrush"),
                 ChangeKind.AppUpdated => ("\uE72C", "CpuBrush"),
+                ChangeKind.GameUpdated => ("\uE7FC", "CpuBrush"),
                 ChangeKind.Hardware or ChangeKind.Firmware => ("\uE964", "PurpleBrush"),
                 ChangeKind.Storage => ("\uEDA2", "PurpleBrush"),
                 _ => ("\uE713", "MutedBrush"),
@@ -467,7 +470,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
             parts.Add(new Insight("", Wording.Capital(fullest), InsightTone.Neutral, "drives"));
 
         var lines = InsightLinks.Apply(parts).Select(i => new HomeLine(i.Icon, InsightBrushConverter.KeyOf(i), i.Line)
-            { TextBrush = i.Tone is InsightTone.Warn or InsightTone.Hot ? "WarmBrush" : null, Opens = i.Opens, Key = i.Key }).ToList();
+            { TextBrush = i.Tone is InsightTone.Warn or InsightTone.Hot ? "WarmBrush" : null, Opens = i.Opens, Key = i.Key, Game = i.Game }).ToList();
         if (worseChange is not null && !parts.Any(i => i is { Key: "usual-heat", Tone: InsightTone.Warn })) lines.Insert(0, worseChange);
         // What needs a look first, in the order above.
         return [.. lines.Where(l => l.TextBrush == "WarmBrush"), .. lines.Where(l => l.TextBrush != "WarmBrush")];

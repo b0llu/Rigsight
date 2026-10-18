@@ -134,7 +134,21 @@ internal sealed class AppResolver
                 try { db.UpsertApp(a.Exe, name, a.Path, a.Category); }
                 catch (Exception ex) { Log.Error("apps", ex); }
             }
-            _byExe[a.Exe] = new AppInfo { Id = a.Id, Exe = a.Exe, Name = name, Path = a.Path, AutoCategory = a.Category };
+            // Filed wrongly by an older version where something now says so for certain: a launcher lists the game's
+            // folder (Rocket League in E:\rocketleague was "Other"), or it's a launcher's own program or an anti-cheat
+            // starter that sat in a game folder. Its saved sessions follow.
+            var category = a.Category;
+            if (AppCatalog.Reclassified(a.Exe, a.Path, a.Category) is { } now)
+            {
+                try
+                {
+                    db.Recategorize(a.Id, now);
+                    Log.Write("apps", $"{name} ({a.Exe}): filed as {a.Category}, now {now} ({(now == AppCategory.Game ? "a launcher lists its folder" : "not a game")}); its sessions follow");
+                    category = now;
+                }
+                catch (Exception ex) { Log.Error("apps", ex); }
+            }
+            _byExe[a.Exe] = new AppInfo { Id = a.Id, Exe = a.Exe, Name = name, Path = a.Path, AutoCategory = category };
         }
     }
 }

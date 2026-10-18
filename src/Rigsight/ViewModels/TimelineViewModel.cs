@@ -23,6 +23,8 @@ public sealed partial class TimelineEntry : ObservableObject
     public string? TimeTip { get; init; }
     public string Icon { get; init; } = "";
     public string Title { get; init; } = "";
+    /// <summary>A game's update: the game it's about (see <see cref="Core.Games.GameEntry.Key"/>), which the line opens.</summary>
+    public string? GameKey { get; init; }
     public string? Detail { get; init; }
 
     /// <summary>Drivers, Windows and hardware stand out: they're what a PC-wide problem usually comes from.</summary>
@@ -273,6 +275,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("drivers", "Drivers", [ChangeKind.Driver]),
         ("windows", "Windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows]),
         ("apps", "Apps", [ChangeKind.AppInstalled, ChangeKind.AppRemoved, ChangeKind.AppUpdated]),
+        ("games", "Game updates", [ChangeKind.GameUpdated]),
         ("startup", "Startup programs", [ChangeKind.Startup]),
         ("hardware", "Hardware", [ChangeKind.Hardware, ChangeKind.Firmware]),
         ("settings", "Settings", [ChangeKind.Setting]),
@@ -510,6 +513,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         Title = c.Title,
         // An app just installed has no "before": its version is the detail.
         Detail = c.Kind == ChangeKind.AppInstalled ? c.Now : c.Detail,
+        GameKey = c.Kind == ChangeKind.GameUpdated && c.Subject is { } subject && subject.StartsWith(Inventory.Game + ":", StringComparison.Ordinal)
+            ? subject[(Inventory.Game.Length + 1)..] : null,
         IsKey = c.IsSystemLevel,
     };
 
@@ -536,6 +541,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ChangeKind.Startup => "",
         ChangeKind.Hardware or ChangeKind.Firmware => "",
         ChangeKind.Setting => "",
+        ChangeKind.GameUpdated => "",
         ChangeKind.TaskEnded => "",
         ChangeKind.Fans => "",
         _ => "",
@@ -547,6 +553,15 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         entry.IsExpanded = !entry.IsExpanded;
         if (Days.FirstOrDefault(d => d.Entries.Contains(entry)) is not { } day) return;
         if (entry.IsExpanded) _expanded.Add((day.Day, entry.Key)); else _expanded.Remove((day.Day, entry.Key));
+    }
+
+    /// <summary>Opens a game on the Games page (set by the window).</summary>
+    public Action<string>? OpenGameAt { get; set; }
+
+    [RelayCommand]
+    private void OpenGame(TimelineEntry entry)
+    {
+        if (entry.GameKey is { } key) OpenGameAt?.Invoke(key);
     }
 
     [RelayCommand]

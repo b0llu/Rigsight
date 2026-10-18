@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -322,9 +322,12 @@ public sealed partial class OverlayViewModel : ObservableObject
     private void InstallRtss() => AskRtss("install-rtss");
 
     [RelayCommand]
-    private static void OpenRtssDownload() =>
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-            "https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/") { UseShellExecute = true })?.Dispose();
+    private static void OpenRtssDownload()
+    {
+        // No browser set for links: nothing opens, rather than an error box.
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/") { UseShellExecute = true })?.Dispose(); }
+        catch (Exception ex) { Core.Log.Write("overlay", $"RivaTuner's download page couldn't be opened ({ex.Message})"); }
+    }
 
     /// <summary>Asks the agent for the latest shortcut and RivaTuner state (RivaTuner may have been installed meanwhile).</summary>
     public void RequestStatus() => _client.SendCommand("overlay-status");

@@ -1,4 +1,4 @@
-using System.Diagnostics.Eventing.Reader;
+﻿using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -546,7 +546,7 @@ public static partial class CrashLogReader
     internal static DateTime? EventTimeOf(IEnumerable<string> lines)
     {
         foreach (var line in lines)
-            if (line.StartsWith("EventTime=", StringComparison.Ordinal) && long.TryParse(line.AsSpan(10), out long ft) && ft > 0)
+            if (line.StartsWith("EventTime=", StringComparison.Ordinal) && long.TryParse(line.AsSpan(10), out long ft) && ft > 0 && ft < DateTime.MaxValue.ToFileTimeUtc())
                 return DateTime.FromFileTime(ft);
         return null;
     }

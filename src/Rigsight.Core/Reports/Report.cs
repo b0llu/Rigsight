@@ -33,10 +33,13 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
     /// <summary>Where the line opens, when that page shows something the line can't (see <see cref="InsightLinks"/>).</summary>
     public InsightOpens Opens { get; init; }
     public bool CanOpen => Opens != InsightOpens.None;
+
+    /// <summary>The game a line is about (its name as shown), which the line opens on the Games page.</summary>
+    public string? Game { get; init; }
 }
 
 /// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>
-public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage }
+public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage, Game }
 
 /// <summary>Minutes a part spent over its warm line (<see cref="Report.HotLine"/>) put down to one app.</summary>
 public sealed record HotShare(string App, int Minutes);

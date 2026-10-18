@@ -1,4 +1,4 @@
-using Rigsight.Core.Settings;
+﻿using Rigsight.Core.Settings;
 
 namespace Rigsight.ViewModels;
 
@@ -28,14 +28,14 @@ internal static class TileLayout
         var placed = new List<TileViewModel>();
         if (pinned is not null)
         {
-            pinned.X = Math.Clamp(pinned.X, 0, Columns - pinned.W);
+            pinned.X = Math.Clamp(pinned.X, 0, Math.Max(0, Columns - pinned.W)); // a tile wider than the grid starts at its left
             pinned.Y = Math.Max(0, pinned.Y);
             placed.Add(pinned);
         }
 
         foreach (var t in tiles.Where(t => t != pinned && !t.IsPlaceholder).OrderBy(t => Home(t).Y).ThenBy(t => Home(t).X).ToList())
         {
-            int x = Math.Clamp(Home(t).X, 0, Columns - t.W);
+            int x = Math.Clamp(Home(t).X, 0, Math.Max(0, Columns - t.W));
             int y = Math.Max(0, Home(t).Y);
             while (!Free(placed, x, y, t.W, t.H)) y++;
             t.X = x;

@@ -22,7 +22,7 @@ public sealed class SchemaTests
             "cpu_power", "gpu_power", "cpu_volt_max", "gpu_volt_max", "ram_used", "fg_app", "active_sec", "idle_sec", "gpu_mem_max", "cpu_app", "gpu_app",
             "cpu_clock", "gpu_clock", "cpu_temp_min", "gpu_temp_min", "gpu_hot_avg", "gpu_mem_avg",
             "gpu_hot_min", "gpu_mem_min", "disk_rate", "disk_rate_max", "commit_pct", "battery", "on_battery",
-            "vram_used", "vram_total"],
+            "vram_used", "vram_total", "fps", "fps_low"],
         ["app_minute"] = ["ts", "app", "cpu", "gpu", "mem", "disk"],
         ["app_hour"] = ["ts", "app_id", .. HourValueColumns],
         ["app_month"] = ["month", "app_id", .. HourValueColumns],

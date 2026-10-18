@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -124,6 +124,9 @@ public partial class MainWindow : Window
     {
         if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "crashes" } && _vm.CurrentPage == "crashes")
             _vm.Crashes.CloseCaseCommand.Execute(null);
+        // …and for an opened game: the sidebar's Games goes back to the library.
+        if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "games" } && _vm.CurrentPage == "games")
+            _vm.Games.ShowLibrary();
         // The same for an opened change: the sidebar's Timeline goes back to the list.
         if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "timeline" } && _vm.CurrentPage == "timeline")
             _vm.Timeline.CloseChangeCommand.Execute(null);
@@ -169,12 +172,16 @@ public partial class MainWindow : Window
     /// </summary>
     private void ShowPage(string page)
     {
+        // The page on screen, for the log: a crash that ends the app at once (a stack overflow) can write nothing itself,
+        // and the agent's line about it then has this to go with it.
+        Core.Log.Write("app", $"Showing {page}");
         if (!_pages.TryGetValue(page, out var view))
         {
             view = page switch
             {
                 "reports" => new ReportsView { DataContext = _vm.ReportsPage },
                 "apps" => new AppsView { DataContext = _vm.Apps },
+                "games" => new GamesView { DataContext = _vm.Games },
                 "crashes" => new CrashesView { DataContext = _vm.Crashes },
                 "timeline" => new TimelineView { DataContext = _vm.Timeline },
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },

@@ -123,7 +123,7 @@ public sealed class HomeAndHeatTests
         // The same words as the insight list; the driver's own line isn't said here too (PC health already says the heat).
         Assert.Equal(["Crimson Desert runs 9° hotter than usual", "Fan #2 on your motherboard stopped for 12 minutes", "3 graphics driver resets in the last 7 days"], bad.Select(l => l.Text));
         Assert.All(bad, l => Assert.Equal("WarmBrush", l.TextBrush));
-        Assert.Equal([InsightOpens.Usual, InsightOpens.Fans, InsightOpens.Crashes], bad.Select(l => l.Opens));
+        Assert.Equal([InsightOpens.Game, InsightOpens.Fans, InsightOpens.Crashes], bad.Select(l => l.Opens)); // the game hotter than usual opens the game
         // A worse driver with nothing else saying it: it's PC health's first line.
         Assert.Equal(worseDriver, HomeViewModel.HealthLines(Today(calm), [], 0, [], null, worseDriver)[0]);
 

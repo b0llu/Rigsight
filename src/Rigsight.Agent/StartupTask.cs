@@ -1,4 +1,4 @@
-using System.Security;
+﻿using System.Security;
 using System.Security.Principal;
 using System.Text;
 using Rigsight.Core;
@@ -70,6 +70,12 @@ internal static class StartupTask
             if (AgentTask.Schtasks(out _, "/Create", "/TN", AgentTask.Mine, "/XML", file, "/F") != 0) return false;
             AgentTask.DropOldOne();
             return true;
+        }
+        catch (Exception ex)
+        {
+            // The program's folder not writable, say: no task, but the agent still starts.
+            Rigsight.Core.Log.Write("startup", $"The start-with-Windows task couldn't be made: {ex.Message}");
+            return false;
         }
         finally
         {

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -179,7 +179,7 @@ public sealed class Sparkline : FrameworkElement
         if (Maximum is null) hi += pad;
 
         // At a card's foot the lowest reading stops short of the card's edge, so a flat line reads as a line.
-        var plot = new Rect(0, 1.5, ActualWidth, ActualHeight - (FootRadius > 0 ? 7 : 3));
+        var plot = new Rect(0, 1.5, ActualWidth, Math.Max(0, ActualHeight - (FootRadius > 0 ? 7 : 3))); // never negative: a Rect throws
         var geometry = ChartGeometry.Build(buffer, from, to, plot, lo, hi, v => v);
         if (geometry is null) return;
         var (line, area) = geometry.Value;
