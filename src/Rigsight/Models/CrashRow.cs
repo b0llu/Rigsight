@@ -1,3 +1,4 @@
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Models;
@@ -37,8 +38,8 @@ public sealed class CrashRow
     public Models.CrashSeverity Severity => Models.CrashGroup.SeverityOf(this);
 
     public DateTime Time => Event.Time;
-    public string TimeText => Time.Date == DateTime.Today ? $"Today, {Time:h:mm tt}"
-        : Time.Date == DateTime.Today.AddDays(-1) ? $"Yesterday, {Time:h:mm tt}"
+    public string TimeText => Time.Date == DateTime.Today ? Lang.T($"Today, {Time:h:mm tt}")
+        : Time.Date == DateTime.Today.AddDays(-1) ? Lang.T($"Yesterday, {Time:h:mm tt}")
         : Time.ToString("ddd d MMM, h:mm tt");
     public string Title => Explanation.Title;
     public string Reason => Explanation.Reason;
@@ -57,12 +58,23 @@ public sealed class CrashRow
         {
             var parts = new List<string>();
             if (SessionSec is double s && s >= 60)
-                parts.Add($"{Core.Units.Duration(s)} into {(IsGame ? "playing" : "using")} {AppName ?? "it"}");
+            {
+                string time = Core.Units.Duration(s);
+                parts.Add((IsGame, AppName) switch
+                {
+                    (true, { } app) => Lang.T($"{time} into playing {app}"),
+                    (true, null) => Lang.T($"{time} into playing it"),
+                    (false, { } app) => Lang.T($"{time} into using {app}"),
+                    _ => Lang.T($"{time} into using it"),
+                });
+            }
             else if (FrontApp is not null && !string.Equals(FrontApp, AppName, StringComparison.OrdinalIgnoreCase))
-                parts.Add($"{FrontApp} was in front");
+                parts.Add(Lang.T($"{FrontApp} was in front"));
             if (CpuBefore is not null || GpuBefore is not null)
-                parts.Add($"CPU {Core.Units.TempShort(CpuBefore)}, GPU {Core.Units.TempShort(GpuBefore)}" +
-                          (GpuBefore >= 83 || CpuBefore >= 88 ? " (running hot)" : ""));
+            {
+                string cpu = Core.Units.TempShort(CpuBefore), gpu = Core.Units.TempShort(GpuBefore);
+                parts.Add(GpuBefore >= 83 || CpuBefore >= 88 ? Lang.T($"CPU {cpu}, GPU {gpu} (running hot)") : $"CPU {cpu}, GPU {gpu}");
+            }
             else if (NoReadingsBefore)
                 parts.Add(Core.Wording.NotRecorded.ToLowerInvariant());
             return parts.Count == 0 ? null : string.Join("  ·  ", parts);
@@ -76,18 +88,18 @@ public sealed class CrashRow
     /// early: the two kinds sit in one list, and only this tells them apart.
     /// </summary>
     public string? WindowsTimeNote => Event.Kind is not (CrashKind.SystemCrash or CrashKind.UnexpectedShutdown) ? null
-        : Event.WindowsTs is not long w || Math.Abs(w - Event.Ts) < 60 ? "time from Windows' log, which is often earlier than the moment itself"
-        : $"Windows' log says {Core.Data.TimeUtil.FromUnix(w).ToString(Core.Data.TimeUtil.FromUnix(w).Date == Time.Date ? "h:mm tt" : "ddd d MMM, h:mm tt")}, readings were recorded until {Time:h:mm tt}";
+        : Event.WindowsTs is not long w || Math.Abs(w - Event.Ts) < 60 ? Lang.T("time from Windows' log, which is often earlier than the moment itself")
+        : Lang.T($"Windows' log says {Core.Data.TimeUtil.FromUnix(w).ToString(Core.Data.TimeUtil.FromUnix(w).Date == Time.Date ? "h:mm tt" : "ddd d MMM, h:mm tt")}, readings were recorded until {Time:h:mm tt}");
 
     public string TechnicalText => string.Join("  ·  ", new[]
     {
         string.IsNullOrEmpty(Event.AppExe) ? null : Event.Facts?.AppVersion is { } version ? $"{Event.AppExe} {version}" : Event.AppExe,
-        Event.Module is null ? null : $"module {Event.Module}{(Event.Facts?.ModuleVersion is { } mv ? $" {mv}" : "")}{(Event.Facts?.Offset is { } offset ? $" at {offset}" : "")}",
-        Event.Facts?.Driver is { } driver ? $"driver {driver}" : null,
-        Event.Facts?.ReportType is { } type ? $"report {type}" : null,
-        Event.Code is null ? null : $"code {Event.Code}",
+        Event.Module is null ? null : Lang.T($"module {Event.Module}") + (Event.Facts?.ModuleVersion is { } mv ? $" {mv}" : "") + (Event.Facts?.Offset is { } offset ? Lang.T($" at {offset}") : ""),
+        Event.Facts?.Driver is { } driver ? Lang.T($"driver {driver}") : null,
+        Event.Facts?.ReportType is { } type ? Lang.T($"report {type}") : null,
+        Event.Code is null ? null : Lang.T($"code {Event.Code}"),
         Event.Detail,
         WindowsTimeNote,
-        DumpPath is null ? null : $"dump {DumpPath}",
+        DumpPath is null ? null : Lang.T($"dump {DumpPath}"),
     }.Where(s => !string.IsNullOrEmpty(s)));
 }

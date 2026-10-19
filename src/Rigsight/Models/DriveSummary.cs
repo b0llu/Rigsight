@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Rigsight.Core;
 using Rigsight.Core.Protocol;
 
 namespace Rigsight.Models;
@@ -41,7 +42,14 @@ public sealed partial class DriveSummary : ObservableObject
     /// <summary>SSDs show their wear ("97%"); hard drives, which don't wear that way, show their SMART status.</summary>
     public bool HasHealth => Life is not null || Status != "Unknown";
 
-    public string HealthText => Life is not null ? Life.ShortValue : Status;
+    public string HealthText => Life is not null ? Life.ShortValue : Status switch
+    {
+        "Good" => Lang.T("Good"),
+        "Caution" => Lang.T("Caution"),
+        "Bad" => Lang.T("Bad"),
+        "Unknown" => Lang.T("Unknown"),
+        var other => other,
+    };
 
     /// <summary>An SSD that reports this much of its rated life left (percent) or less gets a warning.</summary>
     public const double WornOut = 10;
@@ -69,13 +77,13 @@ public sealed partial class DriveSummary : ObservableObject
     {
         get
         {
-            if (Status == "Bad") return "SMART reports a failure. Back up what's on it now.";
+            if (Status == "Bad") return Lang.T("SMART reports a failure. Back up what's on it now.");
             bool sectors = Health is { } h && (h.ReallocatedSectors > 0 || h.PendingSectors > 0 || h.UncorrectableSectors > 0);
             if (Status == "Caution")
-                return sectors ? "Bad sectors are an early warning. Keep a backup, and watch whether the count grows."
-                    : "SMART reports early warning signs. Keep a backup.";
+                return sectors ? Lang.T("Bad sectors are an early warning. Keep a backup, and watch whether the count grows.")
+                    : Lang.T("SMART reports early warning signs. Keep a backup.");
             // Said as what the drive reports, not as a verdict: its own health check may still say it is fine.
-            if (Life?.Value is double left && left <= WornOut) return "The drive reports almost all of its rated life used. Keep a backup of what's on it.";
+            if (Life?.Value is double left && left <= WornOut) return Lang.T("The drive reports almost all of its rated life used. Keep a backup of what's on it.");
             return null;
         }
     }
@@ -91,19 +99,20 @@ public sealed partial class DriveSummary : ObservableObject
         {
             if (Health is not { } h || (h.ReallocatedSectors, h.PendingSectors, h.UncorrectableSectors) is (null, null, null)) return null;
             var parts = new List<string>();
-            if (h.ReallocatedSectors > 0) parts.Add($"{h.ReallocatedSectors:N0} reallocated");
-            if (h.PendingSectors > 0) parts.Add($"{h.PendingSectors:N0} pending");
-            if (h.UncorrectableSectors > 0) parts.Add($"{h.UncorrectableSectors:N0} unreadable");
-            return parts.Count == 0 ? "No bad sectors" : string.Join(", ", parts) + " sectors";
+            if (h.ReallocatedSectors > 0) parts.Add(Lang.T($"{h.ReallocatedSectors:N0} reallocated"));
+            if (h.PendingSectors > 0) parts.Add(Lang.T($"{h.PendingSectors:N0} pending"));
+            if (h.UncorrectableSectors > 0) parts.Add(Lang.T($"{h.UncorrectableSectors:N0} unreadable"));
+            string list = string.Join(", ", parts);
+            return parts.Count == 0 ? Lang.T("No bad sectors") : Lang.T($"{list} sectors");
         }
     }
 
     public string HealthToolTip => Status switch
     {
-        "Bad" => "SMART reports a serious problem with this drive. Back up anything important on it now.",
-        "Caution" => "SMART reports early warning signs (such as bad sectors). Keep a backup and keep an eye on it.",
-        "Good" when Life is null => "SMART reports no problems. Hard drives don't wear out like SSDs, so there's no percentage.",
-        "Good" => "SMART reports no problems. The percentage is how much of its rated wear the SSD has left.",
-        _ => "How much of its rated wear the SSD has left.",
+        "Bad" => Lang.T("SMART reports a serious problem with this drive. Back up anything important on it now."),
+        "Caution" => Lang.T("SMART reports early warning signs (such as bad sectors). Keep a backup and keep an eye on it."),
+        "Good" when Life is null => Lang.T("SMART reports no problems. Hard drives don't wear out like SSDs, so there's no percentage."),
+        "Good" => Lang.T("SMART reports no problems. The percentage is how much of its rated wear the SSD has left."),
+        _ => Lang.T("How much of its rated wear the SSD has left."),
     };
 }

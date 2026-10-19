@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Models;
@@ -62,8 +63,8 @@ public sealed partial class CrashCase : ObservableObject
     public string Chip => Finding.Chip;
     public string Sure => Finding.Confidence.ToString();
     /// <summary>The chip's hover: where "Confirmed" comes from, or what the word means.</summary>
-    public string SureHint => Finding.Confidence == Confidence.Named ? "Windows' own record says this."
-        : "How sure RigSight is of what happened, by what it rests on";
+    public string SureHint => Finding.Confidence == Confidence.Named ? Lang.T("Windows' own record says this.")
+        : Lang.T("How sure RigSight is of what happened, by what it rests on");
     public string Head => Finding.Head;
     /// <summary>The case's headline: the finding itself, without its full stop.</summary>
     public string Headline => Finding.Head.TrimEnd('.');
@@ -71,7 +72,7 @@ public sealed partial class CrashCase : ObservableObject
     public string Under => string.Join("  ·  ", new[] { Title == Headline ? null : Title, WhenText, WhenNote }.Where(s => !string.IsNullOrEmpty(s)));
     public string Text => Finding.Text;
     public string Advice => Finding.Advice;
-    public string WhenText => Group.IsIncident ? $"{Group.First.Time:ddd d MMM, h:mm} to {Group.Latest.Time:h:mm tt}" : Row.TimeText;
+    public string WhenText => Group.IsIncident ? Lang.T($"{Group.First.Time:ddd d MMM, h:mm} to {Group.Latest.Time:h:mm tt}") : Row.TimeText;
     /// <summary>Under the time: where the time shown isn't Windows' own, or how many times it happened.</summary>
     public string? WhenNote { get; init; }
 
@@ -111,10 +112,10 @@ public sealed partial class CrashCase : ObservableObject
     /// <summary>"Around the crash", "Around the sudden shut-off", "Around the blue screen".</summary>
     public string AroundTitle => Row.Event.Kind switch
     {
-        CrashKind.UnexpectedShutdown => "Around the sudden shut-off",
-        CrashKind.SystemCrash => "Around the blue screen",
-        CrashKind.GpuDriverReset => "Around the graphics driver reset",
-        _ => "Around the crash",
+        CrashKind.UnexpectedShutdown => Lang.T("Around the sudden shut-off"),
+        CrashKind.SystemCrash => Lang.T("Around the blue screen"),
+        CrashKind.GpuDriverReset => Lang.T("Around the graphics driver reset"),
+        _ => Lang.T("Around the crash"),
     };
 
     public List<CaseMinute> Minutes => View.Minutes;

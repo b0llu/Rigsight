@@ -41,12 +41,12 @@ public sealed partial class ProcHistory : ObservableObject
         var facts = new List<ProcFact>();
         void Add(string label, string value) => facts.Add(new(label, value));
 
-        if (row.Started > 0) Add("Running since", Since(TimeUtil.FromUnix(row.Started), now));
-        if (past?.UsualMB is { } usual) Add("Usual memory", Units.Megabytes(usual));
-        if (past?.FrontSec is { } front) Add("In front today", Time(front));
-        if (past?.BackSec is { } back) Add("In the background today", Time(back));
-        if (past?.NetBytes is { } net) Add("Internet today", Units.Data(net));
-        if (past is not null) Add("Crashes (30 days)", past.Crashes == 0 ? "None" : past.Crashes.ToString(CultureInfo.CurrentCulture));
+        if (row.Started > 0) Add(Lang.T("Running since"), Since(TimeUtil.FromUnix(row.Started), now));
+        if (past?.UsualMB is { } usual) Add(Lang.T("Usual memory"), Units.Megabytes(usual));
+        if (past?.FrontSec is { } front) Add(Lang.T("In front today"), Time(front));
+        if (past?.BackSec is { } back) Add(Lang.T("In the background today"), Time(back));
+        if (past?.NetBytes is { } net) Add(Lang.T("Internet today"), Units.Data(net));
+        if (past is not null) Add(Lang.T("Crashes (30 days)"), past.Crashes == 0 ? Lang.T("None") : past.Crashes.ToString(CultureInfo.CurrentCulture));
 
         // The hour now is what the app holds at this moment, as the list above says it.
         var hours = past?.Hours.ToList() ?? [];
@@ -66,15 +66,16 @@ public sealed partial class ProcHistory : ObservableObject
         var culture = CultureInfo.CurrentCulture;
         int days = (int)(now.Date - started.Date).TotalDays;
         return days <= 0 ? started.ToString("h:mm tt", culture)
-            : days == 1 ? $"Yesterday, {started.ToString("h:mm tt", culture)}"
+            : days == 1 ? Lang.T($"Yesterday, {started.ToString("h:mm tt", culture)}")
             : started.ToString("d MMM, h:mm tt", culture);
     }
 
     /// <summary>"5 h 40 min", "22 min", "Under a minute"; "None" for no time at all.</summary>
     internal static string Time(double seconds)
     {
-        if (!double.IsFinite(seconds) || seconds < 1) return "None";
+        if (!double.IsFinite(seconds) || seconds < 1) return Lang.T("None");
         int minutes = (int)(seconds / 60);
-        return minutes < 1 ? "Under a minute" : minutes < 60 ? $"{minutes} min" : $"{minutes / 60} h {minutes % 60} min";
+        int hours = minutes / 60, rest = minutes % 60;
+        return minutes < 1 ? Lang.T("Under a minute") : minutes < 60 ? Lang.T($"{minutes} min") : Lang.T($"{hours} h {rest} min");
     }
 }

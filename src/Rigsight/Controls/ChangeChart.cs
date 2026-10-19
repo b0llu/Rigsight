@@ -30,7 +30,7 @@ public sealed class ChangeChart : FrameworkElement
 
     /// <summary>"Since" while the change is the current one, "After" once another came.</summary>
     public static readonly DependencyProperty AfterNameProperty = DependencyProperty.Register(
-        nameof(AfterName), typeof(string), typeof(ChangeChart), new FrameworkPropertyMetadata("Since", FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(AfterName), typeof(string), typeof(ChangeChart), new FrameworkPropertyMetadata(Lang.T("Since"), FrameworkPropertyMetadataOptions.AffectsRender));
 
     /// <summary>Hotter since: the "since" row in the warm colour; cooler: in the good colour.</summary>
     public static readonly DependencyProperty WorseProperty = DependencyProperty.Register(
@@ -98,7 +98,7 @@ public sealed class ChangeChart : FrameworkElement
         }
 
         var since = Worse ? ChartPaint.Warm : ChartPaint.Good;
-        Row("Before", RowA, read.Where(d => d.Day < ChangeDay).ToList(), Before, ChartPaint.Muted);
+        Row(Lang.T("Before"), RowA, read.Where(d => d.Day < ChangeDay).ToList(), Before, ChartPaint.Muted);
         Row(AfterName, RowB, read.Where(d => d.Day > ChangeDay).ToList(), After, since);
 
         if (_hover >= 0 && _hover < _dots.Count)
@@ -109,7 +109,7 @@ public sealed class ChangeChart : FrameworkElement
                 (d.Day.ToString("dddd, d MMM"), ChartPaint.TextBrush, true),
                 ($"{TempLabel}: {Units.TempShort(d.Temp)}", ChartPaint.Muted, false),
             };
-            if (d.Minutes > 0) lines.Add(($"Played: {Units.Duration(d.Minutes * 60.0)}", ChartPaint.Muted, false));
+            if (d.Minutes > 0) lines.Add((Lang.T($"Played: {Units.Duration(d.Minutes * 60.0)}"), ChartPaint.Muted, false));
             ChartPaint.InfoBox(dc, this, lines, new Point(at.X + 10, at.Y - 10), new Rect(0, 0, w, h));
         }
 
@@ -121,7 +121,7 @@ public sealed class ChangeChart : FrameworkElement
             {
                 double ax = X(avg);
                 dc.DrawRoundedRectangle(colour, null, new Rect(ax - 1.5, y - 14, 3, 28), 1.5, 1.5);
-                ChartPaint.Text(dc, this, $"{Units.TempShort(avg)} average", new Point(ax, y - 23), 11, colour, ChartPaint.Align.Center);
+                ChartPaint.Text(dc, this, Lang.T($"{Units.TempShort(avg)} average"), new Point(ax, y - 23), 11, colour, ChartPaint.Align.Center);
             }
             var fill = colour.Clone();
             fill.Opacity = 0.55;

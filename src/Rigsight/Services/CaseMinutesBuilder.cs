@@ -26,7 +26,7 @@ internal static class CaseMinutesBuilder
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to) + 60, at = TimeUtil.ToUnix(crash);
         var rows = db.GetMinutes(f, t);
         var appRows = db.LoadApps().ToDictionary(a => a.Id);
-        string NameOf(long id) => appRows.TryGetValue(id, out var a) ? (s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name) : "An app";
+        string NameOf(long id) => appRows.TryGetValue(id, out var a) ? (s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name) : Lang.T("An app");
         // An app's own colour, the one the Apps page gives its kind (a shade of the accent once one is picked).
         string? ColorOf(long id) => appRows.TryGetValue(id, out var a)
             ? ThemeManager.CategoryHex(s.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) : null;
@@ -58,13 +58,13 @@ internal static class CaseMinutesBuilder
                 Battery = m.Battery, OnBattery = m.OnBattery,
                 Front = m.FgApp is long fg && m.ActiveSec > 0 ? NameOf(fg) : null,
                 Here = m.ActiveSec > 0,
-                Fans = [.. fanByMinute[m.Ts].OrderBy(x => fanOrder.IndexOf(x.Fan)).Select(x => (fans.GetValueOrDefault(x.Fan) ?? "Fan", x.RpmAvg))],
+                Fans = [.. fanByMinute[m.Ts].OrderBy(x => fanOrder.IndexOf(x.Fan)).Select(x => (fans.GetValueOrDefault(x.Fan) ?? Lang.T("Fan"), x.RpmAvg))],
                 // With how much where each minute's apps were kept (0.24.0 on); before that, the one app the minute
                 // names as working the part hardest, without a figure.
                 CpuApps = mine.Count > 0 ? [.. mine.Where(a => a.Cpu >= 1).OrderByDescending(a => a.Cpu).Select(a => new CaseApp(NameOf(a.App), $"{a.Cpu:0}%"))]
-                    : m.CpuApp is long cpuApp ? [new CaseApp(NameOf(cpuApp), "hardest")] : [],
+                    : m.CpuApp is long cpuApp ? [new CaseApp(NameOf(cpuApp), Lang.T("hardest"))] : [],
                 GpuApps = mine.Count > 0 ? [.. mine.Where(a => a.Gpu >= 1).OrderByDescending(a => a.Gpu).Select(a => new CaseApp(NameOf(a.App), $"{a.Gpu:0}%"))]
-                    : m.GpuApp is long gpuApp ? [new CaseApp(NameOf(gpuApp), "hardest")] : [],
+                    : m.GpuApp is long gpuApp ? [new CaseApp(NameOf(gpuApp), Lang.T("hardest"))] : [],
                 MemApps = [.. mine.Where(a => a.MemMb >= 100).OrderByDescending(a => a.MemMb).Select(a => new CaseApp(NameOf(a.App), Gb(a.MemMb)))],
                 Flags = Flags(rows, i),
             };
@@ -82,23 +82,23 @@ internal static class CaseMinutesBuilder
             lanes.Add(new CaseLane(name, unit, Nice(Math.Max(least, top)), [.. drawn.Select(l => new CaseSeries(l.Label, l.Brush, Of(l.Value)))]));
         }
         double? T(double? celsius) => celsius is double c ? Units.Temp(c) : null;
-        Lane("Temperature", "°", Units.Fahrenheit ? 212 : 100,
-            ("CPU", "CpuBrush", m => T(m.CpuTemp)), ("GPU", "GpuBrush", m => T(m.GpuTemp)), ("GPU hot spot", "PurpleBrush", m => T(m.GpuHotSpot)));
-        Lane("Load", "%", 100, ("CPU", "CpuBrush", m => m.CpuLoad), ("GPU", "GpuBrush", m => m.GpuLoad));
-        Lane("Power", " W", 50, ("CPU", "CpuBrush", m => m.CpuPower), ("GPU", "GpuBrush", m => m.GpuPower));
-        Lane("Memory", " GB", ramTotal ?? 4, ("In use", "RamBrush", m => m.RamGb), ("GPU memory", "GpuBrush", m => m.VramMb / 1024));
+        Lane(Lang.T("Temperature"), "°", Units.Fahrenheit ? 212 : 100,
+            ("CPU", "CpuBrush", m => T(m.CpuTemp)), ("GPU", "GpuBrush", m => T(m.GpuTemp)), (Lang.T("GPU hot spot"), "PurpleBrush", m => T(m.GpuHotSpot)));
+        Lane(Lang.T("Load"), "%", 100, ("CPU", "CpuBrush", m => m.CpuLoad), ("GPU", "GpuBrush", m => m.GpuLoad));
+        Lane(Lang.T("Power"), " W", 50, ("CPU", "CpuBrush", m => m.CpuPower), ("GPU", "GpuBrush", m => m.GpuPower));
+        Lane(Lang.T("Memory"), " GB", ramTotal ?? 4, (Lang.T("In use"), "RamBrush", m => m.RamGb), (Lang.T("GPU memory"), "GpuBrush", m => m.VramMb / 1024));
         // The fastest-turning fans, each a line in a colour of its own from the palette.
         var fanSeries = fanOrder.Take(FanSeries).ToList();
         string[] fanBrushes = ["PinkBrush", "SkyBrush", "PurpleBrush", "CpuBrush"];
         if (fanSeries.Count > 0)
         {
-            var series = fanSeries.Select((id, k) => new CaseSeries(fans.GetValueOrDefault(id) ?? "Fan", fanBrushes[k],
+            var series = fanSeries.Select((id, k) => new CaseSeries(fans.GetValueOrDefault(id) ?? Lang.T("Fan"), fanBrushes[k],
                 [.. minutes.Select(m => fanByMinute[TimeUtil.ToUnix(m.Time)].FirstOrDefault(x => x.Fan == id) is { } r ? (double?)r.RpmAvg : null)])).ToList();
             double top = series.SelectMany(x => x.Values).OfType<double>().DefaultIfEmpty(0).Max();
-            lanes.Add(new CaseLane("Fans", " rpm", Nice(Math.Max(1000, top)), series));
+            lanes.Add(new CaseLane(Lang.T("Fans"), " rpm", Nice(Math.Max(1000, top)), series));
         }
-        Lane("Drives", " MB/s", 10, ("Read and written", "PinkBrush", m => m.DiskMbs));
-        Lane("Network", " Mbps", 1, ("Download", "SkyBrush", m => m.DownMbps), ("Upload", "PurpleBrush", m => m.UpMbps));
+        Lane(Lang.T("Drives"), " MB/s", 10, (Lang.T("Read and written"), "PinkBrush", m => m.DiskMbs));
+        Lane(Lang.T("Network"), " Mbps", 1, (Lang.T("Download"), "SkyBrush", m => m.DownMbps), (Lang.T("Upload"), "PurpleBrush", m => m.UpMbps));
 
         // ── Strips: who was in front, and who worked each part hardest ──
         var strips = new List<CaseStrip>();
@@ -116,9 +116,9 @@ internal static class CaseMinutesBuilder
             }
             strips.Add(new CaseStrip(name, bands));
         }
-        Strip("In front", m => m.ActiveSec > 0 ? m.FgApp : null, "Nobody at the PC");
-        Strip("Hardest on the CPU", m => m.CpuApp, null);
-        Strip("Hardest on the GPU", m => m.GpuApp, null);
+        Strip(Lang.T("In front"), m => m.ActiveSec > 0 ? m.FgApp : null, Lang.T("Nobody at the PC"));
+        Strip(Lang.T("Hardest on the CPU"), m => m.CpuApp, null);
+        Strip(Lang.T("Hardest on the GPU"), m => m.GpuApp, null);
 
         // ── Marks: an app on a strip opening in these minutes, and the crash ──
         var onStrips = strips.SelectMany(x => x.Bands).Select(b => b.App).OfType<string>().ToHashSet();
@@ -126,11 +126,11 @@ internal static class CaseMinutesBuilder
             .GroupBy(x => NameOf(x.AppId)).Select(g => g.MinBy(x => x.Start)!)
             .OrderByDescending(x => x.Start).Take(3)
             .Select(x => new CaseMark(TimeUtil.FromUnix(x.Start), NameOf(x.AppId), false)).ToList();
-        marks.Add(new CaseMark(crash, "Crash", true));
+        marks.Add(new CaseMark(crash, Lang.T("Crash"), true));
         // The box says it too, for the minute it happened in: a line on the lanes is never left to be guessed at.
         foreach (var mark in marks.Where(k => !k.IsCrash))
             if (minutes.FindLastIndex(m => m.Time <= mark.At) is int found and >= 0 && minutes[found].Flags.Count < 2)
-                minutes[found].Flags.Add($"{mark.Label} opened");
+                minutes[found].Flags.Add(Lang.T($"{mark.Label} opened"));
 
         // Never in the way of the crash opening: what stood out is left out, and the log says why.
         List<StoodOut> stood;
@@ -145,7 +145,7 @@ internal static class CaseMinutesBuilder
         // lines and dashes read as "nothing happened" without it. Only where they really are missing from these minutes.
         if (Account.Kind == AccountKind.Standard && minutes.Count > 0 && minutes.All(m => m.CpuTemp is null))
             stood.Insert(stood.FindIndex(s => s.IsCalm) is int calm and >= 0 ? calm : stood.Count,
-                new StoodOut("Windows keeps the CPU's temperature and power and the motherboard's fans for admin accounts, so they aren't shown here.", false));
+                new StoodOut(Lang.T("Windows keeps the CPU's temperature and power and the motherboard's fans for admin accounts, so they aren't shown here."), false));
         int crashIndex = minutes.FindLastIndex(m => m.Time <= crash);
         return new Built(minutes, lanes, strips, marks, stood, new CaseReadout(minutes, Math.Max(0, crashIndex), ramTotal, crash, word: word));
     }
@@ -158,11 +158,11 @@ internal static class CaseMinutesBuilder
         var earlier = rows.Take(i).LastOrDefault(x => x.Ts <= m.Ts - 300 && x.Ts >= m.Ts - 420);
         if (earlier is not null)
         {
-            if ((m.CpuTemp ?? m.CpuTempMax) - (earlier.CpuTemp ?? earlier.CpuTempMax) is double cpu && cpu >= 6) flags.Add($"CPU up {Delta(cpu)} in 5 minutes");
-            if ((m.GpuTemp ?? m.GpuTempMax) - (earlier.GpuTemp ?? earlier.GpuTempMax) is double gpu && gpu >= 6) flags.Add($"GPU up {Delta(gpu)} in 5 minutes");
+            if ((m.CpuTemp ?? m.CpuTempMax) - (earlier.CpuTemp ?? earlier.CpuTempMax) is double cpu && cpu >= 6) flags.Add(Lang.T($"CPU up {Delta(cpu)} in 5 minutes"));
+            if ((m.GpuTemp ?? m.GpuTempMax) - (earlier.GpuTemp ?? earlier.GpuTempMax) is double gpu && gpu >= 6) flags.Add(Lang.T($"GPU up {Delta(gpu)} in 5 minutes"));
         }
-        if (m.CommitPct >= 90) flags.Add("Windows nearly out of memory");
-        if (m is { OnBattery: true, Battery: <= 10 }) flags.Add($"On its battery, at {m.Battery}%");
+        if (m.CommitPct >= 90) flags.Add(Lang.T("Windows nearly out of memory"));
+        if (m is { OnBattery: true, Battery: <= 10 }) flags.Add(Lang.T($"On its battery, at {m.Battery}%"));
         return [.. flags.Take(2)];
     }
 

@@ -82,11 +82,11 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     // Programs whose icon can't be read (protected ones) get the plain program icon.
     public ImageSource? Icon => IconCache.Get(Path) ?? IconCache.Program;
     public bool CanExpand => Count > 1;
-    public string MemShareText => MemShare < 0.1 ? "Under 0.1% of your memory" : $"{MemShare:0.#}% of your memory";
+    public string MemShareText => MemShare < 0.1 ? Lang.T("Under 0.1% of your memory") : Lang.T($"{MemShare:0.#}% of your memory");
     public string MemText => Units.Megabytes(MemMB);
     public string CpuText => FormatCpu(Cpu);
     public static string FormatCpu(double cpu) => cpu < 0.05 ? "0%" : cpu < 10 ? $"{cpu:0.0}%" : $"{cpu:0}%";
-    public string CountText => Count > 1 ? $"{Count} processes" : "1 process";
+    public string CountText => Count > 1 ? Lang.T($"{Count} processes") : Lang.T("1 process");
     /// <summary>The heading over its processes when opened ("21 PROCESSES").</summary>
     public string CountCaption => CountText.ToUpperInvariant();
 
@@ -101,7 +101,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     public string UsualText => UsualMB is { } usual ? Units.Megabytes(usual) : Nothing;
     public bool IsGrowing => GrowingSince is not null;
     /// <summary>The line under its name on the Memory page: since when it has grown, or else how many processes it is.</summary>
-    public string SubText => GrowingSince is { } since ? $"Growing since {since}" : CountText;
+    public string SubText => GrowingSince is { } since ? Lang.T($"Growing since {since}") : CountText;
     /// <summary>How far above its usual it is, for the box over its bar; null unless it is well above.</summary>
     public string? OverText => IsOver && UsualMB is { } usual ? OverTextOf(MemMB, usual) : null;
 
@@ -109,7 +109,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     public static string OverTextOf(double memMB, double usualMB)
     {
         double ratio = memMB / usualMB;
-        return ratio is >= 1.9 and < 2.3 ? "Twice its usual" : $"{ratio:0.#} times its usual";
+        return ratio is >= 1.9 and < 2.3 ? Lang.T("Twice its usual") : Lang.T($"{ratio:0.#} times its usual");
     }
 
     // Worked out once: it is asked on every update of the list.

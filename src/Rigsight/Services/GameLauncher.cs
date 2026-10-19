@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using Rigsight.Core;
 using Rigsight.Core.Games;
 
 namespace Rigsight.Services;
@@ -19,10 +20,10 @@ public static class GameLauncher
     {
         Launcher.Steam => "Steam",
         Launcher.Epic => "Epic Games",
-        Launcher.Riot => "the Riot Client",
+        Launcher.Riot => Lang.T("the Riot Client"),
         Launcher.Gog => "GOG Galaxy",
         Launcher.Ubisoft => "Ubisoft Connect",
-        Launcher.Ea => "the EA app",
+        Launcher.Ea => Lang.T("the EA app"),
         Launcher.BattleNet => "Battle.net",
         _ => "Windows",
     };

@@ -153,15 +153,15 @@ public sealed class LineChart : FrameworkElement
 
     internal static string ResetTextOf(int windowSeconds) => windowSeconds switch
     {
-        0 => "Whole day",
-        3600 => "Back to 1 hour",
-        21600 => "Back to 6 hours",
-        86400 => "Back to 24 hours",
-        604800 => "All 7 days",
-        2592000 => "All 30 days",
-        31536000 => "All 12 months",
-        Core.Reports.ChartRange.Custom => "Whole range",
-        _ => "Back to all of it",
+        0 => Lang.T("Whole day"),
+        3600 => Lang.T("Back to 1 hour"),
+        21600 => Lang.T("Back to 6 hours"),
+        86400 => Lang.T("Back to 24 hours"),
+        604800 => Lang.T("All 7 days"),
+        2592000 => Lang.T("All 30 days"),
+        31536000 => Lang.T("All 12 months"),
+        Core.Reports.ChartRange.Custom => Lang.T("Whole range"),
+        _ => Lang.T("Back to all of it"),
     };
 
     /// <summary>Back to the period picked (the card's button).</summary>
@@ -411,9 +411,9 @@ public sealed class LineChart : FrameworkElement
         if (lo > hi)
         {
             // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
-            string what = Core.Wording.NotRecorded + " ";
-            string nothing = Fixed ? what + (custom ? PeriodPicker.Words(Core.Reports.ReportRange.Custom, day) : Core.Reports.ChartRange.Words(WindowSeconds, day, DateTime.Today))
-                : _pastDay ? what + PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : "Collecting data…";
+            string? period = Fixed ? (custom ? PeriodPicker.Words(Core.Reports.ReportRange.Custom, day) : Core.Reports.ChartRange.Words(WindowSeconds, day, DateTime.Today))
+                : _pastDay ? PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : null;
+            string nothing = period is null ? Lang.T("Collecting data…") : Lang.T($"Not recorded {period}");
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }
@@ -468,7 +468,7 @@ public sealed class LineChart : FrameworkElement
             // Whole hours from midnight ("12 AM", "3 AM"…), as many as fit; today ends at "now".
             double hours = window / 3600.0;
             int hourStep = new[] { 1, 2, 3, 4, 6 }.FirstOrDefault(s => plot.Width * s / Math.Max(hours, 0.1) >= 64, 6);
-            if (!_pastDay) DrawText(dc, "now", new Point(plot.Right, plot.Bottom + 12), dpi, center: true);
+            if (!_pastDay) DrawText(dc, Lang.T("now"), new Point(plot.Right, plot.Bottom + 12), dpi, center: true);
             for (int hr = 0; hr <= hours; hr += hourStep)
             {
                 double x = plot.Left + plot.Width * hr / hours;
@@ -516,7 +516,7 @@ public sealed class LineChart : FrameworkElement
             for (int t = 0; t <= window; t += step)
             {
                 double x = plot.Right - plot.Width * t / window;
-                string label = t == 0 ? "now"
+                string label = t == 0 ? Lang.T("now")
                     : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("h:mm tt") // as times are written everywhere else in the app
                     : t < 60 ? $"-{t}s" : $"-{t / 60}m";
                 DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: x - plot.Left > 1);
@@ -604,8 +604,9 @@ public sealed class LineChart : FrameworkElement
         var reason = GapReason?.Invoke(gap.From, gap.To) ?? Core.Stability.GapReason.Unknown;
         string? why = Core.Stability.PowerLog.Words(reason);
         bool down = reason is Core.Stability.GapReason.ShutOff or Core.Stability.GapReason.Crashed;
-        var title = Text(why ?? "Not recorded", HoverFont, 12, down ? ChartPaint.Hot : HoverText, dpi);
-        var when = Text($"{(why is null ? "" : "Not recorded  ·  ")}{Moment(start)} to {Moment(end)}", LabelFont, 12, HoverMuted, dpi);
+        var title = Text(why ?? Core.Wording.NotRecorded, HoverFont, 12, down ? ChartPaint.Hot : HoverText, dpi);
+        string from = Moment(start), until = Moment(end);
+        var when = Text(why is null ? Lang.T($"{from} to {until}") : Lang.T($"Not recorded  ·  {from} to {until}"), LabelFont, 12, HoverMuted, dpi);
         const double pad = 10;
         double w = Math.Max(title.Width, when.Width) + pad * 2, h = pad * 2 + title.Height + 4 + when.Height;
         double x = hx + 14 + w > plot.Right ? hx - 14 - w : hx + 14;

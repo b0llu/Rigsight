@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 using Rigsight.Models;
 
@@ -117,7 +118,7 @@ public sealed class CrashStrip : FrameworkElement
 
         // Date labels: every day for short ranges, Mondays for about a month, the 1st of each month up to a year,
         // and each new year beyond that (the first label carries its year too); "Today" always.
-        var todayText = ChartPaint.Format(this, "Today", 11, ChartPaint.TextBrush);
+        var todayText = ChartPaint.Format(this, Lang.T("Today"), 11, ChartPaint.TextBrush);
         double todayX = Math.Clamp(plot.Left + slot * (days.Count - 0.5) - todayText.Width / 2, 0, w - todayText.Width);
         if (days[^1].Day == DateTime.Today) dc.DrawText(todayText, new Point(todayX, h - AxisHeight + 3));
         else todayX = double.MaxValue;
@@ -144,10 +145,10 @@ public sealed class CrashStrip : FrameworkElement
         {
             var d = days[_hover];
             var lines = new List<(string, Brush, bool)> { (d.Day.ToString("dddd, d MMM yyyy"), ChartPaint.TextBrush, true) };
-            if (d.Total == 0) lines.Add(("No problems", ChartPaint.Muted, false));
-            else if (DayCommand is not null) lines.Add(("Click to see this day", ChartPaint.Label, false));
+            if (d.Total == 0) lines.Add((Wording.NoProblems, ChartPaint.Muted, false));
+            else if (DayCommand is not null) lines.Add((Lang.T("Click to see this day"), ChartPaint.Label, false));
             foreach (var p in d.Problems.Take(6)) lines.Add((p, ChartPaint.Muted, false));
-            if (d.Problems.Count > 6) lines.Add(($"and {d.Problems.Count - 6} more", ChartPaint.Muted, false));
+            if (d.Problems.Count > 6) lines.Add((Lang.T($"and {d.Problems.Count - 6} more"), ChartPaint.Muted, false));
             foreach (var c in d.Changes.Take(4)) lines.Add((c.Line, ChangeBrush, false));
             double cx = plot.Left + slot * (_hover + 0.5);
             // The strip is short, so the box may extend above it (over the page header area).

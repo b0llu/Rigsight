@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Rigsight.Core;
 using Rigsight.Models;
 
 namespace Rigsight.Controls;
@@ -168,7 +169,7 @@ public sealed class CaseLanes : FrameworkElement
                 if (rect.Width < 2) continue;
                 Brush fill = band.Color is { } hex ? ChartPaint.Brush((Color)ColorConverter.ConvertFromString(hex)) : ChartPaint.Track;
                 dc.DrawRoundedRectangle(fill, null, rect, 6, 6);
-                var text = ChartPaint.Format(this, band.App ?? "None clearly", 11.5,
+                var text = ChartPaint.Format(this, band.App ?? Lang.T("None clearly"), 11.5,
                     band.Color is { } c2 ? OnColor((Color)ColorConverter.ConvertFromString(c2)) : ChartPaint.Label, bold: band.Color is not null);
                 if (text.Width + 14 > rect.Width) continue;
                 dc.PushClip(new RectangleGeometry(rect));
@@ -205,7 +206,7 @@ public sealed class CaseLanes : FrameworkElement
             if ((End(c) - mark.At).TotalSeconds > c.BreakSec && plotRight - x > 40)
             {
                 dc.DrawRectangle(ChartPaint.After, null, new Rect(x, Top, plotRight - x, markBottom - Top));
-                var after = ChartPaint.Format(this, "After", 10.5, ChartPaint.Muted);
+                var after = ChartPaint.Format(this, Lang.T("After"), 10.5, ChartPaint.Muted);
                 if (lx + label.Width + 10 + after.Width <= w) dc.DrawText(after, new Point(lx + label.Width + 10, CrashRow));
             }
             dc.DrawRectangle(ChartPaint.Hot, null, new Rect(x - 1, Top, 2, markBottom - Top));
@@ -231,13 +232,13 @@ public sealed class CaseLanes : FrameworkElement
         {
             double mid = (X(g[0].At) + X(g[^1].At)) / 2;
             var names = g.Select(m => m.Label).Distinct().ToList();
-            string full = Core.Wording.JoinAnd(names) + " opened";
+            string joined = Core.Wording.JoinAnd(names), full = Lang.T($"{joined} opened");
             var label = ChartPaint.Format(this, full, 10.5, ChartPaint.Muted);
             // Not Math.Clamp: the room left after the label before can be narrower than this one, and that throws.
             double lx = Math.Max(free, Math.Min(mid - label.Width / 2, w - label.Width));
             if (label.Width > 220 || lx + label.Width > w)
             {
-                label = ChartPaint.Format(this, names.Count == 1 ? "An app opened" : $"{names.Count} apps opened", 10.5, ChartPaint.Muted);
+                label = ChartPaint.Format(this, names.Count == 1 ? Lang.T("An app opened") : Lang.T($"{names.Count} apps opened"), 10.5, ChartPaint.Muted);
                 lx = Math.Max(free, Math.Min(mid - label.Width / 2, w - label.Width));
                 if (lx + label.Width > w) continue; // no room left at all on the right
             }

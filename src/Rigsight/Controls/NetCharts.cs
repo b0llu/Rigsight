@@ -213,21 +213,21 @@ public sealed class NetBarsChart : NetChartBase
     internal IReadOnlyList<string> HoverLines(NetBin b)
     {
         string? missing = b.UnrecordedMinutes >= MinUnrecorded
-            ? $"Not recorded for {Units.Duration(b.UnrecordedMinutes * 60)}" : null;
-        if (b.Total == 0) return [missing ?? "Nothing"];
-        var lines = new List<string> { $"Total {Units.Data(b.Total)}" };
+            ? Lang.T($"Not recorded for {Units.Duration(b.UnrecordedMinutes * 60)}") : null;
+        if (b.Total == 0) return [missing ?? Lang.T("Nothing")];
+        var lines = new List<string> { Lang.T($"Total {Units.Data(b.Total)}") };
         if (missing is not null) lines.Add(missing);
         if (Mode == NetBarsMode.Background)
         {
             long behind = Math.Min(b.Background, b.Total), away = Math.Min(b.Away, behind);
-            lines.Add($"In front {Units.Data(b.Total - behind)}");
-            lines.Add($"In the background {Units.Data(behind - away)}");
-            if (away > 0) lines.Add($"While you were away {Units.Data(away)}");
+            lines.Add(Lang.T($"In front {Units.Data(b.Total - behind)}"));
+            lines.Add(Lang.T($"In the background {Units.Data(behind - away)}"));
+            if (away > 0) lines.Add(Lang.T($"While you were away {Units.Data(away)}"));
         }
         else
         {
             foreach (var a in b.Apps.Take(5))
-                lines.Add($"{(AppNames is { } names && names.TryGetValue(a.App, out var name) ? name : "Unknown")} {Units.Data(a.Total)}");
+                lines.Add($"{(AppNames is { } names && names.TryGetValue(a.App, out var name) ? name : Lang.T("Unknown"))} {Units.Data(a.Total)}");
         }
         return lines;
     }
@@ -265,8 +265,8 @@ public sealed class NetLiveChart : NetChartBase
         var points = History ?? [];
         double top = NiceTop(points.Select(p => Math.Max(p.Down, p.Up)).DefaultIfEmpty(0).Max());
         var plot = Grid(dc, top, v => Units.Speed(v));
-        Label(dc, "60 seconds", new Point(plot.Left, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
-        Label(dc, "now", new Point(plot.Right, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
+        Label(dc, Lang.T("60 seconds"), new Point(plot.Left, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
+        Label(dc, Lang.T("now"), new Point(plot.Right, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
         if (points.Count < 2) return;
 
         long last = points[^1].Time;
@@ -297,8 +297,8 @@ public sealed class NetLiveChart : NetChartBase
             dc.DrawEllipse(UpBrush, null, up, 3.5, 3.5);
             dc.DrawEllipse(DownBrush, null, down, 3.5, 3.5);
             long ago = last - near.Time;
-            Hover(dc, plot, down.X, ago <= 0 ? "Now" : ago == 1 ? "1 second ago" : $"{ago} seconds ago",
-                [$"Download {Units.Speed(near.Down)}", $"Upload {Units.Speed(near.Up)}"]);
+            Hover(dc, plot, down.X, ago <= 0 ? Lang.T("Now") : ago == 1 ? Lang.T("1 second ago") : Lang.T($"{ago} seconds ago"),
+                [Lang.T($"Download {Units.Speed(near.Down)}"), Lang.T($"Upload {Units.Speed(near.Up)}")]);
         }
     }
 }

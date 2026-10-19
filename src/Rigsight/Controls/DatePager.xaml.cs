@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using Rigsight.Core;
 
 namespace Rigsight.Controls;
 
@@ -55,7 +56,7 @@ public partial class DatePager : UserControl
 
     /// <summary>What a click on the label does, in words (its tooltip and its name for screen readers): "Pick a date" unless it opens something else.</summary>
     public static readonly DependencyProperty LabelTextProperty =
-        DependencyProperty.Register(nameof(LabelText), typeof(string), typeof(DatePager), new PropertyMetadata("Pick a date"));
+        DependencyProperty.Register(nameof(LabelText), typeof(string), typeof(DatePager), new PropertyMetadata(Lang.T("Pick a date")));
 
     public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
@@ -119,7 +120,7 @@ public partial class DatePager : UserControl
         {
             PrepareCalendar(shown);
         }
-        SinceText.Text = MinDate is { } since ? $"History from {since:d MMM yyyy}" : "";
+        SinceText.Text = MinDate is { } since ? Lang.T($"History from {since:d MMM yyyy}") : "";
         Picker.IsOpen = true;
     }
 

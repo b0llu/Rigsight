@@ -80,7 +80,7 @@ public sealed class DayTimeline : FrameworkElement
     public string ZoomText => (string)GetValue(ZoomTextProperty);
 
     private static readonly DependencyPropertyKey ResetTextKey = DependencyProperty.RegisterReadOnly(
-        nameof(ResetText), typeof(string), typeof(DayTimeline), new PropertyMetadata("Whole day"));
+        nameof(ResetText), typeof(string), typeof(DayTimeline), new PropertyMetadata(Lang.T("Whole day")));
     public static readonly DependencyProperty ResetTextProperty = ResetTextKey.DependencyProperty;
 
     /// <summary>What the button back says: the whole day, or the whole of a custom range.</summary>
@@ -113,7 +113,7 @@ public sealed class DayTimeline : FrameworkElement
         base.OnPropertyChanged(e);
         if (e.Property == DayProperty || e.Property == EndProperty)
         {
-            SetValue(ResetTextKey, End is { } end && end > Day ? "Whole range" : "Whole day");
+            SetValue(ResetTextKey, End is { } end && end > Day ? Lang.T("Whole range") : Lang.T("Whole day"));
             ResetZoom();
         }
     }
@@ -285,7 +285,7 @@ public sealed class DayTimeline : FrameworkElement
         {
             var nowPen = new Pen(ChartPaint.Label, 1) { DashStyle = new DashStyle([2, 3], 0) };
             dc.DrawLine(nowPen, new Point(Math.Round(nowX) + 0.5, BandHeight + 2), new Point(Math.Round(nowX) + 0.5, plot.Bottom));
-            ChartPaint.Text(dc, this, "Now", new Point(nowX + 4, plot.Top + 7), 10.5, ChartPaint.Label);
+            ChartPaint.Text(dc, this, Lang.T("Now"), new Point(nowX + 4, plot.Top + 7), 10.5, ChartPaint.Label);
         }
 
         // Hover: cursor line and details (not beyond now).
@@ -301,10 +301,10 @@ public sealed class DayTimeline : FrameworkElement
 
             var lines = new List<(string, Brush, bool)> { (time.ToString("h:mm tt"), ChartPaint.TextBrush, true) };
             if (seg?.App is { } app)
-                lines.Add((seg.Away ? $"{app} (away)" : app, BrushesFor(seg.Category).Solid, false));
+                lines.Add((seg.Away ? Lang.T($"{app} (away)") : app, BrushesFor(seg.Category).Solid, false));
             else if (point is null)
                 // The minute in progress (and any since the data was read) simply isn't saved yet.
-                lines.Add((time >= (RecordedUntil ?? now).AddMinutes(-1.5) ? "Not recorded yet" : Wording.NotRecorded, ChartPaint.Muted, false));
+                lines.Add((time >= (RecordedUntil ?? now).AddMinutes(-1.5) ? Lang.T("Not recorded yet") : Wording.NotRecorded, ChartPaint.Muted, false));
             // The values the lines are drawn from (the minute's average, highest or lowest, as picked).
             if (point?.CpuFor(pick) is double c) lines.Add(($"CPU {Units.TempShort(c)}", ChartPaint.Brush(ChartPaint.Cpu), false));
             if (point?.GpuFor(pick) is double g) lines.Add(($"GPU {Units.TempShort(g)}", ChartPaint.Brush(ChartPaint.Gpu), false));

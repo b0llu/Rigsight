@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using Rigsight.Core;
 
 namespace Rigsight.Controls;
 
@@ -103,11 +104,11 @@ public partial class RangeEditor : UserControl
     /// <summary>The range typed into the editor, or why it can't be shown.</summary>
     public static (DateTime From, DateTime To, string? Error) ReadRange(DateTime? fromDate, int fromHour, DateTime? toDate, int toHour, DateTime now)
     {
-        if (fromDate is not { } fd || toDate is not { } td || fromHour < 0 || toHour < 0) return (default, default, "Pick a date and hour for both ends.");
+        if (fromDate is not { } fd || toDate is not { } td || fromHour < 0 || toHour < 0) return (default, default, Lang.T("Pick a date and hour for both ends."));
         var from = fd.Date.AddHours(fromHour);
         var to = td.Date.AddHours(toHour);
-        if (to <= from) return (from, to, "The end has to be after the start.");
-        if (from >= now) return (from, to, "That's still to come.");
+        if (to <= from) return (from, to, Lang.T("The end has to be after the start."));
+        if (from >= now) return (from, to, Lang.T("That's still to come."));
         return (from, to, null);
     }
 

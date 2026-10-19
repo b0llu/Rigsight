@@ -108,9 +108,9 @@ public sealed class Treemap : FrameworkElement
                 (node.Name, ChartPaint.TextBrush, true),
                 ($"{Units.Bytes(node.Size)}  ·  {node.Size / total:P1}", ChartPaint.Muted, false),
             };
-            if (node.Name == "Others" && node.IsBucket) lines.Add(($"{node.Children.Count} smaller items", ChartPaint.Muted, false));
-            else if (node.Files > 0) lines.Add(($"{node.Files:N0} files", ChartPaint.Muted, false));
-            if (node.Children.Count > 0) lines.Add(("Click to open", ChartPaint.Muted, false));
+            if (node.IsBucket && node.Name == Lang.T("Others")) lines.Add((Lang.T($"{node.Children.Count} smaller items"), ChartPaint.Muted, false));
+            else if (node.Files > 0) lines.Add((Lang.T($"{node.Files:N0} files"), ChartPaint.Muted, false));
+            if (node.Children.Count > 0) lines.Add((Lang.T("Click to open"), ChartPaint.Muted, false));
             ChartPaint.InfoBox(dc, this, lines, Mouse.GetPosition(this), bounds);
         }
     }
@@ -167,7 +167,7 @@ public sealed class Treemap : FrameworkElement
         var parent = small[0].Parent;
         var others = new FolderNode
         {
-            Name = "Others", Path = parent?.Path ?? small[0].Path, Parent = parent, IsBucket = true,
+            Name = Lang.T("Others"), Path = parent?.Path ?? small[0].Path, Parent = parent, IsBucket = true,
             Size = small.Sum(i => i.Size), Files = small.Sum(i => i.Files), Children = small,
         };
         return [.. items.Except(small), others];
