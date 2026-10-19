@@ -100,8 +100,6 @@ public sealed class LanguagePackCoverageTests
             foreach (System.Text.RegularExpressions.Match m in sentence.Matches(xaml))
                 found.Add($"{Path.GetFileName(file)}: {m.Value}");
         }
-        Assert.True(found.Count == 0, "English written straight into a page:
-" + string.Join("
-", found));
+        Assert.True(found.Count == 0, "English written straight into a page:\n" + string.Join("\n", found));
     }
 }
