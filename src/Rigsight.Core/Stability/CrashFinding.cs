@@ -491,7 +491,7 @@ public static class CrashFindings
         if (atStart)
         {
             double ranSec = f!.RanSec!.Value;
-            string title = ranSec < 1.5 ? Lang.T("It crashed A second after starting") : Lang.T($"It crashed {ranSec:0} seconds after starting");
+            string title = ranSec < 1.5 ? Lang.T("It crashed a second after starting") : Lang.T($"It crashed {ranSec:0} seconds after starting");
             points.Add(new("clock", title, twin is null ? Lang.T("Windows' record of the crash says when the app was started.") : e.Ts == twin.Ts ? Lang.T("It had crashed in the same second the time before, too.") : Lang.T($"It had crashed {e.Ts - twin.Ts} seconds earlier too.")));
         }
         else if (f?.RanSec is double ran) points.Add(new("clock", Lang.T($"It had been running fine for {Words(ran)}"), Lang.T("So it didn't fail while starting up.")));
