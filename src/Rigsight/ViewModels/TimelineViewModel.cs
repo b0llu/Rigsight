@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 using Rigsight.Services;
 
@@ -42,7 +43,7 @@ public sealed partial class TimelineEntry : ObservableObject
 
     /// <summary>The problem's own time, where the line is one problem: it opens as its own case.</summary>
     public DateTime? CrashTime { get; init; }
-    public string OpenText => CrashTime is null ? "See on Crashes" : "Open";
+    public string OpenText => CrashTime is null ? Lang.T("See on Crashes") : Lang.T("Open");
     public bool IsProblem => CrashDay is not null;
 
     /// <summary>What this change made better or worse (see <see cref="Core.Reports.ChangeEffects"/>); null for nearly every change.</summary>
@@ -62,8 +63,8 @@ public sealed partial class TimelineEntry : ObservableObject
     private bool _isExpanded;
 
     /// <summary>What opening and closing the folded lines is called (a month's line holds changes, not versions).</summary>
-    public string ShowText { get; init; } = "Show versions";
-    public string HideText { get; init; } = "Hide versions";
+    public string ShowText { get; init; } = Lang.T("Show versions");
+    public string HideText { get; init; } = Lang.T("Hide versions");
     public string ToggleText => IsExpanded ? HideText : ShowText;
 
     /// <summary>Which of a row's folded lines this is (a month has one per kind of change), to keep it open when rebuilt.</summary>
@@ -272,16 +273,16 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     private static readonly (string Key, string Name, ChangeKind[] Kinds)[] Kinds =
     [
-        ("drivers", "Drivers", [ChangeKind.Driver]),
+        ("drivers", Lang.Key("Drivers"), [ChangeKind.Driver]),
         ("windows", "Windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows]),
-        ("apps", "Apps", [ChangeKind.AppInstalled, ChangeKind.AppRemoved, ChangeKind.AppUpdated]),
-        ("games", "Game updates", [ChangeKind.GameUpdated]),
-        ("startup", "Startup programs", [ChangeKind.Startup]),
-        ("hardware", "Hardware", [ChangeKind.Hardware, ChangeKind.Firmware]),
-        ("settings", "Settings", [ChangeKind.Setting]),
-        ("fans", "Fan speeds", [ChangeKind.Fans]),
-        ("storage", "Drive space", [ChangeKind.Storage]),
-        ("ended", "Ended from Processes", [ChangeKind.TaskEnded]),
+        ("apps", Lang.Key("Apps"), [ChangeKind.AppInstalled, ChangeKind.AppRemoved, ChangeKind.AppUpdated]),
+        ("games", Lang.Key("Game updates"), [ChangeKind.GameUpdated]),
+        ("startup", Lang.Key("Startup programs"), [ChangeKind.Startup]),
+        ("hardware", Lang.Key("Hardware"), [ChangeKind.Hardware, ChangeKind.Firmware]),
+        ("settings", Lang.Key("Settings"), [ChangeKind.Setting]),
+        ("fans", Lang.Key("Fan speeds"), [ChangeKind.Fans]),
+        ("storage", Lang.Key("Drive space"), [ChangeKind.Storage]),
+        ("ended", Lang.Key("Ended from Processes"), [ChangeKind.TaskEnded]),
     ];
 
     /// <summary>Works everything out again for the data, the filter and the grouping.</summary>
@@ -289,10 +290,10 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     {
         // The kinds there are, with their counts; the one picked stays picked.
         string key = Filter?.Key ?? "all";
-        var filters = new List<TimelineFilter> { new("all", "Everything", _changes.Count) };
+        var filters = new List<TimelineFilter> { new("all", Lang.T("Everything"), _changes.Count) };
         // Only when a change made something better or worse: an empty "Before and after" would be a block for its own sake.
-        if (_results.Count > 0 || key == ResultsKey) filters.Add(new(ResultsKey, "Before and after", _results.Count));
-        filters.AddRange(Kinds.Select(k => new TimelineFilter(k.Key, k.Name, _changes.Count(c => k.Kinds.Contains(c.Kind)))).Where(f => f.Count > 0 || f.Key == key));
+        if (_results.Count > 0 || key == ResultsKey) filters.Add(new(ResultsKey, Lang.T("Before and after"), _results.Count));
+        filters.AddRange(Kinds.Select(k => new TimelineFilter(k.Key, Lang.T(k.Name), _changes.Count(c => k.Kinds.Contains(c.Kind)))).Where(f => f.Count > 0 || f.Key == key));
         // The same kinds and counts (only the filter or the grouping changed): the dropdown keeps its list.
         if (!filters.SequenceEqual(Filters) || Filter is null)
         {
@@ -330,10 +331,12 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         AddDays(shown);
 
         IsEmpty = _dayOrder.Count == 0;
-        EmptyText = words.Length > 0 ? "Nothing matches" : all ? "No changes yet" : "Nothing of this kind has changed";
-        CountText = changes.Count == 0 ? ""
-            : words.Length > 0 ? $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} match{(changes.Count == 1 ? "es" : "")}"
-            : $"{changes.Count:N0} change{(changes.Count == 1 ? "" : "s")} since {changes.Min(c => c.Time):d MMM yyyy}";
+        EmptyText = words.Length > 0 ? Lang.T("Nothing matches") : all ? Lang.T("No changes yet") : Lang.T("Nothing of this kind has changed");
+        int count = changes.Count;
+        DateTime since = count == 0 ? default : changes.Min(c => c.Time);
+        CountText = count == 0 ? ""
+            : words.Length > 0 ? (count == 1 ? Lang.T("1 change matches") : Lang.T($"{count:N0} changes match"))
+            : count == 1 ? Lang.T($"1 change since {since:d MMM yyyy}") : Lang.T($"{count:N0} changes since {since:d MMM yyyy}");
 
         if (!keepPlace)
         {
@@ -409,7 +412,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             entries.Add((updates[0].Time, new TimelineEntry
             {
                 TimeText = TimeOf(updates[0]), TimeTip = TipOf(updates[0]), // when the last of them was updated
-                Icon = IconOf(ChangeKind.AppUpdated), Title = $"{updates.Count} apps updated",
+                Icon = IconOf(ChangeKind.AppUpdated), Title = Lang.T($"{updates.Count} apps updated"),
                 Detail = string.Join(", ", updates.Select(NameOf)), Children = [.. updates.Select(c => EntryOf(c))], IsExpanded = _expanded.Contains((day, "")),
             }));
         }
@@ -418,7 +421,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         return new TimelineDay
         {
             Day = day,
-            Title = ago switch { 0 => "Today", 1 => "Yesterday", _ => day.ToString("dddd d") },
+            Title = ago switch { 0 => Lang.T("Today"), 1 => Lang.T("Yesterday"), _ => day.ToString("dddd d") },
             SubTitle = ago <= 1 ? day.ToString("dddd, d MMMM") : "",
             Month = newMonth ? day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
             NodeBrush = changes.Count == 0 ? "HotBrush" : "CpuBrush",
@@ -431,19 +434,20 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
 
     /// <summary>A month's lines, in this order under its problems: what a PC-wide problem usually comes from first.</summary>
+    /// <remarks>Many: how many of them (always two or more), a whole text with the count as its hole.</remarks>
     private static readonly (string Key, ChangeKind[] Kinds, string Many)[] MonthLines =
     [
-        ("drivers", [ChangeKind.Driver], "driver updates"),
-        ("windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows], "Windows updates"),
-        ("hardware", [ChangeKind.Hardware, ChangeKind.Firmware], "hardware changes"),
-        ("installed", [ChangeKind.AppInstalled], "apps installed"),
-        ("removed", [ChangeKind.AppRemoved], "apps removed"),
-        ("updated", [ChangeKind.AppUpdated], "app updates"),
-        ("startup", [ChangeKind.Startup], "startup changes"),
-        ("settings", [ChangeKind.Setting], "settings changed"),
-        ("fans", [ChangeKind.Fans], "fan speed changes"),
-        ("storage", [ChangeKind.Storage], "drive space changes"),
-        ("ended", [ChangeKind.TaskEnded], "apps ended from Processes"),
+        ("drivers", [ChangeKind.Driver], Lang.Key("{0} driver updates")),
+        ("windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows], Lang.Key("{0} Windows updates")),
+        ("hardware", [ChangeKind.Hardware, ChangeKind.Firmware], Lang.Key("{0} hardware changes")),
+        ("installed", [ChangeKind.AppInstalled], Lang.Key("{0} apps installed")),
+        ("removed", [ChangeKind.AppRemoved], Lang.Key("{0} apps removed")),
+        ("updated", [ChangeKind.AppUpdated], Lang.Key("{0} app updates")),
+        ("startup", [ChangeKind.Startup], Lang.Key("{0} startup changes")),
+        ("settings", [ChangeKind.Setting], Lang.Key("{0} settings changed")),
+        ("fans", [ChangeKind.Fans], Lang.Key("{0} fan speed changes")),
+        ("storage", [ChangeKind.Storage], Lang.Key("{0} drive space changes")),
+        ("ended", [ChangeKind.TaskEnded], Lang.Key("{0} apps ended from Processes")),
     ];
 
     /// <summary>
@@ -482,12 +486,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 ? of.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList()
                 : [.. of.Select(c => c.Title)];
             int shown = updates ? 8 : 3;
+            string list = string.Join(", ", names.Take(shown));
+            int more = names.Count - shown;
             entries.Add(new TimelineEntry
             {
-                Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = $"{of.Count} {many}", IsKey = of[0].IsSystemLevel,
-                Detail = string.Join(", ", names.Take(shown)) + (names.Count > shown ? $" and {names.Count - shown} more" : ""),
-                Children = [.. of.Select(c => new TimelineEntry { Title = c.Title, Detail = $"{c.Time:d MMM}{(c.Was is null ? "" : $" · was {c.Was}")}" })],
-                ShowText = "Show all", HideText = "Hide", IsExpanded = _expanded.Contains((month, key)),
+                Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = Lang.F(many, of.Count), IsKey = of[0].IsSystemLevel,
+                Detail = more > 0 ? Lang.T($"{list} and {more} more") : list,
+                Children = [.. of.Select(c => new TimelineEntry { Title = c.Title, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}") })],
+                ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, key)),
             });
         }
         return new TimelineDay
@@ -523,10 +529,15 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// by a check of the PC happened in the minutes before that check ("~7:20 PM"); the rest is to the minute.
     /// </summary>
     private static string TimeOf(SystemChange c) =>
-        c.Kind == ChangeKind.Storage ? "All day" : c.IsApproximate ? $"~{c.Time:h:mm tt}" : c.Time.ToString("h:mm tt");
+        c.Kind == ChangeKind.Storage ? Lang.T("All day") : c.IsApproximate ? $"~{c.Time:h:mm tt}" : c.Time.ToString("h:mm tt");
 
-    private static string? TipOf(SystemChange c) => c.Kind == ChangeKind.Storage ? "The space in use at the end of this day against the day before"
-        : c.IsApproximate ? $"Between {Moment(c.Likely, c.Time)} and {c.Time:h:mm tt}" : null;
+    private static string? TipOf(SystemChange c)
+    {
+        if (c.Kind == ChangeKind.Storage) return Lang.T("The space in use at the end of this day against the day before");
+        if (!c.IsApproximate) return null;
+        string from = Moment(c.Likely, c.Time);
+        return Lang.T($"Between {from} and {c.Time:h:mm tt}");
+    }
 
     /// <summary>A time of the same day, or with its day when the check before was on an earlier one (the PC was off overnight).</summary>
     private static string Moment(DateTime t, DateTime sameDayAs) => t.Date == sameDayAs.Date ? t.ToString("h:mm tt") : t.ToString("ddd d MMM, h:mm tt");
@@ -633,7 +644,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             // Hovering a day says what's on it.
             var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
                 .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Title)).ToList();
-            if (day.Changes.Count > 5) lines.Add($"and {day.Changes.Count - 5} more");
+            if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
             cell.Tip = string.Join("\n", lines);
         }
         CalendarTitle = m.ToString("MMMM yyyy");
@@ -780,7 +791,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             // A driver read from Windows' log has no version; the one after it says what it replaced.
             string? version = c.Now is { Length: > 0 } now ? now : i > 0 && drivers[i - 1].Was is { Length: > 0 } was ? was : null;
             if (version is null) continue;
-            string dates = $"{c.Time:d MMM yyyy} to {(i == 0 ? "now" : drivers[i - 1].Time.ToString("d MMM yyyy"))}";
+            string dates = i == 0 ? Lang.T($"{c.Time:d MMM yyyy} to now") : Lang.T($"{c.Time:d MMM yyyy} to {drivers[i - 1].Time:d MMM yyyy}");
             var r = _results.GetValueOrDefault(c.Time.Date);
             bool has = r is not null && r.Changes.Contains(c);
             lines.Add(new(version, dates, has ? Core.Wording.Capital(r!.Short) : null, has && r!.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
@@ -799,7 +810,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         NowFact Fact(string label, string value, Func<SystemChange, bool> match)
         {
             if (data.Changes.LastOrDefault(match) is not { } c) return new(label, value, null);
-            var fact = new NowFact(label, value, $"since {c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy")}");
+            string date = c.Time.ToString(c.Time.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy");
+            var fact = new NowFact(label, value, Lang.T($"since {date}"));
             return data.Results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c)
                 ? fact with { ResultDay = r.Day, ResultText = Core.Wording.Capital(r.Short), ResultBrush = r.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush" }
                 : fact;
@@ -808,14 +820,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (items[Inventory.Windows].FirstOrDefault() is { } windows)
             facts.Add(Fact("Windows", $"{windows.Name.Replace("Windows ", "")} {windows.Value}", c => c.Kind == ChangeKind.Windows));
         if (items[Inventory.GpuDriver].FirstOrDefault() is { } driver)
-            facts.Add(Fact("Graphics driver", driver.Value, c => c.IsGraphicsDriver));
+            facts.Add(Fact(Lang.T("Graphics driver"), driver.Value, c => c.IsGraphicsDriver));
         if (items[Inventory.Bios].FirstOrDefault() is { } bios)
             facts.Add(Fact("BIOS", bios.Value, c => c.Kind == ChangeKind.Firmware));
-        if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new("Memory", ram.Value, null));
+        if (items[Inventory.Ram].FirstOrDefault() is { } ram) facts.Add(new(Lang.T("Memory"), ram.Value, null));
         if (items[Inventory.Setting].FirstOrDefault(i => i.Key == Inventory.PowerPlan) is { } plan)
-            facts.Add(Fact("Power plan", plan.Value, c => c.Subject == $"{Inventory.Setting}:{Inventory.PowerPlan}"));
-        if (items[Inventory.App].Any()) facts.Add(new("Apps installed", items[Inventory.App].Count().ToString("N0"), null));
-        if (items[Inventory.Startup].Any()) facts.Add(new("Start with Windows", items[Inventory.Startup].Count(i => i.Value == Inventory.On).ToString("N0"), null));
+            facts.Add(Fact(Lang.T("Power plan"), plan.Value, c => c.Subject == $"{Inventory.Setting}:{Inventory.PowerPlan}"));
+        if (items[Inventory.App].Any()) facts.Add(new(Lang.T("Apps installed"), items[Inventory.App].Count().ToString("N0"), null));
+        if (items[Inventory.Startup].Any()) facts.Add(new(Lang.T("Start with Windows"), items[Inventory.Startup].Count(i => i.Value == Inventory.On).ToString("N0"), null));
         return facts;
     }
 }

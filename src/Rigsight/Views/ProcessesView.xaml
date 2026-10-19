@@ -70,7 +70,7 @@
             <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
             <Setter Property="Command" Value="{Binding DataContext.SortByCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
             <Setter Property="CommandParameter" Value="{Binding Key}" />
-            <Setter Property="AutomationProperties.Name" Value="{Binding Label, StringFormat='Sort by {0}'}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding SortName}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -121,17 +121,17 @@
                         <DockPanel x:Name="Drawn" Margin="0,10,0,0" LastChildFill="True">
                             <StackPanel x:Name="Today" DockPanel.Dock="Right" Width="280" Margin="36,0,0,0"
                                         Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
-                                <TextBlock Text="MEMORY TODAY" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                                <TextBlock Text="{ctl:T 'MEMORY TODAY'}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
                                 <ctl:HourLine Height="44" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
                                 <DockPanel Margin="0,4,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="Now" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock DockPanel.Dock="Left" Text="12 AM" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock Text="Dashed: its usual" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
+                                    <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T '12 AM'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="{ctl:T 'Dashed: its usual'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
                                                Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
                                 </DockPanel>
                             </StackPanel>
                             <StackPanel x:Name="Split" Visibility="{Binding HasShares, Converter={StaticResource Vis}}">
-                                <TextBlock Text="WHERE ITS MEMORY IS" Style="{StaticResource Caption}" Margin="0,0,0,9" />
+                                <TextBlock Text="{ctl:T 'WHERE ITS MEMORY IS'}" Style="{StaticResource Caption}" Margin="0,0,0,9" />
                                 <ctl:PartsBar Height="8" Parts="{Binding Shares}" />
                                 <ItemsControl ItemsSource="{Binding Shares}" Focusable="False" Margin="0,10,0,0">
                                     <ItemsControl.ItemsPanel>
@@ -181,7 +181,7 @@
                                     <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
                                     <Grid Grid.Column="5" Width="28" Height="24" HorizontalAlignment="Right">
                                         <Button x:Name="More" Style="{StaticResource IconButton}" Height="24" Click="ProcessMore_Click" Visibility="Hidden"
-                                                ToolTip="More" AutomationProperties.Name="{Binding Label, StringFormat='Actions for {0}'}">
+                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Label, StringFormat='Actions for {0}'}">
                                             <TextBlock Text="&#xE712;" />
                                         </Button>
                                         <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />
@@ -233,8 +233,8 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel>
-                    <TextBlock Text="Processes" Style="{StaticResource H1}" />
-                    <TextBlock Text="Everything running right now, and what each app is using." Style="{StaticResource Muted}" Margin="0,4,0,18" />
+                    <TextBlock Text="{ctl:T 'Processes'}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'Everything running right now, and what each app is using.'}" Style="{StaticResource Muted}" Margin="0,4,0,18" />
                 </StackPanel>
 
                 <!-- The four totals: each sorts the list by its column. Their dot and their line are the page's only colour. -->
@@ -247,7 +247,7 @@
                             <Button Margin="7,0" Cursor="Hand" Focusable="False" CommandParameter="{Binding Key}" MinWidth="0" MinHeight="0" Padding="0"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                                     Command="{Binding DataContext.SortByTotalCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    AutomationProperties.Name="{Binding Label, StringFormat='Sort by {0}'}">
+                                    AutomationProperties.Name="{Binding SortName}">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <ctl:SmoothBorder x:Name="Bd" Style="{StaticResource Card}" Padding="18,14,18,12">
@@ -282,10 +282,10 @@
                 <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,8,20">
-                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5" IsChecked="{Binding OnlyWindowed}" />
-                            <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="Search apps…" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
-                                     AutomationProperties.Name="Search the running apps" ctl:Debounce.Text="{Binding Search}" />
-                            <TextBlock Text="Running now" Style="{StaticResource H2}" />
+                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="12.5" IsChecked="{Binding OnlyWindowed}" />
+                            <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
+                                     AutomationProperties.Name="{ctl:T 'Search the running apps'}" ctl:Debounce.Text="{Binding Search}" />
+                            <TextBlock Text="{ctl:T 'Running now'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes
                              room from the rows that a fixed margin here could only guess at. -->
@@ -306,7 +306,7 @@
                         </Grid>
                         <!-- A rule between the headings and the rows: the first row's name sat right under "APP". -->
                         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,8,6" />
-                        <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing running matches'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
                                    Visibility="{Binding NoneMatch, Converter={StaticResource Vis}}" />
                         <Grid>
                             <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
@@ -314,7 +314,7 @@
                                          Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
                             <!-- Click an app for its processes; right-click it, or its dots, for its menu; Ctrl+click picks several. -->
                             <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource ProcItem}" ItemsSource="{Binding Apps}"
-                                     SelectionMode="Extended" VirtualizingPanel.IsVirtualizing="True" KeyDown="List_KeyDown" AutomationProperties.Name="Running apps">
+                                     SelectionMode="Extended" VirtualizingPanel.IsVirtualizing="True" KeyDown="List_KeyDown" AutomationProperties.Name="{ctl:T 'Running apps'}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel x:Name="Root" Margin="0,0,8,0">
@@ -349,7 +349,7 @@
                                                     <!-- The dots show on the row under the pointer, picked, or reached with the keyboard; a spinner in their place while it is being ended. -->
                                                     <Grid Grid.Column="5" Width="28" Height="28" HorizontalAlignment="Right">
                                                         <Button x:Name="More" Style="{StaticResource IconButton}" Click="AppMore_Click" Visibility="Hidden"
-                                                                ToolTip="More" AutomationProperties.Name="{Binding Name, StringFormat='Actions for {0}'}">
+                                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Name, StringFormat='Actions for {0}'}">
                                                             <TextBlock Text="&#xE712;" />
                                                         </Button>
                                                         <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />

@@ -82,7 +82,7 @@
                            Foreground="{DynamicResource MutedBrush}" />
                 <TextBlock Grid.Column="2" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
                     <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="12" Foreground="{DynamicResource MutedBrush}"
-                        Command="{Binding DataContext.OpenGameCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="Open game" /></Hyperlink>
+                        Command="{Binding DataContext.OpenGameCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="{ctl:T 'Open game'}" /></Hyperlink>
                 </TextBlock>
             </Grid>
         </DataTemplate>
@@ -189,9 +189,9 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <DockPanel Margin="42,6,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Open" Margin="12,0,0,0" VerticalAlignment="Center"
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Open'}" Margin="12,0,0,0" VerticalAlignment="Center"
                                         Command="{Binding DataContext.OpenResultCommand, ElementName=Page}" CommandParameter="{Binding}"
-                                        AutomationProperties.Name="Open this change's before and after" />
+                                        AutomationProperties.Name="{ctl:T 'Open this change\'s before and after'}" />
                                 <TextBlock Text="{Binding Result.Why}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                         </StackPanel>
@@ -239,8 +239,8 @@
             <!-- How many, since when: at the title's right. At the end of the row below it slid under the search box on a small window. -->
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" VerticalAlignment="Bottom" Margin="16,0,0,1" />
             <StackPanel>
-                <TextBlock Text="Timeline" Style="{StaticResource H1}" />
-                <TextBlock Text="What was installed, updated, removed or switched on this PC, day by day." Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="{ctl:T 'Timeline'}" Style="{StaticResource H1}" />
+                <TextBlock Text="{ctl:T 'What was installed, updated, removed or switched on this PC, day by day.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </DockPanel>
 
@@ -248,33 +248,33 @@
         <DockPanel Grid.Row="1" Margin="0,16,0,0" Height="36">
             <!-- The PC is looked over every ten minutes; this looks now. It turns while that's going on. -->
             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="16,0,0,0"
-                    Command="{Binding RefreshCommand}" ToolTip="Look for new changes now">
+                    Command="{Binding RefreshCommand}" ToolTip="{ctl:T 'Look for new changes now'}">
                 <StackPanel Orientation="Horizontal">
                     <Grid Width="12" Margin="0,0,8,0">
                         <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
                                    Visibility="{Binding IsRefreshing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <ctl:Spinner Visibility="{Binding IsRefreshing, Converter={StaticResource Vis}}" />
                     </Grid>
-                    <TextBlock Text="Refresh" />
+                    <TextBlock Text="{ctl:T 'Refresh'}" />
                 </StackPanel>
             </Button>
-            <ComboBox AutomationProperties.Name="Show" ToolTip="Show one kind of change" MinWidth="190" VerticalAlignment="Center"
+            <ComboBox AutomationProperties.Name="{ctl:T 'Show'}" ToolTip="{ctl:T 'Show one kind of change'}" MinWidth="190" VerticalAlignment="Center"
                       ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" />
-            <TextBlock Text="Group" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
+            <TextBlock Text="{ctl:T 'Group'}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="22,0,10,0" VerticalAlignment="Center" />
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By day"
-                                 ToolTip="Day by day: three or more app updates on a day are one line"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By day'}"
+                                 ToolTip="{ctl:T 'Day by day: three or more app updates on a day are one line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Day}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="By month"
-                                 ToolTip="A row a month: each kind of change in it is one line"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By month'}"
+                                 ToolTip="{ctl:T 'A row a month: each kind of change in it is one line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Month}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="Off" ToolTip="Day by day, every change on its own line"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'Off'}" ToolTip="{ctl:T 'Day by day, every change on its own line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Each}" />
                 </StackPanel>
             </Border>
-            <TextBox Style="{StaticResource SearchBox}" Tag="Search changes…" Width="220" Margin="22,0,0,0" VerticalAlignment="Center"
-                     AutomationProperties.Name="Search the timeline" ctl:Debounce.Text="{Binding Search}" HorizontalAlignment="Left" />
+            <TextBox Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search changes…'}" Width="220" Margin="22,0,0,0" VerticalAlignment="Center"
+                     AutomationProperties.Name="{ctl:T 'Search the timeline'}" ctl:Debounce.Text="{Binding Search}" HorizontalAlignment="Left" />
         </DockPanel>
 
         <Grid Grid.Row="2" Margin="0,18,0,0">
@@ -300,17 +300,17 @@
             <ScrollViewer Grid.Column="2" Style="{StaticResource GutterScroll}">
                 <StackPanel Margin="0,0,0,24">
                     <!-- Jump to a day: one month, or (a click on its name) the year's months. -->
-                    <TextBlock Text="JUMP TO A DAY" Style="{StaticResource PanelHead}" />
+                    <TextBlock Text="{ctl:T 'JUMP TO A DAY'}" Style="{StaticResource PanelHead}" />
                     <DockPanel Margin="-6,0,-6,4">
                         <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="0" Command="{Binding GoBackCommand}" IsEnabled="{Binding CanGoBack}"
-                                AutomationProperties.Name="Earlier">
+                                AutomationProperties.Name="{ctl:T 'Earlier'}">
                             <TextBlock Text="&#xE76B;" Style="{StaticResource Icon}" FontSize="11" />
                         </Button>
                         <Button DockPanel.Dock="Right" Style="{StaticResource ActionButton}" Margin="0" Command="{Binding GoForwardCommand}" IsEnabled="{Binding CanGoForward}"
-                                AutomationProperties.Name="Later">
+                                AutomationProperties.Name="{ctl:T 'Later'}">
                             <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" />
                         </Button>
-                        <Button Style="{StaticResource ActionButton}" Margin="0" HorizontalAlignment="Center" Command="{Binding ZoomOutCommand}" ToolTip="Pick a month">
+                        <Button Style="{StaticResource ActionButton}" Margin="0" HorizontalAlignment="Center" Command="{Binding ZoomOutCommand}" ToolTip="{ctl:T 'Pick a month'}">
                             <TextBlock Text="{Binding CalendarTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         </Button>
                     </DockPanel>
@@ -382,14 +382,14 @@
 
                     <WrapPanel Margin="0,10,0,0">
                         <Ellipse Width="6" Height="6" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="Something changed" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,14,0" />
+                        <TextBlock Text="{ctl:T 'Something changed'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,14,0" />
                         <Ellipse Width="6" Height="6" Fill="{DynamicResource HotBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="A problem" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
+                        <TextBlock Text="{ctl:T 'A problem'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
                     </WrapPanel>
 
                     <!-- This PC now -->
                     <StackPanel Margin="0,26,0,0" Visibility="{Binding Now.Count, Converter={StaticResource Vis}}">
-                        <TextBlock Text="THIS PC NOW" Style="{StaticResource PanelHead}" />
+                        <TextBlock Text="{ctl:T 'THIS PC NOW'}" Style="{StaticResource PanelHead}" />
                         <ItemsControl ItemsSource="{Binding Now}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -427,23 +427,23 @@
         </Grid.RowDefinitions>
         <Border Padding="32,18,32,10">
             <DockPanel MaxWidth="{StaticResource PageWidth}">
-                <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="Back to Timeline"
+                <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Back to Timeline'}"
                         Command="{Binding CloseChangeCommand}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="12" Margin="0,1,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Timeline" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Timeline'}" FontSize="13" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Right" HorizontalAlignment="Right" Style="{StaticResource ActionButton}" Margin="0,0,-9,0" VerticalAlignment="Center"
                         Command="{Binding CopyChangeCommand}"
-                        ToolTip="Copies the whole before and after (what changed, every reading, how sure, and your PC's hardware) to paste into a forum post or support request">
+                        ToolTip="{ctl:T 'Copies the whole before and after (what changed, every reading, how sure, and your PC\'s hardware) to paste into a forum post or support request'}">
                     <TextBlock>
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="Copy report" />
+                                <Setter Property="Text" Value="{ctl:T 'Copy report'}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Copied}" Value="True">
-                                        <Setter Property="Text" Value="Copied" />
+                                        <Setter Property="Text" Value="{ctl:T 'Copied'}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -478,7 +478,7 @@
                                 Visibility="{Binding HasAdvice, Converter={StaticResource Vis}}">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Left" Text="&#xE90F;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Top" Margin="2,2,12,0" />
-                                <TextBlock DockPanel.Dock="Left" Text="What to try" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,16,0" />
+                                <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'What to try'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,16,0" />
                                 <TextBlock Text="{Binding Advice}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                             </DockPanel>
                         </Border>
@@ -490,7 +490,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding RangeText}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="Before and since" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Before and since'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
@@ -499,9 +499,9 @@
                                 <ColumnDefinition Width="90" />
                                 <ColumnDefinition Width="300" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="1" Text="BEFORE" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="1" Text="{ctl:T 'BEFORE'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
                             <TextBlock Grid.Column="2" Text="{Binding SinceHead}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="3" Text="WHAT IT MEANS" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="24,0,0,0" />
+                            <TextBlock Grid.Column="3" Text="{ctl:T 'WHAT IT MEANS'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="24,0,0,0" />
                         </Grid>
                         <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
                             <ItemsControl.ItemTemplate>
@@ -554,7 +554,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding Result.TempLabel}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="Each time you played" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Each time you played'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <WrapPanel Margin="0,0,0,10">
                             <StackPanel Margin="0,0,20,0">
@@ -573,7 +573,7 @@
                         </WrapPanel>
                         <ctl:ChangeChart Days="{Binding ChartDays}" ChangeDay="{Binding Day}" Before="{Binding Result.TempBefore}" After="{Binding Result.TempAfter}"
                                          AfterName="{Binding AfterName}" Worse="{Binding PlayHotter}" TempLabel="{Binding Result.TempLabel}"
-                                         AutomationProperties.Name="Each time you played, before and since" />
+                                         AutomationProperties.Name="{ctl:T 'Each time you played, before and since'}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -586,7 +586,7 @@
                     </Grid.ColumnDefinitions>
                     <ctl:SmoothBorder Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="How sure" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'How sure'}" Style="{StaticResource H2}" />
                             <ItemsControl ItemsSource="{Binding Checks}" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -611,14 +611,14 @@
                         <StackPanel>
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding ProblemsCount}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="Problems counted" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Problems counted'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                             </DockPanel>
                             <ItemsControl ItemsSource="{Binding Problems}" Margin="0,8,0,0" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
                                             <DockPanel>
-                                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Open" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Open'}" VerticalAlignment="Center" Margin="12,0,0,0"
                                                         Command="{Binding DataContext.OpenProblemCommand, ElementName=Page}" CommandParameter="{Binding}" />
                                                 <TextBlock DockPanel.Dock="Left" Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Width="132" VerticalAlignment="Center" />
                                                 <StackPanel VerticalAlignment="Center">
@@ -630,7 +630,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="None on either side." FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" Visibility="{Binding HasProblems, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <TextBlock Text="{ctl:T 'None on either side.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" Visibility="{Binding HasProblems, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
                 </Grid>
@@ -638,7 +638,7 @@
                 <!-- A graphics driver: the drivers before it, each with what it did where it made a difference. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasDrivers, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="This driver and earlier ones" Style="{StaticResource H2}" />
+                        <TextBlock Text="{ctl:T 'This driver and earlier ones'}" Style="{StaticResource H2}" />
                         <ItemsControl ItemsSource="{Binding Drivers}" Margin="0,8,0,0" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

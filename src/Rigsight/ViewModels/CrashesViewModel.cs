@@ -5,6 +5,7 @@ using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Controls;
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 using Rigsight.Models;
 using Rigsight.Services;
@@ -282,7 +283,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     public bool HasCaseTabs => CaseTabs.Count > 1;
 
     /// <summary>"2 of 4": which of the row's times is shown.</summary>
-    public string CaseCount => $"{CaseTabs.FindIndex(t => t.IsSelected) + 1} of {CaseTabs.Count}";
+    public string CaseCount => Lang.T($"{CaseTabs.FindIndex(t => t.IsSelected) + 1} of {CaseTabs.Count}");
 
     [RelayCommand]
     private async Task OpenCase(CrashGroup g)
@@ -335,7 +336,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     /// <summary>"1h 12m into playing Crimson Desert": an opened crash of a game says how far into a play it came, and opens the game's page.</summary>
     public string? CaseGameText => Case?.Row is { IsGame: true, AppName: { } name } r
-        ? (r.SessionSec is double s && s >= 60 ? $"{Core.Units.Duration(s)} into playing {name}" : $"While playing {name}")
+        ? (r.SessionSec is double s && s >= 60 ? Lang.T($"{Core.Units.Duration(s)} into playing {name}") : Lang.T($"While playing {name}"))
         : null;
 
     /// <summary>Opens a game on the Games page, by its program (set by the window).</summary>
@@ -367,8 +368,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         bool graphics = e.Kind is CrashKind.GpuDriverReset or CrashKind.SystemCrash || finding.Head.Contains("driver", StringComparison.OrdinalIgnoreCase);
         if (r.Changes.All(c => c.IsGraphicsDriver) && !graphics) return null;
         int days = (e.Time.Date - r.Day).Days;
-        string when = days == 0 ? "The same day as" : days == 1 ? "A day after" : $"{days} days after";
-        return new($"{when} {r.Main.Title}", $"Since it, {r.Plain}, {Core.Wording.Running(r.Chip)}. That alone doesn't prove this crash.", r.Day) { Change = r.Main.Title };
+        string change = r.Main.Title, chip = Core.Wording.Running(r.Chip);
+        string title = days == 0 ? Lang.T($"The same day as {change}") : days == 1 ? Lang.T($"A day after {change}") : Lang.T($"{days} days after {change}");
+        return new(title, Lang.T($"Since it, {r.Plain}, {chip}. That alone doesn't prove this crash."), r.Day) { Change = r.Main.Title };
     }
 
     /// <summary>The page an opened crash came from (Timeline, Reports, Home), to go back to; null when it was opened here.</summary>
@@ -377,10 +379,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// <summary>What the back button says: the page it goes back to.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BackName))]
-    private string _backText = "Crashes";
+    private string _backText = Lang.T("Crashes");
 
-    /// <summary>The back button's name for screen readers: always "Back to …".</summary>
-    public string BackName => BackText.StartsWith("Back to ", StringComparison.Ordinal) ? BackText : $"Back to {BackText}";
+    /// <summary>The back button's name for screen readers: always "Back to …" (it already says so when opened from another page).</summary>
+    public string BackName => _returnTo is not null ? BackText : Lang.T($"Back to {BackText}");
 
     /// <summary>Shows another page (set by the window).</summary>
     public Action<string>? GoBackTo { get; set; }
@@ -398,7 +400,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         _returnTo = from?.Page;
         // "Back to Timeline": a page name alone, beside the crash's headline, read as this page's title.
-        BackText = from is { Name: var name } ? $"Back to {name}" : "Crashes";
+        BackText = from is { Name: var name } ? Lang.T($"Back to {name}") : Lang.T("Crashes");
     }
 
     [RelayCommand]
@@ -440,7 +442,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private int _mutedCount;
 
     public bool HasMuted => MutedCount > 0;
-    public string MutedToggleText => $"Show muted ({MutedCount})";
+    public string MutedToggleText => Lang.T($"Show muted ({MutedCount})");
 
     [ObservableProperty] private string _statusTitle = "";
     [ObservableProperty] private string _statusDetail = "";
@@ -450,12 +452,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     public bool HasCrashes => GroupsShown.Count > 0;
 
-    public string EmptyText => Core.TextMatch.Words(SearchText).Length > 0 ? "Nothing matches"
+    public string EmptyText => Core.TextMatch.Words(SearchText).Length > 0 ? Lang.T("Nothing matches")
         : Filter switch
     {
-        "Apps" => $"No app or game crashes {When}",
-        "Pc" => $"No blue screens, sudden shut-offs or graphics driver resets {When}",
-        _ => $"No crashes {When}",
+        "Apps" => Lang.T($"No app or game crashes {When}"),
+        "Pc" => Lang.T($"No blue screens, sudden shut-offs or graphics driver resets {When}"),
+        _ => Lang.T($"No crashes {When}"),
     };
 
     partial void OnFilterChanged(string value) { _limit = PageSize; ApplyView(); }
@@ -532,8 +534,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         {
             if (id != _loadId) return;
             ReadingRecords = true;
-            (StatusTitle, StatusDetail, StatusIcon, StatusBrush) = ("Reading Windows' records",
-                "Reading what Windows recorded about these crashes. This takes a few seconds after an update.", "\uE895", "MutedBrush");
+            (StatusTitle, StatusDetail, StatusIcon, StatusBrush) = (Lang.T("Reading Windows' records"),
+                Lang.T("Reading what Windows recorded about these crashes. This takes a few seconds after an update."), "\uE895", "MutedBrush");
             _recordsWait ??= Task.Run(WaitForRecordsAsync);
             return;
         }
@@ -635,7 +637,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         static string Ago(DateTime t)
         {
             int days = (int)(DateTime.Today - t.Date).TotalDays;
-            return days switch { 0 => "today", 1 => "yesterday", _ => $"{days} days ago" };
+            return days switch { 0 => Lang.T("today"), 1 => Lang.T("yesterday"), _ => Lang.T($"{days} days ago") };
         }
         var serious = rows.Where(r => CrashGroup.SeverityOf(r) >= CrashSeverity.Serious || inIncidents.Contains(r)).ToList();
         // The newest shut-off judged to be the mains: said in the same place, without the alarm.
@@ -649,8 +651,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             // One day, or a period that's over: say what happened in it rather than "stable for N days" (counted to today).
             string when = When;
             int worst = rows.Count == 0 ? -1 : rows.Max(r => (int)CrashGroup.SeverityOf(r));
-            StatusTitle = rows.Count == 0 ? $"{Core.Wording.NoProblems} {when}" : $"{rows.Count} problem{(rows.Count == 1 ? "" : "s")} {when}";
-            StatusDetail = rows.Count == 0 ? "No crashes, freezes, blue screens, sudden shut-offs or graphics driver resets."
+            StatusTitle = rows.Count == 0 ? Lang.T($"No problems {when}") : rows.Count == 1 ? Lang.T($"1 problem {when}") : Lang.T($"{rows.Count} problems {when}");
+            StatusDetail = rows.Count == 0 ? Lang.T("No crashes, freezes, blue screens, sudden shut-offs or graphics driver resets.")
                 : string.Join(" · ", rows.GroupBy(r => r.Event.Kind).Select(g => KindCount(g.Key, g.Count()))) + ".";
             (StatusIcon, StatusBrush) = worst switch
             {
@@ -668,8 +670,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         // that pointed at the power supply (the user: "what do you think is wrong with this?").
         if (mains.Count > 0 && (DateTime.Today - mains[0].Time.Date).TotalDays <= 7 && daysSince > 7)
         {
-            StatusDetail = $"{mains[0].Finding!.Verdict.TrimEnd('.')}{(mains.Count > 1 ? $", like {mains.Count - 1} other{(mains.Count == 2 ? "" : "s")} {When}" : "")}.";
-            (StatusTitle, StatusIcon, StatusBrush) = ($"{Core.Wording.Event(CrashKind.UnexpectedShutdown, "")} {Ago(mains[0].Time)}", "\uE7E8", "TextBrush");
+            string verdict = mains[0].Finding!.Verdict.TrimEnd('.');
+            int others = mains.Count - 1;
+            StatusDetail = others == 0 ? $"{verdict}." : others == 1 ? Lang.T($"{verdict}, like 1 other {When}.") : Lang.T($"{verdict}, like {others} others {When}.");
+            (StatusTitle, StatusIcon, StatusBrush) = (ShutOffAgo(Ago(mains[0].Time)), "\uE7E8", "TextBrush");
             return;
         }
 
@@ -679,30 +683,36 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         // there were blue screens is the tile's to say.
         // A confirmed problem with no cause to add (Windows reset the graphics driver) says what happened instead.
         if (daysSince <= 7 && lastSerious!.Finding is { } finding)
-            StatusDetail = $"{(finding.Verdict.Length > 0 ? finding.Verdict : finding.Line).TrimEnd('.')}{(powerCuts.Length > 0 ? $" · also {powerCuts} {When}" : "")}.";
+        {
+            string verdict = (finding.Verdict.Length > 0 ? finding.Verdict : finding.Line).TrimEnd('.');
+            StatusDetail = powerCuts.Length > 0 ? Lang.T($"{verdict} · also {powerCuts} {When}.") : $"{verdict}.";
+        }
         else
         {
             var parts = new List<string>();
-            if (bsod is not null) parts.Add($"last blue screen {Ago(bsod.Time)}");
-            parts.Add(app is null ? $"no app crashes {When}" : $"last app crash {Ago(app.Time)}");
+            if (bsod is not null) parts.Add(Lang.T($"last blue screen {Ago(bsod.Time)}"));
+            parts.Add(app is null ? Lang.T($"no app crashes {When}") : Lang.T($"last app crash {Ago(app.Time)}"));
             int asleep = rows.Count(r => r.Event.Kind == CrashKind.UnexpectedShutdown && r.Event.DuringSleep);
-            if (asleep > 0) parts.Add($"{Core.Wording.Count(CrashKind.UnexpectedShutdown, asleep)} while asleep (not a fault)");
+            if (asleep > 0) parts.Add(Lang.T($"{Core.Wording.Count(CrashKind.UnexpectedShutdown, asleep)} while asleep (not a fault)"));
             int unfinished = rows.Count(r => r.Event.Kind == CrashKind.UnexpectedShutdown && r.Event.Moment == PowerMoment.ShuttingDown);
-            if (unfinished > 0) parts.Add($"{unfinished} shutdown{(unfinished == 1 ? "" : "s")} that didn't finish (usually harmless)");
+            if (unfinished > 0) parts.Add(unfinished == 1 ? Lang.T("1 shutdown that didn't finish (usually harmless)") : Lang.T($"{unfinished} shutdowns that didn't finish (usually harmless)"));
             string line = string.Join(" · ", parts);
             StatusDetail = char.ToUpper(line[0]) + line[1..] + ".";
         }
         (StatusTitle, StatusIcon, StatusBrush) = daysSince switch
         {
             <= 7 when lastSerious!.Event.Kind is CrashKind.SystemCrash =>
-                ($"Blue screen {Ago(lastSerious.Time)}", "", "HotBrush"),
+                (Lang.T($"Blue screen {Ago(lastSerious.Time)}"), "", "HotBrush"),
             <= 7 when lastSerious!.Event.Kind is CrashKind.UnexpectedShutdown =>
-                ($"{Core.Wording.Event(CrashKind.UnexpectedShutdown, "")} {Ago(lastSerious.Time)}", "", "HotBrush"),
-            <= 7 when inIncidents.Contains(lastSerious!) => ($"The PC froze {Ago(lastSerious.Time)}", "", "WarmBrush"),
-            <= 7 => (lastSerious!.Event.Kind is CrashKind.GpuDriverReset ? $"{Core.Wording.Title(CrashKind.GpuDriverReset, "")} {Ago(lastSerious.Time)}" : $"{lastSerious.Title} {Ago(lastSerious.Time)}", "", "WarmBrush"),
-            int.MaxValue => (rows.Count == 0 ? "All clear" : "No serious problems", "", "GoodBrush"),
-            _ => ($"Stable for {daysSince} days", "", "GoodBrush"),
+                (ShutOffAgo(Ago(lastSerious.Time)), "", "HotBrush"),
+            <= 7 when inIncidents.Contains(lastSerious!) => (Lang.T($"The PC froze {Ago(lastSerious.Time)}"), "", "WarmBrush"),
+            <= 7 => (lastSerious!.Event.Kind is CrashKind.GpuDriverReset ? Lang.T($"Graphics driver reset {Ago(lastSerious.Time)}") : Lang.T($"{lastSerious.Title} {Ago(lastSerious.Time)}"), "", "WarmBrush"),
+            int.MaxValue => (rows.Count == 0 ? Lang.T("All clear") : Lang.T("No serious problems"), "", "GoodBrush"),
+            _ => (Lang.T($"Stable for {daysSince} days"), "", "GoodBrush"),
         };
+
+        // Wording.Event(UnexpectedShutdown) with when: "The PC shut off suddenly 3 days ago".
+        static string ShutOffAgo(string ago) => Lang.T($"The PC shut off suddenly {ago}");
     }
 
     internal static string KindCount(CrashKind kind, int n) => CrashWords.Count(kind, n);
@@ -726,9 +736,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         if (read.Count >= 2)
         {
             int held = buttons.Count(c => c.Event.Facts!.PowerButton == true);
-            string button = buttons.Count < running.Count ? "" : held == 0 ? " Windows recorded a held power button in none of them." : $" Windows recorded a held power button in {held} of them.";
-            string verdict = light >= 2 && light > read.Count - light && held == 0 ? " Sudden shut-offs at idle point away from load and heat; the mains is the usual cause." : "";
-            list.Add(new("\uE7E8", "CpuBrush", $"Of the {read.Count} sudden shut-offs with readings, {light} came with the PC doing little and {read.Count - light} while it was working hard.{button}{verdict}"));
+            string button = buttons.Count < running.Count ? "" : held == 0 ? Lang.T(" Windows recorded a held power button in none of them.") : Lang.T($" Windows recorded a held power button in {held} of them.");
+            string verdict = light >= 2 && light > read.Count - light && held == 0 ? Lang.T(" Sudden shut-offs at idle point away from load and heat; the mains is the usual cause.") : "";
+            int working = read.Count - light;
+            list.Add(new("\uE7E8", "CpuBrush", Lang.T($"Of the {read.Count} sudden shut-offs with readings, {light} came with the PC doing little and {working} while it was working hard.") + button + verdict));
         }
         // A graphics driver that came in the middle of them, when they were as frequent before it.
         if (running.Count >= 2 && changes.Where(c => c.IsGraphicsDriver).OrderByDescending(c => c.Time).FirstOrDefault() is { } driver
@@ -738,14 +749,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             int before = earlier.Count(p => p.Ts < ts && p.Ts >= ts - 30L * 86400) + (running[0].Event.Ts < ts ? 1 : 0), since = running.Count(c => c.Time >= driver.Time);
             string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
             if (before >= 2)
-                list.Add(new("\uE73E", "GoodBrush", $"Not caused by the {name} installed on {driver.Time:d MMM}. The PC shut off {CrashFindings.Times(before)} in the 30 days before it, and {CrashFindings.Times(since)} since."));
+                list.Add(new("\uE73E", "GoodBrush", Lang.T($"Not caused by the {name} installed on {driver.Time:d MMM}. The PC shut off {CrashFindings.Times(before)} in the 30 days before it, and {CrashFindings.Times(since)} since.")));
         }
         int asleep = shutdowns.Count(c => c.Event.DuringSleep);
         if (asleep >= 2)
-            list.Add(new("\uE946", "MutedBrush", $"{asleep} of {shutdowns.Count} sudden shut-offs happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems."));
+            list.Add(new("\uE946", "MutedBrush", Lang.T($"{asleep} of {shutdowns.Count} sudden shut-offs happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems.")));
         int unfinished = shutdowns.Count(c => c.Event.Moment == PowerMoment.ShuttingDown);
         if (unfinished >= 2)
-            list.Add(new("\uE946", "MutedBrush", $"{unfinished} more shutdowns didn't finish while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them."));
+            list.Add(new("\uE946", "MutedBrush", Lang.T($"{unfinished} more shutdowns didn't finish while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them.")));
 
         // Graphics driver resets: in one app every time, or in several (the first points at that app, the second past it).
         var resets = rows.Where(c => c.Event.Kind == CrashKind.GpuDriverReset && c.Finding is not { Outside: true }).ToList();
@@ -753,9 +764,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         {
             var inApps = resets.Where(c => c.Input?.FrontApp is not null).GroupBy(c => c.Input!.FrontApp!).OrderByDescending(g => g.Count()).ToList();
             if (inApps.Count > 0 && inApps[0].Count() >= 2 && inApps[0].Count() * 2 > resets.Count)
-                list.Add(new("\uE7F4", "WarmBrush", $"{inApps[0].Count()} of the {resets.Count} graphics driver resets were in {inApps[0].Key}. Resets in one game while others run fine point at that game or its graphics settings first."));
+                list.Add(new("\uE7F4", "WarmBrush", Lang.T($"{inApps[0].Count()} of the {resets.Count} graphics driver resets were in {inApps[0].Key}. Resets in one game while others run fine point at that game or its graphics settings first.")));
             else if (inApps.Count >= 2)
-                list.Add(new("\uE7F4", "WarmBrush", $"The {resets.Count} graphics driver resets came in {inApps.Count} different apps. Across several apps, the driver, the GPU's temperature or an overclock is likelier than any one game."));
+                list.Add(new("\uE7F4", "WarmBrush", Lang.T($"The {resets.Count} graphics driver resets came in {inApps.Count} different apps. Across several apps, the driver, the GPU's temperature or an overclock is likelier than any one game.")));
         }
 
         // An app that only went down because a driver was being installed under it says nothing about the driver.
@@ -766,12 +777,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
                                          c.Event.Kind == CrashKind.GpuDriverReset ||
                                          c.Event.Code is "0x116" or "0x119" or "0x117"));
         if (gpuRelated >= 2)
-            list.Add(new("\uE945", "WarmBrush", $"{gpuRelated} problems involved the graphics driver. A clean driver reinstall (and stock GPU clocks) is the first thing to try."));
+            list.Add(new("\uE945", "WarmBrush", Lang.T($"{gpuRelated} problems involved the graphics driver. A clean driver reinstall (and stock GPU clocks) is the first thing to try.")));
 
         // Heat by the user's own alert limits, as each case judges it.
         int hot = rows.Count(c => c.Finding?.Points.Any(p => p.Title == CrashFindings.HotTitle) == true);
         if (hot >= 1)
-            list.Add(new("\uE945", "WarmBrush", $"{hot} crash{(hot == 1 ? "" : "es")} happened while your hardware was over your alert limits. Check airflow and fan curves."));
+            list.Add(new("\uE945", "WarmBrush", hot == 1
+                ? Lang.T("1 crash happened while your hardware was over your alert limits. Check airflow and fan curves.")
+                : Lang.T($"{hot} crashes happened while your hardware was over your alert limits. Check airflow and fan curves.")));
         return list;
     }
 
@@ -832,37 +845,37 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         var sb = new StringBuilder();
         string kind = g.KindLabel.ToLowerInvariant();
-        sb.AppendLine(g.Title.Contains(kind, StringComparison.OrdinalIgnoreCase) ? $"Problem: {g.Title}" : $"Problem: {g.Title} ({kind})");
+        sb.AppendLine(g.Title.Contains(kind, StringComparison.OrdinalIgnoreCase) ? Lang.T($"Problem: {g.Title}") : Lang.T($"Problem: {g.Title} ({kind})"));
         sb.AppendLine(g.IsIncident
-            ? $"When: {g.First.Time:dddd d MMMM yyyy, h:mm tt} – {g.Latest.Time:h:mm tt}"
+            ? Lang.T($"When: {g.First.Time:dddd d MMMM yyyy, h:mm tt} – {g.Latest.Time:h:mm tt}")
             : g.Count == 1
-            ? $"When: {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}"
-            : $"When: {g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})");
+            ? Lang.T($"When: {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}")
+            : Lang.T($"When: {g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})"));
         if ((opened?.Finding ?? g.Finding) is { } f)
         {
-            sb.AppendLine($"What happened: {f.Head} {f.Text}");
-            sb.AppendLine($"How sure: {f.HowSure}");
-            if (f.Points.Count > 0) sb.AppendLine("What points to this:");
+            sb.AppendLine(Lang.T($"What happened: {f.Head} {f.Text}"));
+            sb.AppendLine(Lang.T($"How sure: {f.HowSure}"));
+            if (f.Points.Count > 0) sb.AppendLine(Lang.T("What points to this:"));
             foreach (var p in f.Points) sb.AppendLine($"  - {p.Title}{(p.Detail.Length > 0 ? ": " + p.Detail : "")}");
-            if (f.RuledOut.Count > 0) sb.AppendLine("What it wasn't:");
+            if (f.RuledOut.Count > 0) sb.AppendLine(Lang.T("What it wasn't:"));
             foreach (var p in f.RuledOut) sb.AppendLine($"  - {p.Title}: {p.Detail}");
-            if (f.NotChecked.Count > 0) sb.AppendLine("Could not be checked:");
+            if (f.NotChecked.Count > 0) sb.AppendLine(Lang.T("Could not be checked:"));
             foreach (var p in f.NotChecked) sb.AppendLine($"  - {p.Title}: {p.Detail}");
-            if (f.CantTell is { } cant) sb.AppendLine($"Still unknown: {cant}");
+            if (f.CantTell is { } cant) sb.AppendLine(Lang.T($"Still unknown: {cant}"));
             // What its close-up showed, a reading every two seconds.
             if (opened?.Close is { StoodOut.Count: > 0 } close)
             {
-                sb.AppendLine("In the last minutes:");
+                sb.AppendLine(Lang.T("In the last minutes:"));
                 foreach (var line in close.StoodOut) sb.AppendLine($"  - {line.Text}");
             }
         }
-        else sb.AppendLine($"What happened: {g.Reason}");
+        else sb.AppendLine(Lang.T($"What happened: {g.Reason}"));
         if (g.IsIncident)
             foreach (var r in g.Rows.OrderBy(r => r.Time))
-                sb.AppendLine($"  {r.Time:h:mm:ss tt}  {(r.Event.Kind == CrashKind.GpuDriverReset ? "Graphics driver" : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
+                sb.AppendLine($"  {r.Time:h:mm:ss tt}  {(r.Event.Kind == CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
                               (string.IsNullOrEmpty(r.TechnicalText) || r.Event.Kind == CrashKind.GpuDriverReset ? "" : $" ({r.TechnicalText})"));
-        if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine($"Technical: {g.TechnicalText}");
-        sb.AppendLine($"What to try: {g.Advice}");
+        if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine(Lang.T($"Technical: {g.TechnicalText}"));
+        sb.AppendLine(Lang.T($"What to try: {g.Advice}"));
         sb.AppendLine();
         sb.Append(PcInfo.Text);
         return sb.ToString();

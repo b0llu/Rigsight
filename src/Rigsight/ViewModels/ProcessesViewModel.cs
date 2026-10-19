@@ -18,6 +18,8 @@ public sealed partial class TotalTile(string key, string label, string brush, Se
     /// <summary>The column it sorts the list by when clicked.</summary>
     public string Key { get; } = key;
     public string Label { get; } = label;
+    /// <summary>Its button's name for screen readers: "Sort by MEMORY".</summary>
+    public string SortName => Lang.T($"Sort by {Label}");
     /// <summary>The palette brush of its dot and its line: the only colour on the page.</summary>
     public string Brush { get; } = brush;
     /// <summary>What the line measures, for the reading under the pointer.</summary>
@@ -38,6 +40,8 @@ public sealed partial class SortHeading(string key, string label) : ObservableOb
 {
     public string Key { get; } = key;
     public string Label { get; } = label;
+    /// <summary>Its button's name for screen readers: "Sort by APP".</summary>
+    public string SortName => Lang.T($"Sort by {Label}");
     /// <summary>↓ or ↑ on the column sorted by, a faint ↕ on the others.</summary>
     [ObservableProperty] private string _arrow = "↕";
     [ObservableProperty] private bool _isActive;
@@ -89,8 +93,8 @@ public sealed partial class ProcessesViewModel : ObservableObject
         _view.IsLiveSorting = _view.IsLiveFiltering = true;
         Tiles =
         [
-            new(ByMemory, "MEMORY", "RamBrush", SensorKind.Data), new(ByCpu, "CPU", "CpuBrush", SensorKind.Load),
-            new(ByInternet, "INTERNET", "SkyBrush", SensorKind.Throughput), new(ByDisk, "DISK", "AccentBrush", SensorKind.Throughput),
+            new(ByMemory, Lang.T("MEMORY"), "RamBrush", SensorKind.Data), new(ByCpu, "CPU", "CpuBrush", SensorKind.Load),
+            new(ByInternet, Lang.T("INTERNET"), "SkyBrush", SensorKind.Throughput), new(ByDisk, Lang.T("DISK"), "AccentBrush", SensorKind.Throughput),
         ];
         Tiles[2].History = _netHistory;
         Tiles[3].History = _diskHistory;
@@ -179,21 +183,21 @@ public sealed partial class ProcessesViewModel : ObservableObject
         var (memory, cpu, internet, disk) = (Tiles[0], Tiles[1], Tiles[2], Tiles[3]);
         memory.History = Live.RamUsed?.History;
         memory.Value = Live.RamUsed?.Value is { } used ? $"{used:0.0} GB" : ProcRow.Nothing;
-        memory.Note = Live.RamUsed?.Value is null || Live.RamTotalText.Length == 0 ? "" : $"of {Live.RamTotalText}";
+        memory.Note = Live.RamUsed?.Value is null || Live.RamTotalText.Length == 0 ? "" : Lang.T($"of {Live.RamTotalText}");
         memory.Most = Most(Live.Procs.MaxBy(p => p.MemMB), p => p.MemMB >= 1);
         cpu.History = Live.CpuLoad?.History;
         cpu.Value = Live.CpuLoad?.Value is { } load ? $"{load:0}%" : ProcRow.Nothing;
         cpu.Most = Most(Live.Procs.MaxBy(p => p.Cpu), p => p.Cpu >= 0.05);
         internet.Value = net is null ? ProcRow.Nothing : Units.Speed(net.Down + net.Up);
-        internet.Most = net?.Apps.MaxBy(a => a.Down + a.Up) is { } fastest && fastest.Down + fastest.Up >= 1024 ? $"Most: {fastest.Name}" : NothingUsing;
+        internet.Most = net?.Apps.MaxBy(a => a.Down + a.Up) is { } fastest && fastest.Down + fastest.Up >= 1024 ? Lang.T($"Most: {fastest.Name}") : NothingUsing;
         disk.Value = Live.Disk is { } bytes ? Units.Speed(bytes) : ProcRow.Nothing;
         disk.Most = Most(Live.Procs.MaxBy(p => p.Disk), p => p.Disk >= 1024);
         foreach (var tile in Tiles) tile.Version++;
     }
 
-    private const string NothingUsing = "Nothing using it";
+    private static string NothingUsing => Lang.T("Nothing using it");
 
-    private static string Most(ProcRow? row, Func<ProcRow, bool> uses) => row is not null && uses(row) ? $"Most: {row.Name}" : NothingUsing;
+    private static string Most(ProcRow? row, Func<ProcRow, bool> uses) => row is not null && uses(row) ? Lang.T($"Most: {row.Name}") : NothingUsing;
 
     // ── Search, and only the apps with windows: this page's own, apart from the Memory page's ──
 
@@ -224,11 +228,11 @@ public sealed partial class ProcessesViewModel : ObservableObject
 
     // ── Sorting: every heading is a button, and so is every total ──
 
-    public SortHeading NameHeading { get; } = new(ByName, "APP");
-    public SortHeading MemoryHeading { get; } = new(ByMemory, "MEMORY");
+    public SortHeading NameHeading { get; } = new(ByName, Lang.T("APP"));
+    public SortHeading MemoryHeading { get; } = new(ByMemory, Lang.T("MEMORY"));
     public SortHeading CpuHeading { get; } = new(ByCpu, "CPU");
-    public SortHeading InternetHeading { get; } = new(ByInternet, "INTERNET");
-    public SortHeading DiskHeading { get; } = new(ByDisk, "DISK");
+    public SortHeading InternetHeading { get; } = new(ByInternet, Lang.T("INTERNET"));
+    public SortHeading DiskHeading { get; } = new(ByDisk, Lang.T("DISK"));
 
     /// <summary>The column the list is sorted by: its figures are the ones in white.</summary>
     [ObservableProperty] private string _sortKey = ByMemory;
@@ -328,17 +332,17 @@ public sealed partial class ProcessesViewModel : ObservableObject
         if (rows.Count == 1) return MenuFor(new EndTarget(rows[0]));
 
         var targets = rows.Select(r => new EndTarget(r)).ToList();
-        string many = $"{rows.Count} apps";
+        int many = rows.Count;
         var menu = new List<ProcMenuEntry>
         {
-            new(ProcMenuKind.Header, $"{many} picked"),
-            new(ProcMenuKind.Item, "Copy names", Glyph: "", Run: () => Done(Copy(string.Join(Environment.NewLine, rows.Select(r => r.Name)), "Names copied"))),
+            new(ProcMenuKind.Header, Lang.T($"{many} apps picked")),
+            new(ProcMenuKind.Item, Lang.T("Copy names"), Glyph: "", Run: () => Done(Copy(string.Join(Environment.NewLine, rows.Select(r => r.Name)), Lang.T("Names copied")))),
             new(ProcMenuKind.Separator),
         };
         var blocked = targets.FirstOrDefault(t => t.Risk == EndRisk.ByProcessOnly);
-        menu.Add(new(ProcMenuKind.Item, $"End {many}" + (targets.Any(t => t.Asks) ? "…" : ""), Units.Megabytes(rows.Sum(r => r.MemMB)), "",
+        menu.Add(new(ProcMenuKind.Item, Lang.T($"End {many} apps") + (targets.Any(t => t.Asks) ? "…" : ""), Units.Megabytes(rows.Sum(r => r.MemMB)), "",
             Enabled: blocked is null, Danger: true, Run: () => EndAsync(targets)));
-        if (blocked is not null) menu.Add(new(ProcMenuKind.Note, $"{blocked.Name} can't be ended as one. {EndRisks.Sentence(EndRisk.ByProcessOnly)}"));
+        if (blocked is not null) menu.Add(new(ProcMenuKind.Note, Lang.T($"{blocked.Name} can't be ended as one. {EndRisks.Sentence(EndRisk.ByProcessOnly)}")));
         return menu;
     }
 
@@ -351,19 +355,19 @@ public sealed partial class ProcessesViewModel : ObservableObject
         bool hasPath = app.Path is { Length: > 0 };
         var menu = new List<ProcMenuEntry>
         {
-            new(ProcMenuKind.Item, "Open file location", Glyph: "", Enabled: hasPath, Run: () => Done(() => OpenLocation(app.Path!))),
-            new(ProcMenuKind.Item, "Copy path", Glyph: "", Enabled: hasPath, Run: () => Done(Copy(app.Path!, "Path copied"))),
+            new(ProcMenuKind.Item, Lang.T("Open file location"), Glyph: "", Enabled: hasPath, Run: () => Done(() => OpenLocation(app.Path!))),
+            new(ProcMenuKind.Item, Lang.T("Copy path"), Glyph: "", Enabled: hasPath, Run: () => Done(Copy(app.Path!, Lang.T("Path copied")))),
             new(ProcMenuKind.Separator),
         };
         string dots = target.Asks ? "…" : "";
         if (target.Process is { } process)
         {
-            menu.Add(new(ProcMenuKind.Item, "End this process" + dots, $"PID {process.Pid}", "", Danger: true, Run: () => EndAsync([target])));
+            menu.Add(new(ProcMenuKind.Item, Lang.T("End this process") + dots, $"PID {process.Pid}", "", Danger: true, Run: () => EndAsync([target])));
             return menu;
         }
-        if (target.Risk == EndRisk.Explorer) menu.Add(new(ProcMenuKind.Item, "Restart", Glyph: "", Run: () => RestartAsync(target)));
+        if (target.Risk == EndRisk.Explorer) menu.Add(new(ProcMenuKind.Item, Lang.T("Restart"), Glyph: "", Run: () => RestartAsync(target)));
         bool whole = target.Risk != EndRisk.ByProcessOnly;
-        menu.Add(new(ProcMenuKind.Item, "End task" + dots, app.Count > 1 ? app.CountText : null, "", Enabled: whole, Danger: true, Run: () => EndAsync([target])));
+        menu.Add(new(ProcMenuKind.Item, Lang.T("End task") + dots, app.Count > 1 ? app.CountText : null, "", Enabled: whole, Danger: true, Run: () => EndAsync([target])));
         if (!whole) menu.Add(new(ProcMenuKind.Note, EndRisks.Sentence(EndRisk.ByProcessOnly)!));
         return menu;
     }
@@ -384,7 +388,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
         catch (Exception)
         {
             // The clipboard is held by another program for a moment.
-            Say("Couldn't copy. Try again.", warns: true);
+            Say(Lang.T("Couldn't copy. Try again."), warns: true);
         }
     };
 
@@ -423,14 +427,14 @@ public sealed partial class ProcessesViewModel : ObservableObject
             var one = targets[0];
             return new EndQuestion
             {
-                Title = $"End {one.Name}?", Body = EndRisks.Sentence(one.Risk), NeedsTick = critical,
+                Title = Lang.T($"End {one.Name}?"), Body = EndRisks.Sentence(one.Risk), NeedsTick = critical,
                 CanRestart = one.Risk == EndRisk.Explorer && one.Process is null,
             };
         }
         return new EndQuestion
         {
-            Title = $"End {targets.Count} apps?", NeedsTick = critical,
-            Intro = parts.Count == 1 ? "One of them is part of Windows:" : "Some of them are part of Windows:",
+            Title = Lang.T($"End {targets.Count} apps?"), NeedsTick = critical,
+            Intro = parts.Count == 1 ? Lang.T("One of them is part of Windows:") : Lang.T("Some of them are part of Windows:"),
             Lines = [.. parts.Select(t => new EndQuestionLine(t.Name, EndRisks.Sentence(t.Risk)!))],
         };
     }
@@ -474,8 +478,8 @@ public sealed partial class ProcessesViewModel : ObservableObject
     internal async Task RestartAsync(EndTarget target)
     {
         var outcome = (await RunAsync([target], () => [Ender.Restart(target.App.Exe)], stays: true))[0];
-        if (outcome == EndOutcome.Ended) Say($"Restarted {target.Name}");
-        else Say(Refusal("restart", target.Name, outcome), warns: true);
+        if (outcome == EndOutcome.Ended) Say(Lang.T($"Restarted {target.Name}"));
+        else Say(Refusal(restart: true, target.Name, outcome), warns: true);
     }
 
     /// <summary>
@@ -526,22 +530,28 @@ public sealed partial class ProcessesViewModel : ObservableObject
             string name = targets[0].Name;
             return outcomes[0] switch
             {
-                EndOutcome.Ended => ($"Ended {name} · {freed} freed", false),
-                EndOutcome.Gone => ($"{name} had already closed.", false),
-                _ => (Refusal("end", name, outcomes[0]), true),
+                EndOutcome.Ended => (Lang.T($"Ended {name} · {freed} freed"), false),
+                EndOutcome.Gone => (Lang.T($"{name} had already closed."), false),
+                _ => (Refusal(restart: false, name, outcomes[0]), true),
             };
         }
         if (failedAt >= 0)
         {
-            string refusal = Refusal("end", targets[failedAt].Name, outcomes[failedAt]);
-            return (ended.Count > 0 ? $"Ended {ended.Count} of {targets.Count} apps. {refusal}" : refusal, true);
+            string refusal = Refusal(restart: false, targets[failedAt].Name, outcomes[failedAt]);
+            return (ended.Count > 0 ? Lang.T($"Ended {ended.Count} of {targets.Count} apps. {refusal}") : refusal, true);
         }
-        return ended.Count == 0 ? ("They had already closed.", false)
-            : ($"Ended {(ended.Count == 1 ? ended[0].Name : $"{ended.Count} apps")} · {freed} freed", false);
+        return ended.Count == 0 ? (Lang.T("They had already closed."), false)
+            : ended.Count == 1 ? (Lang.T($"Ended {ended[0].Name} · {freed} freed"), false)
+            : (Lang.T($"Ended {ended.Count} apps · {freed} freed"), false);
     }
 
-    private static string Refusal(string what, string name, EndOutcome outcome) =>
-        outcome == EndOutcome.Cancelled ? $"Couldn't {what} {name}. Permission wasn't given." : $"Couldn't {what} {name}. Windows refused.";
+    private static string Refusal(bool restart, string name, EndOutcome outcome) => (restart, outcome == EndOutcome.Cancelled) switch
+    {
+        (true, true) => Lang.T($"Couldn't restart {name}. Permission wasn't given."),
+        (true, false) => Lang.T($"Couldn't restart {name}. Windows refused."),
+        (false, true) => Lang.T($"Couldn't end {name}. Permission wasn't given."),
+        _ => Lang.T($"Couldn't end {name}. Windows refused."),
+    };
 
     // ── What happened, said at the bottom of the page for a moment ──
 
