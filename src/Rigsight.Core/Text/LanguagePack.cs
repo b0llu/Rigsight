@@ -33,6 +33,12 @@ public sealed class LanguagePack
     /// <summary>The app version the pack was made for ("0.30.0"). An older pack still works; newer text stays English.</summary>
     public string ForApp { get; }
 
+    /// <summary>
+    /// Written before a month's name when a day comes first ("de " in Spanish: "19 de octubre"); empty for none.
+    /// Every "d MMMM" date in the app follows it (.NET's genitive month names), so no date pattern needs translating.
+    /// </summary>
+    public string MonthPrefix { get; init; } = "";
+
     /// <summary>English text to translation, with only the entries that fit (see <see cref="Read"/>).</summary>
     public IReadOnlyDictionary<string, string> Strings { get; }
 
@@ -77,7 +83,9 @@ public sealed class LanguagePack
                 if (Fits(entry.Name, text)) strings[entry.Name] = text;
                 else dropped.Add(entry.Name);
             }
-            return new LanguagePack(code, name, version, forApp, strings, dropped);
+            string monthPrefix = root.TryGetProperty("monthPrefix", out var mp) ? mp.GetString() ?? "" : "";
+            if (monthPrefix.Length > 12) monthPrefix = "";
+            return new LanguagePack(code, name, version, forApp, strings, dropped) { MonthPrefix = monthPrefix };
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {

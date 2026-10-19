@@ -160,4 +160,21 @@ public class LangTests
             Assert.Equal("A 9:14 PM", Lang.C("time", $"At {t}"));
         }
     }
+
+    [Fact]
+    public void Dates_take_the_packs_day_and_month_names_and_keep_the_regions_numbers()
+    {
+        var pack = LanguagePack.Read("""{ "code": "es", "monthPrefix": "de ", "strings": {} }""");
+        var region = CultureInfo.GetCultureInfo("en-US");
+        var culture = LanguageStore.NamesFor(pack, region);
+        var day = new DateTime(2026, 10, 19, 21, 14, 0);
+        Assert.Equal("lunes, 19 de octubre", day.ToString("dddd, d MMMM", culture));
+        Assert.Equal("octubre 2026", day.ToString("MMMM yyyy", culture));
+        Assert.Equal("lun 19 oct", day.ToString("ddd d MMM", culture).Replace(".", ""));
+        Assert.Equal("9:14 PM", day.ToString("h:mm tt", culture));      // the region's clock
+        Assert.Equal("1,234.5", 1234.5.ToString("N1", culture));        // and its numbers
+        // A pack without a prefix: plain month names.
+        var plain = LanguageStore.NamesFor(LanguagePack.Read("""{ "code": "es", "strings": {} }"""), region);
+        Assert.Equal("lunes, 19 octubre", day.ToString("dddd, d MMMM", plain));
+    }
 }

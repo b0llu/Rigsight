@@ -1,4 +1,4 @@
-using System.Text.Encodings.Web;
+﻿using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Rigsight.Core;
@@ -91,6 +91,7 @@ switch (command)
             ["name"] = pack["name"]?.DeepClone(),
             ["version"] = pack["version"]?.DeepClone(),
             ["forApp"] = version,
+            ["monthPrefix"] = pack["monthPrefix"]?.DeepClone(),
             ["strings"] = new JsonObject(pack["strings"]!.AsObject()
                 .Where(kv => scan.Texts.ContainsKey(kv.Key) && kv.Value?.GetValue<string>() is { Length: > 0 })
                 .Select(kv => KeyValuePair.Create<string, JsonNode?>(kv.Key, kv.Value!.DeepClone()))),

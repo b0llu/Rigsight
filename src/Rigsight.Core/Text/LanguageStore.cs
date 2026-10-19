@@ -70,29 +70,34 @@ public static class LanguageStore
     /// </summary>
     private static void UseNames(LanguagePack? pack)
     {
-        var culture = Region;
-        if (pack is not null && !Region.TwoLetterISOLanguageName.Equals(pack.Code, StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var names = System.Globalization.CultureInfo.GetCultureInfo(pack.Code).DateTimeFormat;
-                culture = (System.Globalization.CultureInfo)Region.Clone();
-                var f = culture.DateTimeFormat;
-                f.DayNames = names.DayNames;
-                f.AbbreviatedDayNames = names.AbbreviatedDayNames;
-                f.ShortestDayNames = names.ShortestDayNames;
-                f.MonthNames = names.MonthNames;
-                f.AbbreviatedMonthNames = names.AbbreviatedMonthNames;
-                f.MonthGenitiveNames = names.MonthGenitiveNames;
-                f.AbbreviatedMonthGenitiveNames = names.AbbreviatedMonthGenitiveNames;
-            }
-            catch (System.Globalization.CultureNotFoundException)
-            {
-                culture = Region;
-            }
-        }
+        var culture = pack is null ? Region : NamesFor(pack, Region);
         System.Globalization.CultureInfo.CurrentCulture = culture;
         System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture == Region ? null : culture;
+    }
+
+    /// <summary><paramref name="region"/> with the pack language's day and month names (see <see cref="UseNames"/>).</summary>
+    public static System.Globalization.CultureInfo NamesFor(LanguagePack pack, System.Globalization.CultureInfo region)
+    {
+        try
+        {
+            var names = System.Globalization.CultureInfo.GetCultureInfo(pack.Code).DateTimeFormat;
+            var culture = (System.Globalization.CultureInfo)region.Clone();
+            var f = culture.DateTimeFormat;
+            f.DayNames = names.DayNames;
+            f.AbbreviatedDayNames = names.AbbreviatedDayNames;
+            f.ShortestDayNames = names.ShortestDayNames;
+            f.MonthNames = names.MonthNames;
+            f.AbbreviatedMonthNames = names.AbbreviatedMonthNames;
+            // A day before the month ("d MMMM") takes these: "19 de octubre" where the pack says so.
+            f.MonthGenitiveNames = pack.MonthPrefix.Length == 0 ? names.MonthGenitiveNames
+                : [.. names.MonthNames.Select(m => m.Length == 0 ? m : pack.MonthPrefix + m)];
+            f.AbbreviatedMonthGenitiveNames = names.AbbreviatedMonthNames;
+            return culture;
+        }
+        catch (System.Globalization.CultureNotFoundException)
+        {
+            return region;
+        }
     }
 
     /// <summary>
