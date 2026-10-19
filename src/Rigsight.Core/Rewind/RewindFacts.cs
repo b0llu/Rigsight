@@ -6,6 +6,9 @@ public enum RewindKind { Month, Quarter, Half, Year }
 /// <summary>A game or app on a card: its name, its program (for its cover or icon) and its figure.</summary>
 public sealed record RewindItem(string Name, string Exe, string? Path, double Value, int Count = 0);
 
+/// <summary>One month of a longer rewind: its first day, its hours of use, and the game (or app) used most in it.</summary>
+public sealed record RewindMonth(DateTime Start, double Hours, RewindItem? Top);
+
 /// <summary>A hottest moment: the reading, when, and the game or app in front then.</summary>
 public sealed record RewindHeat(double Value, DateTime At, string? App, bool InGame);
 
@@ -48,6 +51,8 @@ public sealed class RewindFacts
     public double BusiestDaySec { get; set; }
     /// <summary>Hours the PC was in use on each day of the period, from its first day (for the calendar and the day strip).</summary>
     public List<double> DayHours { get; set; } = [];
+    /// <summary>A longer rewind's months, in order (empty for a month's own).</summary>
+    public List<RewindMonth> Months { get; set; } = [];
     /// <summary>The apps (not games) used the most, by their time in front.</summary>
     public List<RewindItem> TopApps { get; set; } = [];
     /// <summary>Hours of use in each hour of the day, every app and game, over the whole period.</summary>

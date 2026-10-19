@@ -165,6 +165,7 @@ public static class RewindPainter
             "cover" => Cover(card, f, u, accent),
             "time" => Time(card, f, u, accent),
             "games" => Games(card, f, u, accent),
+            "months" => Months(card, u, accent),
             "apps" => Apps(card, u, accent),
             "hours" => UseClock(card, f, u, accent),
             "top" => Top(card, u, accent),
@@ -246,22 +247,27 @@ public static class RewindPainter
 
     private static FrameworkElement Time(RewindCard card, RewindFacts f, double u, Color? accent)
     {
-        var body = new StackPanel { Margin = new Thickness(0, 6 * u, 0, 0) };
-        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#7DD3FC"), u), 0));
-        body.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, 34, 8, u), 1));
-        body.Children.Add(Rise(Sub(card.Sub, u), 2));
-        body.Children.Add(Rise(f.Days <= 31 ? Calendar(f, u, accent) : DayStrip(f, u, accent, 20), 3));
+        // The calendars take the room left under the words, made smaller where there is less (never cut off).
+        var body = new DockPanel { Margin = new Thickness(0, 6 * u, 0, 0) };
+        var words = new StackPanel();
+        words.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#7DD3FC"), u), 0));
+        words.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, card.Big.Length > 4 ? 26 : 34, 8, u), 1));
+        words.Children.Add(Rise(Sub(card.Sub, u), 2));
+        DockPanel.SetDock(words, Dock.Top);
+        body.Children.Add(words);
+        var calendars = f.Days <= 31 ? Calendar(f, u, accent) : MonthCalendars(f, u, accent);
+        calendars.Width = 86 * u;
+        body.Children.Add(Rise(new Viewbox { Child = calendars, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1 * u, 0, 0) }, 3));
         return body;
     }
 
     private static FrameworkElement Games(RewindCard card, RewindFacts f, double u, Color? accent)
     {
-        var body = new StackPanel { Margin = new Thickness(0, 5 * u, 0, 0) };
-        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#D8C7FF"), u), 0));
-        body.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, 30, 10, u), 1));
-        body.Children.Add(Rise(Sub(card.Sub, u), 2));
-        body.Children.Add(Rise(Clock(f.PlayHours, 68 * u, accent), 3));
-        return body;
+        var words = new StackPanel();
+        words.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#D8C7FF"), u), 0));
+        words.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, 30, 10, u), 1));
+        words.Children.Add(Rise(Sub(card.Sub, u), 2));
+        return WordsAndPicture(words, Clock(f.PlayHours, 68 * u, accent), u, 5);
     }
 
     /// <summary>The most used app, its icon large; the next four with theirs.</summary>
@@ -284,12 +290,11 @@ public static class RewindPainter
     /// <summary>When in the day the PC was used: the same clock as the games', for every app.</summary>
     private static FrameworkElement UseClock(RewindCard card, RewindFacts f, double u, Color? accent)
     {
-        var body = new StackPanel { Margin = new Thickness(0, 5 * u, 0, 0) };
-        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#7DD3FC"), u), 0));
-        body.Children.Add(Rise(Mega(card.Big, 15, u, top: 3, bottom: 3, wrap: true), 1));
-        body.Children.Add(Rise(Sub(card.Sub, u), 2));
-        body.Children.Add(Rise(Clock(f.UseHours, 68 * u, accent ?? RewindLook.C(RewindCards.Sky)), 3));
-        return body;
+        var words = new StackPanel();
+        words.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#7DD3FC"), u), 0));
+        words.Children.Add(Rise(Mega(card.Big, 15, u, top: 3, bottom: 3, wrap: true), 1));
+        words.Children.Add(Rise(Sub(card.Sub, u), 2));
+        return WordsAndPicture(words, Clock(f.UseHours, 68 * u, accent ?? RewindLook.C(RewindCards.Sky)), u, 5);
     }
 
     /// <summary>
@@ -479,18 +484,21 @@ public static class RewindPainter
         int days = Math.Min(f.CrashesByDay.Count, f.ShutOffsByDay.Count);
         if (days > 0)
         {
-            int most = Math.Max(1, f.CrashesByDay.Max());
-            var grid = new UniformGrid { Rows = 1, Columns = days, Height = 44 * u, Margin = new Thickness(0, 6 * u, 0, 0) };
-            for (int d = 0; d < days; d++)
+            // A bar a day for a month; a bar a week over 3 months, a month over 6 or 12.
+            var crashes = Buckets(f, f.CrashesByDay.Select(c => (double)c).ToList());
+            var offs = Buckets(f, f.ShutOffsByDay.Select(c => (double)c).ToList());
+            double most = Math.Max(1, crashes.Max(b => b.Sum));
+            var grid = new UniformGrid { Rows = 1, Columns = crashes.Count, Height = 44 * u, Margin = new Thickness(0, 6 * u, 0, 0) };
+            for (int d = 0; d < crashes.Count; d++)
             {
                 var col = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0.5 * u, 0, 0.5 * u, 0) };
-                if (f.CrashesByDay[d] > 0) col.Children.Add(new Border { Height = 40 * u * f.CrashesByDay[d] / most, CornerRadius = new CornerRadius(0.8 * u), Background = Frozen(new SolidColorBrush(accent ?? RewindLook.C(RewindCards.Purple))) });
-                if (f.ShutOffsByDay[d] > 0) col.Children.Add(new Border { Height = 2.2 * u, CornerRadius = new CornerRadius(0.8 * u), Margin = new Thickness(0, 0.6 * u, 0, 0), Background = Frozen(new SolidColorBrush(accent is { } a ? Lighten(a, 0.4) : RewindLook.C(RewindCards.Blue))) });
-                if (f.CrashesByDay[d] == 0 && f.ShutOffsByDay[d] == 0) col.Children.Add(new Border { Height = 0.8 * u, CornerRadius = new CornerRadius(0.8 * u), Background = White(0.1) });
+                if (crashes[d].Sum > 0) col.Children.Add(new Border { Height = 40 * u * crashes[d].Sum / most, CornerRadius = new CornerRadius(0.8 * u), Background = Frozen(new SolidColorBrush(accent ?? RewindLook.C(RewindCards.Purple))) });
+                if (offs[d].Sum > 0) col.Children.Add(new Border { Height = 2.2 * u, CornerRadius = new CornerRadius(0.8 * u), Margin = new Thickness(0, 0.6 * u, 0, 0), Background = Frozen(new SolidColorBrush(accent is { } a ? Lighten(a, 0.4) : RewindLook.C(RewindCards.Blue))) });
+                if (crashes[d].Sum == 0 && offs[d].Sum == 0) col.Children.Add(new Border { Height = 0.8 * u, CornerRadius = new CornerRadius(0.8 * u), Background = White(0.1) });
                 grid.Children.Add(col);
             }
             body.Children.Add(Rise(grid, 3));
-            body.Children.Add(Rise(Axis(f.From, f.From.AddDays(days / 2), f.From.AddDays(days - 1), u, "d MMM"), 3));
+            body.Children.Add(Rise(BucketAxis(f, crashes, u), 3));
         }
         return body;
     }
@@ -621,7 +629,12 @@ public static class RewindPainter
         var right = Text(Lang.T($"{f.DaysOn} of {f.Days} days on"), 3.2 * u, FontWeights.Normal, White(0.75), Ui);
         DockPanel.SetDock(right, Dock.Right);
         head.Children.Add(right);
-        head.Children.Add(Text(f.Kind == RewindKind.Month ? Lang.T($"Every day of {RewindCards.Title(f)}") : Lang.T("Every day"), 3.2 * u, FontWeights.Normal, White(0.75), Ui));
+        head.Children.Add(Text(f.Kind switch
+        {
+            RewindKind.Month => Lang.T($"Every day of {RewindCards.Title(f)}"),
+            RewindKind.Quarter => Lang.T("Every week"),
+            _ => Lang.T("Every month"),
+        }, 3.2 * u, FontWeights.Normal, White(0.75), Ui));
         strip.Children.Add(head);
         strip.Children.Add(DayStrip(f, u, accent, 13, whole: true));
         DockPanel.SetDock(strip, Dock.Bottom);
@@ -679,9 +692,151 @@ public static class RewindPainter
         return both;
     }
 
+    /// <summary>A longer period cut into weeks (3 months) or months (6 or 12): each piece's first day and its sum.</summary>
+    private static List<(DateTime Start, double Sum)> Buckets(RewindFacts f, IReadOnlyList<double> perDay)
+    {
+        var list = new List<(DateTime, double)>();
+        if (f.Kind == RewindKind.Month)
+        {
+            for (int d = 0; d < perDay.Count; d++) list.Add((f.From.AddDays(d), perDay[d]));
+            return list;
+        }
+        bool weeks = f.Kind == RewindKind.Quarter;
+        for (var start = f.From; start < f.To; start = weeks ? start.AddDays(7) : start.AddMonths(1))
+        {
+            var end = weeks ? start.AddDays(7) : start.AddMonths(1);
+            if (end > f.To) end = f.To;
+            double sum = 0;
+            for (var d = start; d < end; d = d.AddDays(1)) { int k = (int)(d - f.From).TotalDays; if (k < perDay.Count) sum += perDay[k]; }
+            list.Add((start, sum));
+        }
+        return list;
+    }
+
+    /// <summary>Under bars by week or month: the first, middle and last piece, by month name.</summary>
+    private static FrameworkElement BucketAxis(RewindFacts f, List<(DateTime Start, double Sum)> b, double u) =>
+        f.Kind == RewindKind.Month ? Axis(b[0].Start, b[b.Count / 2].Start, b[^1].Start, u, "d MMM") : Axis(b[0].Start, b[b.Count / 2].Start, b[^1].Start, u, "MMM");
+
+    /// <summary>Hours by week (3 months) or month (6 or 12), the biggest in white.</summary>
+    private static FrameworkElement PeriodStrip(RewindFacts f, double u, Color? accent, double height)
+    {
+        var b = Buckets(f, f.DayHours);
+        double most = Math.Max(1, b.Max(x => x.Sum));
+        int best = b.FindIndex(x => x.Sum == b.Max(y => y.Sum));
+        var fill = new LinearGradientBrush(accent is { } a ? Lighten(a, 0.4) : RewindLook.C("#9DB8FF"), accent ?? RewindLook.C(RewindCards.Blue), 90);
+        var grid = new UniformGrid { Rows = 1, Columns = b.Count, Height = height * u, Margin = new Thickness(-0.4 * u, 2 * u, -0.4 * u, 0) };
+        for (int k = 0; k < b.Count; k++)
+            grid.Children.Add(new Border
+            {
+                VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0.6 * u, 0, 0.6 * u, 0), CornerRadius = new CornerRadius(0.8 * u, 0.8 * u, 0.3 * u, 0.3 * u),
+                Height = Math.Max(height * u * 0.04, height * u * b[k].Sum / most), Background = k == best ? White(1) : Frozen(fill.Clone()),
+            });
+        var stack = new StackPanel();
+        stack.Children.Add(grid);
+        stack.Children.Add(BucketAxis(f, b, u));
+        return stack;
+    }
+
+    /// <summary>
+    /// Three months or more as small month calendars: two across for 3 months, three for 6, four for a year (the
+    /// room under the figure holds three rows of four, not four of three).
+    /// </summary>
+    private static FrameworkElement MonthCalendars(RewindFacts f, double u, Color? accent)
+    {
+        int months = 0;
+        for (var m = f.From; m < f.To; m = m.AddMonths(1)) months++;
+        int cols = months > 6 ? 4 : months > 3 ? 3 : 2; // 3 months: two across, big enough to fill the room
+        double gap = 3 * u, width = (86 * u - (cols - 1) * gap) / cols, cell = width / 7;
+        var grid = new UniformGrid { Columns = cols, Margin = new Thickness(-gap / 2, 0, -gap / 2, 0) };
+        double most = Math.Max(1, f.DayHours.DefaultIfEmpty(0).Max());
+        var hue = accent ?? RewindLook.C(RewindCards.Sky);
+        for (var m = f.From; m < f.To; m = m.AddMonths(1))
+        {
+            var one = new StackPanel { Margin = new Thickness(gap / 2, 0, gap / 2, gap) };
+            one.Children.Add(Text(m.ToString(cols == 4 ? "MMM" : "MMMM", CultureInfo.CurrentCulture), 3 * u, FontWeights.Bold, White(0.8), Ui, margin: new Thickness(0, 0, 0, 1.2 * u)));
+            var days = new UniformGrid { Columns = 7 };
+            int offset = ((int)m.DayOfWeek + 6) % 7;
+            for (int k = 0; k < offset; k++) days.Children.Add(new Border { Height = cell });
+            int inMonth = DateTime.DaysInMonth(m.Year, m.Month);
+            for (int d = 0; d < inMonth; d++)
+            {
+                int at = (int)(m.AddDays(d) - f.From).TotalDays;
+                var c = new Border { Height = cell - 0.4 * u, Margin = new Thickness(0.2 * u), CornerRadius = new CornerRadius(cell * 0.22) };
+                double v = at < f.DayHours.Count ? f.DayHours[at] : 0;
+                c.Background = v < 0.05 ? White(0.06) : Frozen(new SolidColorBrush(Color.FromArgb((byte)((0.25 + 0.75 * v / most) * 255), hue.R, hue.G, hue.B)));
+                if (f.BusiestDay?.Date == m.AddDays(d).Date) { c.BorderBrush = White(1); c.BorderThickness = new Thickness(0.35 * u); }
+                days.Children.Add(c);
+            }
+            one.Children.Add(days);
+            grid.Children.Add(one);
+        }
+        return grid;
+    }
+
+    /// <summary>Month by month: big columns for 3 months, rows for 6 or 12, each with that month's game (or app).</summary>
+    private static FrameworkElement Months(RewindCard card, double u, Color? accent)
+    {
+        var body = new StackPanel { Margin = new Thickness(0, 5 * u, 0, 0) };
+        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#9DB8FF"), u), 0));
+        body.Children.Add(Rise(Mega(card.Big, 13, u, top: 2, bottom: 2, wrap: true), 1));
+        body.Children.Add(Rise(Sub(card.Sub, u), 2));
+        var fill = new LinearGradientBrush(accent is { } a ? Lighten(a, 0.4) : RewindLook.C("#9DB8FF"), accent ?? RewindLook.C(RewindCards.Blue), 90);
+        FrameworkElement Pic(RewindRow r, double w, double h)
+        {
+            var box = new Border { Width = w, Height = h, CornerRadius = new CornerRadius(Math.Min(w, h) * 0.12), Background = White(0.08) };
+            if (Art(r.Path, banner: false, 300) is { } cover) box.Background = Frozen(new ImageBrush(cover) { Stretch = Stretch.UniformToFill });
+            else if (Icon(r.Path) is { } icon) box.Child = new Image { Source = icon, Width = w * 0.6, Height = w * 0.6 };
+            return box;
+        }
+        if (card.Rows.Count <= 4)
+        {
+            var cols = new UniformGrid { Rows = 1, Columns = card.Rows.Count, Height = 66 * u, Margin = new Thickness(-0.8 * u, 6 * u, -0.8 * u, 0) };
+            foreach (var r in card.Rows)
+            {
+                var col = new DockPanel { Margin = new Thickness(0.8 * u, 0, 0.8 * u, 0), LastChildFill = false };
+                var month = Text(r.Name, 3 * u, FontWeights.Normal, White(0.7), Ui); month.HorizontalAlignment = HorizontalAlignment.Center;
+                DockPanel.SetDock(month, Dock.Bottom); col.Children.Add(month);
+                double w = 86 * u / card.Rows.Count - 1.6 * u;
+                var pic = Pic(r, w, Math.Min(w * 1.5, 26 * u)); pic.Margin = new Thickness(0, 1.2 * u, 0, 1.2 * u);
+                DockPanel.SetDock(pic, Dock.Bottom); col.Children.Add(pic);
+                var bar = new Border { Height = Math.Max(1.2 * u, r.Bar * 26 * u), CornerRadius = new CornerRadius(1.2 * u, 1.2 * u, 0.3 * u, 0.3 * u), Background = Frozen(fill.Clone()) };
+                DockPanel.SetDock(bar, Dock.Bottom); col.Children.Add(bar);
+                var hours = Text(r.Value, 3.4 * u, FontWeights.Bold, White(0.9), Ui, margin: new Thickness(0, 0, 0, 1.2 * u)); hours.HorizontalAlignment = HorizontalAlignment.Center;
+                DockPanel.SetDock(hours, Dock.Bottom); col.Children.Add(hours);
+                cols.Children.Add(col);
+            }
+            body.Children.Add(Rise(cols, 3));
+        }
+        else
+        {
+            var rows = new StackPanel { Margin = new Thickness(0, 3.5 * u, 0, 0) };
+            foreach (var r in card.Rows)
+            {
+                var row = new Grid { Margin = new Thickness(0, 0, 0, 1.2 * u) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8 * u) });
+                row.ColumnDefinitions.Add(new ColumnDefinition());
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(13 * u) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6.5 * u) });
+                row.Children.Add(Centered(Text(r.Name, 3.2 * u, FontWeights.Normal, White(0.75), Ui)));
+                var track = new Border { Height = 3 * u, CornerRadius = new CornerRadius(2 * u), Background = White(0.08), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 2.4 * u, 0) };
+                var run = new Border { Height = 3 * u, CornerRadius = new CornerRadius(2 * u), Background = Frozen(fill.Clone()), HorizontalAlignment = HorizontalAlignment.Left };
+                track.Child = run;
+                track.SizeChanged += (_, e) => run.Width = Math.Max(2 * u, e.NewSize.Width * r.Bar);
+                Grid.SetColumn(track, 1); row.Children.Add(track);
+                var hours = Centered(Text(r.Value, 3.4 * u, FontWeights.Bold, White(0.9), Ui)); hours.HorizontalAlignment = HorizontalAlignment.Right; hours.Margin = new Thickness(0, 0, 1.6 * u, 0);
+                Grid.SetColumn(hours, 2); row.Children.Add(hours);
+                var pic = Pic(r, 5 * u, 7 * u); Grid.SetColumn(pic, 3); row.Children.Add(pic);
+                rows.Children.Add(row);
+            }
+            body.Children.Add(Rise(rows, 3));
+        }
+        return body;
+    }
+
     /// <summary>A bar for each day of the period, as tall as its hours; the biggest in white; days to come as stubs.</summary>
     private static FrameworkElement DayStrip(RewindFacts f, double u, Color? accent, double height, bool whole = false)
     {
+        if (f.Kind != RewindKind.Month) return PeriodStrip(f, u, accent, height);
         int total = whole && f.Kind == RewindKind.Month ? DateTime.DaysInMonth(f.From.Year, f.From.Month) : Math.Max(1, f.DayHours.Count);
         double most = Math.Max(1, f.DayHours.DefaultIfEmpty(0).Max());
         var fill = new LinearGradientBrush(accent is { } a ? Lighten(a, 0.4) : RewindLook.C("#9DB8FF"), accent ?? RewindLook.C(RewindCards.Blue), 90);
@@ -701,6 +856,19 @@ public static class RewindPainter
         stack.Children.Add(grid);
         stack.Children.Add(Axis(f.From, f.From.AddDays(total / 2), f.From.AddDays(total - 1), u, total <= 31 ? "%d" : "d MMM"));
         return stack;
+    }
+
+    /// <summary>
+    /// The words at the top and the picture in the room left under them, made smaller where there is less (a longer
+    /// sentence, another language): never cut off by the card's foot.
+    /// </summary>
+    private static FrameworkElement WordsAndPicture(FrameworkElement words, FrameworkElement picture, double u, double top)
+    {
+        var body = new DockPanel { Margin = new Thickness(0, top * u, 0, 0) };
+        DockPanel.SetDock(words, Dock.Top);
+        body.Children.Add(words);
+        body.Children.Add(Rise(new Viewbox { Child = picture, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, VerticalAlignment = VerticalAlignment.Top }, 3));
+        return body;
     }
 
     /// <summary>The day as a clock: a wedge for each hour, as long as the play in it; the busiest hours in pink.</summary>
@@ -844,6 +1012,7 @@ public static class RewindPainter
         {
             "cover" => Layered(Radial(new Point(0.5, 0.3), 0.9, 0.6, RewindLook.C("#3B2AA8")), Linear(170, (RewindLook.C("#1B1060"), 0), (RewindLook.C("#09071F"), 0.6), (RewindLook.C("#2A0B3A"), 1))),
             "time" => Frozen(Linear(165, (RewindLook.C("#0D3A63"), 0), (RewindLook.C("#061727"), 0.55), (RewindLook.C("#03101C"), 1))),
+            "months" => Frozen(Linear(170, (RewindLook.C("#121A3D"), 0), (RewindLook.C("#070912"), 1))),
             "apps" or "hours" => Frozen(Linear(165, (RewindLook.C("#0D3A63"), 0), (RewindLook.C("#061727"), 0.55), (RewindLook.C("#03101C"), 1))),
             "games" or "top" or "longest" or "type" => Frozen(Linear(160, (RewindLook.C("#3A1670"), 0), (RewindLook.C("#160733"), 0.6), (RewindLook.C("#0B041C"), 1))),
             "heat" => Layered(Radial(new Point(0.5, 0.34), 0.7, 0.45, Color.FromArgb(140, 0xB1, 0x8C, 0xFF)), Linear(170, (RewindLook.C("#250C3D"), 0), (RewindLook.C("#0D0518"), 1))),

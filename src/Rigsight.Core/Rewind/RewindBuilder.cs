@@ -55,11 +55,13 @@ public static class RewindBuilder
             Days = (int)Math.Round((to - from).TotalDays),
         };
 
+        // Each day from the daily totals: over three months the report adds history up by month, not by day.
         int dayCount = (int)Math.Round((to - from).TotalDays);
-        f.DayHours = [.. Enumerable.Range(0, dayCount).Select(k => report.Days.FirstOrDefault(d => d.Day.Date == from.AddDays(k).Date)?.ActiveSec / 3600 ?? 0)];
-        var used = report.Days.Where(d => d.OnSec > 0).ToList();
+        var dayUse = db.GetDayUse(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)).ToDictionary(d => TimeUtil.FromUnix(d.Day).Date);
+        f.DayHours = [.. Enumerable.Range(0, dayCount).Select(k => dayUse.TryGetValue(from.AddDays(k).Date, out var d) ? d.ActiveSec / 3600 : 0)];
+        var used = dayUse.Values.Where(d => d.OnSec > 0).ToList();
         f.DaysOn = used.Count;
-        if (used.MaxBy(d => d.OnSec) is { } busiest) (f.BusiestDay, f.BusiestDaySec) = (busiest.Day, busiest.OnSec);
+        if (used.Count > 0) { var busiest = used.MaxBy(d => d.OnSec); (f.BusiestDay, f.BusiestDaySec) = (TimeUtil.FromUnix(busiest.Day).Date, busiest.OnSec); }
 
         // Games: the report's own game time; each game by its time in front, the left-out ones counted in the total only.
         f.GamingSec = report.GamingSec;
@@ -71,6 +73,24 @@ public static class RewindBuilder
         f.TopApps = [.. report.Apps.Where(a => a.Category is not (AppCategory.Game or AppCategory.System) && a.ActiveSec >= 300 && !r.IsLeftOut(a.Exe))
             .OrderByDescending(a => a.ActiveSec).Take(5).Select(a => new RewindItem(a.Name, a.Exe, a.Path, a.ActiveSec, a.SessionCount))];
         Spread(allSessions, f.UseHours);
+
+        // A longer rewind, month by month: the hours in each, and the game played most in it (the app used most, on a
+        // PC that played none).
+        if (kind != RewindKind.Month)
+        {
+            var pool = sessions.Count > 0 ? sessions
+                : allSessions.Where(s => ReportBuilder.CategoryOf(apps, settings, s.AppId) is not (AppCategory.Game or AppCategory.System)).ToList();
+            for (var m = from; m < to; m = m.AddMonths(1))
+            {
+                var end = m.AddMonths(1) < to ? m.AddMonths(1) : to;
+                double hours = Enumerable.Range((int)(m - from).TotalDays, (int)(end - m).TotalDays).Where(d => d < f.DayHours.Count).Sum(d => f.DayHours[d]);
+                var top = pool.Where(s => TimeUtil.FromUnix(s.Start) >= m && TimeUtil.FromUnix(s.Start) < end && apps.TryGetValue(s.AppId, out var a) && !r.IsLeftOut(a.Exe))
+                    .GroupBy(s => s.AppId).Select(g => (Id: g.Key, Sec: g.Sum(s => s.ActiveSec))).OrderByDescending(g => g.Sec).FirstOrDefault();
+                RewindItem? item = top.Sec > 0 && apps.TryGetValue(top.Id, out var topApp)
+                    ? new RewindItem(ReportBuilder.NameOf(apps, settings, top.Id), topApp.Exe, topApp.Path, top.Sec) : null;
+                f.Months.Add(new RewindMonth(m, hours, item));
+            }
+        }
         f.Plays = sessions.Count;
         var plays = sessions.GroupBy(s => s.AppId).ToDictionary(g => g.Key, g => g.Count());
         f.TopGames = [.. games.Where(g => !r.IsLeftOut(g.Exe)).OrderByDescending(g => g.ActiveSec).Take(5)

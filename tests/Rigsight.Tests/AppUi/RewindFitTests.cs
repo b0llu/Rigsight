@@ -54,15 +54,18 @@ public sealed class RewindFitTests
         f.DayHours = [.. Enumerable.Range(0, days).Select(d => 6 + d % 9 * 1.2)];
         f.CrashesByDay = [.. Enumerable.Range(0, days).Select(d => d % 7)]; f.ShutOffsByDay = [.. Enumerable.Range(0, days).Select(d => d % 5 == 0 ? 1 : 0)];
         f.OnSec *= days / 31.0; f.GamingSec *= days / 31.0;
+        for (var m = f.From; m < f.To; m = m.AddMonths(1))
+            f.Months.Add(new RewindMonth(m, 180 + m.Month * 4, f.TopGames[m.Month % f.TopGames.Count]));
         return f;
     }
 
-    public static TheoryData<string> Cases => ["month", "no-games", "two-games", "quiet", "quarter", "year", "month in Spanish", "no-games in Spanish"];
+    public static TheoryData<string> Cases => ["month", "no-games", "two-games", "quiet", "quarter", "half", "year", "month in Spanish", "no-games in Spanish", "year in Spanish"];
 
     private static RewindFacts Case(string name) => name.Replace(" in Spanish", "") switch
     {
         "month" => Month(),
         "quarter" => Longer(RewindKind.Quarter, 92),
+        "half" => Longer(RewindKind.Half, 181),
         "year" => Longer(RewindKind.Year, 365),
         var sample => RewindSamples.Of(Month()).Single(s => s.Id.EndsWith(sample)),
     };
@@ -89,11 +92,18 @@ public sealed class RewindFitTests
                     card.UpdateLayout();
                     var body = Find(card);
                     Assert.NotNull(body);
-                    // What the card says, against the room it was given (a part taller than its room is cut off).
-                    body.Measure(new Size(body.ActualWidth, double.PositiveInfinity));
-                    double needs = body.DesiredSize.Height - body.Margin.Top - body.Margin.Bottom;
-                    if (needs > body.ActualHeight + 1)
-                        problems.Add($"{name} {shape} card {i + 1} ({cards[i].Id}): needs {needs:0} of {body.ActualHeight:0}");
+                    // What the card says, against the room left between its logo row and its foot. (Not the body's own
+                    // height: the frame hands the body all it asks for, past the foot, and the card's edge cuts it off.)
+                    var frame = (FrameworkElement)VisualTreeHelper.GetParent(body);
+                    double others = 0;
+                    for (int k = 0; k < VisualTreeHelper.GetChildrenCount(frame); k++)
+                        if (VisualTreeHelper.GetChild(frame, k) is FrameworkElement part && part != body)
+                            others += part.ActualHeight + part.Margin.Top + part.Margin.Bottom;
+                    double room = frame.ActualHeight - others - body.Margin.Top - body.Margin.Bottom;
+                    // Given less than it needs, an element is still laid out at the height it needs and then clipped: so
+                    // a body taller than its room is a card whose foot cuts something off.
+                    if (body.ActualHeight > room + 1)
+                        problems.Add($"{name} {shape} card {i + 1} ({cards[i].Id}): needs {body.ActualHeight:0} of {room:0}");
                 }
         });
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));

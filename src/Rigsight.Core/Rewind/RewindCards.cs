@@ -123,6 +123,17 @@ public static class RewindCards
             cards.Add(new("time", Lang.T("PC on for"), Lang.T("Your PC was on for"), Whole(f.OnSec / 3600), sub) { Unit = Lang.T("hours") });
         }
 
+        // A longer rewind, month by month.
+        if (f.Time && f.Months.Count > 1)
+        {
+            double most = Math.Max(1, f.Months.Max(m => m.Hours));
+            string your = f.Kind switch { RewindKind.Quarter => Lang.T("Your 3 months"), RewindKind.Half => Lang.T("Your 6 months"), _ => Lang.T("Your year") };
+            var rows = f.Months.Select(m => new RewindRow(m.Start.ToString("MMM", CultureInfo.CurrentCulture), $"{Whole(m.Hours)}h", m.Hours / most, 0, m.Top?.Exe, m.Top?.Path)).ToList();
+            cards.Add(new("months", Lang.T("Month by month"), Lang.T("Month by month"), your,
+                games ? Lang.T("Hours on your PC each month, and the game you played most in it.") : Lang.T("Hours on your PC each month, and the app you used most in it."))
+            { Wordy = true, Rows = rows });
+        }
+
         // The apps used most: for every PC, and the heart of one that never plays games.
         if (f.Time && f.TopApps.Count > 0)
         {

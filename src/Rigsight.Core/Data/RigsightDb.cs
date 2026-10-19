@@ -959,6 +959,16 @@ public sealed partial class RigsightDb : IDisposable
 
     // ── Reader ────────────────────────────────────────────────────────────
 
+    /// <summary>Each day's time on (its recorded minutes) and in use, from the daily totals: unix midnight, seconds, seconds.</summary>
+    public List<(long Day, double OnSec, double ActiveSec)> GetDayUse(long from, long to)
+    {
+        using var cmd = Cmd("SELECT day, minutes, active_sec FROM system_day WHERE day >= $from AND day < $to ORDER BY day", ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<(long, double, double)>();
+        while (r.Read()) list.Add((r.GetInt64(0), r.GetInt64(1) * 60.0, r.GetDouble(2)));
+        return list;
+    }
+
     /// <summary>Days from <paramref name="from"/> to <paramref name="to"/> (unix) the PC was used at all (a rewind needs enough of them).</summary>
     public int CountDaysUsed(long from, long to)
     {
