@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
@@ -21,7 +21,7 @@ internal static class CaseMinutesBuilder
     private const int FanSeries = 4;
 
     /// <param name="power">The crash looked like the power going off (see PcUsual.ShutOffOf).</param>
-    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions, string word = "crash", bool power = false)
+    public static Built Build(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, DateTime crash, IReadOnlyList<SessionRow> sessions, CaseWord word = CaseWord.Crash, bool power = false)
     {
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to) + 60, at = TimeUtil.ToUnix(crash);
         var rows = db.GetMinutes(f, t);

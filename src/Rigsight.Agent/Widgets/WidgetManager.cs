@@ -145,7 +145,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
         var background = new ToolStripMenuItem(Lang.T("Background opacity"));
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.5, 0.25, 0.0 })
-            background.DropDownItems.Add(Check(o == 0 ? Lang.T("None") : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.BackgroundOpacity = o)));
+            background.DropDownItems.Add(Check(o == 0 ? Lang.C("opacity", "None") : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.BackgroundOpacity = o)));
         menu.Items.Add(background);
 
         var contentOpacity = new ToolStripMenuItem(Lang.T("Content opacity"));

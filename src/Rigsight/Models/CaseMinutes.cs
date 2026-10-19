@@ -67,6 +67,9 @@ public sealed record CaseMark(DateTime At, string Label, bool IsCrash);
 /// The box beside the lanes: every reading of the minute pointed at, or of the crash's own minute. Always the same
 /// lines in the same places, whatever the minute (a dash where nothing was recorded): the box never changes size.
 /// </summary>
+/// <summary>What the moment in the box was: each has whole sentences of its own (see <see cref="CaseReadout"/>).</summary>
+public enum CaseWord { Crash, ShutOff, BlueScreen, DriverReset }
+
 public sealed partial class CaseReadout : ObservableObject
 {
     private readonly IReadOnlyList<CaseMinute> _minutes;
@@ -74,11 +77,11 @@ public sealed partial class CaseReadout : ObservableObject
 
     private readonly DateTime? _crashAt;
     private readonly bool _seconds;
-    private readonly string _word;
+    private readonly CaseWord _word;
 
     /// <param name="seconds">The close-up: a reading every two seconds, said to the second.</param>
-    /// <param name="word">What it was, as said in the box: "crash", "shut-off", "blue screen".</param>
-    public CaseReadout(IReadOnlyList<CaseMinute> minutes, int crashIndex, double? ramTotal = null, DateTime? crashAt = null, bool seconds = false, string word = "crash")
+    /// <param name="word">What it was, as said in the box: "crash", "sudden shut-off", "blue screen".</param>
+    public CaseReadout(IReadOnlyList<CaseMinute> minutes, int crashIndex, double? ramTotal = null, DateTime? crashAt = null, bool seconds = false, CaseWord word = CaseWord.Crash)
     {
         _word = word;
         _minutes = minutes;
@@ -119,6 +122,65 @@ public sealed partial class CaseReadout : ObservableObject
     /// <summary>Lines kept for each list, used or not.</summary>
     public const int FanLines = 3, CpuLines = 3, GpuLines = 2, MemLines = 3;
 
+    // The box's sentences about the moment itself, whole for each kind: another language's article and agreement
+    // differ ("antes de la pantalla azul", "antes del apagado repentino").
+
+    private string LastBefore(string said) => _word switch
+    {
+        CaseWord.ShutOff => Lang.T($"Last reading before the sudden shut-off, {said}"),
+        CaseWord.BlueScreen => Lang.T($"Last reading before the blue screen, {said}"),
+        CaseWord.DriverReset => Lang.T($"Last reading before the graphics driver reset, {said}"),
+        _ => Lang.T($"Last reading before the crash, {said}"),
+    };
+
+    private string AtThe(string said) => _word switch
+    {
+        CaseWord.ShutOff => Lang.T($"At the sudden shut-off, {said}"),
+        CaseWord.BlueScreen => Lang.T($"At the blue screen, {said}"),
+        CaseWord.DriverReset => Lang.T($"At the graphics driver reset, {said}"),
+        _ => Lang.T($"At the crash, {said}"),
+    };
+
+    private string JustBefore(string said) => _word switch
+    {
+        CaseWord.ShutOff => Lang.T($"Just before the sudden shut-off, {said}"),
+        CaseWord.BlueScreen => Lang.T($"Just before the blue screen, {said}"),
+        CaseWord.DriverReset => Lang.T($"Just before the graphics driver reset, {said}"),
+        _ => Lang.T($"Just before the crash, {said}"),
+    };
+
+    private string OwnMoment() => _word switch
+    {
+        CaseWord.ShutOff => Lang.T("The sudden shut-off's own moment"),
+        CaseWord.BlueScreen => Lang.T("The blue screen's own moment"),
+        CaseWord.DriverReset => Lang.T("The graphics driver reset's own moment"),
+        _ => Lang.T("The crash's own moment"),
+    };
+
+    private string OwnMinute() => _word switch
+    {
+        CaseWord.ShutOff => Lang.T("The sudden shut-off's own minute"),
+        CaseWord.BlueScreen => Lang.T("The blue screen's own minute"),
+        CaseWord.DriverReset => Lang.T("The graphics driver reset's own minute"),
+        _ => Lang.T("The crash's own minute"),
+    };
+
+    private string AgoBefore(string ago) => _word switch
+    {
+        CaseWord.ShutOff => Lang.T($"{ago} before the sudden shut-off"),
+        CaseWord.BlueScreen => Lang.T($"{ago} before the blue screen"),
+        CaseWord.DriverReset => Lang.T($"{ago} before the graphics driver reset"),
+        _ => Lang.T($"{ago} before the crash"),
+    };
+
+    private string MinBefore(int before) => _word switch
+    {
+        CaseWord.ShutOff => Lang.T($"{before} min before the sudden shut-off"),
+        CaseWord.BlueScreen => Lang.T($"{before} min before the blue screen"),
+        CaseWord.DriverReset => Lang.T($"{before} min before the graphics driver reset"),
+        _ => Lang.T($"{before} min before the crash"),
+    };
+
     /// <summary>The minute at <paramref name="index"/> (pointing) or, with none, the crash's own minute.</summary>
     public void Show(int? index, bool pointing = true)
     {
@@ -130,19 +192,19 @@ public sealed partial class CaseReadout : ObservableObject
         if (_seconds)
         {
             // To the second: the reading nearest the crash, then how far from it each other one is.
-            Title = pointing ? Lang.C("time", $"At {said}") : Lang.T($"Last reading before the {_word}, {said}");
+            Title = pointing ? Lang.C("time", $"At {said}") : LastBefore(said);
             double from = ((_crashAt ?? _minutes[_crash].Time) - m.Time).TotalSeconds;
-            When = !pointing ? Lang.T("Point at the lanes for any other moment") : Math.Abs(from) < 1.5 ? Lang.T($"The {_word}'s own moment")
-                : from > 0 ? Lang.T($"{Ago(from)} before the {_word}") : Lang.T($"{Ago(-from)} after it");
+            When = !pointing ? Lang.T("Point at the lanes for any other moment") : Math.Abs(from) < 1.5 ? OwnMoment()
+                : from > 0 ? AgoBefore(Ago(from)) : Lang.T($"{Ago(-from)} after it");
         }
         else
         {
             // The crash's own minute where it was recorded; else the last before it (a PC that went off records nothing after).
             bool own = _crashAt is not DateTime crashAt || m.Time.AddMinutes(1) > crashAt;
-            Title = pointing ? Lang.C("time", $"At {said}") : own ? Lang.T($"At the {_word}, {said}") : Lang.T($"Just before the {_word}, {said}");
+            Title = pointing ? Lang.C("time", $"At {said}") : own ? AtThe(said) : JustBefore(said);
             int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
             int after = -before;
-            When = !pointing ? Lang.T("Point at the lanes for any other minute") : before > 0 ? Lang.T($"{before} min before the {_word}") : before < 0 ? Lang.T($"{after} min after it") : Lang.T($"The {_word}'s own minute");
+            When = !pointing ? Lang.T("Point at the lanes for any other minute") : before > 0 ? MinBefore(before) : before < 0 ? Lang.T($"{after} min after it") : OwnMinute();
         }
         Flag1 = m.Flags.ElementAtOrDefault(0) ?? (_seconds ? Lang.T("Nothing stands out at this moment") : Lang.T("Nothing stands out in this minute"));
         Flag2 = m.Flags.ElementAtOrDefault(1) ?? "";

@@ -1296,7 +1296,7 @@ public sealed partial class LiveData : ObservableObject
             }
             node.HasVisibleSensors = any;
             int hidden = node.Sensors.Count(s => s.IsHidden);
-            node.Summary = (node.Sensors.Count == 1 ? Lang.T("1 sensor") : Lang.T($"{node.Sensors.Count} sensors")) + (hidden > 0 ? "  ·  " + Lang.T($"{hidden} hidden") : "");
+            node.Summary = (node.Sensors.Count == 1 ? Lang.T("1 sensor") : Lang.T($"{node.Sensors.Count} sensors")) + (hidden > 0 ? "  ·  " + (hidden == 1 ? Lang.T("1 hidden") : Lang.T($"{hidden} hidden")) : "");
         }
         RebuildRows();
         UpdateGlance();
