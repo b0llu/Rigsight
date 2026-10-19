@@ -451,10 +451,10 @@ public sealed partial class FansViewModel : ObservableObject
                 : "";
             foreach (var (series, sensor) in card.Series.Zip(fans))
                 series.LoadPoints(MinutesOf(sensor).Select(m => (m.Ts, (double?)m.RpmAvg)));
-            // The insights name a card's fans "your GPU fan(s)", a board's by the name its chip gives it.
-            var warning = warnings.FirstOrDefault(w => card.IsGpu
-                ? w.Text.StartsWith("Your GPU fan", StringComparison.Ordinal)
-                : fans.Any(x => w.Text.StartsWith(x.Name + " on your motherboard", StringComparison.Ordinal)));
+            // A fan line says which fan it's about: the card's, or a board fan by the name its chip gives it.
+            var warning = warnings.FirstOrDefault(w => w.FanName is { } name && (card.IsGpu
+                ? w.FanGpu
+                : !w.FanGpu && fans.Any(x => x.Name == name)));
             card.Alert = warning?.Text ?? "";
             card.AlertIsHot = warning?.Tone == Core.Reports.InsightTone.Hot;
             card.MinutesOn = fans.Max(x => Current(x).Count);

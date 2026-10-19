@@ -189,7 +189,8 @@ public static class GameLibrary
             Name = name.Trim(),
             InstallDir = installDir,
             SizeBytes = long.TryParse(v.GetValueOrDefault("SizeOnDisk"), out var size) && size > 0 ? size : null,
-            Version = v.TryGetValue("buildid", out var build) && build != "0" ? Lang.T($"build {build}") : null,
+            // Data, in one form whatever the language: the Games page words it ("Build 1234").
+            Version = v.TryGetValue("buildid", out var build) && build != "0" ? $"build {build}" : null,
             Updated = UnixDate(v.GetValueOrDefault("LastUpdated")),
             LastPlayed = UnixDate(v.GetValueOrDefault("LastPlayed")),
             LaunchTarget = "steam://rungameid/" + id,

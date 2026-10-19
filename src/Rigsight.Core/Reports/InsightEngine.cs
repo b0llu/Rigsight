@@ -1,4 +1,4 @@
-using Rigsight.Core.Apps;
+﻿using Rigsight.Core.Apps;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -67,8 +67,9 @@ public static class InsightEngine
             string cause = ex.Cause switch
             {
                 null => "",
-                var c when c.StartsWith("in ", StringComparison.Ordinal) => $", {c}",
-                var c => $": {c}",
+                // Decided on the cause as kept (English), said in the person's language (a module's name stays as it is).
+                var c when c.StartsWith("in ", StringComparison.Ordinal) => $", {Lang.T(c)}",
+                var c => $": {Lang.T(c)}",
             };
             list.Add(new Insight(IconWarn, $"{Lang.T($"{ex.Title} at {when}")}{cause}.{more}{CrashPattern(r, alerts)}", InsightTone.Warn, "crash", 95, CrashDetail(r)) { Short = Lang.T($"{ex.Title} at {when}") });
             }
@@ -184,9 +185,9 @@ public static class InsightEngine
                 string from = When(r, fan.StopStart!.Value, at: false);
                 list.Add(fan.Gpu
                     ? new Insight(IconWarn, Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)} from {from} with the GPU at {Units.TempShort(fan.StopTemp)}, when it always turns at that heat. Check it isn't blocked or unplugged."),
-                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}") }
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}") }
                     : new Insight(IconWarn, Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)} from {from}, when it always turns. Check it isn't blocked or unplugged."),
-                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}") });
+                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}") });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
             }
@@ -227,7 +228,7 @@ public static class InsightEngine
                         + " " + Check(true, fan.Gpu),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"))
-                        { Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual") });
+                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -239,7 +240,7 @@ public static class InsightEngine
                 {
                     list.Add(new Insight(IconWarn,
                         Lang.T($"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on.") + " " + Check(false, false),
-                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on") });
+                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                 }
             }
@@ -272,7 +273,7 @@ public static class InsightEngine
                               + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely.")),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"))
-                        { Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}") });
+                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }

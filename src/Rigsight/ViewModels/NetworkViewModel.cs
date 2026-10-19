@@ -466,8 +466,8 @@ public sealed partial class NetworkViewModel : ObservableObject
             ? [new("SkyBrush", Lang.T("This PC")), new("SkyBrush", Lang.T("While you were away"), 0.45)]
             : ChartMode == "Background"
             ? [new("SkyBrush", Lang.T("The app in front")), new("SkyBrush", Lang.T("In the background, or while you were away"), 0.45)]
-            : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => new NetLegend(Controls.NetBarsChart.AppBrushKeys[i], AppNames.GetValueOrDefault(id, "Unknown")))
-                    .Where(l => l.Text != "Unknown"),
+            : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => (Key: Controls.NetBarsChart.AppBrushKeys[i], Name: AppNames.GetValueOrDefault(id)))
+                    .Where(l => l.Name is not null).Select(l => new NetLegend(l.Key, l.Name!)),
                new(Controls.NetBarsChart.OtherBrushKey, Lang.T("Every other app"))];
         if (Bins.Any(b => b.UnrecordedMinutes >= Controls.NetBarsChart.MinUnrecorded)) legend = [.. legend, new NetLegend("MutedBrush", Lang.T("Not recorded"), 0.7)];
         Legend = Models.Kept.Or(Legend, legend);

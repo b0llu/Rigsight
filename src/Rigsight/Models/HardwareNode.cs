@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 
@@ -81,19 +81,23 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
     public SensorGroupEnd End => _end ??= new(this);
     private SensorGroupEnd? _end;
 
+    /// <summary>The kind of part, as a key the code goes by ("CPU", "BOARD"): <see cref="BadgeText"/> is what's shown.</summary>
     public string Badge => Type switch
     {
         "Cpu" => "CPU",
         "GpuNvidia" or "GpuAmd" or "GpuIntel" => "GPU",
-        "Motherboard" or "SuperIO" or "EmbeddedController" => "BOARD",
+        "Motherboard" or "SuperIO" or "EmbeddedController" => Lang.Key("BOARD"),
         "Memory" => "RAM",
-        "Storage" => "DRIVE",
-        "Cooler" => "COOLER",
+        "Storage" => Lang.Key("DRIVE"),
+        "Cooler" => Lang.Key("COOLER"),
         "Psu" => "PSU",
-        "Battery" => "BATTERY",
-        "Network" => "NET",
-        _ => "DEVICE",
+        "Battery" => Lang.Key("BATTERY"),
+        "Network" => Lang.Key("NET"),
+        _ => Lang.Key("DEVICE"),
     };
+
+    /// <summary>The badge as shown, in the person's language.</summary>
+    public string BadgeText => Lang.T(Badge);
 }
 
 /// <summary>One reading on a part's header: a sensor's value with a word after it ("5% load"), or plain words ("4 fans spinning").</summary>
