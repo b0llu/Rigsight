@@ -1,4 +1,4 @@
-# The checks before a release. Stops at the first stage that fails.
+﻿# The checks before a release. Stops at the first stage that fails.
 #   powershell -ExecutionPolicy Bypass -File tools\test.ps1 -Admin -Installed     # before a release
 #
 # By default only what the changes since the last release need is run (tests\Rigsight.Impact decides, and says why):
@@ -190,6 +190,25 @@ else {
     if ($Admin) { $e2eArgs += '--admin'; Write-Host '  (a Windows admin prompt will appear for the test agent: accept it)' -ForegroundColor Yellow }
     dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release -- @e2eArgs
     if ($LASTEXITCODE) { Failed 'end-to-end (see the report in the results folder)' }
+
+    # Each language pack, as people download it: the same page switches, CPU and memory against the same budgets as
+    # English (a translated line is looked up and filled each time; pages, widgets and the overlay redraw every second).
+    foreach ($pack in Get-ChildItem (Join-Path $root 'languages\*.json') -ErrorAction SilentlyContinue) {
+        $code = $pack.BaseName
+        Stage "End-to-end in $code (quick): the same budgets as English"
+        $released = Join-Path $results "language-$code.json"
+        $version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props'))).Project.PropertyGroup.Version
+        Push-Location $root
+        dotnet run --project tools\Rigsight.LangTool -v q -- release $pack.FullName $version $released
+        $made = $LASTEXITCODE
+        Pop-Location
+        if ($made) { Failed "the $code pack (see the language tool's output above)" }
+        $langArgs = @('--bin', $publish, '--out', (Join-Path $results "e2e-$code"), '--quick', '--language', $released)
+        if (-not $Seeded) { $langArgs += '--real-data' }
+        if ($Admin) { $langArgs += '--admin' }
+        dotnet run --project (Join-Path $root 'tests\Rigsight.E2E') -c Release --no-build -- @langArgs
+        if ($LASTEXITCODE) { Failed "end-to-end in $code (see the report in the results folder)" }
+    }
 
     # The made-up year: what a long history costs, which this PC's own doesn't show yet. Only when asked for (-Year)
     # or when the code that stores, reads or sums up history changed since the last release.

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -53,6 +53,9 @@ internal static class Program
         // the window for a fifth of a second.) The made-up year stays for what a long history costs.
         string realDb = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rigsight", "rigsight.db");
         bool real = args.Contains("--real-data");
+        // --language <pack.json>: the test copy runs in that language (a release-form pack, as people download it),
+        // measured against the same budgets and baseline as English, so another language can't cost more unseen.
+        string? languagePack = Arg("--language") is { } lp ? Path.GetFullPath(lp) : null;
         if (real && !File.Exists(realDb))
         {
             Console.WriteLine("  --real-data: no history of this PC's own was found; using the made-up year.");
@@ -104,6 +107,15 @@ internal static class Program
             else SeedData.Generate(RigsightPaths.Database, SeedProfile.Typical);
             var settings = SeedData.QuietSettings();
             settings.CustomPages.Add(Dashboard());
+            if (languagePack is not null)
+            {
+                var pack = LanguagePack.Load(languagePack);
+                Directory.CreateDirectory(LanguageStore.Folder);
+                File.Copy(languagePack, LanguageStore.PackPath(pack.Code), overwrite: true);
+                settings.Language = pack.Code;
+                Lang.Use(pack); // this runner looks for what the window shows in that language
+                Console.WriteLine($"  language: {pack.Name} ({pack.Code}), {pack.Strings.Count} texts");
+            }
             SettingsStore.Save(settings);
             long seededMinutes = Count(RigsightPaths.Database, "system_minute");
             long seedEnd = Scalar(RigsightPaths.Database, "SELECT max(ts) FROM system_minute");
@@ -592,7 +604,7 @@ internal static class Program
         while (true)
         {
             texts = ui.Texts();
-            if (shown < 0 && texts.Contains("Today so far")) shown = sw.ElapsedMilliseconds;
+            if (shown < 0 && texts.Contains(AppUi.Say("Today so far"))) shown = sw.ElapsedMilliseconds;
             if (AppUi.HomeFilled(texts)) break;
             if (shown >= 0) looks++;
             empties.UnionWith(texts.Where(AppUi.SaysNothingHere));
@@ -1248,7 +1260,24 @@ internal sealed class AppUi(Process app)
         }
     }
 
-    public bool Has(string name) => Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)) is not null;
+    public bool Has(string name) => ByName(name) is not null;
+
+    /// <summary>
+    /// Something in the window by its name: as the window shows it in the run's language, else as written (names
+    /// meant only for screen readers and tests, like "Settings and more", stay English in every language).
+    /// </summary>
+    private AutomationElement? ByName(string name) =>
+        Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, Say(name)))
+        ?? (Lang.Translating ? Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)) : null);
+
+    /// <summary>Names a person typed themselves: the app shows them as they are in every language.</summary>
+    private static readonly HashSet<string> AsTyped = ["Everything"];
+
+    /// <summary>
+    /// What the window calls something in the language the run uses (--language): the runner looks for the same
+    /// names the app shows. English (no pack) as it is.
+    /// </summary>
+    public static string Say(string english) => AsTyped.Contains(english) ? english : Lang.T(english);
 
     /// <summary>Every piece of text in the window as it is now.</summary>
     public List<string> Texts()
@@ -1269,12 +1298,15 @@ internal sealed class AppUi(Process app)
     /// Home has its history: the recap card shows the period's figures. (Not its "No history for…" line: a Home that
     /// said so before it had read anything is the very thing looked for, and the history used here always has a recap.)
     /// </summary>
-    public static bool HomeFilled(IEnumerable<string> texts) => texts.Any(t => t.StartsWith("active · PC on for", StringComparison.Ordinal));
+    public static bool HomeFilled(IEnumerable<string> texts) => texts.Any(t => t.StartsWith(Say("active · PC on for"), StringComparison.Ordinal));
 
     /// <summary>A line a card of Home shows when it has nothing: only true once the history has been read.</summary>
     public static bool SaysNothingHere(string text) =>
-        text.StartsWith("No history for", StringComparison.Ordinal) || text.StartsWith("Nothing out of the ordinary", StringComparison.Ordinal)
-        || text.StartsWith("Nothing has changed", StringComparison.Ordinal) || text.StartsWith("Your most-used apps show up here", StringComparison.Ordinal);
+        Lang.Translating
+            ? text == Say("No history for yesterday yet.") || text == Say("Nothing out of the ordinary so far.")
+              || text == Say("Nothing has changed in the last 30 days.") || text == Say("Your most-used apps show up here after a few minutes of use.")
+            : text.StartsWith("No history for", StringComparison.Ordinal) || text.StartsWith("Nothing out of the ordinary", StringComparison.Ordinal)
+              || text.StartsWith("Nothing has changed", StringComparison.Ordinal) || text.StartsWith("Your most-used apps show up here", StringComparison.Ordinal);
 
     /// <summary>The sidebar's CPU/GPU readings show a degree sign once the agent sends live values.</summary>
     /// <summary>
@@ -1287,7 +1319,7 @@ internal sealed class AppUi(Process app)
 
     public void Press(string name)
     {
-        AutomationElement? Find(string n) => Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, n));
+        AutomationElement? Find(string n) => ByName(n);
         var e = Find(name);
         // Settings is a line of the menu its row at the foot of the sidebar opens: open that first. Asked again for a
         // few seconds, the row included: while the window is busy (a page just switched, the menu being built as a
@@ -1311,7 +1343,7 @@ internal sealed class AppUi(Process app)
     public SelectionItemPattern NavItem(string page)
     {
         var e = Root.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.NameProperty, page), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton)))
+            new PropertyCondition(AutomationElement.NameProperty, Say(page)), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton)))
             ?? throw new Exception($"No \"{page}\" in the sidebar");
         return (SelectionItemPattern)e.GetCurrentPattern(SelectionItemPattern.Pattern);
     }
