@@ -97,6 +97,29 @@ public static class LanguageStore
         return pack;
     }
 
+    /// <summary>
+    /// After an update: the pack in use was made for an older version, so this version's pack (with the new text) is
+    /// downloaded and put in use. Only where updates may contact GitHub by themselves (<paramref name="mayCheck"/>:
+    /// Update automatically on, not a test copy); otherwise Settings offers it. Returns whether a newer pack came.
+    /// Never throws: with no network the old pack stays, and its missing text stays English.
+    /// </summary>
+    public static async Task<bool> RefreshAsync(bool mayCheck, CancellationToken ct = default)
+    {
+        var pack = Lang.Pack;
+        if (pack is null || !IsOlder(pack) || !mayCheck || RigsightPaths.IsTestInstance) return false;
+        try
+        {
+            var fresh = await DownloadAsync(pack.Code, ct);
+            Lang.Use(fresh);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            Log.Write("Language", $"The {pack.Code} pack is for {pack.ForApp} and this is {ReleaseFeed.Current.ToString(3)}; the newer pack couldn't be had, so the old one stays: {ex.Message}");
+            return false;
+        }
+    }
+
     /// <summary>Deletes a downloaded pack (English needs none).</summary>
     public static void Remove(string code)
     {

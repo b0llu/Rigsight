@@ -24,3 +24,17 @@ foreach ($project in 'src\Rigsight.Agent', 'src\Rigsight') {
 if ($LASTEXITCODE) { throw 'Inno Setup failed' }
 
 Write-Host "`nInstaller: $(Join-Path $root "dist\Rigsight-Setup-$version.exe")" -ForegroundColor Green
+
+# The language packs, attached to the same release: dist\Rigsight-Language-<code>.json, made for this version. A pack
+# with any text untranslated or not fitting stops the build, so a release never ships Spanish screens half in English.
+Push-Location $root
+try {
+    foreach ($pack in Get-ChildItem (Join-Path $root 'languages\*.json')) {
+        $code = $pack.BaseName
+        dotnet run --project tools\Rigsight.LangTool -v q -- check $pack.FullName
+        if ($LASTEXITCODE) { throw "The $code pack isn't complete (see the list above): run the language tool's sync, translate, and build again" }
+        dotnet run --project tools\Rigsight.LangTool -v q -- release $pack.FullName $version (Join-Path $root "dist\Rigsight-Language-$code.json")
+        if ($LASTEXITCODE) { throw "Writing the $code pack failed" }
+    }
+} finally { Pop-Location }
+Write-Host "Attach dist\Rigsight-Language-*.json to the GitHub release too." -ForegroundColor Green

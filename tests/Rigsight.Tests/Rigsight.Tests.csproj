@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\Rigsight.Core\Rigsight.Core.csproj" />
     <ProjectReference Include="..\..\src\Rigsight.Agent\Rigsight.Agent.csproj" />
     <ProjectReference Include="..\..\src\Rigsight\Rigsight.csproj" />
+    <ProjectReference Include="..\..\tools\Rigsight.LangTool\Rigsight.LangTool.csproj" />
   </ItemGroup>
 
 </Project>

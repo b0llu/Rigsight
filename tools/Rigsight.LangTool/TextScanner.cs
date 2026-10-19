@@ -87,11 +87,16 @@ public static partial class TextScanner
     {
         var sb = new StringBuilder();
         int n = 0;
+        // A raw string ($"""...""") holds its braces as they are; a regular one keeps them doubled in the token's text.
+        bool raw = s.StringStartToken.IsKind(SyntaxKind.InterpolatedMultiLineRawStringStartToken)
+                   || s.StringStartToken.IsKind(SyntaxKind.InterpolatedSingleLineRawStringStartToken);
         foreach (var part in s.Contents)
         {
             if (part is InterpolatedStringTextSyntax text)
             {
-                sb.Append(text.TextToken.ValueText.Replace("{", "{{").Replace("}", "}}"));
+                string literal = text.TextToken.ValueText;
+                if (!raw) literal = literal.Replace("{{", "{").Replace("}}", "}");
+                sb.Append(literal.Replace("{", "{{").Replace("}", "}}"));
                 continue;
             }
             var hole = (InterpolationSyntax)part;
