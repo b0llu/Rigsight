@@ -965,7 +965,7 @@ internal sealed class AgentContext : ApplicationContext
         foreach (var x in settings.Overlay.Sensors)
         {
             if (_sensors.ReadSensor(x.Id) is not { } r) continue;
-            string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? r.Name;
+            string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? SensorWords.Show(r.Name);
             list.Add(new OverlaySensorReading(label, r.Kind, r.Value));
         }
         return list;
@@ -981,7 +981,7 @@ internal sealed class AgentContext : ApplicationContext
         var map = new Dictionary<string, OverlaySensorReading>();
         foreach (var id in WidgetSensorIds(settings))
             if (_sensors.ReadSensor(id) is { } r)
-                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value);
+                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value);
         return map;
     }
 
@@ -1011,7 +1011,7 @@ internal sealed class AgentContext : ApplicationContext
         foreach (var id in settings.TraySensors)
         {
             list.Add(_sensors.ReadSensor(id) is { } r
-                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
+                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
                     TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)))
                 : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, ""));
         }

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
 
@@ -79,10 +79,11 @@ public sealed partial class SensorItem : ObservableObject
     /// <summary>Whether the row passes the current filter on the Sensors page.</summary>
     [ObservableProperty] private bool _isShown = true;
 
-    public string DisplayName => string.IsNullOrWhiteSpace(CustomLabel) ? Name : CustomLabel!;
+    /// <summary>The name a person gave it, else its own name in the language in use (see <see cref="SensorWords"/>).</summary>
+    public string DisplayName => string.IsNullOrWhiteSpace(CustomLabel) ? SensorWords.Show(Name) : CustomLabel!;
 
     /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
-    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{Name}  ·  click to rename");
+    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{SensorWords.Show(Name)}  ·  click to rename");
 
     /// <summary>Two-way bindable name used by the inline rename box. Empty resets to the original name.</summary>
     public string Label
@@ -91,7 +92,8 @@ public sealed partial class SensorItem : ObservableObject
         set
         {
             var trimmed = value?.Trim();
-            var newLabel = string.IsNullOrEmpty(trimmed) || trimmed == Name ? null : trimmed;
+            // Its own name back, in English or as shown, is no rename.
+            var newLabel = string.IsNullOrEmpty(trimmed) || trimmed == Name || trimmed == SensorWords.Show(Name) ? null : trimmed;
             if (newLabel == CustomLabel) return;
             CustomLabel = newLabel;
             UserPreferenceChanged?.Invoke(this);
