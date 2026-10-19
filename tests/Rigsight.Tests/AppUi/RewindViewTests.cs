@@ -42,6 +42,8 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
             var layer = Layer();
             Assert.Equal(Visibility.Visible, ((FrameworkElement)layer.FindName("CardFrame")).Visibility);
             Assert.NotNull(((Border)layer.FindName("CardHost")).Child);
+            Assert.Null(((Border)layer.FindName("PeekPrev")).Child);
+            Assert.NotNull(((Border)layer.FindName("PeekNext")).Child);
             var next = Visuals.Descendants<Button>(layer).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "Next");
             Assert.True(next.IsEnabled);
         });
@@ -57,10 +59,7 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         {
             Assert.True(vm.AtEnd);
             var layer = Layer();
-            var progress = (Panel)layer.FindName("Progress");
-            Assert.Equal(n, progress.Children.Count);
-            var faint = (SolidColorBrush)Application.Current.FindResource("FaintBrush");
-            Assert.All(progress.Children.Cast<Border>(), b => Assert.Equal(faint.Color, ((SolidColorBrush)b.Background).Color));
+            Assert.Null(((Border)layer.FindName("CardHost")).Child);
             Assert.Equal(n, ((Panel)layer.FindName("Thumbs")).Children.Count);
             Ui.SavePng(host.Window, Path.Combine(Shots, "rewind-end.png"));
         });
@@ -83,8 +82,6 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         var vm = host.Shell.Rewind;
         Assert.True(vm.AtEnd, shot);
         var layer = Layer();
-        var faint = ((SolidColorBrush)Application.Current.FindResource("FaintBrush")).Color;
-        Assert.All(((Panel)layer.FindName("Progress")).Children.Cast<Border>(), b => Assert.Equal(faint, ((SolidColorBrush)b.Background).Color));
         Assert.Equal(n, ((Panel)layer.FindName("Thumbs")).Children.Count);
         Ui.SavePng(host.Window, Path.Combine(Shots, shot + ".png"));
     });
@@ -125,7 +122,7 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         // Share, a shape and a look changed (settings saved and sent back by the agent), then closed.
         Ui.Run(() => vm.OpenShareCommand.Execute(null));
         Ui.Pump(200);
-        Ui.Run(() => { vm.Shape = "post"; vm.SetTheme("grey"); vm.SetAccent("pink"); });
+        Ui.Run(() => { vm.Shape = "post"; vm.SetAccent("pink"); });
         Ui.Pump(600);
         Ui.Run(() => vm.SameAsAppCommand.Execute(null));
         Ui.Pump(400);

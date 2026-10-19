@@ -1,4 +1,4 @@
-namespace Rigsight.Core.Rewind;
+﻿namespace Rigsight.Core.Rewind;
 
 /// <summary>How long a rewind looks back: a month, three months, six months or a year (never longer).</summary>
 public enum RewindKind { Month, Quarter, Half, Year }
@@ -43,6 +43,12 @@ public sealed class RewindFacts
     public int Days { get; set; }
     public DateTime? BusiestDay { get; set; }
     public double BusiestDaySec { get; set; }
+    /// <summary>Hours the PC was in use on each day of the period, from its first day (for the calendar and the day strip).</summary>
+    public List<double> DayHours { get; set; } = [];
+    /// <summary>The apps (not games) used the most, by their time in front.</summary>
+    public List<RewindItem> TopApps { get; set; } = [];
+    /// <summary>Hours of use in each hour of the day, every app and game, over the whole period.</summary>
+    public double[] UseHours { get; set; } = new double[24];
 
     // Games
     public double GamingSec { get; set; }
@@ -51,6 +57,9 @@ public sealed class RewindFacts
     public List<RewindItem> TopGames { get; set; } = [];
     public RewindItem? LongestGame { get; set; }
     public DateTime? LongestStart { get; set; }
+    public DateTime? LongestEnd { get; set; }
+    /// <summary>Hours of play in each hour of the day (0 = midnight to 1 AM), over the whole period.</summary>
+    public double[] PlayHours { get; set; } = new double[24];
     /// <summary>The games' share of evening and night play (after 9 PM), for the kind of player.</summary>
     public double NightShare { get; set; }
 
@@ -74,4 +83,7 @@ public sealed class RewindFacts
     // Problems
     public int AppCrashes { get; set; }
     public int ShutOffs { get; set; }
+    /// <summary>App crashes and sudden shut-offs on each day of the period, from its first day.</summary>
+    public List<int> CrashesByDay { get; set; } = [];
+    public List<int> ShutOffsByDay { get; set; } = [];
 }

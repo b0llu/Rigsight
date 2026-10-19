@@ -28,6 +28,11 @@ public partial class RewindLayer : UserControl
         };
         PreviewKeyDown += OnKey;
         PreviewBox.SizeChanged += (_, _) => DrawPreview();
+        // The card's corners: a border's radius doesn't clip the picture inside it.
+        RewindPainter.Round(CardHost, 20);
+        RewindPainter.Round(PeekPrev, 16);
+        RewindPainter.Round(PeekNext, 16);
+        RewindPainter.Round(PreviewHost, 10);
     }
 
     private void OnChanged(object? sender, PropertyChangedEventArgs e)
@@ -40,7 +45,7 @@ public partial class RewindLayer : UserControl
                 Focus();
                 break;
             case nameof(RewindViewModel.IsWatching):
-                if (!_vm.IsWatching) { CardHost.Child = null; Thumbs.Children.Clear(); Progress.Children.Clear(); }
+                if (!_vm.IsWatching) { CardHost.Child = null; PeekPrev.Child = null; PeekNext.Child = null; Thumbs.Children.Clear(); }
                 else DrawCard();
                 Dispatcher.BeginInvoke(() => Focus(), System.Windows.Threading.DispatcherPriority.Input);
                 break;
@@ -50,7 +55,7 @@ public partial class RewindLayer : UserControl
                 DrawCard();
                 break;
             case nameof(RewindViewModel.IsSharing):
-                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; ThemeSwatches.Children.Clear(); AccentSwatches.Children.Clear(); DrawCard(); }
+                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; AccentSwatches.Children.Clear(); DrawCard(); }
                 break;
             case nameof(RewindViewModel.Previewed):
                 DrawPreview();
@@ -75,7 +80,7 @@ public partial class RewindLayer : UserControl
         else if (_vm.IsRevealing && e.Key == Key.Escape) { _vm.LaterCommand.Execute(null); e.Handled = true; }
     }
 
-    private RewindLook ViewLook => _vm!.AppLook;
+    private RewindLook ViewLook => _vm!.Own;
 
     /// <summary>The full screen's three cards: most played (or the first after the cover) left, the cover in front, the next right.</summary>
     private void DrawFan()
@@ -122,29 +127,30 @@ public partial class RewindLayer : UserControl
     {
         if (_vm?.Watched is not { } f || !_vm.IsWatching) return;
         var cards = _vm.Cards;
-        Progress.Children.Clear();
-        Progress.Columns = Math.Max(1, cards.Count);
-        for (int i = 0; i < cards.Count; i++)
+        FrameworkElement Tall(int k, double w, double h) => new Viewbox
         {
-            string key = i < _vm.Index ? "FaintBrush" : i == _vm.Index ? "TextBrush" : "Surface2Brush";
-            var seg = new Border { Height = 3, CornerRadius = new CornerRadius(2), Margin = new Thickness(2, 0, 2, 0) };
-            seg.SetResourceReference(Border.BackgroundProperty, key);
-            Progress.Children.Add(seg);
+            Stretch = Stretch.Fill, Width = w, Height = h,
+            Child = RewindPainter.Card(cards[k], f, k, cards.Count, "story", ViewLook, 1080, 1920),
+        };
+        PeekPrev.Child = _vm.Index > 0 && _vm.Index - 1 < cards.Count ? Tall(_vm.Index - 1, 200, 356) : null;
+        PeekNext.Child = _vm.Index + 1 < cards.Count ? Tall(_vm.Index + 1, 200, 356) : null;
+        if (_vm.Current is not null)
+        {
+            var face = RewindPainter.Card(cards[_vm.Index], f, _vm.Index, cards.Count, "story", ViewLook, 1080, 1920);
+            CardHost.Child = new Viewbox { Stretch = Stretch.Fill, Child = face };
+            // The pieces rise in once the card is laid out (a picture made for Share stays still).
+            Dispatcher.BeginInvoke(() => RewindPainter.Animate(face), System.Windows.Threading.DispatcherPriority.Loaded);
         }
-        if (_vm.Current is { } card)
-            CardHost.Child = RewindPainter.Card(card, f, _vm.Index, cards.Count, "wide", ViewLook, 900, 506);
         else
         {
             CardHost.Child = null;
             Thumbs.Children.Clear();
-            for (int i = 0; i < cards.Count; i++)
-                Thumbs.Children.Add(new Border
-                {
-                    Width = 84, Height = 47, CornerRadius = new CornerRadius(5), ClipToBounds = true, Margin = new Thickness(4),
-                    Child = new Viewbox { Stretch = Stretch.Fill, Child = RewindPainter.Card(cards[i], f, i, cards.Count, "wide", ViewLook, 1600, 900) },
-                });
+            for (int k = 0; k < cards.Count; k++)
+                Thumbs.Children.Add(new Border { Width = 52, Height = 92, CornerRadius = new CornerRadius(6), ClipToBounds = true, Margin = new Thickness(4), Child = Tall(k, 52, 92) });
         }
     }
+
+    private void PeekPrev_Click(object sender, MouseButtonEventArgs e) => _vm?.PreviousCommand.Execute(null);
 
     private void Card_Click(object sender, MouseButtonEventArgs e) => _vm?.NextCommand.Execute(null);
 
@@ -185,31 +191,22 @@ public partial class RewindLayer : UserControl
     private void PickThumb_Loaded(object sender, RoutedEventArgs e)
     {
         if (_vm?.Watched is not { } f || sender is not Border box || box.Tag is not SharePick p) return;
-        box.Child = new Viewbox { Stretch = Stretch.Fill, Child = RewindPainter.Card(p.Card, f, p.Index, _vm.Cards.Count, "wide", _vm.Look, 1600, 900) };
+        box.Child = new Viewbox { Stretch = Stretch.Fill, Child = RewindPainter.Card(p.Card, f, p.Index, _vm.Cards.Count, "story", _vm.Look, 1080, 1920) };
     }
 
-    /// <summary>The six themes (half background, half surface) and the accents: a ring on the one in use.</summary>
+    /// <summary>The accents, RigSight's own colours first: a ring on the one in use.</summary>
     private void DrawSwatches()
     {
         if (_vm is null) return;
         var look = _vm.Look;
-        ThemeSwatches.Children.Clear();
-        foreach (var t in RewindLook.Themes)
-        {
-            var fill = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
-            fill.GradientStops.Add(new GradientStop(t.Bg, 0.5));
-            fill.GradientStops.Add(new GradientStop(t.Surface, 0.5));
-            string key = t.Key;
-            ThemeSwatches.Children.Add(Swatch(22, fill, look.Theme == key, Core.Lang.T(t.Name), () => _vm.SetTheme(key)));
-        }
         AccentSwatches.Children.Clear();
         foreach (var a in Accents.All)
         {
             Brush fill = a.Key == Accents.Mono
                 ? new LinearGradientBrush(Color.FromRgb(0x5B, 0x8C, 0xFF), Color.FromRgb(0xF4, 0x72, 0xB6), 45)
-                : new SolidColorBrush(look.IsLight ? a.OnLight : a.OnDark);
+                : new SolidColorBrush(a.OnDark);
             string key = a.Key;
-            AccentSwatches.Children.Add(Swatch(16, fill, look.Accent == key, Core.Lang.T(a.Name), () => _vm.SetAccent(key)));
+            AccentSwatches.Children.Add(Swatch(16, fill, look.Accent == key, key == Accents.Mono ? Core.Lang.T("RigSight colours") : Core.Lang.T(a.Name), () => _vm.SetAccent(key)));
         }
     }
 

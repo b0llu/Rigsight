@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -129,6 +129,7 @@ public sealed partial class RewindViewModel : ObservableObject
     public async Task StartAsync()
     {
         var now = DateTime.Now;
+        await EnsureGamesAsync();
         bool thisMonth = RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_REWIND_THIS_MONTH") == "1";
         await _reports.QueryAsync((db, s) =>
         {
@@ -149,6 +150,17 @@ public sealed partial class RewindViewModel : ObservableObject
         var biggest = fresh.OrderByDescending(e => e.Facts.To).ThenByDescending(e => e.Facts.Kind).First();
         if (S.FullScreen) Reveal(biggest.Facts, fresh.Where(e => e != biggest).Select(e => e.Facts).ToList());
         RaiseWaiting();
+    }
+
+    /// <summary>
+    /// The launchers' games, for the cards' covers and art: read here when the Games page hasn't been opened yet (it
+    /// keeps them in the same place once it has).
+    /// </summary>
+    private static async Task EnsureGamesAsync()
+    {
+        if (Core.Apps.AppCatalog.InstalledGames.Count > 0) return;
+        try { Core.Apps.AppCatalog.InstalledGames = await Task.Run(() => Core.Games.GameLibrary.Scan(Core.Games.GameSources.ThisPc(withArt: true))); }
+        catch (Exception ex) { Log.Error("rewind", ex); }
     }
 
     // ── The full screen when one is ready ────────────────────────────────
@@ -254,9 +266,10 @@ public sealed partial class RewindViewModel : ObservableObject
     [ObservableProperty] private SharePick? _previewed;
     public string Shape { get => S.ShareShape is "story" or "post" or "wide" ? S.ShareShape : "story"; set { _settings.Update(s => s.Rewind.ShareShape = value); OnPropertyChanged(); OnPropertyChanged(nameof(ShapeSize)); LookChanged?.Invoke(); } }
     public string ShapeSize => RewindPainter.Sizes[Shape] is var (w, h) ? $"{w} × {h}" : "";
-    public RewindLook AppLook => RewindLook.App(_settings.Current);
-    public RewindLook Look => new(S.ShareTheme.Length > 0 ? S.ShareTheme : AppLook.Theme, S.ShareAccent.Length > 0 ? S.ShareAccent : AppLook.Accent);
-    public bool LookIsApps => Look == AppLook;
+    /// <summary>RigSight's own colours for the cards; an accent picked in Share recolours them all.</summary>
+    public RewindLook Own => new(Accents.Mono);
+    public RewindLook Look => new(S.ShareAccent.Length > 0 ? Accents.Normalize(S.ShareAccent) : Accents.Mono);
+    public bool LookIsApps => Look == Own;
     public string ShareTitle => Watched is { } f ? Lang.T($"Share your {RewindCards.Title(f)} rewind") : "";
     public int IncludedCount => Picks.Count(p => p.Included);
     public string PickCount => Lang.T($"{IncludedCount} of {Picks.Count}");
@@ -265,9 +278,8 @@ public sealed partial class RewindViewModel : ObservableObject
     /// <summary>The view redraws the preview and the small pictures when the shape or look changes.</summary>
     public event Action? LookChanged;
 
-    public void SetTheme(string key) { _settings.Update(s => s.Rewind.ShareTheme = key == AppLook.Theme && S.ShareAccent.Length == 0 ? "" : key); RaiseLook(); }
-    public void SetAccent(string key) { _settings.Update(s => s.Rewind.ShareAccent = key == AppLook.Accent && S.ShareTheme.Length == 0 ? "" : key); RaiseLook(); }
-    [RelayCommand] private void SameAsApp() { _settings.Update(s => { s.Rewind.ShareTheme = ""; s.Rewind.ShareAccent = ""; }); RaiseLook(); }
+    public void SetAccent(string key) { _settings.Update(s => s.Rewind.ShareAccent = key == Accents.Mono ? "" : key); RaiseLook(); }
+    [RelayCommand] private void SameAsApp() { _settings.Update(s => { s.Rewind.ShareAccent = ""; }); RaiseLook(); }
     private void RaiseLook() { OnPropertyChanged(nameof(Look), nameof(LookIsApps)); LookChanged?.Invoke(); }
 
     [RelayCommand]

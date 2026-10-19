@@ -29,7 +29,6 @@ public sealed class RewindSettings
     public bool Notify { get; set; } = true;
 
     /// <summary>The pictures' look in Share: a theme's and an accent's key, empty for the app's own.</summary>
-    public string ShareTheme { get; set; } = "";
     public string ShareAccent { get; set; } = "";
 
     /// <summary>The pictures' shape in Share: "story", "post" or "wide".</summary>

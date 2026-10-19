@@ -123,11 +123,13 @@ public class RewindTests
     {
         var cards = RewindCards.Of(October());
         var time = cards.Single(c => c.Id == "time");
-        Assert.Equal(("Your PC was on for", "211h 38m"), (time.Label, time.Big));
-        Assert.Equal("You were using it for 188h 25m of that.", time.Sub);
+        Assert.Equal(("Your PC was on for", "212", "hours"), (time.Label, time.Big, time.Unit));
+        Assert.Equal("On 17 of 31 days. Your biggest day was Saturday 10 October: 15 hours on.", time.Sub);
+        var games = cards.Single(c => c.Id == "games");
+        Assert.Equal(("Time in games", "62h", "30m"), (games.Label, games.Big, games.Unit));
         foreach (var c in cards.Where(c => c.Big.Length > 0 && c.Sub is not null))
             Assert.DoesNotContain(c.Big, c.Sub!);
-        Assert.Equal("Your PC was on for 212 hours, and 62 of them went to games.", cards[0].Sub);
+        Assert.Equal("212 hours on your PC. 62 of them in 17 games.", cards[0].Sub);
     }
 
     [Fact]
@@ -159,7 +161,7 @@ public class RewindTests
         var top = RewindCards.Of(f).Single(c => c.Id == "top");
         Assert.Equal("REMATCH", top.Big);
         Assert.DoesNotContain(top.Rows, r => r.Name == "Dota 2");
-        Assert.Equal("62h 30m", RewindCards.Of(f).Single(c => c.Id == "games").Big);
+        Assert.Equal(("62h", "30m"), (RewindCards.Of(f).Single(c => c.Id == "games").Big, RewindCards.Of(f).Single(c => c.Id == "games").Unit));
     }
 
     [Theory]
