@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -261,7 +260,7 @@ public sealed partial class RewindViewModel : ObservableObject
     public string ShareTitle => Watched is { } f ? Lang.T($"Share your {RewindCards.Title(f)} rewind") : "";
     public int IncludedCount => Picks.Count(p => p.Included);
     public string PickCount => Lang.T($"{IncludedCount} of {Picks.Count}");
-    public string ExportText => IncludedCount == 1 ? Lang.T("Export 1 picture") : Lang.T($"Export {IncludedCount} pictures");
+    public string CopyText => IncludedCount == 1 ? Lang.T("Copy 1 picture") : Lang.T($"Copy {IncludedCount} pictures");
 
     /// <summary>The view redraws the preview and the small pictures when the shape or look changes.</summary>
     public event Action? LookChanged;
@@ -278,15 +277,15 @@ public sealed partial class RewindViewModel : ObservableObject
         for (int i = 0; i < Cards.Count; i++)
         {
             var p = new SharePick(Cards[i], i);
-            p.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SharePick.Included)) OnPropertyChanged(nameof(IncludedCount), nameof(PickCount), nameof(ExportText)); };
+            p.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SharePick.Included)) OnPropertyChanged(nameof(IncludedCount), nameof(PickCount), nameof(CopyText)); };
             Picks.Add(p);
         }
         Preview(Picks.FirstOrDefault());
-        OnPropertyChanged(nameof(ShareTitle), nameof(IncludedCount), nameof(PickCount), nameof(ExportText), nameof(Shape), nameof(ShapeSize), nameof(Look), nameof(LookIsApps));
+        OnPropertyChanged(nameof(ShareTitle), nameof(IncludedCount), nameof(PickCount), nameof(CopyText), nameof(Shape), nameof(ShapeSize), nameof(Look), nameof(LookIsApps));
         IsSharing = true;
     }
 
-    [RelayCommand] private void CloseShare() { IsSharing = false; Toast = ""; NextBatchText = ""; }
+    [RelayCommand] private void CloseShare() { IsSharing = false; Toast = ""; }
 
     [RelayCommand]
     private void Preview(SharePick? pick)
@@ -298,11 +297,13 @@ public sealed partial class RewindViewModel : ObservableObject
     private System.Windows.Media.Imaging.BitmapSource PictureOf(SharePick p) =>
         RewindPainter.Picture(p.Card, Watched!, p.Index, Cards.Count, Shape, Look);
 
+    /// <summary>Every ticked picture, in order, onto the clipboard: pasted into a post anywhere, they go in as they are.</summary>
     [RelayCommand]
     private void Copy()
     {
-        if (Previewed is not { } p || Watched is null) return;
-        if (CopyPictures([p])) Say(Lang.T("Picture copied. Paste it into a post anywhere."));
+        var picks = Included;
+        if (Watched is null || picks.Count == 0 || !CopyPictures(picks)) return;
+        Say(picks.Count == 1 ? Lang.T("1 picture copied.") : Lang.T($"{picks.Count} pictures copied."));
     }
 
     /// <summary>
@@ -350,152 +351,22 @@ public sealed partial class RewindViewModel : ObservableObject
             Log.Write("rewind", $"Copied {picks.Count} picture(s) as files, the first also as PNG and bitmap");
             return true;
         }
-        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The picture couldn't be copied. Try again in a moment.")); return false; }
+        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The pictures couldn't be copied. Try again in a moment.")); return false; }
     }
 
     private List<SharePick> Included => [.. Picks.Where(p => p.Included)];
 
-    /// <summary>X takes up to 4 pictures a post: the ticked ones go in fours, the first four in the post, the rest in replies.</summary>
-    public const int XBatch = 4;
-    private int _xNext;
-    [ObservableProperty] private string _nextBatchText = "";
-    public bool HasNextBatch => NextBatchText.Length > 0;
-    partial void OnNextBatchTextChanged(string value) => base.OnPropertyChanged(nameof(HasNextBatch));
-
-    private void SetNextBatch()
-    {
-        int left = Included.Count - _xNext;
-        NextBatchText = left <= 0 ? "" : left == 1 ? Lang.T($"Share picture {_xNext + 1}") : Lang.T($"Share pictures {_xNext + 1} to {_xNext + Math.Min(XBatch, left)}");
-    }
-
-    private string PostText => Watched is { } f ? Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from #RigSight Rewind") : "";
-
-    /// <summary>
-    /// Windows' Share window with the next pictures (up to four, in order) and the post's text in it: picking the X app
-    /// there opens a post with both. More than four: the rest go the same way for a reply, from the button that stays.
-    /// </summary>
-    private bool ShareBatch(int from)
-    {
-        var picks = Included.Skip(from).Take(XBatch).ToList();
-        if (picks.Count == 0 || Application.Current?.MainWindow is not { } window) return false;
-        try
-        {
-            var (files, _) = SavePictures(picks);
-            if (!WindowsShare.Show(window, ShareTitle, PostText, files)) { Say(Lang.T("The Windows Share window couldn't open. Try Export instead.")); return false; }
-            _xNext = from + picks.Count;
-            return true;
-        }
-        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The pictures couldn't be shared. Try Export instead.")); return false; }
-    }
-
-    [RelayCommand]
-    private void PostX()
-    {
-        if (Watched is null || !ShareBatch(0)) return;
-        SetNextBatch();
-        Say(HasNextBatch
-            ? Lang.T("Pick X in the Windows Share window: the first 4 pictures and the text go in the post. Then share the next ones as a reply.")
-            : Lang.T("Pick X in the Windows Share window: the pictures and the text go in the post."), keep: HasNextBatch);
-    }
-
-    /// <summary>Every ticked picture, in order, to whichever app is picked in Windows' Share window.</summary>
-    [RelayCommand]
-    private void ShareWindows()
-    {
-        var picks = Included;
-        if (Watched is null || picks.Count == 0 || Application.Current?.MainWindow is not { } window) return;
-        try
-        {
-            var (files, _) = SavePictures(picks);
-            if (!WindowsShare.Show(window, ShareTitle, PostText, files)) Say(Lang.T("The Windows Share window couldn't open. Try Export instead."));
-        }
-        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The pictures couldn't be shared. Try Export instead.")); }
-    }
-
-    /// <summary>The next four, for a reply under the post, in order.</summary>
-    [RelayCommand]
-    private void CopyNextBatch()
-    {
-        if (!ShareBatch(_xNext)) return;
-        SetNextBatch();
-        Say(Lang.T("Pick X again, and post these as a reply under your post."), keep: HasNextBatch);
-    }
-
-    [RelayCommand]
-    private void PostReddit()
-    {
-        // A Reddit post takes up to 20 pictures: all the ticked ones, in order.
-        var picks = Included;
-        if (!CopyPictures(picks.Take(20).ToList())) return;
-        Open("https://www.reddit.com/submit?type=IMAGE");
-        Say(Lang.T("Reddit opened. The pictures are copied: paste them into the post."));
-    }
-
-    private static void Open(string url)
-    {
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) { Log.Error("rewind", ex); }
-    }
-
-    /// <summary>The folder the pictures go in: Pictures › RigSight Rewind › October 2026.</summary>
-    public string ExportFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "RigSight Rewind",
-        Watched is { } f ? string.Concat(RewindCards.TitleWithYear(f).Split(Path.GetInvalidFileNameChars())) : "Rewind");
-
-    [ObservableProperty] private bool _isExporting;
-
-    [RelayCommand]
-    private async Task Export()
-    {
-        if (Watched is null || IncludedCount == 0) return;
-        IsExporting = true;
-        try
-        {
-            string folder = ExportFolder;
-            Directory.CreateDirectory(folder);
-            int n = 0;
-            foreach (var p in Picks.Where(p => p.Included))
-            {
-                string name = $"{++n:00} {string.Concat(p.Name.Split(Path.GetInvalidFileNameChars()))}.png";
-                RewindPainter.SavePng(PictureOf(p), Path.Combine(folder, name));
-                await Task.Yield(); // the window keeps answering between pictures
-            }
-            _lastExport = folder;
-            Say(n == 1 ? Lang.T($"1 picture saved to Pictures › RigSight Rewind › {Path.GetFileName(folder)}")
-                : Lang.T($"{n} pictures saved to Pictures › RigSight Rewind › {Path.GetFileName(folder)}"), folder: true);
-            Log.Write("rewind", $"Exported {n} pictures ({Shape}) to {folder}");
-        }
-        catch (Exception ex)
-        {
-            Log.Error("rewind", ex);
-            Say(Lang.T("The pictures couldn't be saved."));
-        }
-        finally { IsExporting = false; }
-    }
-
-    private string? _lastExport;
-
-    [RelayCommand]
-    private void OpenFolder()
-    {
-        if (_lastExport is { } folder && Directory.Exists(folder)) Open(folder);
-    }
-
     // ── A short message at the foot of the screen ────────────────────────
     [ObservableProperty] private string _toast = "";
-    [ObservableProperty] private bool _toastHasFolder;
     public bool HasToast => Toast.Length > 0;
     partial void OnToastChanged(string value) => OnPropertyChanged(nameof(HasToast));
     private int _toastAsk;
 
-    private async void Say(string text, bool folder = false, bool keep = false)
+    private async void Say(string text)
     {
         int ask = ++_toastAsk;
         Toast = text;
-        ToastHasFolder = folder;
-        if (!keep) NextBatchText = "";
-        // With more pictures to copy it stays until they are, or Share closes.
-        if (keep) return;
-        await Task.Delay(folder ? 6000 : 3500);
+        await Task.Delay(3500);
         if (ask == _toastAsk) Toast = "";
     }
 

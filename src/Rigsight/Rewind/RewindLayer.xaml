@@ -189,23 +189,11 @@
                                 <TextBlock Text="{ctl:T 'Pictures to share'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                             </DockPanel>
                             <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,14">
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="Copy this picture" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Copy this picture'}" /></StackPanel>
-                                </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostXCommand}" AutomationProperties.Name="Post on X" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="𝕏" FontWeight="Bold" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on X'}" /></StackPanel>
-                                </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" AutomationProperties.Name="Post on Reddit" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F2;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on Reddit'}" /></StackPanel>
-                                </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding ShareWindowsCommand}" AutomationProperties.Name="Windows Share" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Windows Share…'}" /></StackPanel>
-                                </Button>
-                                <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" AutomationProperties.Name="Export" Padding="12,9">
+                                <!-- Every ticked picture, in order, to paste into a post anywhere. -->
+                                <Button Style="{StaticResource AccentButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="Copy pictures" Padding="12,9">
                                     <StackPanel Orientation="Horizontal">
-                                        <ctl:Spinner Width="14" Height="14" StrokeThickness="2" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}}" />
-                                        <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                        <TextBlock Text="{Binding ExportText}" />
+                                        <TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding CopyText}" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -250,17 +238,13 @@
         </Grid>
 
         <!-- What just happened (copied, saved), at the foot, for a few seconds. -->
-        <ctl:SmoothBorder HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,40" CornerRadius="10" Padding="16,10"
+        <ctl:SmoothBorder HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,100" CornerRadius="10" Padding="16,10"
                           Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                           Visibility="{Binding HasToast, Converter={StaticResource Vis}}">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}" Margin="0,0,10,0" />
                 <TextBlock Text="{Binding Toast}" FontSize="13" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                <Button Style="{StaticResource GhostButton}" Command="{Binding OpenFolderCommand}" Content="{ctl:T 'Open folder'}" Margin="14,0,0,0"
-                        Visibility="{Binding ToastHasFolder, Converter={StaticResource Vis}}" />
-                <Button Style="{StaticResource AccentButton}" Command="{Binding CopyNextBatchCommand}" Content="{Binding NextBatchText}" Margin="14,0,0,0"
-                        Visibility="{Binding HasNextBatch, Converter={StaticResource Vis}}" />
-            </StackPanel>
+</StackPanel>
         </ctl:SmoothBorder>
     </Grid>
 </UserControl>
