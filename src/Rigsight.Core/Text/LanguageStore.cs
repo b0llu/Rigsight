@@ -13,6 +13,7 @@ namespace Rigsight.Core;
 public static class LanguageStore
 {
     private const string ReleaseApi = "https://api.github.com/repos/b0llu/Rigsight/releases/tags/v";
+    private const string ListApi = "https://api.github.com/repos/b0llu/Rigsight/releases?per_page=30";
 
     public static string Folder => Path.Combine(RigsightPaths.DataDir, "languages");
 
@@ -45,6 +46,7 @@ public static class LanguageStore
     /// </summary>
     public static void Apply(string? code)
     {
+        if (!string.IsNullOrEmpty(code) && code != LanguagePack.English) PromoteNext(code);
         var pack = Find(code);
         Lang.Use(pack);
         if (pack is not null)
@@ -58,58 +60,187 @@ public static class LanguageStore
         }
     }
 
+    /// <summary>
+    /// The warning's condition: a pack is in use but not this version's, so the newest text shows in English (its
+    /// download with the update and the try after it both failed, or the update was installed by hand). Settings →
+    /// Language downloads it again.
+    /// </summary>
+    public static bool NewestMissing => Lang.Pack is { } pack && IsOlder(pack);
+
     /// <summary>Whether the downloaded pack was made for an older version, so a newer one may have more of the text.</summary>
     public static bool IsOlder(LanguagePack pack) =>
         ReleaseFeed.ParseVersion(pack.ForApp) is not { } made || made < ReleaseFeed.Current;
 
+    /// <summary>How many earlier releases are tried for a pack when this version's can't be had.</summary>
+    private const int EarlierTries = 5;
+
     /// <summary>
-    /// Downloads <paramref name="code"/>'s pack for the running version, checks its size and SHA-256 against GitHub's,
-    /// reads it, and only then puts it in place of any older one. Returns the pack; throws when there's no pack for
-    /// this version, GitHub can't be reached or the file isn't right.
+    /// Downloads <paramref name="code"/>'s pack, checks its size and SHA-256 against GitHub's and reads it, and only then
+    /// keeps it. This version's pack first; if that can't be had (not attached, a download that failed, a file that
+    /// isn't right), the newest earlier release's pack instead: only the text added since then stays English. A pack
+    /// already downloaded is never replaced by an older one. Throws only when no pack could be had at all.
     /// </summary>
-    public static async Task<LanguagePack> DownloadAsync(string code, CancellationToken ct = default)
+    public static Task<LanguagePack> DownloadAsync(string code, CancellationToken ct = default) =>
+        GetAsync(code, ReleaseFeed.Current, nextPath: false, ct);
+
+    /// <summary>
+    /// An update to <paramref name="target"/> is being downloaded: the pack in use is downloaded for that version too
+    /// and set aside (languages\es.next.json), so the updated app starts with it and nobody has to download it again.
+    /// Nothing to do in English. Returns whether it's ready; never throws (the updated app tries once more, then
+    /// Settings says the newest pack couldn't be had).
+    /// </summary>
+    public static async Task<bool> PrepareForUpdateAsync(Version target, CancellationToken ct = default)
     {
-        string version = ReleaseFeed.Current.ToString(3);
+        if (Lang.Pack is not { } pack) return true;
+        try
+        {
+            var next = await GetAsync(pack.Code, target, nextPath: true, ct);
+            return ReleaseFeed.ParseVersion(next.ForApp) == ReleaseFeed.Normalize(target);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            Log.Write("Language", $"The {pack.Code} pack for the update to {target.ToString(3)} couldn't be had; the updated app tries again: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>The pack set aside for an update, until the updated app puts it in place.</summary>
+    public static string NextPackPath(string code) => Path.Combine(Folder, code + ".next.json");
+
+    /// <summary>
+    /// The pack set aside for an update goes in place once this version is the one it was made for (or later), and
+    /// only if it's newer than the one here. One that's for a version still to come waits; one that doesn't read goes.
+    /// </summary>
+    internal static void PromoteNext(string code)
+    {
+        string next = NextPackPath(code);
+        if (!File.Exists(next)) return;
+        try
+        {
+            var pack = LanguagePack.Load(next);
+            var made = ReleaseFeed.ParseVersion(pack.ForApp);
+            if (pack.Code != code) throw new InvalidDataException($"it's the \"{pack.Code}\" pack");
+            if (made is null || made > ReleaseFeed.Current) return; // the update isn't installed yet
+            if (Find(code) is { } here && !IsNewer(pack, here)) { File.Delete(next); return; }
+            File.Move(next, PackPath(code), overwrite: true);
+            Log.Write("Language", $"Put in place the {code} pack downloaded with the update: v{pack.Version} for {pack.ForApp}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            Log.Write("Language", $"The {code} pack set aside for the update couldn't be put in place: {ex.Message}");
+            try { File.Delete(next); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    private static async Task<LanguagePack> GetAsync(string code, Version target, bool nextPath, CancellationToken ct)
+    {
         using var http = ReleaseFeed.CreateClient(TimeSpan.FromSeconds(30));
         string asset = AssetName(code);
+        Exception? first = null;
 
-        (string url, long size, string sha256) found;
-        await using (var stream = await http.GetStreamAsync(FeedUrl(version), ct))
+        // This version's release.
+        try
         {
+            await using var stream = await http.GetStreamAsync(FeedUrl(target.ToString(3)), ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            found = FindAsset(doc.RootElement, asset)
-                ?? throw new FileNotFoundException($"Release {version} has no {asset} with a checksum");
+            var found = FindAsset(doc.RootElement, asset)
+                ?? throw new FileNotFoundException($"Release {target.ToString(3)} has no {asset} with a checksum");
+            return await FetchAsync(http, code, target, found, nextPath, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            first = ex;
+            Log.Write("Language", $"{asset} for {target.ToString(3)} couldn't be had, so earlier releases are tried: {ex.Message}");
         }
 
-        byte[] bytes = await http.GetByteArrayAsync(found.url, ct);
+        // The newest earlier releases that have one.
+        List<(Version Version, (string Url, long Size, string Sha256) Asset)> earlier;
+        try
+        {
+            await using var stream = await http.GetStreamAsync(ListUrl, ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            earlier = [.. Earlier(doc.RootElement, asset, target).Take(EarlierTries)];
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            throw new IOException($"No {asset} could be had: {first.Message}; the list of releases: {ex.Message}", first);
+        }
+        foreach (var (version, found) in earlier)
+        {
+            try { return await FetchAsync(http, code, version, found, nextPath, ct); }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                Log.Write("Language", $"{asset} from {version.ToString(3)} couldn't be had either: {ex.Message}");
+            }
+        }
+        throw new FileNotFoundException($"No release up to {target.ToString(3)} gave a usable {asset} ({earlier.Count} earlier tried): {first.Message}", first);
+    }
+
+    /// <summary>Downloads one release's pack, checks it, and keeps it unless the one already here is newer.</summary>
+    private static async Task<LanguagePack> FetchAsync(HttpClient http, string code, Version release, (string Url, long Size, string Sha256) found, bool next, CancellationToken ct)
+    {
+        string asset = AssetName(code);
+        byte[] bytes = await http.GetByteArrayAsync(found.Url, ct);
         string hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
-        if (bytes.LongLength != found.size || hash != found.sha256)
-            throw new InvalidDataException($"{asset} came down as {bytes.LongLength} bytes, sha256 {hash}; GitHub says {found.size} bytes, {found.sha256}");
+        if (bytes.LongLength != found.Size || hash != found.Sha256)
+            throw new InvalidDataException($"{asset} came down as {bytes.LongLength} bytes, sha256 {hash}; GitHub says {found.Size} bytes, {found.Sha256}");
 
         var pack = LanguagePack.Read(System.Text.Encoding.UTF8.GetString(bytes));
         if (pack.Code != code) throw new InvalidDataException($"{asset} is the \"{pack.Code}\" pack");
 
+        if (Find(code) is { } here && !IsNewer(pack, here))
+        {
+            Log.Write("Language", $"{asset} from {release.ToString(3)} (v{pack.Version} for {pack.ForApp}) is no newer than the one here (v{here.Version} for {here.ForApp}): kept the one here");
+            return here;
+        }
         Directory.CreateDirectory(Folder);
-        string path = PackPath(code), temp = path + ".new";
+        string path = next ? NextPackPath(code) : PackPath(code), temp = path + ".new";
         await File.WriteAllBytesAsync(temp, bytes, ct);
         File.Move(temp, path, overwrite: true);
-        Log.Write("Language", $"Downloaded {asset} for {version}: v{pack.Version}, {pack.Strings.Count} texts, {bytes.LongLength} bytes, sha256 {hash}");
+        Log.Write("Language", $"Downloaded {asset} from {release.ToString(3)} for {ReleaseFeed.Current.ToString(3)}: v{pack.Version} for {pack.ForApp}, {pack.Strings.Count} texts, {bytes.LongLength} bytes, sha256 {hash}");
         return pack;
+    }
+
+    /// <summary>Whether <paramref name="a"/> was made for a later version than <paramref name="b"/>, or is a later fix of the same one.</summary>
+    public static bool IsNewer(LanguagePack a, LanguagePack b)
+    {
+        var va = ReleaseFeed.ParseVersion(a.ForApp) ?? new Version(0, 0, 0);
+        var vb = ReleaseFeed.ParseVersion(b.ForApp) ?? new Version(0, 0, 0);
+        return va != vb ? va > vb : a.Version > b.Version;
+    }
+
+    /// <summary>
+    /// The releases before <paramref name="current"/> that carry the asset with a checksum, newest first, from GitHub's
+    /// list of releases. Drafts and pre-releases are left out.
+    /// </summary>
+    public static IEnumerable<(Version Version, (string Url, long Size, string Sha256) Asset)> Earlier(JsonElement releases, string asset, Version current)
+    {
+        if (releases.ValueKind != JsonValueKind.Array) return [];
+        var list = new List<(Version, (string, long, string))>();
+        foreach (var r in releases.EnumerateArray())
+        {
+            if (r.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
+            if (r.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True) continue;
+            if (!r.TryGetProperty("tag_name", out var tag) || ReleaseFeed.ParseVersion(tag.GetString()) is not { } v || v >= current) continue;
+            if (FindAsset(r, asset) is { } found) list.Add((v, found));
+        }
+        return list.OrderByDescending(x => x.Item1);
     }
 
     /// <summary>
     /// After an update: the pack in use was made for an older version, so this version's pack (with the new text) is
     /// downloaded and put in use. Only where updates may contact GitHub by themselves (<paramref name="mayCheck"/>:
-    /// Update automatically on, not a test copy); otherwise Settings offers it. Returns whether a newer pack came.
+    /// Update automatically on, and never a test copy: the caller decides); otherwise Settings offers it. Returns whether a newer pack came.
     /// Never throws: with no network the old pack stays, and its missing text stays English.
     /// </summary>
     public static async Task<bool> RefreshAsync(bool mayCheck, CancellationToken ct = default)
     {
         var pack = Lang.Pack;
-        if (pack is null || !IsOlder(pack) || !mayCheck || RigsightPaths.IsTestInstance) return false;
+        if (pack is null || !IsOlder(pack) || !mayCheck) return false;
         try
         {
             var fresh = await DownloadAsync(pack.Code, ct);
+            if (!IsNewer(fresh, pack)) return false; // only an earlier pack could be had: the one in use stays
             Lang.Use(fresh);
             return true;
         }
@@ -147,4 +278,11 @@ public static class LanguageStore
         Environment.GetEnvironmentVariable("RIGSIGHT_LANGUAGE_FEED") is { Length: > 0 } url ? url :
 #endif
         ReleaseApi + version;
+
+    /// <summary>GitHub's list of releases, for an earlier pack. Debug builds can point it at a test server (RIGSIGHT_LANGUAGE_LIST).</summary>
+    private static string ListUrl =>
+#if DEBUG
+        Environment.GetEnvironmentVariable("RIGSIGHT_LANGUAGE_LIST") is { Length: > 0 } url ? url :
+#endif
+        ListApi;
 }
