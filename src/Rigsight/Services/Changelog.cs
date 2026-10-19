@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Rigsight.Core;
 
 namespace Rigsight.Services;
 
@@ -15,7 +16,7 @@ public sealed record ReleaseNotes(Version Version, DateOnly Date, string[] New, 
 
     public IReadOnlyList<ReleaseSection> Sections =>
     [
-        .. new[] { new ReleaseSection("NEW", "new", New), new ReleaseSection("BETTER", "better", Better), new ReleaseSection("FIXED", "fixed", Fixed) }
+        .. new[] { new ReleaseSection(Lang.T("NEW"), "new", New), new ReleaseSection(Lang.T("BETTER"), "better", Better), new ReleaseSection(Lang.T("FIXED"), "fixed", Fixed) }
             .Where(s => s.Items.Length > 0),
     ];
 }
@@ -36,8 +37,23 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
     public string Page { get; } = page;
     public string Icon { get; } = icon;
 
-    /// <summary>A page of its own ("NEW PAGE"), or something new on a page there already was ("NEW FEATURE").</summary>
-    public string Tag { get; init; } = isPage ? "NEW PAGE" : "NEW FEATURE";
+    /// <summary>
+    /// A page of its own ("NEW PAGE"), something new on a page there already was ("NEW FEATURE"), or "REMOVED": set in
+    /// English, shown in the person's language.
+    /// </summary>
+    public string Tag
+    {
+        get => _tag switch
+        {
+            "NEW PAGE" => Lang.T("NEW PAGE"),
+            "NEW FEATURE" => Lang.T("NEW FEATURE"),
+            "REMOVED" => Lang.T("REMOVED"),
+            _ => _tag,
+        };
+        init => _tag = value;
+    }
+
+    private readonly string _tag = isPage ? "NEW PAGE" : "NEW FEATURE";
 
     /// <summary>The card is this page's own arrival (so what the page already holds for this PC belongs on it).</summary>
     public bool IsPage { get; } = isPage;
@@ -46,7 +62,7 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
     /// The card says something was taken away, with why. It's drawn plain and grey, with no button: the colours of the
     /// other cards say "something new is here", which this isn't.
     /// </summary>
-    public bool IsRemoval => Tag == "REMOVED";
+    public bool IsRemoval => _tag == "REMOVED";
 
     /// <summary>The button names the page it opens, which for a feature isn't always the feature's own name.</summary>
     public string OpenText { get; init; } = $"Open {name}";

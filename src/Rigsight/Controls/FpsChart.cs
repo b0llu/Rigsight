@@ -168,18 +168,18 @@ public sealed class FpsChart : FrameworkElement
             // The average's box: when, the frame rate, the graphics card.
             var lines = new List<(string, Brush, bool)>
             {
-                (byMinute ? $"{p.Start:ddd d MMM}  {p.Start:h:mm tt}" : $"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}", ChartPaint.TextBrush, true),
-                ($"{p.Fps:0} fps average", accent, false),
+                (byMinute ? $"{p.Start:ddd d MMM}  {p.Start:h:mm tt}" : Lang.T($"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}"), ChartPaint.TextBrush, true),
+                (Lang.T($"{p.Fps:0} fps average"), accent, false),
             };
             if (p.Gpu is double gpu) lines.Add(($"GPU {Units.TempShort(gpu)}" + (p.Watts is double watts ? $" · {watts:0} W" : ""), ChartPaint.Muted, false));
-            if (p.PowerCut) lines.Add(("Ended by a power cut", ChartPaint.Muted, false));
+            if (p.PowerCut) lines.Add((Lang.T("Ended by a power cut"), ChartPaint.Muted, false));
             var top = ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(p.Fps) - 8), bounds, above: true);
             // The 1% low's own box, under its point on the dashed line (never over the average's).
             if (p.Low is double low)
             {
                 var at = new Point(X(_hover), Y(low));
                 dc.DrawEllipse(ChartPaint.Muted, new Pen(hole, 1.5), at, 3.2, 3.2);
-                ChartPaint.InfoBox(dc, this, [($"{low:0} fps 1% low", ChartPaint.TextBrush, true), ($"The slowest frames: {p.Fps - low:0} under the average", ChartPaint.Muted, false)],
+                ChartPaint.InfoBox(dc, this, [(Lang.T($"{low:0} fps 1% low"), ChartPaint.TextBrush, true), (Lang.T($"The slowest frames: {p.Fps - low:0} under the average"), ChartPaint.Muted, false)],
                     new Point(x, at.Y + 8), bounds, minTop: top.Bottom + 6);
             }
         }

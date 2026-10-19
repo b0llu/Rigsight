@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Controls;
@@ -68,8 +69,8 @@ public sealed class OverlayScreen : FrameworkElement
     }
 
     private void UpdateToolTip() => ToolTip = Snap
-        ? "Drag the overlay anywhere, even partly off the screen. It snaps to the corners, edges and centre; arrow keys nudge it."
-        : "Drag the overlay anywhere, off the screen too. Arrow keys move it a pixel at a time (Shift: 10).";
+        ? Lang.T("Drag the overlay anywhere, even partly off the screen. It snaps to the corners, edges and centre; arrow keys nudge it.")
+        : Lang.T("Drag the overlay anywhere, off the screen too. Arrow keys move it a pixel at a time (Shift: 10).");
 
     private static double ScreenWidth => SystemParameters.PrimaryScreenWidth;
     private static double ScreenHeight => SystemParameters.PrimaryScreenHeight;

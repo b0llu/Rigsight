@@ -69,7 +69,7 @@ public sealed class HeatGrid : FrameworkElement
         if (read.Cpu is null && read.Gpu is null) return $"{when} · {Wording.NoReading}";
         // The highest beside the average only where it says more (it rounds to another figure).
         static string? Part(string name, double? average, double? high) => average is not double a ? null
-            : high is double h && Units.TempShort(h) != Units.TempShort(a) ? $"{name} {Units.TempShort(a)} (up to {Units.TempShort(h)})" : $"{name} {Units.TempShort(a)}";
+            : high is double h && Units.TempShort(h) != Units.TempShort(a) ? Lang.T($"{name} {Units.TempShort(a)} (up to {Units.TempShort(h)})") : $"{name} {Units.TempShort(a)}";
         string temps = string.Join(", ", new[] { Part("CPU", read.Cpu, read.CpuHigh), Part("GPU", read.Gpu, read.GpuHigh) }.Where(t => t is not null));
         return read.App is null ? $"{when} · {temps}" : $"{when} · {temps} · {read.App}";
     }

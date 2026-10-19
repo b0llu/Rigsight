@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Rigsight.Core;
 
 namespace Rigsight.Models;
 
@@ -44,26 +45,26 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
         {
             case "CPU":
                 Add(One(Core.SensorKind.Temperature, "Tctl", "Package", "Core"));
-                Add(One(Core.SensorKind.Load, "Total"), "load");
+                Add(One(Core.SensorKind.Load, "Total"), Lang.T("load"));
                 Add(One(Core.SensorKind.Power, "Package"));
                 break;
             case "GPU":
                 Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Temperature && s.Name == "GPU Core") ?? One(Core.SensorKind.Temperature, ""));
-                Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Load && s.Name == "GPU Core") ?? One(Core.SensorKind.Load, ""), "load");
+                Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Load && s.Name == "GPU Core") ?? One(Core.SensorKind.Load, ""), Lang.T("load"));
                 Add(One(Core.SensorKind.Power, "Package", ""));
                 break;
             case "DRIVE":
                 Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Temperature && s.HasTempScale));
-                Add(One(Core.SensorKind.Load, "Used Space"), "full");
+                Add(One(Core.SensorKind.Load, "Used Space"), Lang.T("full"));
                 break;
             case "RAM":
-                Add(One(Core.SensorKind.Load, ""), "in use");
+                Add(One(Core.SensorKind.Load, ""), Lang.T("in use"));
                 Add(One(Core.SensorKind.Temperature, ""));
                 break;
             default:
                 // A sensor chip's readings have no names worth showing ("Temperature #3"): its warmest, and its fans.
-                keys.Add(new HardwareKey(() => Sensors.Where(s => s.Kind == Core.SensorKind.Temperature && s.Value > 0).MaxBy(s => s.Value), "warmest"));
-                keys.Add(new HardwareKey(() => Sensors.Count(s => s.Kind == Core.SensorKind.Fan && s.Value > 0) is int n and > 0 ? n == 1 ? "1 fan spinning" : $"{n} fans spinning" : null));
+                keys.Add(new HardwareKey(() => Sensors.Where(s => s.Kind == Core.SensorKind.Temperature && s.Value > 0).MaxBy(s => s.Value), Lang.T("warmest")));
+                keys.Add(new HardwareKey(() => Sensors.Count(s => s.Kind == Core.SensorKind.Fan && s.Value > 0) is int n and > 0 ? n == 1 ? Lang.T("1 fan spinning") : Lang.T($"{n} fans spinning") : null));
                 break;
         }
         Keys = keys;

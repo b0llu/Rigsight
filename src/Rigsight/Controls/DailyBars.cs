@@ -115,7 +115,7 @@ public sealed class DailyBars : FrameworkElement
             {
                 string label = hourly ? d.Day.ToString("h tt")
                     : monthly ? (days.Count > 12 && d.Day.Month == 1 ? d.Day.ToString("yyyy") : d.Day.ToString("MMM"))
-                    : d.Day == DateTime.Today ? "Today" : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
+                    : d.Day == DateTime.Today ? Lang.T("Today") : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
                 var brush = d.Day == current ? ChartPaint.TextBrush : ChartPaint.Label;
                 ChartPaint.Text(dc, this, label, new Point(cx, h - AxisHeight / 2), 11, brush, ChartPaint.Align.Center);
             }
@@ -127,13 +127,13 @@ public sealed class DailyBars : FrameworkElement
             var lines = new List<(string, Brush, bool)>
             {
                 (hourly ? $"{d.Day:h tt} – {d.Day.AddHours(1):h tt}" : d.Day.ToString(monthly ? "MMMM yyyy" : "dddd, d MMM"), ChartPaint.TextBrush, true),
-                (d.ActiveSec > 0 ? $"{Units.Duration(d.ActiveSec)} active" : "No activity", ChartPaint.Muted, false),
+                (d.ActiveSec > 0 ? Lang.T($"{Units.Duration(d.ActiveSec)} active") : Lang.T("No activity"), ChartPaint.Muted, false),
             };
-            if (d.TopApp is not null) lines.Add(($"Most used: {d.TopApp}", ChartPaint.Muted, false));
+            if (d.TopApp is not null) lines.Add((Lang.T($"Most used: {d.TopApp}"), ChartPaint.Muted, false));
             foreach (var (cat, sec) in d.ActiveByCategory.OrderByDescending(kv => kv.Value).Take(4))
                 lines.Add(($"{AppCatalog.Label(cat)}  {Units.Duration(sec)}", Fill(cat), false));
-            if (d.CpuTempMax is double c) lines.Add(($"CPU peak {Units.TempShort(c)}", ChartPaint.Brush(ChartPaint.Cpu), false));
-            if (d.GpuTempMax is double g) lines.Add(($"GPU peak {Units.TempShort(g)}", ChartPaint.Brush(ChartPaint.Gpu), false));
+            if (d.CpuTempMax is double c) lines.Add((Lang.T($"CPU peak {Units.TempShort(c)}"), ChartPaint.Brush(ChartPaint.Cpu), false));
+            if (d.GpuTempMax is double g) lines.Add((Lang.T($"GPU peak {Units.TempShort(g)}"), ChartPaint.Brush(ChartPaint.Gpu), false));
             double cx = plot.Left + slot * (_hover + 0.5);
             ChartPaint.InfoBox(dc, this, lines, new Point(cx + barW / 2, plot.Top), new Rect(0, 0, w, h));
         }

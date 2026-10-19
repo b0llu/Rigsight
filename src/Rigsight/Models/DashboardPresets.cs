@@ -20,37 +20,37 @@ public static class DashboardPresets
     private static readonly PresetTile CpuGauge = new("cpu-gauge"), GpuGauge = new("gpu-gauge"), Fans = new("fans"), Chart = new("temp-chart");
 
     /// <summary>An empty page (offered last in the picker).</summary>
-    public static readonly DashboardPreset Blank = new("Blank", "An empty page to fill with the tiles you want.", "\uE710", [], []);
+    public static readonly DashboardPreset Blank = new(Lang.T("Blank"), Lang.T("An empty page to fill with the tiles you want."), "\uE710", [], []);
 
     public static readonly IReadOnlyList<DashboardPreset> All =
     [
-        new("Essentials", "Temperatures, load and power at a glance, and your day so far.", "\uE80F",
+        new(Lang.T("Essentials"), Lang.T("Temperatures, load and power at a glance, and your day so far."), "\uE80F",
             [.. TileCatalog.Starter().Select(t => new PresetTile(t.Kind, t.Sensor))], []),
-        new("Gaming", "GPU heat, load and power, with the CPU beside it.", "\uE7FC",
+        new(Lang.T("Gaming"), Lang.T("GPU heat, load and power, with the CPU beside it."), "\uE7FC",
             [GpuGauge, CpuGauge, PresetTile.Reading(KeySensors.GpuLoad), PresetTile.Reading(KeySensors.GpuPower),
              PresetTile.Reading(KeySensors.GpuHotSpot), PresetTile.Reading(KeySensors.GpuVramLoad), Chart,
              PresetTile.Reading(KeySensors.GpuMemJunction), PresetTile.Reading(KeySensors.GpuFan), PresetTile.Reading(KeySensors.CpuLoad),
              PresetTile.Reading(KeySensors.RamLoad)],
             [GpuGauge]),
-        new("Temperatures", "Every temperature worth watching, how it moved, and today's highs.", "\uE9CA",
+        new(Lang.T("Temperatures"), Lang.T("Every temperature worth watching, how it moved, and today's highs."), "\uE9CA",
             [CpuGauge, GpuGauge, PresetTile.Reading(KeySensors.GpuHotSpot), PresetTile.Reading(KeySensors.GpuMemJunction),
              PresetTile.Reading(KeySensors.CpuPower), PresetTile.Reading(KeySensors.GpuPower), Chart, new("peaks"), new("drives")],
             [CpuGauge]),
-        new("Cooling", "Fan speeds next to the temperatures they answer to.", "\uEDA8",
+        new(Lang.T("Cooling"), Lang.T("Fan speeds next to the temperatures they answer to."), "\uEDA8",
             [new("fans", W: 6), CpuGauge, GpuGauge, Chart, PresetTile.Reading(KeySensors.GpuFan), PresetTile.Reading(KeySensors.CpuPower),
              PresetTile.Reading(KeySensors.GpuPower)],
             [Fans]),
-        new("Workload", "How busy the CPU, GPU and memory are, and what's using them.", "\uE9D9",
+        new(Lang.T("Workload"), Lang.T("How busy the CPU, GPU and memory are, and what's using them."), "\uE9D9",
             [PresetTile.Reading(KeySensors.CpuLoad), PresetTile.Reading(KeySensors.CpuClock), PresetTile.Reading(KeySensors.CpuPower),
              PresetTile.Reading(KeySensors.RamLoad), PresetTile.Reading(KeySensors.GpuLoad), PresetTile.Reading(KeySensors.GpuVramLoad),
              PresetTile.Reading(KeySensors.GpuPower), new("top-memory"), new("most-used")],
             []),
-        new("Network", "Your internet right now and today: speeds, who is using it, and each hour.", "\uE839",
+        new(Lang.T("Network"), Lang.T("Your internet right now and today: speeds, who is using it, and each hour."), "\uE839",
             // Three full rows, nothing left over: today's figures and the connection; each hour; then who used it, who is
             // using it, and the speed.
             [new("net-today", W: 8), new("net-drops", W: 4), new("net-chart"), new("net-apps", W: 4), new("net-now", W: 4), new("net-speed", W: 4)],
             []),
-        new("My day", "Time on the PC, the apps you used, what stood out and any crashes.", "\uE823",
+        new(Lang.T("My day"), Lang.T("Time on the PC, the apps you used, what stood out and any crashes."), "\uE823",
             [new("today"), new("peaks"), new("most-used"), new("insights"), new("yesterday"), new("crashes")],
             []),
     ];

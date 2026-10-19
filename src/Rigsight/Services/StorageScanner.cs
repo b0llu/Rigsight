@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
+using Rigsight.Core;
 
 namespace Rigsight.Services;
 
@@ -17,7 +18,7 @@ public sealed class FolderNode
     public bool IsBucket { get; init; }
     /// <summary>There is something inside to show: a folder with folders or files of its own. Not the two buckets.</summary>
     public bool CanOpen => Children.Count > 0;
-    public string FilesText => Files == 1 ? "1 file" : $"{Files:N0} files";
+    public string FilesText => Files == 1 ? Lang.T("1 file") : Lang.T($"{Files:N0} files");
     public double Share => Parent is { Size: > 0 } p ? 100.0 * Size / p.Size : 100;
 }
 
@@ -153,7 +154,7 @@ public static class StorageScanner
                     list = list.Take(KeepChildren).ToList();
                     list.Add(new FolderNode
                     {
-                        Name = $"{rest.Count} smaller folders", Path = path, Parent = node, IsBucket = true,
+                        Name = Lang.T($"{rest.Count} smaller folders"), Path = path, Parent = node, IsBucket = true,
                         Size = rest.Sum(r => r.Size), Files = rest.Sum(r => r.Files),
                     });
                 }
@@ -161,7 +162,7 @@ public static class StorageScanner
                 {
                     list.Add(new FolderNode
                     {
-                        Name = "Files in this folder", Path = path, Parent = node, IsBucket = true,
+                        Name = Lang.T("Files in this folder"), Path = path, Parent = node, IsBucket = true,
                         Size = directSize, Files = directFiles,
                     });
                 }

@@ -309,7 +309,7 @@ public sealed class ReportService(SettingsModel settings)
             var at = group.IsIncident ? group.First.Time : e.Time;
             long ts = TimeUtil.ToUnix(at);
             var apps = db.LoadApps().ToDictionary(a => a.Id);
-            string NameOf(long id) => apps.TryGetValue(id, out var a) ? (s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name) : "An app";
+            string NameOf(long id) => apps.TryGetValue(id, out var a) ? (s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name) : Lang.T("An app");
 
             var from = at.AddMinutes(-Models.CrashCase.MinutesBefore);
             // And what came after: the minutes recorded since, up to ten.
@@ -319,7 +319,7 @@ public sealed class ReportService(SettingsModel settings)
             // Everything recorded about the PC in those minutes: its lanes, strips and marks, the box beside them, and
             // what stood out (see CaseMinutesBuilder).
             var built = CaseMinutesBuilder.Build(db, s, from, to, at, db.GetSessions(TimeUtil.ToUnix(from), ts + 60),
-                group.IsIncident ? "crash" : CloseUpBuilder.WordOf(e.Kind), power: !group.IsIncident && Core.Reports.PcUsual.LooksLikePower(e, finding));
+                group.IsIncident ? Lang.T("crash") : CloseUpBuilder.WordOf(e.Kind), power: !group.IsIncident && Core.Reports.PcUsual.LooksLikePower(e, finding));
             var points = built.Minutes;
 
             // The stretches with nothing recorded, each with why where Windows' log says (the PC was off, asleep, had
@@ -331,7 +331,7 @@ public sealed class ReportService(SettingsModel settings)
                 void Gap(DateTime a, DateTime b)
                 {
                     if ((b - a).TotalSeconds <= 90) return;
-                    string why = Core.Stability.PowerLog.Words(Core.Stability.PowerLog.Reason(a, b, power, TimeSpan.FromMinutes(2))) ?? "Not recorded";
+                    string why = Core.Stability.PowerLog.Words(Core.Stability.PowerLog.Reason(a, b, power, TimeSpan.FromMinutes(2))) ?? Lang.T("Not recorded");
                     gaps.Add(new Models.CaseGap(a, b, why));
                 }
                 Gap(from, points[0].Time);
@@ -344,7 +344,13 @@ public sealed class ReportService(SettingsModel settings)
             // What came after it, in words, among what stood out: the app opened again, or the PC back on.
             var stood = built.StoodOut;
             // The PC going down is marked as what it was, not as "Crash".
-            string word = e.Kind switch { Core.Stability.CrashKind.UnexpectedShutdown => "Sudden shut-off", Core.Stability.CrashKind.SystemCrash => "Blue screen", Core.Stability.CrashKind.GpuDriverReset => "Graphics driver reset", _ => "Crash" };
+            string word = e.Kind switch
+            {
+                Core.Stability.CrashKind.UnexpectedShutdown => Lang.T("Sudden shut-off"),
+                Core.Stability.CrashKind.SystemCrash => Lang.T("Blue screen"),
+                Core.Stability.CrashKind.GpuDriverReset => Lang.T("Graphics driver reset"),
+                _ => Lang.T("Crash"),
+            };
             for (int i = 0; i < built.Marks.Count; i++)
                 if (built.Marks[i].IsCrash && !group.IsIncident) built.Marks[i] = built.Marks[i] with { Label = word };
             if (After(e, ts, to, row, db, NameOf) is { } after)
@@ -367,13 +373,13 @@ public sealed class ReportService(SettingsModel settings)
             var running = db.GetSessions(TimeUtil.ToUnix(from), ts + 60).Where(x => x.Start <= ts).GroupBy(x => x.AppId).Select(g => g.MaxBy(x => x.End)!)
                 .OrderByDescending(x => x.End >= ts).ThenByDescending(x => x.End).Take(7)
                 .Select(x => new Models.CaseLine(NameOf(x.AppId), null,
-                    x.End >= ts ? $"open at the time, since {TimeUtil.FromUnix(x.Start):h:mm tt}"
-                    : $"{TimeUtil.FromUnix(x.Start):h:mm} to {TimeUtil.FromUnix(x.End):h:mm tt}")).ToList();
+                    x.End >= ts ? Lang.T($"open at the time, since {TimeUtil.FromUnix(x.Start):h:mm tt}")
+                    : Lang.T($"{TimeUtil.FromUnix(x.Start):h:mm} to {TimeUtil.FromUnix(x.End):h:mm tt}"))).ToList();
 
             // The week before: what Windows runs on line by line, the apps that came and went as one line.
             var changes = new List<Models.CaseLine>();
             string noChanges = "";
-            if (row.Input?.Changes is null) noChanges = "No record of changes reaches back that far.";
+            if (row.Input?.Changes is null) noChanges = Lang.T("No record of changes reaches back that far.");
             else
             {
                 var week = db.GetChanges(ts - 7 * 86400, ts + 120);
@@ -383,11 +389,13 @@ public sealed class ReportService(SettingsModel settings)
                 if (others.Count > 0)
                 {
                     var names = others.Select(c => c.Title.Split(new[] { " updated", " installed", " removed" }, StringSplitOptions.None)[0]).Distinct().ToList();
-                    changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Title : $"{others.Count} apps installed, updated or removed",
-                        others.Count == 1 ? null : string.Join(", ", names.Take(4)) + (names.Count > 4 ? $" and {names.Count - 4} more" : ""),
-                        others.Count == 1 ? $"~{others[0].Time:ddd d MMM, h:mm tt}" : $"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}"));
+                    string shown = string.Join(", ", names.Take(4));
+                    int more = names.Count - 4;
+                    changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Title : Lang.T($"{others.Count} apps installed, updated or removed"),
+                        others.Count == 1 ? null : names.Count > 4 ? Lang.T($"{shown} and {more} more") : shown,
+                        others.Count == 1 ? $"~{others[0].Time:ddd d MMM, h:mm tt}" : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
                 }
-                if (changes.Count == 0) noChanges = "Nothing changed on the PC in the 7 days before.";
+                if (changes.Count == 0) noChanges = Lang.T("Nothing changed on the PC in the 7 days before.");
             }
 
             // Earlier times of the same problem.
@@ -404,14 +412,14 @@ public sealed class ReportService(SettingsModel settings)
             }
             else
                 times = [.. all.AsEnumerable().Reverse().Skip(1).Take(5).Select(t => new Models.CaseLine(t.ToString("ddd d MMM yyyy"), null, t.ToString("h:mm tt")))];
-            string note = all.Count == 1 ? "This is the only time on record." : $"{all.Count} times on record, the first on {all[0]:d MMM yyyy}.";
+            string note = all.Count == 1 ? Lang.T("This is the only time on record.") : Lang.T($"{all.Count} times on record, the first on {all[0]:d MMM yyyy}.");
             if (all.Count >= 8 && all.GroupBy(t => t.Hour).MaxBy(g => g.Count()) is { } hour && hour.Count() * 4 >= all.Count)
-                note += $" The busiest hour is {new DateTime(2000, 1, 1, hour.Key, 0, 0):h tt}, with {hour.Count()} of them.";
+                note += Lang.T($" The busiest hour is {new DateTime(2000, 1, 1, hour.Key, 0, 0):h tt}, with {hour.Count()} of them.");
             if (e.Kind is Core.Stability.CrashKind.AppCrash or Core.Stability.CrashKind.AppHang && apps.Values.FirstOrDefault(a => a.Exe.Equals(e.AppExe, StringComparison.OrdinalIgnoreCase)) is { } crashed)
             {
                 var sessions = db.GetRecentSessions(crashed.Id, 0, ts + 120, 0, 5000);
                 // Sessions are stretches of use, not launches: only the time adds up to something true.
-                if (sessions.Count > 0) note += $" It has been in use for {Core.Units.Duration(sessions.Sum(x => x.ActiveSec))} in all on this PC.";
+                if (sessions.Count > 0) note += Lang.T($" It has been in use for {Core.Units.Duration(sessions.Sum(x => x.ActiveSec))} in all on this PC.");
             }
             // Several things failing together: what failed, in order; and where one of them was stuck waiting on another
             // program, that program's own crashes on this PC.
@@ -419,8 +427,8 @@ public sealed class ReportService(SettingsModel settings)
             {
                 bars = [];
                 times = [.. group.Rows.OrderBy(r => r.Time).Select(r => new Models.CaseLine(
-                    r.Event.Kind == Core.Stability.CrashKind.GpuDriverReset ? "Graphics driver" : r.AppName ?? r.Event.AppExe,
-                    r.Event.Facts?.WaitedOn is { } on ? $"waiting on {on}" : null, r.Time.ToString("h:mm:ss tt")))];
+                    r.Event.Kind == Core.Stability.CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe,
+                    r.Event.Facts?.WaitedOn is { } on ? Lang.T($"waiting on {on}") : null, r.Time.ToString("h:mm:ss tt")))];
                 note = "";
                 if (group.Rows.Select(r => r.Event.Facts?.WaitedOn).FirstOrDefault(w => w is not null) is { } waited)
                 {
@@ -428,15 +436,18 @@ public sealed class ReportService(SettingsModel settings)
                     string stem = System.IO.Path.GetFileNameWithoutExtension(waited).TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
                     var own = db.GetCrashes(0, long.MaxValue / 2).Where(c => c.AppExe.StartsWith(stem, StringComparison.OrdinalIgnoreCase)).ToList();
                     string name = row.Input?.NameOf(waited) ?? waited;
-                    note = own.Count == 0 ? $"{name} has no crashes of its own on record." : $"{name} has crashed {own.Count} time{(own.Count == 1 ? "" : "s")} on this PC, most recently on {own[0].Time:d MMM yyyy}.";
+                    note = own.Count == 0 ? Lang.T($"{name} has no crashes of its own on record.")
+                        : own.Count == 1 ? Lang.T($"{name} has crashed 1 time on this PC, most recently on {own[0].Time:d MMM yyyy}.")
+                        : Lang.T($"{name} has crashed {own.Count} times on this PC, most recently on {own[0].Time:d MMM yyyy}.");
                 }
             }
-            string title = group.IsIncident ? "What failed, in order" : e.Kind switch
+            string crashedApp = row.AppName ?? e.AppExe;
+            string title = group.IsIncident ? Lang.T("What failed, in order") : e.Kind switch
             {
-                Core.Stability.CrashKind.UnexpectedShutdown => bars.Count > 0 ? "Sudden shut-offs like this, by month" : "Sudden shut-offs like this",
-                Core.Stability.CrashKind.SystemCrash => "This blue screen on this PC",
-                Core.Stability.CrashKind.GpuDriverReset => bars.Count > 0 ? "Graphics driver resets, by month" : "Graphics driver resets",
-                _ => bars.Count > 0 ? $"{row.AppName ?? e.AppExe}: this problem, by month" : $"{row.AppName ?? e.AppExe} on this PC",
+                Core.Stability.CrashKind.UnexpectedShutdown => bars.Count > 0 ? Lang.T("Sudden shut-offs like this, by month") : Lang.T("Sudden shut-offs like this"),
+                Core.Stability.CrashKind.SystemCrash => Lang.T("This blue screen on this PC"),
+                Core.Stability.CrashKind.GpuDriverReset => bars.Count > 0 ? Lang.T("Graphics driver resets, by month") : Lang.T("Graphics driver resets"),
+                _ => bars.Count > 0 ? Lang.T($"{crashedApp}: this problem, by month") : Lang.T($"{crashedApp} on this PC"),
             };
 
             return new Models.CrashCase
@@ -452,7 +463,7 @@ public sealed class ReportService(SettingsModel settings)
                     Gaps = gaps, ChartFrom = from, ChartTo = to,
                 },
                 Close = close, UpClose = close is not null,
-                NoChart = db.FirstDataTime() is long began && began > ts ? $"Nothing was being recorded then. This PC's history starts on {TimeUtil.FromUnix(began):d MMM yyyy}." : "Nothing was recorded in the 45 minutes before.",
+                NoChart = db.FirstDataTime() is long began && began > ts ? Lang.T($"Nothing was being recorded then. This PC's history starts on {TimeUtil.FromUnix(began):d MMM yyyy}.") : Lang.T("Nothing was recorded in the 45 minutes before."),
                 Running = running, Changes = changes, NoChanges = noChanges,
                 HistoryTitle = title, Bars = bars, Times = times, HistoryNote = note,
                 Tech = TechOf(group, row),
@@ -467,12 +478,12 @@ public sealed class ReportService(SettingsModel settings)
                 var app = db.LoadApps().FirstOrDefault(a => a.Exe.Equals(e.AppExe, StringComparison.OrdinalIgnoreCase));
                 if (app is null) return null;
                 var again = db.GetSessions(ts + 5, ts + Models.CrashCase.MinutesAfter * 60).Where(x => x.AppId == app.Id && x.Start > ts + 5).MinBy(x => x.Start);
-                if (again is not null) return $"After: {nameOf(app.Id)} was opened again {Core.Stability.CrashFindings.Words(again.Start - ts)} later.";
+                if (again is not null) return Lang.T($"After: {nameOf(app.Id)} was opened again {Core.Stability.CrashFindings.Words(again.Start - ts)} later.");
                 return (to - TimeUtil.FromUnix(ts)).TotalMinutes >= Models.CrashCase.MinutesAfter - 0.5
-                    ? $"After: {nameOf(app.Id)} wasn't opened again in the {Models.CrashCase.MinutesAfter} minutes after." : null;
+                    ? Lang.T($"After: {nameOf(app.Id)} wasn't opened again in the {Models.CrashCase.MinutesAfter} minutes after.") : null;
             }
             if (e.Kind is Core.Stability.CrashKind.UnexpectedShutdown or Core.Stability.CrashKind.SystemCrash && row.Input?.Context?.BackOn is long on && on > ts && on - ts <= 3 * 3600)
-                return $"After: back on {Core.Stability.CrashFindings.Words(on - ts)} later.";
+                return Lang.T($"After: back on {Core.Stability.CrashFindings.Words(on - ts)} later.");
             return null;
         }
 
@@ -483,29 +494,35 @@ public sealed class ReportService(SettingsModel settings)
             foreach (var r in group.IsIncident ? group.Rows.OrderBy(r => r.Time).ToList() : [shown])
             {
                 var (e, f) = (r.Event, r.Event.Facts);
-                if (group.IsIncident) Add(r.Time.ToString("h:mm:ss tt"), $"{(e.Kind == Core.Stability.CrashKind.GpuDriverReset ? "Graphics driver reset" : e.AppExe)}{(f?.AppVersion is { } v ? $" {v}" : "")}{(f?.WaitedOn is { } o ? $", waiting on {o} {f.WaitedOnVersion}" : "")}{(f?.ReportType is { } t ? $" ({t})" : "")}");
+                if (group.IsIncident)
+                {
+                    string head = e.Kind == Core.Stability.CrashKind.GpuDriverReset ? Lang.T("Graphics driver reset") : e.AppExe;
+                    string waiting = f?.WaitedOn is { } o ? Lang.T($", waiting on {o} {f.WaitedOnVersion}") : "";
+                    Add(r.Time.ToString("h:mm:ss tt"), $"{head}{(f?.AppVersion is { } v ? $" {v}" : "")}{waiting}{(f?.ReportType is { } t ? $" ({t})" : "")}");
+                }
                 if (group.IsIncident) continue;
                 // "0.0.0.0" is a file that carries no version, and "unknown" Windows not knowing which file.
                 static string? Version(string? v) => v is null or "0.0.0.0" ? null : v;
+                static string VersionAfter(string? v) => Version(v) is { } version ? Lang.T($", version {version}") : "";
                 bool unnamed = string.Equals(e.Module, "unknown", StringComparison.OrdinalIgnoreCase);
-                Add("Had been running", f?.RanSec is double ran ? (ran < 90 ? $"{ran:0} seconds" : Core.Units.Duration(ran)) : null);
-                Add("Program", string.IsNullOrEmpty(e.AppExe) ? null : $"{e.AppExe}{(Version(f?.AppVersion) is { } version ? $", version {version}" : "")}");
+                Add(Lang.T("Had been running"), f?.RanSec is double ran ? (ran < 90 ? Lang.T($"{ran:0} seconds") : Core.Units.Duration(ran)) : null);
+                Add(Lang.T("Program"), string.IsNullOrEmpty(e.AppExe) ? null : $"{e.AppExe}{VersionAfter(f?.AppVersion)}");
                 // A reset read from Windows' hang report: the driver and the report's kind say it (below), not a crash's file and code.
                 bool hangReport = f?.HangKey is not null;
-                if (!hangReport) Add("Crashed in", e.Module is null ? null : unnamed ? "Windows couldn't name the file" : $"{e.Module}{(Version(f?.ModuleVersion) is { } mv ? $", version {mv}" : "")}{(f?.Offset is { } offset ? $", at {offset}" : "")}");
-                if (!hangReport) Add(e.Kind == Core.Stability.CrashKind.SystemCrash ? "Crash code" : "Error code", e.Code);
-                Add("Its four numbers", f?.BugParams is { } p ? string.Join(", ", p) : null);
-                Add("Driver named by Windows", f?.Driver is { } driver ? $"{driver}{(f.DriverName is { } dn ? $" ({dn})" : "")}" : null);
-                Add("Windows' report kind", f?.ReportType);
-                Add("Waiting on", f?.WaitedOn is { } other ? $"{other}{(f.WaitedOnVersion is { } ov ? $", version {ov}" : "")}" : null);
-                Add(".NET error", f?.Error is { } error ? $"{error}{(f.ErrorAt is { } where ? $", in {where}" : "")}" : null);
-                Add("Power button held", f?.PowerButton is bool held ? (held ? "Yes" : "No") : null);
-                Add("Hardware errors at the next start", f?.HardwareErrors?.ToString());
-                Add("Written up by Windows", f?.NextStart is long start ? $"at the next start, {TimeUtil.FromUnix(start):ddd d MMM, h:mm:ss tt}" : null);
-                Add("Time", r.WindowsTimeNote);
-                Add("Dump file", r.DumpPath);
+                if (!hangReport) Add(Lang.T("Crashed in"), e.Module is null ? null : unnamed ? Lang.T("Windows couldn't name the file") : $"{e.Module}{VersionAfter(f?.ModuleVersion)}{(f?.Offset is { } offset ? Lang.T($", at {offset}") : "")}");
+                if (!hangReport) Add(e.Kind == Core.Stability.CrashKind.SystemCrash ? Lang.T("Crash code") : Lang.T("Error code"), e.Code);
+                Add(Lang.T("Its four numbers"), f?.BugParams is { } p ? string.Join(", ", p) : null);
+                Add(Lang.T("Driver named by Windows"), f?.Driver is { } driver ? $"{driver}{(f.DriverName is { } dn ? $" ({dn})" : "")}" : null);
+                Add(Lang.T("Windows' report kind"), f?.ReportType);
+                Add(Lang.T("Waiting on"), f?.WaitedOn is { } other ? $"{other}{VersionAfter(f.WaitedOnVersion)}" : null);
+                Add(Lang.T(".NET error"), f?.Error is { } error ? $"{error}{(f.ErrorAt is { } where ? Lang.T($", in {where}") : "")}" : null);
+                Add(Lang.T("Power button held"), f?.PowerButton is bool held ? (held ? Lang.T("Yes") : Lang.T("No")) : null);
+                Add(Lang.T("Hardware errors at the next start"), f?.HardwareErrors?.ToString());
+                Add(Lang.T("Written up by Windows"), f?.NextStart is long start ? Lang.T($"at the next start, {TimeUtil.FromUnix(start):ddd d MMM, h:mm:ss tt}") : null);
+                Add(Lang.T("Time"), r.WindowsTimeNote);
+                Add(Lang.T("Dump file"), r.DumpPath);
                 // Only where there would have been more: a graphics driver reset's entry is all Windows writes about it.
-                if (f is null && e.Kind != Core.Stability.CrashKind.GpuDriverReset) Add("More", "Windows' log no longer holds anything else about this one.");
+                if (f is null && e.Kind != Core.Stability.CrashKind.GpuDriverReset) Add(Lang.T("More"), Lang.T("Windows' log no longer holds anything else about this one."));
             }
             return list;
         }

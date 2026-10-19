@@ -35,10 +35,10 @@ public sealed record ProcShare(string Name, double MemMB, string Brush) : IBarPa
             var these = processes.Where(of).ToList();
             if (these.Count > 0) parts.Add(new ProcShare(name(these.Count), these.Sum(p => p.MemMB), brush));
         }
-        Add(p => p.Kind == "Tab", n => n == 1 ? "1 tab" : $"{n} tabs", Pages);
-        Add(p => p.Kind == "Window", n => n == 1 ? "1 window" : $"{n} windows", Pages);
-        Add(p => p.Kind == "Extension", n => n == 1 ? "1 extension" : $"{n} extensions", Extensions);
-        Add(p => BrushOf(p.Kind) == Itself, _ => $"{appName} itself", Itself);
+        Add(p => p.Kind == "Tab", n => n == 1 ? Lang.T("1 tab") : Lang.T($"{n} tabs"), Pages);
+        Add(p => p.Kind == "Window", n => n == 1 ? Lang.T("1 window") : Lang.T($"{n} windows"), Pages);
+        Add(p => p.Kind == "Extension", n => n == 1 ? Lang.T("1 extension") : Lang.T($"{n} extensions"), Extensions);
+        Add(p => BrushOf(p.Kind) == Itself, _ => Lang.T($"{appName} itself"), Itself);
         return parts.Count < 2 ? [] : parts;
     }
 }

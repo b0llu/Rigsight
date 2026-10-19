@@ -82,7 +82,7 @@ public sealed partial class SensorItem : ObservableObject
     public string DisplayName => string.IsNullOrWhiteSpace(CustomLabel) ? Name : CustomLabel!;
 
     /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
-    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? "Click to rename" : $"{Name}  ·  click to rename";
+    public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{Name}  ·  click to rename");
 
     /// <summary>Two-way bindable name used by the inline rename box. Empty resets to the original name.</summary>
     public string Label
@@ -111,7 +111,7 @@ public sealed partial class SensorItem : ObservableObject
     public string MinMaxText => RangeText;
 
     /// <summary>Today's range in words under a tile ("36° to 58° today"); empty before there is one.</summary>
-    public string RangeText => Min is double lo && Max is double hi ? $"{Units.Compact(Kind, lo)} to {Units.Compact(Kind, hi)} today" : "";
+    public string RangeText => Min is double lo && Max is double hi ? Lang.T($"{Units.Compact(Kind, lo)} to {Units.Compact(Kind, hi)} today") : "";
 
     /// <summary>Where the reading sits in today's range, 0 (its lowest) to 100 (its highest); the middle when the range has no width yet.</summary>
     public double RangeShare => Value is double v && Min is double lo && Max is double hi

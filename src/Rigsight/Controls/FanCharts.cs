@@ -171,7 +171,7 @@ public sealed class FanCurveChart : FanChartBase
         if (dots.Count == 0 && line.Count == 0)
         {
             dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
-            Label(dc, "Collecting data…", new Point(ActualWidth / 2, ActualHeight / 2), LabelBrush, center: true);
+            Label(dc, Lang.T("Collecting data…"), new Point(ActualWidth / 2, ActualHeight / 2), LabelBrush, center: true);
             return;
         }
         var temps = dots.Select(d => d.Temp).Concat(line.Select(p => p.X)).ToList();
@@ -186,7 +186,7 @@ public sealed class FanCurveChart : FanChartBase
         {
             var zone = new Rect(plot.Left, plot.Top, Math.Max(0, Math.Min(X(silent), plot.Right) - plot.Left), plot.Height);
             dc.DrawRectangle(Faded(Brush, 0.08), null, zone);
-            Label(dc, $"silent below ~{Units.TempShort(silent)}", new Point(zone.Left + zone.Width / 2, plot.Top + 10), Brush, center: true);
+            Label(dc, Lang.T($"silent below ~{Units.TempShort(silent)}"), new Point(zone.Left + zone.Width / 2, plot.Top + 10), Brush, center: true);
         }
         for (double t = Math.Ceiling(lo / 10) * 10; t <= hi; t += 10)
             Label(dc, Units.TempShort(t), new Point(X(t), plot.Bottom + 12), LabelBrush, center: true);
@@ -222,12 +222,12 @@ public sealed class FanCurveChart : FanChartBase
             var bin = bins.MinBy(b => Math.Abs(b.Temp + 0.5 - t))!;
             if (Math.Abs(bin.Temp + 0.5 - t) <= 2)
             {
-                var lines = new List<string> { bin.StillShare >= 0.5 ? "Usually standing still" : $"Average {Units.Format(SensorKind.Fan, bin.Rpm)}" };
-                if (bin.StillShare is > 0.05 and < 0.5) lines.Add($"Still in {bin.StillShare:P0} of them");
-                lines.Add($"{bin.Minutes:N0} minute{(bin.Minutes == 1 ? "" : "s")}");
+                var lines = new List<string> { bin.StillShare >= 0.5 ? Lang.T("Usually standing still") : Lang.T($"Average {Units.Format(SensorKind.Fan, bin.Rpm)}") };
+                if (bin.StillShare is > 0.05 and < 0.5) lines.Add(Lang.T($"Still in {bin.StillShare:P0} of them"));
+                lines.Add(bin.Minutes == 1 ? Lang.T("1 minute") : Lang.T($"{bin.Minutes:N0} minutes"));
                 double x = X(bin.Temp + 0.5);
                 if (bin.StillShare < 0.5) dc.DrawEllipse(LineBrush, new Pen(ChartPaint.TooltipBg, 2), new Point(x, Y(bin.Rpm)), 4, 4);
-                Hover(dc, plot, x, $"At {Units.TempShort(bin.Temp)}", lines);
+                Hover(dc, plot, x, Lang.T($"At {Units.TempShort(bin.Temp)}"), lines);
             }
         }
     }
@@ -251,7 +251,7 @@ public sealed class FanDaysChart : FanChartBase
 
     /// <summary>What the bar's value is called in the hover ("Average", or "At 70°" for a trend at one temperature).</summary>
     public static readonly DependencyProperty ValueLabelProperty = DependencyProperty.Register(
-        nameof(ValueLabel), typeof(string), typeof(FanDaysChart), new FrameworkPropertyMetadata("Average", FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(ValueLabel), typeof(string), typeof(FanDaysChart), new FrameworkPropertyMetadata(Core.Wording.Average, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public FanDaysChart() => SetResourceReference(GhostBrushProperty, "HoverBrush");
 
@@ -292,8 +292,8 @@ public sealed class FanDaysChart : FanChartBase
             var lines = new List<string>();
             if (d.Average is null && d.Fastest is null) lines.Add(Core.Wording.NotRecorded);
             if (d.Average is not null) lines.Add($"{ValueLabel} {Units.Format(SensorKind.Fan, d.Average)}");
-            if (d.Fastest is not null) lines.Add($"Fastest {Units.Format(SensorKind.Fan, d.Fastest)}");
-            if (d.Earlier) lines.Add("Before its setting changed");
+            if (d.Fastest is not null) lines.Add(Lang.T($"Fastest {Units.Format(SensorKind.Fan, d.Fastest)}"));
+            if (d.Earlier) lines.Add(Lang.T("Before its setting changed"));
             Hover(dc, plot, plot.Left + slot * (h + 0.5), d.Day.ToString(Monthly ? "MMMM yyyy" : "ddd d MMM", CultureInfo.CurrentCulture), lines);
         }
     }

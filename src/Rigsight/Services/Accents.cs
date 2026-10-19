@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
+using Rigsight.Core;
 
 namespace Rigsight.Services;
 
@@ -18,15 +19,15 @@ public static class Accents
 
     public static readonly IReadOnlyList<Accent> All =
     [
-        new(Mono, "The theme's own", Colors.White, Colors.Black),
-        new("blue", "Blue", Hex("#60A5FA"), Hex("#2563EB")),
-        new("teal", "Teal", Hex("#2DD4BF"), Hex("#0D9488")),
-        new("green", "Green", Hex("#4ADE80"), Hex("#16A34A")),
-        new("purple", "Purple", Hex("#A78BFA"), Hex("#7C3AED")),
-        new("pink", "Pink", Hex("#F472B6"), Hex("#DB2777")),
-        new("red", "Red", Hex("#F87171"), Hex("#DC2626")),
-        new("orange", "Orange", Hex("#FB923C"), Hex("#EA580C")),
-        new("yellow", "Yellow", Hex("#FACC15"), Hex("#CA8A04")),
+        new(Mono, Lang.T("The theme's own"), Colors.White, Colors.Black),
+        new("blue", Lang.T("Blue"), Hex("#60A5FA"), Hex("#2563EB")),
+        new("teal", Lang.T("Teal"), Hex("#2DD4BF"), Hex("#0D9488")),
+        new("green", Lang.T("Green"), Hex("#4ADE80"), Hex("#16A34A")),
+        new("purple", Lang.T("Purple"), Hex("#A78BFA"), Hex("#7C3AED")),
+        new("pink", Lang.T("Pink"), Hex("#F472B6"), Hex("#DB2777")),
+        new("red", Lang.T("Red"), Hex("#F87171"), Hex("#DC2626")),
+        new("orange", Lang.T("Orange"), Hex("#FB923C"), Hex("#EA580C")),
+        new("yellow", Lang.T("Yellow"), Hex("#FACC15"), Hex("#CA8A04")),
     ];
 
     public static string Normalize(string? key) =>

@@ -27,8 +27,8 @@ public sealed record DriveFacts(DriveKind Kind, string? Bus, long? Bytes, bool H
     /// <summary>"NVMe SSD", "SATA SSD", "Hard drive", "USB hard drive"; null when not known.</summary>
     public static string? KindText(DriveKind kind, string? bus) => kind switch
     {
-        DriveKind.Ssd => bus is null ? "SSD" : $"{bus} SSD",
-        DriveKind.HardDrive => bus == "USB" ? "USB hard drive" : "Hard drive",
+        DriveKind.Ssd => bus is null ? "SSD" : Lang.T($"{bus} SSD"),
+        DriveKind.HardDrive => bus == "USB" ? Lang.T("USB hard drive") : Lang.T("Hard drive"),
         _ => null,
     };
 
@@ -41,7 +41,7 @@ public sealed record DriveFacts(DriveKind Kind, string? Bus, long? Bytes, bool H
         var parts = new List<string>();
         if (KindText(Kind, Bus) is { } kind) parts.Add(kind);
         if (SizeText(Bytes) is { } size) parts.Add(size);
-        if (HoldsWindows) parts.Add(parts.Count == 0 ? $"The {windowsLetter} drive" : $"the {windowsLetter} drive");
+        if (HoldsWindows) parts.Add(parts.Count == 0 ? Lang.T($"The {windowsLetter} drive") : Lang.T($"the {windowsLetter} drive"));
         return string.Join(" · ", parts);
     }
 }
@@ -98,13 +98,13 @@ public sealed partial class DriveTemp : ObservableObject
     public static SensorItem? ReportedLimitOf(IEnumerable<SensorItem> sensors) =>
         sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && x.Name.Contains("Warning", StringComparison.OrdinalIgnoreCase));
 
-    public string LimitText => $"limit {Units.TempShort(Limit)}";
+    public string LimitText => Lang.T($"limit {Units.TempShort(Limit)}");
 
     /// <summary>Where the limit comes from, said under the pointer: the drive's own figure, or the usual one for its kind.</summary>
-    public string LimitTip => ReportedLimit?.Value is double reported and >= 40 and <= 120 ? "The limit this drive reports for itself"
-        : Kind == DriveKind.Ssd ? "This drive reports no limit: the usual one for an SSD"
-        : Kind == DriveKind.HardDrive ? "This drive reports no limit: the usual one for a hard drive"
-        : "This drive reports no limit, and Windows didn't say what kind it is: the lower usual limit, a hard drive's";
+    public string LimitTip => ReportedLimit?.Value is double reported and >= 40 and <= 120 ? Lang.T("The limit this drive reports for itself")
+        : Kind == DriveKind.Ssd ? Lang.T("This drive reports no limit: the usual one for an SSD")
+        : Kind == DriveKind.HardDrive ? Lang.T("This drive reports no limit: the usual one for a hard drive")
+        : Lang.T("This drive reports no limit, and Windows didn't say what kind it is: the lower usual limit, a hard drive's");
 
     /// <summary>
     /// Its colour's steps, from its own limit: cool up to 35° (or 15° under a low limit), warm from 10° under the

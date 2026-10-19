@@ -19,7 +19,7 @@ public sealed partial class ProcChild : ObservableObject
     }
 
     public int Pid { get; }
-    public string PidText => $"PID {Pid}";
+    public string PidText => Lang.T($"PID {Pid}");
     public string Label { get; private set; }
     /// <summary>Its part in an app made of many processes ("Tab", "Extension"…); null when the app isn't one.</summary>
     public string? Kind { get; private set; }

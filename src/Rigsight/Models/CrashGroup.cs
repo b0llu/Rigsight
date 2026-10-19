@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Rigsight.Core;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Models;
@@ -72,7 +73,7 @@ public sealed partial class CrashGroup : ObservableObject
     [NotifyPropertyChangedFor(nameof(CopyText))]
     private bool _copied;
 
-    public string CopyText => Copied ? "Copied" : "Copy report";
+    public string CopyText => Copied ? Lang.T("Copied") : Lang.T("Copy report");
 
     public CrashSeverity Severity => IsIncident ? CrashSeverity.Serious : SeverityOf(Latest);
 
@@ -89,7 +90,7 @@ public sealed partial class CrashGroup : ObservableObject
         _ => CrashSeverity.Minor,
     };
 
-    public string KindLabel => IsIncident ? (Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "PC FROZE" : "SEVERAL AT ONCE") : Latest.KindLabel;
+    public string KindLabel => IsIncident ? (Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? Lang.T("PC FROZE") : Lang.T("SEVERAL AT ONCE")) : Latest.KindLabel;
 
     public string Title => IsIncident ? IncidentTitle : Latest.Title;
     public string Reason => IsIncident ? IncidentReason : Latest.Reason;
@@ -103,18 +104,18 @@ public sealed partial class CrashGroup : ObservableObject
     /// <summary>Only a specific app's crashes can be muted (not blue screens, power loss or incidents).</summary>
     public string? AppExe => IsIncident || Latest.IsSystem || string.IsNullOrEmpty(Latest.Event.AppExe) ? null : Latest.Event.AppExe;
     public bool CanMute => AppExe is not null;
-    public string MuteText => IsMuted ? "Unmute" : "Mute";
+    public string MuteText => IsMuted ? Lang.T("Unmute") : Lang.T("Mute");
     partial void OnIsMutedChanged(bool value) => OnPropertyChanged(nameof(MuteText));
 
     public string CountText => $"×{Count}";
 
     /// <summary>"Yesterday, 12:32 PM" or, for repeats, "First: 25 Jun · Last: yesterday, 12:32 PM" (a bare "first 25 Jun" at the end wasn't understood).</summary>
     public string WhenText => Count == 1 ? Latest.TimeText
-        : $"First: {First.Time:d MMM} · Last: {Latest.TimeText}";
+        : Lang.T($"First: {First.Time:d MMM} · Last: {Latest.TimeText}");
 
-    public string ExpandText => IsExpanded ? "Hide times" : $"All {Count} times";
+    public string ExpandText => IsExpanded ? Lang.T("Hide times") : Lang.T($"All {Count} times");
     partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(ExpandText));
-    public string DetailsText => ShowDetails ? "Hide details" : "Details";
+    public string DetailsText => ShowDetails ? Lang.T("Hide details") : Lang.T("Details");
     partial void OnShowDetailsChanged(bool value) => OnPropertyChanged(nameof(DetailsText));
 
     /// <summary>What to search the web for: in Windows' own words where it has some, as that is what finds the answers.</summary>
@@ -147,11 +148,12 @@ public sealed partial class CrashGroup : ObservableObject
 
     // ── Incidents ───────────────────────────────────────────────────────
 
-    private List<string> IncidentApps => [.. Rows.OrderBy(r => r.Time).Select(r => r.Event.Kind == CrashKind.GpuDriverReset ? "the graphics driver" : r.AppName ?? r.Event.AppExe).Distinct()];
+    /// <summary>What failed, in order, each once: an app by its name, a graphics driver reset as null.</summary>
+    private List<string?> IncidentApps => [.. Rows.OrderBy(r => r.Time).Select(r => r.Event.Kind == CrashKind.GpuDriverReset ? null : r.AppName ?? r.Event.AppExe).Distinct()];
 
-    private string IncidentTitle => Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "The PC froze"
-        : Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset) ? "The graphics driver reset and apps failed with it"
-        : "Several things failed at once";
+    private string IncidentTitle => Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? Lang.T("The PC froze")
+        : Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset) ? Lang.T("The graphics driver reset and apps failed with it")
+        : Lang.T("Several things failed at once");
 
     private string IncidentReason
     {
@@ -159,20 +161,32 @@ public sealed partial class CrashGroup : ObservableObject
         {
             var apps = IncidentApps;
             int minutes = Math.Max(1, (int)Math.Ceiling((Latest.Time - First.Time).TotalMinutes));
-            string within = $"within {minutes} minute{(minutes == 1 ? "" : "s")}, starting at {First.Time:h:mm tt}";
+            string start = First.Time.ToString("h:mm tt");
             if (Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset))
             {
-                var others = apps.Where(a => a != "the graphics driver").ToList();
-                return $"The graphics driver reset, and {Core.Wording.JoinAnd(others)} {(others.Count == 1 ? "was" : "were")} affected {within}.";
+                string within = minutes == 1 ? Lang.T($"within 1 minute, starting at {start}") : Lang.T($"within {minutes} minutes, starting at {start}");
+                var others = apps.OfType<string>().ToList();
+                string joined = Core.Wording.JoinAnd(others);
+                return others.Count == 1 ? Lang.T($"The graphics driver reset, and {joined} was affected {within}.")
+                    : Lang.T($"The graphics driver reset, and {joined} were affected {within}.");
             }
-            string list = apps.Count <= 3 ? Core.Wording.JoinAnd(apps) : $"{string.Join(", ", apps.Take(3))} and {apps.Count - 3} more";
-            string what = Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? "froze" : "crashed or froze";
-            return $"{Count} {Core.Wording.Problems} within {minutes} minute{(minutes == 1 ? "" : "s")}: {list} {what}, starting at {First.Time:h:mm tt}.";
+            var names = apps.OfType<string>().ToList();
+            string first = string.Join(", ", names.Take(3));
+            int more = names.Count - 3;
+            string list = names.Count <= 3 ? Core.Wording.JoinAnd(names) : Lang.T($"{first} and {more} more");
+            bool froze = Rows.All(r => r.Event.Kind == CrashKind.AppHang);
+            return (froze, minutes == 1) switch
+            {
+                (true, true) => Lang.T($"{Count} problems within 1 minute: {list} froze, starting at {start}."),
+                (true, false) => Lang.T($"{Count} problems within {minutes} minutes: {list} froze, starting at {start}."),
+                (false, true) => Lang.T($"{Count} problems within 1 minute: {list} crashed or froze, starting at {start}."),
+                _ => Lang.T($"{Count} problems within {minutes} minutes: {list} crashed or froze, starting at {start}."),
+            };
         }
     }
 
-    private const string IncidentAdvice =
-        "When several apps fail together, the cause is usually the whole PC rather than one app: the graphics driver, the drive, running out of memory, or overheating. Check the temperatures below and the drive health on the Storage page.";
+    private static string IncidentAdvice => Lang.T(
+        "When several apps fail together, the cause is usually the whole PC rather than one app: the graphics driver, the drive, running out of memory, or overheating. Check the temperatures below and the drive health on the Storage page.");
 
     // ── Grouping ────────────────────────────────────────────────────────
 

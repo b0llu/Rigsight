@@ -130,20 +130,21 @@ public sealed partial class CaseReadout : ObservableObject
         if (_seconds)
         {
             // To the second: the reading nearest the crash, then how far from it each other one is.
-            Title = pointing ? $"At {said}" : $"Last reading before the {_word}, {said}";
+            Title = pointing ? Lang.T($"At {said}") : Lang.T($"Last reading before the {_word}, {said}");
             double from = ((_crashAt ?? _minutes[_crash].Time) - m.Time).TotalSeconds;
-            When = !pointing ? "Point at the lanes for any other moment" : Math.Abs(from) < 1.5 ? $"The {_word}'s own moment"
-                : from > 0 ? $"{Ago(from)} before the {_word}" : $"{Ago(-from)} after it";
+            When = !pointing ? Lang.T("Point at the lanes for any other moment") : Math.Abs(from) < 1.5 ? Lang.T($"The {_word}'s own moment")
+                : from > 0 ? Lang.T($"{Ago(from)} before the {_word}") : Lang.T($"{Ago(-from)} after it");
         }
         else
         {
             // The crash's own minute where it was recorded; else the last before it (a PC that went off records nothing after).
             bool own = _crashAt is not DateTime crashAt || m.Time.AddMinutes(1) > crashAt;
-            Title = pointing ? $"At {said}" : own ? $"At the {_word}, {said}" : $"Just before the {_word}, {said}";
+            Title = pointing ? Lang.T($"At {said}") : own ? Lang.T($"At the {_word}, {said}") : Lang.T($"Just before the {_word}, {said}");
             int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
-            When = !pointing ? "Point at the lanes for any other minute" : before > 0 ? $"{before} min before the {_word}" : before < 0 ? $"{-before} min after it" : $"The {_word}'s own minute";
+            int after = -before;
+            When = !pointing ? Lang.T("Point at the lanes for any other minute") : before > 0 ? Lang.T($"{before} min before the {_word}") : before < 0 ? Lang.T($"{after} min after it") : Lang.T($"The {_word}'s own minute");
         }
-        Flag1 = m.Flags.ElementAtOrDefault(0) ?? (_seconds ? "Nothing stands out at this moment" : "Nothing stands out in this minute");
+        Flag1 = m.Flags.ElementAtOrDefault(0) ?? (_seconds ? Lang.T("Nothing stands out at this moment") : Lang.T("Nothing stands out in this minute"));
         Flag2 = m.Flags.ElementAtOrDefault(1) ?? "";
         HasFlags = m.Flags.Count > 0;
         CpuTemp = Temp(m.CpuTemp);
@@ -151,15 +152,15 @@ public sealed partial class CaseReadout : ObservableObject
         HotSpot = Temp(m.GpuHotSpot);
         CpuLoad = Load(m.CpuLoad, m.CpuPower);
         GpuLoad = Load(m.GpuLoad, m.GpuPower);
-        Ram = m.RamGb is double gb ? RamTotal is double total ? $"{gb:0.0} of {total:0} GB" : $"{gb:0.0} GB" : "–";
+        Ram = m.RamGb is double gb ? RamTotal is double total ? Lang.T($"{gb:0.0} of {total:0} GB") : $"{gb:0.0} GB" : "–";
         Commit = m.CommitPct is double c ? $"{c:0}%" : "–";
-        Vram = m.VramMb is double v ? m.VramTotalMb is double all && all > 0 ? $"{v / 1024:0.0} of {all / 1024:0} GB" : $"{v / 1024:0.0} GB" : "–";
-        Battery = m.Battery is int charge ? $"{charge}%{(m.OnBattery == true ? ", on battery" : "")}" : m.OnBattery is null ? "No battery" : "–";
+        Vram = m.VramMb is double v ? m.VramTotalMb is double all && all > 0 ? Lang.T($"{v / 1024:0.0} of {all / 1024:0} GB") : $"{v / 1024:0.0} GB" : "–";
+        Battery = m.Battery is int charge ? (m.OnBattery == true ? Lang.T($"{charge}%, on battery") : $"{charge}%") : m.OnBattery is null ? Lang.T("No battery") : "–";
         Disk = m.DiskMbs is double d ? $"{d:0.#} MB/s" : "–";
         Down = m.DownMbps is double down ? $"{down:0.#} Mbps" : "–";
         Up = m.UpMbps is double up ? $"{up:0.#} Mbps" : "–";
-        Front = m.Front ?? "Nothing";
-        Here = m.Here ? "Yes" : "Away";
+        Front = m.Front ?? Lang.T("Nothing");
+        Here = m.Here ? Lang.T("Yes") : Lang.T("Away");
         Fans = Pad([.. m.Fans.Select(f => new CaseApp(f.Name, $"{f.Rpm:N0} rpm"))], FanLines);
         CpuApps = Pad(m.CpuApps, CpuLines);
         GpuApps = Pad(m.GpuApps, GpuLines);
@@ -172,7 +173,8 @@ public sealed partial class CaseReadout : ObservableObject
     private static string Ago(double seconds)
     {
         int s = (int)Math.Round(seconds);
-        return s < 60 ? $"{s} s" : s % 60 == 0 ? $"{s / 60} min" : $"{s / 60} min {s % 60} s";
+        int min = s / 60, sec = s % 60;
+        return s < 60 ? Lang.T($"{s} s") : sec == 0 ? Lang.T($"{min} min") : Lang.T($"{min} min {sec} s");
     }
 
     private static string Load(double? load, double? power) => (load, power) switch
@@ -209,7 +211,7 @@ public sealed class CaseView
     /// <summary>A time along the foot every so often.</summary>
     public TimeSpan TickEvery { get; init; } = TimeSpan.FromMinutes(10);
     /// <summary>"one reading a minute", "a reading every 2 to 3 seconds".</summary>
-    public string Rate { get; init; } = "one reading a minute";
+    public string Rate { get; init; } = Lang.T("one reading a minute");
     public bool IsCloseUp { get; init; }
     public bool HasChart => Minutes.Count > 0;
 
@@ -217,5 +219,14 @@ public sealed class CaseView
     public DateTime? Crash => Marks.FirstOrDefault(k => k.IsCrash)?.At;
 
     /// <summary>Above the lanes, at the right: the stretch they cover.</summary>
-    public string RangeText => Minutes.Count == 0 ? "" : $"{ChartFrom.ToString(IsCloseUp ? "h:mm:ss tt" : "h:mm tt")} to {ChartTo.ToString(IsCloseUp ? "h:mm:ss tt" : "h:mm tt")} · {Rate}";
+    public string RangeText
+    {
+        get
+        {
+            if (Minutes.Count == 0) return "";
+            string format = IsCloseUp ? "h:mm:ss tt" : "h:mm tt";
+            string from = ChartFrom.ToString(format), to = ChartTo.ToString(format);
+            return Lang.T($"{from} to {to} · {Rate}");
+        }
+    }
 }

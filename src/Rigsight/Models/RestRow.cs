@@ -20,7 +20,7 @@ public sealed record RestRow(string Part, RestReading Reading)
     public string TodayText => Reading.Today is double t ? Units.TempShort(t) : "—";
 
     public string UsualText => Reading is { UsualLow: double lo, UsualHigh: double hi }
-        ? Math.Round(Units.Temp(lo)) == Math.Round(Units.Temp(hi)) ? $"usually {Units.TempShort(lo)}" : $"usually {Math.Round(Units.Temp(lo)):0}–{Units.TempShort(hi)}"
+        ? Math.Round(Units.Temp(lo)) == Math.Round(Units.Temp(hi)) ? Lang.T($"usually {Units.TempShort(lo)}") : Lang.T($"usually {Math.Round(Units.Temp(lo)):0}–{Units.TempShort(hi)}")
         : "";
 
     /// <summary>Two days or more to draw a line through.</summary>
@@ -28,7 +28,7 @@ public sealed record RestRow(string Part, RestReading Reading)
 
     /// <summary>What the line says under the pointer, a text for each day ("12 Oct · 44°").</summary>
     public IReadOnlyList<string> Tips => [.. Days.Select((d, i) =>
-        $"{LastDay.AddDays(i - (Days.Count - 1)).ToString("d MMM", CultureInfo.CurrentCulture)} · {(d is double t ? Units.TempShort(t) : "No rest recorded")}")];
+        $"{LastDay.AddDays(i - (Days.Count - 1)).ToString("d MMM", CultureInfo.CurrentCulture)} · {(d is double t ? Units.TempShort(t) : Lang.T("No rest recorded"))}")];
 }
 
 /// <summary>
