@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -426,34 +426,48 @@ public static class RewindPainter
 
     private static FrameworkElement Changes(RewindCard card, double u, Color? accent)
     {
-        var body = new StackPanel { Margin = new Thickness(0, 6 * u, 0, 0) };
-        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#67E8F9"), u), 0));
-        body.Children.Add(Rise(Mega(card.Big, 15, u, top: 3, bottom: 3, wrap: true), 1));
-        if (card.Sub is { } sub) body.Children.Add(Rise(Sub(sub, u), 2));
+        // The words on top, and the bars filling the rest of the card down to its foot.
+        var body = new Grid { Margin = new Thickness(0, 6 * u, 0, 0) };
+        body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var words = new StackPanel();
+        words.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#67E8F9"), u), 0));
+        words.Children.Add(Rise(Mega(card.Big, 15, u, top: 3, bottom: 3, wrap: true), 1));
+        if (card.Sub is { } sub) words.Children.Add(Rise(Sub(sub, u), 2));
         if (card.Chips.Count > 0)
         {
             var chips = new WrapPanel();
             foreach (var c in card.Chips)
                 chips.Children.Add(new Border { CornerRadius = new CornerRadius(1.4 * u), Background = Frozen(new SolidColorBrush(Color.FromArgb(150, 0, 0, 0))), Padding = new Thickness(2.4 * u, 1.2 * u, 2.4 * u, 1.4 * u), Margin = new Thickness(0, 0, 1.8 * u, 1.8 * u), Child = Line(Text(c, 3.4 * u, FontWeights.SemiBold, White(1), Ui), 3.4 * u) });
-            body.Children.Add(Rise(chips, 2));
+            words.Children.Add(Rise(chips, 2));
         }
-        var bars = new UniformGrid { Rows = 1, Columns = card.Bars.Count, Height = 46 * u, Margin = new Thickness(-2 * u, 6 * u, -2 * u, 0) };
+        body.Children.Add(words);
+
+        // Each column: room above, the number, the bar (its share of the room), the word. The tallest bar takes all the
+        // room, so its number always sits inside the card.
+        var bars = new UniformGrid { Rows = 1, Columns = card.Bars.Count, Margin = new Thickness(-2 * u, 6 * u, -2 * u, 0) };
         foreach (var b in card.Bars)
         {
-            var col = new DockPanel { Margin = new Thickness(2 * u, 0, 2 * u, 0), LastChildFill = false };
-            var label = Text(b.Label, 3.2 * u, FontWeights.Normal, White(0.75), Ui);
-            label.HorizontalAlignment = HorizontalAlignment.Center;
-            DockPanel.SetDock(label, Dock.Bottom);
-            col.Children.Add(label);
-            var fill = new Border { Height = Math.Max(1.2 * u, b.Fraction * 30 * u), CornerRadius = new CornerRadius(2 * u, 2 * u, 0, 0), Background = Frozen(new SolidColorBrush(accent ?? RewindLook.C(b.Hue))), Margin = new Thickness(0, 0, 0, 1.6 * u) };
-            DockPanel.SetDock(fill, Dock.Bottom);
-            col.Children.Add(fill);
+            double share = Math.Clamp(b.Fraction, 0.04, 1);
+            var col = new Grid { Margin = new Thickness(2 * u, 0, 2 * u, 0) };
+            col.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1 - share + 0.0001, GridUnitType.Star) });
+            col.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            col.RowDefinitions.Add(new RowDefinition { Height = new GridLength(share, GridUnitType.Star), MinHeight = 1.2 * u });
+            col.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var value = Text(b.Value, 9 * u, FontWeights.ExtraBold, White(1), Display, margin: new Thickness(0, 0, 0, 1.6 * u));
             value.HorizontalAlignment = HorizontalAlignment.Center;
-            DockPanel.SetDock(value, Dock.Bottom);
+            Grid.SetRow(value, 1);
             col.Children.Add(value);
+            var fill = new Border { CornerRadius = new CornerRadius(2 * u, 2 * u, 0, 0), Background = Frozen(new SolidColorBrush(accent ?? RewindLook.C(b.Hue))) };
+            Grid.SetRow(fill, 2);
+            col.Children.Add(fill);
+            var label = Text(b.Label, 3.6 * u, FontWeights.Normal, White(0.75), Ui, margin: new Thickness(0, 1.6 * u, 0, 0));
+            label.HorizontalAlignment = HorizontalAlignment.Center;
+            Grid.SetRow(label, 3);
+            col.Children.Add(label);
             bars.Children.Add(col);
         }
+        Grid.SetRow(bars, 1);
         body.Children.Add(Rise(bars, 3));
         return body;
     }
@@ -964,9 +978,18 @@ public static class RewindPainter
     /// </summary>
     private static TextBlock Mega(string text, double size, double u, double top = 0, double bottom = 0, bool wrap = false, double width = 86)
     {
-        // About 0.56 of the size per letter in this face's extra-bold.
-        double fits = (wrap ? 2 : 1) * width / (0.56 * Math.Max(1, text.Length));
-        double s = Math.Max(Math.Min(size, fits), Math.Min(size, 7));
+        // The biggest size up to the asked one at which the words really fit: one line, or two lines broken only between
+        // words (counting letters alone once cut "A new graphics driver" to "A new graphics d…").
+        var face = new Typeface(Display, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
+        double s = size;
+        for (; s > 7; s -= 0.25)
+        {
+            var shape = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, face, s * u, Brushes.White, 1.0);
+            if (!wrap) { if (shape.WidthIncludingTrailingWhitespace <= width * u) break; continue; }
+            shape.MaxTextWidth = width * u;
+            shape.LineHeight = s * u * 0.92;
+            if (shape.MinWidth <= width * u && shape.Height <= s * u * 0.92 * 2 + 1) break;
+        }
         return new()
         {
             Text = text, FontFamily = Display, FontSize = s * u, FontWeight = FontWeights.ExtraBold, Foreground = White(1),
