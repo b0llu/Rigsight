@@ -143,6 +143,13 @@ public sealed partial class RewindViewModel : ObservableObject
                     RewindStore.Save(real);
                     // Samples from the same history, to see the cases a gaming PC with problems doesn't show.
                     foreach (var sample in RewindSamples.Of(real)) RewindStore.Save(sample);
+                    // And the longer layouts, from the same history (mostly empty months, but every card is there).
+                    foreach (var (kind, start, name) in new[] { (RewindKind.Quarter, from.AddMonths(-1), "3 months"), (RewindKind.Year, new DateTime(now.Year, 1, 1), "Year") })
+                    {
+                        var longer = RewindBuilder.Build(db, kind, start, start.AddMonths(RewindStore.Months(kind)), s, now);
+                        (longer.Id, longer.Sample) = ($"{longer.Id}~sample", name);
+                        RewindStore.Save(longer);
+                    }
                 }
             }
             return true;
