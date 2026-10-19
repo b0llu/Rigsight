@@ -112,7 +112,7 @@ public static class Changelog
         // This one is about another language, so it's said in it too (older entries stay as they were written).
         V("0.31.0", 10, 19,
             feature: new(Lang.T("Rewind"), Lang.T("A look back at your PC every month, as cards to watch and share, coming soon."),
-                [Lang.T("Nothing to watch yet: your first rewind, for October, opens on its own on 1 November, so just wait for it."),
+                [Lang.T("Nothing to watch yet: a rewind is made when a month ends, so just wait for your first one."),
                     Lang.T("Card by card: your hours, most used apps and games, hottest moments, what changed and what went wrong."),
                     Lang.T("Copy the cards you pick as pictures in one go, ready to paste into a post."),
                     Lang.T("Choose what it covers and leave out any game or app in Settings, Rewind.")],
