@@ -195,8 +195,11 @@
                                 <Button Style="{StaticResource GhostButton}" Command="{Binding PostXCommand}" AutomationProperties.Name="Post on X" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="𝕏" FontWeight="Bold" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on X'}" /></StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" AutomationProperties.Name="Post on Reddit" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" AutomationProperties.Name="Post on Reddit" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F2;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on Reddit'}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding ShareWindowsCommand}" AutomationProperties.Name="Windows Share" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Windows Share…'}" /></StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" AutomationProperties.Name="Export" Padding="12,9">
                                     <StackPanel Orientation="Horizontal">

@@ -310,24 +310,33 @@ public sealed partial class RewindViewModel : ObservableObject
     /// in order), and the first also as PNG and bitmap data (for apps that take one picture). WPF's own SetImage gave
     /// only a bitmap with transparency, which browsers pasted as nothing.
     /// </summary>
+    /// <summary>The pictures as PNG files in a folder of their own under Temp, named in order; the first picture too.</summary>
+    private (List<string> Files, System.Windows.Media.Imaging.BitmapSource First) SavePictures(IReadOnlyList<SharePick> picks)
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "RigSight Rewind");
+        Directory.CreateDirectory(folder);
+        foreach (var old in Directory.GetFiles(folder, "*.png")) { try { File.Delete(old); } catch (IOException) { } }
+        var files = new List<string>();
+        System.Windows.Media.Imaging.BitmapSource? first = null;
+        foreach (var p in picks)
+        {
+            var picture = PictureOf(p);
+            first ??= picture;
+            string path = Path.Combine(folder, $"{p.Index + 1:00} {string.Concat(p.Name.Split(Path.GetInvalidFileNameChars()))}.png");
+            RewindPainter.SavePng(picture, path);
+            files.Add(path);
+        }
+        return (files, first!);
+    }
+
     private bool CopyPictures(IReadOnlyList<SharePick> picks)
     {
         if (picks.Count == 0) return false;
         try
         {
-            string folder = Path.Combine(Path.GetTempPath(), "RigSight Rewind");
-            Directory.CreateDirectory(folder);
-            foreach (var old in Directory.GetFiles(folder, "*.png")) { try { File.Delete(old); } catch (IOException) { } }
+            var (saved, first) = SavePictures(picks);
             var files = new System.Collections.Specialized.StringCollection();
-            System.Windows.Media.Imaging.BitmapSource? first = null;
-            foreach (var p in picks)
-            {
-                var picture = PictureOf(p);
-                first ??= picture;
-                string path = Path.Combine(folder, $"{p.Index + 1:00} {string.Concat(p.Name.Split(Path.GetInvalidFileNameChars()))}.png");
-                RewindPainter.SavePng(picture, path);
-                files.Add(path);
-            }
+            files.AddRange([.. saved]);
             var data = new DataObject();
             data.SetFileDropList(files);
             var png = new MemoryStream();
@@ -356,32 +365,60 @@ public sealed partial class RewindViewModel : ObservableObject
     private void SetNextBatch()
     {
         int left = Included.Count - _xNext;
-        NextBatchText = left <= 0 ? "" : left == 1 ? Lang.T($"Copy picture {_xNext + 1}") : Lang.T($"Copy pictures {_xNext + 1} to {_xNext + Math.Min(XBatch, left)}");
+        NextBatchText = left <= 0 ? "" : left == 1 ? Lang.T($"Share picture {_xNext + 1}") : Lang.T($"Share pictures {_xNext + 1} to {_xNext + Math.Min(XBatch, left)}");
+    }
+
+    private string PostText => Watched is { } f ? Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from #RigSight Rewind") : "";
+
+    /// <summary>
+    /// Windows' Share window with the next pictures (up to four, in order) and the post's text in it: picking the X app
+    /// there opens a post with both. More than four: the rest go the same way for a reply, from the button that stays.
+    /// </summary>
+    private bool ShareBatch(int from)
+    {
+        var picks = Included.Skip(from).Take(XBatch).ToList();
+        if (picks.Count == 0 || Application.Current?.MainWindow is not { } window) return false;
+        try
+        {
+            var (files, _) = SavePictures(picks);
+            if (!WindowsShare.Show(window, ShareTitle, PostText, files)) { Say(Lang.T("The Windows Share window couldn't open. Try Export instead.")); return false; }
+            _xNext = from + picks.Count;
+            return true;
+        }
+        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The pictures couldn't be shared. Try Export instead.")); return false; }
     }
 
     [RelayCommand]
     private void PostX()
     {
-        var picks = Included;
-        if (Watched is not { } f || picks.Count == 0 || !CopyPictures(picks.Take(XBatch).ToList())) return;
-        _xNext = Math.Min(XBatch, picks.Count);
-        Open("https://x.com/intent/post?text=" + Uri.EscapeDataString(Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from #RigSight Rewind")));
+        if (Watched is null || !ShareBatch(0)) return;
         SetNextBatch();
-        Say(picks.Count <= XBatch
-            ? Lang.T("X opened with the text filled in. The pictures are copied: paste them into the post.")
-            : Lang.T("X opened with the text filled in. The first 4 pictures are copied: paste them into the post, then copy the next ones for a reply."),
-            keep: HasNextBatch);
+        Say(HasNextBatch
+            ? Lang.T("Pick X in the Windows Share window: the first 4 pictures and the text go in the post. Then share the next ones as a reply.")
+            : Lang.T("Pick X in the Windows Share window: the pictures and the text go in the post."), keep: HasNextBatch);
     }
 
-    /// <summary>The next four for a reply under the post, in order.</summary>
+    /// <summary>Every ticked picture, in order, to whichever app is picked in Windows' Share window.</summary>
+    [RelayCommand]
+    private void ShareWindows()
+    {
+        var picks = Included;
+        if (Watched is null || picks.Count == 0 || Application.Current?.MainWindow is not { } window) return;
+        try
+        {
+            var (files, _) = SavePictures(picks);
+            if (!WindowsShare.Show(window, ShareTitle, PostText, files)) Say(Lang.T("The Windows Share window couldn't open. Try Export instead."));
+        }
+        catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The pictures couldn't be shared. Try Export instead.")); }
+    }
+
+    /// <summary>The next four, for a reply under the post, in order.</summary>
     [RelayCommand]
     private void CopyNextBatch()
     {
-        var picks = Included;
-        if (_xNext >= picks.Count || !CopyPictures(picks.Skip(_xNext).Take(XBatch).ToList())) return;
-        _xNext = Math.Min(_xNext + XBatch, picks.Count);
+        if (!ShareBatch(_xNext)) return;
         SetNextBatch();
-        Say(Lang.T("Copied: paste them into a reply under your post."), keep: HasNextBatch);
+        Say(Lang.T("Pick X again, and post these as a reply under your post."), keep: HasNextBatch);
     }
 
     [RelayCommand]

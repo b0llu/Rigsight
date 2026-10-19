@@ -2163,6 +2163,7 @@
     "Copy this picture": "Copiar esta imagen",
     "Post on X": "Publicar en X",
     "Post on Reddit": "Publicar en Reddit",
+    "Windows Share…": "Compartir de Windows…",
     "Midnight": "Medianoche",
     "Forest": "Bosque",
     "Ember": "Brasa",
@@ -2180,11 +2181,14 @@
     "Export {0} pictures": "Exportar {0} imágenes",
     "Picture copied. Paste it into a post anywhere.": "Imagen copiada. Pégala en una publicación donde quieras.",
     "The picture couldn't be copied. Try again in a moment.": "No se pudo copiar la imagen. Vuelve a intentarlo en un momento.",
-    "Copy picture {0}": "Copiar la imagen {0}",
-    "Copy pictures {0} to {1}": "Copiar las imágenes {0} a {1}",
-    "X opened with the text filled in. The pictures are copied: paste them into the post.": "X se abrió con el texto ya escrito. Las imágenes están copiadas: pégalas en la publicación.",
-    "X opened with the text filled in. The first 4 pictures are copied: paste them into the post, then copy the next ones for a reply.": "X se abrió con el texto ya escrito. Las 4 primeras imágenes están copiadas: pégalas en la publicación y después copia las siguientes para una respuesta.",
-    "Copied: paste them into a reply under your post.": "Copiadas: pégalas en una respuesta a tu publicación.",
+    "Share picture {0}": "Compartir la imagen {0}",
+    "Share pictures {0} to {1}": "Compartir las imágenes {0} a {1}",
+    "My {0} on my PC, from #RigSight Rewind": "Mi {0} en mi PC, con #RigSight Rewind",
+    "The Windows Share window couldn't open. Try Export instead.": "No se pudo abrir la ventana Compartir de Windows. Prueba con Exportar.",
+    "The pictures couldn't be shared. Try Export instead.": "No se pudieron compartir las imágenes. Prueba con Exportar.",
+    "Pick X in the Windows Share window: the first 4 pictures and the text go in the post. Then share the next ones as a reply.": "Elige X en la ventana Compartir de Windows: las 4 primeras imágenes y el texto van en la publicación. Después comparte las siguientes como respuesta.",
+    "Pick X in the Windows Share window: the pictures and the text go in the post.": "Elige X en la ventana Compartir de Windows: las imágenes y el texto van en la publicación.",
+    "Pick X again, and post these as a reply under your post.": "Vuelve a elegir X y publica estas como respuesta a tu publicación.",
     "Reddit opened. The pictures are copied: paste them into the post.": "Reddit se abrió. Las imágenes están copiadas: pégalas en la publicación.",
     "1 picture saved to Pictures › RigSight Rewind › {0}": "1 imagen guardada en Imágenes › RigSight Rewind › {0}",
     "{0} pictures saved to Pictures › RigSight Rewind › {1}": "{0} imágenes guardadas en Imágenes › RigSight Rewind › {1}",
@@ -3622,8 +3626,7 @@
     "The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.": "El panel detrás de las lecturas. Al 0% solo se ven las lecturas, con una sombra suave para que se lean bien.",
     "The readings themselves: numbers, labels, gauges and charts.": "Las propias lecturas: números, etiquetas, indicadores y gráficos.",
     "Duplicate": "Duplicar",
-    "Delete widget": "Eliminar widget",
-    "My {0} on my PC, from #RigSight Rewind": "Mi {0} en mi PC, con #RigSight Rewind"
+    "Delete widget": "Eliminar widget"
   },
   "stale": {
     "More {0} {1} {2}: {3}": "Más {0} {1} {2}: {3}",
@@ -3653,6 +3656,11 @@
     "crash": "fallo",
     "{0} up {1:0}° in 30 s": "{0} subió {1:0}° en 30 s",
     "X opened with the text filled in. The picture is copied: paste it into the post.": "X se abrió con el texto ya escrito. La imagen está copiada: pégala en la publicación.",
-    "Reddit opened. The picture is copied: paste it into the post.": "Reddit se abrió. La imagen está copiada: pégala en la publicación."
+    "Reddit opened. The picture is copied: paste it into the post.": "Reddit se abrió. La imagen está copiada: pégala en la publicación.",
+    "Copy picture {0}": "Copiar la imagen {0}",
+    "Copy pictures {0} to {1}": "Copiar las imágenes {0} a {1}",
+    "X opened with the text filled in. The pictures are copied: paste them into the post.": "X se abrió con el texto ya escrito. Las imágenes están copiadas: pégalas en la publicación.",
+    "X opened with the text filled in. The first 4 pictures are copied: paste them into the post, then copy the next ones for a reply.": "X se abrió con el texto ya escrito. Las 4 primeras imágenes están copiadas: pégalas en la publicación y después copia las siguientes para una respuesta.",
+    "Copied: paste them into a reply under your post.": "Copiadas: pégalas en una respuesta a tu publicación."
   }
 }
