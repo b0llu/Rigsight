@@ -138,6 +138,22 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
         Ui.AssertNoProblems("what's new");
     }
 
+    [Fact]
+    public void Whats_new_for_rewind_opens_its_settings_tab()
+    {
+        host.Show("home", 900);
+        Ui.Run(() => host.Shell.WhatsNew.SeeAllCommand.Execute(null));
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            var rewind = host.Shell.WhatsNew.Shown.Select(r => r.Feature).First(f => f?.Page == "settings:rewind")!;
+            host.Shell.WhatsNew.OpenFeatureCommand.Execute(rewind);
+            Assert.Equal(("settings", "rewind"), (host.Shell.CurrentPage, host.Shell.SettingsPage.Tab));
+            host.Shell.SettingsPage.Tab = "general";
+        });
+        host.Show("home", 300);
+    }
+
     // The one in the Refresh button, where it takes the icon's place (the search box has its own).
     private Controls.Spinner RefreshSpinner() =>
         Visuals.Descendants<Controls.Spinner>(host.Window.PageHost).Single(s => s.Parent is System.Windows.Controls.Grid);

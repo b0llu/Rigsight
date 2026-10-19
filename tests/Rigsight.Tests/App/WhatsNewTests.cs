@@ -1,4 +1,4 @@
-using Rigsight.Core.Settings;
+﻿using Rigsight.Core.Settings;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
 using Rigsight.ViewModels;
@@ -158,7 +158,9 @@ public sealed class WhatsNewTests
                 Assert.InRange(p.Length, 10, 130);
                 Assert.EndsWith(".", p);
             });
-            Assert.Contains(f.Page, Pages); // a page that exists
+            // A page that exists, or one of Settings' tabs ("settings:rewind").
+            if (f.Page.StartsWith("settings:")) Assert.Contains(f.Page["settings:".Length..], Rigsight.ViewModels.SettingsViewModel.Tabs);
+            else Assert.Contains(f.Page, Pages);
             Assert.StartsWith("Open ", f.OpenText);
             Assert.Equal(f.HasButton && !f.IsRemoval, f.ShowsButton);
             Assert.True(f.Icon.Length == 1 || f.Icon is "fan" or "network");

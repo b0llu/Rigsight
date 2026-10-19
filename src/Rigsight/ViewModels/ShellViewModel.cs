@@ -185,7 +185,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>A What's new feature's "Open" button: its page.</summary>
-    private void OpenFeature(string page) => CurrentPage = page;
+    private void OpenFeature(string page)
+    {
+        // "settings:rewind": a Settings tab of its own.
+        if (page.StartsWith("settings:", StringComparison.Ordinal)) { SettingsPage.Tab = page["settings:".Length..]; page = "settings"; }
+        CurrentPage = page;
+    }
 
     /// <summary>What a new feature's page already holds for this PC, for its What's new ("31 changes already found…").</summary>
     private async Task<string?> FeatureFactAsync(string page)

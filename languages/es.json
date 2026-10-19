@@ -3643,7 +3643,20 @@
     "The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.": "El panel detrás de las lecturas. Al 0% solo se ven las lecturas, con una sombra suave para que se lean bien.",
     "The readings themselves: numbers, labels, gauges and charts.": "Las propias lecturas: números, etiquetas, indicadores y gráficos.",
     "Duplicate": "Duplicar",
-    "Delete widget": "Eliminar widget"
+    "Delete widget": "Eliminar widget",
+    "A look back at your PC every month, as cards to watch and share.": "Un repaso a tu PC cada mes, en tarjetas para ver y compartir.",
+    "Your first, for October, arrives on 1 November, then one for every month, three months, six months and year.": "El primero, de octubre, llega el 1 de noviembre, y después uno por cada mes, tres meses, seis meses y año.",
+    "Card by card: your hours, most used apps and games, hottest moments, what changed and what went wrong.": "Tarjeta a tarjeta: tus horas, las apps y juegos que más usaste, los momentos de más calor, lo que cambió y lo que falló.",
+    "Copy the cards you pick as pictures in one go, ready to paste into a post.": "Copia de una vez las tarjetas que elijas como imágenes, listas para pegar en una publicación.",
+    "Choose what it covers and leave out any game or app in Settings, Rewind.": "Elige qué incluye y deja fuera cualquier juego o app en Ajustes, Rewind.",
+    "Open Rewind settings": "Abrir ajustes de Rewind",
+    "When no app is using more memory than usual, the Memory page shows the apps holding the most instead of an empty box.": "Cuando ninguna app usa más memoria de lo habitual, la página Memoria muestra las apps que más ocupan en lugar de un cuadro vacío.",
+    "On the Crashes page, What went wrong is taller and shows half of the next crash when there are more to scroll to.": "En la página Fallos, Qué salió mal es más alto y muestra la mitad del siguiente fallo cuando hay más para desplazarse.",
+    "Maximising RigSight no longer shrinks its title bar, and hovering the maximise button shows Windows' snap layouts.": "Maximizar RigSight ya no encoge su barra de título, y pasar el ratón por el botón de maximizar muestra los diseños de ajuste de Windows.",
+    "The big banner on the Games page now shows the first game of the filter and sort you picked.": "El banner grande de la página Juegos ahora muestra el primer juego del filtro y el orden que elegiste.",
+    "The Games library header no longer breaks in a narrow window.": "El encabezado de la biblioteca de Juegos ya no se descoloca en una ventana estrecha.",
+    "Data readings, like a drive's total writes, show TB from 1,000 GB instead of a long GB figure.": "Las lecturas de datos, como el total escrito en una unidad, se muestran en TB a partir de 1000 GB en lugar de una cifra larga en GB.",
+    "A change on the Timeline caught to the minute no longer shows a ~ before its time, older ones included.": "Un cambio de la Cronología detectado al minuto ya no muestra ~ delante de su hora, incluidos los antiguos."
   },
   "stale": {
     "More {0} {1} {2}: {3}": "Más {0} {1} {2}: {3}",

@@ -110,6 +110,20 @@ public static class Changelog
     [
         // Version and date settled at release.
         // This one is about another language, so it's said in it too (older entries stay as they were written).
+        V("0.31.0", 10, 19,
+            feature: new(Lang.T("Rewind"), Lang.T("A look back at your PC every month, as cards to watch and share."),
+                [Lang.T("Your first, for October, arrives on 1 November, then one for every month, three months, six months and year."),
+                    Lang.T("Card by card: your hours, most used apps and games, hottest moments, what changed and what went wrong."),
+                    Lang.T("Copy the cards you pick as pictures in one go, ready to paste into a post."),
+                    Lang.T("Choose what it covers and leave out any game or app in Settings, Rewind.")],
+                "settings:rewind", "\uE81C", isPage: false) { OpenText = Lang.T("Open Rewind settings") },
+            better: [Lang.T("When no app is using more memory than usual, the Memory page shows the apps holding the most instead of an empty box."),
+                Lang.T("On the Crashes page, What went wrong is taller and shows half of the next crash when there are more to scroll to.")],
+            fixedBugs: [Lang.T("Maximising RigSight no longer shrinks its title bar, and hovering the maximise button shows Windows' snap layouts."),
+                Lang.T("The big banner on the Games page now shows the first game of the filter and sort you picked."),
+                Lang.T("The Games library header no longer breaks in a narrow window."),
+                Lang.T("Data readings, like a drive's total writes, show TB from 1,000 GB instead of a long GB figure."),
+                Lang.T("A change on the Timeline caught to the minute no longer shows a ~ before its time, older ones included.")]),
         V("0.30.0", 10, 19,
             feature: new(Lang.T("RigSight in Spanish"), Lang.T("RigSight can now run fully in Spanish, downloaded only if you pick it."),
                 [Lang.T("Pick Español in Settings, General, Language: RigSight downloads it and opens again in Spanish."),
