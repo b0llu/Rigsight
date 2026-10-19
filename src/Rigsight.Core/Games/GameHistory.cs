@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
@@ -54,6 +54,8 @@ public sealed record GameStory
 {
     public required GameEntry Entry { get; init; }
     public IReadOnlyList<GamePlay> Plays { get; init; } = [];
+    /// <summary>The one play with frames, minute by minute, while it's the only one (empty from the second on).</summary>
+    public IReadOnlyList<SystemMinute> OnlyPlayMinutes { get; init; } = [];
     public GameUsual? Usual { get; init; }
     public IReadOnlyList<ChangeBetween> Changes { get; init; } = [];
     /// <summary>Time in front over the last four weeks, oldest first, ending today.</summary>
@@ -207,10 +209,14 @@ public static class GameHistory
         }
         var lastUpdate = changes.Where(c => c.Change.Kind == ChangeKind.GameUpdated).Select(c => (DateTime?)c.Change.Time).LastOrDefault();
 
+        // While one play alone has frames, its minutes stand in for the play-by-play chart (one dot draws nothing).
+        var framed = plays.Where(p => p.Stats.Fps is not null).ToList();
+        var onlyPlayMinutes = framed.Count == 1 ? db.GetMinutes(framed[0].Start, framed[0].End + 60).Where(m => m.Fps is not null).ToList() : [];
         return new GameStory
         {
             Entry = entry,
             Plays = plays,
+            OnlyPlayMinutes = onlyPlayMinutes,
             Usual = UsualOf(plays),
             Changes = changes,
             WeekSec = weeks,

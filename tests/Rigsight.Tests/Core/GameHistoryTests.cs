@@ -119,6 +119,31 @@ public class GameHistoryTests
         var change = Assert.Single(story.Changes);
         Assert.Equal((0, ChangeKind.Driver), (change.After, change.Change.Kind));
         Assert.Equal(0, story.Crashes + story.Hangs + story.DriverResets + story.ShutOffs);
+        // Two plays with frames: the chart draws plays, so no minutes ride along.
+        Assert.Empty(story.OnlyPlayMinutes);
+    }
+
+    [Fact]
+    public void A_games_only_play_with_frames_brings_its_minutes_for_the_chart()
+    {
+        using var t = new TestDb("game-one-play");
+        long game = t.Db.UpsertApp("riskofrain2.exe", "Risk of Rain 2", null, AppCategory.Game);
+        long a = U(2026, 10, 18, 21);
+        t.Db.InsertSession(Session(game, a, a + 27 * 60, game: true));
+        for (int m = 0; m < 27; m++)
+        {
+            var row = Minute(a + m * 60, cpu: 57, gpu: 63, gpuLoad: 90, app: game, gpuPower: 230, cpuPower: 60);
+            // A few minutes without frames (a menu RivaTuner didn't measure) are left out, not drawn as zero.
+            if (m % 9 != 4) { row.Fps = 140 + m; row.FpsLow = 100 + m; }
+            t.Db.WriteMinute(row);
+        }
+        var entry = GameHistory.Library(t.Db, [], Settings()).Single();
+        var story = GameHistory.Story(t.Db, entry, Settings(), L(a + 7200));
+
+        Assert.Equal(24, story.OnlyPlayMinutes.Count);
+        Assert.All(story.OnlyPlayMinutes, m => Assert.NotNull(m.Fps));
+        Assert.Equal(a, story.OnlyPlayMinutes[0].Ts);
+        Assert.Equal(166, story.OnlyPlayMinutes[^1].Fps!.Value, 0);
     }
 
     [Fact]

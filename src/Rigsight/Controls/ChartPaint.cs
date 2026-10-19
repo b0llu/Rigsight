@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 
@@ -36,6 +36,11 @@ internal static class ChartPaint
     public static SolidColorBrush ReadHot { get; private set; } = null!;
     public static SolidColorBrush Faint { get; private set; } = null!;
     public static SolidColorBrush CpuBrush { get; private set; } = null!;
+    /// <summary>The Games page's frame rate and its chart's update markers (see <see cref="Services.Accents.Fps"/>).</summary>
+    public static SolidColorBrush Fps { get; private set; } = null!;
+    public static SolidColorBrush FpsMark { get; private set; } = null!;
+    public static SolidColorBrush FpsMarkStroke { get; private set; } = null!;
+    public static SolidColorBrush FpsMarkText { get; private set; } = null!;
 
     static ChartPaint() => Load();
 
@@ -70,6 +75,10 @@ internal static class ChartPaint
         }
         Faint = Brush(Res("FaintColor", 0x6B));
         CpuBrush = Brush(Cpu);
+        Fps = Brush(Res("FpsColor", 0x80));
+        FpsMark = Brush(Res("FpsMarkColor", 0x22));
+        FpsMarkStroke = Brush(Res("FpsMarkStrokeColor", 0x3A));
+        FpsMarkText = Brush(Res("FpsMarkTextColor", 0xC0));
     }
 
     /// <summary>A palette color; the grey <paramref name="fallback"/> when there are no resources (designer).</summary>
@@ -108,11 +117,15 @@ internal static class ChartPaint
     }
 
     /// <summary>Draws a multi-line info box near <paramref name="at"/>, kept inside <paramref name="bounds"/>.</summary>
-    public static void InfoBox(DrawingContext dc, Visual v, IReadOnlyList<(string Text, Brush Brush, bool Bold)> lines, Point at, Rect bounds)
+    /// <summary>
+    /// A hover box beside <paramref name="at"/>: its top there, or its bottom there with <paramref name="above"/>; kept
+    /// inside <paramref name="bounds"/>, at least <paramref name="minTop"/> down. Returns where it was drawn.
+    /// </summary>
+    public static Rect InfoBox(DrawingContext dc, Visual v, IReadOnlyList<(string Text, Brush Brush, bool Bold)> lines, Point at, Rect bounds, bool above = false, double minTop = double.NegativeInfinity)
     {
         var texts = lines.Select(l => Format(v, l.Text, 12, l.Brush, l.Bold)).ToList();
         double w = texts.Max(t => t.Width) + 20, h = texts.Sum(t => t.Height) + 14;
-        double x = at.X + 12, y = at.Y;
+        double x = at.X + 12, y = above ? at.Y - h : Math.Max(at.Y, minTop);
         if (x + w > bounds.Right) x = at.X - w - 12;
         if (x < bounds.Left) x = bounds.Left;
         if (y + h > bounds.Bottom) y = bounds.Bottom - h;
@@ -124,5 +137,6 @@ internal static class ChartPaint
             dc.DrawText(t, new Point(x + 10, ty));
             ty += t.Height;
         }
+        return new Rect(x, y, w, h);
     }
 }

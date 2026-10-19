@@ -413,6 +413,7 @@ public sealed partial class ShellViewModel : ObservableObject
     partial void OnCurrentPageChanged(string value)
     {
         OnPropertyChanged(nameof(PageUnreadable));
+        Games.IsShown = value == "games";
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
         _ = RefreshCurrentPageAsync();
@@ -499,7 +500,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "home": await Home.RefreshAsync(); break;
                 case "reports": if (ReportsPage.IncludesNow) await ReportsPage.LoadAsync(); break;
                 case "apps": if (Apps.IncludesToday) await Apps.LoadAsync(); break;
-                // A play ending or a game installed shows within two minutes; the live banner follows each second by itself.
+                // A play ending or a game installed shows within two minutes; a game starting or closing within seconds by itself.
                 case "games": if (_tickCount % 2 == 0) await Games.LoadAsync(); break;
                 case "crashes": if (Crashes.IncludesToday) await Crashes.LoadAsync(onlyIfChanged: true); break;
                 case "timeline": await Timeline.LoadAsync(onlyIfChanged: true); break;

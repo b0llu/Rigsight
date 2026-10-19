@@ -3,17 +3,37 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <UserControl.Resources>
-        <!-- The frame rate's own blue (not a part's colour), and the Play button in it. -->
-        <SolidColorBrush x:Key="FpsBrush" Color="#4C9AFF" />
+        <!-- The frame rate's own blue (not a part's colour), or the picked accent (Accents.Fps), and the Play button in it. -->
         <Style x:Key="PlayButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-            <Setter Property="Background" Value="#4C9AFF" />
-            <Setter Property="Foreground" Value="#001428" />
+            <Setter Property="Background" Value="{DynamicResource FpsBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnFpsBrush}" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="22,0" />
+            <!-- Hovered, the blue brightens: the app's grey hover shade over it looked murky. -->
+            <Style.Resources>
+                <SolidColorBrush x:Key="HoverBrush" Color="#2EFFFFFF" />
+            </Style.Resources>
+            <Style.Triggers>
+                <!-- The game is running: "Running", greyed, can't be pressed. -->
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
-        <Style x:Key="HeroButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <!-- An uninstall button while the game runs: dimmed and can't be pressed. -->
+        <Style x:Key="OffWhenDisabled" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HeroButton" TargetType="Button" BasedOn="{StaticResource OffWhenDisabled}">
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="FontSize" Value="13" />
@@ -51,25 +71,6 @@
                 <TextBlock FontSize="12.5" Foreground="{DynamicResource TextBrush}">
                     <Run Text="{Binding Lead, Mode=OneWay}" /><Run Text="{Binding Bold, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Trail, Mode=OneWay}" />
                 </TextBlock>
-            </Border>
-        </DataTemplate>
-        <DataTemplate x:Key="LiveTileTemplate">
-            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" Padding="14,8" Margin="0,0,8,0" MinWidth="78">
-                <StackPanel>
-                    <TextBlock Text="{Binding Label}" FontSize="10" Foreground="{DynamicResource FaintBrush}" />
-                    <TextBlock Text="{Binding Value}" FontSize="22" FontWeight="SemiBold">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{Binding Brush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Brush}" Value="{x:Null}">
-                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
@@ -120,6 +121,15 @@
                                     </LinearGradientBrush>
                                 </Rectangle.OpacityMask>
                             </Rectangle>
+                            <!-- The right edge melts into the page too: on a window wider than the page the banner ended in a hard edge. -->
+                            <Rectangle Fill="{DynamicResource BgBrush}">
+                                <Rectangle.OpacityMask>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#00000000" Offset="0.82" />
+                                        <GradientStop Color="#FF000000" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
                             <Grid Margin="28,0,28,22" VerticalAlignment="Bottom">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -135,21 +145,17 @@
                                            RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding HeroHasLogo, Converter={StaticResource Vis}}" />
                                     <TextBlock Text="{Binding HeroName}" FontSize="36" FontWeight="Bold" Margin="0,8,0,10" TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding HeroHasLogo, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                    <ItemsControl ItemsSource="{Binding HeroPills}" ItemTemplate="{StaticResource PillTemplate}"
-                                                  Visibility="{Binding HeroLive, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                    <ItemsControl ItemsSource="{Binding HeroPills}" ItemTemplate="{StaticResource PillTemplate}">
                                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                     </ItemsControl>
-                                    <StackPanel Orientation="Horizontal" Visibility="{Binding HeroLive, Converter={StaticResource Vis}}">
-                                        <ItemsControl ItemsSource="{Binding LiveTiles}" ItemTemplate="{StaticResource LiveTileTemplate}">
-                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                        <TextBlock Text="{Binding LiveNote}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                                    </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                                     <Button Style="{StaticResource PlayButton}" Command="{Binding PlayHeroCommand}" Margin="0,0,10,0"
-                                            Visibility="{Binding HeroCanPlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Play">
-                                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,9,0" Foreground="#001428" /><TextBlock Text="Play" /></StackPanel>
+                                            Visibility="{Binding HeroInstalled, Converter={StaticResource Vis}}" IsEnabled="{Binding HeroNotRunning}" AutomationProperties.Name="Play">
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding HeroNotRunning, Converter={StaticResource Vis}}"><TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,9,0" Foreground="{DynamicResource OnFpsBrush}" /><TextBlock Text="Play" /></StackPanel>
+                                            <TextBlock Text="Running" Visibility="{Binding HeroLive, Converter={StaticResource Vis}}" />
+                                        </Grid>
                                     </Button>
                                     <Button Style="{StaticResource HeroButton}" Content="Game details" Command="{Binding OpenHeroCommand}" />
                                 </StackPanel>
@@ -164,6 +170,8 @@
                                     <TextBlock Text="{Binding CountText}" Style="{StaticResource Muted}" Margin="10,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBox Style="{StaticResource SearchBox}" Tag="Search games…" Width="200" Margin="0,0,10,0" VerticalAlignment="Center"
+                                             AutomationProperties.Name="Search the games" ctl:Debounce.Text="{Binding Search}" />
                                     <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0">
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Style="{StaticResource Segment}" GroupName="GameFilter" Content="All" IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=all}" />
@@ -188,86 +196,90 @@
                                        Style="{StaticResource Muted}" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}" />
 
                             <!-- Two full rows of covers and half of the third; the rest scrolls inside, so the shelf below stays in sight. -->
-                            <ScrollViewer x:Name="LibraryBox" Style="{StaticResource CardScroll}" ctl:WheelChain.Enabled="True">
-                                <ItemsControl x:Name="Covers" ItemsSource="{Binding Cards}" AutomationProperties.Name="Games">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><ctl:CoverGrid MinItemWidth="132" Gap="16" RowGap="20" Margin="0,4,6,4" /></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                                    AutomationProperties.Name="{Binding Name}" Cursor="Hand" Focusable="True">
-                                                <Button.Template>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <StackPanel Background="Transparent">
-                                                            <ctl:AspectBox Ratio="1.5">
-                                                                <Border x:Name="Frame" CornerRadius="10" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" ClipToBounds="True">
-                                                                    <!-- Rounded to the inside of the frame's line, so the picture never covers the line's corners (the hover outline). -->
-                                                                    <Grid x:Name="Art">
-                                                                        <Grid.OpacityMask>
-                                                                            <VisualBrush Stretch="None">
-                                                                                <VisualBrush.Visual>
-                                                                                    <Border Background="Black" CornerRadius="9" Width="{Binding ActualWidth, ElementName=Art}" Height="{Binding ActualHeight, ElementName=Art}" />
-                                                                                </VisualBrush.Visual>
-                                                                            </VisualBrush>
-                                                                        </Grid.OpacityMask>
-                                                                        <Image Source="{Binding Cover}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
-                                                                               Visibility="{Binding HasCover, Converter={StaticResource Vis}}" />
-                                                                        <!-- No picture: the game's own icon in its tile, then its name. -->
-                                                                        <Grid Visibility="{Binding HasCover, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                                            <Grid.RowDefinitions>
-                                                                                <RowDefinition Height="38*" />
-                                                                                <RowDefinition Height="Auto" />
-                                                                                <RowDefinition Height="62*" />
-                                                                            </Grid.RowDefinitions>
-                                                                            <Border Grid.Row="1" Style="{StaticResource IconTile}" Width="84" Height="84" CornerRadius="20" Margin="0,-42,0,0">
-                                                                                <Grid>
-                                                                                    <Image Source="{Binding Icon}" Width="60" Height="60" RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
-                                                                                    <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="38" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                                               Visibility="{Binding HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                                                                </Grid>
+                            <Grid>
+                                <ScrollViewer x:Name="LibraryBox" Style="{StaticResource CardScroll}" ctl:WheelChain.Enabled="True">
+                                    <ItemsControl x:Name="Covers" ItemsSource="{Binding Cards}" AutomationProperties.Name="Games">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><ctl:CoverGrid MinItemWidth="132" Gap="16" RowGap="20" Margin="0,4,6,4" /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                                        AutomationProperties.Name="{Binding Name}" Cursor="Hand" Focusable="True">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <StackPanel Background="Transparent">
+                                                                <ctl:AspectBox Ratio="1.5">
+                                                                    <Border x:Name="Frame" CornerRadius="10" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" ClipToBounds="True">
+                                                                        <!-- Rounded to the inside of the frame's line, so the picture never covers the line's corners (the hover outline). -->
+                                                                        <Grid x:Name="Art">
+                                                                            <Grid.OpacityMask>
+                                                                                <VisualBrush Stretch="None">
+                                                                                    <VisualBrush.Visual>
+                                                                                        <Border Background="Black" CornerRadius="9" Width="{Binding ActualWidth, ElementName=Art}" Height="{Binding ActualHeight, ElementName=Art}" />
+                                                                                    </VisualBrush.Visual>
+                                                                                </VisualBrush>
+                                                                            </Grid.OpacityMask>
+                                                                            <Image Source="{Binding Cover}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
+                                                                                   Visibility="{Binding HasCover, Converter={StaticResource Vis}}" />
+                                                                            <!-- No picture: the game's own icon in its tile, then its name. -->
+                                                                            <Grid Visibility="{Binding HasCover, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                                                <Grid.RowDefinitions>
+                                                                                    <RowDefinition Height="38*" />
+                                                                                    <RowDefinition Height="Auto" />
+                                                                                    <RowDefinition Height="62*" />
+                                                                                </Grid.RowDefinitions>
+                                                                                <Border Grid.Row="1" Style="{StaticResource IconTile}" Width="84" Height="84" CornerRadius="20" Margin="0,-42,0,0">
+                                                                                    <Grid>
+                                                                                        <Image Source="{Binding Icon}" Width="60" Height="60" RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
+                                                                                        <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="38" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                                   Visibility="{Binding HasIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                                <TextBlock Grid.Row="2" Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="12,0,12,34"
+                                                                                           Foreground="{DynamicResource TextBrush}" />
+                                                                            </Grid>
+                                                                            <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="7" Background="#B8000000" CornerRadius="4" Padding="6,2"
+                                                                                    Visibility="{Binding HasBadge, Converter={StaticResource Vis}}">
+                                                                                <TextBlock Text="{Binding Badge}" FontSize="9.5" FontWeight="Bold" Foreground="#DDDDDD" />
                                                                             </Border>
-                                                                            <TextBlock Grid.Row="2" Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="12,0,12,34"
-                                                                                       Foreground="{DynamicResource TextBrush}" />
+                                                                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7" Background="#E6000000" BorderBrush="{DynamicResource GoodBrush}" BorderThickness="1" CornerRadius="5" Padding="6,2"
+                                                                                    Visibility="{Binding IsPlaying, Converter={StaticResource Vis}}">
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <Ellipse Width="6" Height="6" Fill="{DynamicResource GoodBrush}" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                                                    <TextBlock Text="PLAYING" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
+                                                                                </StackPanel>
+                                                                            </Border>
                                                                         </Grid>
-                                                                        <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="7" Background="#B8000000" CornerRadius="4" Padding="6,2"
-                                                                                Visibility="{Binding HasBadge, Converter={StaticResource Vis}}">
-                                                                            <TextBlock Text="{Binding Badge}" FontSize="9.5" FontWeight="Bold" Foreground="#DDDDDD" />
-                                                                        </Border>
-                                                                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="7" Background="#EB04201C" BorderBrush="#8034D399" BorderThickness="1" CornerRadius="5" Padding="6,2"
-                                                                                Visibility="{Binding IsPlaying, Converter={StaticResource Vis}}">
-                                                                            <StackPanel Orientation="Horizontal">
-                                                                                <Ellipse Width="6" Height="6" Fill="#34D399" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                                                                <TextBlock Text="PLAYING" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" />
-                                                                            </StackPanel>
-                                                                        </Border>
-                                                                    </Grid>
-                                                                </Border>
-                                                            </ctl:AspectBox>
-                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding Sub}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                        </StackPanel>
-                                                        <ControlTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Faded}" Value="True">
-                                                                <Setter TargetName="Frame" Property="Opacity" Value="0.62" />
-                                                            </DataTrigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
-                                                                <Setter TargetName="Frame" Property="RenderTransform">
-                                                                    <Setter.Value><TranslateTransform Y="-3" /></Setter.Value>
-                                                                </Setter>
-                                                            </Trigger>
-                                                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                                                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Button.Template>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                                                                    </Border>
+                                                                </ctl:AspectBox>
+                                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Sub}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                            <ControlTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Faded}" Value="True">
+                                                                    <Setter TargetName="Frame" Property="Opacity" Value="0.62" />
+                                                                </DataTrigger>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                                                                    <Setter TargetName="Frame" Property="RenderTransform">
+                                                                        <Setter.Value><TranslateTransform Y="-3" /></Setter.Value>
+                                                                    </Setter>
+                                                                </Trigger>
+                                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <!-- Over the box, which keeps its height while searching: nothing under it moves. -->
+                                <TextBlock VerticalAlignment="Top" Margin="0,4,0,0" Text="Nothing matches" Style="{StaticResource Muted}" Visibility="{Binding NoMatch, Converter={StaticResource Vis}}" />
+                            </Grid>
 
                             <!-- Installed games not played lately: what's sitting there taking space. -->
                             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,22,0,0" Padding="18,16" Visibility="{Binding HasShelf, Converter={StaticResource Vis}}">
@@ -312,8 +324,8 @@
                                                                 Visibility="{Binding HasFolder, Converter={StaticResource Vis}}">
                                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE838;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,7,0" /><TextBlock Text="Open folder" /></StackPanel>
                                                         </Button>
-                                                        <Button Grid.Column="5" Style="{StaticResource GhostButton}" Margin="6,0,0,0" Width="30" Height="30" Padding="0" ToolTip="{Binding UninstallTip}"
-                                                                AutomationProperties.Name="{Binding UninstallTip}"
+                                                        <Button Grid.Column="5" Style="{StaticResource OffWhenDisabled}" Margin="6,0,0,0" Width="30" Height="30" Padding="0" ToolTip="{Binding UninstallTip}"
+                                                                AutomationProperties.Name="{Binding UninstallTip}" IsEnabled="{Binding CanUninstall}"
                                                                 Command="{Binding DataContext.UninstallCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Entry}">
                                                             <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" />
                                                         </Button>
@@ -357,6 +369,15 @@
                                 </LinearGradientBrush>
                             </Rectangle.OpacityMask>
                         </Rectangle>
+                        <!-- The right edge melts into the page too: on a window wider than the page the banner ended in a hard edge. -->
+                        <Rectangle Fill="{DynamicResource BgBrush}">
+                            <Rectangle.OpacityMask>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#00000000" Offset="0.82" />
+                                    <GradientStop Color="#FF000000" Offset="1" />
+                                </LinearGradientBrush>
+                            </Rectangle.OpacityMask>
+                        </Rectangle>
                         <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="22,16,0,0" Height="30" Padding="12,0"
                                 Command="{Binding BackCommand}" AutomationProperties.Name="{Binding BackText}">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" /><TextBlock Text="{Binding BackText}" /></StackPanel>
@@ -384,20 +405,17 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <Button Style="{StaticResource PlayButton}" Command="{Binding PlayCommand}" Margin="0,0,10,0"
-                                        Visibility="{Binding GameCanPlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Play">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,9,0" Foreground="#001428" /><TextBlock Text="Play" /></StackPanel>
+                                        Visibility="{Binding GameInstalled, Converter={StaticResource Vis}}" IsEnabled="{Binding OpenedNotRunning}" AutomationProperties.Name="Play">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal" Visibility="{Binding OpenedNotRunning, Converter={StaticResource Vis}}"><TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,9,0" Foreground="{DynamicResource OnFpsBrush}" /><TextBlock Text="Play" /></StackPanel>
+                                        <TextBlock Text="Running" Visibility="{Binding OpenedLive, Converter={StaticResource Vis}}" />
+                                    </Grid>
                                 </Button>
-                                <Border Style="{StaticResource Pill}" CornerRadius="10" Height="40" Padding="16,0" Margin="0,0,10,0" Visibility="{Binding OpenedLive, Converter={StaticResource Vis}}">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Ellipse Width="8" Height="8" Fill="{DynamicResource GoodBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Playing now" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
                                 <Button Style="{StaticResource HeroButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,10,0" Visibility="{Binding GameHasFolder, Converter={StaticResource Vis}}">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE838;" Style="{StaticResource Icon}" Margin="0,0,8,0" /><TextBlock Text="Open game folder" /></StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource HeroButton}" Command="{Binding UninstallCommand}" Width="40" Padding="0" ToolTip="{Binding UninstallTip}" AutomationProperties.Name="{Binding UninstallTip}"
-                                        Visibility="{Binding GameInstalled, Converter={StaticResource Vis}}">
+                                        Visibility="{Binding GameInstalled, Converter={StaticResource Vis}}" IsEnabled="{Binding OpenedNotRunning}">
                                     <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
                                 </Button>
                             </StackPanel>
@@ -405,40 +423,24 @@
                     </Grid>
 
                     <StackPanel Margin="28,22,28,30">
-                        <!-- While it's being played: its readings right now. -->
-                        <Border CornerRadius="14" Padding="16,12" Margin="0,0,0,22" BorderThickness="1" BorderBrush="#4034D399" Visibility="{Binding OpenedLive, Converter={StaticResource Vis}}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                    <GradientStop Color="#1434D399" Offset="0" />
-                                    <GradientStop Color="#0034D399" Offset="1" />
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                                    <Ellipse Width="8" Height="8" Fill="{DynamicResource GoodBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="RIGHT NOW" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" />
-                                </StackPanel>
-                                <ItemsControl ItemsSource="{Binding OpenedLiveTiles}" ItemTemplate="{StaticResource LiveTileTemplate}">
-                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                </ItemsControl>
-                                <TextBlock Text="{Binding OpenedLiveNote}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Border>
-
                         <!-- How it runs -->
                         <ctl:SmoothBorder Style="{StaticResource Card}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock DockPanel.Dock="Left" Text="How it runs" Style="{StaticResource H2}" />
+                                    <TextBlock DockPanel.Dock="Left" Text="{Binding FpsChartNote}" Style="{StaticResource Muted}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               Visibility="{Binding FpsByMinute, Converter={StaticResource Vis}}" />
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Visibility="{Binding HasFpsChart, Converter={StaticResource Vis}}">
-                                        <Ellipse Width="10" Height="10" Fill="{StaticResource FpsBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <Ellipse Width="10" Height="10" Fill="{DynamicResource FpsBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                         <TextBlock Text="Average FPS" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
                                         <Line X1="0" X2="14" Y1="0" Y2="0" Stroke="{DynamicResource MutedBrush}" StrokeThickness="2" StrokeDashArray="1.5 1.2" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                        <TextBlock Text="1% low" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
-                                        <Ellipse Width="10" Height="10" Stroke="{DynamicResource MutedBrush}" StrokeThickness="2" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Power cut" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
-                                        <Border Width="14" Height="10" CornerRadius="3" Background="#0F2238" BorderBrush="#1D3A5C" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Driver or game update" Style="{StaticResource Muted}" FontSize="12" />
+                                        <TextBlock Text="1% low" Style="{StaticResource Muted}" FontSize="12" />
+                                        <StackPanel Orientation="Horizontal" Visibility="{Binding FpsByPlay, Converter={StaticResource Vis}}">
+                                            <Ellipse Width="10" Height="10" Stroke="{DynamicResource MutedBrush}" StrokeThickness="2" Margin="14,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Power cut" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
+                                            <Border Width="14" Height="10" CornerRadius="3" Background="{DynamicResource FpsMarkBrush}" BorderBrush="{DynamicResource FpsMarkStrokeBrush}" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Driver or game update" Style="{StaticResource Muted}" FontSize="12" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </DockPanel>
                                 <Grid Visibility="{Binding HasFps, Converter={StaticResource Vis}}">
@@ -455,7 +457,7 @@
                                         <TextBlock Text="{Binding SinceUpdate}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
                                         <TextBlock Text="{Binding UpdatedNote}" Style="{StaticResource Muted}" FontSize="12" />
                                     </StackPanel>
-                                    <ctl:FpsChart Grid.Column="1" Points="{Binding FpsPoints}" Marks="{Binding FpsMarks}" Margin="20,0,0,0" />
+                                    <ctl:FpsChart Grid.Column="1" Points="{Binding FpsPoints}" Marks="{Binding FpsMarks}" ByMinute="{Binding FpsByMinute}" Margin="20,0,0,0" />
                                 </Grid>
                                 <StackPanel Visibility="{Binding HasFps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <TextBlock Text="{Binding FpsEmpty}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
@@ -497,7 +499,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Border Style="{StaticResource IconBox}" Width="28" Height="28" VerticalAlignment="Top">
-                                            <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Foreground="{StaticResource FpsBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource FpsBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                         <TextBlock Grid.Column="1" Text="{Binding CapLine}" TextWrapping="Wrap" Margin="12,4,0,0" />
                                     </Grid>
@@ -516,7 +518,7 @@
                                             <DataTemplate>
                                                 <DockPanel Margin="5,0" LastChildFill="False">
                                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,5,0,0" />
-                                                    <Border DockPanel.Dock="Bottom" Height="{Binding Height}" CornerRadius="5,5,2,2" Background="{StaticResource FpsBrush}">
+                                                    <Border DockPanel.Dock="Bottom" Height="{Binding Height}" CornerRadius="5,5,2,2" Background="{DynamicResource FpsBrush}">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
                                                                 <Setter Property="Opacity" Value="0.8" />
@@ -654,7 +656,14 @@
                                             <DataTemplate>
                                                 <Grid>
                                                     <!-- A play -->
-                                                    <Border Style="{StaticResource KvLine}" Padding="6,9" Visibility="{Binding IsPlay, Converter={StaticResource Vis}}">
+                                                    <Border Padding="6,9" Visibility="{Binding IsPlay, Converter={StaticResource Vis}}">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource KvLine}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding AfterChange}" Value="True"><Setter Property="BorderThickness" Value="0" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="1.4*" />
@@ -670,7 +679,7 @@
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" Text="{Binding Played}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                             <TextBlock Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding Fps, Converter={StaticResource Vis}}">
-                                                                <Run Text="{Binding Fps, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource FpsBrush}" /> <Run Text="{Binding Low, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
+                                                                <Run Text="{Binding Fps, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource FpsBrush}" /> <Run Text="{Binding Low, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
                                                             </TextBlock>
                                                             <!-- Nothing measured: said quietly, not in a reading's colour. -->
                                                             <TextBlock Grid.Column="2" Text="Not recorded" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
@@ -710,19 +719,19 @@
                                                     <Border CornerRadius="8" Padding="6,7" Margin="0,2" BorderThickness="1" Visibility="{Binding IsChange, Converter={StaticResource Vis}}">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
-                                                                <Setter Property="Background" Value="#0D1520" />
-                                                                <Setter Property="BorderBrush" Value="#16263A" />
+                                                                <Setter Property="Background" Value="{DynamicResource FpsNoteBrush}" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource FpsNoteStrokeBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsGameUpdate}" Value="True"><Setter Property="Background" Value="#16110A" /><Setter Property="BorderBrush" Value="#3A2C12" /></DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </Border.Style>
                                                         <DockPanel>
-                                                            <Border Width="22" Height="22" CornerRadius="6" Margin="0,0,10,0" Background="#13263D">
-                                                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="11" Foreground="#6AAEFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <Border Width="22" Height="22" CornerRadius="6" Margin="0,0,10,0" Background="{DynamicResource FpsNoteTileBrush}">
+                                                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FpsNoteIconBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </Border>
                                                             <TextBlock DockPanel.Dock="Right" Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="#B9CDE6" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource FpsNoteTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                         </DockPanel>
                                                     </Border>
                                                 </Grid>

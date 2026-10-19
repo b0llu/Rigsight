@@ -177,6 +177,11 @@ public static class GameLibrary
         if (!v.TryGetValue("appid", out var id) || !v.TryGetValue("name", out var name) || !v.TryGetValue("installdir", out var dir)) return null;
         if (SteamNotGames.Contains(id) || name.StartsWith("Steamworks", StringComparison.OrdinalIgnoreCase) || name.StartsWith("Proton", StringComparison.OrdinalIgnoreCase)) return null;
         var installDir = Path.Combine(steamapps, "common", dir);
+        if (!HoldsGame(installDir, null))
+        {
+            LogOnce($"Steam lists {name} ({id}) at {installDir}, but that folder {(Directory.Exists(installDir) ? "is empty" : "doesn't exist")}: not counted as installed");
+            return null;
+        }
         return new InstalledGame
         {
             Key = "steam:" + id,
@@ -191,6 +196,32 @@ public static class GameLibrary
             UninstallTarget = "steam://uninstall/" + id,
             Art = withArt ? SteamArt(root, id) : GameArt.None,
         };
+    }
+
+    /// <summary>
+    /// A launcher's list outlives the game when its folder is deleted by hand or an uninstall stops half way (a user's
+    /// Fortnite: Epic's manifest said 75 GB, the folder was empty). Only a folder holding the game counts: its program
+    /// where the launcher names one, else anything at all in it.
+    /// </summary>
+    internal static bool HoldsGame(string dir, string? exe)
+    {
+        try
+        {
+            if (!Directory.Exists(dir)) return false;
+            return exe is { Length: > 0 } ? File.Exists(Path.Combine(dir, exe)) : Directory.EnumerateFileSystemEntries(dir).Any();
+        }
+        // A folder RigSight may not look into: the launcher is believed.
+        catch (UnauthorizedAccessException) { return true; }
+        catch (Exception ex) when (ex is IOException or ArgumentException) { return false; }
+    }
+
+    private static readonly HashSet<string> Logged = [];
+
+    /// <summary>The library is read again every minute or so: a game left out is logged once a run, not each time.</summary>
+    private static void LogOnce(string message)
+    {
+        lock (Logged) if (!Logged.Add(message)) return;
+        Log.Write("games", message);
     }
 
     private static DateTime? UnixDate(string? s) => long.TryParse(s, out var t) && t > 0 ? DateTimeOffset.FromUnixTimeSeconds(t).LocalDateTime : null;
@@ -232,6 +263,11 @@ public static class GameLibrary
                 if (j.TryGetProperty("bIsIncompleteInstall", out var inc) && inc.ValueKind == JsonValueKind.True) continue;
                 if (S("DisplayName") is not { Length: > 0 } name || S("InstallLocation") is not { Length: > 0 } dir) continue;
                 if (S("MainGameAppName") is { Length: > 0 } main && main != S("AppName")) continue; // a DLC of another game
+                if (!HoldsGame(dir, S("LaunchExecutable")))
+                {
+                    LogOnce($"Epic lists {name} at {dir} ({Path.GetFileName(file)}), but {(Directory.Exists(dir) ? $"{S("LaunchExecutable") ?? "no file"} isn't in it" : "that folder doesn't exist")}: not counted as installed");
+                    continue;
+                }
                 string? ns = S("CatalogNamespace"), item = S("CatalogItemId"), app = S("AppName");
                 game = new InstalledGame
                 {

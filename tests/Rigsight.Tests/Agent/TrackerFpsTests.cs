@@ -45,15 +45,4 @@ public class TrackerFpsTests
         rig.Tracker.Flush(closeAllSessions: true);
         Assert.All(rig.Minutes(), m => Assert.Null(m.Fps));
     }
-
-    [Fact]
-    public void The_live_activity_carries_the_games_frame_rate_and_drops_it_when_the_game_leaves_the_front()
-    {
-        using var rig = new TrackerRig(null, null, null, Dota, Chrome);
-        rig.Tracker.ReadFrames = _ => (144, 120);
-        rig.Use("dota2.exe", 3, fullscreen: true);
-        Assert.Equal((144.0, 120.0), (rig.Tracker.Activity.Fps, rig.Tracker.Activity.FpsLow));
-        rig.Use("chrome.exe", 1);
-        Assert.Null(rig.Tracker.Activity.Fps);
-    }
 }

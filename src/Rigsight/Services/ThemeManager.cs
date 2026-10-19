@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 using Rigsight.Controls;
@@ -80,6 +80,8 @@ public static class ThemeManager
         // A theme with a coloured accent of its own: the palette's keys for the Fluent controls are written in black and white.
         else if (own != Colors.White && own != Colors.Black) Accents.ApplyTo(palette, own);
         Accents.Popups(palette);
+        // The frame rate keeps its own blue (as parts keep theirs) until an accent is picked, then it is the accent.
+        Accents.Fps(palette, accentColor ?? (light ? Color.FromRgb(0x25, 0x6F, 0xE8) : Color.FromRgb(0x4C, 0x9A, 0xFF)));
         if (index >= 0) dictionaries[index] = palette;
         else dictionaries.Insert(0, palette);
 

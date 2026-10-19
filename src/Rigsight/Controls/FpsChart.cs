@@ -1,11 +1,11 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using Rigsight.Core;
 
 namespace Rigsight.Controls;
 
-/// <summary>One play on the Games page's chart: its frame rate, 1% low and what the hover box says.</summary>
+/// <summary>One play on the Games page's chart (or one minute of it, see <see cref="FpsChart.ByMinute"/>): its frame rate, 1% low and what the hover box says.</summary>
 public sealed record FpsPoint(DateTime Start, DateTime End, double ActiveSec, double Fps, double? Low, double? Gpu, double? Watts, bool PowerCut);
 
 /// <summary>A change between two plays (a graphics driver, the game's update), drawn between them with a short label.</summary>
@@ -14,7 +14,9 @@ public sealed record FpsMark(double Between, string Label, string Title, DateTim
 /// <summary>
 /// The Games page's "How it runs": a play's average frame rate as a line with dots, its 1% low dashed under it with the
 /// band between them shaded, a power cut as a hollow grey dot, and labelled dashed lines where a driver or the game
-/// was updated. Hover a play for its figures, a label for the change.
+/// was updated. Hover a play for its figures (a box for each line: the average's above it, the 1% low's below its own
+/// point), a label for the change. While a game has a single play with frames, the
+/// chart shows that play minute by minute instead (<see cref="ByMinute"/>): the same lines, times along the bottom.
 /// </summary>
 public sealed class FpsChart : FrameworkElement
 {
@@ -29,8 +31,11 @@ public sealed class FpsChart : FrameworkElement
     public IReadOnlyList<FpsPoint>? Points { get => (IReadOnlyList<FpsPoint>?)GetValue(PointsProperty); set => SetValue(PointsProperty, value); }
     public IReadOnlyList<FpsMark>? Marks { get => (IReadOnlyList<FpsMark>?)GetValue(MarksProperty); set => SetValue(MarksProperty, value); }
 
-    /// <summary>The frame rate's colour: a blue of its own, not a part's (the CPU's blue is a temperature).</summary>
-    internal static readonly SolidColorBrush Blue = ChartPaint.Frozen(0x4C, 0x9A, 0xFF);
+    public static readonly DependencyProperty ByMinuteProperty = DependencyProperty.Register(
+        nameof(ByMinute), typeof(bool), typeof(FpsChart), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>Each point is a minute of one play: no dots (too many), times along the bottom, the minute's figures on hover.</summary>
+    public bool ByMinute { get => (bool)GetValue(ByMinuteProperty); set => SetValue(ByMinuteProperty, value); }
 
     private int _hover = -1, _hoverMark = -1;
     private readonly List<double> _xs = [];
@@ -84,7 +89,8 @@ public sealed class FpsChart : FrameworkElement
         }
         ChartPaint.Text(dc, this, "fps", new Point(Left - 8, Top - 14), 11, ChartPaint.Label, ChartPaint.Align.Right);
 
-        var accent = Blue;
+        // The frame rate's own blue, or the picked accent (see Accents.Fps).
+        var accent = ChartPaint.Fps;
         for (int i = 0; i < pts.Count; i++) _xs.Add(X(i));
 
         // The band between the average and the 1% low, then the low dashed, then the average.
@@ -110,11 +116,11 @@ public sealed class FpsChart : FrameworkElement
             if (before < 0 || before >= pts.Count - 1) continue;
             double x = Math.Round((X(before) + X(before + 1)) / 2) + 0.5;
             dc.DrawLine(new Pen(ChartPaint.Brush(accent.Color, 0.7), 1) { DashStyle = new DashStyle([3, 3], 0) }, new Point(x, Top - 4), new Point(x, h - Bottom));
-            var ft = ChartPaint.Format(this, m.Label, 10.5, ChartPaint.Brush(Color.FromRgb(0x9C, 0xC7, 0xFF)));
+            var ft = ChartPaint.Format(this, m.Label, 10.5, ChartPaint.FpsMarkText);
             var box = new Rect(x - ft.Width / 2 - 8, Top - 27, ft.Width + 16, 18);
             if (box.Left < 0) box.X = 0;
             if (box.Right > w) box.X = w - box.Width;
-            dc.DrawRoundedRectangle(ChartPaint.Brush(Color.FromRgb(0x0F, 0x22, 0x38)), new Pen(ChartPaint.Brush(Color.FromRgb(0x1D, 0x3A, 0x5C)), 1), box, 5, 5);
+            dc.DrawRoundedRectangle(ChartPaint.FpsMark, new Pen(ChartPaint.FpsMarkStroke, 1), box, 5, 5);
             dc.DrawText(ft, new Point(box.X + 8, box.Y + (18 - ft.Height) / 2));
             _labels.Add(box);
         }
@@ -122,15 +128,28 @@ public sealed class FpsChart : FrameworkElement
         Line(Enumerable.Range(0, pts.Count).ToList(), i => pts[i].Fps, new Pen(accent, 2.2));
         var ring = new Pen(ChartPaint.Muted, 2);
         var hole = ChartPaint.Brush(ChartPaint.Res("SurfaceColor", 0x11));
-        for (int i = 0; i < pts.Count; i++)
+        bool byMinute = ByMinute;
+        for (int i = 0; i < pts.Count && !byMinute; i++)
         {
             var c = new Point(X(i), Y(pts[i].Fps));
             if (pts[i].PowerCut) dc.DrawEllipse(hole, ring, c, 4.5, 4.5);
             else dc.DrawEllipse(accent, new Pen(hole, 1.5), c, 3.2, 3.2);
         }
 
-        ChartPaint.Text(dc, this, pts[0].Start.ToString("ddd d MMM"), new Point(Left, h - 6), 11, ChartPaint.Label, ChartPaint.Align.Left);
-        ChartPaint.Text(dc, this, pts[^1].Start.ToString("ddd d MMM"), new Point(w - Right, h - 6), 11, ChartPaint.Label, ChartPaint.Align.Right);
+        // Times (or days) along the bottom, about one every 120 px: the first and last at the ends, the rest centred under
+        // their point; a day already written (two plays on one day) isn't written again.
+        string when = byMinute ? "h:mm tt" : "ddd d MMM";
+        int labels = Math.Clamp((int)((w - Left - Right) / 120) + 1, 2, pts.Count);
+        string? written = null;
+        for (int k = 0; k < labels; k++)
+        {
+            int i = (int)Math.Round(k * (pts.Count - 1) / (double)(labels - 1));
+            string text = pts[i].Start.ToString(when);
+            if (text == written) continue;
+            written = text;
+            var align = k == 0 ? ChartPaint.Align.Left : k == labels - 1 ? ChartPaint.Align.Right : ChartPaint.Align.Center;
+            ChartPaint.Text(dc, this, text, new Point(k == labels - 1 ? w - Right : X(i), h - 6), 11, ChartPaint.Label, align);
+        }
 
         var bounds = new Rect(0, 0, w, h);
         if (_hoverMark >= 0 && Marks is { } marks && _hoverMark < marks.Count)
@@ -145,14 +164,24 @@ public sealed class FpsChart : FrameworkElement
             var p = pts[_hover];
             double x = Math.Round(X(_hover)) + 0.5;
             dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, h - Bottom));
+            if (byMinute) dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(X(_hover), Y(p.Fps)), 3.2, 3.2);
+            // The average's box: when, the frame rate, the graphics card.
             var lines = new List<(string, Brush, bool)>
             {
-                ($"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}", ChartPaint.TextBrush, true),
-                ($"{p.Fps:0} fps average" + (p.Low is double l ? $" · {l:0} 1% low" : ""), accent, false),
+                (byMinute ? $"{p.Start:ddd d MMM}  {p.Start:h:mm tt}" : $"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}", ChartPaint.TextBrush, true),
+                ($"{p.Fps:0} fps average", accent, false),
             };
             if (p.Gpu is double gpu) lines.Add(($"GPU {Units.TempShort(gpu)}" + (p.Watts is double watts ? $" · {watts:0} W" : ""), ChartPaint.Muted, false));
             if (p.PowerCut) lines.Add(("Ended by a power cut", ChartPaint.Muted, false));
-            ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(p.Fps) - 20), bounds);
+            var top = ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(p.Fps) - 8), bounds, above: true);
+            // The 1% low's own box, under its point on the dashed line (never over the average's).
+            if (p.Low is double low)
+            {
+                var at = new Point(X(_hover), Y(low));
+                dc.DrawEllipse(ChartPaint.Muted, new Pen(hole, 1.5), at, 3.2, 3.2);
+                ChartPaint.InfoBox(dc, this, [($"{low:0} fps 1% low", ChartPaint.TextBrush, true), ($"The slowest frames: {p.Fps - low:0} under the average", ChartPaint.Muted, false)],
+                    new Point(x, at.Y + 8), bounds, minTop: top.Bottom + 6);
+            }
         }
 
         void Line(List<int> idx, Func<int, double> value, Pen pen)

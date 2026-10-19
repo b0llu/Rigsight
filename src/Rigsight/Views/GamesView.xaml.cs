@@ -24,6 +24,14 @@ public partial class GamesView : UserControl
 
     private void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ViewModels.GamesViewModel.Search) && sender is ViewModels.GamesViewModel searched)
+        {
+            // While searching, the box keeps the height it had: fewer covers (or none) don't pull the shelf up.
+            bool searching = Core.TextMatch.Words(searched.Search).Length > 0;
+            if (searching && LibraryBox.MinHeight == 0) LibraryBox.MinHeight = LibraryBox.ActualHeight;
+            else if (!searching) LibraryBox.MinHeight = 0;
+            return;
+        }
         if (e.PropertyName != nameof(ViewModels.GamesViewModel.IsGame) || sender is not ViewModels.GamesViewModel vm) return;
         bool wasGame = _wasGame;
         _wasGame = vm.IsGame;

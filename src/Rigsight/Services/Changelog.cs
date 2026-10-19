@@ -93,6 +93,13 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("0.29.1", 10, 19,
+            added: ["Search the Games library by a game's name or its launcher, right above the covers."],
+            better: ["With only one play recorded, How it runs on the Games page charts that play minute by minute instead of staying empty.",
+                "Hovering How it runs shows the average and the 1% low each in a box of its own, next to its line.",
+                "A game stays shown as running on the Games page while you're in another window, with Play and uninstall off until it closes."],
+            fixedBugs: ["The Games page now follows the accent colour you pick in Settings, from the Play button to the FPS chart.",
+                "A game whose folder was deleted or only half uninstalled no longer shows as installed with its old size."]),
         V("0.29.0", 10, 18,
             feature: new("Games", "Every game on your PC in one library, from any launcher, with how it runs on your PC.",
                 ["See each game's frame rate and 1% low for every play, and whether its last update or a driver changed them.",

@@ -31,8 +31,6 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     /// The frame rate and 1% low of the process in front, or null when nothing measures it. RivaTuner's, while it runs
     /// (the overlay and FPS widgets read the same); a test sets its own.
     /// </summary>
-    private (double Fps, double? Low)? _frames;
-
     internal Func<int, (double Fps, double? Low)?> ReadFrames { get; set; } = pid =>
         Widgets.Rtss.ReadFrameStats(pid) is { } f && f.Fps > 0 ? (f.Fps, f.OnePercentLow) : null;
 
@@ -205,7 +203,6 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         bool present = !s.Locked && (s.IdleMs < _settings.Tracking.IdleMinutes * 60_000 || fullscreenActive);
 
         AppInfo? app = null;
-        _frames = null;
         if (s.Exe is not null && !s.Locked && !Excluded(s.Exe))
             app = apps.Get(s.Exe, s.Pid);
 
@@ -242,7 +239,6 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 LearnGame(app, s.Fullscreen, dt);
                 if (AppResolver.Category(app, _settings) == AppCategory.Game && ReadFrames(s.Pid) is var (fps, low))
                 {
-                    _frames = (fps, low);
                     _minute.FpsSum += fps;
                     _minute.FpsN++;
                     if (low is double l) { _minute.FpsLowSum += l; _minute.FpsLowN++; }
@@ -288,8 +284,6 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             SessionActiveSec = session?.ActiveSec ?? 0,
             SessionCpuMax = session?.CpuMax,
             SessionGpuMax = session?.GpuMax,
-            Fps = _frames?.Fps,
-            FpsLow = _frames?.Low,
         };
     }
 

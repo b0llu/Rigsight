@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 
@@ -128,6 +128,33 @@ public static class Accents
         palette["SegmentOnBrush"] = Brush(accent, 1);
         palette["SegmentOnTextBrush"] = Brush(OnAccent(accent), 1);
         palette["ListBarBrush"] = Brush(accent, 1);
+    }
+
+    /// <summary>
+    /// The Games page's colours, all from one: the frame rate's own blue, or the picked accent. The Play button and the
+    /// FPS lines are drawn in it; the update markers on the chart and the change boxes between plays are deep shades of
+    /// it with pale text, so they turn with the accent too (they were written in blue and stayed blue).
+    /// </summary>
+    public static void Fps(ResourceDictionary palette, Color fps)
+    {
+        var text = (Color)palette["TextColor"];
+        var bg = (Color)palette["BgColor"];
+        void Put(string name, Color c)
+        {
+            palette[name + "Color"] = c;
+            palette[name + "Brush"] = Brush(c, 1);
+        }
+        Put("Fps", fps);
+        palette["FpsSoftBrush"] = Brush(fps, 0.10);
+        palette["OnFpsBrush"] = Brush(OnAccent(fps), 1);
+        Put("FpsMark", Mix(fps, bg, 0.18));
+        Put("FpsMarkStroke", Mix(fps, bg, 0.33));
+        Put("FpsMarkText", Mix(fps, text, 0.60));
+        Put("FpsNote", Mix(fps, bg, 0.09));
+        Put("FpsNoteStroke", Mix(fps, bg, 0.20));
+        Put("FpsNoteTile", Mix(fps, bg, 0.22));
+        Put("FpsNoteIcon", Mix(fps, text, 0.80));
+        Put("FpsNoteText", Mix(fps, text, 0.40));
     }
 
     /// <summary>

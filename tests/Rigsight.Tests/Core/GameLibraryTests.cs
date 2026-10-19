@@ -26,6 +26,7 @@ public class GameLibraryTests
         {
             var steamapps = Path.Combine(g.InSecond ? library : root, "steamapps");
             Directory.CreateDirectory(Path.Combine(steamapps, "common", g.Dir));
+            File.WriteAllText(Path.Combine(steamapps, "common", g.Dir, "game.exe"), "x");
             File.WriteAllText(Path.Combine(steamapps, $"appmanifest_{g.Id}.acf"), $$"""
                 "AppState"
                 {
@@ -107,6 +108,15 @@ public class GameLibraryTests
         return dir;
     }
 
+    /// <summary>A real folder holding the program the manifest names (Binaries/Win64/Launcher.exe).</summary>
+    private static string EpicFolder(string name)
+    {
+        var dir = TestEnvironment.NewFolder(name);
+        Directory.CreateDirectory(Path.Combine(dir, "Binaries", "Win64"));
+        File.WriteAllText(Path.Combine(dir, "Binaries", "Win64", "Launcher.exe"), "x");
+        return dir;
+    }
+
     private static string EpicItem(string name, string location, long size, string app, string main = "", bool incomplete = false) => $$"""
         {
             "DisplayName": "{{name}}",
@@ -125,11 +135,12 @@ public class GameLibraryTests
     [Fact]
     public void Epic_games_come_from_its_manifests_wherever_installed_without_their_trademark_signs()
     {
-        var games = GameLibrary.Scan(Sources(epic: Epic(EpicItem("Rocket League®", @"E:\rocketleague", 43_679_198_548, "Sugar"))));
+        var folder = EpicFolder("rocketleague");
+        var games = GameLibrary.Scan(Sources(epic: Epic(EpicItem("Rocket League®", folder, 43_679_198_548, "Sugar"))));
         var rl = Assert.Single(games);
         Assert.Equal("Rocket League", rl.Name);
         Assert.Equal(Launcher.Epic, rl.Launcher);
-        Assert.Equal(@"E:\rocketleague", rl.InstallDir);
+        Assert.Equal(folder, rl.InstallDir);
         Assert.Equal("++Prime+Update60-CL-529371", rl.Version);
         Assert.Equal("com.epicgames.launcher://apps/ns1%3Aitem1%3ASugar?action=launch&silent=true", rl.LaunchTarget);
         // Epic writes nothing to Windows' list of programs: a game is removed in its library.
@@ -143,6 +154,27 @@ public class GameLibraryTests
             EpicItem("Half Done", @"E:\half", 10, "Half", incomplete: true),
             EpicItem("Season Pass", @"E:\rocketleague\dlc", 10, "Pass", main: "Sugar"))));
         Assert.Empty(games);
+    }
+
+    [Fact]
+    public void An_epic_manifest_left_behind_by_a_deleted_or_half_uninstalled_game_is_not_installed()
+    {
+        // A user's Fortnite: Epic's manifest still said 75 GB, the folder it named was empty.
+        var empty = TestEnvironment.NewFolder("fortnite");
+        var games = GameLibrary.Scan(Sources(epic: Epic(
+            EpicItem("Fortnite", empty, 75_000_000_000, "Fortnite"),
+            EpicItem("Gone", Path.Combine(empty, "gone"), 10, "Gone"),
+            EpicItem("Rocket League", EpicFolder("rocketleague"), 10, "Sugar"))));
+        Assert.Equal("Rocket League", Assert.Single(games).Name);
+    }
+
+    [Fact]
+    public void A_steam_manifest_whose_game_folder_is_empty_or_gone_is_not_installed()
+    {
+        var (root, library) = Steam(("570", "Dota 2", "dota 2 beta", "1", true), ("2138720", "REMATCH", "Rematch", "1", false), ("730", "Counter-Strike 2", "csgo", "1", true));
+        File.Delete(Path.Combine(library, "steamapps", "common", "dota 2 beta", "game.exe"));
+        Directory.Delete(Path.Combine(library, "steamapps", "common", "csgo"), recursive: true);
+        Assert.Equal("REMATCH", Assert.Single(GameLibrary.Scan(Sources(root))).Name);
     }
 
     private static readonly UninstallEntry Valorant = new("Riot Game valorant.live", "VALORANT", "Riot Games, Inc", "E:/Riot Games/VALORANT/live",
@@ -164,7 +196,7 @@ public class GameLibraryTests
     public void One_game_added_through_epic_but_run_by_the_riot_client_shows_once_as_riots()
     {
         // VALORANT on the user's PC: Epic's entry is a 71 MB starter that opens the Riot Client; the 32 GB game is Riot's.
-        var games = GameLibrary.Scan(Sources(epic: Epic(EpicItem("VALORANT", @"E:\VALORANT", 73_632_944, "valorant")), entries: Valorant));
+        var games = GameLibrary.Scan(Sources(epic: Epic(EpicItem("VALORANT", EpicFolder("VALORANT"), 73_632_944, "valorant")), entries: Valorant));
         var game = Assert.Single(games);
         Assert.Equal(Launcher.Riot, game.Launcher);
         Assert.Equal(Launcher.Epic, game.AddedThrough);

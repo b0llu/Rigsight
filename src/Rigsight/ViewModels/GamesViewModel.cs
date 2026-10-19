@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -32,18 +33,26 @@ public sealed partial class GameCard : ObservableObject
 }
 
 /// <summary>An installed game not played lately, on the shelf under the library.</summary>
-public sealed record ShelfRow(GameEntry Entry, string Name, string Sub, string Size, string Drive, ImageSource? Thumb, ImageSource? Icon, string UninstallTip)
+public sealed partial class ShelfRow(GameEntry entry, string name, string sub, string size, string drive, ImageSource? thumb, ImageSource? icon, string uninstallTip) : ObservableObject
 {
+    public GameEntry Entry { get; } = entry;
+    public string Name { get; } = name;
+    public string Sub { get; } = sub;
+    public string Size { get; } = size;
+    public string Drive { get; } = drive;
+    public ImageSource? Thumb { get; } = thumb;
+    public ImageSource? Icon { get; } = icon;
+    public string UninstallTip { get; } = uninstallTip;
     public bool HasThumb => Thumb is not null;
     public bool HasFolder => GameLauncher.FolderOf(Entry) is not null;
+    /// <summary>Running now: its uninstall button is off.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUninstall))] private bool _isRunning;
+    public bool CanUninstall => !IsRunning;
 }
 
 /// <summary>A small rounded label over the banner ("Played 24h 31m").</summary>
 /// <summary>A figure over the banner, one line: plain lead, the figure in bold, plain trail.</summary>
 public sealed record GamePill(string Lead, string Bold, string Trail = "");
-
-/// <summary>One live reading over the banner of the game being played.</summary>
-public sealed record LiveTile(string Label, string Value, Brush? Brush = null);
 
 /// <summary>A line of "Problems in …": amber only when it counts something that needs a look.</summary>
 public sealed record ProblemRow(string Label, string Value, string Note, bool Warm, bool Grey = false);
@@ -59,6 +68,8 @@ public sealed record PlayRow
 {
     public bool IsChange { get; init; }
     public bool IsPlay => !IsChange;
+    /// <summary>A play right under a change's box: no line over it (the box already sets it apart).</summary>
+    public bool AfterChange { get; init; }
     public bool IsNow { get; init; }
     public string Day { get; init; } = "";
     public string Times { get; init; } = "";
@@ -125,8 +136,14 @@ public sealed partial class GamesViewModel : ObservableObject
     /// <summary>all · installed · before</summary>
     [ObservableProperty] private string _filter = "all";
 
+    /// <summary>Words typed in the library's search: a game shows when its name or launcher has every one.</summary>
+    [ObservableProperty] private string _search = "";
+    /// <summary>Something is typed and no game has it.</summary>
+    public bool NoMatch => Ready && _all.Count > 0 && Cards.Count == 0 && Core.TextMatch.Words(Search).Length > 0;
+
     partial void OnSortChanged(string value) => BuildCards();
     partial void OnFilterChanged(string value) => BuildCards();
+    partial void OnSearchChanged(string value) => BuildCards();
 
     public bool HasShelf => Shelf.Count > 0;
     public bool IsEmpty => Ready && _all.Count == 0;
@@ -139,17 +156,17 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] private string _heroEyebrow = "";
     [ObservableProperty] private IReadOnlyList<GamePill> _heroPills = [];
     [ObservableProperty] private bool _heroLive;
-    [ObservableProperty] private IReadOnlyList<LiveTile> _liveTiles = [];
-    [ObservableProperty] private string _liveNote = "";
     public bool HasHero => HeroGame is not null;
     public bool HeroHasBanner => HeroBanner is not null;
     public bool HeroHasLogo => HeroLogo is not null;
     public string HeroName => HeroGame?.Name ?? "";
-    partial void OnHeroGameChanged(GameEntry? value) => OnPropertyChanged(nameof(HasHero), nameof(HeroName), nameof(HeroCanPlay));
+    partial void OnHeroGameChanged(GameEntry? value) => OnPropertyChanged(nameof(HasHero), nameof(HeroName), nameof(HeroInstalled));
     partial void OnHeroBannerChanged(ImageSource? value) => OnPropertyChanged(nameof(HeroHasBanner));
     partial void OnHeroLogoChanged(ImageSource? value) => OnPropertyChanged(nameof(HeroHasLogo));
-    partial void OnHeroLiveChanged(bool value) => OnPropertyChanged(nameof(HeroCanPlay));
-    public bool HeroCanPlay => HeroGame is { IsInstalled: true } && !HeroLive;
+    /// <summary>Play shows for an installed game; while the game runs it reads "Running" and can't be pressed.</summary>
+    public bool HeroInstalled => HeroGame is { IsInstalled: true };
+    public bool HeroNotRunning => !HeroLive;
+    partial void OnHeroLiveChanged(bool value) => OnPropertyChanged(nameof(HeroNotRunning));
 
     private GameStory? _heroStory;
 
@@ -166,7 +183,9 @@ public sealed partial class GamesViewModel : ObservableObject
         var library = await _reports.QueryAsync((db, s) => GameHistory.Library(db, installed, s)) ?? [];
         _all = library;
         var last = library.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
-        _heroStory = last is null ? null : await _reports.QueryAsync((db, s) => GameHistory.Story(db, last, s, DateTime.Now));
+        SetRunning(FindRunning());
+        var hero = _running ?? last;
+        _heroStory = hero is null ? null : await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
         await Task.Run(() => { foreach (var g in library) Prewarm(g); });
         BuildCards();
         BuildShelf();
@@ -194,6 +213,8 @@ public sealed partial class GamesViewModel : ObservableObject
             "before" => _all.Where(g => !g.IsInstalled),
             _ => _all,
         };
+        var words = Core.TextMatch.Words(Search);
+        if (words.Length > 0) list = list.Where(g => Core.TextMatch.Has(words, g.Name, LauncherName(g.Launcher)));
         list = Sort switch
         {
             "most" => list.OrderByDescending(g => g.ActiveSec),
@@ -207,6 +228,7 @@ public sealed partial class GamesViewModel : ObservableObject
         Cards.Clear();
         foreach (var g in ordered) Cards.Add(CardOf(g, playing));
         CountText = Cards.Count == 1 ? "1 game" : $"{Cards.Count} games";
+        OnPropertyChanged(nameof(NoMatch));
     }
 
     private static GameCard CardOf(GameEntry g, GameEntry? playing)
@@ -238,7 +260,7 @@ public sealed partial class GamesViewModel : ObservableObject
             string when = g.HasHistory ? $"Last played {Day(g.LastPlayed!.Value)}" : g.Installed.LastPlayed is { } lp ? $"Last played {Day(lp)}" : "Not played yet";
             Shelf.Add(new ShelfRow(g, g.Name, $"{when} · {LauncherName(g.Launcher)}", Size(g.Installed.SizeBytes),
                 $"on the {DriveOf(g.Installed.InstallDir)} drive", thumb, thumb is null ? GamePictures.Icon(g.ExePath ?? GamePictures.ProgramIn(g.Installed.InstallDir)) : null,
-                "Uninstall through " + GameLauncher.Who(g.Launcher)));
+                "Uninstall through " + GameLauncher.Who(g.Launcher)) { IsRunning = IsRunning(g) });
         }
         double gb = idle.Sum(g => (g.Installed!.SizeBytes ?? 0) / 1e9);
         ShelfSummary = $"{idle.Count} {(idle.Count == 1 ? "game" : "games")} · {gb:0} GB";
@@ -247,19 +269,21 @@ public sealed partial class GamesViewModel : ObservableObject
 
     private void BuildHero(GameEntry? last)
     {
-        if (PlayingEntry() is { } playing)
-        {
-            ShowHero(playing, live: true);
-            return;
-        }
-        if (last is null) { HeroGame = null; return; }
-        ShowHero(last, live: false);
+        // The game running now takes the banner; its figures are its last play's, like any other.
+        var hero = PlayingEntry() ?? last;
+        if (hero is null) { HeroGame = null; return; }
+        if (_heroStory?.Entry.Key != hero.Key) _heroStory = null;
+        HeroGame = hero;
+        HeroLive = IsRunning(hero);
+        HeroBanner = GamePictures.Picture(hero.Installed?.Art.Banner, 1600);
+        HeroLogo = GamePictures.Picture(hero.Installed?.Art.Logo, 720);
+        HeroIcon = HeroBanner is null ? GamePictures.Icon(hero.ExePath) : null;
         var play = _heroStory?.Plays.LastOrDefault();
-        HeroEyebrow = play is null ? "CONTINUE" : $"CONTINUE · LAST PLAYED {play.StartTime:ddd d MMM}".ToUpperInvariant();
+        HeroEyebrow = HeroLive ? "PLAYING NOW" : play is null ? "CONTINUE" : $"CONTINUE · LAST PLAYED {play.StartTime:ddd d MMM}".ToUpperInvariant();
         var pills = new List<GamePill>();
         if (play is not null)
         {
-            pills.Add(new("", Units.Duration(play.ActiveSec), $" last time · {Units.Duration(last.ActiveSec)} in all"));
+            pills.Add(new("", Units.Duration(play.ActiveSec), $" last time · {Units.Duration(hero.ActiveSec)} in all"));
             // The graphics card's temperature and its power while played, named (a bare "253 W" said nothing).
             if (play.Stats.Gpu is double gpu) pills.Add(new("Graphics card ", Units.TempShort(gpu), play.Stats.GpuPower is double gw ? $" · {gw:0} W" : ""));
             else if (play.Stats.GpuPower is double w) pills.Add(new("Graphics card ", $"{w:0} W"));
@@ -268,58 +292,81 @@ public sealed partial class GamesViewModel : ObservableObject
         HeroPills = pills;
     }
 
-    private void ShowHero(GameEntry g, bool live)
+    // ── Running ──────────────────────────────────────────────────────────
+
+    /// <summary>Whether the Games page is in view: only then is the running game looked for every few seconds.</summary>
+    public bool IsShown { get; set; }
+
+    private GameEntry? _running;
+    private DateTime _runningChecked = DateTime.MinValue;
+
+    /// <summary>The library's game running now, in front or behind another window.</summary>
+    private GameEntry? PlayingEntry() => _running;
+
+    /// <summary>The library is read again every load, so a game is the same game by its key, not its object.</summary>
+    private bool IsRunning(GameEntry? g) => g is not null && _running?.Key == g.Key;
+
+    /// <summary>
+    /// The game in front, else one still running behind another window. The agent names only the app in front, so a
+    /// game tabbed out of (to RigSight itself, a browser, Discord) is found by its programs among the running ones.
+    /// </summary>
+    private GameEntry? FindRunning()
     {
-        HeroGame = g;
-        HeroLive = live;
-        HeroBanner = GamePictures.Picture(g.Installed?.Art.Banner, 1600);
-        HeroLogo = GamePictures.Picture(g.Installed?.Art.Logo, 720);
-        HeroIcon = HeroBanner is null ? GamePictures.Icon(g.ExePath) : null;
-        if (live) UpdateLive();
+        _runningChecked = DateTime.Now;
+        if (_live.Activity is { Category: AppCategory.Game, Path: { } path } && Match(path) is { } front) return front;
+        var names = new Dictionary<string, List<GameEntry>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in _all)
+            foreach (var exe in g.Exes.Append(Path.GetFileName(g.ExePath ?? "")).Where(x => x.Length > 0).Select(Path.GetFileNameWithoutExtension).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!names.TryGetValue(exe!, out var games)) names[exe!] = games = [];
+                games.Add(g);
+            }
+        if (names.Count == 0) return null;
+        var found = new List<GameEntry>();
+        foreach (var p in Process.GetProcesses())
+            using (p)
+                if (names.TryGetValue(p.ProcessName, out var games)) found.AddRange(games);
+        // The one already running stays; else the one played most lately.
+        return found.FirstOrDefault(IsRunning) ?? found.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).FirstOrDefault();
     }
 
-    // ── Live ─────────────────────────────────────────────────────────────
+    private GameEntry? Match(string path) =>
+        _all.FirstOrDefault(g => string.Equals(g.ExePath, path, StringComparison.OrdinalIgnoreCase))
+        ?? _all.FirstOrDefault(g => g.Installed?.Contains(path) == true);
 
-    /// <summary>The library's game in front right now, while it's a game.</summary>
-    private GameEntry? PlayingEntry()
+    private void SetRunning(GameEntry? running)
     {
-        if (_live.Activity is not { Category: AppCategory.Game, Path: { } path } a || a.Paused) return null;
-        return _all.FirstOrDefault(g => string.Equals(g.ExePath, path, StringComparison.OrdinalIgnoreCase))
-            ?? _all.FirstOrDefault(g => g.Installed?.Contains(path) == true);
+        bool same = running?.Key == _running?.Key;
+        _running = running;
+        if (same) return;
+        foreach (var c in Cards) c.IsPlaying = IsRunning(c.Entry);
+        foreach (var r in Shelf) r.IsRunning = IsRunning(r.Entry);
+        OnPropertyChanged(nameof(OpenedLive));
+        OnPropertyChanged(nameof(OpenedNotRunning));
     }
-
-    private GameEntry? _wasPlaying;
 
     private void OnLiveChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is not (nameof(LiveData.Activity) or nameof(LiveData.Tick)) || !Ready) return;
-        var playing = PlayingEntry();
-        if (!ReferenceEquals(playing, _wasPlaying))
+        if (!Ready || !IsShown) return;
+        // The app in front changing is checked at once; a game closed behind another window within a few seconds.
+        if (e.PropertyName == nameof(LiveData.Activity) || (e.PropertyName == nameof(LiveData.Tick) && DateTime.Now - _runningChecked > TimeSpan.FromSeconds(3)))
         {
-            _wasPlaying = playing;
-            foreach (var c in Cards) c.IsPlaying = ReferenceEquals(c.Entry, playing);
-            BuildHero(playing ?? _all.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault());
-            OnPropertyChanged(nameof(OpenedLive));
+            var was = _running?.Key;
+            SetRunning(FindRunning());
+            if (was == _running?.Key) return;
+            // The game started or closed: its cover moves to the front (or back to its place) and the banner follows.
+            BuildCards();
+            _ = RefreshHeroAsync();
         }
-        if (playing is not null) UpdateLive();
     }
 
-    private void UpdateLive()
+    /// <summary>The banner after a game starts or closes: the running one, else the last played, with its last play's figures.</summary>
+    private async Task RefreshHeroAsync()
     {
-        var a = _live.Activity;
-        var tiles = new List<LiveTile>();
-        if (a?.Fps is double fps) tiles.Add(new("FPS", $"{fps:0}", FpsChart.Blue));
-        if (a?.FpsLow is double low) tiles.Add(new("1% LOW", $"{low:0}"));
-        if (_live.GpuTemp?.Value is double gpu) tiles.Add(new("GPU", Units.TempShort(gpu), Brush("GpuBrush")));
-        if (_live.CpuTemp?.Value is double cpu) tiles.Add(new("CPU", Units.TempShort(cpu), Brush("CpuBrush")));
-        double? watts = _live.CpuPower?.Value is null && _live.GpuPower?.Value is null ? null : (_live.CpuPower?.Value ?? 0) + (_live.GpuPower?.Value ?? 0);
-        if (watts is double w) tiles.Add(new("CPU + GPU POWER", $"{w:0} W"));
-        LiveTiles = tiles;
-        double min = (a?.SessionActiveSec ?? 0) / 60;
-        string started = a is { SessionStart: > 0 } ? TimeUtil.FromUnix(a.SessionStart).ToString("h:mm tt") : "";
-        HeroEyebrow = HeroLive ? $"PLAYING NOW{(started.Length > 0 ? $" · STARTED {started}" : "")} · {Units.Duration(min * 60).ToUpperInvariant()}" : HeroEyebrow;
-        LiveNote = a?.Fps is null ? "No FPS: RivaTuner isn't measuring this game" : $"{Units.Duration(min * 60)} in";
-        if (OpenedLive) { OpenedLiveTiles = tiles; OpenedLiveNote = LiveNote; }
+        var hero = _running ?? _all.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
+        if (hero is not null && _heroStory?.Entry.Key != hero.Key)
+            _heroStory = await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
+        BuildHero(hero);
     }
 
     private static Brush? Brush(string key) => System.Windows.Application.Current?.TryFindResource(key) as Brush;
@@ -330,7 +377,7 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] private bool _isOpening;
     public bool IsLibrary => Opened is null && !IsOpening;
     public bool IsGame => Opened is not null;
-    partial void OnOpenedChanged(GameStory? value) => OnPropertyChanged(nameof(IsLibrary), nameof(IsGame), nameof(OpenedLive));
+    partial void OnOpenedChanged(GameStory? value) => OnPropertyChanged(nameof(IsLibrary), nameof(IsGame), nameof(OpenedLive), nameof(OpenedNotRunning));
     partial void OnIsOpeningChanged(bool value) => OnPropertyChanged(nameof(IsLibrary));
 
     /// <summary>Where the game was opened from (Reports, Crashes…), for "Back to …"; null from the library itself.</summary>
@@ -351,10 +398,9 @@ public sealed partial class GamesViewModel : ObservableObject
     public string GameName => Opened?.Entry.Name ?? "";
     public bool GameInstalled => Opened?.Entry.IsInstalled == true;
     public bool GameHasFolder => Opened is { } o && GameLauncher.FolderOf(o.Entry) is not null;
-    public bool GameCanPlay => GameInstalled && !OpenedLive;
     public bool OpenedLive => Opened is { } o && PlayingEntry() is { } p && p.Key == o.Entry.Key;
-    [ObservableProperty] private IReadOnlyList<LiveTile> _openedLiveTiles = [];
-    [ObservableProperty] private string _openedLiveNote = "";
+    /// <summary>Play and uninstall are on: the opened game isn't running.</summary>
+    public bool OpenedNotRunning => !OpenedLive;
 
     // How it runs
     [ObservableProperty] private bool _hasFps;
@@ -364,6 +410,10 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] private string _updatedNote = "";
     [ObservableProperty] private IReadOnlyList<FpsPoint> _fpsPoints = [];
     [ObservableProperty] private IReadOnlyList<FpsMark> _fpsMarks = [];
+    /// <summary>The chart shows the only play's minutes, not plays: power cuts and updates have no place in it.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(FpsByPlay))] private bool _fpsByMinute;
+    public bool FpsByPlay => !FpsByMinute;
+    [ObservableProperty] private string _fpsChartNote = "";
     public bool HasFpsChart => FpsPoints.Count >= 2;
     partial void OnFpsPointsChanged(IReadOnlyList<FpsPoint> value) => OnPropertyChanged(nameof(HasFpsChart));
 
@@ -443,8 +493,7 @@ public sealed partial class GamesViewModel : ObservableObject
         Fill(story);
         Opened = story;
         IsOpening = false;
-        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(GameCanPlay), nameof(OpenedLive), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss));
-        if (OpenedLive) UpdateLive();
+        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss));
     }
 
     [RelayCommand]
@@ -462,10 +511,11 @@ public sealed partial class GamesViewModel : ObservableObject
         BackText = "Back to library";
     }
 
-    [RelayCommand] private void Play(GameEntry? g) { if ((g ?? Opened?.Entry) is { } game) GameLauncher.Play(game); }
-    [RelayCommand] private void PlayHero() { if (HeroGame is { } g) GameLauncher.Play(g); }
+    // A running game is never started again or uninstalled (its buttons are off too).
+    [RelayCommand] private void Play(GameEntry? g) { if ((g ?? Opened?.Entry) is { } game && !IsRunning(game)) GameLauncher.Play(game); }
+    [RelayCommand] private void PlayHero() { if (HeroGame is { } g && !IsRunning(g)) GameLauncher.Play(g); }
     [RelayCommand] private void OpenFolder(GameEntry? g) { if ((g ?? Opened?.Entry) is { } game) GameLauncher.OpenFolder(game); }
-    [RelayCommand] private void Uninstall(GameEntry? g) { if ((g ?? Opened?.Entry) is { } game) GameLauncher.Uninstall(game); }
+    [RelayCommand] private void Uninstall(GameEntry? g) { if ((g ?? Opened?.Entry) is { } game && !IsRunning(game)) GameLauncher.Uninstall(game); }
 
     private void Fill(GameStory st)
     {
@@ -473,26 +523,24 @@ public sealed partial class GamesViewModel : ObservableObject
         GameBanner = GamePictures.Picture(e.Installed?.Art.Banner, 1600);
         GameLogo = GamePictures.Picture(e.Installed?.Art.Logo, 720);
         GameIcon = GameBanner is null ? GamePictures.Icon(e.ExePath ?? GamePictures.ProgramIn(e.Installed?.InstallDir)) : null;
+        UninstallTip = "Uninstall through " + GameLauncher.Who(e.Launcher);
+
+        // Over the name, the game itself: its launcher, where it is and how big, its last update. Under it, your playing.
+        // Nothing is said in both.
         var eyebrow = new List<string> { LauncherName(e.Launcher).ToUpperInvariant() };
-        if (e.Installed?.SizeBytes is long size) eyebrow.Add($"{Size(size)} ON THE {DriveOf(e.Installed.InstallDir)} DRIVE");
+        if (e.Installed?.SizeBytes is long size && size > 0) eyebrow.Add($"{Size(size)} ON THE {DriveOf(e.Installed.InstallDir)} DRIVE");
         if (st.LastUpdate is { } upd) eyebrow.Add($"UPDATED {upd:ddd d MMM}".ToUpperInvariant());
         if (e.Installed?.AddedThrough is { } through) eyebrow.Add($"ADDED THROUGH {LauncherName(through).ToUpperInvariant()}");
         GameEyebrow = string.Join(" · ", eyebrow.Where(x => x.Length > 0));
-        UninstallTip = "Uninstall through " + GameLauncher.Who(e.Launcher);
 
         var pills = new List<GamePill>();
         if (st.Plays.Count > 0)
         {
             pills.Add(new("Played ", Units.Duration(e.ActiveSec)));
-            if (e.Installed?.SizeBytes is long onDisk && onDisk > 0) pills.Add(new("", Size(onDisk), $" on the {DriveOf(e.Installed.InstallDir)} drive"));
             pills.Add(new("", $"{st.Plays.Count}", $" {(st.Plays.Count == 1 ? "play" : "plays")} since {st.Plays[0].StartTime:ddd d MMM}"));
             if (st.Longest is { } longest) pills.Add(new("Longest ", Units.Duration(longest.ActiveSec), $" · {longest.StartTime:d MMM}"));
         }
-        else
-        {
-            pills.Add(new("", e.Installed?.LastPlayed is { } lp ? $"Last played {Day(lp)}" : "Not played yet"));
-            if (e.Installed?.SizeBytes is long onDisk && onDisk > 0) pills.Add(new("", Size(onDisk), $" on the {DriveOf(e.Installed.InstallDir)} drive"));
-        }
+        else pills.Add(new("", e.Installed?.LastPlayed is { } lp ? $"Last played {Day(lp)}" : "Not played yet"));
         GamePills = pills;
         About = AboutRows(e, st);
 
@@ -503,13 +551,18 @@ public sealed partial class GamesViewModel : ObservableObject
         FpsLow = st.All.FpsLow is double low ? $"{low:0}" : "—";
         SinceUpdate = st.SinceUpdate ?? (st.LastUpdate is null ? "No update seen" : "Too soon to tell");
         UpdatedNote = st.LastUpdate is { } u ? $"Updated {u:ddd d MMM}" : "";
-        FpsPoints = withFps.Select(p => new FpsPoint(p.StartTime, p.EndTime, p.ActiveSec, p.Stats.Fps!.Value, p.Stats.FpsLow, p.Stats.Gpu, p.Stats.GpuPower, p.Ending == PlayEnd.PowerCut)).ToList();
+        // One play with frames: that play minute by minute, until a second gives the play-by-play line.
+        FpsByMinute = withFps.Count == 1 && st.OnlyPlayMinutes.Count >= 2;
+        FpsChartNote = FpsByMinute ? $"Your {withFps[0].StartTime:ddd d MMM} play, minute by minute" : "";
+        FpsPoints = FpsByMinute
+            ? st.OnlyPlayMinutes.Select(m => new FpsPoint(TimeUtil.FromUnix(m.Ts), TimeUtil.FromUnix(m.Ts + 60), 60, m.Fps!.Value, m.FpsLow, m.GpuTemp, m.GpuPower, false)).ToList()
+            : withFps.Select(p => new FpsPoint(p.StartTime, p.EndTime, p.ActiveSec, p.Stats.Fps!.Value, p.Stats.FpsLow, p.Stats.Gpu, p.Stats.GpuPower, p.Ending == PlayEnd.PowerCut)).ToList();
         var marks = new List<FpsMark>();
         foreach (var c in st.Changes.Where(c => c.Change.IsGraphicsDriver || c.Change.Kind == ChangeKind.GameUpdated))
         {
             // Between the plays with frames on either side of it.
             int before = st.Plays.Take(c.After + 1).Count(p => p.Stats.Fps is not null) - 1;
-            if (before < 0 || before >= withFps.Count - 1) continue;
+            if (FpsByMinute || before < 0 || before >= withFps.Count - 1) continue;
             string label = c.Change.Kind == ChangeKind.GameUpdated ? "Game update" : "Driver " + (c.Change.Now ?? c.Change.Title.Split(' ').LastOrDefault() ?? "");
             marks.Add(new FpsMark(before + 0.5, label, c.Change.Title, c.Change.Time));
         }
@@ -569,7 +622,7 @@ public sealed partial class GamesViewModel : ObservableObject
         {
             foreach (var c in st.Changes.Where(c => c.After == i).Reverse())
                 rows.Add(ChangeRow(c.Change));
-            rows.Add(PlayRowOf(st.Plays[i], st.Usual));
+            rows.Add(PlayRowOf(st.Plays[i], st.Usual) with { AfterChange = rows.Count > 0 && rows[^1].IsChange });
         }
         Rows = rows;
     }
