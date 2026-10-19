@@ -1,5 +1,6 @@
 using System.Text;
 using Rigsight.Agent.Native;
+using Rigsight.Core;
 using Rigsight.Core.Protocol;
 
 namespace Rigsight.Agent.Tracking;
@@ -47,7 +48,7 @@ internal sealed class ProcessLabels
         {
             var p = processes[i];
             string label = titles.TryGetValue(p.Pid, out var title) ? title
-                : roles[i] ?? (multiProcess ? "Main process" : serviceHost ? "Windows service" : appName);
+                : roles[i] is { } role ? Shown(role) : multiProcess ? Lang.T("Main process") : serviceHost ? Lang.T("Windows service") : appName;
             // Its part in a browser-style app, for the split of the app's memory (a service host's services aren't parts).
             string? kind = multiProcess ? roles[i] ?? MainKind : null;
             result.Add(new ProcDetail { Pid = p.Pid, Label = label, Kind = kind, Cpu = Math.Round(p.Cpu, 1), MemMB = Math.Round(p.MemMB, 1), Disk = Math.Round(p.Disk), Critical = marked?.Contains(p.Pid) == true });
@@ -66,19 +67,19 @@ internal sealed class ProcessLabels
         {
             return type switch
             {
-                "renderer" when commandLine.Contains("--extension-process") => "Extension",
-                "renderer" => Browsers.Contains(exe) ? "Tab" : "Window",
-                "gpu-process" => "Graphics",
-                "crashpad-handler" => "Crash reporter",
+                "renderer" when commandLine.Contains("--extension-process") => Lang.Key("Extension"),
+                "renderer" => Browsers.Contains(exe) ? Lang.Key("Tab") : Lang.Key("Window"),
+                "gpu-process" => Lang.Key("Graphics"),
+                "crashpad-handler" => Lang.Key("Crash reporter"),
                 "utility" => Arg(commandLine, "--utility-sub-type=") switch
                 {
-                    { } s when s.StartsWith("network.", StringComparison.Ordinal) => "Network",
-                    { } s when s.StartsWith("storage.", StringComparison.Ordinal) => "Storage",
-                    { } s when s.StartsWith("audio.", StringComparison.Ordinal) => "Audio",
-                    { } s when s.StartsWith("video_capture.", StringComparison.Ordinal) => "Camera",
-                    _ => "Helper",
+                    { } s when s.StartsWith("network.", StringComparison.Ordinal) => Lang.Key("Network"),
+                    { } s when s.StartsWith("storage.", StringComparison.Ordinal) => Lang.Key("Storage"),
+                    { } s when s.StartsWith("audio.", StringComparison.Ordinal) => Lang.Key("Audio"),
+                    { } s when s.StartsWith("video_capture.", StringComparison.Ordinal) => Lang.Key("Camera"),
+                    _ => Lang.Key("Helper"),
                 },
-                _ => "Helper",
+                _ => Lang.Key("Helper"),
             };
         }
 
@@ -87,11 +88,11 @@ internal sealed class ProcessLabels
         {
             return commandLine.TrimEnd().Split(' ')[^1] switch
             {
-                "tab" => "Tab",
-                "gpu" => "Graphics",
-                "socket" => "Network",
-                "rdd" => "Media",
-                _ => "Helper",
+                "tab" => Lang.Key("Tab"),
+                "gpu" => Lang.Key("Graphics"),
+                "socket" => Lang.Key("Network"),
+                "rdd" => Lang.Key("Media"),
+                _ => Lang.Key("Helper"),
             };
         }
 
@@ -102,6 +103,20 @@ internal sealed class ProcessLabels
             if (Arg(commandLine, "-k ") is { } group) return $"Services ({group})";
         }
         return null;
+    }
+
+    /// <summary>
+    /// A role as the Memory page shows it, in the language in use; the role itself stays English, since it's also the
+    /// process's kind the app sorts by.
+    /// </summary>
+    private static string Shown(string role)
+    {
+        if (role.StartsWith("Services (", StringComparison.Ordinal) && role.EndsWith(')'))
+        {
+            string group = role["Services (".Length..^1];
+            return Lang.T($"Services ({group})");
+        }
+        return Lang.T(role);
     }
 
     /// <summary>The value after <paramref name="name"/>, up to the next space (null if absent).</summary>

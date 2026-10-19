@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Rigsight.Agent.Native;
+using Rigsight.Core;
 
 namespace Rigsight.Agent.Sensors;
 
@@ -90,9 +91,9 @@ internal static class HardwareApps
     /// <summary>How the parts are named in Settings.</summary>
     public static string PartName(SensorParts part) => part switch
     {
-        SensorParts.Motherboard => "Motherboard",
-        SensorParts.FanHubs => "Fan hubs",
-        SensorParts.PowerSupply => "Power supply",
+        SensorParts.Motherboard => Lang.Key("Motherboard"),
+        SensorParts.FanHubs => Lang.Key("Fan hubs"),
+        SensorParts.PowerSupply => Lang.Key("Power supply"),
         _ => part.ToString(),
     };
 }

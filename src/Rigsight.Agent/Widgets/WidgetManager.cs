@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using Rigsight.Agent.Ui;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Widgets;
@@ -133,43 +134,55 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         var cfg = form.Config;
         var menu = DarkMenu();
 
-        menu.Items.Add(Header(WidgetCatalog.Title(cfg) + (cfg.Style == WidgetStyle.Custom ? "" : " widget")));
+        string title = WidgetCatalog.Title(cfg);
+        menu.Items.Add(Header(cfg.Style == WidgetStyle.Custom ? title : Lang.T($"{title} widget")));
         menu.Items.Add(new ToolStripSeparator());
 
-        var theme = new ToolStripMenuItem("Theme");
+        var theme = new ToolStripMenuItem(Lang.T("Theme"));
         foreach (var t in new[] { WidgetTheme.Dark, WidgetTheme.Grey, WidgetTheme.Light, WidgetTheme.System })
-            theme.DropDownItems.Add(Check(t.ToString(), cfg.Theme == t, () => Mutate(cfg.Id, c => c.Theme = t)));
+            theme.DropDownItems.Add(Check(ThemeName(t), cfg.Theme == t, () => Mutate(cfg.Id, c => c.Theme = t)));
         menu.Items.Add(theme);
 
-        var background = new ToolStripMenuItem("Background opacity");
+        var background = new ToolStripMenuItem(Lang.T("Background opacity"));
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.5, 0.25, 0.0 })
-            background.DropDownItems.Add(Check(o == 0 ? "None" : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.BackgroundOpacity = o)));
+            background.DropDownItems.Add(Check(o == 0 ? Lang.T("None") : $"{o:P0}", Math.Abs(cfg.BackgroundOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.BackgroundOpacity = o)));
         menu.Items.Add(background);
 
-        var contentOpacity = new ToolStripMenuItem("Content opacity");
+        var contentOpacity = new ToolStripMenuItem(Lang.T("Content opacity"));
         foreach (var o in new[] { 1.0, 0.9, 0.75, 0.6, 0.45 })
             contentOpacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.ContentOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.ContentOpacity = o)));
         menu.Items.Add(contentOpacity);
 
-        var size = new ToolStripMenuItem("Size");
-        foreach (var (label, s) in new[] { ("Small", 0.8), ("Normal", 1.0), ("Large", 1.25), ("Extra large", 1.5), ("2XL", 2.0), ("3XL", 2.5) })
-            size.DropDownItems.Add(Check(label, Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Id, c => c.Scale = s)));
+        var size = new ToolStripMenuItem(Lang.T("Size"));
+        foreach (var (label, s) in new[] { (Lang.Key("Small"), 0.8), (Lang.Key("Normal"), 1.0), (Lang.Key("Large"), 1.25), (Lang.Key("Extra large"), 1.5), ("2XL", 2.0), ("3XL", 2.5) })
+            size.DropDownItems.Add(Check(Lang.T(label), Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Id, c => c.Scale = s)));
         menu.Items.Add(size);
 
-        menu.Items.Add(Check("Grayscale", cfg.Grayscale, () => Mutate(cfg.Id, c => c.Grayscale = !c.Grayscale)));
-        menu.Items.Add(Check("Lock in place (click-through)", cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
+        menu.Items.Add(Check(Lang.T("Grayscale"), cfg.Grayscale, () => Mutate(cfg.Id, c => c.Grayscale = !c.Grayscale)));
+        menu.Items.Add(Check(Lang.T("Lock in place (click-through)"), cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Item("Edit widget…", () => openWidgetSettings(cfg.Id)));
-        menu.Items.Add(Item("Hide this widget", () => Mutate(cfg.Id, c => c.Enabled = false)));
+        menu.Items.Add(Item(Lang.T("Edit widget…"), () => openWidgetSettings(cfg.Id)));
+        menu.Items.Add(Item(Lang.T("Hide this widget"), () => Mutate(cfg.Id, c => c.Enabled = false)));
 
         menu.Closed += (_, _) => menu.BeginInvoke(menu.Dispose);
         menu.Show(at);
     }
 
+    private static string ThemeName(WidgetTheme theme) => theme switch
+    {
+        WidgetTheme.Dark => Lang.T("Dark"),
+        WidgetTheme.Grey => Lang.T("Grey"),
+        WidgetTheme.Light => Lang.T("Light"),
+        WidgetTheme.System => Lang.T("System"),
+        _ => theme.ToString(),
+    };
+
     /// <summary>Tray submenu listing every widget style.</summary>
     public ToolStripMenuItem BuildTrayMenu()
     {
-        var root = new ToolStripMenuItem("Widgets");
+        var root = new ToolStripMenuItem(Lang.T("Widgets"));
+        // Its name in the language in use each time the tray menu opens (the language can change while it runs).
+        root.OwnerChanged += (_, _) => { if (root.Owner is ToolStripDropDown owner) owner.Opening += (_, _) => root.Text = Lang.T("Widgets"); };
         root.DropDownOpening += (_, _) =>
         {
             root.DropDownItems.Clear();
@@ -181,8 +194,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             if (custom.Count > 0) root.DropDownItems.Add(new ToolStripSeparator());
             foreach (var cfg in custom) root.DropDownItems.Add(Toggle(cfg));
             root.DropDownItems.Add(new ToolStripSeparator());
-            root.DropDownItems.Add(Item("Unlock all widgets", () => mutateSettings(s => s.Widgets.ForEach(w => w.Locked = false))));
-            root.DropDownItems.Add(Item("Widget settings…", () => openWidgetSettings(null)));
+            root.DropDownItems.Add(Item(Lang.T("Unlock all widgets"), () => mutateSettings(s => s.Widgets.ForEach(w => w.Locked = false))));
+            root.DropDownItems.Add(Item(Lang.T("Widget settings…"), () => openWidgetSettings(null)));
         };
         root.DropDownItems.Add("…"); // placeholder so the arrow shows
 

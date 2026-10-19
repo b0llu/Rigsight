@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
@@ -33,12 +34,18 @@ internal static class DailyRecap
     public static DateTime? Recapped(RigsightSettings s) => Day(s.RecappedDay) ?? Day(s.LastRecapDay)?.AddDays(-1);
 
     /// <summary>"Yesterday on your PC", "Tuesday on your PC", "12 September on your PC".</summary>
-    public static string Title(DateTime day, DateTime today) => (today.Date - day.Date).Days switch
+    public static string Title(DateTime day, DateTime today)
     {
-        1 => "Yesterday on your PC",
-        < 7 => $"{day.ToString("dddd", CultureInfo.InvariantCulture)} on your PC",
-        _ => $"{day.ToString("d MMMM", CultureInfo.InvariantCulture)} on your PC",
-    };
+        // The day's name in the language the text is in (English when there's no pack), not Windows' region.
+        var names = Lang.Translating ? CultureInfo.GetCultureInfo(Lang.Code) : CultureInfo.InvariantCulture;
+        string weekday = day.ToString("dddd", names), date = day.ToString("d MMMM", names);
+        return Wording.Capital((today.Date - day.Date).Days switch
+        {
+            1 => Lang.T("Yesterday on your PC"),
+            < 7 => Lang.T($"{weekday} on your PC"),
+            _ => Lang.T($"{date} on your PC"),
+        });
+    }
 
     public static string Key(DateTime day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

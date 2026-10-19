@@ -108,13 +108,14 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
         removeItem.Click += (_, _) => { if (slot.Readings.Count > 0) remove([.. slot.Readings.Select(r => r.Id)]); };
         var switchItem = new ToolStripMenuItem();
         switchItem.Click += (_, _) => setGrouped(!_grouped);
-        var pageItem = new ToolStripMenuItem("Taskbar settings…");
+        var pageItem = new ToolStripMenuItem();
         pageItem.Click += (_, _) => openPage();
         menu.Items.AddRange([removeItem, switchItem, new ToolStripSeparator(), pageItem]);
         menu.Opening += (_, _) =>
         {
             removeItem.Text = RemoveText(slot.Readings);
-            switchItem.Text = _grouped ? "Show an icon each" : "Show an icon per part";
+            switchItem.Text = _grouped ? Lang.T("Show an icon each") : Lang.T("Show an icon per part");
+            pageItem.Text = Lang.T("Taskbar settings…");
         };
         return menu;
     }
@@ -125,10 +126,10 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
     /// </summary>
     internal static string RemoveText(IReadOnlyList<TrayReading> icon) => icon switch
     {
-        [{ Name.Length: > 0 and <= 40 } r] => $"Remove {r.Name} · {Units.Format(r.Kind, r.Value)}",
-        [_] or [] => "Remove from the taskbar",
-        [var first, ..] when first.Hardware.Length > 0 => $"Remove these {TrayParts.Label(first.Part)} readings",
-        _ => "Remove these readings",
+        [{ Name.Length: > 0 and <= 40 } r] => Lang.T($"Remove {r.Name} · {Units.Format(r.Kind, r.Value)}"),
+        [_] or [] => Lang.T("Remove from the taskbar"),
+        [var first, ..] when first.Hardware.Length > 0 => Lang.T($"Remove these {TrayParts.Label(first.Part)} readings"),
+        _ => Lang.T("Remove these readings"),
     };
 
     private static (string Text, Color Color) Line(TrayReading r, bool light, bool gray) =>

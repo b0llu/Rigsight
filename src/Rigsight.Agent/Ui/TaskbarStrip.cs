@@ -210,9 +210,9 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             removeItem.Click += (_, _) => remove([.. cell.Select(r => r.Id)]);
             menu.Items.Add(removeItem);
         }
-        var icons = new ToolStripMenuItem("Show as icons instead");
+        var icons = new ToolStripMenuItem(Lang.T("Show as icons instead"));
         icons.Click += (_, _) => setStyle(TrayStyle.Icons);
-        var page = new ToolStripMenuItem("Taskbar settings…");
+        var page = new ToolStripMenuItem(Lang.T("Taskbar settings…"));
         page.Click += (_, _) => openPage();
         menu.Items.AddRange([icons, new ToolStripSeparator(), page]);
         menu.Closed += (_, _) => BeginDispose(menu);

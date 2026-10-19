@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using Rigsight.Agent.Native;
 using Rigsight.Agent.Widgets;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
@@ -68,11 +69,15 @@ internal static class CrashNotices
     /// </summary>
     public static string Body(Rigsight.Core.Stability.CrashFinding? finding, bool game, double activeSec)
     {
-        string used = $"after {Rigsight.Core.Units.Duration(activeSec)} of {(game ? "play" : "use")}";
+        string time = Rigsight.Core.Units.Duration(activeSec);
         string cause = finding?.Verdict ?? "";
         if (finding is null or { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } || cause.Length == 0)
-            return $"{char.ToUpperInvariant(used[0])}{used[1..]}.{(finding is { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } ? " " + Rigsight.Core.Wording.NotEnoughWhy : "")} {Rigsight.Core.Wording.FullPicture}";
-        return $"{cause.TrimEnd('.')}, {used}. {Rigsight.Core.Wording.FullPicture}";
+        {
+            string used = game ? Lang.T($"After {time} of play.") : Lang.T($"After {time} of use.");
+            return $"{used}{(finding is { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } ? " " + Rigsight.Core.Wording.NotEnoughWhy : "")} {Rigsight.Core.Wording.FullPicture}";
+        }
+        cause = cause.TrimEnd('.');
+        return (game ? Lang.T($"{cause}, after {time} of play.") : Lang.T($"{cause}, after {time} of use.")) + " " + Rigsight.Core.Wording.FullPicture;
     }
 }
 
@@ -359,12 +364,12 @@ internal static class ToastRenderer
 
     public static string KindLabel(NoticeKind kind) => kind switch
     {
-        NoticeKind.Alert => "TEMPERATURE ALERT",
-        NoticeKind.Recap => "DAILY RECAP",
-        NoticeKind.Session => "SESSION SUMMARY",
-        NoticeKind.Crash => "WHAT HAPPENED",
-        NoticeKind.Overlay => "OVERLAY",
-        _ => "UPDATE",
+        NoticeKind.Alert => Lang.T("TEMPERATURE ALERT"),
+        NoticeKind.Recap => Lang.T("DAILY RECAP"),
+        NoticeKind.Session => Lang.T("SESSION SUMMARY"),
+        NoticeKind.Crash => Lang.T("WHAT HAPPENED"),
+        NoticeKind.Overlay => Lang.T("OVERLAY"),
+        _ => Lang.T("UPDATE"),
     };
 
     public static Bitmap Render(Notice n, float scale, bool hover, out RectangleF closeRect) =>

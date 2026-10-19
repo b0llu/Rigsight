@@ -64,7 +64,7 @@ internal static partial class WidgetRenderer
         {
             if (Has(OverlayMetric.Fps)) game.Add(new($"{f.Fps:0}", "", p.Text, "888"));
             if (Has(OverlayMetric.FrameTime)) game.Add(new($"{f.FrameTimeMs:0.0}", "ms", p.Text, "88.8"));
-            if (Has(OverlayMetric.OnePercentLow) && f.OnePercentLow is double low) game.Add(new($"{low:0}", "1% low", p.Text, "888"));
+            if (Has(OverlayMetric.OnePercentLow) && f.OnePercentLow is double low) game.Add(new($"{low:0}", Lang.T("1% low"), p.Text, "888"));
         }
         if (game.Count > 0) rows.Add(new("FPS", Fps, game));
 
@@ -77,7 +77,7 @@ internal static partial class WidgetRenderer
 
         var gpu = new List<Cell>();
         if (Has(OverlayMetric.GpuTemp)) gpu.Add(TempCell(d.GpuTemp));
-        if (Has(OverlayMetric.GpuHotSpot) && d.GpuHotSpot is not null) gpu.Add(TempCell(d.GpuHotSpot, "hot"));
+        if (Has(OverlayMetric.GpuHotSpot) && d.GpuHotSpot is not null) gpu.Add(TempCell(d.GpuHotSpot, Lang.T("hot")));
         if (Has(OverlayMetric.GpuLoad)) gpu.Add(LoadCell(d.GpuLoad));
         if (Has(OverlayMetric.GpuClock)) gpu.Add(ClockCell(d.GpuClock));
         if (Has(OverlayMetric.GpuPower)) gpu.Add(PowerCell(d.GpuPower));

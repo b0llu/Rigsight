@@ -325,11 +325,11 @@ internal sealed class AgentContext : ApplicationContext
         var version = UpdateStore.ReadCheck()?.Latest?.Version.ToString(3);
         if (version is null || _settings.LastUpdateNotice == version) return;
         MutateSettings(s => s.LastUpdateNotice = version);
-        string body = !downloaded ? "Click to update."
-            : _settings.AutoUpdate && _isAdmin ? "It installs by itself the next time you start your PC, or click to update now."
-            : "It's downloaded. Click to finish updating.";
+        string body = !downloaded ? Lang.T("Click to update.")
+            : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs by itself the next time you start your PC, or click to update now.")
+            : Lang.T("It's downloaded. Click to finish updating.");
         // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
-        _notices.Show(new Notice(NoticeKind.Update, downloaded ? $"Version {version} is ready" : $"Version {version} is out", body, Page: "update"));
+        _notices.Show(new Notice(NoticeKind.Update, downloaded ? Lang.T($"Version {version} is ready") : Lang.T($"Version {version} is out"), body, Page: "update"));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -630,8 +630,8 @@ internal sealed class AgentContext : ApplicationContext
         var scan = Stopwatch.StartNew();
         using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
         {
-            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("RigSight stopped reading some sensors",
-                "Windows' memory kept growing while it read the motherboard and fan hubs. Restart your PC if it stays slow.", warning: true), null);
+            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
+                Lang.T("Windows' memory kept growing while it read the motherboard and fan hubs. Restart your PC if it stays slow."), warning: true), null);
             try
             {
                 host.Open();
@@ -675,8 +675,8 @@ internal sealed class AgentContext : ApplicationContext
             var took = Stopwatch.StartNew();
             using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
             {
-                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification("RigSight stopped reading some sensors",
-                    "Windows' memory kept growing while it read the RAM sticks. Restart your PC if it stays slow.", warning: true), null);
+                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
+                    Lang.T("Windows' memory kept growing while it read the RAM sticks. Restart your PC if it stays slow."), warning: true), null);
                 host.OpenMemory();
                 if (guard.Tripped) _stoppedForMemory = true;
             }
@@ -1010,7 +1010,7 @@ internal sealed class AgentContext : ApplicationContext
             list.Add(_sensors.ReadSensor(id) is { } r
                 ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? r.Name, r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
                     TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)))
-                : new TrayReading(id, _sensorsReady ? "Not found on this PC" : "Starting…", SensorKind.Factor, null, TrayPart.Other, ""));
+                : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, ""));
         }
         return list;
     }
@@ -1043,7 +1043,7 @@ internal sealed class AgentContext : ApplicationContext
         _lastToday = data.Today;
 
         var tip = $"RigSight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
-        if (activity.Paused) tip += "\nTracking paused";
+        if (activity.Paused) tip += "\n" + Lang.T("Tracking paused");
         else if (activity.Name is not null && activity.SessionActiveSec > 0) tip += $"\n{activity.Name}  ·  {Units.Duration(activity.SessionActiveSec)}";
 
         // Our own windows can report as fullscreen-sized; only treat other apps as fullscreen.
@@ -1080,7 +1080,7 @@ internal sealed class AgentContext : ApplicationContext
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is not null)
-                _notices.Show(new Notice(NoticeKind.Alert, "Running hot", alert, activity.Path, "temperatures", Urgent: true));
+                _notices.Show(new Notice(NoticeKind.Alert, Lang.T("Running hot"), alert, activity.Path, "temperatures", Urgent: true));
         }, null);
     }
 
@@ -1302,11 +1302,11 @@ internal sealed class AgentContext : ApplicationContext
         });
         if (report is null || !report.HasData || report.ActiveSec < 300) return;
 
-        var parts = new List<string> { $"Active {Units.Duration(report.ActiveSec)}" };
+        var parts = new List<string> { Lang.T($"Active {Units.Duration(report.ActiveSec)}") };
         var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
         if (top is not null) parts.Add($"{top.Name} {Units.Duration(top.ActiveSec)}");
-        if (report.CpuTempPeak is { } cpu) parts.Add($"CPU peak {Units.TempShort(cpu.Value)}");
-        if (report.GpuTempPeak is { } gpu) parts.Add($"GPU peak {Units.TempShort(gpu.Value)}");
+        if (report.CpuTempPeak is { } cpu) parts.Add(Lang.T($"CPU peak {Units.TempShort(cpu.Value)}"));
+        if (report.GpuTempPeak is { } gpu) parts.Add(Lang.T($"GPU peak {Units.TempShort(gpu.Value)}"));
 
         string text = string.Join("  ·  ", parts) + ". " + Wording.FullPicture;
         _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: DailyRecap.Key(day))), null);
@@ -1354,14 +1354,24 @@ internal sealed class AgentContext : ApplicationContext
                     return;
                 }
                 if (!summaryWanted) return;
-                string text = $"Played for {Units.Duration(row.ActiveSec)}. {Wording.Peak("CPU")} {Units.TempShort(row.CpuTempMax)}, {Wording.Peak("GPU")} {Units.TempShort(row.GpuTempMax)}. {Wording.FullPicture}";
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, $"{name} session", text, app.Path, "games", app.Exe)), null);
+                string text = SessionText(row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, SessionTitle(name), text, app.Path, "games", app.Exe)), null);
             }
             catch (Exception ex)
             {
                 Log.Error("session", ex); // a background task's error would otherwise vanish with it
             }
         });
+    }
+
+    /// <summary>A game session's notification title: "Dota 2 session".</summary>
+    private static string SessionTitle(string name) => Lang.T($"{name} session");
+
+    /// <summary>A game session's notification: "Played for 2h 14m. CPU peak 71°, GPU peak 68°. Click for the full picture."</summary>
+    private static string SessionText(double activeSec, double? cpuPeak, double? gpuPeak)
+    {
+        string played = Units.Duration(activeSec), cpu = Units.TempShort(cpuPeak), gpu = Units.TempShort(gpuPeak);
+        return Lang.T($"Played for {played}. CPU peak {cpu}, GPU peak {gpu}.") + " " + Wording.FullPicture;
     }
 
     /// <summary>Runs <paramref name="work"/> on the sampler thread (the only one that touches the database) and hands back what it returns.</summary>
@@ -1700,15 +1710,16 @@ internal sealed class AgentContext : ApplicationContext
         var activity = _tracker.Activity;
         Notice notice = kind switch
         {
-            "alert" => new(NoticeKind.Alert, "Running hot",
-                $"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)} has been above your limit for {s.Alerts.SustainSeconds}+ seconds while Cyberpunk 2077 was running.", Page: "temperatures", Urgent: true),
-            "session" => new(NoticeKind.Session, "Dota 2 session",
-                $"Played for 2h 14m. {Wording.Peak("CPU")} {Units.TempShort(71)}, {Wording.Peak("GPU")} {Units.TempShort(68)}. {Wording.FullPicture}", activity.Path, "games"),
+            "alert" => new(NoticeKind.Alert, Lang.T("Running hot"),
+                AlertMonitor.Message([$"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)}"], s.Alerts.SustainSeconds, "Cyberpunk 2077"), Page: "temperatures", Urgent: true),
+            "session" => new(NoticeKind.Session, SessionTitle("Dota 2"), SessionText(2 * 3600 + 14 * 60, 71, 68), activity.Path, "games"),
             "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
-            _ => new(NoticeKind.Recap, "Yesterday on your PC",
-                $"Active 6h 12m  ·  Dota 2 3h 05m  ·  CPU peak {Units.TempShort(78)}  ·  GPU peak {Units.TempShort(72)}. {Wording.FullPicture}", Page: "reports", Arg: "yesterday"),
+            _ => new(NoticeKind.Recap, Lang.T("Yesterday on your PC"),
+                string.Join("  ·  ", Lang.T($"Active {Units.Duration(6 * 3600 + 12 * 60)}"), $"Dota 2 {Units.Duration(3 * 3600 + 5 * 60)}",
+                    Lang.T($"CPU peak {Units.TempShort(78)}"), Lang.T($"GPU peak {Units.TempShort(72)}")) + ". " + Wording.FullPicture,
+                Page: "reports", Arg: "yesterday"),
         };
-        _notices.Show(notice with { Title = notice.Title + " (preview)" }, bypassQuiet: true);
+        _notices.Show(notice with { Title = Lang.T($"{notice.Title} (preview)") }, bypassQuiet: true);
     }
 
     // ── App connection ────────────────────────────────────────────────────
@@ -2033,12 +2044,12 @@ internal sealed class AgentContext : ApplicationContext
     {
         var (title, body) = _overlay.RtssState switch
         {
-            "running" => ($"Restart {app} to see the overlay",
-                $"{app} was already open when RivaTuner started, so RivaTuner isn't drawing in it yet. Restart it and the overlay will show."),
-            "stopped" => ("The overlay can't show in fullscreen games",
-                "RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from the Overlay page, then restart the game."),
-            _ => ("The overlay can't show in fullscreen games",
-                "Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from the Overlay page, then restart the game."),
+            "running" => (Lang.T($"Restart {app} to see the overlay"),
+                Lang.T($"{app} was already open when RivaTuner started, so RivaTuner isn't drawing in it yet. Restart it and the overlay will show.")),
+            "stopped" => (Lang.T("The overlay can't show in fullscreen games"),
+                Lang.T("RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from the Overlay page, then restart the game.")),
+            _ => (Lang.T("The overlay can't show in fullscreen games"),
+                Lang.T("Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from the Overlay page, then restart the game.")),
         };
         _notices.Show(new Notice(NoticeKind.Overlay, title, body, _tracker.Activity.Path, "overlay"));
     }
@@ -2078,11 +2089,11 @@ internal sealed class AgentContext : ApplicationContext
             h.CheckedAt = DateTime.Now;
             h.CheckedWhy = r.Why switch
             {
-                "it wouldn't open" => "when it wouldn't open",
-                "a reading failed to save" => "after a reading failed to save",
-                "you asked for a repair" => "when you asked for a repair",
-                "a repair was waiting for room on the drive" => "once there was room on the drive",
-                _ => "after RigSight last closed suddenly",
+                "it wouldn't open" => Lang.Key("when it wouldn't open"),
+                "a reading failed to save" => Lang.Key("after a reading failed to save"),
+                "you asked for a repair" => Lang.Key("when you asked for a repair"),
+                "a repair was waiting for room on the drive" => Lang.Key("once there was room on the drive"),
+                _ => Lang.Key("after RigSight last closed suddenly"),
             };
             h.Checking = false;
             switch (r.Outcome)
@@ -2156,7 +2167,7 @@ internal sealed class AgentContext : ApplicationContext
             s.HistoryFile.Damaged = true;
             s.HistoryFile.Dismissed = false;
             s.HistoryFile.CheckedAt = DateTime.Now;
-            s.HistoryFile.CheckedWhy = "after a reading failed";
+            s.HistoryFile.CheckedWhy = Lang.Key("after a reading failed");
         });
     }
 
@@ -2176,7 +2187,7 @@ internal sealed class AgentContext : ApplicationContext
             var h = s.HistoryFile;
             h.Checking = false;
             h.CheckedAt = DateTime.Now;
-            h.CheckedWhy = "when you asked";
+            h.CheckedWhy = Lang.Key("when you asked");
             h.Damaged = !health.Ok && !rebuilt;
             if (rebuilt) { h.Outcome = "lists"; h.RepairedAt = DateTime.Now; }
             if (h.Damaged) h.Dismissed = false;
