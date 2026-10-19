@@ -219,7 +219,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     /// <summary>Problems as they're listed: repeats and bursts grouped, newest first.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCrashes), nameof(EmptyText), nameof(ShowEmpty))]
-    private List<CrashGroup> _groupsShown = [];
+    private System.Collections.ObjectModel.ObservableCollection<CrashGroup> _groupsShown = [];
 
     // Years of history can hold thousands of crashes: build the newest cards, and more as the page scrolls.
     private const int PageSize = 20;
@@ -232,8 +232,12 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private void ShowMore()
     {
         if (!HasMore) return;
+        // Added under the rows already there: a new list would build every row again (and the list box, opened with a
+        // few rows, asks for more on every visit).
+        int from = GroupsShown.Count;
         _limit += PageSize;
-        ShowPage();
+        foreach (var g in _matching.Skip(from).Take(_limit - from)) GroupsShown.Add(g);
+        OnPropertyChanged(nameof(HasMore));
     }
 
     /// <summary>Back to the first page of cards (the newest), when more were loaded by scrolling.</summary>
@@ -246,7 +250,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     private void ShowPage()
     {
-        GroupsShown = [.. _matching.Take(_limit)];
+        GroupsShown = new(_matching.Take(_limit));
         OnPropertyChanged(nameof(HasMore));
     }
 
