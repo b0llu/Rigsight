@@ -31,7 +31,12 @@ public partial class MainWindow : Window
         // Charts and lists grow with a taller window (see Roomy).
         SizeChanged += (_, e) => Controls.Roomy.Fit(e.NewSize.Height);
         // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.
-        ContentRendered += (_, _) => _vm.WhatsNew.CheckOnStart();
+        ContentRendered += (_, _) =>
+        {
+            _vm.WhatsNew.CheckOnStart();
+            // A rewind finished since RigSight was last open: made now, and the biggest shown full screen.
+            _ = _vm.Rewind.StartAsync();
+        };
         // Listened to weakly: the card outlives any one window (the tests host several).
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
         PropertyChangedEventManager.AddHandler(vm.Processes.Question, OnEndQuestionOpened, nameof(EndQuestionViewModel.IsOpen));

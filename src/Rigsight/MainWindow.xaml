@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
         xmlns:views="clr-namespace:Rigsight.Views"
+        xmlns:rw="clr-namespace:Rigsight.Rewind"
         Title="RigSight" Icon="Assets/Rigsight.ico"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
@@ -429,6 +430,33 @@
             <DockPanel Margin="14,16,14,16">
                 <!-- Bottom: an update if there is one, an agent warning if needed, then Settings and its menu -->
                 <StackPanel DockPanel.Dock="Bottom">
+                    <!-- A rewind waiting to be watched (shown full screen and put off with Later, or full screen switched off). -->
+                    <Button DataContext="{Binding Rewind}" Command="{Binding Waiting.WatchCommand}" Cursor="Hand" Focusable="False"
+                            AutomationProperties.Name="{Binding WaitingTitle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,10"
+                            Visibility="{Binding HasWaiting, Converter={StaticResource Vis}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <ctl:SmoothBorder x:Name="Bd" CornerRadius="10" Padding="10,8" Background="{DynamicResource SurfaceBrush}"
+                                        BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                </ctl:SmoothBorder>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <DockPanel>
+                            <Border Width="30" Height="30" CornerRadius="8" Margin="0,0,10,0" Background="{DynamicResource HoverBrush}">
+                                <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding WaitingTitle}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding WaitingLine}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Button>
                     <!-- Update: a quiet line, then download progress, then the restart prompt -->
                     <StackPanel DataContext="{Binding Update}">
                         <Button Command="{Binding ActionCommand}" ToolTip="{Binding LineTip}" AutomationProperties.Name="{Binding LineTitle}" Cursor="Hand" Focusable="False"
@@ -949,6 +977,8 @@
                 </ContentControl.Style>
             </ContentControl>
         </Grid>
+        <!-- Rewind: the full screen when one is ready (like the update screen), then the cards and Share. -->
+        <rw:RewindLayer Grid.ColumnSpan="2" DataContext="{Binding Rewind}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}" />
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see
              UpdateViewModel.ShowOverlay). Opaque, so nothing on the pages behind it can be clicked meanwhile. -->
         <Grid Grid.ColumnSpan="2" DataContext="{Binding Update}" Background="{DynamicResource BgBrush}"

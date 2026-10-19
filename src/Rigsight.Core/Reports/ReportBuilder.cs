@@ -205,13 +205,13 @@ public static class ReportBuilder
         return new WeekdayUsual(day.DayOfWeek, same.Count, same.Sum(r => r.ActiveSec) / same.Count, gaming / same.Count);
     }
 
-    private static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    internal static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
     {
         if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
         return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
 
-    private static AppCategory CategoryOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    internal static AppCategory CategoryOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
     {
         if (id is not long i || !apps.TryGetValue(i, out var a)) return AppCategory.Other;
         return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;

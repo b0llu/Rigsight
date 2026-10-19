@@ -1,0 +1,260 @@
+<UserControl x:Class="Rigsight.Rewind.RewindLayer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             Focusable="True" FocusVisualStyle="{x:Null}">
+    <UserControl.Resources>
+        <!-- The round arrows beside the card. -->
+        <Style x:Key="RoundArrow" TargetType="Button">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="22" Background="{DynamicResource Surface2Brush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="14" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.35" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <!-- Rewind over the whole window: the full screen when one is ready, then watching it, then Share. Opaque, so the
+         page behind never shows through. The cards are drawn in the code-behind, and only while this is open. -->
+    <Grid Background="{DynamicResource BgBrush}">
+
+        <!-- Ready: three of its cards fanned out, what it is, Watch or Later; the two quiet choices in the corners. -->
+        <Grid x:Name="RevealPanel" Visibility="{Binding IsRevealing, Converter={StaticResource Vis}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Canvas x:Name="Fan" Width="420" Height="320" Margin="0,0,0,26" />
+                <TextBlock Text="{Binding RevealTitle}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="30" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding RevealSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                    <Button Style="{StaticResource AccentButton}" Command="{Binding WatchRevealedCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Watch">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                            <TextBlock Text="{ctl:T 'Watch'}" FontSize="14" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding LaterCommand}" Padding="22,9" AutomationProperties.Name="Later">
+                        <TextBlock Text="{ctl:T 'Later'}" FontSize="14" />
+                    </Button>
+                </StackPanel>
+                <TextBlock Text="{Binding AlsoReady}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,18,0,0"
+                           Visibility="{Binding HasAlsoReady, Converter={StaticResource Vis}}" />
+            </StackPanel>
+            <!-- Bottom left: not full screen next time (it says where they'll wait instead, with a way back). -->
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24,0,0,20" Orientation="Horizontal">
+                <Button Style="{StaticResource ActionButton}" Command="{Binding NoFullScreenCommand}" Content="{ctl:T 'Don’t show rewinds full screen'}"
+                        Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                <StackPanel Orientation="Horizontal" Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{ctl:T 'Rewinds will wait in Settings → Rewind instead.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding UndoNoFullScreenCommand}" Content="{ctl:T 'Undo'}" Margin="10,0,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <Button Style="{StaticResource ActionButton}" Command="{Binding RevealSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,20">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,6,0" />
+                    <TextBlock Text="{ctl:T 'Rewind settings'}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Watching: the title and progress on top, the card (click or → for the next), Share at the end. -->
+        <DockPanel x:Name="WatchPanel" Visibility="{Binding IsWatching, Converter={StaticResource Vis}}">
+            <Grid DockPanel.Dock="Top" Height="56" Margin="22,0,16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding WatchedTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding WatchedKind}" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
+                </StackPanel>
+                <UniformGrid x:Name="Progress" Grid.Column="1" Rows="1" Width="520" Height="3" VerticalAlignment="Center" />
+                <Button Grid.Column="2" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" HorizontalAlignment="Right" Width="32" Height="30"
+                        AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
+                    <TextBlock Text="&#xE711;" FontSize="12" />
+                </Button>
+            </Grid>
+            <TextBlock DockPanel.Dock="Bottom" Height="44" Text="{ctl:T 'Click the card or press → for the next one'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                       HorizontalAlignment="Center" Padding="0,14,0,0" Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+            <Grid DockPanel.Dock="Bottom" Height="44" Visibility="{Binding AtEnd, Converter={StaticResource Vis}}" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="PrevButton" Style="{StaticResource RoundArrow}" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanGoBack}"
+                        HorizontalAlignment="Right" Margin="0,0,22,0" AutomationProperties.Name="Previous card">
+                    <TextBlock Text="&#xE76B;" />
+                </Button>
+                <!-- The card, or at the end what to do with it. The frame keeps 16:9 and fits the window. -->
+                <Viewbox Grid.Column="1" Stretch="Uniform" MaxWidth="1100" Margin="0,8">
+                    <Grid Width="900" Height="506">
+                        <Border x:Name="CardFrame" CornerRadius="14" ClipToBounds="True" Cursor="Hand" MouseLeftButtonUp="Card_Click"
+                                Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" AutomationProperties.Name="Next card">
+                            <Border.Effect><DropShadowEffect BlurRadius="60" ShadowDepth="18" Opacity="0.8" Color="Black" /></Border.Effect>
+                            <Border x:Name="CardHost" CornerRadius="14" ClipToBounds="True" />
+                        </Border>
+                        <ctl:SmoothBorder CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                          Visibility="{Binding AtEnd, Converter={StaticResource Vis}}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding EndTitle}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="30" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding EndSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                                <WrapPanel x:Name="Thumbs" HorizontalAlignment="Center" MaxWidth="820" Margin="0,22,0,24" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Style="{StaticResource AccentButton}" Command="{Binding OpenShareCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Share">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                            <TextBlock Text="{ctl:T 'Share'}" FontSize="14" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource GhostButton}" Command="{Binding AgainCommand}" Padding="22,9" AutomationProperties.Name="Watch again">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                            <TextBlock Text="{ctl:T 'Watch again'}" FontSize="14" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+                    </Grid>
+                </Viewbox>
+                <Button Grid.Column="2" Style="{StaticResource RoundArrow}" Command="{Binding NextCommand}" IsEnabled="{Binding CanGoNext}"
+                        HorizontalAlignment="Left" Margin="22,0,0,0" AutomationProperties.Name="Next">
+                    <TextBlock Text="&#xE76C;" />
+                </Button>
+            </Grid>
+        </DockPanel>
+
+        <!-- Share: one window. The preview with its shape and look stuck to its foot; which cards, and where to. -->
+        <Grid x:Name="SharePanel" Visibility="{Binding IsSharing, Converter={StaticResource Vis}}">
+            <Border Background="#99000000" MouseLeftButtonDown="ShareBackdrop_MouseDown" />
+            <ctl:SmoothBorder Margin="40,30,40,26" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="22,14,14,12">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseShareCommand}" AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
+                            <TextBlock Text="&#xE711;" FontSize="12" />
+                        </Button>
+                        <TextBlock Text="{Binding ShareTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="290" />
+                        </Grid.ColumnDefinitions>
+                        <DockPanel>
+                            <!-- The bar never moves with the picture's shape: a fixed height at the foot. -->
+                            <StackPanel DockPanel.Dock="Bottom" Height="56" Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="RewindShape" Content="{ctl:T 'Story'}" IsChecked="{Binding Shape, Converter={StaticResource Equals}, ConverterParameter=story}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="RewindShape" Content="{ctl:T 'Post'}" IsChecked="{Binding Shape, Converter={StaticResource Equals}, ConverterParameter=post}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="RewindShape" Content="{ctl:T 'Wide'}" IsChecked="{Binding Shape, Converter={StaticResource Equals}, ConverterParameter=wide}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="{Binding ShapeSize}" Width="96" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <Border Width="1" Height="22" Background="{DynamicResource StrokeBrush}" Margin="4,0,10,0" />
+                                <StackPanel x:Name="ThemeSwatches" Orientation="Horizontal" VerticalAlignment="Center" />
+                                <Border Width="1" Height="22" Background="{DynamicResource StrokeBrush}" Margin="10,0,10,0" />
+                                <StackPanel x:Name="AccentSwatches" Orientation="Horizontal" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource ActionButton}" Command="{Binding SameAsAppCommand}" Content="{ctl:T 'Same as the app'}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding LookIsApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            </StackPanel>
+                            <Grid x:Name="PreviewBox" Margin="18" ClipToBounds="False">
+                                <Border x:Name="PreviewFrame" CornerRadius="10" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="12" Opacity="0.7" Color="Black" /></Border.Effect>
+                                    <Border x:Name="PreviewHost" CornerRadius="10" ClipToBounds="True" />
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+                        <DockPanel Grid.Column="1">
+                            <Border DockPanel.Dock="Left" Width="1" Background="{DynamicResource StrokeBrush}" />
+                            <DockPanel DockPanel.Dock="Top" Margin="16,14,16,6">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PickCount}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock Text="{ctl:T 'Pictures to share'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                            </DockPanel>
+                            <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,14">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding CopyCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Copy this picture'}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostXCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="𝕏" FontWeight="Bold" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on X'}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F2;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on Reddit'}" /></StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" Padding="12,9">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ctl:Spinner Width="14" Height="14" StrokeThickness="2" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}}" />
+                                        <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                        <TextBlock Text="{Binding ExportText}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0">
+                                <ItemsControl x:Name="PickList" ItemsSource="{Binding Picks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="Row" CornerRadius="8" Padding="6" Margin="0,2">
+                                                <DockPanel>
+                                                    <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Included}" VerticalAlignment="Center" Margin="2,0,8,0"
+                                                              AutomationProperties.Name="{Binding Name}" />
+                                                    <Button Command="{Binding DataContext.PreviewCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                            Cursor="Hand" Focusable="False">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button"><Border Background="Transparent"><ContentPresenter /></Border></ControlTemplate>
+                                                        </Button.Template>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Border x:Name="Thumb" Width="84" Height="47" CornerRadius="5" ClipToBounds="True" Tag="{Binding}" Loaded="PickThumb_Loaded" />
+                                                            <TextBlock x:Name="PickName" Text="{Binding Name}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DockPanel>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsPreviewed}" Value="True">
+                                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Included}" Value="False">
+                                                    <Setter TargetName="Thumb" Property="Opacity" Value="0.35" />
+                                                    <Setter TargetName="PickName" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Grid>
+                </DockPanel>
+            </ctl:SmoothBorder>
+        </Grid>
+
+        <!-- What just happened (copied, saved), at the foot, for a few seconds. -->
+        <ctl:SmoothBorder HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,40" CornerRadius="10" Padding="16,10"
+                          Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                          Visibility="{Binding HasToast, Converter={StaticResource Vis}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}" Margin="0,0,10,0" />
+                <TextBlock Text="{Binding Toast}" FontSize="13" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                <Button Style="{StaticResource GhostButton}" Command="{Binding OpenFolderCommand}" Content="{ctl:T 'Open folder'}" Margin="14,0,0,0"
+                        Visibility="{Binding ToastHasFolder, Converter={StaticResource Vis}}" />
+            </StackPanel>
+        </ctl:SmoothBorder>
+    </Grid>
+</UserControl>

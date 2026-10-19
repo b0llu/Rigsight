@@ -959,6 +959,13 @@ public sealed partial class RigsightDb : IDisposable
 
     // ── Reader ────────────────────────────────────────────────────────────
 
+    /// <summary>Days from <paramref name="from"/> to <paramref name="to"/> (unix) the PC was used at all (a rewind needs enough of them).</summary>
+    public int CountDaysUsed(long from, long to)
+    {
+        using var cmd = Cmd("SELECT count(*) FROM system_day WHERE day >= $from AND day < $to AND active_sec > 0", ("$from", from), ("$to", to));
+        return cmd.ExecuteScalar() is long n ? (int)n : 0;
+    }
+
     /// <summary>When recording started: the oldest minute or hourly app total (minutes are kept for less time than app totals).</summary>
     public long? FirstDataTime()
     {

@@ -63,7 +63,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool KeepStatusColors { get => S.KeepStatusColors; set => Set(s => s.KeepStatusColors = value); }
 
     // ── The page's tabs ───────────────────────────────────────────────────
-    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "about", "admin"];
+    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "rewind", "about", "admin"];
 
     /// <summary>
     /// The agent runs under a standard account: the "Admin rights" tab is there, saying what can't be read without them.
@@ -151,6 +151,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsHistory => _tab == "history";
     public bool IsAbout => _tab == "about";
     public bool IsAdminRights => _tab == "admin";
+    public bool IsRewind => _tab == "rewind";
+
+    /// <summary>Settings → Rewind: the rewinds made, and what is made and how (set by the shell).</summary>
+    public global::Rigsight.Rewind.RewindViewModel? Rewind { get; set; }
 
     private List<ThemeOption>? _themeOptions;
 
@@ -235,6 +239,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 }
             }
             Set(s => s.Tracking.KeepHistoryDays = value);
+            Rewind?.HistoryChanged();
         }
     }
 

@@ -39,6 +39,7 @@ public sealed class RigsightSettings
 
     public TrackingSettings Tracking { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
+    public RewindSettings Rewind { get; set; } = new();
     public List<WidgetConfig> Widgets { get; set; } = WidgetConfig.Defaults();
     /// <summary>A new install's overlay (like its widgets and taskbar readings) starts in grayscale.</summary>
     public OverlaySettings Overlay { get; set; } = new() { Grayscale = true };

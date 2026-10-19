@@ -88,6 +88,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
+        Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
+        SettingsPage.Rewind = Rewind;
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
@@ -150,6 +152,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _refresh.Tick += (_, _) =>
         {
             _ = RefreshTickAsync();
+            Rewind.CheckWhileOpen();
             if (!RigsightPaths.IsTestInstance) _ = Update.CheckIfDueAsync(); // a new day while the window stayed open
         };
         // The end-to-end check asks a test copy for this refresh itself, so that it falls where it is measured.
@@ -226,6 +229,9 @@ public sealed partial class ShellViewModel : ObservableObject
     public OverlayViewModel Overlay { get; }
     public TaskbarViewModel Taskbar { get; }
     public WhatsNewViewModel WhatsNew { get; }
+
+    /// <summary>Rewind: the full screen when one is ready, watching, Share, and Settings → Rewind's list.</summary>
+    public global::Rigsight.Rewind.RewindViewModel Rewind { get; }
     public SettingsViewModel SettingsPage { get; }
     public LanguageViewModel Language { get; }
     public UpdateViewModel Update { get; }
@@ -711,6 +717,13 @@ public sealed partial class ShellViewModel : ObservableObject
             {
                 CurrentPage = "reports";
                 ReportsPage.ShowDay(day);
+                ActivateRequested?.Invoke();
+                return;
+            }
+            // A rewind's notification: watched straight away.
+            if (page == "rewind")
+            {
+                Rewind.Watch(arg);
                 ActivateRequested?.Invoke();
                 return;
             }

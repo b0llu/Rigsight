@@ -518,6 +518,7 @@ internal sealed class AgentContext : ApplicationContext
                 {
                     nextMinuteCheck = now + 60_000;
                     MaybeShowDailyRecap();
+                    MaybeMakeRewinds();
                     SaveExtremes();
                     RetryWaitingRepair();
                 }
@@ -1313,6 +1314,28 @@ internal sealed class AgentContext : ApplicationContext
 
         string text = string.Join("  ·  ", parts) + ". " + Wording.FullPicture;
         _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: DailyRecap.Key(day))), null);
+    }
+
+    private DateTime _rewindsChecked;
+
+    /// <summary>
+    /// Sampler thread, each minute (read at most every half hour): a rewind finished (a month, three, six, a year) is
+    /// made and saved. While RigSight is closed, the biggest one made is announced with a notification in the user's
+    /// Notifications style (held back during a fullscreen game like every other); RigSight open shows it itself.
+    /// </summary>
+    private void MaybeMakeRewinds()
+    {
+        var now = DateTime.Now;
+        if (now - _rewindsChecked < TimeSpan.FromMinutes(30)) return;
+        _rewindsChecked = now;
+        var settings = _settings;
+        List<Core.Rewind.RewindFacts> made;
+        try { made = Core.Rewind.RewindStore.MakeDue(_db, settings, now); }
+        catch (Exception ex) { Log.Error("rewind", ex); return; }
+        if (made.Count == 0 || !settings.Rewind.Notify || _pipe.ClientCount > 0) return;
+        var f = made[0];
+        Log.Write("rewind", $"Announcing {f.Id} with a notification");
+        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id)), null);
     }
 
     private void OnSessionEnded(SessionRow row, AppInfo app)
