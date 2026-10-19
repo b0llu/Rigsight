@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
 
@@ -135,29 +136,29 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// </summary>
     private static readonly HashSet<string> AddedLater = ["games"];
 
-    /// <summary>Every built-in page, in its usual group and order. A new page is one more line here.</summary>
+    /// <summary>Every built-in page, in its usual group and order (its title in English, shown translated). A new page is one more line here.</summary>
     private static readonly (string Key, string Title, string Icon, string Group)[] BuiltIn =
     [
-        ("home", "Home", "", MainSection),
-        ("reports", "Reports", "", MainSection),
-        ("apps", "Apps", "", MainSection),
-        ("games", "Games", "", MainSection),
-        ("processes", "Processes", "", MainSection),
-        ("crashes", "Crashes", "", MainSection),
-        ("timeline", "Timeline", "", MainSection),
-        ("temperatures", "Temperatures", "", HardwareSection),
-        ("fans", "Fans", "fan", HardwareSection),
-        ("memory", "Memory", "", HardwareSection),
-        ("storage", "Storage", "", HardwareSection),
-        ("network", "Network", "network", HardwareSection),
-        ("sensors", "All sensors", "", HardwareSection),
-        ("widgets", "Widgets", "", OnScreenSection),
-        ("overlay", "Overlay", "", OnScreenSection),
-        ("taskbar", "Taskbar", "", OnScreenSection),
+        ("home", Lang.Key("Home"), "", MainSection),
+        ("reports", Lang.Key("Reports"), "", MainSection),
+        ("apps", Lang.Key("Apps"), "", MainSection),
+        ("games", Lang.Key("Games"), "", MainSection),
+        ("processes", Lang.Key("Processes"), "", MainSection),
+        ("crashes", Lang.Key("Crashes"), "", MainSection),
+        ("timeline", Lang.Key("Timeline"), "", MainSection),
+        ("temperatures", Lang.Key("Temperatures"), "", HardwareSection),
+        ("fans", Lang.Key("Fans"), "fan", HardwareSection),
+        ("memory", Lang.Key("Memory"), "", HardwareSection),
+        ("storage", Lang.Key("Storage"), "", HardwareSection),
+        ("network", Lang.Key("Network"), "network", HardwareSection),
+        ("sensors", Lang.Key("All sensors"), "", HardwareSection),
+        ("widgets", Lang.Key("Widgets"), "", OnScreenSection),
+        ("overlay", Lang.Key("Overlay"), "", OnScreenSection),
+        ("taskbar", Lang.Key("Taskbar"), "", OnScreenSection),
     ];
 
     /// <summary>What a dashboard is called while its name is empty (as it is saved then: see CustomPageViewModel.Save).</summary>
-    private const string DashboardTitle = "Dashboard";
+    private static string DashboardTitle => Lang.T("Dashboard");
     private const string DashboardIcon = "\uF0E2";
 
     private readonly SettingsModel _settings;
@@ -172,11 +173,11 @@ public sealed partial class SidebarViewModel : ObservableObject
         _settings = settings;
         _go = go;
         MainGroup = new(MainSection, null, this);
-        DashboardsGroup = new(Dashboards, "Dashboards", this);
-        HardwareGroup = new(HardwareSection, "Hardware", this);
-        OnScreenGroup = new(OnScreenSection, "On screen", this);
+        DashboardsGroup = new(Dashboards, Lang.T("Dashboards"), this);
+        HardwareGroup = new(HardwareSection, Lang.T("Hardware"), this);
+        OnScreenGroup = new(OnScreenSection, Lang.T("On screen"), this);
         Groups = [MainGroup, DashboardsGroup, HardwareGroup, OnScreenGroup];
-        _entries = [.. BuiltIn.Select(p => new NavEntry(p.Key, p.Title, p.Icon, p.Group, this))];
+        _entries = [.. BuiltIn.Select(p => new NavEntry(p.Key, Lang.T(p.Title), p.Icon, p.Group, this))];
         foreach (var page in dashboards ?? []) Add(page);
         if (dashboards is not null) dashboards.CollectionChanged += OnDashboardsChanged;
         Arrange();
@@ -264,8 +265,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         {
             int pages = _entries.Count(e => IsHidden(e.Key)), headings = Groups.Count(g => g.HasHeading && !g.ShowHeading);
             var parts = new List<string>();
-            if (pages > 0) parts.Add($"{pages} page{(pages == 1 ? "" : "s")} hidden");
-            if (headings > 0) parts.Add($"{headings} heading{(headings == 1 ? "" : "s")} hidden");
+            if (pages > 0) parts.Add(pages == 1 ? Lang.T("1 page hidden") : Lang.T($"{pages} pages hidden"));
+            if (headings > 0) parts.Add(headings == 1 ? Lang.T("1 heading hidden") : Lang.T($"{headings} headings hidden"));
             return parts.Count == 0 ? "" : "· " + string.Join(", ", parts);
         }
     }

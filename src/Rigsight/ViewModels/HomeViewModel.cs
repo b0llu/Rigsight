@@ -64,8 +64,8 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>What was downloaded today, and by what mostly ("Mostly Google Chrome"); a dash before anything is.</summary>
     public string TodayInternet => Today?.Net is { Down: > 0 } net ? Units.Data(net.Down) : "—";
     public string TodayInternetLine => Today is null ? "" : Today.Net is { Down: > 0 } net
-        ? net.Apps.MaxBy(a => a.Use.Down) is { } top && top.Use.Down >= net.Down * 0.4 ? $"Mostly {top.Name}" : "Downloaded"
-        : "Nothing downloaded yet";
+        ? net.Apps.MaxBy(a => a.Use.Down) is { } top && top.Use.Down >= net.Down * 0.4 ? Lang.T($"Mostly {top.Name}") : Lang.T("Downloaded")
+        : Lang.T("Nothing downloaded yet");
 
     /// <summary>"Learning your day" only once history has loaded and really has no apps yet.</summary>
     public bool ShowLearning => Loaded && TodayTopApps.Count == 0;
@@ -138,17 +138,17 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     public string RecapTitle => Period switch
     {
-        RecapPeriod.LastWeek => "Last week",
-        RecapPeriod.LastMonth => "Last month",
-        RecapPeriod.LastYear => "Last year",
+        RecapPeriod.LastWeek => Lang.T("Last week"),
+        RecapPeriod.LastMonth => Lang.T("Last month"),
+        RecapPeriod.LastYear => Lang.T("Last year"),
         // A day of the last week by its name; an older one by its date.
         _ when StandIn is { } day => (DateTime.Today - day).TotalDays <= 6 ? day.ToString("dddd") : day.ToString("d MMMM"),
-        _ => "Yesterday",
+        _ => Lang.T("Yesterday"),
     };
 
     /// <summary>Under the title when another day stands in for yesterday: why ("Not used for 2 days.").</summary>
     public string? RecapNote => StandIn is not { } day ? null
-        : (int)(DateTime.Today - day).TotalDays - 1 is var idle && idle <= 1 ? "Your PC wasn't used yesterday." : $"Your PC wasn't used for {idle} days.";
+        : (int)(DateTime.Today - day).TotalDays - 1 is var idle && idle <= 1 ? Lang.T("Your PC wasn't used yesterday.") : Lang.T($"Your PC wasn't used for {idle} days.");
 
     /// <summary>What "Open full recap" asks the Reports page for (see ShellViewModel.Navigate).</summary>
     public string RecapArg => Period switch
@@ -160,17 +160,35 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         _ => "yesterday",
     };
 
-    public string RecapEmptyTitle => $"No history for {RecapTitle.ToLowerInvariant()} yet.";
-    public string RecapEmptyText => Period == RecapPeriod.Yesterday
-        ? "Yesterday's active time, most-used apps and highlights show here once there's a full day of history."
-        : $"{RecapTitle}'s active time, most-used apps and highlights show here once there's history for it.";
+    // Each period's sentence whole; a day standing in for yesterday by its name.
+    public string RecapEmptyTitle => Period switch
+    {
+        RecapPeriod.LastWeek => Lang.T("No history for last week yet."),
+        RecapPeriod.LastMonth => Lang.T("No history for last month yet."),
+        RecapPeriod.LastYear => Lang.T("No history for last year yet."),
+        _ when StandIn is not null => DayEmptyTitle(RecapTitle.ToLowerInvariant()),
+        _ => Lang.T("No history for yesterday yet."),
+    };
+
+    private static string DayEmptyTitle(string day) => Lang.T($"No history for {day} yet.");
+
+    public string RecapEmptyText => Period switch
+    {
+        RecapPeriod.LastWeek => Lang.T("Last week's active time, most-used apps and highlights show here once there's history for it."),
+        RecapPeriod.LastMonth => Lang.T("Last month's active time, most-used apps and highlights show here once there's history for it."),
+        RecapPeriod.LastYear => Lang.T("Last year's active time, most-used apps and highlights show here once there's history for it."),
+        _ when StandIn is not null => DayEmptyText(RecapTitle),
+        _ => Lang.T("Yesterday's active time, most-used apps and highlights show here once there's a full day of history."),
+    };
+
+    private static string DayEmptyText(string day) => Lang.T($"{day}'s active time, most-used apps and highlights show here once there's history for it.");
 
     public string Greeting => DateTime.Now.Hour switch
     {
-        < 5 => "Up late",
-        < 12 => "Good morning",
-        < 17 => "Good afternoon",
-        _ => "Good evening",
+        < 5 => Lang.T("Up late"),
+        < 12 => Lang.T("Good morning"),
+        < 17 => Lang.T("Good afternoon"),
+        _ => Lang.T("Good evening"),
     };
 
     public string DateText => DateTime.Now.ToString("dddd, d MMMM");
@@ -360,7 +378,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         title.IndexOf(" updated to ", StringComparison.Ordinal) is > 0 and var at ? title[..(at + " updated".Length)] : title;
 
     /// <summary>A big change by a short name, before what it did: "Driver 618.10", else its title.</summary>
-    internal static string ChangeName(SystemChange c) => c.IsGraphicsDriver && c.Now is { Length: > 0 } version ? $"Driver {version}" : Brief(c.Title);
+    internal static string ChangeName(SystemChange c) => c.IsGraphicsDriver && c.Now is { Length: > 0 } version ? Lang.T($"Driver {version}") : Brief(c.Title);
 
     /// <summary>Opens a change's before and after on the Timeline.</summary>
     public Action<DateTime>? OpenChange { get; set; }
@@ -425,8 +443,8 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>"Today", "Yesterday", the day's name within a week, else its date.</summary>
     internal static string DayWord(DateTime day, DateTime today) => (today - day).Days switch
     {
-        <= 0 => "Today",
-        1 => "Yesterday",
+        <= 0 => Lang.T("Today"),
+        1 => Lang.T("Yesterday"),
         < 7 => day.ToString("dddd"),
         _ => day.ToString("d MMM"),
     };
@@ -446,8 +464,12 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         }
     }
 
-    internal static string FullText(string root, long usedBytes, long totalBytes) =>
-        $"the {root.TrimEnd('\\').TrimEnd(':')} drive is {Math.Round(100.0 * usedBytes / totalBytes):0}% full";
+    internal static string FullText(string root, long usedBytes, long totalBytes)
+    {
+        string letter = root.TrimEnd('\\').TrimEnd(':');
+        double share = Math.Round(100.0 * usedBytes / totalBytes);
+        return Lang.T($"the {letter} drive is {share:0}% full");
+    }
 
     /// <summary>
     /// PC health, a statement a line: the PC's own parts against its usual, worded once in Core (UsualLines.Health, the
@@ -463,9 +485,9 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         // Drives: one that needs a look, else healthy and the fullest.
         var known = drives.Where(d => d.HasHealth).ToList();
         if (known.FirstOrDefault(d => d.HealthReason is not null) is { } unwell)
-            parts.Add(new Insight("", $"{unwell.Name} needs a look", InsightTone.Warn, "drive-unwell"));
+            parts.Add(new Insight("", Lang.T($"{unwell.Name} needs a look"), InsightTone.Warn, "drive-unwell"));
         else if (known.Count > 0)
-            parts.Add(new Insight("", (known.Count == 1 ? "The drive is healthy" : "Drives healthy") + (fullest is null ? "" : $"; {fullest}"), InsightTone.Good, "drives"));
+            parts.Add(new Insight("", DrivesHealthy(known.Count, fullest), InsightTone.Good, "drives"));
         else if (fullest is not null)
             parts.Add(new Insight("", Wording.Capital(fullest), InsightTone.Neutral, "drives"));
 
@@ -475,6 +497,15 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         // What needs a look first, in the order above.
         return [.. lines.Where(l => l.TextBrush == "WarmBrush"), .. lines.Where(l => l.TextBrush != "WarmBrush")];
     }
+
+    /// <summary>"The drive is healthy" / "Drives healthy", with the fullest drive after it when it's known.</summary>
+    private static string DrivesHealthy(int count, string? fullest) => (count == 1, fullest) switch
+    {
+        (true, null) => Lang.T("The drive is healthy"),
+        (true, _) => Lang.T($"The drive is healthy; {fullest}"),
+        (false, null) => Lang.T("Drives healthy"),
+        _ => Lang.T($"Drives healthy; {fullest}"),
+    };
 
     /// <summary>The picked period's report, built once a day and kept; only the latest pick's result is shown.</summary>
     private async Task LoadRecapAsync()

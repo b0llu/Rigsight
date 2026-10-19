@@ -47,7 +47,7 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
         go?.Invoke(feature.Page);
     }
 
-    public string Heading => ShowingAll ? "Every update" : Shown.Count > 1 ? "What's new since you last looked" : "What's new";
+    public string Heading => ShowingAll ? Core.Lang.T("Every update") : Shown.Count > 1 ? Core.Lang.T("What's new since you last looked") : Core.Lang.T("What's new");
 
     /// <summary>The app window opened: show what's new once, if an update brought anything.</summary>
     public void CheckOnStart()

@@ -65,7 +65,7 @@
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="The PC was off, or the background agent wasn't running. Pick another period."
+                    <TextBlock Text="{ctl:T 'The PC was off, or the background agent wasn\'t running. Pick another period.'}"
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -75,36 +75,36 @@
                 <ctl:TileWrap Margin="0,18,0,0" MinTileWidth="190" Gap="10">
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
-                            <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'ACTIVE'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding Report.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding ActiveLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
-                            <TextBlock Text="IN GAMES" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'IN GAMES'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding GamesText}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding GamesLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
-                            <TextBlock Text="INTERNET" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'INTERNET'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding InternetText}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding InternetLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}" Visibility="{Binding HasEnergy, Converter={StaticResource Vis}}"
-                            ToolTip="Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren't measured.">
+                            ToolTip="{ctl:T 'Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren\'t measured.'}">
                         <StackPanel>
-                            <TextBlock Text="ENERGY" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'ENERGY'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="CPU and GPU" Style="{StaticResource TileLine}" />
+                            <TextBlock Text="{ctl:T 'CPU and GPU'}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
-                            <TextBlock Text="PC PROBLEMS" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'PC PROBLEMS'}" Style="{StaticResource Caption}" />
                             <!-- Amber when more than usual, green with none, plain as usual (in the style: a colour set on the element would win over the trigger). -->
                             <TextBlock Text="{Binding ProblemsText}">
                                 <TextBlock.Style>
@@ -131,7 +131,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
-                            <TextBlock Text="Where the time went" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'Where the time went'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ctl:PartsBar Height="12" Parts="{Binding TimeSplit}" />
                         <ItemsControl ItemsSource="{Binding TimeSplit}" Focusable="False" Margin="0,12,0,0">
@@ -158,8 +158,8 @@
                 <ctl:SmoothBorder x:Name="UsualCard" Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasUsual, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="This PC's own history" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
-                            <TextBlock Text="Against your usual" Style="{StaticResource H2}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'This PC\'s own history'}" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Against your usual'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <Grid Margin="0,0,0,2">
                             <Grid.ColumnDefinitions>
@@ -168,10 +168,10 @@
                                 <ColumnDefinition Width="1.6*" />
                                 <ColumnDefinition Width="1.2*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="WHAT" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'WHAT'}" Style="{StaticResource Caption}" />
                             <TextBlock Grid.Column="1" Text="{Binding UsualNow}" Style="{StaticResource Caption}" />
-                            <TextBlock Grid.Column="2" Text="YOUR USUAL" Style="{StaticResource Caption}" />
-                            <TextBlock Grid.Column="3" Text="WHAT IT MEANS" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="2" Text="{ctl:T 'YOUR USUAL'}" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="3" Text="{ctl:T 'WHAT IT MEANS'}" Style="{StaticResource Caption}" />
                         </Grid>
                         <ItemsControl ItemsSource="{Binding UsualRows}" Focusable="False">
                             <ItemsControl.ItemTemplate>
@@ -224,14 +224,14 @@
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
                                         Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
                                 <!-- What the curves are, as on Temperatures (one remembered choice for both pages). -->
-                                <TextBlock Text="Each minute's" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Each minute\'s'}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
                                 <Border Style="{StaticResource SegmentHost}">
                                     <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Average"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Average'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Highest"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Highest'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="Lowest"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Lowest'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
                                     </StackPanel>
                                 </Border>
@@ -241,7 +241,7 @@
                                 <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Your day, minute by minute" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{ctl:T 'Your day, minute by minute'}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                                 <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
                                     <!-- Zoomed in (a drag across the graph): the stretch shown and the way back, beside the title (what is shown), apart
@@ -272,7 +272,7 @@
                                          Plot="{Binding ChartPlot}" CanZoom="True" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                         <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
                         <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
-                                   Text="The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer."
+                                   Text="{ctl:T 'The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer.'}"
                                    Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -306,7 +306,7 @@
                     </ctl:SmoothBorder>
                     <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Text="Peaks" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                            <TextBlock Text="{ctl:T 'Peaks'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
                             <ItemsControl ItemsSource="{Binding Peaks}" ItemTemplate="{StaticResource PeakLine}" Focusable="False" />
                         </StackPanel>
                     </ctl:SmoothBorder>
@@ -318,12 +318,12 @@
                         <DockPanel Margin="0,0,0,12">
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowBackgroundApps}"
                                       Visibility="{Binding BackgroundOnlyCount, Converter={StaticResource Vis}}"
-                                      ToolTip="Apps that were open in the background or minimized, but that you never actually switched to.">
+                                      ToolTip="{ctl:T 'Apps that were open in the background or minimized, but that you never actually switched to.'}">
                                 <TextBlock Text="{Binding BackgroundToggleText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
                             </CheckBox>
                             <StackPanel>
-                                <TextBlock Text="Apps you used" Style="{StaticResource H2}" />
-                                <TextBlock Text="Temperatures are averaged over the time each app was in front and in use." FontSize="12"
+                                <TextBlock Text="{ctl:T 'Apps you used'}" Style="{StaticResource H2}" />
+                                <TextBlock Text="{ctl:T 'Temperatures are averaged over the time each app was in front and in use.'}" FontSize="12"
                                            Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
@@ -337,13 +337,13 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="APP" Style="{StaticResource Caption}" Margin="44,0,0,0" />
-                            <TextBlock Grid.Column="1" Text="IN USE" Style="{StaticResource Col}" ToolTip="In front and being used" />
-                            <TextBlock Grid.Column="2" Text="BACKGROUND" Style="{StaticResource Col}" ToolTip="Open with a visible window, but another app was in front" />
-                            <TextBlock Grid.Column="3" Text="CPU PEAK" Style="{StaticResource Col}" />
-                            <TextBlock Grid.Column="4" Text="GPU PEAK" Style="{StaticResource Col}" />
-                            <TextBlock Grid.Column="5" Text="MEMORY PEAK" Style="{StaticResource Col}" />
-                            <TextBlock Grid.Column="6" Text="INTERNET" Style="{StaticResource Col}" ToolTip="Downloaded and uploaded" />
+                            <TextBlock Text="{ctl:T 'APP'}" Style="{StaticResource Caption}" Margin="44,0,0,0" />
+                            <TextBlock Grid.Column="1" Text="{ctl:T 'IN USE'}" Style="{StaticResource Col}" ToolTip="{ctl:T 'In front and being used'}" />
+                            <TextBlock Grid.Column="2" Text="{ctl:T 'BACKGROUND'}" Style="{StaticResource Col}" ToolTip="{ctl:T 'Open with a visible window, but another app was in front'}" />
+                            <TextBlock Grid.Column="3" Text="{ctl:T 'CPU PEAK'}" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="4" Text="{ctl:T 'GPU PEAK'}" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="5" Text="{ctl:T 'MEMORY PEAK'}" Style="{StaticResource Col}" />
+                            <TextBlock Grid.Column="6" Text="{ctl:T 'INTERNET'}" Style="{StaticResource Col}" ToolTip="{ctl:T 'Downloaded and uploaded'}" />
                         </Grid>
                         <!-- Every app, in a box of a set height that scrolls (a month can list hundreds; only the rows on screen are built). -->
                         <ItemsControl ItemsSource="{Binding Apps}" ctl:Roomy.MaxHeight="{x:Static views:ReportsView.AppsMaxHeight}" Focusable="False"
@@ -367,7 +367,7 @@
                                         <!-- What left the columns is still a pointer away. -->
                                         <Border.ToolTip>
                                             <TextBlock>
-                                                <Run Text="Minimized" /> <Run Text="{Binding MinimizedSec, Converter={StaticResource Duration}, ConverterParameter=Dash, Mode=OneWay}" /><Run Text="  ·  Average CPU " /><Run Text="{Binding CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" /><Run Text="  ·  Average GPU " /><Run Text="{Binding GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" />
+                                                <Run Text="{ctl:T 'Minimized'}" /> <Run Text="{Binding MinimizedSec, Converter={StaticResource Duration}, ConverterParameter=Dash, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{ctl:T 'Average CPU'}" /><Run Text=" " /><Run Text="{Binding CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{ctl:T 'Average GPU'}" /><Run Text=" " /><Run Text="{Binding GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" />
                                             </TextBlock>
                                         </Border.ToolTip>
                                         <Grid>
@@ -421,11 +421,11 @@
                                     Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="timeline"
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Timeline" />
+                                    <TextBlock Text="{ctl:T 'Timeline'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
-                            <TextBlock Text="What changed on the PC" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'What changed on the PC'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding Changes}" Focusable="False">
                             <ItemsControl.ItemsPanel>
@@ -460,7 +460,7 @@
                 <!-- Crashes -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Crashes.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="Crashes &amp; sudden shut-offs" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                        <TextBlock Text="{ctl:T 'Crashes &amp; sudden shut-offs'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding CrashesShown}" ItemTemplate="{StaticResource CrashTemplate}" />
                         <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,4,0,0"
                                 Content="{Binding MoreCrashesText}" Command="{Binding ShowMoreCrashesCommand}"
@@ -471,7 +471,7 @@
                 <!-- Sessions -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding TopSessions.Count, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="Longest sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <TextBlock Text="{ctl:T 'Longest sessions'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding TopSessions}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -491,7 +491,7 @@
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                             <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{DynamicResource GoodSoftBrush}"
                                                     Visibility="{Binding IsGame, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="GAME" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
+                                                <TextBlock Text="{ctl:T 'GAME'}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Style="{StaticResource Muted}" VerticalAlignment="Center">
@@ -500,7 +500,7 @@
                                         <TextBlock Grid.Column="3" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}"
                                                    FontWeight="SemiBold" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                            <Run Text="CPU peak" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   GPU peak" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
+                                            <Run Text="{ctl:T 'CPU peak'}" /> <Run Text="{Binding CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text="   " /><Run Text="{ctl:T 'GPU peak'}" /> <Run Text="{Binding GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                         </TextBlock>
                                     </Grid>
                                     </Button>

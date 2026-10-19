@@ -79,7 +79,7 @@ public sealed partial class TileViewModel : ObservableObject
     private void OnSensorRenamed(object? sender, PropertyChangedEventArgs e) => OnPropertyChanged(nameof(Title));
 
     public string Title => Kind == "sensor"
-        ? Definition?.Sensor == SensorRef ? Definition!.Title : Sensor?.DisplayName ?? "Sensor"
+        ? Definition?.Sensor == SensorRef ? Definition!.Title : Sensor?.DisplayName ?? Core.Lang.T("Sensor")
         : Definition?.Title ?? Kind;
 
     /// <summary>CPU readings in the CPU color, GPU readings in the GPU color.</summary>

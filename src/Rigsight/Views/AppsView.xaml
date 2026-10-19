@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.AppsView"
+﻿<UserControl x:Class="Rigsight.Views.AppsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -51,8 +51,8 @@
 
         <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
         <StackPanel Grid.ColumnSpan="3" Margin="0,0,0,16">
-            <TextBlock Text="Apps" Style="{StaticResource H1}" />
-            <TextBlock Text="How long you use each app, how long it sits in the background, and how hard it pushes your hardware."
+            <TextBlock Text="{ctl:T 'Apps'}" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'How long you use each app, how long it sits in the background, and how hard it pushes your hardware.'}"
                        Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
@@ -63,7 +63,7 @@
         <!-- App list -->
         <ctl:SmoothBorder Grid.Row="1" Style="{StaticResource Card}" Padding="12,14">
             <DockPanel>
-                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="Search apps…" Margin="4,0,4,10"
+                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Margin="4,0,4,10"
                          ctl:Debounce.Text="{Binding Search}" />
                 <!-- One row under the search: which category (a dot in its colour, as on Reports) and the order. -->
                 <Grid DockPanel.Dock="Top" Margin="4,0,4,10">
@@ -72,7 +72,7 @@
                         <ColumnDefinition Width="8" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <ComboBox AutomationProperties.Name="Category" ToolTip="Show one kind of app"
+                    <ComboBox AutomationProperties.Name="Category" ToolTip="{ctl:T 'Show one kind of app'}"
                               ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
@@ -85,14 +85,14 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <ComboBox Grid.Column="2" AutomationProperties.Name="Sort by" ToolTip="Sort by" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
-                        <ComboBoxItem Content="Most used" Tag="Active" />
-                        <ComboBoxItem Content="Most in background" Tag="Background" />
-                        <ComboBoxItem Content="Most internet use" Tag="Internet" />
-                        <ComboBoxItem Content="Highest GPU peak" Tag="GpuTemp" />
-                        <ComboBoxItem Content="Highest CPU peak" Tag="CpuTemp" />
-                        <ComboBoxItem Content="Most memory" Tag="Memory" />
-                        <ComboBoxItem Content="Most CPU use" Tag="Cpu" />
+                    <ComboBox Grid.Column="2" AutomationProperties.Name="Sort by" ToolTip="{ctl:T 'Sort by'}" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
+                        <ComboBoxItem Content="{ctl:T 'Most used'}" Tag="Active" />
+                        <ComboBoxItem Content="{ctl:T 'Most in background'}" Tag="Background" />
+                        <ComboBoxItem Content="{ctl:T 'Most internet use'}" Tag="Internet" />
+                        <ComboBoxItem Content="{ctl:T 'Highest GPU peak'}" Tag="GpuTemp" />
+                        <ComboBoxItem Content="{ctl:T 'Highest CPU peak'}" Tag="CpuTemp" />
+                        <ComboBoxItem Content="{ctl:T 'Most memory'}" Tag="Memory" />
+                        <ComboBoxItem Content="{ctl:T 'Most CPU use'}" Tag="Cpu" />
                     </ComboBox>
                 </Grid>
                 <ListBox Style="{StaticResource CardList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedRow}">
@@ -157,16 +157,16 @@
                                 <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
                                     <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
                                              Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
-                                             ToolTip="{Binding Selected.Path, StringFormat='{}Click to rename this app everywhere.&#x0a;{0}', TargetNullValue='Click to rename this app everywhere.'}" />
+                                             ToolTip="{Binding RenameTip}" />
                                     <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
                                 <Button Style="{StaticResource GhostButton}" Height="34" Padding="12,0" Margin="0,0,8,0" Command="{Binding OpenGameHistoryCommand}"
-                                        Visibility="{Binding SelectedIsGame, Converter={StaticResource Vis}}" ToolTip="Every play, how it runs and its problems, on the Games page">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Game history" /></StackPanel>
+                                        Visibility="{Binding SelectedIsGame, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Every play, how it runs and its problems, on the Games page'}">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{ctl:T 'Game history'}" /></StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
-                                        Click="More_Click" ToolTip="Category, tracking and file location" AutomationProperties.Name="More options">
+                                        Click="More_Click" ToolTip="{ctl:T 'Category, tracking and file location'}" AutomationProperties.Name="More options">
                                     <TextBlock Text="&#xE712;" />
                                 </Button>
                                 </StackPanel>
@@ -177,32 +177,32 @@
                             <local:GroupRow x:Name="Groups" Margin="0,20,0,0">
                                 <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Time">
                                     <StackPanel>
-                                        <TextBlock Text="TIME" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{ctl:T 'TIME'}" Style="{StaticResource Caption}" />
                                         <TextBlock Style="{StaticResource GroupMain}">
-                                            <Run Text="{Binding Selected.ActiveSec, Converter={StaticResource Duration}, Mode=OneWay}" /> <Run Text="active" Style="{StaticResource GroupWord}" />
+                                            <Run Text="{Binding Selected.ActiveSec, Converter={StaticResource Duration}, Mode=OneWay}" /> <Run Text="{ctl:T 'active'}" Style="{StaticResource GroupWord}" />
                                         </TextBlock>
-                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="Open with a visible window while another app was in front">
+                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="{ctl:T 'Open with a visible window while another app was in front'}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding Selected.BackgroundSec, Converter={StaticResource Duration}}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="In the background" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'In the background'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding Selected.MinimizedSec, Converter={StaticResource Duration}}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Minimized" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Minimized'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding Selected.LongestSessionSec, Converter={StaticResource Duration}, ConverterParameter=Dash}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Longest session" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Longest session'}" />
                                             </DockPanel>
                                         </Border>
-                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="Stretches of a minute or more in front">
+                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="{ctl:T 'Stretches of a minute or more in front'}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding Selected.SessionCount}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Sessions" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Sessions'}" />
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
@@ -211,42 +211,42 @@
                                 <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Hardware">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis">
-                                            <Run Text="HARDWARE" /> <Run Text="while it was in front" FontWeight="Normal" Foreground="{DynamicResource FaintBrush}" />
+                                            <Run Text="{ctl:T 'HARDWARE'}" /> <Run Text="{ctl:T 'while it was in front'}" FontWeight="Normal" Foreground="{DynamicResource FaintBrush}" />
                                         </TextBlock>
                                         <!-- Both peaks as equals, coloured by how warm they got (the GPU on its own scale, as everywhere). -->
                                         <TextBlock Style="{StaticResource GroupMain}">
-                                            <Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /> <Run Text="CPU · GPU peak" Style="{StaticResource GroupWord}" />
+                                            <Run Text="{Binding Selected.CpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempMax, Converter={StaticResource TempBrush}}" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Selected.GpuTempMax, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempMax, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /> <Run Text="{ctl:T 'CPU · GPU peak'}" Style="{StaticResource GroupWord}" />
                                         </TextBlock>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
-                                                    <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /> <Run Text="average" Style="{StaticResource GroupNote}" />
+                                                    <Run Text="{Binding Selected.CpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.CpuTempAvg, Converter={StaticResource TempBrush}}" /> <Run Text="{ctl:T 'average'}" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="CPU temp" ToolTip="CPU temperature" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'CPU temp'}" ToolTip="{ctl:T 'CPU temperature'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
-                                                    <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /> <Run Text="average" Style="{StaticResource GroupNote}" />
+                                                    <Run Text="{Binding Selected.GpuTempAvg, Converter={StaticResource TempShort}, Mode=OneWay}" Foreground="{Binding Selected.GpuTempAvg, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" /> <Run Text="{ctl:T 'average'}" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="GPU temp" ToolTip="GPU temperature" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'GPU temp'}" ToolTip="{ctl:T 'GPU temperature'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
-                                                    <Run Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—', Mode=OneWay}" /> <Run Text="average" Style="{StaticResource GroupNote}" />
+                                                    <Run Text="{Binding Selected.CpuAvg, StringFormat='{}{0:0.0}%', TargetNullValue='—', Mode=OneWay}" /> <Run Text="{ctl:T 'average'}" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="CPU use" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'CPU use'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}">
-                                                    <Run Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" /> <Run Text="peak" Style="{StaticResource GroupNote}" />
+                                                    <Run Text="{Binding Selected.MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" /> <Run Text="{ctl:T 'peak'}" Style="{StaticResource GroupNote}" />
                                                 </TextBlock>
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Memory" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Memory'}" />
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
@@ -254,26 +254,26 @@
 
                                 <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Internet">
                                     <StackPanel>
-                                        <TextBlock Text="INTERNET" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{ctl:T 'INTERNET'}" Style="{StaticResource Caption}" />
                                         <TextBlock Style="{StaticResource GroupMain}">
                                             <Run Text="{Binding InternetMain, Mode=OneWay}" /> <Run Text="{Binding InternetWord, Mode=OneWay}" Style="{StaticResource GroupWord}" />
                                         </TextBlock>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding InternetDown}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Downloaded" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Downloaded'}" />
                                             </DockPanel>
                                         </Border>
                                         <Border Style="{StaticResource GroupRowLine}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding InternetUp}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="Uploaded" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'Uploaded'}" />
                                             </DockPanel>
                                         </Border>
-                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="Moved while another app was in front, or while nobody was at the PC">
+                                        <Border Style="{StaticResource GroupRowLine}" ToolTip="{ctl:T 'Moved while another app was in front, or while nobody was at the PC'}">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource GroupValue}" Text="{Binding InternetBackground}" />
-                                                <TextBlock Style="{StaticResource GroupLabel}" Text="In the background" />
+                                                <TextBlock Style="{StaticResource GroupLabel}" Text="{ctl:T 'In the background'}" />
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
@@ -291,7 +291,7 @@
 
                     <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding SelectedSessions.Count, Converter={StaticResource Vis}}">
                         <StackPanel>
-                            <TextBlock Text="Recent sessions" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                            <TextBlock Text="{ctl:T 'Recent sessions'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
                             <!-- When, how long, how warm: the last two are as wide as their widest (the same on every row), and
                                  the time has the rest. Two set widths cut the time off on a small window with room to spare beside it. -->
                             <ItemsControl ItemsSource="{Binding SelectedSessions}" Grid.IsSharedSizeScope="True">

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Settings;
 using Rigsight.ViewModels;
@@ -53,7 +54,7 @@ public partial class AppsView : UserControl
             FocusVisualStyle = null,
         };
 
-        var category = Item("Category", ""); // tag
+        var category = Item(Lang.T("Category"), ""); // tag
         foreach (var c in vm.Categories)
         {
             var item = new MenuItem { Header = AppCatalog.Label(c), IsCheckable = true, IsChecked = c == vm.SelectedCategory, FocusVisualStyle = null };
@@ -64,13 +65,13 @@ public partial class AppsView : UserControl
 
         // Says what picking it does, rather than a tick.
         bool excluded = vm.SelectedExcluded;
-        var track = excluded ? Item("Track this app again", "") : Item("Don't track this app", ""); // eye / hide
-        track.ToolTip = excluded ? "Start recording this app again." : "Stop recording this app (its existing history stays until you clear it).";
+        var track = excluded ? Item(Lang.T("Track this app again"), "") : Item(Lang.T("Don't track this app"), ""); // eye / hide
+        track.ToolTip = excluded ? Lang.T("Start recording this app again.") : Lang.T("Stop recording this app (its existing history stays until you clear it).");
         track.Click += (_, _) => vm.SelectedExcluded = !excluded;
         menu.Items.Add(track);
 
         menu.Items.Add(new Separator());
-        var open = Item("Open file location", ""); // folder
+        var open = Item(Lang.T("Open file location"), ""); // folder
         open.Command = vm.OpenFileLocationCommand;
         open.IsEnabled = vm.Selected?.Path is { Length: > 0 };
         menu.Items.Add(open);

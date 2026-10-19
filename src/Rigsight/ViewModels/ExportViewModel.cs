@@ -46,23 +46,23 @@ public sealed partial class ExportViewModel : ObservableObject
         (_reports, _settings, _live) = (reports, settings, live);
         ToShare =
         [
-            new(SnapshotKey, "PC snapshot", ReadableExport.SnapshotFile) { IsOn = true },
-            new(ReportKey, "Report for the period", ReadableExport.ReportFile),
-            new(CrashesKey, "Crashes with their context", ReadableExport.CrashesFile),
+            new(SnapshotKey, Lang.T("PC snapshot"), ReadableExport.SnapshotFile) { IsOn = true },
+            new(ReportKey, Lang.T("Report for the period"), ReadableExport.ReportFile),
+            new(CrashesKey, Lang.T("Crashes with their context"), ReadableExport.CrashesFile),
         ];
         Tables =
         [
-            new("apps", "App usage", DataExport.FileName(ExportTable.AppUsage), ExportTable.AppUsage) { IsOn = true },
-            new("sessions", "Sessions", DataExport.FileName(ExportTable.Sessions), ExportTable.Sessions),
-            new("temps", "Temperatures, load and power", DataExport.FileName(ExportTable.Temperatures), ExportTable.Temperatures) { IsOn = true },
-            new("fans", "Fans", DataExport.FileName(ExportTable.Fans), ExportTable.Fans),
-            new("internet", "Internet", DataExport.FileName(ExportTable.Internet), ExportTable.Internet),
-            new("memory", "Memory", DataExport.FileName(ExportTable.Memory), ExportTable.Memory),
-            new("drives", "Drive space", DataExport.FileName(ExportTable.DriveSpace), ExportTable.DriveSpace),
-            new("crashes", "Crashes", DataExport.FileName(ExportTable.Crashes), ExportTable.Crashes),
-            new("timeline", "Timeline changes", DataExport.FileName(ExportTable.Timeline), ExportTable.Timeline),
+            new("apps", Lang.T("App usage"), DataExport.FileName(ExportTable.AppUsage), ExportTable.AppUsage) { IsOn = true },
+            new("sessions", Lang.T("Sessions"), DataExport.FileName(ExportTable.Sessions), ExportTable.Sessions),
+            new("temps", Lang.T("Temperatures, load and power"), DataExport.FileName(ExportTable.Temperatures), ExportTable.Temperatures) { IsOn = true },
+            new("fans", Lang.T("Fans"), DataExport.FileName(ExportTable.Fans), ExportTable.Fans),
+            new("internet", Lang.T("Internet"), DataExport.FileName(ExportTable.Internet), ExportTable.Internet),
+            new("memory", Lang.T("Memory"), DataExport.FileName(ExportTable.Memory), ExportTable.Memory),
+            new("drives", Lang.T("Drive space"), DataExport.FileName(ExportTable.DriveSpace), ExportTable.DriveSpace),
+            new("crashes", Lang.T("Crashes"), DataExport.FileName(ExportTable.Crashes), ExportTable.Crashes),
+            new("timeline", Lang.T("Timeline changes"), DataExport.FileName(ExportTable.Timeline), ExportTable.Timeline),
         ];
-        Everything = [new(FullKey, "Full copy with the database", FullFile)];
+        Everything = [new(FullKey, Lang.T("Full copy with the database"), FullFile)];
         foreach (var item in All) item.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ExportItem.IsOn)) Picked(); };
     }
 
@@ -141,9 +141,10 @@ public sealed partial class ExportViewModel : ObservableObject
         var culture = CultureInfo.CurrentCulture;
         if (days == 1) return from.ToString("dddd, d MMMM", culture);
         string Short(DateTime d) => d.ToString(from.Year == to.Year ? "d MMM" : "d MMM yyyy", culture);
-        if (period == ExportPeriod.All) return $"Everything since {Short(from)} · {days} days";
+        string first = Short(from), last = Short(to);
+        if (period == ExportPeriod.All) return Lang.T($"Everything since {first} · {days} days");
         bool short30 = period == ExportPeriod.Last30 && days < 30, short7 = period == ExportPeriod.Last7 && days < 7;
-        return $"{Short(from)} to {Short(to)} · {days} days{(short30 || short7 ? ", all there is" : "")}";
+        return short30 || short7 ? Lang.T($"{first} to {last} · {days} days, all there is") : Lang.T($"{first} to {last} · {days} days");
     }
 
     partial void OnPeriodChanged(ExportPeriod value)
@@ -183,7 +184,7 @@ public sealed partial class ExportViewModel : ObservableObject
 
     public bool AsCsv { get => !AsText; set { if (value) AsText = false; } }
 
-    public string FormatText => AsText ? "Laid out to read in Notepad or paste into a post" : "Tables for Excel, the report and crashes as web pages";
+    public string FormatText => AsText ? Lang.T("Laid out to read in Notepad or paste into a post") : Lang.T("Tables for Excel, the report and crashes as web pages");
 
     /// <summary>The file an item makes in the format picked ("App usage.txt", "Report.html").</summary>
     public string FileOf(ExportItem item) => FileOf(item, AsText);
@@ -208,7 +209,7 @@ public sealed partial class ExportViewModel : ObservableObject
     /// <summary>Asks for a folder (null: none picked). Tests give their own.</summary>
     internal Func<string, string?> PickFolder { get; set; } = start =>
     {
-        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Save the export in", InitialDirectory = start };
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = Lang.T("Save the export in"), InitialDirectory = start };
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
     };
 
@@ -252,17 +253,21 @@ public sealed partial class ExportViewModel : ObservableObject
         var on = On;
         if (on.Count == 0)
         {
-            Summary = "Nothing picked yet.";
+            Summary = Lang.T("Nothing picked yet.");
             return;
         }
-        string files = on.Count == 1 ? "1 file" : $"{on.Count} files";
+        string files = on.Count == 1 ? Lang.T("1 file") : Lang.T($"{on.Count} files");
         Summary = files;
         int id = ++_estimate;
         var (from, to) = Bounds;
         int sensors = _live.AllSensors.Count;
         bool asText = AsText;
         long bytes = await _reports.QueryAsync((db, _) => on.Sum(item => SizeOf(db, item, from, to, sensors, asText)));
-        if (id == _estimate && bytes > 0) Summary = $"{files}, about {Units.Data(bytes)}";
+        if (id == _estimate && bytes > 0)
+        {
+            string size = Units.Data(bytes);
+            Summary = Lang.T($"{files}, about {size}");
+        }
     }
 
     private static long SizeOf(RigsightDb db, ExportItem item, DateTime from, DateTime to, int sensors, bool asText) => item.Key switch
@@ -314,7 +319,7 @@ public sealed partial class ExportViewModel : ObservableObject
             {
                 var report = (to - from).TotalDays <= 1 ? await _reports.BuildAsync(ReportRange.Day, from) : await _reports.BuildCustomAsync(from, to);
                 report ??= new Report { From = from, To = to };
-                string title = (to - from).TotalDays <= 1 ? from.ToString("dddd, d MMMM yyyy") : $"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}";
+                string title = (to - from).TotalDays <= 1 ? from.ToString("dddd, d MMMM yyyy") : Lang.T($"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}");
                 await File.WriteAllTextAsync(Path.Combine(folder, FileOf(reportItem, asText)),
                     asText ? ReadableExport.ReportText(report, title, Version) : ReadableExport.Report(report, title, Version), new UTF8Encoding(true));
             }
@@ -341,8 +346,8 @@ public sealed partial class ExportViewModel : ObservableObject
                     return ex.Message;
                 }
             });
-            if (failed is null) Error = "The history couldn't be opened. Try again in a moment.";
-            else if (failed.Length > 0) Error = "Couldn't finish: " + failed;
+            if (failed is null) Error = Lang.T("The history couldn't be opened. Try again in a moment.");
+            else if (failed.Length > 0) Error = Lang.T($"Couldn't finish: {failed}");
             else
             {
                 Log.Write("export", $"{on.Count} file(s) ({string.Join(", ", on.Select(i => i.Key))}) as {(asText ? "text" : "CSV")} for {period}");
@@ -353,7 +358,8 @@ public sealed partial class ExportViewModel : ObservableObject
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Log.Error("export", ex);
-            Error = "Couldn't save there: " + ex.Message;
+            string why = ex.Message;
+            Error = Lang.T($"Couldn't save there: {why}");
         }
         finally
         {
@@ -371,16 +377,16 @@ public sealed partial class ExportViewModel : ObservableObject
 
     private static string KindName(SensorKind kind) => kind switch
     {
-        SensorKind.Temperature => "Temperatures",
-        SensorKind.Voltage => "Voltages",
-        SensorKind.Fan => "Fan speeds",
-        SensorKind.Load => "Load",
-        SensorKind.Clock => "Clock speeds",
-        SensorKind.Power => "Power",
-        SensorKind.Control => "Fan control",
-        SensorKind.Data or SensorKind.SmallData => "Data",
-        SensorKind.Throughput => "Throughput",
-        SensorKind.Level => "Levels",
+        SensorKind.Temperature => Lang.T("Temperatures"),
+        SensorKind.Voltage => Lang.T("Voltages"),
+        SensorKind.Fan => Lang.T("Fan speeds"),
+        SensorKind.Load => Lang.T("Load"),
+        SensorKind.Clock => Lang.T("Clock speeds"),
+        SensorKind.Power => Lang.T("Power"),
+        SensorKind.Control => Lang.T("Fan control"),
+        SensorKind.Data or SensorKind.SmallData => Lang.T("Data"),
+        SensorKind.Throughput => Lang.T("Throughput"),
+        SensorKind.Level => Lang.T("Levels"),
         _ => kind.ToString(),
     };
 
@@ -412,7 +418,7 @@ public sealed partial class ExportViewModel : ObservableObject
                 Finding = findings.GetValueOrDefault(e.Id),
                 Results = results,
                 InLastMinutes = e.Kind is CrashKind.AppCrash or CrashKind.AppHang or CrashKind.GpuDriverReset && db.GetCloseUp(e.Ts, e.AppExe) is { } close
-                    ? [.. CloseUpWords.Find(close.Points, e.Ts, id => byId.TryGetValue(id, out var a) ? Name(a) : "An app",
+                    ? [.. CloseUpWords.Find(close.Points, e.Ts, id => byId.TryGetValue(id, out var a) ? Name(a) : Lang.T("An app"),
                         e.AppExe.Length > 0 && byExe.TryGetValue(e.AppExe, out var crashed) ? crashed.Id : null).Select(x => x.Text)]
                     : [],
             };
