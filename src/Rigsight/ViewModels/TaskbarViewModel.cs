@@ -281,7 +281,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             foreach (var id in wanted)
             {
                 var item = byId.GetValueOrDefault(id);
-                Sensors.Add(new TaskbarSensorRow(id, item?.DisplayName ?? id, item?.HardwareName ?? "", item));
+                Sensors.Add(new TaskbarSensorRow(id, item?.DisplayName ?? id, item?.HardwareShown ?? "", item));
             }
         }
         OnPropertyChanged(nameof(HasSensors));

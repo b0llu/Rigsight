@@ -155,7 +155,7 @@ public sealed partial class OverlayViewModel : ObservableObject
             foreach (var x in wanted)
             {
                 bool found = names.TryGetValue(x.Id, out var item);
-                Sensors.Add(new OverlaySensorRow(x.Id, item?.DisplayName ?? x.Label ?? x.Id, item?.HardwareName ?? "", found, _settings));
+                Sensors.Add(new OverlaySensorRow(x.Id, item?.DisplayName ?? x.Label ?? x.Id, item?.HardwareShown ?? "", found, _settings));
             }
         }
         OnPropertyChanged(nameof(HasSensors));

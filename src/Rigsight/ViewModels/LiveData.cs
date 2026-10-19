@@ -1157,11 +1157,11 @@ public sealed partial class LiveData : ObservableObject
         }
         Fill(Warmest, warm.OrderByDescending(x => x.Share).Take(GlanceRows).Select(x => (x.Sensor, (double?)x.Share, x.Note)));
         Fill(Hardest, new[] { CpuLoad, GpuLoad, GpuVramLoad, RamLoad }.Where(x => x?.Value is not null && !x.IsHidden).Select(x => x!)
-            .OrderByDescending(x => x.Value).Select(x => (x, (double?)(x.Value!.Value / 100), x.HardwareName)));
+            .OrderByDescending(x => x.Value).Select(x => (x, (double?)(x.Value!.Value / 100), x.HardwareShown)));
         Fill(FastestFans, _flat.Where(x => x.Kind == SensorKind.Fan && !x.IsHidden && x.Value > 0).OrderByDescending(x => x.Value).Take(GlanceRows)
-            .Select(x => (x, (double?)null, x.HardwareName)));
+            .Select(x => (x, (double?)null, x.HardwareShown)));
         var power = new[] { CpuPower, GpuPower }.Where(x => x?.Value is > 0 && !x.IsHidden).Select(x => x!).OrderByDescending(x => x.Value).ToList();
-        Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareName)));
+        Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareShown)));
         PowerNote = power.Count > 1 ? Lang.T($"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together") : "";
     }
 
