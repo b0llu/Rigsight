@@ -131,11 +131,11 @@ internal static partial class WidgetRenderer
                     return $"{p.Light}|" + string.Join('|', WidgetCatalog.ShownItems(cfg).Select(i => Read(i, d, p)).Select(r => $"{r.Label}={r.Text}#{r.ValueColor.ToArgb():X}"));
                 case WidgetLayout.NowPlaying:
                     var a = d.Activity;
-                    return $"{p.Light}|{a.Paused}|{a.Name}|{a.Path}|{a.Category}|{a.Present}|{Units.Duration(a.SessionActiveSec)}"
+                    return $"{Lang.Code}|{p.Light}|{a.Paused}|{a.Name}|{a.Path}|{a.Category}|{a.Present}|{Units.Duration(a.SessionActiveSec)}"
                         + $"|{Units.TempShort(a.SessionCpuMax)}#{TempColor(a.SessionCpuMax, p).ToArgb():X}|{Units.TempShort(a.SessionGpuMax)}#{TempColor(a.SessionGpuMax, p).ToArgb():X}";
                 case WidgetLayout.Today:
                     var t = d.Today;
-                    return $"{p.Light}|{Units.Duration(t.ActiveSec)}|{Units.Duration(t.OnSec)}|{Units.Duration(t.IdleSec)}|{t.TopApp}|{Units.Duration(t.TopAppSec)}"
+                    return $"{Lang.Code}|{p.Light}|{Units.Duration(t.ActiveSec)}|{Units.Duration(t.OnSec)}|{Units.Duration(t.IdleSec)}|{t.TopApp}|{Units.Duration(t.TopAppSec)}"
                         + $"|{Units.TempShort(t.CpuPeak)}#{TempColor(t.CpuPeak, p).ToArgb():X}|{Units.TempShort(t.GpuPeak)}#{TempColor(t.GpuPeak, p).ToArgb():X}";
                 default:
                     return null;
@@ -301,7 +301,7 @@ internal static partial class WidgetRenderer
         }
         var sensor = WidgetCatalog.Sensor(item.Id) is { } id ? d.Readings.GetValueOrDefault(id) : null;
         var sensorKind = sensor?.Kind ?? SensorKind.Factor;
-        return new Reading(item.Label ?? sensor?.Label ?? "Sensor", SensorAccent, Units.Short(sensorKind, sensor?.Value),
+        return new Reading(item.Label ?? sensor?.Label ?? Lang.T("Sensor"), SensorAccent, Units.Short(sensorKind, sensor?.Value),
             sensorKind == SensorKind.Temperature ? TempColor(sensor?.Value, p) : sensor?.Value is null ? p.Faint : p.Text, sensor?.Value, sensorKind, null);
     }
 
@@ -376,10 +376,10 @@ internal static partial class WidgetRenderer
     {
         OverlayMetric.CpuTemp => $"{Units.Short(SensorKind.Load, d.CpuLoad)}  ·  {Units.Short(SensorKind.Power, d.CpuPower)}",
         OverlayMetric.GpuTemp => $"{Units.Short(SensorKind.Load, d.GpuLoad)}  ·  {Units.Short(SensorKind.Power, d.GpuPower)}",
-        OverlayMetric.Ram when d.RamUsedGb is double used && d.RamTotalGb is double total => $"{used:0.0} of {total:0} GB",
-        OverlayMetric.Fps when d.Frame is FrameStats f => f.OnePercentLow is double low ? $"{f.FrameTimeMs:0.0} ms  ·  1% low {low:0}" : $"{f.FrameTimeMs:0.0} ms",
+        OverlayMetric.Ram when d.RamUsedGb is double used && d.RamTotalGb is double total => Lang.T($"{used:0.0} of {total:0} GB"),
+        OverlayMetric.Fps when d.Frame is FrameStats f => f.OnePercentLow is double low ? Lang.T($"{f.FrameTimeMs:0.0} ms  ·  1% low {low:0}") : $"{f.FrameTimeMs:0.0} ms",
         OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow when d.Frame is null =>
-            d.RtssRunning ? "Waiting for a game" : "Needs RivaTuner",
+            d.RtssRunning ? Lang.T("Waiting for a game") : Lang.T("Needs RivaTuner"),
         _ => null,
     };
 
@@ -405,8 +405,8 @@ internal static partial class WidgetRenderer
             TextCentered(g, r.Label, 10, FontStyle.Bold, Accent(r.Accent, p), cx, cy + 12);
             string? below = r.Metric switch
             {
-                OverlayMetric.CpuTemp => $"load {Units.Short(SensorKind.Load, d.CpuLoad)}",
-                OverlayMetric.GpuTemp => $"load {Units.Short(SensorKind.Load, d.GpuLoad)}",
+                OverlayMetric.CpuTemp => Lang.T($"load {Units.Short(SensorKind.Load, d.CpuLoad)}"),
+                OverlayMetric.GpuTemp => Lang.T($"load {Units.Short(SensorKind.Load, d.GpuLoad)}"),
                 _ => null,
             };
             if (below is not null) TextCentered(g, below, 10.5f, FontStyle.Regular, p.Muted, cx, cy + radius + 6);
@@ -433,7 +433,7 @@ internal static partial class WidgetRenderer
 
     private static void DrawGraph(Graphics g, List<Reading> readings, WidgetData d, Palette p, float w, float h)
     {
-        Caption(g, "LAST 5 MINUTES", 14, 10, p.Faint);
+        Caption(g, Lang.T("LAST 5 MINUTES"), 14, 10, p.Faint);
         float gx = w - 34;
         for (int i = readings.Count - 1; i >= 0; i--)
         {
@@ -580,8 +580,8 @@ internal static partial class WidgetRenderer
         var a = d.Activity;
         if (a.Paused || a.Name is null)
         {
-            Caption(g, a.Paused ? "TRACKING PAUSED" : "NOTHING IN FOCUS", 16, 20, p.Faint);
-            Text(g, a.Paused ? "Resume from the tray menu" : "RigSight is keeping an eye on things", 12, FontStyle.Regular, p.Muted, 16, 38);
+            Caption(g, a.Paused ? Lang.T("TRACKING PAUSED") : Lang.T("NOTHING IN FOCUS"), 16, 20, p.Faint);
+            Text(g, a.Paused ? Lang.T("Resume from the tray menu") : Lang.T("RigSight is keeping an eye on things"), 12, FontStyle.Regular, p.Muted, 16, 38, maxWidth: Fit(w - 32));
             return;
         }
 
@@ -596,16 +596,16 @@ internal static partial class WidgetRenderer
         }
 
         bool game = a.Category == AppCategory.Game;
-        string caption = !a.Present ? "AWAY" : game ? "NOW PLAYING" : "IN USE";
+        string caption = !a.Present ? Lang.T("AWAY") : game ? Lang.T("NOW PLAYING") : Lang.T("IN USE");
         Caption(g, caption, 70, 16, game && a.Present ? Accent(Gpu, p) : p.Faint);
 
         float nameWidth = w - 70 - 96;
         Text(g, a.Name, 15, FontStyle.Bold, p.Text, 70, 29, semibold: true, maxWidth: nameWidth);
-        string time = a.SessionActiveSec > 0 ? $"for {Units.Duration(a.SessionActiveSec)}" : "just started";
-        Text(g, time, 11.5f, FontStyle.Regular, p.Muted, 70, 52);
+        string time = a.SessionActiveSec > 0 ? Lang.T($"for {Units.Duration(a.SessionActiveSec)}") : Lang.T("just started");
+        Text(g, time, 11.5f, FontStyle.Regular, p.Muted, 70, 52, maxWidth: Fit(nameWidth));
 
         float rx = w - 88;
-        Caption(g, "SESSION PEAK", rx, 16, p.Faint);
+        Text(g, Lang.T("SESSION PEAK"), 9, FontStyle.Bold, p.Faint, rx, 16, maxWidth: Fit(w - rx - 6));
         Pair(g, "CPU", Units.TempShort(a.SessionCpuMax), TempColor(a.SessionCpuMax, p), rx, 32, p);
         Pair(g, "GPU", Units.TempShort(a.SessionGpuMax), TempColor(a.SessionGpuMax, p), rx, 51, p);
     }
@@ -613,19 +613,25 @@ internal static partial class WidgetRenderer
     private static void DrawToday(Graphics g, WidgetData d, Palette p)
     {
         var t = d.Today;
-        Caption(g, "TODAY", 14, 10, p.Faint);
+        Caption(g, Lang.T("TODAY"), 14, 10, p.Faint);
         Text(g, Units.Duration(t.ActiveSec), 26, FontStyle.Bold, p.Text, 13, 24, semibold: true);
         float after = 13 + Measure(g, Units.Duration(t.ActiveSec), 26, FontStyle.Bold, semibold: true) + 6;
-        Text(g, "active", 11.5f, FontStyle.Regular, p.Muted, after, 38);
-        Text(g, $"On for {Units.Duration(t.OnSec)}  ·  away {Units.Duration(t.IdleSec)}", 11, FontStyle.Regular, p.Muted, 14, 60);
+        Text(g, Lang.T("active"), 11.5f, FontStyle.Regular, p.Muted, after, 38);
+        Text(g, Lang.T($"On for {Units.Duration(t.OnSec)}  ·  away {Units.Duration(t.IdleSec)}"), 11, FontStyle.Regular, p.Muted, 14, 60, maxWidth: Fit(228));
 
-        Caption(g, "MOST USED", 14, 84, p.Faint);
+        Caption(g, Lang.T("MOST USED"), 14, 84, p.Faint);
         string top = t.TopApp is null ? "—" : $"{t.TopApp}  ·  {Units.Duration(t.TopAppSec)}";
         Text(g, top, 12.5f, FontStyle.Bold, p.Text, 14, 97, semibold: true, maxWidth: 228);
 
-        Pair(g, "CPU peak", Units.TempShort(t.CpuPeak), TempColor(t.CpuPeak, p), 14, 117, p);
-        Pair(g, "GPU peak", Units.TempShort(t.GpuPeak), TempColor(t.GpuPeak, p), 134, 117, p);
+        Pair(g, Lang.T("CPU peak"), Units.TempShort(t.CpuPeak), TempColor(t.CpuPeak, p), 14, 117, p);
+        Pair(g, Lang.T("GPU peak"), Units.TempShort(t.GpuPeak), TempColor(t.GpuPeak, p), 134, 117, p);
     }
+
+    /// <summary>
+    /// The room a line of words has on a widget of fixed size, cut with "…" past it, for words in another language
+    /// (often longer). English fits as designed and is drawn exactly as before (0: no limit).
+    /// </summary>
+    private static float Fit(float width) => Lang.Translating ? width : 0;
 
     // ── Primitives ────────────────────────────────────────────────────────
 

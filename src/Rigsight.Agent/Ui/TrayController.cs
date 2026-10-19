@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using Rigsight.Agent.Native;
+using Rigsight.Core;
 
 namespace Rigsight.Agent.Ui;
 
@@ -32,38 +33,48 @@ internal sealed class TrayController : IDisposable
     internal static ContextMenuStrip BuildMenu(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         var menu = DarkMenuRenderer.Create();
-        menu.Items.Add(Item("Open RigSight", open));
+        // Each item with its English, put in the language in use as the menu opens (the language can change while it runs).
+        var words = new List<(ToolStripMenuItem Item, string English)>();
+        menu.Items.Add(Item(Lang.Key("Open RigSight"), open));
         menu.Items.Add(widgetsMenu);
         menu.Items.Add(overlayItem);
 
-        var pauseItem = new ToolStripMenuItem("Pause tracking");
+        var pauseItem = Said(new ToolStripMenuItem(), Lang.Key("Pause tracking"));
         foreach (var (label, minutes) in PauseChoices)
             pauseItem.DropDownItems.Add(Item(label, () => pause(minutes)));
         if (pauseItem.DropDown is ToolStripDropDownMenu dd) dd.Renderer = new DarkMenuRenderer();
-        var resumeItem = Item("Resume tracking", resume);
+        var resumeItem = Item(Lang.Key("Resume tracking"), resume);
         menu.Items.Add(pauseItem);
         menu.Items.Add(resumeItem);
         menu.Opening += (_, _) =>
         {
+            foreach (var (item, english) in words) item.Text = Lang.T(english);
             bool paused = isPaused();
             pauseItem.Visible = !paused;
             resumeItem.Visible = paused;
         };
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Item("Quit RigSight", quit));
+        menu.Items.Add(Item(Lang.Key("Quit RigSight"), quit));
         return menu;
+
+        ToolStripMenuItem Item(string english, Action action)
+        {
+            var item = Said(new ToolStripMenuItem(), english);
+            item.Click += (_, _) => action();
+            return item;
+        }
+
+        ToolStripMenuItem Said(ToolStripMenuItem item, string english)
+        {
+            item.Text = Lang.T(english);
+            words.Add((item, english));
+            return item;
+        }
     }
 
     internal static readonly (string Label, int Minutes)[] PauseChoices =
-        [("For 30 minutes", 30), ("For 1 hour", 60), ("For 3 hours", 180), ("Until I resume", -1)];
-
-    private static ToolStripMenuItem Item(string text, Action action)
-    {
-        var item = new ToolStripMenuItem(text);
-        item.Click += (_, _) => action();
-        return item;
-    }
+        [(Lang.Key("For 30 minutes"), 30), (Lang.Key("For 1 hour"), 60), (Lang.Key("For 3 hours"), 180), (Lang.Key("Until I resume"), -1)];
 
     public void ShowNotification(string title, string text, bool warning, Action? onClick = null)
     {

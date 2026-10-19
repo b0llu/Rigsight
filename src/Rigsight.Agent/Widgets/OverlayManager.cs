@@ -13,7 +13,7 @@ namespace Rigsight.Agent.Widgets;
 internal sealed class OverlayManager : IDisposable
 {
     private readonly GlobalHotkey _hotkey = new();
-    private readonly ToolStripMenuItem _trayItem = new("Show overlay");
+    private readonly ToolStripMenuItem _trayItem = new(Lang.T("Show overlay"));
     private readonly bool _isAdmin;
     private OverlayForm? _form;
     private OverlaySettings _settings = new();
@@ -31,6 +31,8 @@ internal sealed class OverlayManager : IDisposable
         Rtss.Clear();
         _hotkey.Pressed += Toggle;
         _trayItem.Click += (_, _) => Toggle();
+        // Its name in the language in use each time the tray menu opens (the language can change while it runs).
+        _trayItem.OwnerChanged += (_, _) => { if (_trayItem.Owner is ToolStripDropDown owner) owner.Opening += (_, _) => _trayItem.Text = Lang.T("Show overlay"); };
     }
 
     public bool Visible { get; private set; }
@@ -176,7 +178,7 @@ internal sealed class OverlayManager : IDisposable
     {
         if (!IsExclusiveFullscreen()) return;
         if (Rtss.IsHooked(ForegroundPid())) return;
-        string app = _data?.Activity.Name ?? "This game";
+        string app = _data?.Activity.Name ?? Lang.T("This game");
         if (_warnedApps.Add(app)) CantReachGame?.Invoke(app);
     }
 

@@ -23,12 +23,11 @@ internal sealed class AlertMonitor
         var over = new List<string>();
         Track("CPU", k.CpuTemp, s.CpuLimit);
         Track("GPU", k.GpuTemp, s.GpuLimit);
-        Track("GPU hot spot", k.GpuHotSpot, s.GpuHotSpotLimit);
+        Track(Lang.Key("GPU hot spot"), k.GpuHotSpot, s.GpuHotSpotLimit);
 
         if (over.Count == 0 || nowMs - _lastAlertMs < s.CooldownMinutes * 60_000L) return null;
         _lastAlertMs = nowMs;
-        string where = app is null ? "" : $" while {app} was running";
-        return $"{string.Join(", ", over)} {(over.Count == 1 ? "has" : "have")} been above your limit for {s.SustainSeconds}+ seconds{where}.";
+        return Message(over, s.SustainSeconds, app);
 
         void Track(string name, double? value, double limit)
         {
@@ -37,12 +36,28 @@ internal sealed class AlertMonitor
                 if (!_overSince.TryGetValue(name, out var since))
                     _overSince[name] = since = nowMs;
                 if (nowMs - since >= s.SustainSeconds * 1000L)
-                    over.Add($"{name} {Units.TempShort(v)}");
+                    over.Add($"{Lang.T(name)} {Units.TempShort(v)}");
             }
             else
             {
                 _overSince.Remove(name);
             }
         }
+    }
+
+    /// <summary>
+    /// The alert's text: "GPU 86° has been above your limit for 30+ seconds while Cyberpunk 2077 was running.";
+    /// <paramref name="over"/> holds each reading over its limit with its value ("GPU 86°").
+    /// </summary>
+    public static string Message(IReadOnlyList<string> over, int sustainSeconds, string? app)
+    {
+        string readings = string.Join(", ", over);
+        return (over.Count == 1, app is null) switch
+        {
+            (true, true) => Lang.T($"{readings} has been above your limit for {sustainSeconds}+ seconds."),
+            (true, false) => Lang.T($"{readings} has been above your limit for {sustainSeconds}+ seconds while {app} was running."),
+            (false, true) => Lang.T($"{readings} have been above your limit for {sustainSeconds}+ seconds."),
+            _ => Lang.T($"{readings} have been above your limit for {sustainSeconds}+ seconds while {app} was running."),
+        };
     }
 }
