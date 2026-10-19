@@ -210,16 +210,17 @@ public static class RewindPainter
         }
         if (covers.Count > 0)
         {
-            var fan = new Canvas { Height = 50 * u, Margin = new Thickness(0, 4 * u, 0, 4 * u) };
+            var fan = new Canvas { Height = 44 * u, Margin = new Thickness(0, 4 * u, 0, 4 * u) };
             int[] order = covers.Count switch { 1 => [0], 2 => [1, 0], 3 => [1, 0, 2], 4 => [2, 1, 0, 3], _ => [2, 1, 0, 3, 4] };
             int mid = order.Length / 2;
             // Centred in the card's 86 widths of room.
-            double step = 14.6 * u, start = (86 * u - (order.Length - 1) * step - 28 * u) / 2 + 2 * u; // the turned outer covers reach past their box on the left
+            // Smaller and closer than first drawn, so the turned outer covers stay well inside the card.
+            double step = 12.5 * u, start = (86 * u - (order.Length - 1) * step - 24 * u) / 2;
             for (int k = 0; k < order.Length; k++)
             {
                 var img = new Border
                 {
-                    Width = 28 * u, Height = 42 * u, CornerRadius = new CornerRadius(2.2 * u), ClipToBounds = true,
+                    Width = 24 * u, Height = 36 * u, CornerRadius = new CornerRadius(2 * u), ClipToBounds = true,
                     Background = Frozen(new ImageBrush(covers[order[k]]!) { Stretch = Stretch.UniformToFill }),
                     RenderTransformOrigin = new Point(0.5, 0.5),
                     RenderTransform = new TransformGroup { Children = { new RotateTransform((k - mid) * 6), new TranslateTransform(0, Math.Abs(k - mid) * 2.4 * u) } },
