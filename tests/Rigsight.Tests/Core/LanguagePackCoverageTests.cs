@@ -88,8 +88,8 @@ public sealed class LanguagePackCoverageTests
     public void No_page_writes_its_English_directly()
     {
         // Words in a page go through {ctl:T ...}; one written straight in would stay English in every language.
-        var attribute = new System.Text.RegularExpressions.Regex(@"(Text|Content|ToolTip|Header|Title|PlaceholderText|Label|LabelText)=""([A-Za-z][^""{]*[a-z][^""{]*)""");
-        var sentence = new System.Text.RegularExpressions.Regex(@"Value=""([A-Z][a-z]+ [^""{]*)""");
+        var attribute = new System.Text.RegularExpressions.Regex(@"\b(Text|Content|ToolTip|Header|Title|PlaceholderText|Label|LabelText)=""([A-Za-z][^""{]*[a-z][^""{]*)""");
+        var sentence = new System.Text.RegularExpressions.Regex(@"\bValue=""([A-Z][a-z]+ [^""{]*)""");
         var found = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(Repo.Root, "src"), "*.xaml", SearchOption.AllDirectories))
         {
