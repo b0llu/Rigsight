@@ -980,22 +980,26 @@ public static class RewindPainter
     {
         // The biggest size up to the asked one at which the words really fit: one line, or two lines broken only between
         // words (counting letters alone once cut "A new graphics driver" to "A new graphics d…").
+        // A name too long for two lines even at the smallest size gets a third line rather than being cut.
         var face = new Typeface(Display, FontStyles.Normal, FontWeights.ExtraBold, FontStretches.Normal);
-        double s = size;
-        for (; s > 7; s -= 0.25)
+        bool Fits(double s, int lines)
         {
             var shape = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, face, s * u, Brushes.White, 1.0);
-            if (!wrap) { if (shape.WidthIncludingTrailingWhitespace <= width * u) break; continue; }
+            if (!wrap) return shape.WidthIncludingTrailingWhitespace <= width * u;
             shape.MaxTextWidth = width * u;
             shape.LineHeight = s * u * 0.92;
-            if (shape.MinWidth <= width * u && shape.Height <= s * u * 0.92 * 2 + 1) break;
+            return shape.MinWidth <= width * u && shape.Height <= s * u * 0.92 * lines + 1;
         }
+        int lines = wrap ? 2 : 1;
+        if (wrap && !Fits(7, 2)) lines = 3;
+        double s = size;
+        while (s > 7 && !Fits(s, lines)) s -= 0.25;
         return new()
         {
             Text = text, FontFamily = Display, FontSize = s * u, FontWeight = FontWeights.ExtraBold, Foreground = White(1),
             TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
             LineHeight = s * u * 0.92, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            MaxHeight = s * u * 0.92 * (wrap ? 2 : 1) + 1, Margin = new Thickness(-0.4 * u, top * u, 0, bottom * u),
+            MaxHeight = s * u * 0.92 * lines + 1, Margin = new Thickness(-0.4 * u, top * u, 0, bottom * u),
         };
     }
 
