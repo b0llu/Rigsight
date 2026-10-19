@@ -19,15 +19,15 @@ public static class PeakWords
         peak is null ? null
         : app is not null ? category switch
         {
-            AppCategory.Game => $"While playing {app}",
-            AppCategory.Media => $"While {app} was playing",
-            AppCategory.Browser or AppCategory.Communication or AppCategory.Productivity or AppCategory.Development => $"While using {app}",
+            AppCategory.Game => Lang.T($"While playing {app}"),
+            AppCategory.Media => Lang.T($"While {app} was playing"),
+            AppCategory.Browser or AppCategory.Communication or AppCategory.Productivity or AppCategory.Development => Lang.T($"While using {app}"),
             // Launchers (downloads, updates), Windows' own work and anything unknown: it was running, maybe unseen.
-            _ => $"While {app} was running",
+            _ => Lang.T($"While {app} was running"),
         }
-        : time is long t ? $"At {TimeUtil.FromUnix(t):h:mm tt}"
+        : time is long t ? Lang.T($"At {TimeUtil.FromUnix(t):h:mm tt}")
         : "";
 
     /// <summary>After "CPU peaked at 88° at 3:12 PM": ", with Rematch working it hardest" (nothing when no app clearly was).</summary>
-    public static string With(string? app) => app is null ? "" : $", with {app} working it hardest";
+    public static string With(string? app) => app is null ? "" : Lang.T($", with {app} working it hardest");
 }

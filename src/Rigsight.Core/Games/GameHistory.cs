@@ -284,7 +284,8 @@ public static class GameHistory
         var after = plays.Where(p => p.Start >= t && p.Stats.Fps is not null).Take(5).Select(p => p.Stats.Fps!.Value).ToList();
         if (before.Count < 2 || after.Count < 2) return null;
         double change = (Median(after) - Median(before)) / Median(before) * 100;
-        return Math.Abs(change) < 5 ? "No change" : $"{Math.Abs(change):0}% {(change < 0 ? "lower" : "higher")}";
+        double by = Math.Abs(change);
+        return by < 5 ? Lang.T("No change") : change < 0 ? Lang.T($"{by:0}% lower") : Lang.T($"{by:0}% higher");
     }
 
     private static PlayStats Sum(IEnumerable<PlayStats> all)

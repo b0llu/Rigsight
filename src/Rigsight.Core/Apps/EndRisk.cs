@@ -66,13 +66,13 @@ public static class EndRisks
     /// <summary>What the question before ending it says will happen; nothing for an ordinary app.</summary>
     public static string? Sentence(EndRisk risk) => risk switch
     {
-        EndRisk.Critical => "Windows depends on this process. Ending it can make Windows stop or shut down, and anything unsaved in any app would be lost.",
-        EndRisk.Explorer => "The taskbar, Start menu and desktop icons disappear until it starts again.",
-        EndRisk.WindowManager => "The screen goes black for a moment, then Windows starts it again.",
-        EndRisk.OwnWindow => "This window closes.",
-        EndRisk.OwnAgent => "Nothing is recorded until it starts again.",
-        EndRisk.Windows => "This is part of Windows. Ending it may make Windows or other apps stop working.",
-        EndRisk.ByProcessOnly => "Open it and end one service at a time.",
+        EndRisk.Critical => Lang.T("Windows depends on this process. Ending it can make Windows stop or shut down, and anything unsaved in any app would be lost."),
+        EndRisk.Explorer => Lang.T("The taskbar, Start menu and desktop icons disappear until it starts again."),
+        EndRisk.WindowManager => Lang.T("The screen goes black for a moment, then Windows starts it again."),
+        EndRisk.OwnWindow => Lang.T("This window closes."),
+        EndRisk.OwnAgent => Lang.T("Nothing is recorded until it starts again."),
+        EndRisk.Windows => Lang.T("This is part of Windows. Ending it may make Windows or other apps stop working."),
+        EndRisk.ByProcessOnly => Lang.T("Open it and end one service at a time."),
         _ => null,
     };
 }

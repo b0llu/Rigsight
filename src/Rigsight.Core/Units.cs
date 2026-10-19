@@ -125,13 +125,24 @@ public static class Units
 
     public static string TypeLabel(SensorKind kind) => kind switch
     {
-        SensorKind.Temperature => "TEMP",
-        SensorKind.Voltage => "VOLT",
-        SensorKind.Current => "AMPS",
-        SensorKind.Control => "CTRL",
-        SensorKind.Data or SensorKind.SmallData => "DATA",
-        SensorKind.Throughput => "RATE",
-        SensorKind.Factor => "INFO",
+        SensorKind.Temperature => Lang.T("TEMP"),
+        SensorKind.Voltage => Lang.T("VOLT"),
+        SensorKind.Current => Lang.T("AMPS"),
+        SensorKind.Control => Lang.T("CTRL"),
+        SensorKind.Data or SensorKind.SmallData => Lang.T("DATA"),
+        SensorKind.Throughput => Lang.T("RATE"),
+        SensorKind.Factor => Lang.T("INFO"),
+        SensorKind.Power => Lang.T("POWER"),
+        SensorKind.Clock => Lang.T("CLOCK"),
+        SensorKind.Load => Lang.T("LOAD"),
+        SensorKind.Fan => Lang.T("FAN"),
+        SensorKind.Flow => Lang.T("FLOW"),
+        SensorKind.Level => Lang.T("LEVEL"),
+        SensorKind.Frequency => Lang.T("FREQUENCY"),
+        SensorKind.Energy => Lang.T("ENERGY"),
+        SensorKind.Noise => Lang.T("NOISE"),
+        SensorKind.Humidity => Lang.T("HUMIDITY"),
+        SensorKind.Timing => Lang.T("TIMING"),
         _ => kind.ToString().ToUpperInvariant(),
     };
 
@@ -140,9 +151,10 @@ public static class Units
     {
         if (!double.IsFinite(seconds) || seconds < 0) seconds = 0;
         var t = TimeSpan.FromSeconds(seconds);
-        if (t.TotalHours >= 1) return $"{(int)t.TotalHours}h {t.Minutes:00}m";
-        if (t.TotalMinutes >= 1) return $"{t.Minutes}m";
-        return $"{t.Seconds}s";
+        int hours = (int)t.TotalHours, minutes = t.Minutes, secs = t.Seconds;
+        if (t.TotalHours >= 1) return Lang.T($"{hours}h {minutes:00}m");
+        if (t.TotalMinutes >= 1) return Lang.T($"{minutes}m");
+        return Lang.T($"{secs}s");
     }
 
     public static string Bytes(double bytes) => bytes switch

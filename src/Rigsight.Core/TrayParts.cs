@@ -29,13 +29,13 @@ public static class TrayParts
 
     public static string Label(TrayPart part) => part switch
     {
-        TrayPart.Cpu => "CPU",
-        TrayPart.Gpu => "GPU",
-        TrayPart.Ram => "RAM",
-        TrayPart.Drive => "Drive",
-        TrayPart.Board => "Board",
-        TrayPart.Network => "Network",
-        _ => "Other",
+        TrayPart.Cpu => Lang.T("CPU"),
+        TrayPart.Gpu => Lang.T("GPU"),
+        TrayPart.Ram => Lang.T("RAM"),
+        TrayPart.Drive => Lang.T("Drive"),
+        TrayPart.Board => Lang.T("Board"),
+        TrayPart.Network => Lang.T("Network"),
+        _ => Lang.T("Other"),
     };
 
     /// <summary>
@@ -128,23 +128,23 @@ public static class TrayParts
         switch (kind)
         {
             case SensorKind.Temperature:
-                if (Has("hot spot") || Has("hotspot")) return "Hot";
-                if (part == TrayPart.Gpu && Has("memory")) return "VRAM";
+                if (Has("hot spot") || Has("hotspot")) return Lang.T("Hot");
+                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
                 if (System.Text.RegularExpressions.Regex.Match(sensorName, @"CCD\s*#?(\d+)") is { Success: true } ccd) return "CCD" + ccd.Groups[1].Value;
-                return part switch { TrayPart.Ram => "DIMM", TrayPart.Drive => "Drive", _ => "Temp" };
+                return part switch { TrayPart.Ram => Lang.T("DIMM"), TrayPart.Drive => Lang.T("Drive"), _ => Lang.T("Temp") };
             case SensorKind.Load:
-                if (part == TrayPart.Gpu && Has("memory")) return "VRAM";
-                if (Has("video")) return "Video";
-                if (part == TrayPart.Ram) return Has("virtual") ? "Virtual" : "Used";
-                return "Load";
-            case SensorKind.Power: return "Power";
-            case SensorKind.Clock: return Has("memory") ? "Mem" : "Clock";
-            case SensorKind.Fan or SensorKind.Control: return "Fan";
-            case SensorKind.Voltage: return "Volt";
-            case SensorKind.Current: return "Amps";
-            case SensorKind.Data or SensorKind.SmallData: return Has("available") || Has("free") ? "Free" : "Used";
-            case SensorKind.Throughput: return Has("upload") ? "Up" : Has("download") ? "Down" : "Rate";
-            case SensorKind.Flow: return "Flow";
+                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
+                if (Has("video")) return Lang.T("Video");
+                if (part == TrayPart.Ram) return Has("virtual") ? Lang.T("Virtual") : Lang.T("Used");
+                return Lang.T("Load");
+            case SensorKind.Power: return Lang.T("Power");
+            case SensorKind.Clock: return Has("memory") ? Lang.T("Mem") : Lang.T("Clock");
+            case SensorKind.Fan or SensorKind.Control: return Lang.T("Fan");
+            case SensorKind.Voltage: return Lang.T("Volt");
+            case SensorKind.Current: return Lang.T("Amps");
+            case SensorKind.Data or SensorKind.SmallData: return Has("available") || Has("free") ? Lang.T("Free") : Lang.T("Used");
+            case SensorKind.Throughput: return Has("upload") ? Lang.T("Up") : Has("download") ? Lang.T("Down") : Lang.T("Rate");
+            case SensorKind.Flow: return Lang.T("Flow");
         }
         string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
         return first.Length <= 6 ? first : first[..6];

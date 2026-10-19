@@ -31,40 +31,66 @@ public static class UsualLines
         if (moved.FirstOrDefault() is not { } part) return null;
         var also = moved.Skip(1).FirstOrDefault(p => p.Hotter == part.Hotter);
         bool hotter = part.Hotter;
-        string how = hotter ? "hotter" : "cooler", verb = inProgress ? "runs" : "ran", sits = inProgress ? "sits" : "sat";
+        string app = part.App, which = part.Part, diff = part.Diff, now = Units.TempShort(part.Now), span = PcUsual.Span(part.Low, part.High);
         // What rules the room out is said as the figure that does: the part with nothing running.
-        string rest = part.RestNow is double rn && part.RestUsual is double ru
-            ? Math.Abs(rn - ru) < 1.5 ? $" With nothing running it {sits} at its usual {Units.TempShort(rn)}"
-                : $" With nothing running it's only {Units.Degrees(Math.Abs(rn - ru))} {(rn > ru ? "warmer" : "cooler")} than usual"
-            : "";
-        string text = $"In {part.App}, your {part.Part} {verb} {part.Diff} {how} than usual: {Units.TempShort(part.Now)} against {PcUsual.Span(part.Low, part.High)}, at the same power"
-            + (also is null ? "." : $"; your {also.Part} {also.Diff} {how} too ({Units.TempShort(also.Now)} against {PcUsual.Span(also.Low, also.High)}).")
-            + (hotter ? $"{rest}{(rest.Length > 0 ? ", so dust" : " Dust")} or old thermal paste are the likely causes." : rest.Length > 0 ? $"{rest}." : "");
-        string cpu = part.Part == "CPU" ? " on the CPU" : "";
-        string line = part.LastDay is { } last && last.Date != lastDay.Date
-            ? $"{part.App} ran {part.LastDiff} {how} than usual{cpu} on {last:ddd d MMM}"
-            : $"{part.App} {verb} {part.LastDiff} {how} than usual{cpu}";
+        string rest = "";
+        if (part.RestNow is double rn && part.RestUsual is double ru)
+        {
+            string restTemp = Units.TempShort(rn), restDiff = Units.Degrees(Math.Abs(rn - ru));
+            rest = Math.Abs(rn - ru) < 1.5
+                ? inProgress ? Lang.T($"With nothing running it sits at its usual {restTemp}") : Lang.T($"With nothing running it sat at its usual {restTemp}")
+                : rn > ru ? Lang.T($"With nothing running it's only {restDiff} warmer than usual") : Lang.T($"With nothing running it's only {restDiff} cooler than usual");
+        }
+        string text = (inProgress, hotter) switch
+        {
+            (true, true) => Lang.T($"In {app}, your {which} runs {diff} hotter than usual: {now} against {span}, at the same power"),
+            (true, false) => Lang.T($"In {app}, your {which} runs {diff} cooler than usual: {now} against {span}, at the same power"),
+            (false, true) => Lang.T($"In {app}, your {which} ran {diff} hotter than usual: {now} against {span}, at the same power"),
+            (false, false) => Lang.T($"In {app}, your {which} ran {diff} cooler than usual: {now} against {span}, at the same power"),
+        };
+        if (also is null) text += ".";
+        else
+        {
+            string alsoPart = also.Part, alsoDiff = also.Diff, alsoNow = Units.TempShort(also.Now), alsoSpan = PcUsual.Span(also.Low, also.High);
+            text += hotter ? Lang.T($"; your {alsoPart} {alsoDiff} hotter too ({alsoNow} against {alsoSpan}).") : Lang.T($"; your {alsoPart} {alsoDiff} cooler too ({alsoNow} against {alsoSpan}).");
+        }
+        if (hotter) text += " " + (rest.Length > 0 ? Lang.T($"{rest}, so dust or old thermal paste are the likely causes.") : Lang.T("Dust or old thermal paste are the likely causes."));
+        else if (rest.Length > 0) text += $" {rest}.";
+        string cpu = part.Part == "CPU" ? Lang.T(" on the CPU") : "";
+        string lastDiff = part.LastDiff;
+        string line;
+        if (part.LastDay is { } last && last.Date != lastDay.Date)
+            line = hotter ? Lang.T($"{app} ran {lastDiff} hotter than usual{cpu} on {last:ddd d MMM}") : Lang.T($"{app} ran {lastDiff} cooler than usual{cpu} on {last:ddd d MMM}");
+        else
+            line = (inProgress, hotter) switch
+            {
+                (true, true) => Lang.T($"{app} runs {lastDiff} hotter than usual{cpu}"),
+                (true, false) => Lang.T($"{app} runs {lastDiff} cooler than usual{cpu}"),
+                (false, true) => Lang.T($"{app} ran {lastDiff} hotter than usual{cpu}"),
+                (false, false) => Lang.T($"{app} ran {lastDiff} cooler than usual{cpu}"),
+            };
         return new Insight(IconCompare, text, hotter ? InsightTone.Warn : InsightTone.Good, "usual-heat", hotter ? 74 : 41,
-            $"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days") { Short = line, Game = part.App };
+            Lang.T($"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days")) { Short = line, Game = part.App };
     }
 
     /// <summary>The PC's own problems when they were more or fewer than usual; null when as usual.</summary>
     public static Insight? Problems(UsualProblems pr, string span) => pr.Tone switch
     {
-        EffectTone.Worse => new Insight(IconWarn, $"{Wording.Capital(pr.Words)} {span}; {pr.UsualWords} on this PC. Each one is on the Crashes page.", InsightTone.Warn, "usual-problems", 92,
+        EffectTone.Worse => new Insight(IconWarn, Lang.T($"{Wording.Capital(pr.Words)} {span}; {pr.UsualWords} on this PC. Each one is on the Crashes page."), InsightTone.Warn, "usual-problems", 92,
             Detail(pr)) { Short = $"{Wording.Capital(pr.Words)} {span}" },
-        EffectTone.Better => new Insight(IconGood, $"Fewer PC problems than usual: {(pr.Now.Count == 0 ? "none" : pr.Now.Count.ToString())} {span}, {pr.UsualWords}.", InsightTone.Good, "usual-problems", 45,
-            Detail(pr)) { Short = "Fewer PC problems than usual" },
+        EffectTone.Better => new Insight(IconGood,
+            pr.Now.Count == 0 ? Lang.T($"Fewer PC problems than usual: none {span}, {pr.UsualWords}.") : Lang.T($"Fewer PC problems than usual: {pr.Now.Count.ToString()} {span}, {pr.UsualWords}."),
+            InsightTone.Good, "usual-problems", 45, Detail(pr)) { Short = Lang.T("Fewer PC problems than usual") },
         _ => null,
     };
 
     /// <summary>The shut-offs that look like the power, only when they jumped far past their own usual; null otherwise.</summary>
     public static Insight? Power(UsualProblems pr, string span) => pr.PowerTone != EffectTone.Worse ? null
-        : new Insight(IconWarn, $"More sudden shut-offs than usual: {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply.",
-            InsightTone.Warn, "usual-power", 88, $"{pr.PowerNow} in {pr.NowHours:0} h of use; {pr.PowerUsual} in {pr.UsualHours:0} h in the weeks before")
-            { Short = $"More sudden shut-offs than usual {span}" };
+        : new Insight(IconWarn, Lang.T($"More sudden shut-offs than usual: {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply."),
+            InsightTone.Warn, "usual-power", 88, Lang.T($"{pr.PowerNow} in {pr.NowHours:0} h of use; {pr.PowerUsual} in {pr.UsualHours:0} h in the weeks before"))
+            { Short = Lang.T($"More sudden shut-offs than usual {span}") };
 
-    private static string Detail(UsualProblems pr) => $"{pr.Now.Count} in {pr.NowHours:0} h of use; {pr.UsualCount} in {pr.UsualHours:0} h in the weeks before";
+    private static string Detail(UsualProblems pr) => Lang.T($"{pr.Now.Count} in {pr.NowHours:0} h of use; {pr.UsualCount} in {pr.UsualHours:0} h in the weeks before");
 
     /// <summary>
     /// Home's PC health for the PC's own parts, a statement each, against the usual of <paramref name="today"/> (the
@@ -79,23 +105,23 @@ public static class UsualLines
     {
         var usual = today?.Usual;
         var insights = today?.Insights ?? [];
-        string week = today is null ? "in the last 7 days" : ProblemsSpan(today, today.From.Date);
+        string week = today is null ? Lang.T("in the last 7 days") : ProblemsSpan(today, today.From.Date);
         var list = new List<Insight>();
 
         if (insights.FirstOrDefault(i => i.Key == "usual-heat") is { } heat) list.Add(heat);
-        else if (usual?.HasHeat == true) list.Add(new Insight(IconTemp, "Temperatures as usual", InsightTone.Neutral, "temps-usual"));
+        else if (usual?.HasHeat == true) list.Add(new Insight(IconTemp, Lang.T("Temperatures as usual"), InsightTone.Neutral, "temps-usual"));
 
         if (insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older") is { } fan) list.Add(fan);
-        else if (usual?.Fans.Count > 0) list.Add(new Insight(IconFan, "Fans at their usual speeds", InsightTone.Neutral, "fans-usual"));
+        else if (usual?.Fans.Count > 0) list.Add(new Insight(IconFan, Lang.T("Fans at their usual speeds"), InsightTone.Neutral, "fans-usual"));
 
         if (insights.FirstOrDefault(i => i.Key == "usual-problems") is { } moved) list.Add(moved);
         else
         {
             string? words = usual?.Problems is { Now.Count: > 0 } pr ? pr.Words
-                : problems.Count > 0 && usual?.Problems is null ? string.Join(" and ", problems.GroupBy(k => k).OrderByDescending(g => g.Count()).Select(g => Wording.Count(g.Key, g.Count())))
+                : problems.Count > 0 && usual?.Problems is null ? problems.GroupBy(k => k).OrderByDescending(g => g.Count()).Select(g => Wording.Count(g.Key, g.Count())).Aggregate((a, b) => Lang.T($"{a} and {b}"))
                 : null;
             list.Add(words is null
-                ? new Insight(IconGood, $"No PC problems {week}", InsightTone.Good, "no-problems")
+                ? new Insight(IconGood, Lang.T($"No PC problems {week}"), InsightTone.Good, "no-problems")
                 : new Insight(IconWarn, $"{Wording.Capital(words)} {week}", InsightTone.Neutral, "pc-problems"));
         }
         // The power's shut-offs: said in grey, unless they jumped far past their usual (then the insight, in amber).

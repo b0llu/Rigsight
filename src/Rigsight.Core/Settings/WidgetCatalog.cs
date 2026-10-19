@@ -22,27 +22,27 @@ public static class WidgetCatalog
 
     public static string Title(WidgetStyle style) => style switch
     {
-        WidgetStyle.Compact => "Compact",
-        WidgetStyle.Pill => "Slim bar",
-        WidgetStyle.Gauges => "Gauges",
-        WidgetStyle.NowPlaying => "Now playing",
-        WidgetStyle.Today => "Today",
-        WidgetStyle.Fps => "FPS",
-        WidgetStyle.Graph => "Temperature graph",
-        _ => "My widget",
+        WidgetStyle.Compact => Lang.T("Compact"),
+        WidgetStyle.Pill => Lang.T("Slim bar"),
+        WidgetStyle.Gauges => Lang.T("Gauges"),
+        WidgetStyle.NowPlaying => Lang.T("Now playing"),
+        WidgetStyle.Today => Lang.T("Today"),
+        WidgetStyle.Fps => Lang.T("FPS"),
+        WidgetStyle.Graph => Lang.T("Temperature graph"),
+        _ => Lang.T("My widget"),
     };
 
     public static string Title(WidgetConfig w) => w.Style == WidgetStyle.Custom ? w.Name ?? Title(w.Style) : Title(w.Style);
 
     public static string Description(WidgetStyle style) => style switch
     {
-        WidgetStyle.Compact => "CPU and GPU temperature with load, power and a mini chart.",
-        WidgetStyle.Pill => "One slim line: CPU, GPU and RAM. Great along the top of the screen.",
-        WidgetStyle.Gauges => "Ring gauges for CPU and GPU temperature.",
-        WidgetStyle.NowPlaying => "The app or game you're using, for how long, and its peak temperatures.",
-        WidgetStyle.Today => "Screen time so far today, your most-used app and today's peaks.",
-        WidgetStyle.Fps => "Your game's frame rate, frame time and 1% low, on another screen while you play. Needs RivaTuner.",
-        WidgetStyle.Graph => "The last five minutes of CPU and GPU temperature.",
+        WidgetStyle.Compact => Lang.T("CPU and GPU temperature with load, power and a mini chart."),
+        WidgetStyle.Pill => Lang.T("One slim line: CPU, GPU and RAM. Great along the top of the screen."),
+        WidgetStyle.Gauges => Lang.T("Ring gauges for CPU and GPU temperature."),
+        WidgetStyle.NowPlaying => Lang.T("The app or game you're using, for how long, and its peak temperatures."),
+        WidgetStyle.Today => Lang.T("Screen time so far today, your most-used app and today's peaks."),
+        WidgetStyle.Fps => Lang.T("Your game's frame rate, frame time and 1% low, on another screen while you play. Needs RivaTuner."),
+        WidgetStyle.Graph => Lang.T("The last five minutes of CPU and GPU temperature."),
         _ => "",
     };
 
@@ -59,12 +59,12 @@ public static class WidgetCatalog
 
     public static string LayoutName(WidgetLayout layout) => layout switch
     {
-        WidgetLayout.Bar => "Bar",
-        WidgetLayout.Tiles => "Tiles",
-        WidgetLayout.Gauges => "Gauges",
-        WidgetLayout.Graph => "Graph",
-        WidgetLayout.NowPlaying => "Now playing",
-        _ => "Today",
+        WidgetLayout.Bar => Lang.T("Bar"),
+        WidgetLayout.Tiles => Lang.T("Tiles"),
+        WidgetLayout.Gauges => Lang.T("Gauges"),
+        WidgetLayout.Graph => Lang.T("Graph"),
+        WidgetLayout.NowPlaying => Lang.T("Now playing"),
+        _ => Lang.T("Today"),
     };
 
     /// <summary>The layouts a widget of the user's own can have (Now playing and Today show no readings to pick).</summary>
@@ -151,40 +151,40 @@ public static class WidgetCatalog
     /// <summary>A reading's name in the editor.</summary>
     public static string MetricName(OverlayMetric m) => m switch
     {
-        OverlayMetric.Fps => "Frame rate (FPS)",
-        OverlayMetric.FrameTime => "Frame time",
-        OverlayMetric.OnePercentLow => "1% low",
-        OverlayMetric.CpuTemp => "CPU temperature",
-        OverlayMetric.CpuLoad => "CPU load",
-        OverlayMetric.CpuClock => "CPU clock speed",
-        OverlayMetric.CpuPower => "CPU power",
-        OverlayMetric.GpuTemp => "GPU temperature",
-        OverlayMetric.GpuHotSpot => "GPU hot spot",
-        OverlayMetric.GpuLoad => "GPU load",
-        OverlayMetric.GpuClock => "GPU clock speed",
-        OverlayMetric.GpuPower => "GPU power",
-        OverlayMetric.GpuMemory => "Video memory",
-        OverlayMetric.Ram => "RAM in use",
-        OverlayMetric.Clock => "Time of day",
-        OverlayMetric.Session => "This session",
-        OverlayMetric.ScreenTime => "Screen time today",
-        OverlayMetric.PcOn => "PC on today",
-        OverlayMetric.TopApp => "Most used app today",
-        OverlayMetric.CpuPeakToday => "CPU peak today",
-        OverlayMetric.GpuPeakToday => "GPU peak today",
-        OverlayMetric.Date => "Date",
-        OverlayMetric.InFront => "App in front",
+        OverlayMetric.Fps => Lang.T("Frame rate (FPS)"),
+        OverlayMetric.FrameTime => Lang.T("Frame time"),
+        OverlayMetric.OnePercentLow => Lang.T("1% low"),
+        OverlayMetric.CpuTemp => Lang.T("CPU temperature"),
+        OverlayMetric.CpuLoad => Lang.T("CPU load"),
+        OverlayMetric.CpuClock => Lang.T("CPU clock speed"),
+        OverlayMetric.CpuPower => Lang.T("CPU power"),
+        OverlayMetric.GpuTemp => Lang.T("GPU temperature"),
+        OverlayMetric.GpuHotSpot => Lang.T("GPU hot spot"),
+        OverlayMetric.GpuLoad => Lang.T("GPU load"),
+        OverlayMetric.GpuClock => Lang.T("GPU clock speed"),
+        OverlayMetric.GpuPower => Lang.T("GPU power"),
+        OverlayMetric.GpuMemory => Lang.T("Video memory"),
+        OverlayMetric.Ram => Lang.T("RAM in use"),
+        OverlayMetric.Clock => Lang.T("Time of day"),
+        OverlayMetric.Session => Lang.T("This session"),
+        OverlayMetric.ScreenTime => Lang.T("Screen time today"),
+        OverlayMetric.PcOn => Lang.T("PC on today"),
+        OverlayMetric.TopApp => Lang.T("Most used app today"),
+        OverlayMetric.CpuPeakToday => Lang.T("CPU peak today"),
+        OverlayMetric.GpuPeakToday => Lang.T("GPU peak today"),
+        OverlayMetric.Date => Lang.T("Date"),
+        OverlayMetric.InFront => Lang.T("App in front"),
         _ => m.ToString(),
     };
 
     /// <summary>What a reading is, in a few words, where its name doesn't say it all (the picker's second line).</summary>
     public static string MetricDetail(OverlayMetric m) => m switch
     {
-        OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow => "From RivaTuner, in the game you're playing",
-        OverlayMetric.Session => "How long the app in front has been in use",
-        OverlayMetric.ScreenTime => "Time you were using the PC today",
-        OverlayMetric.PcOn => "Time the PC was on today",
-        OverlayMetric.InFront => "The game or app you're using",
+        OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow => Lang.T("From RivaTuner, in the game you're playing"),
+        OverlayMetric.Session => Lang.T("How long the app in front has been in use"),
+        OverlayMetric.ScreenTime => Lang.T("Time you were using the PC today"),
+        OverlayMetric.PcOn => Lang.T("Time the PC was on today"),
+        OverlayMetric.InFront => Lang.T("The game or app you're using"),
         _ => "",
     };
 
@@ -213,10 +213,15 @@ public static class WidgetCatalog
 
     public static string CategoryName(WidgetCategory c) => c switch
     {
-        WidgetCategory.Cpu => "CPU",
-        WidgetCategory.Gpu => "GPU",
-        WidgetCategory.Ram => "RAM",
-        WidgetCategory.Board => "Motherboard",
+        WidgetCategory.Cpu => Lang.T("CPU"),
+        WidgetCategory.Gpu => Lang.T("GPU"),
+        WidgetCategory.Ram => Lang.T("RAM"),
+        WidgetCategory.Board => Lang.T("Motherboard"),
+        WidgetCategory.Game => Lang.T("Game"),
+        WidgetCategory.Storage => Lang.T("Storage"),
+        WidgetCategory.Network => Lang.T("Network"),
+        WidgetCategory.Fans => Lang.T("Fans"),
+        WidgetCategory.Today => Lang.T("Today"),
         _ => c.ToString(),
     };
 
@@ -228,37 +233,37 @@ public static class WidgetCatalog
         (metric is { } m ? Allows(layout, m) : AllowsSensor(layout, sensorKind)) ? null
         : layout switch
         {
-            WidgetLayout.Gauges => "Gauges show a temperature or a percentage",
-            WidgetLayout.Graph => "A graph keeps five minutes of the main readings only",
-            _ => $"{LayoutName(layout)} can't show this",
+            WidgetLayout.Gauges => Lang.T("Gauges show a temperature or a percentage"),
+            WidgetLayout.Graph => Lang.T("A graph keeps five minutes of the main readings only"),
+            _ => Lang.T($"{LayoutName(layout)} can't show this"),
         };
 
     /// <summary>A reading's label on the widget itself (short, like the slim bar's "CPU").</summary>
     public static string ShortLabel(OverlayMetric m) => m switch
     {
-        OverlayMetric.Fps => "FPS",
-        OverlayMetric.FrameTime => "Frame",
-        OverlayMetric.OnePercentLow => "1% low",
-        OverlayMetric.CpuTemp => "CPU",
-        OverlayMetric.CpuLoad => "CPU load",
-        OverlayMetric.CpuClock => "CPU clock",
-        OverlayMetric.CpuPower => "CPU power",
-        OverlayMetric.GpuTemp => "GPU",
-        OverlayMetric.GpuHotSpot => "Hot spot",
-        OverlayMetric.GpuLoad => "GPU load",
-        OverlayMetric.GpuClock => "GPU clock",
-        OverlayMetric.GpuPower => "GPU power",
-        OverlayMetric.GpuMemory => "VRAM",
-        OverlayMetric.Ram => "RAM",
-        OverlayMetric.Clock => "Time",
-        OverlayMetric.Session => "Session",
-        OverlayMetric.ScreenTime => "Screen",
-        OverlayMetric.PcOn => "PC on",
-        OverlayMetric.TopApp => "Top app",
-        OverlayMetric.CpuPeakToday => "CPU peak",
-        OverlayMetric.GpuPeakToday => "GPU peak",
-        OverlayMetric.Date => "Date",
-        OverlayMetric.InFront => "App",
+        OverlayMetric.Fps => Lang.T("FPS"),
+        OverlayMetric.FrameTime => Lang.T("Frame"),
+        OverlayMetric.OnePercentLow => Lang.T("1% low"),
+        OverlayMetric.CpuTemp => Lang.T("CPU"),
+        OverlayMetric.CpuLoad => Lang.T("CPU load"),
+        OverlayMetric.CpuClock => Lang.T("CPU clock"),
+        OverlayMetric.CpuPower => Lang.T("CPU power"),
+        OverlayMetric.GpuTemp => Lang.T("GPU"),
+        OverlayMetric.GpuHotSpot => Lang.T("Hot spot"),
+        OverlayMetric.GpuLoad => Lang.T("GPU load"),
+        OverlayMetric.GpuClock => Lang.T("GPU clock"),
+        OverlayMetric.GpuPower => Lang.T("GPU power"),
+        OverlayMetric.GpuMemory => Lang.T("VRAM"),
+        OverlayMetric.Ram => Lang.T("RAM"),
+        OverlayMetric.Clock => Lang.T("Time"),
+        OverlayMetric.Session => Lang.T("Session"),
+        OverlayMetric.ScreenTime => Lang.T("Screen"),
+        OverlayMetric.PcOn => Lang.T("PC on"),
+        OverlayMetric.TopApp => Lang.T("Top app"),
+        OverlayMetric.CpuPeakToday => Lang.T("CPU peak"),
+        OverlayMetric.GpuPeakToday => Lang.T("GPU peak"),
+        OverlayMetric.Date => Lang.T("Date"),
+        OverlayMetric.InFront => Lang.T("App"),
         _ => m.ToString(),
     };
 

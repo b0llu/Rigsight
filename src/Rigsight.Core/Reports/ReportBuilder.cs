@@ -207,7 +207,7 @@ public static class ReportBuilder
 
     private static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
     {
-        if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+        if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
         return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
 
@@ -344,7 +344,7 @@ public static class ReportBuilder
 
         string NameOf(long? id)
         {
-            if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
             return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
         }
         AppCategory CategoryOf(long? id)
@@ -568,7 +568,7 @@ public static class ReportBuilder
         var report = new Report { Range = range, From = from, To = to };
         string NameOf(long? id)
         {
-            if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
             return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
         }
         AppCategory CategoryOf(long? id)
@@ -771,7 +771,7 @@ public static class ReportBuilder
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
         string NameOf(long? id)
         {
-            if (id is not long i || !apps.TryGetValue(i, out var a)) return "Unknown";
+            if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
             return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
         }
         AppCategory CategoryOf(long? id)
