@@ -27,6 +27,9 @@ public sealed partial class SensorItem : ObservableObject
     public string Name { get; }
     public SensorKind Kind { get; }
     public string HardwareName { get; }
+
+    /// <summary>The part's name as shown: in the language in use where the hardware library names it generically ("Total Memory").</summary>
+    public string HardwareShown => Core.SensorWords.Show(HardwareName);
     public string HardwareType { get; }
     public HistoryBuffer History { get; } = new(HistoryCapacity);
 

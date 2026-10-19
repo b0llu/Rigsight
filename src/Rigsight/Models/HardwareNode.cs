@@ -9,6 +9,9 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
 {
     public string Name { get; } = name;
 
+    /// <summary>The part's name as shown (see <see cref="SensorItem.HardwareShown"/>).</summary>
+    public string ShownName => Core.SensorWords.Show(Name);
+
     /// <summary>What its place and its folded state are saved under: the name, or "name #2" for the second of two
     /// parts called the same (two drives of one model), so each keeps its own.</summary>
     public string Key { get; init; } = name;

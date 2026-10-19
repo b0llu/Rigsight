@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.OverlayView"
+﻿<UserControl x:Class="Rigsight.Views.OverlayView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -227,7 +227,7 @@
                                 <DataTemplate>
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisplayName}" FontSize="13" />
-                                        <TextBlock Text="{Binding HardwareName}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                        <TextBlock Text="{Binding HardwareShown}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>

@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.WidgetsView"
+﻿<UserControl x:Class="Rigsight.Views.WidgetsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
@@ -170,7 +170,7 @@
                              chips narrow it to a part, a click adds a line at once and the list stays open for the next. It floats
                              over the editor (nothing moves). -->
                         <Grid Margin="0,0,0,8">
-                            <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="Add a reading… type to search" Height="36"
+                            <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Add a reading… type to search'}" Height="36"
                                      ctl:Debounce.Text="{Binding PickerText}" AutomationProperties.Name="Add a reading"
                                      GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown"
                                      LostKeyboardFocus="PickBox_LostKeyboardFocus" TextChanged="PickBox_TextChanged" />

@@ -82,7 +82,7 @@
                 </CheckBox>
                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Unhide all'}" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
             </StackPanel>
-            <TextBox DockPanel.Dock="Left" Style="{StaticResource SearchBox}" Tag="Search sensors…" Width="240"
+            <TextBox DockPanel.Dock="Left" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search sensors…'}" Width="240"
                      ctl:Debounce.Text="{Binding SearchText}" />
             <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="12,0,0,0">
                 <StackPanel Orientation="Horizontal">
@@ -183,7 +183,7 @@
                                         <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
                                             <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                         </Border>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                        <TextBlock Text="{Binding ShownName}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
                                     </DockPanel>
                                 </Border>
                                 <Grid x:Name="Columns" Margin="0,20,0,4">

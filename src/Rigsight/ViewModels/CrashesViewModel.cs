@@ -755,7 +755,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         {
             long ts = Core.Data.TimeUtil.ToUnix(driver.Time);
             int before = earlier.Count(p => p.Ts < ts && p.Ts >= ts - 30L * 86400) + (running[0].Event.Ts < ts ? 1 : 0), since = running.Count(c => c.Time >= driver.Time);
-            string name = driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title;
+            string name = Core.SavedText.Show(driver.Title.EndsWith(" installed", StringComparison.Ordinal) ? driver.Title[..^" installed".Length] : driver.Title);
             if (before >= 2)
                 list.Add(new("\uE73E", "GoodBrush", Lang.T($"Not caused by the {name} installed on {driver.Time:d MMM}. The PC shut off {CrashFindings.Times(before)} in the 30 days before it, and {CrashFindings.Times(since)} since.")));
         }
