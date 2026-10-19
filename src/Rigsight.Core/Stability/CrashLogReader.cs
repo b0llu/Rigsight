@@ -93,7 +93,7 @@ public static partial class CrashLogReader
                             Ts = TimeUtil.ToUnix(logged),
                             Kind = CrashKind.GpuDriverReset,
                             Module = Prop(record, 0),
-                            Detail = "Display driver stopped responding and has recovered",
+                            Detail = Lang.Key("Display driver stopped responding and has recovered"),
                         });
                         break;
                     case 6008:
@@ -496,7 +496,7 @@ public static partial class CrashLogReader
             // Windows picks these out itself: every error report of the period used to be read here to find a handful.
             var hangs = ReadHangs(since);
             foreach (var h in hangs)
-                found.Add((TimeUtil.ToUnix(h.Logged) / 60 * 60, SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"));
+                found.Add((TimeUtil.ToUnix(h.Logged) / 60 * 60, SignKind.GraphicsHang, Lang.Key("Windows filed a report that the graphics card stopped answering")));
             // And the moment each hang really happened, where its report can be read (an admin agent can).
             if (hangs.Count > 0)
             {
@@ -505,7 +505,7 @@ public static partial class CrashLogReader
                 {
                     var at = hang.Select(h => reports.Where(r => Math.Abs((r.Written - h.Logged).TotalSeconds) <= 20).Select(r => (DateTime?)r.Hung).FirstOrDefault())
                         .FirstOrDefault(t => t is not null);
-                    if (at is DateTime hung) found.Add((TimeUtil.ToUnix(hung), SignKind.GraphicsHangAt, "The graphics card hung"));
+                    if (at is DateTime hung) found.Add((TimeUtil.ToUnix(hung), SignKind.GraphicsHangAt, Lang.Key("The graphics card hung")));
                 }
             }
         }
@@ -554,17 +554,17 @@ public static partial class CrashLogReader
     /// <summary>Which of Windows' own entries count as a sign, and what each says in plain words (null: routine noise).</summary>
     internal static (string Kind, string Detail)? SignOf(string? provider, int id) => provider?.ToLowerInvariant() switch
     {
-        "microsoft-windows-whea-logger" => id is 1 or 18 or 20 or 46 or 47 ? (SignKind.Hardware, "The hardware reported an error it couldn't correct")
-            : id is 17 or 19 ? (SignKind.Hardware, "The hardware reported an error it corrected") : null,
-        "disk" => id is 7 ? (SignKind.Drive, "A drive has a bad block")
-            : id is 11 ? (SignKind.Drive, "A drive's controller reported an error")
-            : id is 51 ? (SignKind.Drive, "A drive failed to read or write")
+        "microsoft-windows-whea-logger" => id is 1 or 18 or 20 or 46 or 47 ? (SignKind.Hardware, Lang.Key("The hardware reported an error it couldn't correct"))
+            : id is 17 or 19 ? (SignKind.Hardware, Lang.Key("The hardware reported an error it corrected")) : null,
+        "disk" => id is 7 ? (SignKind.Drive, Lang.Key("A drive has a bad block"))
+            : id is 11 ? (SignKind.Drive, Lang.Key("A drive's controller reported an error"))
+            : id is 51 ? (SignKind.Drive, Lang.Key("A drive failed to read or write"))
             : null, // 153 is a retry that worked
-        "ntfs" => id is 55 ? (SignKind.Drive, "A drive's file system was found damaged") : null,
-        "stornvme" => id is 11 ? (SignKind.Drive, "An SSD's controller reported an error") : null,
+        "ntfs" => id is 55 ? (SignKind.Drive, Lang.Key("A drive's file system was found damaged")) : null,
+        "stornvme" => id is 11 ? (SignKind.Drive, Lang.Key("An SSD's controller reported an error")) : null,
         // 13 and 14 are the card's own faults; 153 is logged on healthy PCs all the time.
-        "nvlddmkm" => id is 13 or 14 ? (SignKind.Graphics, "The NVIDIA driver reported a fault of the graphics card") : null,
-        "microsoft-windows-resource-exhaustion-detector" => id is 2004 ? (SignKind.Memory, "Windows was running out of memory") : null,
+        "nvlddmkm" => id is 13 or 14 ? (SignKind.Graphics, Lang.Key("The NVIDIA driver reported a fault of the graphics card")) : null,
+        "microsoft-windows-resource-exhaustion-detector" => id is 2004 ? (SignKind.Memory, Lang.Key("Windows was running out of memory")) : null,
         _ => null,
     };
 
