@@ -439,7 +439,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
   "operatingSystem": "Windows 10, Windows 11",
   "applicationCategory": "UtilitiesApplication",
   "applicationSubCategory": "PC monitoring, hardware monitor, screen time tracker",
-  "softwareVersion": "0.26.0",
+  "softwareVersion": "0.29.1",
   "featureList": [
     "CPU and GPU temperature history",
     "App usage and screen time reports",
@@ -544,6 +544,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
     <nav class="nav-links" aria-label="Sections">
       <a href="#look-back">Features</a>
       <a href="#why-it-broke">Crashes</a>
+      <a href="#games">Games</a>
       <a href="#screen">On screen</a>
       <a href="#privacy">Privacy</a>
       <a href="#faq">FAQ</a>
@@ -582,7 +583,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
   <section class="peek" aria-label="What the app looks like">
     <div class="wrap">
       <figure class="peek-win" id="peekwin">
-        <img srcset="img/pages/reports-day-720.webp 720w, img/pages/reports-day.webp 1424w" sizes="(max-width: 640px) 92vw, (max-width: 1148px) 100vw, 1100px" src="img/pages/reports-day.webp" alt="RigSight's Reports page for Sunday 6 September: the app in front each minute, with CPU and GPU temperature drawn over it" width="1424" height="924" fetchpriority="high" decoding="async">
+        <img srcset="img/pages/reports-day-720.webp 720w, img/pages/reports-day.webp 1424w" sizes="(max-width: 640px) 92vw, (max-width: 1148px) 100vw, 1100px" src="img/pages/reports-day.webp" alt="RigSight's Reports page for Saturday 17 October: the app in front each minute, with CPU and GPU temperature drawn over it" width="1424" height="924" fetchpriority="high" decoding="async">
       </figure>
     </div>
   </section>
@@ -633,8 +634,8 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         <article class="feature">
           <div class="copy">
             <p class="label">Home</p>
-            <p class="big">3h 35m</p>
-            <p class="big-cap">Active so far today, with the PC on for <b>6h 18m</b>. Yesterday sits right beside it.</p>
+            <p class="big">3h 05m</p>
+            <p class="big-cap">Active so far today, with the PC on for <b>5h 40m</b>. Yesterday sits right beside it.</p>
             <h3>Open it and your day is already there.</h3>
             <p>Time at the PC, the day's CPU and GPU peaks and what caused them, your most used apps, what changed lately and how your PC is doing, on one page.</p>
           </div>
@@ -644,24 +645,25 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         <article class="feature flip">
           <div class="copy">
             <p class="label">Reports</p>
-            <p class="big c-gpu">71°</p>
-            <p class="big-cap">The GPU's high on Sunday 6 September, at <b>6:40 PM in Crimson Desert</b>. <span class="c-hot">Hot spot 82°</span>.</p>
+            <p class="big c-gpu">65°</p>
+            <p class="big-cap">The GPU in <b>Counter-Strike 2</b> this month, against a usual of <b>66–71°</b> at the same power.</p>
             <h3>Any day, week, month or year.</h3>
-            <p>A day shows which app was in front each minute, with CPU and GPU temperature drawn over it. A month shows where the time went and what stood out.</p>
+            <p>A day shows which app was in front each minute, with CPU and GPU temperature drawn over it. A month shows where the time went and how it compares with what is normal for your PC.</p>
             <ul class="ticks">
               <li>Drag across a graph to zoom into that stretch</li>
               <li>Each minute's average, highest or lowest</li>
-              <li>Highlights only when something stands out, compared like for like with your usual</li>
+              <li>Against your usual: each game's heat at the same power, your fans and your PC's problems, from its own history</li>
+              <li>Highlights only when something stands out, compared like for like</li>
             </ul>
           </div>
-          <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/reports-month.webp"><img srcset="img/pages/reports-month-720.webp 720w, img/pages/reports-month.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/reports-month.webp" alt="RigSight's Reports page for September: 158h 49m active, 101h 21m in games, active time per day and what stood out" width="1424" height="924" loading="lazy"></picture></figure>
+          <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/reports-month.webp"><img srcset="img/pages/reports-month-720.webp 720w, img/pages/reports-month.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/reports-month.webp" alt="RigSight's Reports page for October: 90h 50m active, 58h 14m in games, and this month against the PC's usual: game heat, rest, fans and problems" width="1424" height="924" loading="lazy"></picture></figure>
         </article>
 
         <article class="feature">
           <div class="copy">
             <p class="label">Temperatures</p>
-            <p class="big c-cpu">54°</p>
-            <p class="big-cap">The CPU's high so far today, beside a live reading of <b>45°</b>. Every sensor keeps its own low and high.</p>
+            <p class="big c-cpu">65°</p>
+            <p class="big-cap">The CPU right now, with the GPU beside it at <b>68°</b> in a game. Every sensor keeps its own low and high.</p>
             <h3>Every degree, with a timestamp.</h3>
             <p>Live CPU and GPU gauges, hot spot and memory junction, load, clocks, power and voltages, with a history from the last five minutes to any year.</p>
             <ul class="ticks">
@@ -706,12 +708,42 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         <article class="feature wide">
           <div class="copy">
             <p class="label">Timeline</p>
-            <p class="big">51</p>
-            <p class="big-cap">Changes since 6 January: drivers, Windows updates, apps, startup programs and settings, <b>each on the day it happened</b>.</p>
+            <p class="big">25</p>
+            <p class="big-cap">Changes since 25 August: drivers, Windows updates, apps, startup programs and settings, <b>each on the day it happened</b>.</p>
             <h3>What changed on your PC, day by day.</h3>
             <p>After a driver or an update, it shows whether problems went up or down since. A calendar marks the days something changed and the days something broke.</p>
           </div>
           <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/timeline.webp"><img srcset="img/pages/timeline-720.webp 720w, img/pages/timeline.webp 1424w" sizes="(max-width: 1232px) 100vw, 1152px" decoding="async" src="img/pages/timeline.webp" alt="RigSight's Timeline page: app updates, a power plan change and a Windows update by day, with a calendar and this PC's current driver, BIOS and Windows" width="1424" height="924" loading="lazy"></picture></figure>
+        </article>
+      </div>
+
+      <div class="group" id="games">
+        <div class="head">
+          <p class="label">When you play</p>
+          <h2>Every game, how it runs.</h2>
+        </div>
+
+        <article class="feature">
+          <div class="copy">
+            <p class="label">Games</p>
+            <p class="big">235</p>
+            <p class="big-cap">Frames a second in <b>Dota 2</b> over 115 plays, with a 1% low of 170. Flat at its cap, so the CPU isn't what holds it back.</p>
+            <h3>Every game on your PC, from any launcher.</h3>
+            <p>Steam, Epic, Riot, GOG, Ubisoft, EA and Battle.net in one library with their covers. Open a game for how it runs on your PC, play after play.</p>
+            <ul class="ticks">
+              <li>Frame rate and 1% low for every play, and whether a driver or the game's own update changed them</li>
+              <li>What holds it back: your graphics card at full load, or a frame cap or the CPU</li>
+              <li>Play, open its folder or uninstall it through its own launcher</li>
+            </ul>
+            <div class="tabs" role="tablist" aria-label="Games pictures">
+              <button class="tab" role="tab" aria-selected="true" aria-controls="p-game" id="t-game">One game</button>
+              <button class="tab" role="tab" aria-selected="false" aria-controls="p-library" id="t-library">The library</button>
+            </div>
+          </div>
+          <div class="panes">
+            <figure class="frame pane" role="tabpanel" id="p-game" aria-labelledby="t-game"><picture><source media="(max-width: 640px)" srcset="img/phone/game.webp"><img srcset="img/pages/game-720.webp 720w, img/pages/game.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/game.webp" alt="Dota 2 opened on RigSight's Games page: 235 fps average and a 170 fps 1% low over every play, what holds it back and play time" width="1424" height="924" loading="lazy"></picture></figure>
+            <figure class="frame pane" role="tabpanel" id="p-library" aria-labelledby="t-library" aria-hidden="true"><picture><source media="(max-width: 640px)" srcset="img/phone/games.webp"><img srcset="img/pages/games-720.webp 720w, img/pages/games.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/games.webp" alt="RigSight's Games library: Dota 2 last played, and six games from Steam and Epic with their covers" width="1424" height="924" loading="lazy"></picture></figure>
+          </div>
         </article>
       </div>
     </div>
@@ -738,12 +770,12 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
           <div class="feature">
             <div class="pane-copy">
               <p class="label">Apps</p>
-              <p class="big">9h 50m</p>
-              <p class="big-cap">Of <b>Counter-Strike 2</b> in the week of 5 October, the most of any app.</p>
+              <p class="big">11h 09m</p>
+              <p class="big-cap">Of <b>Dota 2</b> in the week of 12 October, the most of any app.</p>
               <h3>Where your time and heat go.</h3>
               <p>Every app and game: time you used it, time in the background and minimized, how hot it ran your CPU and GPU, and what it downloaded. A fullscreen game counts as in use even on a controller.</p>
             </div>
-            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/apps.webp"><img srcset="img/pages/apps-720.webp 720w, img/pages/apps.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/apps.webp" alt="RigSight's Apps page for the week of 5 October, with Google Chrome opened" width="1424" height="924" loading="lazy"></picture></figure>
+            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/apps.webp"><img srcset="img/pages/apps-720.webp 720w, img/pages/apps.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/apps.webp" alt="RigSight's Apps page for the week of 12 October, with Google Chrome opened" width="1424" height="924" loading="lazy"></picture></figure>
           </div>
         </div>
         <div class="pane" role="tabpanel" id="p-proc" aria-labelledby="t-proc" aria-hidden="true">
@@ -762,24 +794,24 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
           <div class="feature">
             <div class="pane-copy">
               <p class="label">Network</p>
-              <p class="big">81 GB</p>
-              <p class="big-cap">What <b>Steam</b> downloaded in September, all of it in the background.</p>
+              <p class="big">54 GB</p>
+              <p class="big-cap">What <b>Steam</b> downloaded this October, 42 GB of it while you were away.</p>
               <h3>Where your internet goes.</h3>
               <p>What each app downloads and uploads, split into what you were using, what ran in the background and what moved while you were away. Your biggest days, and every time the connection dropped.</p>
             </div>
-            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/network.webp"><img srcset="img/pages/network-720.webp 720w, img/pages/network.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/network.webp" alt="RigSight's Network page for September: usage each day by app, the apps list and connection drops" width="1424" height="924" loading="lazy"></picture></figure>
+            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/network.webp"><img srcset="img/pages/network-720.webp 720w, img/pages/network.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/network.webp" alt="RigSight's Network page for October: usage each day by app, the apps list and connection drops" width="1424" height="924" loading="lazy"></picture></figure>
           </div>
         </div>
         <div class="pane" role="tabpanel" id="p-fans" aria-labelledby="t-fans" aria-hidden="true">
           <div class="feature">
             <div class="pane-copy">
               <p class="label">Fans</p>
-              <p class="big">12h 00m</p>
-              <p class="big-cap">How long the GPU fans stood still in the week of 5 October, <b>while the card was cool</b>.</p>
+              <p class="big">16h 41m</p>
+              <p class="big-cap">How long the GPU fans stood still in the week of 28 September, <b>while the card was cool</b>.</p>
               <h3>Every fan, and what wakes it up.</h3>
               <p>Every fan on your graphics card and motherboard: when they start, how fast they turn at each temperature, which game works them hardest, and a heads-up when one turns slower than it used to.</p>
             </div>
-            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/fans.webp"><img srcset="img/pages/fans-720.webp 720w, img/pages/fans.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/fans.webp" alt="RigSight's Fans page for the week of 5 October: all fans OK, quiet time, the game that worked them hardest" width="1424" height="924" loading="lazy"></picture></figure>
+            <figure class="frame"><picture><source media="(max-width: 640px)" srcset="img/phone/fans.webp"><img srcset="img/pages/fans-720.webp 720w, img/pages/fans.webp 1424w" sizes="(max-width: 960px) 100vw, 680px" decoding="async" src="img/pages/fans.webp" alt="RigSight's Fans page for the week of 28 September: all fans OK, quiet time, the game that worked them hardest" width="1424" height="924" loading="lazy"></picture></figure>
           </div>
         </div>
         <div class="pane" role="tabpanel" id="p-mem" aria-labelledby="t-mem" aria-hidden="true">
@@ -914,7 +946,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         </div>
         <a class="dl" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
           <span class="dl-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg></span>
-          <span class="dl-text"><b>Download for Windows</b><small>Version 0.26.0 · Free, no account, no ads</small></span>
+          <span class="dl-text"><b>Download for Windows</b><small>Version 0.29.1 · Free, no account, no ads</small></span>
           <svg class="dl-arrow" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg>
         </a>
         <p class="trust">
@@ -961,7 +993,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
       <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
         Download for Windows</a>
-      <p class="final-links"><span>Version 0.26.0</span><a href="https://github.com/b0llu/Rigsight/releases">All releases</a><a class="coffee-pill" href="https://buymeacoffee.com/bollu"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zm13 1.5h1.5a2.5 2.5 0 0 1 0 5H17v-1.8h1.5a.7.7 0 0 0 0-1.4H17zM6 20h11v1.5H6z"/></svg>Buy me a coffee</a></p>
+      <p class="final-links"><span>Version 0.29.1</span><a href="https://github.com/b0llu/Rigsight/releases">All releases</a><a class="coffee-pill" href="https://buymeacoffee.com/bollu"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zm13 1.5h1.5a2.5 2.5 0 0 1 0 5H17v-1.8h1.5a.7.7 0 0 0 0-1.4H17zM6 20h11v1.5H6z"/></svg>Buy me a coffee</a></p>
     </div>
   </section>
 </main>

@@ -1,20 +1,21 @@
-# Rigsight
+# RigSight
 
-> Rigsight is a free, open-source (MIT) PC monitoring app for Windows 10 and 11 that records your hardware all day and keeps it as history. It logs CPU and GPU temperatures, fans, clocks, power, app and game usage (screen time), internet use per app, and crashes, so you can open any past day, week, month or year and see how hot the PC ran, what was running and what went wrong. No account, no telemetry: everything stays on the PC.
+> RigSight is a free, open-source (MIT) PC monitoring app for Windows 10 and 11 that records your hardware all day and keeps it as history. It logs CPU and GPU temperatures, fans, clocks, power, app and game usage (screen time), internet use per app, and crashes, so you can open any past day, week, month or year and see how hot the PC ran, what was running and what went wrong. No account, no telemetry: everything stays on the PC.
 
-Rigsight is a history tool, not only a live monitor. Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what the PC is doing right now; Rigsight reads the same kind of sensors but keeps recording in the background (about 0.02% CPU and 30 to 45 MB of memory on a Ryzen 7 5700X3D test PC) even with its window closed, and can be used alongside them. Hardware is read through LibreHardwareMonitor (NVIDIA, AMD and Intel graphics cards; Intel and AMD processors).
+RigSight is a history tool, not only a live monitor. Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what the PC is doing right now; RigSight reads the same kind of sensors but keeps recording in the background (about 0.02% CPU and 30 to 45 MB of memory on a Ryzen 7 5700X3D test PC) even with its window closed, and can be used alongside them. Hardware is read through LibreHardwareMonitor (NVIDIA, AMD and Intel graphics cards; Intel and AMD processors).
 
 ## Install
 
 - [Download the latest installer](https://github.com/b0llu/Rigsight/releases/latest): free, no account, no ads. Accept one admin prompt; it sets up the recorder to start with Windows.
 - One command in PowerShell: `irm https://rigsight.app/install.ps1 | iex` (run it again to update).
 - Updates install themselves the next time the PC starts.
-- Uninstall: Settings > Apps > Rigsight > Uninstall. History stays in `%LocalAppData%\Rigsight` until that folder is deleted.
+- Uninstall: Settings > Apps > RigSight > Uninstall. History stays in `%LocalAppData%\Rigsight` until that folder is deleted.
 
 ## What it does
 
 - Temperatures: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, clocks, power and voltages, with history for any period and alerts that ignore one-second spikes.
-- Reports: any day, week, month or year; which app was in front each minute with temperatures drawn over it, active time versus time the PC was just on, and highlights when something stands out.
+- Reports: any day, week, month or year; which app was in front each minute with temperatures drawn over it, active time versus time the PC was just on, each month against this PC's usual (game temperatures at the same power, fans, problems), and highlights when something stands out.
+- Games: every installed game from Steam, Epic, Riot, GOG, Ubisoft, EA and Battle.net in one library, with each game's frame rate and 1% low for every play (through RivaTuner Statistics Server), what holds it back (graphics card at full load, a frame cap or the CPU), its temperatures and power, and Play, open folder and uninstall through its own launcher.
 - Crashes: game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns read from Windows' own logs and explained in plain words, with the temperatures, apps and driver or Windows updates from before each crash.
 - Timeline: what changed on the PC day by day (drivers, Windows updates, apps installed or removed, startup apps, hardware, BIOS, key settings).
 - Apps: time each app and game was in use, in the background or minimized, and how hot each one runs the CPU and GPU.
