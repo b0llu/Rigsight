@@ -17,6 +17,9 @@ public sealed partial class LanguageOption(string code, string name, bool isCurr
     public string Name { get; } = name;
     public bool IsCurrent { get; } = isCurrent;
     [ObservableProperty] private string _note = "";
+
+    /// <summary>What a screen reader says for the item.</summary>
+    public override string ToString() => Name;
 }
 
 public enum LanguageStep { None, Downloading, Ready, Failed, Outdated }
