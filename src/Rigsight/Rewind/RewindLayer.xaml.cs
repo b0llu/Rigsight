@@ -137,9 +137,10 @@ public partial class RewindLayer : UserControl
         if (_vm.Current is not null)
         {
             var face = RewindPainter.Card(cards[_vm.Index], f, _vm.Index, cards.Count, "story", ViewLook, 1080, 1920);
+            // The pieces start hidden and rise in, set before the card is shown: started after it, the whole card
+            // flashed in place first (a picture made for Share stays still).
+            RewindPainter.Animate(face);
             CardHost.Child = new Viewbox { Stretch = Stretch.Fill, Child = face };
-            // The pieces rise in once the card is laid out (a picture made for Share stays still).
-            Dispatcher.BeginInvoke(() => RewindPainter.Animate(face), System.Windows.Threading.DispatcherPriority.Loaded);
         }
         else
         {

@@ -147,7 +147,7 @@ public static class RewindCards
                     ? Lang.T($"{Units.Duration(first.Value)}, played once.")
                     : Lang.T($"{Units.Duration(first.Value)}, played {first.Count} times.");
                 var rows = f.TopGames.Skip(1).Select((g, i) => new RewindRow(g.Name, Units.Duration(g.Value), 0, i + 2, g.Exe, g.Path)).ToList();
-                cards.Add(new("top", Lang.T("Most played"), Lang.T("Your most played"), first.Name, played) { Wordy = true, Rows = rows });
+                cards.Add(new("top", Lang.T("Most played"), Lang.T("Your most played"), first.Name, played) { Wordy = true, Rows = rows, Tag = first.Path });
             }
 
             if (f.LongestGame is { } longest && f.LongestStart is { } start && longest.Value >= 1200)
@@ -158,6 +158,7 @@ public static class RewindCards
                     Lang.T($"{longest.Name} without a break, on {Day(start)}."))
                 {
                     Unit = unit2,
+                    Tag = longest.Path,
                     Span = (Clock(start), Clock(end), start.TimeOfDay.TotalHours / 24, Math.Min(1, (end - start.Date).TotalHours / 24)),
                 });
             }

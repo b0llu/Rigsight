@@ -63,10 +63,11 @@ public static class RewindPainter
     {
         if (!Motion.Enabled) return;
         double u = card.ActualWidth > 0 ? card.ActualWidth / 100 : (card.Width > 0 ? card.Width / 100 : 10);
-        foreach (var e in Descendants(card))
+        // Called before the card is shown (so nothing is drawn in place first and then jumps): the pieces are found in
+        // the tree as built, not the visual tree, which doesn't exist yet.
+        foreach (var e in Rising(card))
         {
             int step = (int)e.GetValue(RiseProperty);
-            if (step < 0) continue;
             var shift = new TranslateTransform(0, 5 * u);
             e.RenderTransform = shift;
             e.Opacity = 0;
@@ -74,6 +75,15 @@ public static class RewindPainter
             var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
             e.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(450)) { BeginTime = begin });
             shift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(5 * u, 0, TimeSpan.FromMilliseconds(550)) { BeginTime = begin, EasingFunction = ease });
+        }
+    }
+
+    private static IEnumerable<UIElement> Rising(DependencyObject root)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is UIElement e && (int)e.GetValue(RiseProperty) >= 0) yield return e;
+            foreach (var d in Rising(child)) yield return d;
         }
     }
 
@@ -115,32 +125,6 @@ public static class RewindPainter
         TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
         RenderOptions.SetBitmapScalingMode(root, BitmapScalingMode.HighQuality);
 
-        // The art across the top, fading into the card's colour.
-        string? heroPath = card.Id switch
-        {
-            "top" => f.TopGames.FirstOrDefault()?.Path,
-            "longest" => f.LongestGame?.Path,
-            _ => null,
-        };
-        if (heroPath is not null && Art(heroPath, banner: true, 1600) is { } hero)
-        {
-            // The art fades out into the card's own colour (an overlay in one colour left a line where the art ended).
-            var art = new Grid { Height = h * 0.62, VerticalAlignment = VerticalAlignment.Top };
-            var fade = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-            fade.GradientStops.Add(new GradientStop(Colors.Black, 0));
-            fade.GradientStops.Add(new GradientStop(Colors.Black, 0.45));
-            fade.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
-            art.Children.Add(new Image { Source = hero, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top, OpacityMask = Frozen(fade) });
-            var shade = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-            var c = FadeColor(card.Id, look);
-            shade.GradientStops.Add(new GradientStop(Color.FromArgb(40, 0, 0, 0), 0));
-            shade.GradientStops.Add(new GradientStop(Color.FromArgb(0, c.R, c.G, c.B), 0.35));
-            shade.GradientStops.Add(new GradientStop(Color.FromArgb(150, c.R, c.G, c.B), 0.85));
-            shade.GradientStops.Add(new GradientStop(Color.FromArgb(0, c.R, c.G, c.B), 1));
-            art.Children.Add(new Border { Background = Frozen(shade) });
-            root.Children.Add(art);
-        }
-
         var frame = new DockPanel { Margin = new Thickness(7 * u), LastChildFill = true };
         root.Children.Add(frame);
 
@@ -151,13 +135,15 @@ public static class RewindPainter
         DockPanel.SetDock(bar, Dock.Top);
         frame.Children.Add(bar);
 
-        var brand = new DockPanel();
-        var period = Text(RewindCards.TitleWithYear(f), 3.6 * u, FontWeights.Normal, White(0.75), Ui);
+        // The logo and both texts on one centre line: a text's line box is taller than its letters, so each is given a
+        // line exactly its size and centred on the logo's middle.
+        var brand = new DockPanel { Height = 6 * u };
+        var period = Line(Text(RewindCards.TitleWithYear(f), 3.6 * u, FontWeights.Normal, White(0.75), Ui), 3.6 * u);
         DockPanel.SetDock(period, Dock.Right);
         brand.Children.Add(period);
-        var name = new StackPanel { Orientation = Orientation.Horizontal };
-        if (Logo is { } logo) name.Children.Add(new Image { Source = logo, Width = 6 * u, Height = 6 * u, Margin = new Thickness(0, 0, 2.4 * u, 0) });
-        name.Children.Add(Text("RigSight Rewind", 3.6 * u, FontWeights.SemiBold, White(0.85), Ui));
+        var name = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        if (Logo is { } logo) name.Children.Add(new Image { Source = logo, Width = 6 * u, Height = 6 * u, Margin = new Thickness(0, 0, 2.4 * u, 0), VerticalAlignment = VerticalAlignment.Center });
+        name.Children.Add(Line(Text("RigSight Rewind", 3.6 * u, FontWeights.SemiBold, White(0.85), Ui), 3.6 * u));
         brand.Children.Add(name);
         DockPanel.SetDock(brand, Dock.Top);
         frame.Children.Add(brand);
@@ -228,7 +214,7 @@ public static class RewindPainter
             int[] order = covers.Count switch { 1 => [0], 2 => [1, 0], 3 => [1, 0, 2], 4 => [2, 1, 0, 3], _ => [2, 1, 0, 3, 4] };
             int mid = order.Length / 2;
             // Centred in the card's 86 widths of room.
-            double step = 14.6 * u, start = (86 * u - (order.Length - 1) * step - 28 * u) / 2;
+            double step = 14.6 * u, start = (86 * u - (order.Length - 1) * step - 28 * u) / 2 + 2 * u; // the turned outer covers reach past their box on the left
             for (int k = 0; k < order.Length; k++)
             {
                 var img = new Border
@@ -299,21 +285,59 @@ public static class RewindPainter
         return body;
     }
 
+    /// <summary>
+    /// The game's own logo, large, on a soft glow of the card's colour (the banner art was dark and busy behind the
+    /// words); its cover where the launcher has no logo.
+    /// </summary>
+    private static FrameworkElement GameMark(string? exePath, double u, Color? accent)
+    {
+        var holder = new Grid { Height = 40 * u, Margin = new Thickness(0, 6 * u, 0, 0) };
+        var glow = Radial(new Point(0.5, 0.5), 0.6, 0.6, accent is { } a ? Color.FromArgb(110, a.R, a.G, a.B) : Color.FromArgb(110, 0xB1, 0x8C, 0xFF));
+        holder.Children.Add(new Border { Background = Frozen(glow), Margin = new Thickness(-7 * u, -6 * u, -7 * u, -6 * u) });
+        var game = exePath is null ? null : GameLibrary.Find(Core.Apps.AppCatalog.InstalledGames, exePath);
+        if (GamePictures.Picture(game?.Art.Logo, 900) is { } logo)
+            holder.Children.Add(new Image
+            {
+                Source = logo, Stretch = Stretch.Uniform, MaxWidth = 76 * u, MaxHeight = 34 * u, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 4 * u, ShadowDepth = 1 * u, Opacity = 0.6, Direction = 270 },
+            });
+        else if (Art(exePath, banner: false, 500) is { } cover)
+            holder.Children.Add(new Border
+            {
+                Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.4 * u), HorizontalAlignment = HorizontalAlignment.Center,
+                Background = Frozen(new ImageBrush(cover) { Stretch = Stretch.UniformToFill }),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6 * u, ShadowDepth = 2 * u, Opacity = 0.6, Direction = 270 },
+            });
+        return holder;
+    }
+
     private static FrameworkElement Top(RewindCard card, double u, Color? accent)
     {
-        var body = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 3 * u) };
+        var all = new DockPanel { LastChildFill = false };
+        var mark = GameMark(card.Tag, u, accent);
+        DockPanel.SetDock(mark, Dock.Top);
+        all.Children.Add(Rise(mark, 0));
+        var body = new StackPanel { Margin = new Thickness(0, 0, 0, 3 * u) };
+        DockPanel.SetDock(body, Dock.Bottom);
+        all.Children.Add(body);
         body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#FF9FD0"), u), 0));
         body.Children.Add(Rise(Mega(card.Big, 17, u, top: 1.6, bottom: 1.6, wrap: true), 1));
         body.Children.Add(Rise(Sub(card.Sub, u, bottom: 5), 2));
         var rows = new StackPanel();
         foreach (var r in card.Rows) rows.Children.Add(GameRow(r, u, 9, 12, 4.2));
         body.Children.Add(Rise(rows, 3));
-        return body;
+        return all;
     }
 
     private static FrameworkElement Longest(RewindCard card, double u, Color? accent)
     {
-        var body = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 4 * u) };
+        var all = new DockPanel { LastChildFill = false };
+        var mark = GameMark(card.Tag, u, accent);
+        DockPanel.SetDock(mark, Dock.Top);
+        all.Children.Add(Rise(mark, 0));
+        var body = new StackPanel { Margin = new Thickness(0, 0, 0, 4 * u) };
+        DockPanel.SetDock(body, Dock.Bottom);
+        all.Children.Add(body);
         body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#FF9FD0"), u), 0));
         body.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, 30, 13, u), 1));
         body.Children.Add(Rise(Sub(card.Sub, u), 2));
@@ -345,7 +369,7 @@ public static class RewindPainter
             tl.Children.Add(labels);
             body.Children.Add(Rise(tl, 3));
         }
-        return body;
+        return all;
     }
 
     private static FrameworkElement Internet(RewindCard card, double u, Color? accent)
@@ -398,7 +422,7 @@ public static class RewindPainter
         {
             var chips = new WrapPanel();
             foreach (var c in card.Chips)
-                chips.Children.Add(new Border { CornerRadius = new CornerRadius(10 * u), Background = White(0.1), Padding = new Thickness(3 * u, 1.1 * u, 3 * u, 1.9 * u), Margin = new Thickness(0, 0, 2 * u, 2 * u), Child = Centered(Text(c, 3.6 * u, FontWeights.Normal, White(1), Ui)) });
+                chips.Children.Add(new Border { CornerRadius = new CornerRadius(1.4 * u), Background = Frozen(new SolidColorBrush(Color.FromArgb(150, 0, 0, 0))), Padding = new Thickness(2.4 * u, 1.2 * u, 2.4 * u, 1.4 * u), Margin = new Thickness(0, 0, 1.8 * u, 1.8 * u), Child = Line(Text(c, 3.4 * u, FontWeights.SemiBold, White(1), Ui), 3.4 * u) });
             body.Children.Add(Rise(chips, 2));
         }
         var bars = new UniformGrid { Rows = 1, Columns = card.Bars.Count, Height = 46 * u, Margin = new Thickness(-2 * u, 6 * u, -2 * u, 0) };
@@ -529,22 +553,22 @@ public static class RewindPainter
         {
             // The most played's cover beside the top five.
             var top = new Grid { Margin = new Thickness(0, 4 * u, 0, 4 * u) };
-            top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30 * u) });
+            top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26 * u) });
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4 * u) });
             top.ColumnDefinitions.Add(new ColumnDefinition());
             if (Art(card.Rows[0].Path, banner: false, 400) is null && Icon(card.Rows[0].Path) is { } icon)
                 top.Children.Add(new Border
                 {
-                    Width = 30 * u, Height = 45 * u, CornerRadius = new CornerRadius(2.6 * u), Background = White(0.08),
+                    Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.6 * u), Background = White(0.08),
                     Child = new Image { Source = icon, Width = 16 * u, Height = 16 * u },
                 });
             if (Art(card.Rows[0].Path, banner: false, 400) is { } one)
                 top.Children.Add(new Border
                 {
-                    Width = 30 * u, Height = 45 * u, CornerRadius = new CornerRadius(2.6 * u), ClipToBounds = true, Background = Frozen(new ImageBrush(one) { Stretch = Stretch.UniformToFill }),
+                    Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.6 * u), ClipToBounds = true, Background = Frozen(new ImageBrush(one) { Stretch = Stretch.UniformToFill }),
                     Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6 * u, ShadowDepth = 2 * u, Opacity = 0.6, Direction = 270 },
                 });
-            var list = new UniformGrid { Columns = 1, Rows = card.Rows.Count, Height = 45 * u };
+            var list = new UniformGrid { Columns = 1, Rows = card.Rows.Count, Height = 39 * u };
             foreach (var r in card.Rows)
             {
                 var row = new DockPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -563,19 +587,19 @@ public static class RewindPainter
             DockPanel.SetDock(top, Dock.Top);
             body.Children.Add(Rise(top, 1));
         }
-        var tiles = Tiles(card.Tiles, u, top: card.Rows.Count > 0 ? 0 : 4, accent);
+        var tiles = Tiles(card.Tiles, u, top: card.Rows.Count > 0 ? 0 : 4, accent, size: 8);
         DockPanel.SetDock(tiles, Dock.Top);
         body.Children.Add(Rise(tiles, 2));
 
         // Every day of the period, at the foot.
-        var strip = new StackPanel { Margin = new Thickness(0, 4 * u, 0, 3 * u) };
+        var strip = new StackPanel { Margin = new Thickness(0, 3 * u, 0, 1 * u) };
         var head = new DockPanel();
         var right = Text(Lang.T($"{f.DaysOn} of {f.Days} days on"), 3.2 * u, FontWeights.Normal, White(0.75), Ui);
         DockPanel.SetDock(right, Dock.Right);
         head.Children.Add(right);
         head.Children.Add(Text(f.Kind == RewindKind.Month ? Lang.T($"Every day of {RewindCards.Title(f)}") : Lang.T("Every day"), 3.2 * u, FontWeights.Normal, White(0.75), Ui));
         strip.Children.Add(head);
-        strip.Children.Add(DayStrip(f, u, accent, 20, whole: true));
+        strip.Children.Add(DayStrip(f, u, accent, 15, whole: true));
         DockPanel.SetDock(strip, Dock.Bottom);
         body.Children.Add(Rise(strip, 3));
         return body;
@@ -707,14 +731,14 @@ public static class RewindPainter
     }
 
     /// <summary>Tiles two by two, the label above the figure so the two read as one sentence.</summary>
-    private static FrameworkElement Tiles(IReadOnlyList<RewindTile> tiles, double u, double top, Color? accent)
+    private static FrameworkElement Tiles(IReadOnlyList<RewindTile> tiles, double u, double top, Color? accent, double size = 9.5)
     {
         var grid = new UniformGrid { Columns = 2, Margin = new Thickness(-1.3 * u, top * u, -1.3 * u, 0) };
         foreach (var t in tiles)
         {
             var s = new StackPanel();
             s.Children.Add(Text(t.Label, 3.2 * u, FontWeights.Normal, White(0.75), Ui, wrap: true));
-            s.Children.Add(Text(t.Value, 9.5 * u, FontWeights.ExtraBold, t.Hue is { } h ? Frozen(new SolidColorBrush(accent ?? RewindLook.C(h))) : White(1), Display, margin: new Thickness(0, 1.4 * u, 0, 0)));
+            s.Children.Add(Text(t.Value, size * u, FontWeights.ExtraBold, t.Hue is { } h ? Frozen(new SolidColorBrush(accent ?? RewindLook.C(h))) : White(1), Display, margin: new Thickness(0, 1.4 * u, 0, 0)));
             grid.Children.Add(new Border { CornerRadius = new CornerRadius(3 * u), Background = White(0.07), Padding = new Thickness(3.4 * u), Margin = new Thickness(1.3 * u), Child = s });
         }
         return grid;
@@ -826,6 +850,15 @@ public static class RewindPainter
     private static T Frozen<T>(T f) where T : Freezable { if (f.CanFreeze) f.Freeze(); return f; }
 
     private static T Centered<T>(T e) where T : FrameworkElement { e.VerticalAlignment = VerticalAlignment.Center; return e; }
+
+    /// <summary>A one-line text whose box is its letters' height, centred: lines up with an icon beside it.</summary>
+    private static TextBlock Line(TextBlock t, double size)
+    {
+        t.LineHeight = size * 1.2;
+        t.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        t.VerticalAlignment = VerticalAlignment.Center;
+        return t;
+    }
 
     /// <summary>Clipped to a rounded rectangle: a border's corner radius doesn't clip what is inside it.</summary>
     public static T Round<T>(T e, double radius) where T : FrameworkElement
