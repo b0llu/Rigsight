@@ -102,7 +102,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <TextBlock Text="Network" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'Network'}" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,14" TextTrimming="CharacterEllipsis" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
@@ -120,7 +120,7 @@
                             AutomationProperties.Name="Live details" VerticalAlignment="Center" Margin="14,0,0,0" MinWidth="86"
                             Visibility="{Binding Live.StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Right now" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Right now'}" Style="{StaticResource Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock FontSize="13" Margin="20,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
                             <Run Text="↓ " /><Run Text="{Binding DownNow, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                         </TextBlock>
@@ -130,7 +130,7 @@
                         <TextBlock Text="{Binding UsingNowText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="22,0,0,0" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                         <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
-                        <TextBlock Text="Not being recorded right now" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="22,0,0,0" VerticalAlignment="Center"
+                        <TextBlock Text="{ctl:T 'Not being recorded right now'}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="22,0,0,0" VerticalAlignment="Center"
                                    Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </DockPanel>
@@ -144,7 +144,7 @@
                 </Grid.ColumnDefinitions>
                 <ctl:SmoothBorder x:Name="LiveCard" Style="{StaticResource RowCard}" VerticalAlignment="Top">
                     <StackPanel>
-                        <TextBlock Text="The last minute" Style="{StaticResource H2}" />
+                        <TextBlock Text="{ctl:T 'The last minute'}" Style="{StaticResource H2}" />
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" />
@@ -153,20 +153,20 @@
                             <StackPanel VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
                                     <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
-                                    <TextBlock Text="Download" Style="{StaticResource LegendText}" />
+                                    <TextBlock Text="{ctl:T 'Download'}" Style="{StaticResource LegendText}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding DownNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,12" />
                                 <StackPanel Orientation="Horizontal">
                                     <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
-                                    <TextBlock Text="Upload" Style="{StaticResource LegendText}" />
+                                    <TextBlock Text="{ctl:T 'Upload'}" Style="{StaticResource LegendText}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding UpNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                             <ctl:NetLiveChart Grid.Column="1" Height="150" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
                         </Grid>
-                        <TextBlock Text="Each app's internet use is read while the agent runs as admin." Style="{StaticResource TileNote}" Margin="0,8,0,0"
+                        <TextBlock Text="{ctl:T 'Each app\'s internet use is read while the agent runs as admin.'}" Style="{StaticResource TileNote}" Margin="0,8,0,0"
                                    Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <TextBlock Text="Internet use isn't being recorded right now. Restarting your PC should bring it back."
+                        <TextBlock Text="{ctl:T 'Internet use isn\'t being recorded right now. Restarting your PC should bring it back.'}"
                                    FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
                                    Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                         <ItemsControl ItemsSource="{Binding Facts}" Margin="-5,12,-5,0" Focusable="False">
@@ -193,10 +193,10 @@
                 <!-- As tall as the card beside it: more apps than fit scroll inside it. -->
                 <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource RowCard}" VerticalAlignment="Top" Height="{Binding ActualHeight, ElementName=LiveCard}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Using it now" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <TextBlock DockPanel.Dock="Top" Text="No app is using the internet right now." Style="{StaticResource TileNote}"
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Using it now'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'No app is using the internet right now.'}" Style="{StaticResource TileNote}"
                                    Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
-                        <TextBlock DockPanel.Dock="Top" Text="Each app's speed shows here while the agent runs as admin." Style="{StaticResource TileNote}"
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while the agent runs as admin.'}" Style="{StaticResource TileNote}"
                                    TextWrapping="Wrap" Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False">
@@ -251,21 +251,21 @@
                 <UniformGrid Rows="1" Margin="-9,0,-9,18">
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="TOTAL" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'TOTAL'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding TotalText}" Style="{StaticResource TileBig}" />
                             <TextBlock Text="{Binding TotalNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="DOWNLOADED" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'DOWNLOADED'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding DownText}" Style="{StaticResource TileBig}" />
                             <TextBlock Text="{Binding DownNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="UPLOADED" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'UPLOADED'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding UpText}" Style="{StaticResource TileBig}" />
                             <TextBlock Text="{Binding UpNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
@@ -291,10 +291,10 @@
                             <DockPanel Margin="0,0,0,12">
                                 <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding WholeOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="NetChartMode" Content="By app"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="NetChartMode" Content="{ctl:T 'By app'}"
                                                      IsChecked="{Binding ChartMode, Converter={StaticResource Equals}, ConverterParameter=App}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="NetChartMode" Content="In front / background"
-                                                     ToolTip="Background: what an app moved while it wasn't the window in front, or with nobody at the PC"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="NetChartMode" Content="{ctl:T 'In front / background'}"
+                                                     ToolTip="{ctl:T 'Background: what an app moved while it wasn\'t the window in front, or with nobody at the PC'}"
                                                      IsChecked="{Binding ChartMode, Converter={StaticResource Equals}, ConverterParameter=Background}" />
                                     </StackPanel>
                                 </Border>
@@ -324,21 +324,21 @@
                     <ctl:SmoothBorder Grid.Column="1" Style="{StaticResource RowCard}" VerticalAlignment="Top" Height="{Binding ActualHeight, ElementName=ChartCard}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Whole period" Command="{Binding ClearSelectionCommand}"
-                                        ToolTip="Back to every app of the period" Visibility="{Binding HasSelection, Converter={StaticResource Vis}}" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Whole period'}" Command="{Binding ClearSelectionCommand}"
+                                        ToolTip="{ctl:T 'Back to every app of the period'}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}}" />
                                 <TextBlock Text="{Binding AppsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                             <Border DockPanel.Dock="Top" Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="0,0,0,8"
                                     Visibility="{Binding WholeOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="Total"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="{ctl:T 'Total'}"
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Total}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="Download"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="{ctl:T 'Download'}"
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Download}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="Upload"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="{ctl:T 'Upload'}"
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Upload}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="Background"
-                                                 ToolTip="Only what each app moved while it wasn't the window in front"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="NetSort" Content="{ctl:T 'Background'}"
+                                                 ToolTip="{ctl:T 'Only what each app moved while it wasn\'t the window in front'}"
                                                  IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Background}" />
                                 </StackPanel>
                             </Border>
@@ -382,7 +382,7 @@
                                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="14,12" Margin="30,0,0,8"
                                                         Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
                                                     <StackPanel>
-                                                        <TextBlock Text="IN FRONT OR IN THE BACKGROUND" Style="{StaticResource Caption}" />
+                                                        <TextBlock Text="{ctl:T 'IN FRONT OR IN THE BACKGROUND'}" Style="{StaticResource Caption}" />
                                                         <ctl:ShareBar Height="8" Margin="0,8,0,6" Front="{Binding FrontShare}" Background2="{Binding BgShare}" Away="{Binding AwayShare}" />
                                                         <WrapPanel>
                                                             <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
@@ -398,7 +398,7 @@
                                                                 <TextBlock Text="{Binding BusiestText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" TextWrapping="Wrap" />
                                                             </StackPanel>
                                                             <StackPanel>
-                                                                <TextBlock Text="Local network" Style="{StaticResource TileNote}" />
+                                                                <TextBlock Text="{ctl:T 'Local network'}" Style="{StaticResource TileNote}" />
                                                                 <TextBlock Text="{Binding LocalText}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,2,0,0" />
                                                             </StackPanel>
                                                         </UniformGrid>
@@ -467,7 +467,7 @@
 
                     <ctl:SmoothBorder Style="{StaticResource RowCard}">
                         <StackPanel>
-                            <TextBlock Text="Connection" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'Connection'}" Style="{StaticResource H2}" />
                             <TextBlock Text="{Binding DropsTitle}" FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -569,7 +569,7 @@
                             </ItemsControl>
                             <!-- A week's or month's drops, each with when and how long; a long list scrolls in its box. -->
                             <StackPanel Visibility="{Binding HasDropRows, Converter={StaticResource Vis}}" Margin="0,14,0,0">
-                                <TextBlock Text="DROPS" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{ctl:T 'DROPS'}" Style="{StaticResource Caption}" />
                                 <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="128" Margin="0,4,0,0">
                                     <ItemsControl ItemsSource="{Binding DropRows}" Focusable="False" AutomationProperties.Name="Drops">
                                         <ItemsControl.ItemTemplate>
@@ -586,11 +586,11 @@
                             </StackPanel>
                             <WrapPanel Margin="0,12,0,0" Visibility="{Binding HasDayLegend, Converter={StaticResource Vis}}">
                                 <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
-                                <TextBlock Text="Up all day" Style="{StaticResource LegendText}" />
+                                <TextBlock Text="{ctl:T 'Up all day'}" Style="{StaticResource LegendText}" />
                                 <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource WarmBrush}" />
-                                <TextBlock Text="Dropped" Style="{StaticResource LegendText}" />
+                                <TextBlock Text="{ctl:T 'Dropped'}" Style="{StaticResource LegendText}" />
                                 <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource FaintBrush}" Opacity="0.6" />
-                                <TextBlock Text="Not recorded" Style="{StaticResource LegendText}" />
+                                <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource LegendText}" />
                             </WrapPanel>
                         </StackPanel>
                     </ctl:SmoothBorder>

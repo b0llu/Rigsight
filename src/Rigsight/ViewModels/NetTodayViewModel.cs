@@ -114,6 +114,6 @@ public sealed partial class NetTodayViewModel : ObservableObject
         ColorApps = Models.Kept.Or(ColorApps, colors);
         var names = report.Apps.ToDictionary(a => a.Id, a => a.Name);
         if (!names.OrderBy(kv => kv.Key).SequenceEqual(AppNames.OrderBy(kv => kv.Key))) AppNames = names;
-        (DropsTitle, DropsNote) = NetworkViewModel.DropsText(report, "today");
+        (DropsTitle, DropsNote) = NetworkViewModel.DropsText(report, Lang.T("today"));
     }
 }

@@ -17,7 +17,7 @@ public sealed class TaskbarSensorRow(string id, string name, string hardware, Se
 {
     public string Id { get; } = id;
     public string Name { get; } = name;
-    public string Hardware { get; } = sensor is null ? "Not found on this PC right now" : hardware;
+    public string Hardware { get; } = sensor is null ? Lang.T("Not found on this PC right now") : hardware;
     public SensorItem? Sensor { get; } = sensor;
     public bool Found => Sensor is not null;
     public TrayPart Part { get; } = TrayParts.PartOf(sensor?.HardwareType);
@@ -93,15 +93,15 @@ public sealed partial class TaskbarViewModel : ObservableObject
     public bool HasSensors => Sensors.Count > 0;
 
     /// <summary>"3 in the taskbar".</summary>
-    public string CountText => Sensors.Count switch { 0 => "", 1 => "1 in the taskbar", var n => $"{n} in the taskbar" };
+    public string CountText => Sensors.Count switch { 0 => "", 1 => Lang.T("1 in the taskbar"), var n => Lang.T($"{n} in the taskbar") };
 
     /// <summary>The usual ones, one click each (those already in the taskbar, or missing on this PC, left out).</summary>
     public IReadOnlyList<TaskbarQuickPick> QuickPicks =>
     [
         .. new (string Label, SensorItem? Sensor)[]
             {
-                ("CPU temperature", _live.CpuTemp), ("GPU temperature", _live.GpuTemp), ("CPU load", _live.CpuLoad),
-                ("GPU load", _live.GpuLoad), ("RAM in use", _live.RamLoad), ("GPU power", _live.GpuPower),
+                (Lang.T("CPU temperature"), _live.CpuTemp), (Lang.T("GPU temperature"), _live.GpuTemp), (Lang.T("CPU load"), _live.CpuLoad),
+                (Lang.T("GPU load"), _live.GpuLoad), (Lang.T("RAM in use"), _live.RamLoad), (Lang.T("GPU power"), _live.GpuPower),
             }
             .Where(p => p.Sensor is not null && !Sensors.Any(r => r.Id == p.Sensor.Id))
             .Select(p => new TaskbarQuickPick(p.Label, p.Sensor!)),
@@ -188,7 +188,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     public bool ShowIcons => !ShowStrip;
 
     /// <summary>Under the styles, when the strip was picked on Windows 10.</summary>
-    public string StripNote => InStrip && !StripSupported ? "The strip needs Windows 11, so here the readings show as an icon each." : "";
+    public string StripNote => InStrip && !StripSupported ? Lang.T("The strip needs Windows 11, so here the readings show as an icon each.") : "";
 
     /// <summary>The parts on the strip, as the agent lays them out (all of a part's readings, the temperature first).</summary>
     public IReadOnlyList<TaskbarStripPart> PreviewStrip

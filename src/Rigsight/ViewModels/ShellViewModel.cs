@@ -185,7 +185,10 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (page != "timeline" || await Reports.TimelineAsync() is not { Changes.Count: > 0 } data) return null;
         var first = data.Changes.Min(c => c.Time);
-        return $"{data.Changes.Count:N0} change{(data.Changes.Count == 1 ? "" : "s")} already found on this PC, back to {first:MMMM yyyy}.";
+        int count = data.Changes.Count;
+        return count == 1
+            ? Lang.T($"1 change already found on this PC, back to {first:MMMM yyyy}.")
+            : Lang.T($"{count:N0} changes already found on this PC, back to {first:MMMM yyyy}.");
     }
 
     public SettingsModel Settings { get; }
@@ -248,7 +251,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private void NewPage(Models.DashboardPreset? preset)
     {
         var names = CustomPages.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        string first = preset is null || preset == Models.DashboardPresets.Blank ? "Dashboard" : preset.Name;
+        string first = preset is null || preset == Models.DashboardPresets.Blank ? Lang.T("Dashboard") : preset.Name;
         string name = first;
         for (int i = 2; names.Contains(name); i++) name = $"{first} {i}";
 
@@ -263,8 +266,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Asks before a dashboard is deleted (the tests answer for the user).</summary>
     internal Func<CustomPageViewModel, bool> ConfirmDelete { get; set; } = page =>
-        MessageBox.Show($"Delete the dashboard \"{page.Name}\"? Its tiles are removed; your history isn't affected.",
-            "Delete dashboard", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+        MessageBox.Show(Lang.T($"Delete the dashboard \"{page.Name}\"? Its tiles are removed; your history isn't affected."),
+            Lang.T("Delete dashboard"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
 
     private void DeleteCustomPage(CustomPageViewModel page)
     {
@@ -286,8 +289,8 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Pages that can be chosen as the start page (besides dashboards).</summary>
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
-        new("home", "Home"), new("reports", "Reports"), new("apps", "Apps"), new("processes", "Processes"), new("crashes", "Crashes"), new("timeline", "Timeline"),
-        new("temperatures", "Temperatures"), new("fans", "Fans"), new("memory", "Memory"), new("storage", "Storage"), new("network", "Network"), new("sensors", "All sensors"),
+        new("home", Lang.T("Home")), new("reports", Lang.T("Reports")), new("apps", Lang.T("Apps")), new("processes", Lang.T("Processes")), new("crashes", Lang.T("Crashes")), new("timeline", Lang.T("Timeline")),
+        new("temperatures", Lang.T("Temperatures")), new("fans", Lang.T("Fans")), new("memory", Lang.T("Memory")), new("storage", Lang.T("Storage")), new("network", Lang.T("Network")), new("sensors", Lang.T("All sensors")),
     ];
 
     [ObservableProperty]
@@ -401,11 +404,11 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public string AgentHint =>
         !string.IsNullOrEmpty(AgentStatus) ? AgentStatus
-        : AgentOutOfDate ? $"It's version {OtherAgentVersion} and this window is {AppVersion}. Restart it so they match."
-        : IsConnected ? "CPU temperatures, fans and voltages need admin rights."
-        : "Tracking and some sensors need it.";
+        : AgentOutOfDate ? Lang.T($"It's version {OtherAgentVersion} and this window is {AppVersion}. Restart it so they match.")
+        : IsConnected ? Lang.T("CPU temperatures, fans and voltages need admin rights.")
+        : Lang.T("Tracking and some sensors need it.");
 
-    public string AgentButtonText => !IsConnected ? "Start agent" : AgentOutOfDate ? "Restart agent" : "Restart with admin";
+    public string AgentButtonText => !IsConnected ? Lang.T("Start agent") : AgentOutOfDate ? Lang.T("Restart agent") : Lang.T("Restart with admin");
 
     /// <summary>Raised when the agent asks the app to come to the front.</summary>
     public event Action? ActivateRequested;
@@ -667,7 +670,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private string PageName(string key) =>
         Sidebar.Main.Concat(Sidebar.Hardware).Concat(Sidebar.OnScreen).FirstOrDefault(e => e.Key == key)?.Title
         ?? CustomPages.FirstOrDefault(p => p.NavKey == key)?.Name
-        ?? (key.Length > 0 ? char.ToUpperInvariant(key[0]) + key[1..] : "Back");
+        ?? (key.Length > 0 ? char.ToUpperInvariant(key[0]) + key[1..] : Lang.T("Back"));
 
     /// <summary>A game named on another page, opened on the Games page with "Back to" that page.</summary>
     public void OpenGame(string key)
@@ -739,7 +742,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // Another version than this window: it's asked to quit, and this install's own is started once it has gone.
         if (AgentOutOfDate)
         {
-            AgentStatus = "Restarting the agent…";
+            AgentStatus = Lang.T("Restarting the agent…");
             _startAfterQuit = true;
             _client.SendCommand("quit");
             return;
@@ -747,15 +750,15 @@ public sealed partial class ShellViewModel : ObservableObject
         // Running but without admin rights: ask it to restart elevated (Windows shows one UAC prompt).
         if (IsConnected && !AgentIsAdmin)
         {
-            AgentStatus = "Restarting the agent with admin rights…";
+            AgentStatus = Lang.T("Restarting the agent with admin rights…");
             _client.SendCommand("restart-elevated");
             return;
         }
         AgentPending = true;
-        AgentStatus = "Starting the background agent…";
+        AgentStatus = Lang.T("Starting the background agent…");
         if (!AgentLauncher.Start())
         {
-            AgentStatus = "Couldn't start the agent. Try again, and accept the admin prompt.";
+            AgentStatus = Lang.T("Couldn't start the agent. Try again, and accept the admin prompt.");
             AgentPending = false;
             return;
         }
@@ -778,8 +781,8 @@ public sealed partial class ShellViewModel : ObservableObject
     /// a restart will), or not running at all (the admin prompt was declined, or something stopped it from starting).
     /// </summary>
     internal static string NotStartedText(bool processRunning) => processRunning
-        ? "The agent is running but not answering. Restart your PC, then open RigSight again."
-        : "The agent didn't start. Try again and accept the admin prompt. If it still won't, restart your PC.";
+        ? Lang.T("The agent is running but not answering. Restart your PC, then open RigSight again.")
+        : Lang.T("The agent didn't start. Try again and accept the admin prompt. If it still won't, restart your PC.");
 
     private bool _startAfterQuit;
 
