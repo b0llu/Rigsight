@@ -178,7 +178,7 @@
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding FullText}" Style="{StaticResource RowValue}" />
                                 <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Row}" Margin="0,0,10,0" />
                             </DockPanel>
-                            <ProgressBar Style="{StaticResource Bar}" Margin="0,5,0,0" Maximum="100" Value="{Binding UsedSpace.Value, Mode=OneWay, FallbackValue=0}"
+                            <ProgressBar Style="{StaticResource Bar}" Margin="0,5,0,0" Maximum="100" Value="{Binding UsedSpace.Value, Mode=OneWay, FallbackValue=0, TargetNullValue=0}"
                                          Foreground="{DynamicResource PurpleBrush}" />
                         </StackPanel>
                     </DataTemplate>

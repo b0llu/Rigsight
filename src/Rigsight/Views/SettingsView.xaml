@@ -269,37 +269,43 @@
                             <Grid DockPanel.Dock="Right" Width="190" VerticalAlignment="Center">
                                 <ComboBox ItemsSource="{Binding Options}" SelectedValuePath="Code" SelectedValue="{Binding Chosen}"
                                           IsEnabled="{Binding CanPick}" AutomationProperties.Name="Language">
+                                    <!-- The closed box: the language's name only. -->
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
-                                            <DockPanel>
-                                                <!-- The tick and the size only in the open list, not on the closed box. -->
-                                                <Grid DockPanel.Dock="Left" Width="20"
-                                                      Visibility="{Binding IsVisible, RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
-                                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" VerticalAlignment="Center"
-                                                               Visibility="{Binding IsCurrent, Converter={StaticResource Vis}}" />
-                                                </Grid>
-                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,0">
-                                                    <StackPanel.Style>
-                                                        <Style TargetType="StackPanel">
-                                                            <Setter Property="Visibility" Value="{Binding IsVisible, RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Note}" Value="">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </StackPanel.Style>
-                                                    <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
-                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                    <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                            </DockPanel>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
+                                    <!-- The open list: a tick on the one in use, and the size of a pack not downloaded yet. -->
                                     <ComboBox.ItemContainerStyle>
                                         <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
                                             <Setter Property="MinWidth" Value="260" />
+                                            <Setter Property="ContentTemplate">
+                                                <Setter.Value>
+                                                    <DataTemplate>
+                                                        <DockPanel>
+                                                            <Grid DockPanel.Dock="Left" Width="20">
+                                                                <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" VerticalAlignment="Center"
+                                                                           Visibility="{Binding IsCurrent, Converter={StaticResource Vis}}" />
+                                                            </Grid>
+                                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Note}" Value="">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                                <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </Setter.Value>
+                                            </Setter>
                                         </Style>
                                     </ComboBox.ItemContainerStyle>
                                 </ComboBox>
