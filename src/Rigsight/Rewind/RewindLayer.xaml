@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Rewind.RewindLayer"
+﻿<UserControl x:Class="Rigsight.Rewind.RewindLayer"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -49,8 +49,6 @@
                         <TextBlock Text="{ctl:T 'Later'}" FontSize="14" />
                     </Button>
                 </StackPanel>
-                <TextBlock Text="{Binding AlsoReady}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,18,0,0"
-                           Visibility="{Binding HasAlsoReady, Converter={StaticResource Vis}}" />
             </StackPanel>
             <!-- Bottom left: not full screen next time (it says where they'll wait instead, with a way back). -->
             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24,0,0,20" Orientation="Horizontal">

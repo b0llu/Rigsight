@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Rigsight.Core.Rewind;
@@ -93,7 +93,7 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         var f = October();
         int n = RewindCards.Of(f).Count;
         // From the full screen: Watch, then card by card with the keyboard.
-        Ui.Run(() => vm.Reveal(f, []));
+        Ui.Run(() => vm.Reveal(f));
         Ui.Pump(300);
         Ui.Run(() => vm.WatchRevealedCommand.Execute(null));
         Ui.Pump(200);

@@ -1,4 +1,4 @@
-{
+﻿{
   "code": "es",
   "name": "Español",
   "version": 1,
@@ -2203,7 +2203,6 @@
     "too old to recreate": "demasiado antiguo para recrearlo",
     "{0} rewind is ready": "El Rewind de {0} está listo",
     "The whole year": "El año entero",
-    "Also ready: {0}. You’ll find them in Settings → Rewind.": "También listos: {0}. Los encontrarás en Ajustes → Rewind.",
     "That was your {0}": "Así fue tu {0}",
     "Share your {0} rewind": "Comparte tu Rewind de {0}",
     "Copy 1 picture": "Copiar 1 imagen",

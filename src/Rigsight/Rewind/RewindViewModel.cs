@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -160,7 +160,7 @@ public sealed partial class RewindViewModel : ObservableObject
         // Everything new is announced now: the biggest full screen, the rest in the list.
         foreach (var e in fresh) { e.Facts.Announced = true; RewindStore.Save(e.Facts); }
         var biggest = fresh.OrderByDescending(e => e.Facts.To).ThenByDescending(e => e.Facts.Kind).First();
-        if (S.FullScreen) Reveal(biggest.Facts, fresh.Where(e => e != biggest).Select(e => e.Facts).ToList());
+        if (S.FullScreen) Reveal(biggest.Facts);
         RaiseWaiting();
     }
 
@@ -180,16 +180,13 @@ public sealed partial class RewindViewModel : ObservableObject
     [ObservableProperty] private RewindFacts? _revealed;
     [ObservableProperty] private string _revealTitle = "";
     [ObservableProperty] private string _revealSub = "";
-    [ObservableProperty] private string _alsoReady = "";
     [ObservableProperty] private bool _askedNoFullScreen;
-    public bool HasAlsoReady => AlsoReady.Length > 0;
-    partial void OnAlsoReadyChanged(string value) => OnPropertyChanged(nameof(HasAlsoReady));
     partial void OnIsRevealingChanged(bool value) { RaiseWaiting(); OnPropertyChanged(nameof(IsOpen)); }
 
     /// <summary>The layer is over the window: the full screen, or a rewind being watched.</summary>
     public bool IsOpen => IsRevealing || IsWatching;
 
-    public void Reveal(RewindFacts f, IReadOnlyList<RewindFacts> also)
+    public void Reveal(RewindFacts f)
     {
         Revealed = f;
         RevealTitle = RewindCards.Ready(f);
@@ -201,7 +198,6 @@ public sealed partial class RewindViewModel : ObservableObject
             _ => RewindCards.KindName(f.Kind),
         };
         RevealSub = $"{length} · {(n == 1 ? Lang.T("1 card") : Lang.T($"{n} cards"))}";
-        AlsoReady = also.Count == 0 ? "" : Lang.T($"Also ready: {string.Join(", ", also.Select(RewindCards.Title))}. You’ll find them in Settings → Rewind.");
         AskedNoFullScreen = false;
         IsRevealing = true;
     }
