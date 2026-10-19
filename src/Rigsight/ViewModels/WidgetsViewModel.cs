@@ -304,7 +304,8 @@ public sealed partial class WidgetCard : ObservableObject
         if (!PickerOpen) return;
         var words = Core.TextMatch.Words(PickerText);
         bool Matches(PickerOption o) => words.Length == 0
-            || Core.TextMatch.Has(words, o.Name, o.Source, WidgetCatalog.CategoryName(o.Category), o.Kind, o.IsSensorFan ? "fan" : null, o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "sensor" : null);
+            || Core.TextMatch.Has(words, o.Name, o.Source, WidgetCatalog.CategoryName(o.Category), o.Kind, o.IsSensorFan ? "fan" : null, o.IsSensorFan ? Lang.T("fan") : null,
+                o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "sensor" : null);
         // The Fans chip has every fan, the graphics card's too.
         bool In(PickerOption o, string key) => key == "all" || o.Category.ToString() == key || (key == nameof(WidgetCategory.Fans) && o.IsSensorFan);
         var options = AllOptions();

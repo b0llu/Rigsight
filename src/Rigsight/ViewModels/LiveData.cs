@@ -1290,7 +1290,7 @@ public sealed partial class LiveData : ObservableObject
             {
                 bool show = (ShowHidden || !s.IsHidden)
                             && MatchesType(s.Kind)
-                            && Core.TextMatch.Has(words, s.DisplayName, s.Name, node.Name, node.Badge, node.BadgeText);
+                            && Core.TextMatch.Has(words, [s.DisplayName, s.Name, node.Name, node.Badge, node.BadgeText, .. KindWords(s.Kind)]);
                 s.IsShown = show;
                 any |= show;
             }
@@ -1378,6 +1378,25 @@ public sealed partial class LiveData : ObservableObject
         _settings.Update(s => s.HiddenSensors.Clear());
         foreach (var item in _flat) item.IsHidden = false;
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// What kind of reading a sensor is, in English and in the language in use, so a search finds it by either word:
+    /// sensor names come from the hardware's drivers in English ("Fan #1"), and someone may type "ventilador".
+    /// </summary>
+    private static string[] KindWords(SensorKind k)
+    {
+        string? word = k switch
+        {
+            SensorKind.Temperature => Lang.Key("Temperatures"),
+            SensorKind.Load => Lang.Key("Load"),
+            SensorKind.Fan or SensorKind.Control => Lang.Key("Fans"),
+            SensorKind.Power or SensorKind.Current => Lang.Key("Power"),
+            SensorKind.Clock => Lang.Key("Clocks"),
+            SensorKind.Voltage => Lang.Key("Voltage"),
+            _ => null,
+        };
+        return word is null ? [] : [word, Lang.T(word)];
     }
 
     private bool MatchesType(SensorKind k) => TypeFilter switch

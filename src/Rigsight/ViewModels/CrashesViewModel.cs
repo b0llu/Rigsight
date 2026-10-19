@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Media;
@@ -481,7 +481,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     private static bool Says(CrashRow r, string[] words) =>
         Core.TextMatch.Has(words, r.Title, r.AppName, r.Event.AppExe, r.Event.Module, r.Event.Code, r.Explanation.Reason,
             // …and what its case says and names: the finding, a blue screen's driver, what a frozen app waited on.
-            r.Finding?.Head, r.Finding?.Line, r.Finding?.Chip, r.Event.Facts?.Driver, r.Event.Facts?.DriverName, r.Event.Facts?.WaitedOn, r.Event.Facts?.Error);
+            r.Finding?.Head, r.Finding?.Line, r.Finding?.Chip, r.Event.Facts?.Driver, r.Event.Facts?.DriverName, r.Event.Facts?.WaitedOn, r.Event.Facts?.Error,
+            // The kind's chip and the saved detail as shown (in another language, people type the words they see).
+            r.KindLabel, r.Event.Detail is { } detail ? Core.SavedText.Show(detail) : null);
     partial void OnShowMutedChanged(bool value) { _limit = PageSize; ApplyView(); }
     partial void OnUnitChanged(Core.Reports.ReportRange value) { _limit = PageSize; _ = LoadAsync(); }
 
