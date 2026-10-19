@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
@@ -131,10 +131,10 @@ internal static class CloseUpBuilder
     }
 
     /// <summary>What it was, as the box beside the lanes says it.</summary>
-    internal static string WordOf(CrashKind kind) => kind switch
+    internal static CaseWord WordOf(CrashKind kind) => kind switch
     {
-        CrashKind.UnexpectedShutdown => Lang.T("sudden shut-off"), CrashKind.SystemCrash => Lang.T("blue screen"),
-        CrashKind.GpuDriverReset => Lang.T("graphics driver reset"), _ => Lang.T("crash"),
+        CrashKind.UnexpectedShutdown => CaseWord.ShutOff, CrashKind.SystemCrash => CaseWord.BlueScreen,
+        CrashKind.GpuDriverReset => CaseWord.DriverReset, _ => CaseWord.Crash,
     };
 
     /// <summary>What stands out at one reading against half a minute before it: a part warming fast, power jumping.</summary>
@@ -145,13 +145,11 @@ internal static class CloseUpBuilder
         var earlier = points.Take(i).LastOrDefault(x => x.T <= p.T - 28_000 && x.T >= p.T - 40_000);
         if (earlier is not null)
         {
-            void Rise(string what, double? now, double? then)
-            {
-                if (now - then is double d && d >= 5) flags.Add(Lang.T($"{what} up {(Units.Fahrenheit ? d * 9 / 5 : d):0}° in 30 s"));
-            }
-            Rise(Lang.T("GPU hot spot"), p.GpuHot, earlier.GpuHot);
-            Rise("GPU", p.GpuTemp, earlier.GpuTemp);
-            Rise("CPU", p.CpuTemp, earlier.CpuTemp);
+            // Whole for each part: another language gives each its own article ("La CPU subió…").
+            static double? Up(double? now, double? then) => now - then is double d && d >= 5 ? (Units.Fahrenheit ? d * 9 / 5 : d) : null;
+            if (Up(p.GpuHot, earlier.GpuHot) is double hot) flags.Add(Lang.T($"GPU hot spot up {hot:0}° in 30 s"));
+            if (Up(p.GpuTemp, earlier.GpuTemp) is double gpu) flags.Add(Lang.T($"GPU up {gpu:0}° in 30 s"));
+            if (Up(p.CpuTemp, earlier.CpuTemp) is double cpu) flags.Add(Lang.T($"CPU up {cpu:0}° in 30 s"));
             if (p.GpuPower - earlier.GpuPower is double w && w >= CloseUpWords.PowerWatts && p.GpuPower >= earlier.GpuPower * CloseUpWords.PowerTimes) flags.Add(Lang.T($"GPU power up {w:0} W in 30 s"));
         }
         if (p.Commit >= 95) flags.Add(Lang.T("Windows nearly out of memory"));

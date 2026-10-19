@@ -99,6 +99,23 @@ public static class Lang
         return string.Format(CultureInfo.CurrentCulture, template, args);
     }
 
+    /// <summary>
+    /// A template held as data, written with its context ("‹stretch›{0} to {1}", as <see cref="Context"/> makes it):
+    /// the pack's entry for it if there is one, else translated like the plain template. No context: as <see cref="F"/>.
+    /// </summary>
+    public static string FC(string template, params object?[] args)
+    {
+        if (!template.StartsWith('‹') || template.IndexOf('›') is not (> 1 and var end)) return F(template, args);
+        string english = template[(end + 1)..];
+        var pack = Pack;
+        if (pack is not null && pack.Strings.TryGetValue(template, out var text))
+        {
+            try { return string.Format(CultureInfo.CurrentCulture, text, args); }
+            catch (FormatException) { /* the plain template below */ }
+        }
+        return F(english, args);
+    }
+
     /// <summary>The holes of a template, as their numbers: "{0} at {1:t}" → 0, 1.</summary>
     internal static readonly Regex Hole = new(@"(?<!\{)\{(\d+)(?:,-?\d+)?(?::[^{}]*)?\}(?!\})", RegexOptions.Compiled);
 

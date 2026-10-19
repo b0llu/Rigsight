@@ -344,10 +344,16 @@ public static class ChangeEffects
                 if (tone != EffectTone.Same)
                 {
                     var sure = of.Count == 1 && Math.Max(before.Count, since.Count) >= LikelyCount ? Confidence.Likely : Confidence.Possible;
-                    string wordsSince = Words(since), wordsBefore = Words(before), daysBefore = Days(_daysBefore);
+                    string wordsSince = Words(since), wordsBefore = Words(before);
+                    int days = _daysBefore;
+                    // One day and many said whole: another language words "the day before" apart from "the 5 days before".
                     string counts = tone == EffectTone.Worse
-                        ? before.Count == 0 ? Lang.T($"{wordsSince}, none in the {daysBefore} before") : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before")
-                        : since.Count == 0 ? Lang.T($"none, against {wordsBefore} in the {daysBefore} before") : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before");
+                        ? before.Count == 0
+                            ? days == 1 ? Lang.T($"{wordsSince}, none in the day before") : Lang.T($"{wordsSince}, none in the {days} days before")
+                            : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before")
+                        : since.Count == 0
+                            ? days == 1 ? Lang.T($"none, against {wordsBefore} in the day before") : Lang.T($"none, against {wordsBefore} in the {days} days before")
+                            : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before");
                     string lower = what.ToLowerInvariant(), since0 = Since;
                     bool more = tone == EffectTone.Worse;
                     // Whole for each case: "since this driver" and "in the 5 days after this driver" join the change differently elsewhere.
@@ -460,8 +466,11 @@ public static class ChangeEffects
 
         private string BoundsText()
         {
-            string until = open ? Lang.T("now") : to.AddDays(-1).ToString("d MMM");
-            return Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until}.");
+            // Up to now, or up to a day: whole for each, since another language joins them differently ("y ahora", "y el 10 oct").
+            var until = to.AddDays(-1);
+            return open
+                ? Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to now.")
+                : Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until:d MMM}.");
         }
 
         private string PossibleWhy(Finding head, int changes) => changes > 1 ? Lang.T("Possibly, not likely: two big changes on one day.")

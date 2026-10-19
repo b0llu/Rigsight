@@ -182,11 +182,19 @@ public static class InsightEngine
             {
                 var was = usual.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware);
                 if (was is null || was.SpinMinutes < FanUsualMinutes || was.StoppedMinutes > was.SpinMinutes * FanUsualStoppedShare || (fan.Gpu && gpuSaid)) continue;
-                string from = When(r, fan.StopStart!.Value, at: false);
+                // A time ("from 3:12 PM") or a day and time ("from Mon 3 Oct, 3:12 PM"): whole sentences each, since
+                // another language joins them differently ("desde las" / "desde el").
+                var from = fan.StopStart!.Value;
+                bool oneDay = OneDay(r);
+                string mins = Wording.Minutes(fan.LongestStop), temp = Units.TempShort(fan.StopTemp);
                 list.Add(fan.Gpu
-                    ? new Insight(IconWarn, Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)} from {from} with the GPU at {Units.TempShort(fan.StopTemp)}, when it always turns at that heat. Check it isn't blocked or unplugged."),
+                    ? new Insight(IconWarn, oneDay
+                        ? Lang.T($"Your GPU fan stopped for {mins} from {from:h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged.")
+                        : Lang.T($"Your GPU fan stopped for {mins} from {from:ddd d MMM, h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged."),
                         InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}") }
-                    : new Insight(IconWarn, Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)} from {from}, when it always turns. Check it isn't blocked or unplugged."),
+                    : new Insight(IconWarn, oneDay
+                        ? Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:h:mm tt}, when it always turns. Check it isn't blocked or unplugged.")
+                        : Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:ddd d MMM, h:mm tt}, when it always turns. Check it isn't blocked or unplugged."),
                         InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}") });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
@@ -411,7 +419,9 @@ public static class InsightEngine
                 && (games.Count > 1 || best.Sec < total - 5 * 60))
                 text += " " + (longest.Start < r.From
                     ? Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)}, carried on from the night before.")
-                    : Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {When(r, longest.Start, at: false)}."));
+                    : OneDay(r)
+                        ? Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {longest.Start:h:mm tt}.")
+                        : Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {longest.Start:ddd d MMM, h:mm tt}."));
             list.Add(new Insight(IconGame, text, InsightTone.Neutral, "gaming", 64)
                 { Short = games.Count == 1 ? Lang.T($"{Units.Duration(total)} of {games[0].Name}") : Lang.T($"{Units.Duration(total)} of games, mostly {games[0].Name}") });
         }
@@ -447,7 +457,9 @@ public static class InsightEngine
         {
             string chip = bg.Gpu ? "GPU" : "CPU";
             list.Add(new Insight(bg.Gpu ? IconGpu : IconCpu,
-                Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {When(r, bg.Start, at: false)} while you were in {bg.FrontApp}."),
+                OneDay(r)
+                    ? Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {bg.Start:h:mm tt} while you were in {bg.FrontApp}.")
+                    : Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {bg.Start:ddd d MMM, h:mm tt} while you were in {bg.FrontApp}."),
                 InsightTone.Neutral, "background-work", 60,
                 $"{When(r, bg.Start, at: false)} – {When(r, bg.Start.AddMinutes(bg.Minutes), at: false)}") { Short = Lang.T($"{bg.App} worked your {chip} hard in the background") });
         }
@@ -586,11 +598,16 @@ public static class InsightEngine
         if (r.Range == ReportRange.Custom)
         {
             // A stretch of hours, not a day; the weekdays when it covers more than one.
-            string fmt = r.From.Date == r.To.AddTicks(-1).Date ? "h:mm tt" : "ddd h:mm tt";
-            string from = start.ToString(fmt), to = (r.LastActive ?? start).ToString(fmt);
-            return inProgress
-                ? Lang.T($"You've been on since {from}.")
-                : Lang.T($"You were on from {from} to {to}.");
+            // Whole for a time and for a weekday and time: another language joins them differently ("desde las" / "desde el").
+            bool sameDay = r.From.Date == r.To.AddTicks(-1).Date;
+            var end = r.LastActive ?? start;
+            return (inProgress, sameDay) switch
+            {
+                (true, true) => Lang.T($"You've been on since {start:h:mm tt}."),
+                (true, false) => Lang.T($"You've been on since {start:ddd h:mm tt}."),
+                (false, true) => Lang.T($"You were on from {start:h:mm tt} to {end:h:mm tt}."),
+                (false, false) => Lang.T($"You were on from {start:ddd h:mm tt} to {end:ddd h:mm tt}."),
+            };
         }
         string day = inProgress
             ? Lang.T($"Your day started at {start:h:mm tt}.")
@@ -620,9 +637,12 @@ public static class InsightEngine
         return Math.Max(0, Math.Min(s.ActiveSec, (to - from).TotalSeconds));
     }
 
+    /// <summary>Whether the report covers one day, so a time needs no date beside it.</summary>
+    private static bool OneDay(Report r) => r.Range == ReportRange.Day || (r.Range == ReportRange.Custom && r.From.Date == r.To.AddTicks(-1).Date);
+
     private static string When(Report r, DateTime time, bool at = true)
     {
-        bool oneDay = r.Range == ReportRange.Day || (r.Range == ReportRange.Custom && r.From.Date == r.To.AddTicks(-1).Date);
+        bool oneDay = OneDay(r);
         return (at, oneDay) switch
         {
             (true, true) => Lang.T($"at {time:h:mm tt}"),

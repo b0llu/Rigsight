@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Rigsight.Core;
 
@@ -110,7 +110,8 @@ public static partial class SavedText
         P(@"^Everything after (.+)$", Lang.Key("Everything after {0}")),
         P(@"^Everything before (.+)$", Lang.Key("Everything before {0}")),
         P(@"^Some readings$", Lang.Key("Some readings")),
-        P(@"^(.+?) to (.+)$", Lang.Key("{0} to {1}")),
+        // Its own entry: inside a repair's sentence another language words it apart from a chart's "{0} to {1}".
+        P(@"^(.+?) to (.+)$", Lang.Key("‹stretch›{0} to {1}")),
     ];
 
     /// <summary>
@@ -147,7 +148,7 @@ public static partial class SavedText
                 var show = p.Values is { } v && i < v.Length ? v[i] : R;
                 values[i] = show(m.Groups[i + 1].Value);
             }
-            return Lang.F(p.Template, values);
+            return Lang.FC(p.Template, values);
         }
         return null;
     }

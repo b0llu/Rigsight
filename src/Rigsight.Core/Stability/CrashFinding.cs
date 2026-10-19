@@ -385,14 +385,17 @@ public static class CrashFindings
             if (!graphics) ruled.Add(new("ok", Lang.T("It wasn't the graphics driver"), Lang.T("The file Windows named isn't part of it.")));
             else Sort(Change(x, anyDriver: false), points, ruled);
             string plain = Plain(what);
-            return new(Confidence.Named, what == file ? Lang.T($"Windows crashed inside {file}.") : Lang.T($"Windows crashed inside {file}, the {plain}."),
+            // A known culprit is said whole with its article ("the NVIDIA driver", in another language its own article);
+            // a name the file gives itself can't be, so those sentences have their own entries ("name") to word around it.
+            string? the = known is { } kc ? Lang.T("the " + Plain(kc.Culprit)) : null;
+            return new(Confidence.Named, what == file ? Lang.T($"Windows crashed inside {file}.") : the is not null ? Lang.T($"Windows crashed inside {file}, {the}.") : Lang.C("name", $"Windows crashed inside {file}, the {plain}."),
                 Lang.T("Windows' own record of the crash names the file it happened in."),
                 known?.Advice ?? (what == file
                     ? Lang.T("Update or reinstall the driver that file belongs to. If the crashes began after new hardware or a new driver, that is the first thing to undo.")
-                    : Lang.T($"Update or reinstall the {plain}. If the crashes began after new hardware or a new driver, that is the first thing to undo.")),
-                what == file ? Lang.T($"Windows crashed inside {file}.") : Lang.T($"Windows crashed inside the {plain} ({file})."))
+                    : Lang.C("name", $"Update or reinstall the {plain}. If the crashes began after new hardware or a new driver, that is the first thing to undo.")),
+                what == file ? Lang.T($"Windows crashed inside {file}.") : the is not null ? Lang.T($"Windows crashed inside {the} ({file}).") : Lang.C("name", $"Windows crashed inside the {plain} ({file})."))
             {
-                Why = what == file ? Lang.T($"inside {file}") : Lang.T($"inside the {plain}"),
+                Why = what == file ? Lang.T($"inside {file}") : the is not null ? Lang.T($"inside {the}") : Lang.C("name", $"inside the {plain}"),
                 Points = [new("info", Lang.T($"Windows blames {file}"), Lang.T("It wrote this beside the crash when the PC next started.")), new("info", Lang.T("The blue screen's code"), code), .. points],
                 RuledOut = ruled,
                 CantTell = x.Context is { Minutes: > 0 } ? Lang.T("Whether the driver itself failed, or the hardware under it.") : Lang.T("What was running at the time: nothing was being recorded."),
@@ -838,5 +841,7 @@ public static class CrashFindings
         Lang.Key("the NVIDIA driver"), Lang.Key("the GeForce Experience overlay"), Lang.Key("the AMD driver"), Lang.Key("the Intel graphics driver"),
         Lang.Key("the DirectX"), Lang.Key("the Vulkan"), Lang.Key("the Steam overlay"), Lang.Key("the Discord overlay"), Lang.Key("the RivaTuner overlay"),
         Lang.Key("the Unity engine"), Lang.Key("the Game code"), Lang.Key("the Unreal Engine"), Lang.Key("the .NET runtime"),
+        // As a blue screen's file says them ("the " and the plain name: see Plain).
+        Lang.Key("the GeForce experience overlay"), Lang.Key("the Unreal engine"),
     ];
 }
