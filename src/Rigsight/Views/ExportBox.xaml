@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.ExportBox"
+﻿<UserControl x:Class="Rigsight.Views.ExportBox"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
@@ -24,25 +24,25 @@
         <StackPanel>
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" VerticalAlignment="Top"
-                        ToolTip="Close" AutomationProperties.Name="Close">
+                        ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close">
                     <TextBlock Text="&#xE8BB;" FontSize="11" />
                 </Button>
                 <StackPanel>
-                    <TextBlock Text="Export" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Text="Each one is its own file. Nothing leaves this PC." Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,0" />
+                    <TextBlock Text="{ctl:T 'Export'}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{ctl:T 'Each one is its own file. Nothing leaves this PC.'}" Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,0" />
                 </StackPanel>
             </DockPanel>
 
             <DockPanel Margin="0,16,0,0">
-                <TextBlock Text="TO SHARE" Style="{StaticResource Group}" />
+                <TextBlock Text="{ctl:T 'TO SHARE'}" Style="{StaticResource Group}" />
                 <ItemsControl ItemsSource="{Binding ToShare}" ItemTemplate="{StaticResource Item}" ItemsPanel="{StaticResource Wrap}" Focusable="False" />
             </DockPanel>
             <DockPanel Margin="0,6,0,0">
-                <TextBlock Text="TABLES" Style="{StaticResource Group}" />
+                <TextBlock Text="{ctl:T 'TABLES'}" Style="{StaticResource Group}" />
                 <ItemsControl ItemsSource="{Binding Tables}" ItemTemplate="{StaticResource Item}" ItemsPanel="{StaticResource Wrap}" Focusable="False" />
             </DockPanel>
             <DockPanel Margin="0,6,0,0">
-                <TextBlock Text="EVERYTHING" Style="{StaticResource Group}" />
+                <TextBlock Text="{ctl:T 'EVERYTHING'}" Style="{StaticResource Group}" />
                 <ItemsControl ItemsSource="{Binding Everything}" ItemTemplate="{StaticResource Item}" ItemsPanel="{StaticResource Wrap}" Focusable="False" />
             </DockPanel>
 
@@ -51,17 +51,17 @@
             <DockPanel Margin="0,14,0,14" IsEnabled="{Binding CanChange}">
                 <Border x:Name="PeriodHost" DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="Today" IsChecked="{Binding IsToday}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="Yesterday" IsChecked="{Binding IsYesterday}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="Last 7 days" IsChecked="{Binding IsLast7}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="Last 30 days" IsChecked="{Binding IsLast30}" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="All" IsChecked="{Binding IsAll}" />
-                        <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="Custom" IsChecked="{Binding IsCustom, Mode=OneWay}"
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'Today'}" IsChecked="{Binding IsToday}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'Yesterday'}" IsChecked="{Binding IsYesterday}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'Last 7 days'}" IsChecked="{Binding IsLast7}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'Last 30 days'}" IsChecked="{Binding IsLast30}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'All'}" IsChecked="{Binding IsAll}" />
+                        <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" GroupName="ExportPeriod" Content="{ctl:T 'Custom'}" IsChecked="{Binding IsCustom, Mode=OneWay}"
                                      PreviewMouseLeftButtonUp="Custom_Click" AutomationProperties.Name="Custom period" />
                     </StackPanel>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Period" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{ctl:T 'Period'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Text="{Binding PeriodText}" Style="{StaticResource Muted}" FontSize="12.5" />
                 </StackPanel>
             </DockPanel>
@@ -84,22 +84,22 @@
             <DockPanel Margin="0,14,0,14" IsEnabled="{Binding CanChange}">
                 <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="Text" IsChecked="{Binding AsText}" AutomationProperties.Name="Text files" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="Spreadsheet (CSV)" IsChecked="{Binding AsCsv}" AutomationProperties.Name="Spreadsheet files" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="{ctl:T 'Text'}" IsChecked="{Binding AsText}" AutomationProperties.Name="Text files" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="{ctl:T 'Spreadsheet (CSV)'}" IsChecked="{Binding AsCsv}" AutomationProperties.Name="Spreadsheet files" />
                     </StackPanel>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Format" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{ctl:T 'Format'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Text="{Binding FormatText}" Style="{StaticResource Muted}" FontSize="12.5" />
                 </StackPanel>
             </DockPanel>
 
             <Border Height="1" Background="{DynamicResource StrokeBrush}" />
             <DockPanel Margin="0,14,0,14">
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Change…" Command="{Binding ChangeFolderCommand}" IsEnabled="{Binding CanChange}"
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Change…'}" Command="{Binding ChangeFolderCommand}" IsEnabled="{Binding CanChange}"
                         VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="Change the folder" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Save to" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{ctl:T 'Save to'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                     <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Folder}" Style="{StaticResource Muted}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </DockPanel>
@@ -107,7 +107,7 @@
             <Border Height="1" Background="{DynamicResource StrokeBrush}" />
             <DockPanel Margin="0,16,0,0">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Style="{StaticResource GhostButton}" Content="Cancel" Command="{Binding CloseCommand}" IsEnabled="{Binding CanChange}" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CloseCommand}" IsEnabled="{Binding CanChange}" Margin="0,0,8,0" />
                     <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" IsEnabled="{Binding CanExport}" IsDefault="True" AutomationProperties.Name="Export the files">
                         <StackPanel Orientation="Horizontal">
                             <Grid Width="12" Margin="0,0,8,0">
@@ -115,7 +115,7 @@
                                            Visibility="{Binding IsBusy, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                 <ctl:Spinner Visibility="{Binding IsBusy, Converter={StaticResource Vis}}" />
                             </Grid>
-                            <TextBlock Text="Export" />
+                            <TextBlock Text="{ctl:T 'Export'}" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

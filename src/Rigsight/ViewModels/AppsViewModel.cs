@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
@@ -38,7 +39,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public ObservableCollection<AppListRow> Apps { get; } = [];
     public IReadOnlyList<AppCategory> Categories { get; } = Enum.GetValues<AppCategory>();
 
-    private static readonly CategoryFilter AllApps = new(null, "All categories");
+    private static readonly CategoryFilter AllApps = new(null, Lang.T("All categories"));
 
     /// <summary>"All categories", then each category that has an app in the period (Other last).</summary>
     public ObservableCollection<CategoryFilter> Filters { get; } = [AllApps];
@@ -96,7 +97,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [ObservableProperty] private double _maxValue = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(EmptyText), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary), nameof(SelectedIsGame))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ShowEmpty), nameof(EmptyText), nameof(SelectedAlias), nameof(SelectedCategory), nameof(SelectedExcluded), nameof(Summary), nameof(SelectedIsGame), nameof(RenameTip))]
     [NotifyPropertyChangedFor(nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground))]
     private AppStat? _selected;
 
@@ -104,10 +105,14 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     private NetAppUse? SelectedNet => Selected is { } a ? _net.Use.GetValueOrDefault(a.Id) : null;
 
     /// <summary>The Internet group's main figure: "3.5 GB" (then "used"), "None", or "Not recorded" when the period has no internet use on record.</summary>
-    public string InternetMain => SelectedNet is { } u ? Core.Units.Data(u.Total) : _net.Recorded ? "None" : "Not recorded";
+    public string InternetMain => SelectedNet is { } u ? Core.Units.Data(u.Total) : _net.Recorded ? Lang.T("None") : Lang.T("Not recorded");
 
     /// <summary>The muted word after the main figure: "used" after an amount, nothing after "None".</summary>
-    public string InternetWord => SelectedNet is null ? "" : "used";
+    public string InternetWord => SelectedNet is null ? "" : Lang.T("used");
+
+    /// <summary>The name box's tooltip: what clicking does, then where the app's program is.</summary>
+    public string? RenameTip => Selected is null ? null
+        : Selected.Path is { } path ? Lang.T($"Click to rename this app everywhere.\n{path}") : Lang.T("Click to rename this app everywhere.");
 
     // The rows say nothing rather than a misleading 0 B when there is no amount to split.
     public string InternetDown => SelectedNet is { } u ? Core.Units.Data(u.Down) : "—";
@@ -126,8 +131,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     /// <summary>The selected app's active time across the period: per hour, per day or per month (see ChartTitle).</summary>
     [ObservableProperty] private List<DayBucket>? _selectedChart;
 
-    public string ChartTitle => IsDay ? "Active time per hour"
-        : ReportBuilder.IsLong(Unit, Period.From, Period.To) ? "Active time per month" : "Active time per day";
+    public string ChartTitle => IsDay ? Lang.T("Active time per hour")
+        : ReportBuilder.IsLong(Unit, Period.From, Period.To) ? Lang.T("Active time per month") : Lang.T("Active time per day");
 
     /// <summary>"Games · 1h 59m this week": what the app is, and how much it was used in the period.</summary>
     public string Summary
@@ -136,14 +141,28 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         {
             if (Selected is null) return "";
             string period = Controls.PeriodPicker.Text(Unit, Anchor, CustomFrom, CustomTo);
-            string when = period switch
+            string category = Converters.CategoryLabelConverter.Label(SelectedCategory);
+            string time = Core.Units.Duration(Selected.ActiveSec);
+            // Told apart by the period, not its words (they're in the person's language).
+            if (Unit == ReportRange.All) return Lang.T($"{category} · {time} in total");
+            if (IsNamedPeriod)
             {
-                "All time" => "in total",
-                _ when period.StartsWith("This ") || period.StartsWith("Last ") || period is "Today" or "Yesterday" => period.ToLowerInvariant(),
-                _ when Unit == ReportRange.Day => $"on {period}",
-                _ => $"in {period}",
-            };
-            return $"{Converters.CategoryLabelConverter.Label(SelectedCategory)} · {Core.Units.Duration(Selected.ActiveSec)} {when}";
+                string named = period.ToLowerInvariant();
+                return Lang.T($"{category} · {time} {named}");
+            }
+            return Unit == ReportRange.Day ? Lang.T($"{category} · {time} on {period}") : Lang.T($"{category} · {time} in {period}");
+        }
+    }
+
+    /// <summary>The period has a name of its own: today, yesterday, this or last week, month or year.</summary>
+    private bool IsNamedPeriod
+    {
+        get
+        {
+            if (Unit is ReportRange.All or ReportRange.Custom) return false;
+            var from = ReportBuilder.Bounds(Unit, Anchor).From;
+            return from == ReportBuilder.Bounds(Unit, DateTime.Today).From
+                || from == ReportBuilder.Bounds(Unit, ReportBuilder.Previous(Unit, DateTime.Today)).From;
         }
     }
 
@@ -166,7 +185,14 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     public bool ShowEmpty => Ready && !HasSelection;
 
     /// <summary>What the page says when the period has nothing ("No apps used today yet…").</summary>
-    public string EmptyText => $"No apps used {Controls.PeriodPicker.Words(Unit, Anchor)} yet. Use your PC for a bit and come back.";
+    public string EmptyText
+    {
+        get
+        {
+            string period = Controls.PeriodPicker.Words(Unit, Anchor);
+            return Lang.T($"No apps used {period} yet. Use your PC for a bit and come back.");
+        }
+    }
 
     /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
     [ObservableProperty] private List<SessionInfo> _selectedSessions = [];
@@ -440,7 +466,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         "Memory" => a.MemMax is double m ? Core.Units.Megabytes(m) : "—",
         "Background" => Core.Units.Duration(a.BackgroundSec + a.MinimizedSec),
         "Cpu" => a.CpuAvg is double c ? $"{c:0.0}%" : "—",
-        "Internet" => _net.Use.TryGetValue(a.Id, out var u) ? Core.Units.Data(u.Total) : _net.Recorded ? "None" : "Not recorded",
+        "Internet" => _net.Use.TryGetValue(a.Id, out var u) ? Core.Units.Data(u.Total) : _net.Recorded ? Lang.T("None") : Lang.T("Not recorded"),
         _ => Core.Units.Duration(a.ActiveSec),
     };
 }

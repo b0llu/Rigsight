@@ -63,7 +63,7 @@ public partial class ExportBox : UserControl
         if (today < monthEnd) Cal.BlackoutDates.Add(new CalendarDateRange(today.AddDays(1), monthEnd));
         Cal.SelectedDates.AddRange(from <= to ? from : to, from <= to ? to : from);
         _marking = false;
-        RangeHint.Text = "Click the first day, then the last";
+        RangeHint.Text = Core.Lang.T("Click the first day, then the last");
         RangePopup.IsOpen = true;
     }
 
@@ -101,7 +101,7 @@ public partial class ExportBox : UserControl
         }
         _first = day.Date;
         _firstPress = _presses;
-        RangeHint.Text = "Now click the last day";
+        RangeHint.Text = Core.Lang.T("Now click the last day");
         // The calendar keeps the mouse after a click: back to the box, so a click beside it still closes it.
         Mouse.Capture(RangePopup.Child, CaptureMode.SubTree);
     }

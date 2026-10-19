@@ -238,7 +238,7 @@ public sealed partial class CustomPageViewModel : ObservableObject
                 page = new CustomPageConfig { Id = Id, Grid = CustomPageConfig.CurrentGrid };
                 s.CustomPages.Add(page);
             }
-            page.Name = string.IsNullOrWhiteSpace(Name) ? "Dashboard" : Name.Trim();
+            page.Name = string.IsNullOrWhiteSpace(Name) ? Core.Lang.T("Dashboard") : Name.Trim();
             page.Tiles = tiles;
             page.Grid = CustomPageConfig.CurrentGrid; // the tiles above are measured in the current grid
         });

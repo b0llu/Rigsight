@@ -39,7 +39,7 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" MinHeight="26">
                         <StackPanel x:Name="EditButtons" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed">
-                            <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" ToolTip="Remove tile" AutomationProperties.Name="Remove tile">
+                            <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="Remove tile">
                                 <TextBlock Text="&#xE711;" />
                             </Button>
                         </StackPanel>
@@ -50,13 +50,13 @@
             </ctl:SmoothBorder>
             <!-- Resize handles (edit mode): drag the right edge, bottom edge or corner. Sizes snap to whole cells. -->
             <Border x:Name="RightGrip" Tag="R" Width="12" HorizontalAlignment="Right" Margin="0,18,-6,18" Background="Transparent"
-                    Cursor="SizeWE" Visibility="Collapsed" ToolTip="Drag to resize"
+                    Cursor="SizeWE" Visibility="Collapsed" ToolTip="{ctl:T 'Drag to resize'}"
                     MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture" />
             <Border x:Name="BottomGrip" Tag="B" Height="12" VerticalAlignment="Bottom" Margin="18,0,18,-6" Background="Transparent"
-                    Cursor="SizeNS" Visibility="Collapsed" ToolTip="Drag to resize"
+                    Cursor="SizeNS" Visibility="Collapsed" ToolTip="{ctl:T 'Drag to resize'}"
                     MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture" />
             <Border x:Name="CornerGrip" Tag="RB" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4"
-                    Background="Transparent" Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="Drag to resize"
+                    Background="Transparent" Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="{ctl:T 'Drag to resize'}"
                     MouseLeftButtonDown="Resize_MouseDown" MouseMove="Resize_MouseMove" MouseLeftButtonUp="Resize_MouseUp" LostMouseCapture="Resize_LostCapture">
                 <Path Data="M 15,6 L 6,15 M 15,11 L 11,15" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
             </Border>
@@ -92,7 +92,7 @@
 
         <!-- ── What's inside each kind of tile ────────────────────────── -->
         <DataTemplate x:Key="Tile.Unknown">
-            <TextBlock Text="This tile isn't available in this version." Style="{StaticResource Row}" TextWrapping="Wrap" />
+            <TextBlock Text="{ctl:T 'This tile isn\'t available in this version.'}" Style="{StaticResource Row}" TextWrapping="Wrap" />
         </DataTemplate>
 
         <DataTemplate x:Key="Tile.cpu-gauge">
@@ -102,7 +102,7 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="{Binding Live.CpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Foreground="{Binding Live.CpuTemp.Value, Converter={StaticResource TempBrush}}" />
-                    <TextBlock Text="{Binding Live.CpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
+                    <TextBlock Text="{Binding Live.CpuLoad.ShortValue, StringFormat={ctl:T 'load {0}'}, FallbackValue=''}" FontSize="11"
                                Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
@@ -115,7 +115,7 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="{Binding Live.GpuTemp.ShortValue, FallbackValue='—'}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Foreground="{Binding Live.GpuTemp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                    <TextBlock Text="{Binding Live.GpuLoad.ShortValue, StringFormat='load {0}', FallbackValue=''}" FontSize="11"
+                    <TextBlock Text="{Binding Live.GpuLoad.ShortValue, StringFormat={ctl:T 'load {0}'}, FallbackValue=''}" FontSize="11"
                                Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
@@ -124,7 +124,7 @@
         <DataTemplate x:Key="Tile.sensor">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" Style="{StaticResource Big}" />
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Sensor.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <ctl:Sparkline Margin="0,6,0,0" MinHeight="14" Source="{Binding Sensor.History}" Version="{Binding Sensor.Version}" Stroke="{Binding Accent}" Kind="{Binding Sensor.Kind}" />
             </DockPanel>
         </DataTemplate>
@@ -162,7 +162,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="No spinning fans reported." Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock Text="{ctl:T 'No spinning fans reported.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Live.Fans.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </Grid>
         </DataTemplate>
@@ -209,7 +209,7 @@
                     <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="18,0,0,3"><Run Text="↑ " /></TextBlock>
                     <TextBlock Text="{Binding Net.UpNow, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
-                <TextBlock DockPanel.Dock="Bottom" Text="Read while the agent runs as admin." Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Read while the agent runs as admin.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
                 <ctl:NetLiveChart Margin="0,8,0,0" MinHeight="40" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
             </DockPanel>
@@ -235,9 +235,9 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="Nothing's moving right now." Style="{StaticResource Row}"
+                <TextBlock Text="{ctl:T 'Nothing\'s moving right now.'}" Style="{StaticResource Row}"
                            Visibility="{Binding Net.NobodyNow, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                <TextBlock Text="Each app's speed shows here while the agent runs as admin." Style="{StaticResource Row}" TextWrapping="Wrap" VerticalAlignment="Top"
+                <TextBlock Text="{ctl:T 'Each app\'s speed shows here while the agent runs as admin.'}" Style="{StaticResource Row}" TextWrapping="Wrap" VerticalAlignment="Top"
                            Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
             </Grid>
         </DataTemplate>
@@ -245,19 +245,19 @@
         <DataTemplate x:Key="Tile.net-today">
             <UniformGrid Columns="4" VerticalAlignment="Top">
                 <StackPanel>
-                    <TextBlock Text="TOTAL" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'TOTAL'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Net.TotalText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="DOWN" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'DOWN'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Net.DownText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="UP" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'UP'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Net.UpText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="BACKGROUND" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'BACKGROUND'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Net.BackgroundText, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
             </UniformGrid>
@@ -277,7 +277,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="No internet use yet today." Style="{StaticResource Row}"
+                <TextBlock Text="{ctl:T 'No internet use yet today.'}" Style="{StaticResource Row}"
                            Visibility="{Binding Net.Top.Count, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Visible}" />
             </Grid>
         </DataTemplate>
@@ -296,15 +296,15 @@
         <DataTemplate x:Key="Tile.today">
             <UniformGrid Columns="3" VerticalAlignment="Top">
                 <StackPanel>
-                    <TextBlock Text="ACTIVE" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'ACTIVE'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Live.Today.ActiveSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="PC ON" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'PC ON'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Live.Today.OnSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="AWAY" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'AWAY'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Live.Today.IdleSec, Converter={StaticResource Duration}}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
             </UniformGrid>
@@ -323,7 +323,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="Nothing yet today." Style="{StaticResource Row}"
+                <TextBlock Text="{ctl:T 'Nothing yet today.'}" Style="{StaticResource Row}"
                            Visibility="{Binding Home.TodayTopApps.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </Grid>
         </DataTemplate>
@@ -341,7 +341,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="Highlights appear once there's a bit of today to talk about." Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock Text="{ctl:T 'Highlights appear once there\'s a bit of today to talk about.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Home.DashboardInsights.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </Grid>
         </DataTemplate>
@@ -372,7 +372,7 @@
                 <StackPanel Visibility="{Binding Home.YesterdayHasData, Converter={StaticResource Vis}}">
                     <TextBlock Text="{Binding Home.Yesterday.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Big}" />
                     <TextBlock Style="{StaticResource Row}" Margin="0,0,0,8">
-                        <Run Text="active · PC on for" /> <Run Text="{Binding Home.Yesterday.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
+                        <Run Text="{ctl:T 'active · PC on for'}" /> <Run Text="{Binding Home.Yesterday.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
                     </TextBlock>
                     <ItemsControl ItemsSource="{Binding Home.YesterdayTopApps}">
                         <ItemsControl.ItemTemplate>
@@ -386,7 +386,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <TextBlock Text="Yesterday's recap will be here tomorrow." Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock Text="{ctl:T 'Yesterday\'s recap will be here tomorrow.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Home.YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </Grid>
         </DataTemplate>
@@ -396,19 +396,19 @@
                 <UniformGrid DockPanel.Dock="Top" Columns="3">
                     <StackPanel>
                         <TextBlock Text="{Binding Crashes.Recent.AppCrashCount}" Style="{StaticResource Big}" />
-                        <TextBlock Text="apps &amp; games" Style="{StaticResource Caption}" />
+                        <TextBlock Text="{ctl:T 'apps &amp; games'}" Style="{StaticResource Caption}" />
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="{Binding Crashes.Recent.DriverResetCount}" Style="{StaticResource Big}" />
-                        <TextBlock Text="graphics driver resets" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        <TextBlock Text="{ctl:T 'graphics driver resets'}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="{Binding Crashes.Recent.SystemCount}" Style="{StaticResource Big}" />
-                        <TextBlock Text="blue screens &amp; sudden shut-offs" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        <TextBlock Text="{ctl:T 'blue screens &amp; sudden shut-offs'}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                     </StackPanel>
                 </UniformGrid>
                 <StackPanel Margin="0,12,0,0" Visibility="{Binding Crashes.Recent.HasCrashes, Converter={StaticResource Vis}}">
-                    <TextBlock Text="LATEST" Style="{StaticResource Caption}" />
+                    <TextBlock Text="{ctl:T 'LATEST'}" Style="{StaticResource Caption}" />
                     <TextBlock Text="{Binding Crashes.Recent.Latest.Title, FallbackValue=''}" Style="{StaticResource RowValue}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                     <TextBlock Text="{Binding Crashes.Recent.Latest.TimeText, FallbackValue=''}" Style="{StaticResource Row}" />
                 </StackPanel>
@@ -424,11 +424,11 @@
                 <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="Start page">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="ToolTip" Value="Open RigSight on this dashboard instead of Home" />
+                            <Setter Property="ToolTip" Value="{ctl:T 'Open RigSight on this dashboard instead of Home'}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsStartPage}" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                    <Setter Property="ToolTip" Value="RigSight opens on this dashboard. Click to open on Home again." />
+                                    <Setter Property="ToolTip" Value="{ctl:T 'RigSight opens on this dashboard. Click to open on Home again.'}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -449,10 +449,10 @@
                         <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="Set as start page" />
+                                    <Setter Property="Text" Value="{ctl:T 'Set as start page'}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsStartPage}" Value="True">
-                                            <Setter Property="Text" Value="Start page" />
+                                            <Setter Property="Text" Value="{ctl:T 'Start page'}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -464,7 +464,7 @@
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                        <TextBlock Text="Delete" />
+                        <TextBlock Text="{ctl:T 'Delete'}" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="Edit dashboard">
@@ -495,10 +495,10 @@
                         <TextBlock>
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="Edit" />
+                                    <Setter Property="Text" Value="{ctl:T 'Edit'}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                            <Setter Property="Text" Value="Done" />
+                                            <Setter Property="Text" Value="{ctl:T 'Done'}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -512,16 +512,16 @@
                     <TextBlock Text="{Binding Name}" Style="{StaticResource H1}"
                                Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <TextBox Style="{StaticResource InlineEdit}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Left" MinWidth="220" Margin="-6,0,0,0"
-                             Text="{Binding Name, UpdateSourceTrigger=LostFocus}" KeyDown="NameBox_KeyDown" ToolTip="Rename this dashboard"
+                             Text="{Binding Name, UpdateSourceTrigger=LostFocus}" KeyDown="NameBox_KeyDown" ToolTip="{ctl:T 'Rename this dashboard'}"
                              Visibility="{Binding IsEditing, Converter={StaticResource Vis}}" />
                 </Grid>
                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                            <Setter Property="Text" Value="Your own dashboard. Choose Edit to add, move and resize tiles." />
+                            <Setter Property="Text" Value="{ctl:T 'Your own dashboard. Choose Edit to add, move and resize tiles.'}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                    <Setter Property="Text" Value="Drag a tile to move it; drag its edges or corner to resize it. Click the name to rename the dashboard." />
+                                    <Setter Property="Text" Value="{ctl:T 'Drag a tile to move it; drag its edges or corner to resize it. Click the name to rename the dashboard.'}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -535,8 +535,8 @@
                 Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="18,16,18,18">
-                    <TextBlock Text="Add tiles" Style="{StaticResource H2}" />
-                    <TextBlock Text="Click a tile to add it. You can move it afterwards." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,6" />
+                    <TextBlock Text="{ctl:T 'Add tiles'}" Style="{StaticResource H2}" />
+                    <TextBlock Text="{ctl:T 'Click a tile to add it. You can move it afterwards.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,6" />
                     <ItemsControl ItemsSource="{Binding Catalog}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -578,8 +578,8 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Text="ANY SENSOR" Style="{StaticResource Caption}" Margin="0,18,0,6" />
-                    <TextBlock Text="Pick any of your sensors (type to search)." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock Text="{ctl:T 'ANY SENSOR'}" Style="{StaticResource Caption}" Margin="0,18,0,6" />
+                    <TextBlock Text="{ctl:T 'Pick any of your sensors (type to search).'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                     <ComboBox ItemsSource="{Binding Live.PickableSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
                               TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360">
                         <ComboBox.ItemsPanel>
@@ -596,7 +596,7 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Style="{StaticResource AccentButton}" Content="Add sensor" Command="{Binding AddSensorTileCommand}"
+                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Add sensor'}" Command="{Binding AddSensorTileCommand}"
                             HorizontalAlignment="Left" Margin="0,10,0,0" />
                 </StackPanel>
             </ScrollViewer>
@@ -608,8 +608,8 @@
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"
                             Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
                     <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="This dashboard is empty" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="Choose Edit, then pick tiles from the list on the right." Style="{StaticResource Muted}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'This dashboard is empty'}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
+                    <TextBlock Text="{ctl:T 'Choose Edit, then pick tiles from the list on the right.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
                 <ItemsControl x:Name="TileList" ItemsSource="{Binding Tiles}" ItemTemplateSelector="{StaticResource TileFrameSelector}" Focusable="False">
                     <ItemsControl.ItemsPanel>
