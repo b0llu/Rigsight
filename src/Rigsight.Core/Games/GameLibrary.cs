@@ -56,7 +56,14 @@ public sealed class GameSources
     /// <summary>Also find each game's pictures (the Games page); the agent's minute check doesn't need them.</summary>
     public bool WithArt { get; init; }
 
-    public static GameSources ThisPc(bool withArt = false) => new()
+    public static GameSources ThisPc(bool withArt = false) =>
+        // A test copy can be given launchers of its own (the site's showcase: its made-up games, never this PC's).
+        From(withArt, RigsightPaths.IsTestInstance ? Environment.GetEnvironmentVariable("RIGSIGHT_GAMES_DIR") : null);
+
+    /// <summary>The launchers in <paramref name="gamesDir"/> (its Steam and Epic folders, nothing from Windows' list), else this PC's.</summary>
+    internal static GameSources From(bool withArt, string? gamesDir) => gamesDir is { Length: > 0 } games
+            ? new() { WithArt = withArt, SteamRoots = [Path.Combine(games, "Steam")], EpicManifests = Path.Combine(games, "Epic") }
+            : new()
     {
         WithArt = withArt,
         SteamRoots = GameLibrary.SteamRootsOnThisPc(),

@@ -157,6 +157,32 @@ public class GameLibraryTests
     }
 
     [Fact]
+    public void A_test_copy_given_a_games_folder_reads_only_its_launchers()
+    {
+        // The site's showcase: its made-up library, never this PC's games (nor Windows' list of programs).
+        var dir = TestEnvironment.NewFolder("games-dir");
+        var (root, _) = Steam(("570", "Dota 2", "dota 2 beta", "1", false));
+        CopyFolder(Path.Combine(root, "steamapps"), Path.Combine(dir, "Steam", "steamapps"));
+        Directory.CreateDirectory(Path.Combine(dir, "Epic"));
+        File.WriteAllText(Path.Combine(dir, "Epic", "rl.item"), EpicItem("Rocket League", EpicFolder("rocketleague"), 10, "Sugar"));
+
+        var sources = GameSources.From(withArt: false, dir);
+        Assert.Equal([Path.Combine(dir, "Steam")], sources.SteamRoots);
+        Assert.Empty(sources.UninstallEntries());
+        var games = GameLibrary.Scan(sources);
+        Assert.Equal(["Dota 2", "Rocket League"], games.Select(g => g.Name).Order());
+        // Without one, the launchers are this PC's.
+        Assert.NotEqual(Path.Combine(dir, "Epic"), GameSources.From(false, null).EpicManifests);
+    }
+
+    private static void CopyFolder(string from, string to)
+    {
+        foreach (var d in Directory.GetDirectories(from, "*", SearchOption.AllDirectories)) Directory.CreateDirectory(d.Replace(from, to));
+        Directory.CreateDirectory(to);
+        foreach (var f in Directory.GetFiles(from, "*", SearchOption.AllDirectories)) File.Copy(f, f.Replace(from, to));
+    }
+
+    [Fact]
     public void An_epic_manifest_left_behind_by_a_deleted_or_half_uninstalled_game_is_not_installed()
     {
         // A user's Fortnite: Epic's manifest still said 75 GB, the folder it named was empty.
