@@ -375,13 +375,13 @@ public sealed class Report
     public string Title => Range switch
     {
         ReportRange.Custom => CustomTitle(From, To),
-        ReportRange.Day when From.Date == DateTime.Today => "Today",
-        ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => "Yesterday",
+        ReportRange.Day when From.Date == DateTime.Today => Lang.T("Today"),
+        ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => Lang.T("Yesterday"),
         ReportRange.Day => From.ToString("dddd, d MMMM"),
-        ReportRange.Week => $"Week of {From:d MMM}",
-        ReportRange.Year when From.Year == DateTime.Today.Year => "This year",
+        ReportRange.Week => Lang.T($"Week of {From:d MMM}"),
+        ReportRange.Year when From.Year == DateTime.Today.Year => Lang.T("This year"),
         ReportRange.Year => From.Year.ToString(),
-        ReportRange.All => "All time",
+        ReportRange.All => Lang.T("All time"),
         _ => From.ToString("MMMM yyyy"),
     };
 }

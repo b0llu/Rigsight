@@ -38,7 +38,7 @@ public static class DataExport
         public string? Of(long? id) => id is long i && _apps.TryGetValue(i, out var a) ? Name(a) : null;
         public string? Exe(long? id) => id is long i && _apps.TryGetValue(i, out var a) ? a.Exe : null;
         public string? Category(long? id) => id is long i && _apps.TryGetValue(i, out var a)
-            ? AppCatalog.Label(s.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) : null;
+            ? AppCatalog.EnglishLabel(s.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) : null;
         public string? OfExe(string exe) => exe.Length == 0 ? null : _byExe.TryGetValue(exe, out var a) ? Name(a) : AppCatalog.KnownName(exe) ?? AppCatalog.FallbackName(exe);
         private string Name(AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
@@ -177,6 +177,8 @@ public static class DataExport
     /// <summary>Writes one table for [from, to) as CSV; returns how many rows it had.</summary>
     public static int Write(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer)
     {
+        // The tables are data for spreadsheets: English in every language, so people's sheets and formulas keep working.
+        using var english = Lang.UseHere(null);
         var t = Tables[table];
         writer.WriteLine(string.Join(",", t.Columns.Select(c => Cell(c.Name))));
         int rows = 0;
@@ -194,6 +196,7 @@ public static class DataExport
     /// </summary>
     public static int WriteText(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer)
     {
+        using var english = Lang.UseHere(null); // the same table as the CSV, laid out (see Write)
         var t = Tables[table];
         var rows = t.Rows(db, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), new Names(db, settings)).ToList();
         writer.WriteLine(Path.GetFileNameWithoutExtension(t.File));
@@ -266,6 +269,7 @@ public static class DataExport
     /// <summary>The read-me of the full copy: what each file is and what each column holds.</summary>
     public static string ReadMe(DateTime made, string version)
     {
+        using var english = Lang.UseHere(null); // describes the English tables (see Write)
         var sb = new StringBuilder();
         sb.AppendLine($"RigSight full copy, made {made.ToString("d MMMM yyyy, HH:mm", Inv)} by RigSight {version}.");
         sb.AppendLine();

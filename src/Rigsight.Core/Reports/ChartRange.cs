@@ -49,7 +49,7 @@ public static class ChartRange
     /// <summary>The period in words: "Last 7 days", "Last 12 months"; an earlier one by its dates ("3–9 Oct", "10 Sep – 9 Oct", "17 Oct 2024 – 16 Oct 2025").</summary>
     public static string Label(int window, DateTime lastDay, DateTime today)
     {
-        if (lastDay.Date >= today.Date) return $"Last {Length(window)}";
+        if (lastDay.Date >= today.Date) return Lang.T($"Last {Length(window)}");
         var (from, to) = Rolling(window, lastDay);
         var last = to.AddDays(-1);
         string year = last.Year == today.Year ? "" : $" {last:yyyy}";
@@ -59,17 +59,17 @@ public static class ChartRange
 
     /// <summary>The period after a statement ("Not recorded …"): "in the last 7 days", "in the 7 days to 9 Oct".</summary>
     public static string Words(int window, DateTime lastDay, DateTime today) =>
-        lastDay.Date >= today.Date ? $"in the last {Length(window)}"
-            : $"in the {Length(window)} to {lastDay:d MMM}{(lastDay.Year == today.Year ? "" : $" {lastDay:yyyy}")}";
+        lastDay.Date >= today.Date ? Lang.T($"in the last {Length(window)}")
+            : lastDay.Year == today.Year ? Lang.T($"in the {Length(window)} to {lastDay:d MMM}") : Lang.T($"in the {Length(window)} to {lastDay:d MMM} {lastDay:yyyy}");
 
     /// <summary>The last minutes or hours, up to now: "Last 5 minutes", "Last hour", "Last 6 hours", "Last 24 hours".</summary>
     public static string WindowLabel(int seconds) => seconds switch
     {
-        3600 => "Last hour",
-        < 3600 => $"Last {seconds / 60} minutes",
-        _ => $"Last {seconds / 3600} hours",
+        3600 => Lang.T("Last hour"),
+        < 3600 => Lang.T($"Last {seconds / 60} minutes"),
+        _ => Lang.T($"Last {seconds / 3600} hours"),
     };
 
     /// <summary>"7 days", "30 days", "12 months".</summary>
-    public static string Length(int window) => window switch { Week => "7 days", Month => "30 days", _ => "12 months" };
+    public static string Length(int window) => window switch { Week => Lang.T("7 days"), Month => Lang.T("30 days"), _ => Lang.T("12 months") };
 }

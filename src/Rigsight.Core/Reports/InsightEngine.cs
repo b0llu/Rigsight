@@ -40,7 +40,7 @@ public static class InsightEngine
         bool enoughUse = r.ActiveSec >= MinUseForInsights;
         int usualDays = usual?.DaysWithData ?? 0;
         bool haveUsual = usual is not null && usualDays >= MinUsualDays;
-        string usualLabel = "in the 7 days before";
+        string usualLabel = Lang.T("in the 7 days before");
 
         // ── Warnings first: crashes and time spent too hot matter even on a short day ──
 
@@ -49,7 +49,8 @@ public static class InsightEngine
             var latest = r.Crashes[0];
             var name = r.Apps.FirstOrDefault(a => a.Exe.Equals(latest.AppExe, StringComparison.OrdinalIgnoreCase))?.Name;
             var ex = CrashExplainer.Explain(latest, name);
-            string more = r.Crashes.Count > 1 ? $" {r.Crashes.Count} {Wording.Problems} in all, each on the Crashes page." : "";
+            int problems = r.Crashes.Count;
+            string more = problems > 1 ? " " + Lang.T($"{problems} problems in all, each on the Crashes page.") : "";
             string when = isDay ? $"{latest.Time:h:mm tt}" : $"{latest.Time:ddd d MMM, h:mm tt}";
             // What happened, as the fact Windows recorded, and its cause with how sure that is, in the words every other
             // page uses for it. A problem whose cause was outside the PC (a power cut) is said plainly, not as a warning.
@@ -57,7 +58,7 @@ public static class InsightEngine
             {
                 bool outside = r.Crashes.Count <= CrashesJudged && r.Crashes.All(c => r.CrashFindings.GetValueOrDefault(c.Id) is { Outside: true });
                 list.Add(new Insight(outside ? IconInfo : IconWarn, $"{finding.Told(when)}{more}", outside ? InsightTone.Neutral : InsightTone.Warn, "crash", 95, CrashDetail(r))
-                    { Short = $"{finding.Event} at {when}{(finding.Why is { Length: <= 32 } && finding.Confidence is Confidence.Named or Confidence.Likely ? Wording.CauseAfter(finding.Confidence, finding.Why) : "")}" });
+                    { Short = Lang.T($"{finding.Event} at {when}") + (finding.Why is { Length: <= 32 } && finding.Confidence is Confidence.Named or Confidence.Likely ? Wording.CauseAfter(finding.Confidence, finding.Why) : "") });
             }
             else
             {
@@ -69,25 +70,25 @@ public static class InsightEngine
                 var c when c.StartsWith("in ", StringComparison.Ordinal) => $", {c}",
                 var c => $": {c}",
             };
-            list.Add(new Insight(IconWarn, $"{ex.Title} at {when}{cause}.{more}{CrashPattern(r, alerts)}", InsightTone.Warn, "crash", 95, CrashDetail(r)) { Short = $"{ex.Title} at {when}" });
+            list.Add(new Insight(IconWarn, $"{Lang.T($"{ex.Title} at {when}")}{cause}.{more}{CrashPattern(r, alerts)}", InsightTone.Warn, "crash", 95, CrashDetail(r)) { Short = Lang.T($"{ex.Title} at {when}") });
             }
         }
 
         // Minutes a chip averaged at or over the user's alert limit (a moment's spike isn't one, as it isn't for the alert).
         if (r.CpuOverLimitMin > 0)
             list.Add(new Insight(IconWarn,
-                $"Your CPU reached your {Units.TempShort(alerts.CpuLimit)} alert limit for {Wording.Minutes(r.CpuOverLimitMin)}.", InsightTone.Hot, "over-limit", 90)
-                { Short = $"CPU at your {Units.TempShort(alerts.CpuLimit)} limit for {Wording.Minutes(r.CpuOverLimitMin)}" });
+                Lang.T($"Your CPU reached your {Units.TempShort(alerts.CpuLimit)} alert limit for {Wording.Minutes(r.CpuOverLimitMin)}."), InsightTone.Hot, "over-limit", 90)
+                { Short = Lang.T($"CPU at your {Units.TempShort(alerts.CpuLimit)} limit for {Wording.Minutes(r.CpuOverLimitMin)}") });
         if (r.GpuOverLimitMin > 0)
             list.Add(new Insight(IconWarn,
-                $"Your GPU reached your {Units.TempShort(alerts.GpuLimit)} alert limit for {Wording.Minutes(r.GpuOverLimitMin)}.", InsightTone.Hot, "over-limit", 90)
-                { Short = $"GPU at your {Units.TempShort(alerts.GpuLimit)} limit for {Wording.Minutes(r.GpuOverLimitMin)}" });
+                Lang.T($"Your GPU reached your {Units.TempShort(alerts.GpuLimit)} alert limit for {Wording.Minutes(r.GpuOverLimitMin)}."), InsightTone.Hot, "over-limit", 90)
+                { Short = Lang.T($"GPU at your {Units.TempShort(alerts.GpuLimit)} limit for {Wording.Minutes(r.GpuOverLimitMin)}") });
 
         // The GPU slowing itself down to stay cool, within one game session: the clearest sign cooling isn't keeping up.
         if (r.GpuThrottle is { } gt)
-            list.Add(new Insight(IconGpu, $"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool: clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}.",
-                InsightTone.Hot, "throttle", 80, $"Clocks {gt.DropPercent:0}% under where they were earlier in the same session, while cooler, at no more power")
-                { Short = $"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool" });
+            list.Add(new Insight(IconGpu, Lang.T($"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool: clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}."),
+                InsightTone.Hot, "throttle", 80, Lang.T($"Clocks {gt.DropPercent:0}% under where they were earlier in the same session, while cooler, at no more power"))
+                { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool") });
 
         // Peaks are shown elsewhere (tiles, hot moments); they're only news when a chip held the heat (a moment's spike on
         // a light load isn't that), and aren't already a limit warning. A record peak says so here, rather than twice.
@@ -95,10 +96,10 @@ public static class InsightEngine
         void PeakLine(string part, Peak? peak, double? held, int overLimit, double warm, double hot, RecordKind record)
         {
             if (peak is null || overLimit > 0 || held is not double h || ToneFor(h, warm, hot) == InsightTone.Neutral) return;
-            string best = r.Records.FirstOrDefault(x => x.Kind == record) is { } rec ? $", the hottest in {Span(rec.Days)}" : "";
+            string best = r.Records.FirstOrDefault(x => x.Kind == record) is { } rec ? Lang.T($", the hottest in {Span(rec.Days)}") : "";
             if (best.Length > 0) peakRecords.Add(record);
-            list.Add(new Insight(IconTemp, $"{part} peaked at {Units.TempShort(peak.Value)} {When(r, peak.Time)}{best}{PeakWords.With(peak.App)}.",
-                ToneFor(h, warm, hot), "peak", 85) { Short = $"{part} peaked at {Units.TempShort(peak.Value)}{best}" });
+            list.Add(new Insight(IconTemp, Lang.T($"{part} peaked at {Units.TempShort(peak.Value)} {When(r, peak.Time)}{best}{PeakWords.With(peak.App)}."),
+                ToneFor(h, warm, hot), "peak", 85) { Short = Lang.T($"{part} peaked at {Units.TempShort(peak.Value)}{best}") });
         }
         PeakLine("CPU", r.CpuTempPeak, r.CpuTempHeld, r.CpuOverLimitMin, CpuWarm, CpuHot, RecordKind.HottestCpu);
         PeakLine("GPU", r.GpuTempPeak, r.GpuTempHeld, r.GpuOverLimitMin, GpuWarm, GpuHot, RecordKind.HottestGpu);
@@ -106,8 +107,8 @@ public static class InsightEngine
         // Hot spot far above the core at steady load: past about 30° the paste or cooler contact may have worn.
         if (r.HotSpotGap is { Gpu: double gap, Minutes: >= HotSpotMinutes } && gap >= HotSpotGapWarn)
             list.Add(new Insight(IconTemp,
-                $"In games, your GPU hot spot runs {Units.Degrees(gap)} above the core. A gap past {Units.Degrees(HotSpotGapWarn)} can mean the thermal paste or cooler contact has worn.",
-                InsightTone.Warn, "hotspot", 70, $"Over {r.HotSpotGap.Minutes} minutes of steady heavy load") { Short = $"GPU hot spot {Units.Degrees(gap)} above the core in games" });
+                Lang.T($"In games, your GPU hot spot runs {Units.Degrees(gap)} above the core. A gap past {Units.Degrees(HotSpotGapWarn)} can mean the thermal paste or cooler contact has worn."),
+                InsightTone.Warn, "hotspot", 70, Lang.T($"Over {r.HotSpotGap.Minutes} minutes of steady heavy load")) { Short = Lang.T($"GPU hot spot {Units.Degrees(gap)} above the core in games") });
 
         // Against the usual: the same game at steady load, now against the settled weeks before (see PcUsual), at the same
         // power, with the room taken out. It needs weeks, not months, of history, so a PC set up last month has one.
@@ -140,14 +141,30 @@ public static class InsightEngine
                     bool hotter = diff > 0;
                     string when = MonthsAgo(then);
                     // What rules the room out is said as the figure that does: the GPU with nothing running.
-                    string rest = Math.Abs(rn - rt) < 1.5 ? $"With nothing running it {(inProgress ? "sits" : "sat")} at {Units.TempShort(rn)}, as it did then"
-                        : $"With nothing running it's only {Units.Degrees(rn - rt)} {(rn > rt ? "warmer" : "cooler")} than then";
+                    string restTemp = Units.TempShort(rn), restDiff = Units.Degrees(rn - rt);
+                    string rest = Math.Abs(rn - rt) < 1.5
+                        ? inProgress ? Lang.T($"With nothing running it sits at {restTemp}, as it did then") : Lang.T($"With nothing running it sat at {restTemp}, as it did then")
+                        : rn > rt ? Lang.T($"With nothing running it's only {restDiff} warmer than then") : Lang.T($"With nothing running it's only {restDiff} cooler than then");
+                    string app = now.App, by = Units.ShownDiff(x, y), tNow = Units.TempShort(x), tThen = Units.TempShort(y);
+                    string head = (inProgress, hotter) switch
+                    {
+                        (true, true) => Lang.T($"In {app}, your {part} runs {by} hotter than {when}: {tNow} against {tThen}, at the same power."),
+                        (true, false) => Lang.T($"In {app}, your {part} runs {by} cooler than {when}: {tNow} against {tThen}, at the same power."),
+                        (false, true) => Lang.T($"In {app}, your {part} ran {by} hotter than {when}: {tNow} against {tThen}, at the same power."),
+                        (false, false) => Lang.T($"In {app}, your {part} ran {by} cooler than {when}: {tNow} against {tThen}, at the same power."),
+                    };
+                    string shortLine = (inProgress, hotter) switch
+                    {
+                        (true, true) => Lang.T($"{app} runs {by} hotter than {when}"),
+                        (true, false) => Lang.T($"{app} runs {by} cooler than {when}"),
+                        (false, true) => Lang.T($"{app} ran {by} hotter than {when}"),
+                        (false, false) => Lang.T($"{app} ran {by} cooler than {when}"),
+                    };
                     list.Add(new Insight(IconCompare,
-                        $"In {now.App}, your {part} {(inProgress ? "runs" : "ran")} {Units.ShownDiff(x, y)} {(hotter ? "hotter" : "cooler")} than {when}: {Units.TempShort(x)} against {Units.TempShort(y)}, at the same power. "
-                        + (hotter ? $"{rest}, so dust or old thermal paste are the likely causes." : $"{rest}."),
+                        head + " " + (hotter ? Lang.T($"{rest}, so dust or old thermal paste are the likely causes.") : $"{rest}."),
                         hotter ? InsightTone.Warn : InsightTone.Good, "drift", hotter ? 72 : 40,
-                        $"{now.Minutes} minutes of steady play now, {before.Minutes} {when}; at rest {Units.TempShort(rn)} now, {Units.TempShort(rt)} then")
-                        { Short = $"{now.App} {(inProgress ? "runs" : "ran")} {Units.ShownDiff(x, y)} {(hotter ? "hotter" : "cooler")} than {when}" });
+                        Lang.T($"{now.Minutes} minutes of steady play now, {before.Minutes} {when}; at rest {restTemp} now, {Units.TempShort(rt)} then"))
+                        { Short = shortLine });
                 }
                 Drift("GPU", now.Gpu, before.Gpu, nowRest.Gpu, then.Rest.Gpu);
                 Drift("CPU", now.Cpu, before.Cpu, nowRest.Cpu, then.Rest.Cpu);
@@ -166,10 +183,10 @@ public static class InsightEngine
                 if (was is null || was.SpinMinutes < FanUsualMinutes || was.StoppedMinutes > was.SpinMinutes * FanUsualStoppedShare || (fan.Gpu && gpuSaid)) continue;
                 string from = When(r, fan.StopStart!.Value, at: false);
                 list.Add(fan.Gpu
-                    ? new Insight(IconWarn, $"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)} from {from} with the GPU at {Units.TempShort(fan.StopTemp)}, when it always turns at that heat. Check it isn't blocked or unplugged.",
-                        InsightTone.Hot, "fan-stopped", 88, $"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more") { Short = $"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}" }
-                    : new Insight(IconWarn, $"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)} from {from}, when it always turns. Check it isn't blocked or unplugged.",
-                        InsightTone.Warn, "fan-stopped", 86, $"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}") { Short = $"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}" });
+                    ? new Insight(IconWarn, Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)} from {from} with the GPU at {Units.TempShort(fan.StopTemp)}, when it always turns at that heat. Check it isn't blocked or unplugged."),
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}") }
+                    : new Insight(IconWarn, Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)} from {from}, when it always turns. Check it isn't blocked or unplugged."),
+                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}") });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
             }
@@ -190,19 +207,27 @@ public static class InsightEngine
                 if (was is null) continue;
                 var before = previous?.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware);
                 string? app = FanSoftware.Among(running, fan.Gpu);
-                string Check(string what, bool plural) =>
-                    $"If you changed {what} {(app is not null ? $"in {app}" : fan.Gpu ? "in the card's software" : "in a fan app")}, that's why; if not, check {(plural ? "they're" : "it's")} clean and turning freely.";
+                string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the card's software") : Lang.T("in a fan app");
+                string Check(bool curve, bool plural) => (curve, plural) switch
+                {
+                    (true, true) => Lang.T($"If you changed the fan curve {where}, that's why; if not, check they're clean and turning freely."),
+                    (true, false) => Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely."),
+                    _ => Lang.T($"If you changed its speed {where}, that's why; if not, check it's clean and turning freely."),
+                };
                 if (Slower(fan, was) is { } slow)
                 {
                     if (before is not null && Slower(before, was) is not null) continue; // already said
                     string part = fan.Follows == FanFollows.Cpu ? "CPU" : "GPU";
-                    string who = fan.Gpu ? "Your GPU fans" : $"{fan.Name} on your motherboard";
+                    string name = fan.Name, temp = Units.TempShort(slow.Temp);
                     // Hot, not just worth a look, when the chip was warm with its fans held back.
                     list.Add(new Insight(IconWarn,
-                        $"{who} spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {Units.TempShort(slow.Temp)}, "
-                        + $"against {slow.Was:N0} rpm {usualLabel}. " + Check("the fan curve", fan.Gpu),
+                        (fan.Gpu
+                            ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}.")
+                            : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}."))
+                        + " " + Check(true, fan.Gpu),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
-                        $"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}") { Short = $"{who} spun {slow.Percent:0}% slower than usual" });
+                        Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"))
+                        { Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -213,8 +238,8 @@ public static class InsightEngine
                          && drop.To <= usualRpm * (1 - SteadySlowerShare) && usualRpm - drop.To >= SteadySlowerRpm)
                 {
                     list.Add(new Insight(IconWarn,
-                        $"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on. " + Check("its speed", false),
-                        InsightTone.Warn, "fan-slower", 83, $"At a set {usualRpm:N0} rpm {usualLabel}") { Short = $"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on" });
+                        Lang.T($"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on.") + " " + Check(false, false),
+                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                 }
             }
@@ -236,13 +261,18 @@ public static class InsightEngine
                         && Slower(WithWeek(before), was, OlderSlowerShare, OlderSlowerRpm) is not null) continue;
                     string? app = FanSoftware.Among(running, fan.Gpu);
                     string part = fan.Follows == FanFollows.Cpu ? "CPU" : "GPU";
-                    string who = fan.Gpu ? "Your GPU fans now spin" : $"{fan.Name} on your motherboard now spins";
-                    string when = thenFans.Mid.Year == DateTime.Today.Year ? $"in {thenFans.Mid:MMMM}" : $"in {thenFans.Mid:MMMM yyyy}";
+                    string name = fan.Name, temp = Units.TempShort(slow.Temp);
+                    string when = thenFans.Mid.Year == DateTime.Today.Year ? Lang.T($"in {thenFans.Mid:MMMM}") : Lang.T($"in {thenFans.Mid:MMMM yyyy}");
+                    string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the card's software") : Lang.T("in the BIOS or a fan app");
                     list.Add(new Insight(IconWarn,
-                        $"{who} {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {Units.TempShort(slow.Temp)}, against {slow.Was:N0} rpm then. "
-                        + $"If you changed the fan curve {(app is not null ? $"in {app}" : fan.Gpu ? "in the card's software" : "in the BIOS or a fan app")}, that's why; if not, check {(fan.Gpu ? "they're" : "it's")} clean and turning freely.",
+                        (fan.Gpu
+                            ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
+                              + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check they're clean and turning freely.")
+                            : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
+                              + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely.")),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
-                        $"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}") { Short = $"{who} {slow.Percent:0}% slower than {when}" });
+                        Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"))
+                        { Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}") });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -273,9 +303,17 @@ public static class InsightEngine
             {
                 string name = r.Apps.FirstOrDefault(a => a.Exe.Equals(often.Exe, StringComparison.OrdinalIgnoreCase))?.Name ?? System.IO.Path.GetFileNameWithoutExtension(often.Exe);
                 string during = PeriodWords.Said(r.Range, r.From);
-                string usualWords = often.Usual == 0 ? "usually it never does" : $"usually {PcUsual.About(often.Usual, us.UsualDays / 7, Math.Max(1, (r.To - r.From).TotalDays / 7))}";
-                list.Add(new Insight(IconWarn, $"{name} crashed {often.Count} times {during}; {usualWords}.", InsightTone.Warn, "app-crashes", 76,
-                    $"{often.Usual switch { 0 => "Never", 1 => "Once", var n => $"{n} times" }} in the {us.UsualDays:0} days before") { Short = $"{name} crashed {often.Count} times {during}" });
+                int count = often.Count;
+                string line = often.Usual == 0
+                    ? Lang.T($"{name} crashed {count} times {during}; usually it never does.")
+                    : Lang.T($"{name} crashed {count} times {during}; usually {PcUsual.About(often.Usual, us.UsualDays / 7, Math.Max(1, (r.To - r.From).TotalDays / 7))}.");
+                string detail = often.Usual switch
+                {
+                    0 => Lang.T($"Never in the {us.UsualDays:0} days before"),
+                    1 => Lang.T($"Once in the {us.UsualDays:0} days before"),
+                    var n => Lang.T($"{n} times in the {us.UsualDays:0} days before"),
+                };
+                list.Add(new Insight(IconWarn, line, InsightTone.Warn, "app-crashes", 76, detail) { Short = Lang.T($"{name} crashed {count} times {during}") });
             }
         }
 
@@ -283,16 +321,24 @@ public static class InsightEngine
 
         if (!enoughUse)
         {
+            string used = Units.Duration(r.ActiveSec);
             string text = inProgress
-                ? $"Too early for highlights: {Units.Duration(r.ActiveSec)} of use so far."
-                : $"A quiet {PeriodWord(r)}: only {Units.Duration(r.ActiveSec)} of use, so there's not much to point out.";
+                ? Lang.T($"Too early for highlights: {used} of use so far.")
+                : r.Range switch
+                {
+                    ReportRange.Day => Lang.T($"A quiet day: only {used} of use, so there's not much to point out."),
+                    ReportRange.Week => Lang.T($"A quiet week: only {used} of use, so there's not much to point out."),
+                    ReportRange.Year => Lang.T($"A quiet year: only {used} of use, so there's not much to point out."),
+                    ReportRange.All or ReportRange.Custom => Lang.T($"A quiet stretch: only {used} of use, so there's not much to point out."),
+                    _ => Lang.T($"A quiet month: only {used} of use, so there's not much to point out."),
+                };
             list.Add(new Insight(IconInfo, text, InsightTone.Neutral, "early", 60) { Short = text.TrimEnd('.') });
             return Ranked(list);
         }
 
         // Screen time: the totals, then how that compares.
-        list.Add(new Insight(IconScreen, $"You actively used your PC for {Units.Duration(r.ActiveSec)} (on for {Units.Duration(r.OnSec)}).",
-            InsightTone.Neutral, "screen", 99) { Short = $"{Units.Duration(r.ActiveSec)} of use" });
+        list.Add(new Insight(IconScreen, Lang.T($"You actively used your PC for {Units.Duration(r.ActiveSec)} (on for {Units.Duration(r.OnSec)})."),
+            InsightTone.Neutral, "screen", 99) { Short = Lang.T($"{Units.Duration(r.ActiveSec)} of use") });
         var compare = ScreenComparison(r, previous, usual, haveUsual, inProgress, context?.Weekday);
         if (compare is { } said)
             list.Add(new Insight(IconScreen, said.Text, InsightTone.Neutral, "screen-compare", 65) { Short = said.Short });
@@ -303,17 +349,17 @@ public static class InsightEngine
             // A hottest peak is only a record: the peak line (with its tone) says when a temperature is a worry.
             var (icon, text, tone, priority) = record.Kind switch
             {
-                RecordKind.LongestGameSession => (IconGame, $"Longest gaming session in {Span(record.Days)}: {record.App}, {record.Value}.", InsightTone.Good, 66),
-                RecordKind.HottestGpu => (IconTemp, $"Highest {Wording.Peak("GPU")} in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 63),
-                RecordKind.HottestCpu => (IconTemp, $"Highest {Wording.Peak("CPU")} in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 62),
-                _ => (IconScreen, $"Most screen time in {Span(record.Days)}: {record.Value}.", InsightTone.Neutral, 61),
+                RecordKind.LongestGameSession => (IconGame, Lang.T($"Longest gaming session in {Span(record.Days)}: {record.App}, {record.Value}."), InsightTone.Good, 66),
+                RecordKind.HottestGpu => (IconTemp, Lang.T($"Highest GPU peak in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 63),
+                RecordKind.HottestCpu => (IconTemp, Lang.T($"Highest CPU peak in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 62),
+                _ => (IconScreen, Lang.T($"Most screen time in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 61),
             };
-            list.Add(new Insight(icon, text, tone, "record", priority, $"Beats every day of the {record.Days} before") { Short = text.TrimEnd('.') });
+            list.Add(new Insight(icon, text, tone, "record", priority, Lang.T($"Beats every day of the {record.Days} before")) { Short = text.TrimEnd('.') });
         }
         // Not next to "less than your usual Saturday": the two would say opposite things.
         if (r.StreakDays >= 3 && compare is not { Less: true })
-            list.Add(new Insight(IconScreen, $"{Nth(r.StreakDays)} in a row over your usual screen time.", InsightTone.Neutral, "streak", 56,
-                "Each day against the average of the 7 before it") { Short = $"{Nth(r.StreakDays)} in a row over your usual screen time" });
+            list.Add(new Insight(IconScreen, Lang.T($"{Nth(r.StreakDays)} in a row over your usual screen time."), InsightTone.Neutral, "streak", 56,
+                Lang.T("Each day against the average of the 7 before it")) { Short = Lang.T($"{Nth(r.StreakDays)} in a row over your usual screen time") });
 
         // When the day started and ended, and whether the night before ran late.
         if (isDay && DaySpan(r, inProgress) is { } span)
@@ -325,8 +371,10 @@ public static class InsightEngine
         {
             int pct = (int)Math.Round(top.ActiveSec / r.ActiveSec * 100);
             bool again = TopApp(previous)?.Name == top.Name;
-            list.Add(new Insight(IconApp, $"{top.Name} took most of your time{(again ? " again" : "")}: {Units.Duration(top.ActiveSec)} ({pct}% of active time).",
-                InsightTone.Neutral, "top-app", again ? 25 : 50) { Short = $"{top.Name} took most of your time" });
+            string topName = top.Name, topTime = Units.Duration(top.ActiveSec);
+            list.Add(new Insight(IconApp,
+                again ? Lang.T($"{topName} took most of your time again: {topTime} ({pct}% of active time).") : Lang.T($"{topName} took most of your time: {topTime} ({pct}% of active time)."),
+                InsightTone.Neutral, "top-app", again ? 25 : 50) { Short = Lang.T($"{topName} took most of your time") });
         }
 
         // Gaming, against your usual.
@@ -334,21 +382,24 @@ public static class InsightEngine
         if (games.Count > 0)
         {
             double total = games.Sum(g => g.ActiveSec);
-            string which = games.Count == 1 ? games[0].Name : $"{games.Count} games";
-            string text = $"You gamed for {Units.Duration(total)} ({which}).";
+            int gameCount = games.Count;
+            string which = games.Count == 1 ? games[0].Name : Lang.T($"{gameCount} games");
+            string text = Lang.T($"You gamed for {Units.Duration(total)} ({which}).");
             // Against a whole day's usual only for a whole day (a few hours picked on their own aren't one).
             if (r.Range == ReportRange.Day && context?.Weekday is { GamingSec: > 0 } wd)
             {
                 double diff = total - wd.GamingSec;
+                string by = Units.Duration(Math.Abs(diff)), was = Units.Duration(wd.GamingSec), day = PeriodWords.DayName(wd.Day);
                 if (Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
-                    text += $" That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual {wd.Day} ({Units.Duration(wd.GamingSec)}).";
+                    text += " " + (diff > 0 ? Lang.T($"That's {by} more than your usual {day} ({was}).") : Lang.T($"That's {by} less than your usual {day} ({was})."));
             }
             else if (r.Range == ReportRange.Day && haveUsual)
             {
                 double avg = usual!.GamingSec / usualDays;
                 double diff = total - avg;
+                string by = Units.Duration(Math.Abs(diff)), was = Units.Duration(avg);
                 if (avg > 0 && Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
-                    text += $" That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual day ({Units.Duration(avg)}).";
+                    text += " " + (diff > 0 ? Lang.T($"That's {by} more than your usual day ({was}).") : Lang.T($"That's {by} less than your usual day ({was})."));
             }
             // The longest session, only its part in this period (one from the night before counts from midnight). A game
             // still being played has the session that matters, not over yet: none is named until it is. Nor when it was
@@ -357,20 +408,20 @@ public static class InsightEngine
             if (r.GameOngoing is null && sessions.Count > 0
                 && sessions.MaxBy(x => x.Sec) is { Session: { } longest, Sec: >= 20 * 60 } best
                 && (games.Count > 1 || best.Sec < total - 5 * 60))
-                text += longest.Start < r.From
-                    ? $" Longest session: {longest.Name}, {Units.Duration(best.Sec)}, carried on from the night before."
-                    : $" Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {When(r, longest.Start, at: false)}.";
+                text += " " + (longest.Start < r.From
+                    ? Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)}, carried on from the night before.")
+                    : Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {When(r, longest.Start, at: false)}."));
             list.Add(new Insight(IconGame, text, InsightTone.Neutral, "gaming", 64)
-                { Short = games.Count == 1 ? $"{Units.Duration(total)} of {games[0].Name}" : $"{Units.Duration(total)} of games, mostly {games[0].Name}" });
+                { Short = games.Count == 1 ? Lang.T($"{Units.Duration(total)} of {games[0].Name}") : Lang.T($"{Units.Duration(total)} of games, mostly {games[0].Name}") });
         }
 
         // Longest stretch without a break.
         if (r.LongestStretch is { } stretch && stretch.Seconds >= 90 * 60)
         {
-            string app = stretch.App is null ? "" : $", mostly {stretch.App}";
+            string app = stretch.App is null ? "" : Lang.T($", mostly {stretch.App}");
             string range = isDay ? $"{stretch.Start:h:mm tt} – {Until(r, stretch.End)}" : $"{stretch.Start:ddd d MMM, h:mm tt}";
-            list.Add(new Insight(IconStretch, $"Your longest stretch without a break was {Units.Duration(stretch.Seconds)} ({range}){app}.",
-                InsightTone.Neutral, "stretch", 58) { Short = $"{Units.Duration(stretch.Seconds)} without a break" });
+            list.Add(new Insight(IconStretch, Lang.T($"Your longest stretch without a break was {Units.Duration(stretch.Seconds)} ({range}){app}."),
+                InsightTone.Neutral, "stretch", 58) { Short = Lang.T($"{Units.Duration(stretch.Seconds)} without a break") });
         }
 
         // Who made the heat: the minutes over the warm line by the app that was working the part (not the window in front).
@@ -379,22 +430,26 @@ public static class InsightEngine
             if (hot < MinHotMinutes || by.Count == 0) return;
             int known = by.Sum(x => x.Minutes);
             if (known < hot / 2) return; // mostly nobody's: peaks say when, and that's enough
-            string who = by[0].Minutes >= hot * 0.8 ? $"nearly all of it on {by[0].App}"
-                : by[0].Minutes >= hot * 0.5 ? $"mostly on {by[0].App}"
-                : $"spread across {Wording.JoinAnd(by.Take(3).Select(x => x.App))}";
+            string first = by[0].App;
+            string who = by[0].Minutes >= hot * 0.8 ? Lang.T($"nearly all of it on {first}")
+                : by[0].Minutes >= hot * 0.5 ? Lang.T($"mostly on {first}")
+                : Lang.T($"spread across {Wording.JoinAnd(by.Take(3).Select(x => x.App))}");
             // Where the heat went, not a warning: a GPU runs over 75° in most games (the limit and peak lines warn).
-            list.Add(new Insight(icon, $"Your {part} spent {Wording.Minutes(hot)} over {Units.TempShort(Report.HotLine)}, {who}.",
-                InsightTone.Neutral, "hot-app", priority, string.Join(" · ", by.Take(4).Select(x => $"{x.App} {x.Minutes} min"))) { Short = $"{part} over {Units.TempShort(Report.HotLine)} for {Wording.Minutes(hot)}" });
+            list.Add(new Insight(icon, Lang.T($"Your {part} spent {Wording.Minutes(hot)} over {Units.TempShort(Report.HotLine)}, {who}."),
+                InsightTone.Neutral, "hot-app", priority, string.Join(" · ", by.Take(4).Select(x => Lang.T($"{x.App} {x.Minutes} min")))) { Short = Lang.T($"{part} over {Units.TempShort(Report.HotLine)} for {Wording.Minutes(hot)}") });
         }
         HotBy("GPU", IconGpu, r.GpuHotMinutes, r.GpuHotByApp, 62);
         HotBy("CPU", IconCpu, r.CpuHotMinutes, r.CpuHotByApp, 61);
 
         // Heavy work done behind the app you were using.
         if (r.BackgroundWork is { } bg)
+        {
+            string chip = bg.Gpu ? "GPU" : "CPU";
             list.Add(new Insight(bg.Gpu ? IconGpu : IconCpu,
-                $"{bg.App} ran your {(bg.Gpu ? "GPU" : "CPU")} hard for {Wording.Minutes(bg.Minutes)} from {When(r, bg.Start, at: false)} while you were in {bg.FrontApp}.",
+                Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {When(r, bg.Start, at: false)} while you were in {bg.FrontApp}."),
                 InsightTone.Neutral, "background-work", 60,
-                $"{When(r, bg.Start, at: false)} – {When(r, bg.Start.AddMinutes(bg.Minutes), at: false)}") { Short = $"{bg.App} worked your {(bg.Gpu ? "GPU" : "CPU")} hard in the background" });
+                $"{When(r, bg.Start, at: false)} – {When(r, bg.Start.AddMinutes(bg.Minutes), at: false)}") { Short = Lang.T($"{bg.App} worked your {chip} hard in the background") });
+        }
 
         // The game that works the GPU hardest, from steady play only (a warm-up or a menu makes any game look cooler).
         // Heavier, not hotter: that's the game, not the PC.
@@ -405,36 +460,45 @@ public static class InsightEngine
             var others = steadyGames.Where(g => g != hottest).ToList();
             double othersGpu = others.Sum(g => g.Gpu * g.Minutes) / others.Sum(g => g.Minutes);
             if (hottest.Gpu - othersGpu >= MinGameHeatDiff)
-                list.Add(new Insight(IconGame, $"{hottest.App} works your GPU hardest: {Units.TempShort(hottest.Gpu)} in steady play, against {Units.TempShort(othersGpu)} in your other games.",
-                    InsightTone.Neutral, "game-heat", 52, Wording.JoinAnd(steadyGames.Select(g => $"{g.App} {Units.TempShort(g.Gpu)}"))) { Short = $"{hottest.App} works your GPU hardest" });
+                list.Add(new Insight(IconGame, Lang.T($"{hottest.App} works your GPU hardest: {Units.TempShort(hottest.Gpu)} in steady play, against {Units.TempShort(othersGpu)} in your other games."),
+                    InsightTone.Neutral, "game-heat", 52, Wording.JoinAnd(steadyGames.Select(g => $"{g.App} {Units.TempShort(g.Gpu)}"))) { Short = Lang.T($"{hottest.App} works your GPU hardest") });
         }
 
         // Open-but-unused apps (not the same one as the period before: that's nagging).
         var idleHog = IdleHog(r);
         if (idleHog is not null && IdleHog(previous)?.Name != idleHog.Name)
+        {
+            string idleName = idleHog.Name, open = Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec), usedFor = Units.Duration(idleHog.ActiveSec);
             list.Add(new Insight(IconIdle,
-                $"{idleHog.Name} sat open in the background for {Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec)}"
-                + (idleHog.ActiveSec < 60 ? " and you never opened it." : $" but you only used it for {Units.Duration(idleHog.ActiveSec)}."),
+                idleHog.ActiveSec < 60
+                    ? Lang.T($"{idleName} sat open in the background for {open} and you never opened it.")
+                    : Lang.T($"{idleName} sat open in the background for {open} but you only used it for {usedFor}."),
                 InsightTone.Neutral, "idle-app", 40)
-                { Short = idleHog.ActiveSec < 60 ? $"{idleHog.Name} sat open, never used" : $"{idleHog.Name} sat open for {Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec)}, used {Units.Duration(idleHog.ActiveSec)}" });
+                { Short = idleHog.ActiveSec < 60 ? Lang.T($"{idleName} sat open, never used") : Lang.T($"{idleName} sat open for {open}, used {usedFor}") });
+        }
 
         // Memory: only when one app took a big share, and it isn't the same one as the period before.
         var memHog = MemHog(r);
         if (memHog?.MemMax is double mem && mem >= 4096 && MemHog(previous)?.Name != memHog.Name)
-            list.Add(new Insight(IconMemory, $"{memHog.Name} used the most memory, peaking at {Units.Megabytes(mem)}.", InsightTone.Neutral, "memory", 35) { Short = $"{memHog.Name} peaked at {Units.Megabytes(mem)} of memory" });
+            list.Add(new Insight(IconMemory, Lang.T($"{memHog.Name} used the most memory, peaking at {Units.Megabytes(mem)}."), InsightTone.Neutral, "memory", 35) { Short = Lang.T($"{memHog.Name} peaked at {Units.Megabytes(mem)} of memory") });
 
         // Left on with nobody there: only long stretches with nothing working (a short break, a render, a download aren't).
         if (r.LongAwaySec >= 3600 && isDay)
+        {
+            string away = Units.Duration(r.LongAwaySec);
             list.Add(new Insight(IconAway,
-                $"Your PC sat on with nobody there for {Units.Duration(r.LongAwaySec)}{(r.Range != ReportRange.Day ? "" : $" {PeriodWords.Said(r.Range, r.From)}")}.",
-                InsightTone.Neutral, "away", 42, $"Stretches of {Report.LongAwayMinutes} minutes or more without use or heavy work") { Short = $"On with nobody there for {Units.Duration(r.LongAwaySec)}" });
+                r.Range != ReportRange.Day
+                    ? Lang.T($"Your PC sat on with nobody there for {away}.")
+                    : Lang.T($"Your PC sat on with nobody there for {away} {PeriodWords.Said(r.Range, r.From)}."),
+                InsightTone.Neutral, "away", 42, Lang.T($"Stretches of {Report.LongAwayMinutes} minutes or more without use or heavy work")) { Short = Lang.T($"On with nobody there for {away}") });
+        }
 
         // Reassurance when everything was cool (less of it when it's every day).
         if (r.CpuTempPeak is { Value: < 70 } && r.GpuTempPeak is null or { Value: < 70 })
         {
             bool again = previous is { CpuTempPeak: { Value: < 70 }, GpuTempPeak: null or { Value: < 70 } };
-            list.Add(new Insight(IconGood, inProgress ? "Temperatures have stayed comfortable so far." : "Temperatures stayed comfortable the whole time.",
-                InsightTone.Good, "comfortable", again ? 20 : 30) { Short = inProgress ? "Temperatures comfortable so far" : "Temperatures stayed comfortable" });
+            list.Add(new Insight(IconGood, inProgress ? Lang.T("Temperatures have stayed comfortable so far.") : Lang.T("Temperatures stayed comfortable the whole time."),
+                InsightTone.Good, "comfortable", again ? 20 : 30) { Short = inProgress ? Lang.T("Temperatures comfortable so far") : Lang.T("Temperatures stayed comfortable") });
         }
 
         return Ranked(list);
@@ -450,32 +514,47 @@ public static class InsightEngine
         if (r.Range == ReportRange.Day && weekday is not null)
         {
             double diff = r.ActiveSec - weekday.ActiveSec;
+            string by = Units.Duration(Math.Abs(diff)), was = Units.Duration(weekday.ActiveSec), day = PeriodWords.DayName(weekday.Day);
             if (Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
                 return (inProgress
-                    ? $"You're already {Units.Duration(diff)} past your usual {weekday.Day} of {Units.Duration(weekday.ActiveSec)}."
-                    : $"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual {weekday.Day} ({Units.Duration(weekday.ActiveSec)}).", diff < 0,
-                    inProgress ? $"Already {Units.Duration(diff)} past your usual {weekday.Day}" : $"{Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual {weekday.Day}");
+                    ? Lang.T($"You're already {by} past your usual {day} of {was}.")
+                    : diff > 0 ? Lang.T($"That's {by} more than your usual {day} ({was}).") : Lang.T($"That's {by} less than your usual {day} ({was})."), diff < 0,
+                    inProgress ? Lang.T($"Already {by} past your usual {day}") : diff > 0 ? Lang.T($"{by} more than your usual {day}") : Lang.T($"{by} less than your usual {day}"));
             if (inProgress) return null;
         }
         if (r.Range == ReportRange.Day && haveUsual)
         {
             double avg = usual!.ActiveSec / usual.DaysWithData;
             double diff = r.ActiveSec - avg;
+            string by = Units.Duration(Math.Abs(diff)), was = Units.Duration(avg);
             // A day in progress can only be compared once it has passed your usual.
             if (Math.Abs(diff) >= MinTimeDiff && (!inProgress || diff > 0))
                 return (inProgress
-                    ? $"You're already {Units.Duration(diff)} past your usual day of {Units.Duration(avg)}."
-                    : $"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual day of {Units.Duration(avg)}.", diff < 0,
-                    inProgress ? $"Already {Units.Duration(diff)} past your usual day" : $"{Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than your usual day");
+                    ? Lang.T($"You're already {by} past your usual day of {was}.")
+                    : diff > 0 ? Lang.T($"That's {by} more than your usual day of {was}.") : Lang.T($"That's {by} less than your usual day of {was}."), diff < 0,
+                    inProgress ? Lang.T($"Already {by} past your usual day") : diff > 0 ? Lang.T($"{by} more than your usual day") : Lang.T($"{by} less than your usual day"));
         }
         // A whole month or year against the one before, a day at a time: February isn't short on use for being short.
         if (!inProgress && r.Range is ReportRange.Month or ReportRange.Year && previous is { HasData: true, ActiveSec: > 0 })
         {
             double perDay = r.ActiveSec / (r.To - r.From).TotalDays - previous.ActiveSec / (previous.To - previous.From).TotalDays;
             if (Math.Abs(perDay) < MinDailyDiff) return null;
-            string before = r.Range == ReportRange.Year ? "the year before" : "the month before";
-            return ($"That's {Units.Duration(Math.Abs(perDay))} a day {(perDay > 0 ? "more" : "less")} than {before}.", perDay < 0,
-                $"{Units.Duration(Math.Abs(perDay))} a day {(perDay > 0 ? "more" : "less")} than {before}");
+            string by = Units.Duration(Math.Abs(perDay));
+            bool year = r.Range == ReportRange.Year;
+            return ((year, perDay > 0) switch
+                {
+                    (true, true) => Lang.T($"That's {by} a day more than the year before."),
+                    (true, false) => Lang.T($"That's {by} a day less than the year before."),
+                    (false, true) => Lang.T($"That's {by} a day more than the month before."),
+                    (false, false) => Lang.T($"That's {by} a day less than the month before."),
+                }, perDay < 0,
+                (year, perDay > 0) switch
+                {
+                    (true, true) => Lang.T($"{by} a day more than the year before"),
+                    (true, false) => Lang.T($"{by} a day less than the year before"),
+                    (false, true) => Lang.T($"{by} a day more than the month before"),
+                    (false, false) => Lang.T($"{by} a day less than the month before"),
+                });
         }
         if (previous is { HasData: true } && previous.ActiveSec > 0)
         {
@@ -483,15 +562,16 @@ public static class InsightEngine
             if (Math.Abs(diff) < MinTimeDiff) return null;
             string than = r.Range switch
             {
-                ReportRange.Day => inProgress ? "yesterday by this time" : "the day before",
-                ReportRange.Week => inProgress ? "last week by this point" : "the week before",
-                ReportRange.Year => inProgress ? "last year by this point" : "the year before",
-                ReportRange.Custom when ReportBuilder.IsDayLike(r.Range, r.From, r.To) => (int)Math.Round((r.From - previous.From).TotalDays) == 1 ? "the same hours the day before" : "the same hours two days before",
-                ReportRange.Custom => "the same length of time just before",
-                _ => inProgress ? "last month by this point" : "the month before",
+                ReportRange.Day => inProgress ? Lang.T("yesterday by this time") : Lang.T("the day before"),
+                ReportRange.Week => inProgress ? Lang.T("last week by this point") : Lang.T("the week before"),
+                ReportRange.Year => inProgress ? Lang.T("last year by this point") : Lang.T("the year before"),
+                ReportRange.Custom when ReportBuilder.IsDayLike(r.Range, r.From, r.To) => (int)Math.Round((r.From - previous.From).TotalDays) == 1 ? Lang.T("the same hours the day before") : Lang.T("the same hours two days before"),
+                ReportRange.Custom => Lang.T("the same length of time just before"),
+                _ => inProgress ? Lang.T("last month by this point") : Lang.T("the month before"),
             };
-            return ($"That's {Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than {than}.", diff < 0,
-                $"{Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} than {than}");
+            string by = Units.Duration(Math.Abs(diff));
+            return (diff > 0 ? Lang.T($"That's {by} more screen time than {than}.") : Lang.T($"That's {by} less screen time than {than}."), diff < 0,
+                diff > 0 ? Lang.T($"{by} more than {than}") : Lang.T($"{by} less than {than}"));
         }
         return null;
     }
@@ -500,35 +580,36 @@ public static class InsightEngine
 
     private static string? DaySpan(Report r, bool inProgress)
     {
-        string? late = r.LateUntil is { } l ? $"The night before ran late: you were on until {l:h:mm tt}." : null;
+        string? late = r.LateUntil is { } l ? Lang.T($"The night before ran late: you were on until {l:h:mm tt}.") : null;
         if (r.DayStart is not { } start) return late;
         if (r.Range == ReportRange.Custom)
         {
             // A stretch of hours, not a day; the weekdays when it covers more than one.
             string fmt = r.From.Date == r.To.AddTicks(-1).Date ? "h:mm tt" : "ddd h:mm tt";
+            string from = start.ToString(fmt), to = (r.LastActive ?? start).ToString(fmt);
             return inProgress
-                ? $"You've been on since {start.ToString(fmt)}."
-                : $"You were on from {start.ToString(fmt)} to {(r.LastActive ?? start).ToString(fmt)}.";
+                ? Lang.T($"You've been on since {from}.")
+                : Lang.T($"You were on from {from} to {to}.");
         }
         string day = inProgress
-            ? $"Your day started at {start:h:mm tt}."
+            ? Lang.T($"Your day started at {start:h:mm tt}.")
             : r.LastActive >= r.To
-                ? $"Your day ran from {start:h:mm tt} until past midnight."
-                : $"Your day ran from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}.";
+                ? Lang.T($"Your day ran from {start:h:mm tt} until past midnight.")
+                : Lang.T($"Your day ran from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}.");
         return late is null ? day : $"{late} {day}";
     }
 
     /// <summary>The day's span as one statement: the late night when there was one (that's the news), else when it began and ended.</summary>
     private static string? ShortSpan(Report r, bool inProgress)
     {
-        if (r.LateUntil is { } l) return $"Up until {l:h:mm tt} the night before";
+        if (r.LateUntil is { } l) return Lang.T($"Up until {l:h:mm tt} the night before");
         if (r.DayStart is not { } start || r.Range == ReportRange.Custom) return null;
-        return inProgress ? $"Day started at {start:h:mm tt}"
-            : r.LastActive >= r.To ? $"On from {start:h:mm tt} until past midnight" : $"On from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}";
+        return inProgress ? Lang.T($"Day started at {start:h:mm tt}")
+            : r.LastActive >= r.To ? Lang.T($"On from {start:h:mm tt} until past midnight") : Lang.T($"On from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}");
     }
 
     /// <summary>When something ended: its time, or "past midnight" when it ran to the end of the day and on.</summary>
-    private static string Until(Report r, DateTime end) => end >= r.To && r.Range == ReportRange.Day ? "past midnight" : end.ToString("h:mm tt");
+    private static string Until(Report r, DateTime end) => end >= r.To && r.Range == ReportRange.Day ? Lang.T("past midnight") : end.ToString("h:mm tt");
 
     /// <summary>A session's active time within the period (one from the night before counts from midnight).</summary>
     private static double InPeriod(Report r, SessionInfo s)
@@ -538,14 +619,17 @@ public static class InsightEngine
         return Math.Max(0, Math.Min(s.ActiveSec, (to - from).TotalSeconds));
     }
 
-    private static string When(Report r, DateTime time, bool at = true) =>
-        (at ? "at " : "") + (r.Range == ReportRange.Day || (r.Range == ReportRange.Custom && r.From.Date == r.To.AddTicks(-1).Date)
-            ? time.ToString("h:mm tt") : time.ToString("ddd d MMM, h:mm tt"));
-
-    private static string PeriodWord(Report r) => r.Range switch
+    private static string When(Report r, DateTime time, bool at = true)
     {
-        ReportRange.Day => "day", ReportRange.Week => "week", ReportRange.Year => "year", ReportRange.All or ReportRange.Custom => "stretch", _ => "month",
-    };
+        bool oneDay = r.Range == ReportRange.Day || (r.Range == ReportRange.Custom && r.From.Date == r.To.AddTicks(-1).Date);
+        return (at, oneDay) switch
+        {
+            (true, true) => Lang.T($"at {time:h:mm tt}"),
+            (true, false) => Lang.T($"at {time:ddd d MMM, h:mm tt}"),
+            (false, true) => time.ToString("h:mm tt"),
+            (false, false) => time.ToString("ddd d MMM, h:mm tt"),
+        };
+    }
 
     private const int MinHotMinutes = 10, GameHeatMinutes = 30, HotSpotMinutes = 20;
 
@@ -642,40 +726,52 @@ public static class InsightEngine
         if (r.Crashes.Count == 1)
         {
             var ctx = contexts[0];
-            if (ctx?.GpuBefore >= alerts.GpuLimit) return $" The GPU was at {Units.TempShort(ctx.GpuBefore)} just before.";
-            if (ctx?.CpuBefore >= alerts.CpuLimit) return $" The CPU was at {Units.TempShort(ctx.CpuBefore)} just before.";
+            if (ctx?.GpuBefore >= alerts.GpuLimit) return " " + Lang.T($"The GPU was at {Units.TempShort(ctx.GpuBefore)} just before.");
+            if (ctx?.CpuBefore >= alerts.CpuLimit) return " " + Lang.T($"The CPU was at {Units.TempShort(ctx.CpuBefore)} just before.");
             return "";
         }
-        string all = r.Crashes.Count == 2 ? "Both" : $"All {r.Crashes.Count}";
+        int n = r.Crashes.Count;
+        bool both = n == 2;
         var hotGpu = contexts.Where(c => c?.GpuBefore >= alerts.GpuLimit).Select(c => c!.GpuBefore!.Value).ToList();
-        if (hotGpu.Count == r.Crashes.Count) return $" {all} came minutes after the GPU was over {Units.TempShort(hotGpu.Min())}.";
+        if (hotGpu.Count == n)
+        {
+            string t = Units.TempShort(hotGpu.Min());
+            return " " + (both ? Lang.T($"Both came minutes after the GPU was over {t}.") : Lang.T($"All {n} came minutes after the GPU was over {t}."));
+        }
         var hotCpu = contexts.Where(c => c?.CpuBefore >= alerts.CpuLimit).Select(c => c!.CpuBefore!.Value).ToList();
-        if (hotCpu.Count == r.Crashes.Count) return $" {all} came minutes after the CPU was over {Units.TempShort(hotCpu.Min())}.";
+        if (hotCpu.Count == n)
+        {
+            string t = Units.TempShort(hotCpu.Min());
+            return " " + (both ? Lang.T($"Both came minutes after the CPU was over {t}.") : Lang.T($"All {n} came minutes after the CPU was over {t}."));
+        }
         var fronts = contexts.Select(c => c?.FrontApp).ToList();
         if (fronts[0] is long front && fronts.All(f => f == front) && r.Apps.FirstOrDefault(a => a.Id == front) is { } app
             && !r.Crashes.All(c => c.AppExe.Equals(app.Exe, StringComparison.OrdinalIgnoreCase)))
-            return $" {all} happened while {app.Name} was in front.";
+        {
+            string name = app.Name;
+            return " " + (both ? Lang.T($"Both happened while {name} was in front.") : Lang.T($"All {n} happened while {name} was in front."));
+        }
         return "";
     }
 
     private static string CrashDetail(Report r) => string.Join(" · ", r.Crashes.Take(4).Select(c =>
         r.CrashContexts.GetValueOrDefault(c.Id) is { } ctx && (ctx.CpuBefore is not null || ctx.GpuBefore is not null)
-            ? $"{c.Time:d MMM h:mm tt}: {string.Join(", ", new[] { ctx.CpuBefore is { } cb ? $"CPU {Units.TempShort(cb)}" : null, ctx.GpuBefore is { } gb ? $"GPU {Units.TempShort(gb)}" : null }.OfType<string>())} just before"
+            ? Lang.T($"{c.Time:d MMM h:mm tt}: {string.Join(", ", new[] { ctx.CpuBefore is { } cb ? $"CPU {Units.TempShort(cb)}" : null, ctx.GpuBefore is { } gb ? $"GPU {Units.TempShort(gb)}" : null }.OfType<string>())} just before")
             : $"{c.Time:d MMM h:mm tt}"));
 
     /// <summary>"a month", "three months", "a year": how far back a record holds.</summary>
-    private static string Span(int days) => days switch { 30 => "a month", 90 => "three months", _ => "a year" };
+    private static string Span(int days) => days switch { 30 => Lang.T("a month"), 90 => Lang.T("three months"), _ => Lang.T("a year") };
 
     private static string Nth(int n) => n switch
     {
-        3 => "Third day", 4 => "Fourth day", 5 => "Fifth day", 6 => "Sixth day", 7 => "Seventh day", _ => $"{n} days",
+        3 => Lang.T("Third day"), 4 => Lang.T("Fourth day"), 5 => Lang.T("Fifth day"), 6 => Lang.T("Sixth day"), 7 => Lang.T("Seventh day"), _ => Lang.T($"{n} days"),
     };
 
     /// <summary>"in June" (the middle of the stretch), with the year when it isn't this one.</summary>
     private static string MonthsAgo(ThenHeat then)
     {
         var mid = then.From.AddDays((then.To - then.From).TotalDays / 2);
-        return mid.Year == DateTime.Today.Year ? $"in {mid:MMMM}" : $"in {mid:MMMM yyyy}";
+        return mid.Year == DateTime.Today.Year ? Lang.T($"in {mid:MMMM}") : Lang.T($"in {mid:MMMM yyyy}");
     }
 
 

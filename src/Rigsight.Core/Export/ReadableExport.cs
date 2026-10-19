@@ -22,7 +22,7 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
 
     /// <summary>"NVIDIA graphics driver 618.10 (10 Oct; since it, Crimson Desert runs 10° hotter on the GPU, likely the driver)".</summary>
     public string Changed => string.Join("; ", ChangesBefore.Select(ch => Results.TryGetValue(ch.Time.Date, out var r) && r.Main == ch
-        ? $"{ch.Title} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})"
+        ? Lang.T($"{ch.Title} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})")
         : $"{ch.Title} ({ch.Time:d MMM})"));
 
     /// <summary>What stood out in its close-up, a reading every two seconds, where one was kept (see <see cref="CloseUp"/>).</summary>
@@ -34,18 +34,18 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
         if (Finding is not { } f)
         {
             var said = CrashExplainer.Explain(Crash, App);
-            yield return ("Likely reason", said.Reason);
-            yield return ("What to try", said.Advice);
+            yield return (Lang.T("Likely reason"), said.Reason);
+            yield return (Lang.T("What to try"), said.Advice);
             yield break;
         }
-        yield return ("What happened", $"{f.Head} {f.Text}");
-        yield return ("How sure", f.HowSure);
-        yield return ("What points to this", f.Points.Count == 0 ? null : string.Join("; ", f.Points.Select(p => p.Detail.Length > 0 ? $"{p.Title} ({p.Detail.TrimEnd('.')})" : p.Title)));
-        yield return ("What it wasn't", f.RuledOut.Count == 0 ? null : string.Join("; ", f.RuledOut.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
-        yield return ("Could not be checked", f.NotChecked.Count == 0 ? null : string.Join("; ", f.NotChecked.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
-        yield return ("Still unknown", f.CantTell);
-        yield return ("In the last minutes", InLastMinutes.Count == 0 ? null : string.Join(" ", InLastMinutes));
-        yield return ("What to try", f.Advice);
+        yield return (Lang.T("What happened"), $"{f.Head} {f.Text}");
+        yield return (Lang.T("How sure"), f.HowSure);
+        yield return (Lang.T("What points to this"), f.Points.Count == 0 ? null : string.Join("; ", f.Points.Select(p => p.Detail.Length > 0 ? $"{p.Title} ({p.Detail.TrimEnd('.')})" : p.Title)));
+        yield return (Lang.T("What it wasn't"), f.RuledOut.Count == 0 ? null : string.Join("; ", f.RuledOut.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
+        yield return (Lang.T("Could not be checked"), f.NotChecked.Count == 0 ? null : string.Join("; ", f.NotChecked.Select(p => $"{p.Title} ({p.Detail.TrimEnd('.')})")));
+        yield return (Lang.T("Still unknown"), f.CantTell);
+        yield return (Lang.T("In the last minutes"), InLastMinutes.Count == 0 ? null : string.Join(" ", InLastMinutes));
+        yield return (Lang.T("What to try"), f.Advice);
     }
 }
 
@@ -67,56 +67,59 @@ public static class ReadableExport
         sb.AppendLine(text.ToUpperInvariant());
     }
 
-    private static string Foot(DateTime made, string version) =>
-        $"Made by RigSight {version} on {made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}. Everything here was recorded on this PC.";
+    private static string Foot(DateTime made, string version)
+    {
+        string when = made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture);
+        return Lang.T($"Made by RigSight {version} on {when}. Everything here was recorded on this PC.");
+    }
 
     /// <summary>The period as the Reports page tells it, laid out as text: totals, peaks, what stood out, every app, the crashes.</summary>
     public static string ReportText(Report r, string title, string version)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("RigSight report");
+        sb.AppendLine(Lang.T("RigSight report"));
         sb.AppendLine(title);
         if (!r.HasData)
         {
             sb.AppendLine();
-            sb.AppendLine("Nothing was recorded in this time.");
+            sb.AppendLine(Lang.T("Nothing was recorded in this time."));
             return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
         }
-        var totals = new List<object?[]> { new object?[] { "Active", Units.Duration(r.ActiveSec) }, new object?[] { "PC on", Units.Duration(r.OnSec) } };
-        if (r.GamingSec >= 60) totals.Add(["In games", Units.Duration(r.GamingSec)]);
-        if (r.Net is { } net && net.Down + net.Up > 0) totals.Add(["Internet", $"{Units.Data(net.Down)} downloaded, {Units.Data(net.Up)} uploaded"]);
+        var totals = new List<object?[]> { new object?[] { Lang.T("Active"), Units.Duration(r.ActiveSec) }, new object?[] { Lang.T("PC on"), Units.Duration(r.OnSec) } };
+        if (r.GamingSec >= 60) totals.Add([Lang.T("In games"), Units.Duration(r.GamingSec)]);
+        if (r.Net is { } net && net.Down + net.Up > 0) totals.Add([Lang.T("Internet"), Lang.T($"{Units.Data(net.Down)} downloaded, {Units.Data(net.Up)} uploaded")]);
         void Peak(string name, Peak? p, Func<double, string> say) { if (p is not null) totals.Add([name, $"{say(p.Value)}  ({PeakLine(p)})"]); }
-        Peak("CPU peak", r.CpuTempPeak, v => Units.TempShort(v));
-        Peak("GPU peak", r.GpuTempPeak, v => Units.TempShort(v));
-        Heading(sb, "The period");
+        Peak(Lang.T("CPU peak"), r.CpuTempPeak, v => Units.TempShort(v));
+        Peak(Lang.T("GPU peak"), r.GpuTempPeak, v => Units.TempShort(v));
+        Heading(sb, Lang.T("The period"));
         int name = totals.Max(t => ((string)t[0]!).Length);
         foreach (var t in totals) sb.AppendLine($"  {((string)t[0]!).PadRight(name)}  {t[1]}");
 
         if (r.Insights.Count > 0)
         {
-            Heading(sb, "What stood out");
+            Heading(sb, Lang.T("What stood out"));
             foreach (var i in r.Insights) sb.AppendLine("  - " + i.Text);
         }
         if (PcUsual.CardRows(r) is { Count: > 0 } usual)
         {
-            Heading(sb, "Against your usual");
+            Heading(sb, Lang.T("Against your usual"));
             var rows = usual.Select(u => new object?[] { u.Label, u.Now, $"{u.Usual} ({u.UsualDetail})", u.MeansDetail is null ? u.Means : $"{u.Means}: {u.MeansDetail}" }).ToList();
-            foreach (var line in DataExport.TextTable(["What", "This period", "Your usual", "What it means"], rows)) sb.AppendLine("  " + line);
+            foreach (var line in DataExport.TextTable([Lang.T("What"), Lang.T("This period"), Lang.T("Your usual"), Lang.T("What it means")], rows)) sb.AppendLine("  " + line);
         }
         var apps = r.Apps.Where(a => a.ActiveSec >= 60).ToList();
         if (apps.Count > 0)
         {
-            Heading(sb, "Apps you used");
+            Heading(sb, Lang.T("Apps you used"));
             var rows = apps.Select(a => new object?[]
             {
                 a.Name, AppCatalog.Label(a.Category), Units.Duration(a.ActiveSec), a.BackgroundSec > 0 ? Units.Duration(a.BackgroundSec) : null,
                 a.CpuTempMax is double c ? Units.TempShort(c) : null, a.GpuTempMax is double g ? Units.TempShort(g) : null, a.MemMax is double m ? Units.Megabytes(m) : null,
             }).ToList();
-            foreach (var line in DataExport.TextTable(["App", "Kind", "In use", "Background", "CPU peak", "GPU peak", "Memory peak"], rows)) sb.AppendLine("  " + line);
+            foreach (var line in DataExport.TextTable([Lang.T("App"), Lang.T("Kind"), Lang.T("In use"), Lang.T("Background"), Lang.T("CPU peak"), Lang.T("GPU peak"), Lang.T("Memory peak")], rows)) sb.AppendLine("  " + line);
         }
         if (r.Crashes.Count > 0)
         {
-            Heading(sb, "Crashes and sudden shut-offs");
+            Heading(sb, Lang.T("Crashes and sudden shut-offs"));
             foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeUtil.FromUnix(c.Ts):d MMM, h:mm tt}  {CrashExplainer.Explain(c).Title}");
         }
         return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
@@ -126,8 +129,8 @@ public static class ReadableExport
     public static string CrashesText(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("RigSight crashes");
-        sb.AppendLine(stories.Count == 0 ? $"{period}: none recorded." : $"{period}: {stories.Count} recorded, latest first.");
+        sb.AppendLine(Lang.T("RigSight crashes"));
+        sb.AppendLine(stories.Count == 0 ? Lang.T($"{period}: none recorded.") : Lang.T($"{period}: {stories.Count} recorded, latest first."));
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);
@@ -138,20 +141,24 @@ public static class ReadableExport
             if (s.Context is { NoReadings: false } c)
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)
-                    rows.Add(("Just before", string.Join(", ", new[] { c.CpuBefore is double cpu ? $"CPU up to {Units.TempShort(cpu)}" : null, c.GpuBefore is double gpu ? $"GPU up to {Units.TempShort(gpu)}" : null }.Where(x => x is not null))));
-                if (c.SessionSec is double sec && sec >= 60) rows.Add(("Had been running", Units.Duration(sec)));
+                    rows.Add((Lang.T("Just before"), JustBefore(c)));
+                if (c.SessionSec is double sec && sec >= 60) rows.Add((Lang.T("Had been running"), Units.Duration(sec)));
             }
-            else if (s.Context is { NoReadings: true }) rows.Add(("Just before", Wording.NotRecorded));
-            rows.Add(("In front", s.AppInFront));
-            if (s.ChangesBefore.Count > 0) rows.Add(("Changed in the 7 days before", s.Changed));
-            rows.Add(("Module", s.Crash.Module));
-            rows.Add(("Code", s.Crash.Code));
+            else if (s.Context is { NoReadings: true }) rows.Add((Lang.T("Just before"), Wording.NotRecorded));
+            rows.Add((Lang.T("In front"), s.AppInFront));
+            if (s.ChangesBefore.Count > 0) rows.Add((Lang.T("Changed in the 7 days before"), s.Changed));
+            rows.Add((Lang.T("Module"), s.Crash.Module));
+            rows.Add((Lang.T("Code"), s.Crash.Code));
             var shown = rows.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToList();
             int label = shown.Count == 0 ? 0 : shown.Max(x => x.Label.Length);
             foreach (var (l, v) in shown) sb.AppendLine($"  {l.PadRight(label)}  {v}");
         }
         return sb.AppendLine().AppendLine(Foot(made, version)).ToString();
     }
+
+    /// <summary>"CPU up to 81°, GPU up to 76°": the readings in the minutes before a crash.</summary>
+    private static string JustBefore(CrashContext c) =>
+        string.Join(", ", new[] { c.CpuBefore is double cpu ? Lang.T($"CPU up to {Units.TempShort(cpu)}") : null, c.GpuBefore is double gpu ? Lang.T($"GPU up to {Units.TempShort(gpu)}") : null }.Where(x => x is not null));
 
     // ── This PC, right now ──
 
@@ -160,27 +167,27 @@ public static class ReadableExport
     public static string Snapshot(DateTime at, string version, string pc, IEnumerable<SnapshotReading> readings, IEnumerable<string> notes)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("RigSight PC snapshot");
+        sb.AppendLine(Lang.T("RigSight PC snapshot"));
         sb.AppendLine($"{at.ToString("dddd, d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}  ·  RigSight {version}");
         sb.AppendLine();
-        sb.AppendLine("THIS PC");
+        sb.AppendLine(Lang.T("THIS PC"));
         foreach (var line in pc.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) sb.AppendLine("  " + line);
         var extra = notes.ToList();
         if (extra.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("DRIVES");
+            sb.AppendLine(Lang.T("DRIVES"));
             foreach (var line in extra) sb.AppendLine("  " + line);
         }
         var all = readings.ToList();
         if (all.Count == 0)
         {
             sb.AppendLine();
-            sb.AppendLine("No sensor readings: the background agent wasn't running.");
+            sb.AppendLine(Lang.T("No sensor readings: the background agent wasn't running."));
             return sb.ToString();
         }
         sb.AppendLine();
-        sb.AppendLine("READINGS  (now, then the lowest and highest since RigSight started)");
+        sb.AppendLine(Lang.T("READINGS  (now, then the lowest and highest since RigSight started)"));
         int name = Math.Min(44, all.Max(r => r.Name.Length)), now = all.Max(r => r.Now.Length), low = all.Max(r => r.Lowest.Length);
         foreach (var part in all.GroupBy(r => r.Part))
         {
@@ -190,7 +197,7 @@ public static class ReadableExport
             {
                 sb.AppendLine("  " + kind.Key);
                 foreach (var r in kind)
-                    sb.AppendLine($"    {r.Name.PadRight(name)}  {r.Now.PadLeft(now)}    {r.Lowest.PadLeft(low)}  to  {r.Highest}".TrimEnd());
+                    sb.AppendLine(("    " + Lang.T($"{r.Name.PadRight(name)}  {r.Now.PadLeft(now)}    {r.Lowest.PadLeft(low)}  to  {r.Highest}")).TrimEnd());
             }
         }
         return sb.ToString();
@@ -221,7 +228,7 @@ public static class ReadableExport
     private static StringBuilder Page(string title, string subtitle)
     {
         var sb = new StringBuilder();
-        sb.Append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
+        sb.Append($"<!doctype html><html lang=\"{Lang.Code}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
         sb.Append($"<title>{H(title)}</title><style>{Style}</style></head><body><main>");
         sb.Append($"<h1>{H(title)}</h1><div class=\"sub\">{H(subtitle)}</div>");
         return sb;
@@ -229,7 +236,7 @@ public static class ReadableExport
 
     private static string End(StringBuilder sb, DateTime made, string version)
     {
-        sb.Append($"<footer>Made by RigSight {H(version)} on {H(made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture))}. Everything here was recorded on this PC.</footer>");
+        sb.Append($"<footer>{H(Foot(made, version))}</footer>");
         sb.Append("</main></body></html>");
         return sb.ToString();
     }
@@ -239,28 +246,28 @@ public static class ReadableExport
     /// <summary>The period as the Reports page tells it: totals, peaks, what stood out, temperatures drawn, every app, the crashes.</summary>
     public static string Report(Report r, string title, string version)
     {
-        var sb = Page(title, r.HasData ? $"Active {Units.Duration(r.ActiveSec)}, PC on for {Units.Duration(r.OnSec)}" : "Nothing was recorded in this time.");
+        var sb = Page(title, r.HasData ? Lang.T($"Active {Units.Duration(r.ActiveSec)}, PC on for {Units.Duration(r.OnSec)}") : Lang.T("Nothing was recorded in this time."));
         if (!r.HasData) return End(sb, r.BuiltAt, version);
 
         sb.Append("<div class=\"tiles\">");
         void Tile(string label, string value, string note = "") => sb.Append($"<div class=\"tile\"><span>{H(label)}</span><b>{H(value)}</b><span>{H(note)}</span></div>");
-        Tile("ACTIVE", Units.Duration(r.ActiveSec));
-        Tile("PC ON", Units.Duration(r.OnSec));
-        if (r.GamingSec >= 60) Tile("IN GAMES", Units.Duration(r.GamingSec));
-        if (r.CpuTempPeak is { } cpu) Tile("CPU PEAK", Units.TempShort(cpu.Value), PeakLine(cpu));
-        if (r.GpuTempPeak is { } gpu) Tile("GPU PEAK", Units.TempShort(gpu.Value), PeakLine(gpu));
-        if (r.Net is { } net && net.Down + net.Up > 0) Tile("INTERNET", Units.Data(net.Down), $"{Units.Data(net.Up)} uploaded");
+        Tile(Lang.T("ACTIVE"), Units.Duration(r.ActiveSec));
+        Tile(Lang.T("PC ON"), Units.Duration(r.OnSec));
+        if (r.GamingSec >= 60) Tile(Lang.T("IN GAMES"), Units.Duration(r.GamingSec));
+        if (r.CpuTempPeak is { } cpu) Tile(Lang.T("CPU PEAK"), Units.TempShort(cpu.Value), PeakLine(cpu));
+        if (r.GpuTempPeak is { } gpu) Tile(Lang.T("GPU PEAK"), Units.TempShort(gpu.Value), PeakLine(gpu));
+        if (r.Net is { } net && net.Down + net.Up > 0) Tile(Lang.T("INTERNET"), Units.Data(net.Down), Lang.T($"{Units.Data(net.Up)} uploaded"));
         sb.Append("</div>");
 
         if (r.Insights.Count > 0)
         {
-            sb.Append("<h2>What stood out</h2><ul>");
+            sb.Append($"<h2>{H(Lang.T("What stood out"))}</h2><ul>");
             foreach (var i in r.Insights) sb.Append($"<li>{H(i.Text)}</li>");
             sb.Append("</ul>");
         }
         if (PcUsual.CardRows(r) is { Count: > 0 } usual)
         {
-            sb.Append("<h2>Against your usual</h2><table><tr><th>What</th><th>This period</th><th>Your usual</th><th>What it means</th></tr>");
+            sb.Append($"<h2>{H(Lang.T("Against your usual"))}</h2><table><tr><th>{H(Lang.T("What"))}</th><th>{H(Lang.T("This period"))}</th><th>{H(Lang.T("Your usual"))}</th><th>{H(Lang.T("What it means"))}</th></tr>");
             foreach (var u in usual)
                 sb.Append($"<tr><td>{H(u.Label)}</td><td>{H(u.Now)}</td><td>{H(u.Usual)} <span style=\"color:var(--muted)\">{H(u.UsualDetail)}</span></td><td>{H(u.MeansDetail is null ? u.Means : $"{u.Means}: {u.MeansDetail}")}</td></tr>");
             sb.Append("</table>");
@@ -268,7 +275,7 @@ public static class ReadableExport
 
         if (TempChart(r.Temps) is { } chart)
         {
-            sb.Append("<h2>Temperatures</h2>").Append(chart);
+            sb.Append($"<h2>{H(Lang.T("Temperatures"))}</h2>").Append(chart);
             sb.Append("<div class=\"legend\"><i style=\"background:var(--cpu)\"></i>CPU<i style=\"background:var(--gpu)\"></i>GPU</div>");
         }
 
@@ -276,7 +283,7 @@ public static class ReadableExport
         if (apps.Count > 0)
         {
             double top = Math.Max(1, apps.Max(a => a.ActiveSec));
-            sb.Append("<h2>Apps you used</h2><div class=\"scroll\"><table><thead><tr><th>APP</th><th>IN USE</th><th>BACKGROUND</th><th>CPU PEAK</th><th>GPU PEAK</th><th>MEMORY PEAK</th></tr></thead><tbody>");
+            sb.Append($"<h2>{H(Lang.T("Apps you used"))}</h2><div class=\"scroll\"><table><thead><tr><th>{H(Lang.T("APP"))}</th><th>{H(Lang.T("IN USE"))}</th><th>{H(Lang.T("BACKGROUND"))}</th><th>{H(Lang.T("CPU PEAK"))}</th><th>{H(Lang.T("GPU PEAK"))}</th><th>{H(Lang.T("MEMORY PEAK"))}</th></tr></thead><tbody>");
             foreach (var a in apps)
                 sb.Append($"<tr><td>{H(a.Name)} <span class=\"sub\">· {H(AppCatalog.Label(a.Category))}</span><div class=\"bar\" style=\"width:{Math.Max(1, a.ActiveSec / top * 100).ToString("0", CultureInfo.InvariantCulture)}%\"></div></td>")
                     .Append($"<td>{H(Units.Duration(a.ActiveSec))}</td><td>{H(a.BackgroundSec > 0 ? Units.Duration(a.BackgroundSec) : "–")}</td>")
@@ -286,7 +293,7 @@ public static class ReadableExport
 
         if (r.Crashes.Count > 0)
         {
-            sb.Append("<h2>Crashes and sudden shut-offs</h2><ul>");
+            sb.Append($"<h2>{H(Lang.T("Crashes and sudden shut-offs"))}</h2><ul>");
             foreach (var c in r.Crashes.OrderBy(c => c.Ts))
                 sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString("d MMM, h:mm tt"))}: {H(CrashExplainer.Explain(c).Title)}</li>");
             sb.Append("</ul>");
@@ -322,7 +329,7 @@ public static class ReadableExport
             }
             return d.ToString();
         }
-        var sb = new StringBuilder($"<svg viewBox=\"0 0 {W} {Ht}\" role=\"img\" aria-label=\"CPU and GPU temperature over the period\">");
+        var sb = new StringBuilder($"<svg viewBox=\"0 0 {W} {Ht}\" role=\"img\" aria-label=\"{H(Lang.T("CPU and GPU temperature over the period"))}\">");
         for (double v = lo; v <= hi + 0.1; v += (hi - lo) / 4)
         {
             string y = Y(v).ToString("0.#", inv);
@@ -341,7 +348,7 @@ public static class ReadableExport
 
     public static string Crashes(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version)
     {
-        var sb = Page("Crashes", stories.Count == 0 ? $"{period}: none recorded." : $"{period}: {stories.Count} recorded, latest first.");
+        var sb = Page(Lang.T("Crashes"), stories.Count == 0 ? Lang.T($"{period}: none recorded.") : Lang.T($"{period}: {stories.Count} recorded, latest first."));
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);
@@ -351,14 +358,14 @@ public static class ReadableExport
             if (s.Context is { NoReadings: false } c)
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)
-                    Row("Just before", string.Join(", ", new[] { c.CpuBefore is double cpu ? $"CPU up to {Units.TempShort(cpu)}" : null, c.GpuBefore is double gpu ? $"GPU up to {Units.TempShort(gpu)}" : null }.Where(x => x is not null)));
-                if (c.SessionSec is double sec && sec >= 60) Row("Had been running", Units.Duration(sec));
+                    Row(Lang.T("Just before"), JustBefore(c));
+                if (c.SessionSec is double sec && sec >= 60) Row(Lang.T("Had been running"), Units.Duration(sec));
             }
-            else if (s.Context is { NoReadings: true }) Row("Just before", Wording.NotRecorded);
-            Row("In front", s.AppInFront);
-            if (s.ChangesBefore.Count > 0) Row("Changed in the 7 days before", s.Changed);
-            Row("Module", s.Crash.Module);
-            Row("Code", s.Crash.Code);
+            else if (s.Context is { NoReadings: true }) Row(Lang.T("Just before"), Wording.NotRecorded);
+            Row(Lang.T("In front"), s.AppInFront);
+            if (s.ChangesBefore.Count > 0) Row(Lang.T("Changed in the 7 days before"), s.Changed);
+            Row(Lang.T("Module"), s.Crash.Module);
+            Row(Lang.T("Code"), s.Crash.Code);
             sb.Append("</dl></div>");
         }
         return End(sb, made, version);

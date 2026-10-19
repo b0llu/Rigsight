@@ -147,7 +147,7 @@ public static class ChangeEffects
         var against = crashes.Select(e => (e, f: found.GetValueOrDefault(e.Id))).Where(x => PcUsual.CountsAsPcProblem(x.e, x.f))
             .Select(x => new ChangeProblem(x.e.Time, x.e.Kind, IsGraphics(x.e, x.f), x.f?.Said ?? "")).ToList();
         return Of(changes, db.GetHeatDays(0, long.MaxValue / 2), db.GetSystemDays(0, long.MaxValue / 2) ?? [], against,
-            id => names.GetValueOrDefault(id, "a game"), DateTime.Now);
+            id => names.GetValueOrDefault(id) ?? Lang.T("a game"), DateTime.Now);
     }
 
     /// <summary>The problems a change can be set against: blue screens, graphics driver resets, shut-offs while running.</summary>
@@ -198,15 +198,15 @@ public static class ChangeEffects
     };
 
     /// <summary>What the change is called in a sentence: "this driver", "this update".</summary>
-    private static (string This, string Cause) Names(IReadOnlyList<SystemChange> of) => of.Count > 1 ? ("these changes", "ONE OF THESE") : of[0] switch
+    private static (string This, string Cause) Names(IReadOnlyList<SystemChange> of) => of.Count > 1 ? (Lang.T("these changes"), Lang.T("ONE OF THESE")) : of[0] switch
     {
-        { IsGraphicsDriver: true } => ("this driver", "THE DRIVER"),
-        { Kind: ChangeKind.Hardware } => ("this hardware change", "THE NEW HARDWARE"),
-        { Kind: ChangeKind.Firmware } => ("this BIOS update", "THE BIOS"),
-        { Kind: ChangeKind.Windows } => ("this Windows version", "THE NEW WINDOWS"),
-        { Kind: ChangeKind.WindowsUpdate } => ("this update", "THE UPDATE"),
-        { Kind: ChangeKind.Fans } => ("this fan change", "THE FAN CHANGE"),
-        _ => ("this power plan", "THE POWER PLAN"),
+        { IsGraphicsDriver: true } => (Lang.T("this driver"), Lang.T("THE DRIVER")),
+        { Kind: ChangeKind.Hardware } => (Lang.T("this hardware change"), Lang.T("THE NEW HARDWARE")),
+        { Kind: ChangeKind.Firmware } => (Lang.T("this BIOS update"), Lang.T("THE BIOS")),
+        { Kind: ChangeKind.Windows } => (Lang.T("this Windows version"), Lang.T("THE NEW WINDOWS")),
+        { Kind: ChangeKind.WindowsUpdate } => (Lang.T("this update"), Lang.T("THE UPDATE")),
+        { Kind: ChangeKind.Fans } => (Lang.T("this fan change"), Lang.T("THE FAN CHANGE")),
+        _ => (Lang.T("this power plan"), Lang.T("THE POWER PLAN")),
     };
 
     /// <summary>One change's comparison: each side's heat and problems, then what (if anything) got better or worse.</summary>
@@ -219,7 +219,7 @@ public static class ChangeEffects
         private readonly bool _plan = of.All(IsPowerPlan);
         // Fan speeds change how hot things run, not whether the PC crashes or the mains cuts out: only heat is set against them.
         private readonly bool _fans = of.All(c => c.Kind == ChangeKind.Fans);
-        private string Since => open ? "since" : $"in the {_daysAfter} days after";
+        private string Since => open ? Lang.T("since") : Lang.T($"in the {_daysAfter} days after");
 
         /// <summary>The thinner side's play, when under <see cref="SureMinutes"/>.</summary>
         private string? _thin;
@@ -260,15 +260,15 @@ public static class ChangeEffects
                 foreach (var (part, a, b, rn, rw, warm) in new[] { ("GPU", n1.Gpu, w1.Gpu, nowRest!.Gpu, wasRest!.Gpu, GpuWarm), ("CPU", n1.Cpu ?? double.NaN, w1.Cpu ?? double.NaN, nowRest.Cpu, wasRest.Cpu, CpuWarm) })
                 {
                     if (double.IsNaN(a) || double.IsNaN(b)) continue;
-                    var f = Temp(part, $"in {n1.App}", n1.App, a, b, rn, rw, warm, sureHeat, thisOne);
-                    rows.Add(f.Row with { Detail = part == "GPU" ? $"Same load, after the first 10 minutes · {Play(w1.Minutes)} before, {Play(n1.Minutes)} {Since}" : "Same minutes" });
+                    var f = Temp(part, Lang.T($"in {n1.App}"), n1.App, a, b, rn, rw, warm, sureHeat, thisOne);
+                    rows.Add(f.Row with { Detail = part == "GPU" ? Lang.T($"Same load, after the first 10 minutes · {Play(w1.Minutes)} before, {Play(n1.Minutes)} {Since}") : Lang.T("Same minutes") });
                     if (f.Finding is { } found)
                     {
                         findings.Add(found);
                         if (!any)
                         {
                             pairs.Add(f.Row);
-                            tempLabel = $"{part} in {n1.App}";
+                            tempLabel = Lang.T($"{part} in {n1.App}");
                             tempRows = d => d.App == app;
                             tempOf = part == "GPU" ? Gpu : Cpu;
                             (tempBefore, tempAfter) = (b, a);
@@ -276,41 +276,50 @@ public static class ChangeEffects
                         any = true;
                     }
                 }
-                rows.Add(new($"GPU power in {n1.App}", _plan ? "The power plan changes power by design, so it's shown, not held the same" : "Within 15%, so it's the same load",
-                    Watts(w1.GpuPower), Watts(n1.GpuPower), EffectTone.Same, _plan ? "" : "Same load"));
-                checks.Add(new(true, "The same game on both sides", $"{n1.App}: {Play(w1.Minutes)} before, {Play(n1.Minutes)} {Since}."));
-                if (!_plan) checks.Add(new(true, "The same load", $"GPU power {Watts(w1.GpuPower)} before, {Watts(n1.GpuPower)} {Since}."));
-                playWhy = $"{Play(w1.Minutes)} and {Play(n1.Minutes)} of {n1.App}";
-                if (thin) checks.Add(new(false, "A thin side", $"Only {Play(Math.Min(n1.Minutes, w1.Minutes))} of {n1.App} {(n1.Minutes < w1.Minutes ? Since : "before")}; two hours on each side make it likely."));
+                rows.Add(new(Lang.T($"GPU power in {n1.App}"), _plan ? Lang.T("The power plan changes power by design, so it's shown, not held the same") : Lang.T("Within 15%, so it's the same load"),
+                    Watts(w1.GpuPower), Watts(n1.GpuPower), EffectTone.Same, _plan ? "" : Lang.T("Same load")));
+                checks.Add(new(true, Lang.T("The same game on both sides"), Lang.T($"{n1.App}: {Play(w1.Minutes)} before, {Play(n1.Minutes)} {Since}.")));
+                if (!_plan) checks.Add(new(true, Lang.T("The same load"), Lang.T($"GPU power {Watts(w1.GpuPower)} before, {Watts(n1.GpuPower)} {Since}.")));
+                playWhy = Lang.T($"{Play(w1.Minutes)} and {Play(n1.Minutes)} of {n1.App}");
+                if (thin)
+                {
+                    string least = Play(Math.Min(n1.Minutes, w1.Minutes));
+                    checks.Add(new(false, Lang.T("A thin side"), n1.Minutes < w1.Minutes
+                        ? Lang.T($"Only {least} of {n1.App} {Since}; two hours on each side make it likely.")
+                        : Lang.T($"Only {least} of {n1.App} before; two hours on each side make it likely.")));
+                }
                 _thin = thin ? Play(Math.Min(n1.Minutes, w1.Minutes)) : null;
             }
             else if (restOk && !_plan && Pooled(was) is { } pw && Pooled(isNow) is { } pn && pw.Minutes >= MinSteadyMinutes && pn.Minutes >= MinSteadyMinutes
                      && SamePower(pn.Power, pw.Power))
             {
                 // No one game on both sides: the GPU at the same power is the same heat to get rid of, whatever the game.
-                var f = Temp("GPU", "in games", "games", pn.Gpu, pw.Gpu, nowRest!.Gpu, wasRest!.Gpu, GpuWarm, Confidence.Possible, thisOne, plural: true);
-                rows.Add(f.Row with { Detail = $"Every game, at the same GPU power · {Play(pw.Minutes)} before, {Play(pn.Minutes)} {Since}" });
-                rows.Add(new("GPU power in games", "Within 15%, so it's the same heat to get rid of", Watts(pw.Power), Watts(pn.Power), EffectTone.Same, "Same load"));
+                var f = Temp("GPU", Lang.T("in games"), Lang.T("games"), pn.Gpu, pw.Gpu, nowRest!.Gpu, wasRest!.Gpu, GpuWarm, Confidence.Possible, thisOne, plural: true);
+                rows.Add(f.Row with { Detail = Lang.T($"Every game, at the same GPU power · {Play(pw.Minutes)} before, {Play(pn.Minutes)} {Since}") });
+                rows.Add(new(Lang.T("GPU power in games"), Lang.T("Within 15%, so it's the same heat to get rid of"), Watts(pw.Power), Watts(pn.Power), EffectTone.Same, Lang.T("Same load")));
                 if (f.Finding is { } found)
                 {
                     findings.Add(found);
                     pairs.Add(f.Row);
-                    tempLabel = "GPU in games";
+                    tempLabel = Lang.T("GPU in games");
                     tempRows = d => d.App != 0;
                     tempOf = Gpu;
                     (tempBefore, tempAfter) = (pw.Gpu, pn.Gpu);
                 }
-                checks.Add(new(true, "The same GPU power", $"{Watts(pw.Power)} before, {Watts(pn.Power)} {Since}, across games."));
-                checks.Add(new(false, "Different games", "No one game was played for an hour on both sides, so it's every game at the same power: possibly, not likely."));
-                playWhy = $"{Play(pw.Minutes)} and {Play(pn.Minutes)} of games";
+                checks.Add(new(true, Lang.T("The same GPU power"), Lang.T($"{Watts(pw.Power)} before, {Watts(pn.Power)} {Since}, across games.")));
+                checks.Add(new(false, Lang.T("Different games"), Lang.T("No one game was played for an hour on both sides, so it's every game at the same power: possibly, not likely.")));
+                playWhy = Lang.T($"{Play(pw.Minutes)} and {Play(pn.Minutes)} of games");
             }
             if (rows.Count > 0)
             {
                 double roomGpu = (nowRest!.Gpu ?? 0) - (wasRest!.Gpu ?? 0);
-                rows.Add(new("The GPU with nothing running", "Moves with the warmth around the PC", Units.TempShort(wasRest.Gpu), Units.TempShort(nowRest.Gpu), EffectTone.Same,
-                    Math.Abs(roomGpu) < 1 ? "Same at rest" : $"{Units.Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")} at rest, taken out above"));
-                checks.Add(new(true, Math.Abs(roomGpu) < 1 ? "Same at rest" : "At rest, taken into account", Math.Abs(roomGpu) < 1 ? $"With nothing running the GPU sat at {Units.TempShort(nowRest.Gpu)} both times."
-                    : $"With nothing running the GPU is {Units.Degrees(Math.Abs(roomGpu))} {(roomGpu > 0 ? "warmer" : "cooler")}; that much is taken out."));
+                string roomBy = Units.Degrees(Math.Abs(roomGpu)), restTemp = Units.TempShort(nowRest.Gpu);
+                bool sameRest = Math.Abs(roomGpu) < 1;
+                rows.Add(new(Lang.T("The GPU with nothing running"), Lang.T("Moves with the warmth around the PC"), Units.TempShort(wasRest.Gpu), restTemp, EffectTone.Same,
+                    sameRest ? Lang.T("Same at rest") : roomGpu > 0 ? Lang.T($"{roomBy} warmer at rest, taken out above") : Lang.T($"{roomBy} cooler at rest, taken out above")));
+                checks.Add(new(true, sameRest ? Lang.T("Same at rest") : Lang.T("At rest, taken into account"),
+                    sameRest ? Lang.T($"With nothing running the GPU sat at {restTemp} both times.")
+                    : roomGpu > 0 ? Lang.T($"With nothing running the GPU is {roomBy} warmer; that much is taken out.") : Lang.T($"With nothing running the GPU is {roomBy} cooler; that much is taken out.")));
             }
 
             ChangeCheck? problemCheck = null;
@@ -322,33 +331,36 @@ public static class ChangeEffects
             // The change's own day is known only as a whole: its hours go with "after", where its problems from the
             // change on are counted (a rate after can then only come out lower, never falsely worse).
             double hoursBefore = Hours(from, day), hoursAfter = Hours(day, to);
-            string what = _graphics ? "Graphics problems" : Wording.Capital(Wording.Problems);
+            string what = _graphics ? Lang.T("Graphics problems") : Wording.Capital(Wording.Problems);
             if (!_fans && hoursBefore >= MinUseHours && hoursAfter >= MinUseHours)
             {
                 double rateBefore = before.Count / hoursBefore, rateAfter = since.Count / hoursAfter;
                 var tone = since.Count >= 2 && rateAfter >= 2 * rateBefore ? EffectTone.Worse
                     : before.Count >= 2 && rateBefore >= 2 * rateAfter ? EffectTone.Better : EffectTone.Same;
-                var figure = new ChangeFigure(what, (_graphics ? "Graphics driver resets, blue screens in a graphics driver, the graphics card hanging · " : "")
-                    + $"{hoursBefore:0} h of use before, {hoursAfter:0} h {Since}", Count(before), Count(since), tone,
-                    tone == EffectTone.Worse ? "More" : tone == EffectTone.Better ? "Fewer" : before.Count + since.Count is > 0 and < 4 ? "Too few to compare" : "As before");
+                var figure = new ChangeFigure(what, (_graphics ? Lang.T("Graphics driver resets, blue screens in a graphics driver, the graphics card hanging · ") : "")
+                    + Lang.T($"{hoursBefore:0} h of use before, {hoursAfter:0} h {Since}"), Count(before), Count(since), tone,
+                    tone == EffectTone.Worse ? Lang.T("More") : tone == EffectTone.Better ? Lang.T("Fewer") : before.Count + since.Count is > 0 and < 4 ? Lang.T("Too few to compare") : Lang.T("As before"));
                 rows.Add(figure);
                 if (tone != EffectTone.Same)
                 {
                     var sure = of.Count == 1 && Math.Max(before.Count, since.Count) >= LikelyCount ? Confidence.Likely : Confidence.Possible;
+                    string wordsSince = Words(since), wordsBefore = Words(before), daysBefore = Days(_daysBefore);
                     string counts = tone == EffectTone.Worse
-                        ? $"{Words(since)}{(before.Count == 0 ? $", none in the {Days(_daysBefore)} before" : $" in {hoursAfter:0} h of use, against {Words(before)} in {hoursBefore:0} h before")}"
-                        : $"{(since.Count == 0 ? "none" : $"{Words(since)} in {hoursAfter:0} h of use")}, against {Words(before)} in {(since.Count == 0 ? $"the {Days(_daysBefore)}" : $"{hoursBefore:0} h")} before";
-                    findings.Add(new(tone, sure, $"{(tone == EffectTone.Worse ? "More" : "Fewer")} {what.ToLowerInvariant()} {Since} {thisOne}: {counts}",
-                        "Counted against the hours the PC was used on each side.", $"{(tone == EffectTone.Worse ? "More" : "Fewer")} {what.ToLowerInvariant()} {Since}", false, false)
-                        { Plain = $"{(tone == EffectTone.Worse ? "more" : "fewer")} {what.ToLowerInvariant()}: {counts}" });
-                    problemCheck = new(sure == Confidence.Likely, sure == Confidence.Likely ? "Enough problems to go on" : "A small count",
-                        $"{before.Count + since.Count} in all; at least {LikelyCount} on one side makes it likely.");
+                        ? before.Count == 0 ? Lang.T($"{wordsSince}, none in the {daysBefore} before") : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before")
+                        : since.Count == 0 ? Lang.T($"none, against {wordsBefore} in the {daysBefore} before") : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before");
+                    string lower = what.ToLowerInvariant(), since0 = Since;
+                    bool more = tone == EffectTone.Worse;
+                    findings.Add(new(tone, sure, more ? Lang.T($"More {lower} {since0} {thisOne}: {counts}") : Lang.T($"Fewer {lower} {since0} {thisOne}: {counts}"),
+                        Lang.T("Counted against the hours the PC was used on each side."), more ? Lang.T($"More {lower} {since0}") : Lang.T($"Fewer {lower} {since0}"), false, false)
+                        { Plain = more ? Lang.T($"more {lower}: {counts}") : Lang.T($"fewer {lower}: {counts}") });
+                    problemCheck = new(sure == Confidence.Likely, sure == Confidence.Likely ? Lang.T("Enough problems to go on") : Lang.T("A small count"),
+                        Lang.T($"{before.Count + since.Count} in all; at least {LikelyCount} on one side makes it likely."));
                 }
                 if (pairs.Count < 2) pairs.Add(figure);
                 if (_graphics && problems.Where(p => !p.Graphics).ToList() is { Count: > 0 } other
                     && other.Count(p => p.Time >= from && p.Time < at) is var ob && other.Count(p => p.Time >= at && p.Time < to) is var oa && ob + oa > 0)
-                    rows.Add(new($"Not counted: {string.Join(" and ", other.Select(p => Wording.Noun(p.Kind, many: true)).Distinct())}",
-                        "A graphics driver doesn't cause these unless the graphics card hung", ob.ToString(), oa.ToString(), EffectTone.Same, "See Crashes", Counted: false));
+                    rows.Add(new(Lang.T($"Not counted: {And(other.Select(p => Wording.Noun(p.Kind, many: true)).Distinct())}"),
+                        Lang.T("A graphics driver doesn't cause these unless the graphics card hung"), ob.ToString(), oa.ToString(), EffectTone.Same, Lang.T("See Crashes"), Counted: false));
             }
 
             var head = findings.OrderBy(f => f.Tone == EffectTone.Worse ? 0 : 1).ThenBy(f => f.Sure).ThenBy(f => f.Heat ? 0 : 1).FirstOrDefault();
@@ -356,15 +368,18 @@ public static class ChangeEffects
             // How sure is about the headline: the heat's checks when it's heat, the count when it's problems.
             if (!head.Heat)
             {
-                checks.RemoveAll(c => c.Title is "A thin side" or "Different games");
+                string thinSide = Lang.T("A thin side"), differentGames = Lang.T("Different games");
+                checks.RemoveAll(c => c.Title == thinSide || c.Title == differentGames);
                 if (problemCheck is not null) checks.Insert(0, problemCheck);
             }
 
             checks.Add(of.Count == 1
-                ? new(true, "Nothing else big changed in these days", BoundsText())
-                : new(false, "Two big changes on one day", $"{string.Join(" and ", of.Select(c => c.Title))} came in on the same day, so they can't be told apart."));
+                ? new(true, Lang.T("Nothing else big changed in these days"), BoundsText())
+                : new(false, Lang.T("Two big changes on one day"), Lang.T($"{And(of.Select(c => c.Title))} came in on the same day, so they can't be told apart.")));
 
-            string why = $"{Days(_daysBefore)} before, {Days(_daysAfter)} {(open ? "since" : "after")}" + (playWhy.Length > 0 && head.Heat ? $" · {playWhy}" : $" · {hoursBefore:0} h and {hoursAfter:0} h of use")
+            string dB = Days(_daysBefore), dA = Days(_daysAfter);
+            string why = (open ? Lang.T($"{dB} before, {dA} since") : Lang.T($"{dB} before, {dA} after"))
+                + " · " + (playWhy.Length > 0 && head.Heat ? playWhy : Lang.T($"{hoursBefore:0} h and {hoursAfter:0} h of use"))
                 + (head.Sure == Confidence.Possible ? " · " + PossibleWhy(head, of.Count) : "");
             string? advice = head.Tone == EffectTone.Worse && (head.Warm || (!head.Heat && head.Sure == Confidence.Likely)) ? Advice(of[0]) : null;
 
@@ -396,35 +411,64 @@ public static class ChangeEffects
             double diff = now - then, room = (restNow ?? 0) - (restWas ?? 0), beyondRoom = diff - room;
             bool moved = Math.Abs(diff) >= MinDiff && Math.Abs(beyondRoom) >= MinBeyondRoom && Math.Sign(diff) == Math.Sign(beyondRoom);
             var tone = !moved ? EffectTone.Same : diff > 0 ? EffectTone.Worse : EffectTone.Better;
-            string meaning = moved ? $"{Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")}{(Math.Abs(room) >= 1 ? $", {Units.Degrees(Math.Abs(beyondRoom))} beyond what rest moved" : "")}"
-                : Math.Abs(diff) <= 2 ? "About the same: within 2°" : $"Not enough to say: under {Units.Degrees(MinDiff)}";
+            string by = Units.Degrees(Math.Abs(diff)), beyond = Units.Degrees(Math.Abs(beyondRoom));
+            bool hotter = diff > 0, roomMoved = Math.Abs(room) >= 1;
+            string meaning = moved
+                ? (hotter, roomMoved) switch
+                {
+                    (true, true) => Lang.T($"{by} hotter, {beyond} beyond what rest moved"),
+                    (true, false) => Lang.T($"{by} hotter"),
+                    (false, true) => Lang.T($"{by} cooler, {beyond} beyond what rest moved"),
+                    (false, false) => Lang.T($"{by} cooler"),
+                }
+                : Math.Abs(diff) <= 2 ? Lang.T("About the same: within 2°") : Lang.T($"Not enough to say: under {Units.Degrees(MinDiff)}");
             var row = new ChangeFigure($"{part} {where}", "", Units.TempShort(then), Units.TempShort(now), tone, meaning);
             if (!moved) return (row, null);
-            string verb = open ? (plural ? "run" : "runs") : (plural ? "ran" : "ran");
-            string context = _plan ? $"Same game; the power plan changes power by design, so GPU power is shown too."
-                : (plural ? "Every game at the same GPU power" : "Same game at the same load") + (Math.Abs(room) < 1 ? ", and the same at rest." : ", with the change at rest taken out.");
-            string plain = $"{Wording.Capital(subject)} {verb} {Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} on the {part}";
-            return (row, new(tone, sure, $"{plain} {Since} {thisOne}", context,
-                $"{Units.Degrees(Math.Abs(diff))} {(diff > 0 ? "hotter" : "cooler")} {where} {Since}", true, diff > 0 && now >= warm) { Plain = plain });
+            string context = _plan ? Lang.T("Same game; the power plan changes power by design, so GPU power is shown too.")
+                : (plural, Math.Abs(room) < 1) switch
+                {
+                    (true, true) => Lang.T("Every game at the same GPU power, and the same at rest."),
+                    (true, false) => Lang.T("Every game at the same GPU power, with the change at rest taken out."),
+                    (false, true) => Lang.T("Same game at the same load, and the same at rest."),
+                    (false, false) => Lang.T("Same game at the same load, with the change at rest taken out."),
+                };
+            string who = Wording.Capital(subject);
+            string plain = (open, plural, hotter) switch
+            {
+                (true, false, true) => Lang.T($"{who} runs {by} hotter on the {part}"),
+                (true, false, false) => Lang.T($"{who} runs {by} cooler on the {part}"),
+                (true, true, true) => Lang.T($"{who} run {by} hotter on the {part}"),
+                (true, true, false) => Lang.T($"{who} run {by} cooler on the {part}"),
+                (false, _, true) => Lang.T($"{who} ran {by} hotter on the {part}"),
+                (false, _, false) => Lang.T($"{who} ran {by} cooler on the {part}"),
+            };
+            string since = Since;
+            return (row, new(tone, sure, Lang.T($"{plain} {since} {thisOne}"), context,
+                hotter ? Lang.T($"{by} hotter {where} {since}") : Lang.T($"{by} cooler {where} {since}"), true, diff > 0 && now >= warm) { Plain = plain });
         }
 
         private bool Counts(ChangeProblem p) => !_graphics || p.Graphics;
 
-        private string BoundsText() =>
-            $"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {(open ? "now" : to.AddDays(-1).ToString("d MMM"))}.";
+        private string BoundsText()
+        {
+            string until = open ? Lang.T("now") : to.AddDays(-1).ToString("d MMM");
+            return Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until}.");
+        }
 
-        private string PossibleWhy(Finding head, int changes) => changes > 1 ? "Possibly, not likely: two big changes on one day."
-            : !head.Heat ? "Possibly, not likely: a small count."
-            : _thin is { } thin ? $"Possibly, not likely: only {thin} of play on one side." : "Possibly, not likely: across games, not one game.";
+        private string PossibleWhy(Finding head, int changes) => changes > 1 ? Lang.T("Possibly, not likely: two big changes on one day.")
+            : !head.Heat ? Lang.T("Possibly, not likely: a small count.")
+            : _thin is { } thin ? Lang.T($"Possibly, not likely: only {thin} of play on one side.") : Lang.T("Possibly, not likely: across games, not one game.");
 
         private string? Advice(SystemChange c) => c switch
         {
-            { IsGraphicsDriver: true } => $"Try the next driver{(c.Was is { Length: > 0 } was ? $", or go back to {was} with a clean install" : "")}. This page will show whether it changes.",
-            { Kind: ChangeKind.WindowsUpdate } => "Windows lets you uninstall a recent update in Settings, Windows Update, Update history. This page will show whether it changes.",
-            { Kind: ChangeKind.Firmware } => "Look for a newer BIOS from the board's maker, or load its optimized defaults. This page will show whether it changes.",
-            { Kind: ChangeKind.Hardware } => "Check the new part is seated properly and has its power connected.",
-            { Kind: ChangeKind.Fans } => "Set the fans back, or to a faster curve, in the BIOS. This page will show whether it changes.",
-            _ when IsPowerPlan(c) && c.Was is { Length: > 0 } was => $"Switch back to {was} in Windows' power settings. This page will show whether it changes.",
+            { IsGraphicsDriver: true } => c.Was is { Length: > 0 } was
+                ? Lang.T($"Try the next driver, or go back to {was} with a clean install. This page will show whether it changes.")
+                : Lang.T("Try the next driver. This page will show whether it changes."),
+            { Kind: ChangeKind.WindowsUpdate } => Lang.T("Windows lets you uninstall a recent update in Settings, Windows Update, Update history. This page will show whether it changes."),
+            { Kind: ChangeKind.Firmware } => Lang.T("Look for a newer BIOS from the board's maker, or load its optimized defaults. This page will show whether it changes."),
+            { Kind: ChangeKind.Hardware } => Lang.T("Check the new part is seated properly and has its power connected."),
+            { Kind: ChangeKind.Fans } => Lang.T("Set the fans back, or to a faster curve, in the BIOS. This page will show whether it changes."),
+            _ when IsPowerPlan(c) && c.Was is { Length: > 0 } was => Lang.T($"Switch back to {was} in Windows' power settings. This page will show whether it changes."),
             _ => null,
         };
 
@@ -474,11 +518,14 @@ public static class ChangeEffects
 
     /// <summary>"3 graphics driver resets and 1 blue screen".</summary>
     private static string Words(IEnumerable<ChangeProblem> problems) =>
-        string.Join(" and ", problems.GroupBy(p => p.Kind).OrderByDescending(g => g.Count()).Select(g => CrashWords.Count(g.Key, g.Count())));
+        And(problems.GroupBy(p => p.Kind).OrderByDescending(g => g.Count()).Select(g => CrashWords.Count(g.Key, g.Count())));
 
-    private static string Count(List<ChangeProblem> problems) => problems.Count == 0 ? "None" : problems.Count.ToString();
+    /// <summary>"A and B and C", each pair joined as the language joins two things.</summary>
+    private static string And(IEnumerable<string> items) => items.DefaultIfEmpty("").Aggregate((a, b) => Lang.T($"{a} and {b}"));
 
-    private static string Days(int n) => n == 1 ? "day" : $"{n} days";
+    private static string Count(List<ChangeProblem> problems) => problems.Count == 0 ? Lang.T("None") : problems.Count.ToString();
+
+    private static string Days(int n) => n == 1 ? Lang.T("day") : Lang.T($"{n} days");
 
     private static string Play(int minutes) => Units.Duration(minutes * 60.0);
 

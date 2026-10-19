@@ -53,7 +53,7 @@ public sealed record UsualProblems(IReadOnlyList<CrashEvent> Now, int UsualCount
     /// <summary>"2 likely power cuts", "3 shut-offs, likely or possibly the power".</summary>
     public string PowerWords => Wording.PowerOffs(PowerLikelyNow, PowerNow);
 
-    public string PowerUsualWords => PowerUsual == 0 ? "usually none" : $"usually {PcUsual.About(PowerUsual, UsualWeeks, PeriodWeeks)}";
+    public string PowerUsualWords => PowerUsual == 0 ? Lang.T("usually none") : Lang.T($"usually {PcUsual.About(PowerUsual, UsualWeeks, PeriodWeeks)}");
 
     /// <summary>
     /// The kinds that came far more often than usual (each kind against its own usual: three graphics driver resets on a
@@ -64,14 +64,15 @@ public sealed record UsualProblems(IReadOnlyList<CrashEvent> Now, int UsualCount
     public int UsualOfRising { get; init; }
 
     /// <summary>What there was ("3 graphics driver resets and 1 blue screen"), only the rising kinds when worse; "No PC problems" when there were none.</summary>
-    public string Words => Now.Count == 0 ? "No PC problems"
-        : string.Join(" and ", Now.Where(e => Tone != EffectTone.Worse || Rising.Count == 0 || Rising.Contains(e.Kind)).GroupBy(e => e.Kind).OrderByDescending(g => g.Count()).Select(g => Wording.Count(g.Key, g.Count())));
+    public string Words => Now.Count == 0 ? Lang.T("No PC problems")
+        : Now.Where(e => Tone != EffectTone.Worse || Rising.Count == 0 || Rising.Contains(e.Kind)).GroupBy(e => e.Kind).OrderByDescending(g => g.Count())
+            .Select(g => Wording.Count(g.Key, g.Count())).DefaultIfEmpty("").Aggregate((a, b) => Lang.T($"{a} and {b}"));
 
     /// <summary>The length of the period compared, in weeks (a month's usual is said as a month's).</summary>
     public double PeriodWeeks { get; init; } = 1;
 
     /// <summary>"usually none", "usually about 2 a week", "usually about 9 a month".</summary>
-    public string UsualWords => (Tone == EffectTone.Worse && Rising.Count > 0 ? UsualOfRising : UsualCount) is var n && n == 0 ? "usually none" : $"usually {PcUsual.About(n, UsualWeeks, PeriodWeeks)}";
+    public string UsualWords => (Tone == EffectTone.Worse && Rising.Count > 0 ? UsualOfRising : UsualCount) is var n && n == 0 ? Lang.T("usually none") : Lang.T($"usually {PcUsual.About(n, UsualWeeks, PeriodWeeks)}");
 }
 
 /// <summary>
@@ -173,7 +174,7 @@ public sealed class PcUsual
         if (nameOf is null)
         {
             var names = db.LoadApps().ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
-            nameOf = id => names.GetValueOrDefault(id, "a game");
+            nameOf = id => names.GetValueOrDefault(id) ?? Lang.T("a game");
         }
         var fans = db.GetFans().Where(x => !x.Sensor.StartsWith("/gpu", StringComparison.Ordinal)).ToList();
         var fanDays = fans.Count > 0 ? db.GetFanDays(f, t) : [];
@@ -353,42 +354,53 @@ public sealed class PcUsual
         foreach (var p in Parts)
         {
             // Under the bar it isn't news, but a few degrees aren't "as usual" either: said as what they are, in grey.
-            string means = p.Tone != EffectTone.Same ? $"{p.Diff} {(p.Hotter ? "hotter" : "cooler")} in game"
-                : Math.Abs(p.Now - p.Usual) < 2.5 ? "As usual" : $"{p.Diff} {(p.Hotter ? "warmer" : "cooler")}, too little to count";
-            string? rest = p.Tone == EffectTone.Same || (p.Part == "GPU" ? RestNow?.Gpu : RestNow?.Cpu) is not double r ? null
-                : $"At rest {Units.TempShort(r)}, {(Math.Abs(r - ((p.Part == "GPU" ? RestUsual?.Gpu : RestUsual?.Cpu) ?? r)) < 1.5 ? "as usual" : "taken into account")}";
-            rows.Add(new($"heat-{p.Part.ToLowerInvariant()}", $"{p.Part} in {p.App}", p.Part == "GPU" ? "Steady play, same power" : "The same minutes",
-                Units.TempShort(p.Now), Span(p.Low, p.High), $"{Days(p.UsualDays)} · {Units.Duration(p.UsualMinutes * 60.0)} of play", p.Tone, means, rest));
+            string diff = p.Diff;
+            string means = p.Tone != EffectTone.Same ? p.Hotter ? Lang.T($"{diff} hotter in game") : Lang.T($"{diff} cooler in game")
+                : Math.Abs(p.Now - p.Usual) < 2.5 ? Lang.T("As usual") : p.Hotter ? Lang.T($"{diff} warmer, too little to count") : Lang.T($"{diff} cooler, too little to count");
+            string? rest = null;
+            if (p.Tone != EffectTone.Same && (p.Part == "GPU" ? RestNow?.Gpu : RestNow?.Cpu) is double r)
+            {
+                string restTemp = Units.TempShort(r);
+                rest = Math.Abs(r - ((p.Part == "GPU" ? RestUsual?.Gpu : RestUsual?.Cpu) ?? r)) < 1.5
+                    ? Lang.T($"At rest {restTemp}, as usual") : Lang.T($"At rest {restTemp}, taken into account");
+            }
+            rows.Add(new($"heat-{p.Part.ToLowerInvariant()}", Lang.T($"{p.Part} in {p.App}"), p.Part == "GPU" ? Lang.T("Steady play, same power") : Lang.T("The same minutes"),
+                Units.TempShort(p.Now), Span(p.Low, p.High), Lang.T($"{Days(p.UsualDays)} · {Units.Duration(p.UsualMinutes * 60.0)} of play"), p.Tone, means, rest));
         }
         if (RestNow is { Minutes: >= MinRestMinutes } rn && RestUsual is { Minutes: >= MinRestMinutes } ru)
         {
             string now = string.Join(" / ", new[] { rn.Gpu, rn.Cpu }.Where(x => x is not null).Select(x => Units.TempShort(x!.Value)));
             string usual = string.Join(" / ", new[] { RestGpuRange ?? Pair(ru.Gpu), RestCpuRange ?? Pair(ru.Cpu) }.Where(x => x is not null).Select(x => Span(x!.Value.Low, x.Value.High)));
-            string label = rn.Gpu is not null && rn.Cpu is not null ? "GPU / CPU, nothing running" : "Nothing running";
+            string label = rn.Gpu is not null && rn.Cpu is not null ? Lang.T("GPU / CPU, nothing running") : Lang.T("Nothing running");
             double? moved = rn.Gpu is double a && ru.Gpu is double b ? a - b : null;
+            string meansRest = Lang.T("As usual");
+            if (moved is double m && Math.Abs(m) >= 2)
+            {
+                string by = Units.Degrees(Math.Abs(m));
+                meansRest = m > 0 ? Lang.T($"{by} warmer") : Lang.T($"{by} cooler");
+            }
             // Warmer at rest is the room as often as the PC: said, never coloured.
-            rows.Add(new("rest", "At rest", label, now, usual, $"The {Days((int)Math.Round(UsualDays))} before", EffectTone.Same,
-                moved is double m && Math.Abs(m) >= 2 ? $"{Units.Degrees(Math.Abs(m))} {(m > 0 ? "warmer" : "cooler")}" : "As usual"));
+            rows.Add(new("rest", Lang.T("At rest"), label, now, usual, Lang.T($"The {Days((int)Math.Round(UsualDays))} before"), EffectTone.Same, meansRest));
         }
         if (Fans.Count > 0)
         {
             var shown = Fans.OrderBy(x => x.Name, StringComparer.Ordinal).Take(4).ToList();
             var set = shown.Where(x => x.SetOn is not null).Select(x => x.SetOn!.Value).DefaultIfEmpty().Max();
-            rows.Add(new("fans", "Fans", string.Join(" · ", shown.Select(x => x.Name)), string.Join(" · ", shown.Select(x => $"{x.Now:N0}")),
-                string.Join(" · ", shown.Select(x => SpanRpm(x.Low, x.High))), set == default ? "rpm, the days before" : $"rpm, since your fan change on {set:d MMM}",
-                fanWarning is null ? EffectTone.Same : EffectTone.Worse, fanWarning is null ? "As usual" : fanWarning.Key == "fan-stopped" ? "Stopped" : "Slower", fanWarning?.Line));
+            rows.Add(new("fans", Lang.T("Fans"), string.Join(" · ", shown.Select(x => x.Name)), string.Join(" · ", shown.Select(x => $"{x.Now:N0}")),
+                string.Join(" · ", shown.Select(x => SpanRpm(x.Low, x.High))), set == default ? Lang.T("rpm, the days before") : Lang.T($"rpm, since your fan change on {set:d MMM}"),
+                fanWarning is null ? EffectTone.Same : EffectTone.Worse, fanWarning is null ? Lang.T("As usual") : fanWarning.Key == "fan-stopped" ? Lang.T("Stopped") : Lang.T("Slower"), fanWarning?.Line));
         }
         if (Problems is { } pr)
         {
-            rows.Add(new("problems", "PC problems", "Blue screens, driver resets, shut-offs in use (not power cuts)", pr.Now.Count == 0 ? "None" : pr.Now.Count.ToString(),
-                pr.UsualCount == 0 ? "None" : Wording.Capital(About(pr.UsualCount, pr.UsualWeeks, pr.PeriodWeeks)), "The weeks before, at this much use", pr.Tone,
+            rows.Add(new("problems", Lang.T("PC problems"), Lang.T("Blue screens, driver resets, shut-offs in use (not power cuts)"), pr.Now.Count == 0 ? Lang.T("None") : pr.Now.Count.ToString(),
+                pr.UsualCount == 0 ? Lang.T("None") : Wording.Capital(About(pr.UsualCount, pr.UsualWeeks, pr.PeriodWeeks)), Lang.T("The weeks before, at this much use"), pr.Tone,
                 // What went up, against its own usual: "3 graphics driver resets, usually none".
-                pr.Tone switch { EffectTone.Worse => "More than usual", EffectTone.Better => "Fewer than usual", _ => "As usual" },
+                pr.Tone switch { EffectTone.Worse => Lang.T("More than usual"), EffectTone.Better => Lang.T("Fewer than usual"), _ => Lang.T("As usual") },
                 pr.Tone == EffectTone.Worse ? $"{Wording.Capital(pr.Words)}, {pr.UsualWords}" : null));
             if (pr.PowerNow + pr.PowerUsual > 0)
-                rows.Add(new("power", "Shut-offs that look like the power", "Likely or possibly a power cut, a dip, the mains or the power supply", pr.PowerNow.ToString(),
-                    pr.PowerUsual == 0 ? "None" : Wording.Capital(About(pr.PowerUsual, pr.UsualWeeks, pr.PeriodWeeks)), "The weeks before", pr.PowerTone,
-                    pr.PowerTone == EffectTone.Worse ? "More than usual" : "Not judged", pr.PowerTone == EffectTone.Worse ? "If the mains was steady, check the power supply" : null));
+                rows.Add(new("power", Lang.T("Shut-offs that look like the power"), Lang.T("Likely or possibly a power cut, a dip, the mains or the power supply"), pr.PowerNow.ToString(),
+                    pr.PowerUsual == 0 ? Lang.T("None") : Wording.Capital(About(pr.PowerUsual, pr.UsualWeeks, pr.PeriodWeeks)), Lang.T("The weeks before"), pr.PowerTone,
+                    pr.PowerTone == EffectTone.Worse ? Lang.T("More than usual") : Lang.T("Not judged"), pr.PowerTone == EffectTone.Worse ? Lang.T("If the mains was steady, check the power supply") : null));
         }
         return rows;
     }
@@ -447,16 +459,12 @@ public sealed class PcUsual
     internal static string About(int count, double weeks, double periodWeeks)
     {
         bool month = periodWeeks >= 4;
-        string n = PerWeek(count, month ? weeks / (periodWeeks) : weeks);
-        return n.StartsWith("less", StringComparison.Ordinal) ? $"{n} {(month ? "a month" : "a week")}" : $"about {n} {(month ? "a month" : "a week")}";
+        double each = month ? weeks / (periodWeeks) : weeks;
+        double w = each <= 0 ? count : count / each;
+        if (w < 0.75) return month ? Lang.T("less than 1 a month") : Lang.T("less than 1 a week");
+        double n = Math.Round(w);
+        return month ? Lang.T($"about {n:0} a month") : Lang.T($"about {n:0} a week");
     }
 
-    /// <summary>A count over some weeks as a week's worth, in words a person would say ("1", "2", "less than 1").</summary>
-    internal static string PerWeek(int count, double weeks)
-    {
-        double w = weeks <= 0 ? count : count / weeks;
-        return w < 0.75 ? "less than 1" : $"{Math.Round(w):0}";
-    }
-
-    private static string Days(int n) => n == 1 ? "1 day" : $"{n} days";
+    private static string Days(int n) => n == 1 ? Lang.T("1 day") : Lang.T($"{n} days");
 }

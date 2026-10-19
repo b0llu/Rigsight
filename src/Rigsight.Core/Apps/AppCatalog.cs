@@ -296,17 +296,21 @@ public static class AppCatalog
         return null;
     }
 
-    public static string Label(AppCategory c) => c switch
+    /// <summary>The category's name in the person's language, as pages show it.</summary>
+    public static string Label(AppCategory c) => Lang.T(EnglishLabel(c));
+
+    /// <summary>The category's name in English, as the spreadsheet export writes it (people's sheets rely on it).</summary>
+    public static string EnglishLabel(AppCategory c) => c switch
     {
-        AppCategory.Game => "Games",
-        AppCategory.Browser => "Browsing",
-        AppCategory.Development => "Development",
-        AppCategory.Communication => "Chat & calls",
-        AppCategory.Media => "Media & creative",
-        AppCategory.Launcher => "Launchers",
-        AppCategory.Productivity => "Productivity",
-        AppCategory.System => "System",
-        _ => "Other",
+        AppCategory.Game => Lang.Key("Games"),
+        AppCategory.Browser => Lang.Key("Browsing"),
+        AppCategory.Development => Lang.Key("Development"),
+        AppCategory.Communication => Lang.Key("Chat & calls"),
+        AppCategory.Media => Lang.Key("Media & creative"),
+        AppCategory.Launcher => Lang.Key("Launchers"),
+        AppCategory.Productivity => Lang.Key("Productivity"),
+        AppCategory.System => Lang.Key("System"),
+        _ => Lang.Key("Other"),
     };
 
     /// <summary>Consistent color per category (hex), used in timelines and charts.</summary>

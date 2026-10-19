@@ -391,7 +391,7 @@ public static class NetReportBuilder
 
     internal static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long id)
     {
-        if (!apps.TryGetValue(id, out var a)) return "Unknown";
+        if (!apps.TryGetValue(id, out var a)) return Lang.T("Unknown");
         return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
 }

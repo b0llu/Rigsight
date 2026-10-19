@@ -55,13 +55,19 @@ public static class NetInsights
             {
                 bool away = bg.Use.AwayDown * 2 >= bg.Use.Down;
                 // The same figure twice ("15 GB today, 15 GB of it…") says less than "all of it".
-                string Part(long bytes) => Units.Data(bytes) == Units.Data(bg.Use.Down) ? "all" : Units.Data(bytes);
-                list.Add(new Insight(IconDown, away
-                        ? $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(bg.Use.AwayDown)} of it while you were away."
-                        : $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {period}, {Part(behind)} of it in the background.",
+                string name = bg.Name, down = Units.Data(bg.Use.Down);
+                bool all = Units.Data(away ? bg.Use.AwayDown : behind) == down;
+                string part = Units.Data(away ? bg.Use.AwayDown : behind);
+                list.Add(new Insight(IconDown, (away, all) switch
+                    {
+                        (true, true) => Lang.T($"{name} downloaded {down} {period}, all of it while you were away."),
+                        (true, false) => Lang.T($"{name} downloaded {down} {period}, {part} of it while you were away."),
+                        (false, true) => Lang.T($"{name} downloaded {down} {period}, all of it in the background."),
+                        (false, false) => Lang.T($"{name} downloaded {down} {period}, {part} of it in the background."),
+                    },
                     InsightTone.Neutral, "net-background", 57,
-                    $"In the background {Units.Data(bg.Use.BgDown)} · while you were away {Units.Data(bg.Use.AwayDown)}")
-                    { Short = $"{bg.Name} downloaded {Units.Data(bg.Use.Down)} {(away ? "while you were away" : "in the background")}" });
+                    Lang.T($"In the background {Units.Data(bg.Use.BgDown)} · while you were away {Units.Data(bg.Use.AwayDown)}"))
+                    { Short = away ? Lang.T($"{name} downloaded {down} while you were away") : Lang.T($"{name} downloaded {down} in the background") });
             }
         }
 
@@ -69,8 +75,8 @@ public static class NetInsights
         if (r.Apps.FirstOrDefault(a => a.Exe.Equals(DeliveryOptimization, StringComparison.OrdinalIgnoreCase)) is { } sharing
             && sharing.Use.Up >= (isDay ? SharingDayBytes : 4 * SharingDayBytes))
             list.Add(new Insight(IconUp,
-                $"Windows uploaded {Units.Data(sharing.Use.Up)} of updates to other PCs on the internet {period}. You can turn this off in Windows Update settings, under Delivery Optimization.",
-                InsightTone.Neutral, "net-sharing", 59) { Short = $"Windows shared {Units.Data(sharing.Use.Up)} of updates with other PCs" });
+                Lang.T($"Windows uploaded {Units.Data(sharing.Use.Up)} of updates to other PCs on the internet {period}. You can turn this off in Windows Update settings, under Delivery Optimization."),
+                InsightTone.Neutral, "net-sharing", 59) { Short = Lang.T($"Windows shared {Units.Data(sharing.Use.Up)} of updates with other PCs") });
 
         // 3. An app uploading far more than it usually does: a backup or sync running wild, or something sending files out.
         if (isDay) UnusualUpload(db, r, list, period);
@@ -82,15 +88,18 @@ public static class NetInsights
         // 5. Downloading behind a game.
         if (isDay && r.Apps.MaxBy(a => a.Use.GameDown) is { } behindGame && behindGame.Use.GameDown >= GameBytes)
         {
-            string game = gamesPlayed.Count == 1 ? $"while you played {gamesPlayed[0]}" : "while you were in a game";
-            list.Add(new Insight(IconDown, $"{behindGame.Name} downloaded {Units.Data(behindGame.Use.GameDown)} {game}.", InsightTone.Neutral, "net-game", 54)
-                { Short = $"{behindGame.Name} downloaded {Units.Data(behindGame.Use.GameDown)} during a game" });
+            string name = behindGame.Name, down = Units.Data(behindGame.Use.GameDown);
+            list.Add(new Insight(IconDown,
+                gamesPlayed.Count == 1 ? Lang.T($"{name} downloaded {down} while you played {gamesPlayed[0]}.") : Lang.T($"{name} downloaded {down} while you were in a game."),
+                InsightTone.Neutral, "net-game", 54)
+                { Short = Lang.T($"{name} downloaded {down} during a game") });
         }
 
         // 6. The biggest download day in a month, three months or a year.
         if (isDay && r.Down >= RecordBytes && RecordDays(db, r) is int days)
-            list.Add(new Insight(IconRecord, $"Your biggest download day in {Span(days)}: {Units.Data(r.Down)}{(inProgress ? " so far" : "")}.",
-                InsightTone.Neutral, "net-record", 60, $"Beats every day of the {days} before") { Short = $"Biggest download day in {Span(days)}" });
+            list.Add(new Insight(IconRecord,
+                inProgress ? Lang.T($"Your biggest download day in {Span(days)}: {Units.Data(r.Down)} so far.") : Lang.T($"Your biggest download day in {Span(days)}: {Units.Data(r.Down)}."),
+                InsightTone.Neutral, "net-record", 60, Lang.T($"Beats every day of the {days} before")) { Short = Lang.T($"Biggest download day in {Span(days)}") });
 
         // 7. The period in a line, against the one before.
         if (r.Down >= 100 * MB)
@@ -102,21 +111,23 @@ public static class NetInsights
                 // "Yesterday" only from today: a day looked back on is set against the day before it.
                 string last = (r.Range, inProgress) switch
                 {
-                    (ReportRange.Day, true) => "yesterday by now",
-                    (ReportRange.Day, false) => "the day before",
-                    (ReportRange.Week, true) => "last week by now",
-                    (ReportRange.Week, false) => "the week before",
-                    (ReportRange.Month, true) => "last month by now",
-                    (ReportRange.Month, false) => "the month before",
-                    (_, true) => "last year by now",
-                    _ => "the year before",
+                    (ReportRange.Day, true) => Lang.T("yesterday by now"),
+                    (ReportRange.Day, false) => Lang.T("the day before"),
+                    (ReportRange.Week, true) => Lang.T("last week by now"),
+                    (ReportRange.Week, false) => Lang.T("the week before"),
+                    (ReportRange.Month, true) => Lang.T("last month by now"),
+                    (ReportRange.Month, false) => Lang.T("the month before"),
+                    (_, true) => Lang.T("last year by now"),
+                    _ => Lang.T("the year before"),
                 };
-                against = ratio >= 1.25 ? $", {ratio:0.0}× {last}" : ratio <= 0.8 ? $", {(1 - ratio) * 100:0}% less than {last}" : $", about the same as {last}";
+                double less = (1 - ratio) * 100;
+                against = ratio >= 1.25 ? Lang.T($", {ratio:0.0}× {last}") : ratio <= 0.8 ? Lang.T($", {less:0}% less than {last}") : Lang.T($", about the same as {last}");
             }
             var top = r.Apps.FirstOrDefault();
-            string mostly = top is not null && top.Use.Down >= r.Down * 0.4 ? $", mostly {top.Name}" : "";
-            list.Add(new Insight(IconRecap, $"{Units.Data(r.Down)} downloaded{(inProgress ? " " + period : "")}{against}{mostly}.", InsightTone.Neutral, "net-recap", 45)
-                { Short = $"{Units.Data(r.Down)} downloaded{mostly}" });
+            string mostly = top is not null && top.Use.Down >= r.Down * 0.4 ? Lang.T($", mostly {top.Name}") : "";
+            string down = Units.Data(r.Down);
+            list.Add(new Insight(IconRecap, inProgress ? Lang.T($"{down} downloaded {period}{against}{mostly}.") : Lang.T($"{down} downloaded{against}{mostly}."), InsightTone.Neutral, "net-recap", 45)
+                { Short = Lang.T($"{down} downloaded{mostly}") });
         }
 
         // 8. The internet dropping more than usual.
@@ -124,13 +135,14 @@ public static class NetInsights
         {
             var longest = r.Drops.MaxBy(d => d.Seconds)!;
             int link = r.Drops.Count(d => d.Kind == NetDropKind.Link);
-            string why = link == 0 ? " Your PC stayed connected to the router each time, so the trouble was past it: the router or your internet provider."
-                : link == r.Drops.Count ? " Each time your PC's own connection to the router (the cable or Wi-Fi) went down."
+            string why = link == 0 ? " " + Lang.T("Your PC stayed connected to the router each time, so the trouble was past it: the router or your internet provider.")
+                : link == r.Drops.Count ? " " + Lang.T("Each time your PC's own connection to the router (the cable or Wi-Fi) went down.")
                 : "";
+            int drops = r.Drops.Count;
             list.Add(new Insight(IconDrop,
-                $"Your internet dropped {r.Drops.Count} times {period}, the longest for {Units.Duration(longest.Seconds)} at {TimeUtil.FromUnix(longest.Start):h:mm tt}.{why}",
+                Lang.T($"Your internet dropped {drops} times {period}, the longest for {Units.Duration(longest.Seconds)} at {TimeUtil.FromUnix(longest.Start):h:mm tt}.") + why,
                 InsightTone.Warn, "net-drops", 74,
-                string.Join(" · ", r.Drops.Select(d => $"{TimeUtil.FromUnix(d.Start):h:mm tt} {Units.Duration(d.Seconds)}"))) { Short = $"Your internet dropped {r.Drops.Count} times" });
+                string.Join(" · ", r.Drops.Select(d => $"{TimeUtil.FromUnix(d.Start):h:mm tt} {Units.Duration(d.Seconds)}"))) { Short = Lang.T($"Your internet dropped {drops} times") });
         }
 
         return list;
@@ -148,12 +160,14 @@ public static class NetInsights
             if (days.Count < NetReportBuilder.MinUsualDays) continue;
             long usual = NetReportBuilder.Median(days);
             if (app.Use.Up < usual * UploadTimes) continue;
+            string name = app.Name, up = Units.Data(app.Use.Up);
+            double times = (double)app.Use.Up / Math.Max(1, usual);
             list.Add(new Insight(IconUp, usual >= MB
-                    ? $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}, against its usual of about {Units.Data(usual)} a day."
-                    : $"{app.Name} uploaded {Units.Data(app.Use.Up)} {period}. It usually uploads next to nothing.",
+                    ? Lang.T($"{name} uploaded {up} {period}, against its usual of about {Units.Data(usual)} a day.")
+                    : Lang.T($"{name} uploaded {up} {period}. It usually uploads next to nothing."),
                 usual >= MB ? InsightTone.Neutral : InsightTone.Warn, "net-upload", 68,
-                $"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before")
-                { Short = usual >= MB ? $"{app.Name} uploaded {(double)app.Use.Up / usual:0}× its usual" : $"{app.Name} uploaded {Units.Data(app.Use.Up)}, usually next to nothing" });
+                Lang.T($"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"))
+                { Short = usual >= MB ? Lang.T($"{name} uploaded {times:0}× its usual") : Lang.T($"{name} uploaded {up}, usually next to nothing") });
             return;
         }
     }
@@ -185,6 +199,6 @@ public static class NetInsights
         return r.Drops.Count > usual * 2;
     }
 
-    private static string Span(int days) => days switch { 30 => "a month", 90 => "three months", _ => "a year" };
+    private static string Span(int days) => days switch { 30 => Lang.T("a month"), 90 => Lang.T("three months"), _ => Lang.T("a year") };
 
 }
