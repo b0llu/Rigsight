@@ -36,6 +36,9 @@ public sealed record RewindLook(string Accent)
 /// </summary>
 public static class RewindPainter
 {
+    /// <summary>The name of the part of a card under its logo row and above its foot (what has to fit the card).</summary>
+    public const string BodyName = "RewindBody";
+
     public static readonly IReadOnlyDictionary<string, (int W, int H)> Sizes = new Dictionary<string, (int, int)>
     {
         ["story"] = (1080, 1920), ["post"] = (1080, 1350), ["wide"] = (1600, 900),
@@ -157,7 +160,7 @@ public static class RewindPainter
         frame.Children.Add(foot);
 
         var accent = look.AccentColor;
-        frame.Children.Add(card.Id switch
+        var body = card.Id switch
         {
             "cover" => Cover(card, f, u, accent),
             "time" => Time(card, f, u, accent),
@@ -172,7 +175,10 @@ public static class RewindPainter
             "problems" => Problems(card, f, u, accent),
             "type" => Player(card, f, u, accent),
             _ => Summary(card, f, u, accent),
-        });
+        };
+        // Named so a test can tell when what the card says needs more room than the card has.
+        body.Name = BodyName;
+        frame.Children.Add(body);
         return root;
     }
 
@@ -266,7 +272,7 @@ public static class RewindPainter
         var head = new DockPanel { Margin = new Thickness(0, 4 * u, 0, 0) };
         if (Icon(card.Tag) is { } icon)
             head.Children.Add(new Border { Width = 22 * u, Height = 22 * u, CornerRadius = new CornerRadius(5 * u), Background = White(0.1), Margin = new Thickness(0, 0, 4 * u, 0), Child = new Image { Source = icon, Width = 13 * u, Height = 13 * u } });
-        head.Children.Add(Centered(Mega(card.Big, 13, u, wrap: true)));
+        head.Children.Add(Centered(Mega(card.Big, 13, u, wrap: true, width: 60))); // beside the 22-wide icon tile
         body.Children.Add(Rise(head, 1));
         body.Children.Add(Rise(Sub(card.Sub, u, top: 3, bottom: 6), 2));
         var rows = new StackPanel();
@@ -538,7 +544,7 @@ public static class RewindPainter
         pc.Children.Add(new Border { Background = Frozen(shade) });
         var ct = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(6 * u) };
         if (card.Chips.Count > 0) ct.Children.Add(Label(card.Chips[0], Color.FromArgb(205, 255, 255, 255), u, 3.4));
-        ct.Children.Add(Mega(card.Big, 16, u, top: 1.6, bottom: 2.4, wrap: true));
+        ct.Children.Add(Mega(card.Big, 16, u, top: 1.6, bottom: 2.4, wrap: true, width: 72)); // inside the player card's own padding
         ct.Children.Add(Sub(card.Sub, u, size: 4.2));
         var stats = new UniformGrid { Rows = 1, Columns = Math.Max(1, card.Tiles.Count), Margin = new Thickness(-1 * u, 5 * u, -1 * u, 0) };
         foreach (var t in card.Tiles)
@@ -571,22 +577,22 @@ public static class RewindPainter
         {
             // The most played's cover beside the top five.
             var top = new Grid { Margin = new Thickness(0, 4 * u, 0, 4 * u) };
-            top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26 * u) });
+            top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24 * u) });
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4 * u) });
             top.ColumnDefinitions.Add(new ColumnDefinition());
             if (Art(card.Rows[0].Path, banner: false, 400) is null && Icon(card.Rows[0].Path) is { } icon)
                 top.Children.Add(new Border
                 {
-                    Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.6 * u), Background = White(0.08),
+                    Width = 24 * u, Height = 36 * u, CornerRadius = new CornerRadius(2.6 * u), Background = White(0.08),
                     Child = new Image { Source = icon, Width = 16 * u, Height = 16 * u },
                 });
             if (Art(card.Rows[0].Path, banner: false, 400) is { } one)
                 top.Children.Add(new Border
                 {
-                    Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.6 * u), ClipToBounds = true, Background = Frozen(new ImageBrush(one) { Stretch = Stretch.UniformToFill }),
+                    Width = 24 * u, Height = 36 * u, CornerRadius = new CornerRadius(2.6 * u), ClipToBounds = true, Background = Frozen(new ImageBrush(one) { Stretch = Stretch.UniformToFill }),
                     Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6 * u, ShadowDepth = 2 * u, Opacity = 0.6, Direction = 270 },
                 });
-            var list = new UniformGrid { Columns = 1, Rows = card.Rows.Count, Height = 39 * u };
+            var list = new UniformGrid { Columns = 1, Rows = card.Rows.Count, Height = 36 * u };
             foreach (var r in card.Rows)
             {
                 var row = new DockPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -617,7 +623,7 @@ public static class RewindPainter
         head.Children.Add(right);
         head.Children.Add(Text(f.Kind == RewindKind.Month ? Lang.T($"Every day of {RewindCards.Title(f)}") : Lang.T("Every day"), 3.2 * u, FontWeights.Normal, White(0.75), Ui));
         strip.Children.Add(head);
-        strip.Children.Add(DayStrip(f, u, accent, 15, whole: true));
+        strip.Children.Add(DayStrip(f, u, accent, 13, whole: true));
         DockPanel.SetDock(strip, Dock.Bottom);
         body.Children.Add(Rise(strip, 3));
         return body;
@@ -783,12 +789,24 @@ public static class RewindPainter
         Foreground = Frozen(new SolidColorBrush(color)), TextWrapping = TextWrapping.Wrap,
     };
 
-    private static TextBlock Mega(string text, double size, double u, double top = 0, double bottom = 0, bool wrap = false) => new()
+    /// <summary>
+    /// A big figure or name. One that would run past the card's width (a long game's name) is set smaller, to fit in
+    /// at most two lines (one where it may not wrap), and cut with an ellipsis beyond that: it never pushes the card's
+    /// other parts off its foot.
+    /// </summary>
+    private static TextBlock Mega(string text, double size, double u, double top = 0, double bottom = 0, bool wrap = false, double width = 86)
     {
-        Text = text, FontFamily = Display, FontSize = size * u, FontWeight = FontWeights.ExtraBold, Foreground = White(1),
-        TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, LineHeight = size * u * 0.92, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-        Margin = new Thickness(-0.4 * u, top * u, 0, bottom * u),
-    };
+        // About 0.56 of the size per letter in this face's extra-bold.
+        double fits = (wrap ? 2 : 1) * width / (0.56 * Math.Max(1, text.Length));
+        double s = Math.Max(Math.Min(size, fits), Math.Min(size, 7));
+        return new()
+        {
+            Text = text, FontFamily = Display, FontSize = s * u, FontWeight = FontWeights.ExtraBold, Foreground = White(1),
+            TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
+            LineHeight = s * u * 0.92, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+            MaxHeight = s * u * 0.92 * (wrap ? 2 : 1) + 1, Margin = new Thickness(-0.4 * u, top * u, 0, bottom * u),
+        };
+    }
 
     private static FrameworkElement BigWithUnit(string big, string? unit, double size, double unitSize, double u)
     {

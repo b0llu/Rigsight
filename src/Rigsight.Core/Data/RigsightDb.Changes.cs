@@ -1,4 +1,4 @@
-using Rigsight.Core.Stability;
+﻿using Rigsight.Core.Stability;
 
 namespace Rigsight.Core.Data;
 
@@ -200,6 +200,11 @@ public sealed partial class RigsightDb
             });
         }
         r.Close();
+        // Found within a minute of the check before: that minute is when it happened, with no "~". Changes saved before
+        // the rule existed (0.27.1) kept their "~" though the check had already narrowed them to a minute.
+        for (int i = 0; i < list.Count; i++)
+            if (list[i] is { IsApproximate: true, NoticedFrom: { } found } c && c.Time - found <= Stability.Inventory.WithinAMinute)
+                list[i] = c with { Subject = Stability.Inventory.ExactPrefix + c.Subject, NoticedFrom = null };
         JoinFlickers(list);
         // A check that came long after the one before it: the PC was most likely off or asleep in between.
         for (int i = 0; i < list.Count; i++)
