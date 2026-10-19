@@ -218,6 +218,9 @@ public sealed partial class RewindViewModel : ObservableObject
     public string EndSub => Cards.Count == 1 ? Lang.T("1 card") : Lang.T($"{Cards.Count} cards");
     public RewindCard? Current => Index < Cards.Count ? Cards[Index] : null;
     partial void OnIndexChanged(int value) => OnPropertyChanged(nameof(AtEnd), nameof(CanGoBack), nameof(CanGoNext), nameof(Current));
+    // The cards arriving change where the end is: without this the screen kept "at the end" from before (no cards),
+    // so a rewind opened straight onto its end screen with the arrow to the next card greyed out.
+    partial void OnCardsChanged(IReadOnlyList<RewindCard> value) => OnPropertyChanged(nameof(AtEnd), nameof(CanGoBack), nameof(CanGoNext), nameof(Current), nameof(EndSub));
     partial void OnIsWatchingChanged(bool value) { RaiseWaiting(); OnPropertyChanged(nameof(IsOpen)); }
 
     public void Watch(RewindFacts f, bool toShare = false)
@@ -283,7 +286,7 @@ public sealed partial class RewindViewModel : ObservableObject
         IsSharing = true;
     }
 
-    [RelayCommand] private void CloseShare() => IsSharing = false;
+    [RelayCommand] private void CloseShare() { IsSharing = false; Toast = ""; NextBatchText = ""; }
 
     [RelayCommand]
     private void Preview(SharePick? pick)
@@ -299,29 +302,96 @@ public sealed partial class RewindViewModel : ObservableObject
     private void Copy()
     {
         if (Previewed is not { } p || Watched is null) return;
-        if (CopyPicture(p)) Say(Lang.T("Picture copied. Paste it into a post anywhere."));
+        if (CopyPictures([p])) Say(Lang.T("Picture copied. Paste it into a post anywhere."));
     }
 
-    private bool CopyPicture(SharePick p)
+    /// <summary>
+    /// Pictures on the clipboard the way browsers take them: each as a PNG file (so a post can take several at once,
+    /// in order), and the first also as PNG and bitmap data (for apps that take one picture). WPF's own SetImage gave
+    /// only a bitmap with transparency, which browsers pasted as nothing.
+    /// </summary>
+    private bool CopyPictures(IReadOnlyList<SharePick> picks)
     {
-        try { Clipboard.SetImage(PictureOf(p)); return true; }
+        if (picks.Count == 0) return false;
+        try
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "RigSight Rewind");
+            Directory.CreateDirectory(folder);
+            foreach (var old in Directory.GetFiles(folder, "*.png")) { try { File.Delete(old); } catch (IOException) { } }
+            var files = new System.Collections.Specialized.StringCollection();
+            System.Windows.Media.Imaging.BitmapSource? first = null;
+            foreach (var p in picks)
+            {
+                var picture = PictureOf(p);
+                first ??= picture;
+                string path = Path.Combine(folder, $"{p.Index + 1:00} {string.Concat(p.Name.Split(Path.GetInvalidFileNameChars()))}.png");
+                RewindPainter.SavePng(picture, path);
+                files.Add(path);
+            }
+            var data = new DataObject();
+            data.SetFileDropList(files);
+            var png = new MemoryStream();
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(first!));
+            encoder.Save(png);
+            data.SetData("PNG", png, false);
+            // Opaque for the bitmap form: the cards are opaque anyway, and a bitmap with transparency pastes black or empty.
+            data.SetImage(new System.Windows.Media.Imaging.FormatConvertedBitmap(first, System.Windows.Media.PixelFormats.Bgr24, null, 0));
+            Clipboard.SetDataObject(data, copy: true);
+            Log.Write("rewind", $"Copied {picks.Count} picture(s) as files, the first also as PNG and bitmap");
+            return true;
+        }
         catch (Exception ex) { Log.Error("rewind", ex); Say(Lang.T("The picture couldn't be copied. Try again in a moment.")); return false; }
+    }
+
+    private List<SharePick> Included => [.. Picks.Where(p => p.Included)];
+
+    /// <summary>X takes up to 4 pictures a post: the ticked ones go in fours, the first four in the post, the rest in replies.</summary>
+    public const int XBatch = 4;
+    private int _xNext;
+    [ObservableProperty] private string _nextBatchText = "";
+    public bool HasNextBatch => NextBatchText.Length > 0;
+    partial void OnNextBatchTextChanged(string value) => base.OnPropertyChanged(nameof(HasNextBatch));
+
+    private void SetNextBatch()
+    {
+        int left = Included.Count - _xNext;
+        NextBatchText = left <= 0 ? "" : left == 1 ? Lang.T($"Copy picture {_xNext + 1}") : Lang.T($"Copy pictures {_xNext + 1} to {_xNext + Math.Min(XBatch, left)}");
     }
 
     [RelayCommand]
     private void PostX()
     {
-        if (Previewed is not { } p || Watched is not { } f || !CopyPicture(p)) return;
+        var picks = Included;
+        if (Watched is not { } f || picks.Count == 0 || !CopyPictures(picks.Take(XBatch).ToList())) return;
+        _xNext = Math.Min(XBatch, picks.Count);
         Open("https://x.com/intent/post?text=" + Uri.EscapeDataString(Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from RigSight Rewind")));
-        Say(Lang.T("X opened with the text filled in. The picture is copied: paste it into the post."));
+        SetNextBatch();
+        Say(picks.Count <= XBatch
+            ? Lang.T("X opened with the text filled in. The pictures are copied: paste them into the post.")
+            : Lang.T("X opened with the text filled in. The first 4 pictures are copied: paste them into the post, then copy the next ones for a reply."),
+            keep: HasNextBatch);
+    }
+
+    /// <summary>The next four for a reply under the post, in order.</summary>
+    [RelayCommand]
+    private void CopyNextBatch()
+    {
+        var picks = Included;
+        if (_xNext >= picks.Count || !CopyPictures(picks.Skip(_xNext).Take(XBatch).ToList())) return;
+        _xNext = Math.Min(_xNext + XBatch, picks.Count);
+        SetNextBatch();
+        Say(Lang.T("Copied: paste them into a reply under your post."), keep: HasNextBatch);
     }
 
     [RelayCommand]
     private void PostReddit()
     {
-        if (Previewed is not { } p || !CopyPicture(p)) return;
-        Open("https://www.reddit.com/submit");
-        Say(Lang.T("Reddit opened. The picture is copied: paste it into the post."));
+        // A Reddit post takes up to 20 pictures: all the ticked ones, in order.
+        var picks = Included;
+        if (!CopyPictures(picks.Take(20).ToList())) return;
+        Open("https://www.reddit.com/submit?type=IMAGE");
+        Say(Lang.T("Reddit opened. The pictures are copied: paste them into the post."));
     }
 
     private static void Open(string url)
@@ -380,11 +450,14 @@ public sealed partial class RewindViewModel : ObservableObject
     partial void OnToastChanged(string value) => OnPropertyChanged(nameof(HasToast));
     private int _toastAsk;
 
-    private async void Say(string text, bool folder = false)
+    private async void Say(string text, bool folder = false, bool keep = false)
     {
         int ask = ++_toastAsk;
         Toast = text;
         ToastHasFolder = folder;
+        if (!keep) NextBatchText = "";
+        // With more pictures to copy it stays until they are, or Share closes.
+        if (keep) return;
         await Task.Delay(folder ? 6000 : 3500);
         if (ask == _toastAsk) Toast = "";
     }

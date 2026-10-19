@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Rewind;
 using Rigsight.Tests.Data;
 using static Rigsight.Tests.Data.Make;
@@ -58,25 +58,26 @@ public class RewindTests
     [Fact]
     public void On_the_first_of_July_the_half_year_quarter_and_month_are_due_biggest_first()
     {
+        // (2027: nothing ending before 1 November 2026 is ever made.)
         using var t = new TestDb();
         t.OpenWriter();
         // Used every day of the first half of the year.
-        for (var d = new DateTime(2026, 1, 1); d < new DateTime(2026, 7, 1); d = d.AddDays(1))
+        for (var d = new DateTime(2027, 1, 1); d < new DateTime(2027, 7, 1); d = d.AddDays(1))
             t.Exec("INSERT INTO system_day(day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n, gpu_load_sum, gpu_load_n) " +
                    "VALUES($d, 60, 3600, 0, 0, 0, 0, 0, 0, 0, 0, 0)", ("$d", U(d)));
         var settings = Settings();
         settings.Tracking.KeepHistoryDays = 0;
-        foreach (var f in RewindStore.All().Where(f => f.From.Year == 2026 && f.From.Month <= 6)) RewindStore.Remove(f.Id);
-        var due = RewindStore.Due(t.Db, settings, new DateTime(2026, 7, 1, 9, 0, 0));
+        foreach (var f in RewindStore.All().Where(f => f.From.Year == 2027 && f.From.Month <= 6)) RewindStore.Remove(f.Id);
+        var due = RewindStore.Due(t.Db, settings, new DateTime(2027, 7, 1, 9, 0, 0));
         Assert.Equal([RewindKind.Half, RewindKind.Quarter, RewindKind.Month], due.Select(d => d.Kind));
-        Assert.Equal((new DateTime(2026, 1, 1), new DateTime(2026, 7, 1)), (due[0].From, due[0].To));
-        Assert.Equal((new DateTime(2026, 4, 1), new DateTime(2026, 7, 1)), (due[1].From, due[1].To));
-        Assert.Equal((new DateTime(2026, 6, 1), new DateTime(2026, 7, 1)), (due[2].From, due[2].To));
+        Assert.Equal((new DateTime(2027, 1, 1), new DateTime(2027, 7, 1)), (due[0].From, due[0].To));
+        Assert.Equal((new DateTime(2027, 4, 1), new DateTime(2027, 7, 1)), (due[1].From, due[1].To));
+        Assert.Equal((new DateTime(2027, 6, 1), new DateTime(2027, 7, 1)), (due[2].From, due[2].To));
 
         // Switched off, or history kept for 3 months: not made.
         settings.Rewind.Half = false;
         settings.Tracking.KeepHistoryDays = 90;
-        Assert.Equal([RewindKind.Quarter, RewindKind.Month], RewindStore.Due(t.Db, settings, new DateTime(2026, 7, 1, 9, 0, 0)).Select(d => d.Kind));
+        Assert.Equal([RewindKind.Quarter, RewindKind.Month], RewindStore.Due(t.Db, settings, new DateTime(2027, 7, 1, 9, 0, 0)).Select(d => d.Kind));
     }
 
     [Fact]
@@ -87,10 +88,25 @@ public class RewindTests
         // Three days of use in June.
         foreach (int day in new[] { 3, 9, 20 })
             t.Exec("INSERT INTO system_day(day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n, gpu_load_sum, gpu_load_n) " +
-                   "VALUES($d, 60, 3600, 0, 0, 0, 0, 0, 0, 0, 0, 0)", ("$d", U(2026, 6, day)));
+                   "VALUES($d, 60, 3600, 0, 0, 0, 0, 0, 0, 0, 0, 0)", ("$d", U(2027, 6, day)));
         var settings = Settings();
         settings.Rewind.Quarter = settings.Rewind.Half = settings.Rewind.Year = false;
-        Assert.Empty(RewindStore.Due(t.Db, settings, new DateTime(2026, 7, 1, 9, 0, 0)));
+        Assert.Empty(RewindStore.Due(t.Db, settings, new DateTime(2027, 7, 1, 9, 0, 0)));
+    }
+
+    [Fact]
+    public void Nothing_before_October_2026_is_made_the_first_is_October_seen_on_1_November()
+    {
+        using var t = new TestDb();
+        t.OpenWriter();
+        for (var d = new DateTime(2026, 9, 1); d < new DateTime(2026, 11, 1); d = d.AddDays(1))
+            t.Exec("INSERT INTO system_day(day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n, gpu_load_sum, gpu_load_n) " +
+                   "VALUES($d, 60, 3600, 0, 0, 0, 0, 0, 0, 0, 0, 0)", ("$d", U(d)));
+        var settings = Settings();
+        RewindStore.Remove("2026-10-month");
+        Assert.Empty(RewindStore.Due(t.Db, settings, new DateTime(2026, 10, 19, 15, 0, 0))); // no September on update day
+        var due = RewindStore.Due(t.Db, settings, new DateTime(2026, 11, 1, 9, 0, 0));
+        Assert.Equal((RewindKind.Month, new DateTime(2026, 10, 1)), (due.Single().Kind, due.Single().From));
     }
 
     // ── Cards ──

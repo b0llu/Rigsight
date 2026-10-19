@@ -63,6 +63,12 @@ public static class RewindStore
         return (from, from.AddMonths(months));
     }
 
+    /// <summary>
+    /// Nothing ends before this is made (the user's ruling, 2026-10-19): the first rewind is October 2026, seen from
+    /// 1 November, not a September one on the day the update arrives.
+    /// </summary>
+    public static readonly DateTime FirstEnd = new(2026, 11, 1);
+
     public static int Months(RewindKind kind) => kind switch { RewindKind.Month => 1, RewindKind.Quarter => 3, RewindKind.Half => 6, _ => 12 };
 
     /// <summary>
@@ -84,6 +90,7 @@ public static class RewindStore
             if (!settings.Rewind.Makes(kind) || !HistoryAllows(kind, settings.Tracking.KeepHistoryDays)) continue;
             var (from, to) = PeriodOf(kind, now.Date);
             (from, to) = (from.AddMonths(-Months(kind)), from);
+            if (to < FirstEnd) continue;
             if (Exists(RewindBuilder.IdOf(kind, from))) continue;
             if (db.CountDaysUsed(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)) < RewindBuilder.EnoughDays(kind)) continue;
             due.Add((kind, from, to));

@@ -98,7 +98,7 @@
                 </Grid.ColumnDefinitions>
                 <Button x:Name="PrevButton" Style="{StaticResource RoundArrow}" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanGoBack}"
                         HorizontalAlignment="Right" Margin="0,0,22,0" AutomationProperties.Name="Previous card">
-                    <TextBlock Text="&#xE76B;" />
+                    <TextBlock Text="&#xE76B;" FontFamily="{StaticResource IconFont}" FontSize="14" />
                 </Button>
                 <!-- The card, or at the end what to do with it. The frame keeps 16:9 and fits the window. -->
                 <Viewbox Grid.Column="1" Stretch="Uniform" MaxWidth="1100" Margin="0,8">
@@ -135,7 +135,7 @@
                 </Viewbox>
                 <Button Grid.Column="2" Style="{StaticResource RoundArrow}" Command="{Binding NextCommand}" IsEnabled="{Binding CanGoNext}"
                         HorizontalAlignment="Left" Margin="22,0,0,0" AutomationProperties.Name="Next">
-                    <TextBlock Text="&#xE76C;" />
+                    <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="14" />
                 </Button>
             </Grid>
         </DockPanel>
@@ -189,16 +189,16 @@
                                 <TextBlock Text="{ctl:T 'Pictures to share'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                             </DockPanel>
                             <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,14">
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding CopyCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="Copy this picture" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Copy this picture'}" /></StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostXCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostXCommand}" AutomationProperties.Name="Post on X" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="𝕏" FontWeight="Bold" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on X'}" /></StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding PostRedditCommand}" AutomationProperties.Name="Post on Reddit" HorizontalContentAlignment="Left" Margin="0,0,0,10" Padding="12,8">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F2;" Style="{StaticResource Icon}" FontSize="13" Width="26" /><TextBlock Text="{ctl:T 'Post on Reddit'}" /></StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" Padding="12,9">
+                                <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" AutomationProperties.Name="Export" Padding="12,9">
                                     <StackPanel Orientation="Horizontal">
                                         <ctl:Spinner Width="14" Height="14" StrokeThickness="2" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}}" />
                                         <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" Visibility="{Binding IsExporting, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
@@ -210,7 +210,8 @@
                                 <ItemsControl x:Name="PickList" ItemsSource="{Binding Picks}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border x:Name="Row" CornerRadius="8" Padding="6" Margin="0,2">
+                                            <Border x:Name="Row" CornerRadius="8" Padding="6" Margin="0,2" Background="Transparent" Cursor="Hand"
+                                                    Tag="{Binding}" MouseLeftButtonUp="PickRow_Click">
                                                 <DockPanel>
                                                     <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Included}" VerticalAlignment="Center" Margin="2,0,8,0"
                                                               AutomationProperties.Name="{Binding Name}" />
@@ -254,6 +255,8 @@
                 <TextBlock Text="{Binding Toast}" FontSize="13" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                 <Button Style="{StaticResource GhostButton}" Command="{Binding OpenFolderCommand}" Content="{ctl:T 'Open folder'}" Margin="14,0,0,0"
                         Visibility="{Binding ToastHasFolder, Converter={StaticResource Vis}}" />
+                <Button Style="{StaticResource AccentButton}" Command="{Binding CopyNextBatchCommand}" Content="{Binding NextBatchText}" Margin="14,0,0,0"
+                        Visibility="{Binding HasNextBatch, Converter={StaticResource Vis}}" />
             </StackPanel>
         </ctl:SmoothBorder>
     </Grid>

@@ -46,10 +46,11 @@ public partial class RewindLayer : UserControl
                 break;
             case nameof(RewindViewModel.Index):
             case nameof(RewindViewModel.Cards):
+            case nameof(RewindViewModel.Watched):
                 DrawCard();
                 break;
             case nameof(RewindViewModel.IsSharing):
-                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; ThemeSwatches.Children.Clear(); AccentSwatches.Children.Clear(); }
+                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; ThemeSwatches.Children.Clear(); AccentSwatches.Children.Clear(); DrawCard(); }
                 break;
             case nameof(RewindViewModel.Previewed):
                 DrawPreview();
@@ -113,7 +114,13 @@ public partial class RewindLayer : UserControl
     /// <summary>The card being watched, as RigSight shows it (wide, the app's look), with the progress and the end's thumbnails.</summary>
     private void DrawCard()
     {
-        if (_vm?.Watched is not { } f) return;
+        try { DrawCardNow(); }
+        catch (Exception ex) { Core.Log.Error("rewind", ex); } // a card that can't be drawn mustn't leave the screen half drawn unseen
+    }
+
+    private void DrawCardNow()
+    {
+        if (_vm?.Watched is not { } f || !_vm.IsWatching) return;
         var cards = _vm.Cards;
         Progress.Children.Clear();
         Progress.Columns = Math.Max(1, cards.Count);
@@ -165,6 +172,14 @@ public partial class RewindLayer : UserControl
         PreviewFrame.Width = w * scale;
         PreviewFrame.Height = h * scale;
         PreviewHost.Child = new Viewbox { Stretch = Stretch.Fill, Child = RewindPainter.Card(p.Card, f, p.Index, _vm.Cards.Count, _vm.Shape, _vm.Look, w, h) };
+    }
+
+    /// <summary>Anywhere on a row but its tick: that picture in the preview.</summary>
+    private void PickRow_Click(object sender, MouseButtonEventArgs e)
+    {
+        for (var d = e.OriginalSource as DependencyObject; d is not null && d != sender; d = d is Visual ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d is CheckBox) return;
+        if (sender is FrameworkElement { Tag: SharePick p }) _vm?.PreviewCommand.Execute(p);
     }
 
     private void PickThumb_Loaded(object sender, RoutedEventArgs e)
