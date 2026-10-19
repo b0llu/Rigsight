@@ -53,8 +53,8 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <TextBlock Text="Fans" Style="{StaticResource H1}" />
-            <TextBlock Text="How your fans are doing, what makes them spin, and how quiet your PC stays." Style="{StaticResource Muted}" Margin="0,4,0,14" />
+            <TextBlock Text="{ctl:T Fans}" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'How your fans are doing, what makes them spin, and how quiet your PC stays.'}" Style="{StaticResource Muted}" Margin="0,4,0,14" />
             <!-- The period the whole page shows (the live readings and "Fans: All OK" are always now). -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
@@ -82,7 +82,7 @@
                 <UniformGrid Rows="1" Margin="-9,0,-9,18">
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="FANS" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T FANS}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding StatusText}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource TileBig}">
@@ -107,14 +107,14 @@
                     </Border>
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="MADE THEM WORK HARDEST" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'MADE THEM WORK HARDEST'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding HardestApp}" Style="{StaticResource TileBig}" ctl:TrimmedText.ToolTip="True" />
                             <TextBlock Text="{Binding HardestNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource TileBox}">
                         <StackPanel>
-                            <TextBlock Text="FASTEST" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T FASTEST}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding FastestText}" Style="{StaticResource TileBig}" />
                             <TextBlock Text="{Binding FastestNote}" Style="{StaticResource TileNote}" />
                         </StackPanel>
@@ -135,7 +135,7 @@
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding EmptyHeadersText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap"
                                        Margin="10,8,10,0" Visibility="{Binding EmptyHeadersText, Converter={StaticResource Vis}}" />
                             <ListBox Style="{StaticResource CardList}" ItemsSource="{Binding Source={StaticResource Grouped}}"
-                                     SelectedItem="{Binding Selected}" AutomationProperties.Name="Fans">
+                                     SelectedItem="{Binding Selected}" AutomationProperties.Name="{ctl:T Fans}">
                                 <ListBox.GroupStyle>
                                     <GroupStyle>
                                         <GroupStyle.HeaderTemplate>
@@ -211,7 +211,7 @@
                                     <!-- One fan: click its name to rename it (it shows everywhere). A card's fans: their own names below. -->
                                     <TextBox Style="{StaticResource InlineEdit}" FontSize="18" FontWeight="SemiBold" Margin="-5,0,0,0"
                                              Text="{Binding Sensor.Label, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
-                                             ToolTip="Click to rename this fan (the name shows everywhere)"
+                                             ToolTip="{ctl:T 'Click to rename this fan (the name shows everywhere)'}"
                                              Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                     <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="18"
                                                Visibility="{Binding IsGroup, Converter={StaticResource Vis}}" />
@@ -221,7 +221,7 @@
 
                             <TextBlock Text="{Binding ValueText}" FontSize="32" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Text="{Binding Sensor.MinMaxText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0"
-                                       ToolTip="Slowest and fastest today" Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                       ToolTip="{ctl:T 'Slowest and fastest today'}" Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- A card's fans, each with its speed. -->
                             <ItemsControl ItemsSource="{Binding Series}" Margin="0,6,0,0" Visibility="{Binding IsGroup, Converter={StaticResource Vis}}">
                                 <ItemsControl.ItemsPanel>
@@ -316,7 +316,7 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
-                                <TextBlock Text="SPEED THROUGH THE DAY" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'SPEED THROUGH THE DAY'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                             </DockPanel>
                             <ctl:LineChart x:Name="SpeedChart" CanZoom="True" ctl:Roomy.Height="220" Kind="{x:Static core:SensorKind.Fan}" WindowSeconds="0"
                                            Day="{Binding DataContext.DayOfChart, ElementName=Page}"
@@ -327,9 +327,9 @@
                             <DockPanel Margin="0,0,0,10">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                     <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{Binding Series[0].Brush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="average" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,10,0" />
+                                    <TextBlock Text="{ctl:T average}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,10,0" />
                                     <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{DynamicResource HoverBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="fastest" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" />
+                                    <TextBlock Text="{ctl:T fastest}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" />
                                 </StackPanel>
                                 <TextBlock>
                                     <TextBlock.Style>
@@ -360,7 +360,7 @@
                     <ctl:SmoothBorder Style="{StaticResource RowCard}" Visibility="{Binding Selected.Detail.HasTrend, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                         <StackPanel>
                             <TextBlock Text="{Binding Selected.Detail.TrendTitle}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
-                            <TextBlock Text="The same heat each month: lower bars mean a slower fan." Style="{StaticResource TileNote}" Margin="0,0,0,10" />
+                            <TextBlock Text="{ctl:T 'The same heat each month: lower bars mean a slower fan.'}" Style="{StaticResource TileNote}" Margin="0,0,0,10" />
                             <ctl:FanDaysChart ctl:Roomy.Height="180" Days="{Binding Selected.Detail.Trend}" Monthly="True" ValueLabel="{Binding Selected.Detail.TrendLabel}"
                                               Brush="{Binding Selected.Series[0].Brush}" />
                         </StackPanel>
@@ -399,10 +399,10 @@
                     <!-- A fan at a set speed: what a curve would do for it. -->
                     <ctl:SmoothBorder Style="{StaticResource RowCard}" Visibility="{Binding Selected.Detail.IsSteady, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                         <StackPanel>
-                            <TextBlock Text="A SET SPEED" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                            <TextBlock Text="This fan turns at the same speed whatever runs and however hot things get."
+                            <TextBlock Text="{ctl:T 'A SET SPEED'}" Style="{StaticResource Caption}" Margin="0,0,0,10" />
+                            <TextBlock Text="{ctl:T 'This fan turns at the same speed whatever runs and however hot things get.'}"
                                        FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                            <TextBlock Text="For a quieter PC at rest and more airflow in games, give it a fan curve in your BIOS."
+                            <TextBlock Text="{ctl:T 'For a quieter PC at rest and more airflow in games, give it a fan curve in your BIOS.'}"
                                        FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                     </ctl:SmoothBorder>
@@ -417,12 +417,12 @@
                                 <TextBlock Text="{Binding LoudestNote}" Style="{StaticResource TileNote}" Visibility="{Binding LoudestNote, Converter={StaticResource Vis}}" />
                             </StackPanel>
                             <StackPanel Margin="0,12,0,0" Visibility="{Binding StartsText, Converter={StaticResource Vis}}">
-                                <TextBlock Text="GPU fans started up" Style="{StaticResource TileNote}" />
+                                <TextBlock Text="{ctl:T 'GPU fans started up'}" Style="{StaticResource TileNote}" />
                                 <TextBlock Text="{Binding StartsText}" Style="{StaticResource FactValue}" />
                                 <TextBlock Text="{Binding StartsNote}" Style="{StaticResource TileNote}" />
                             </StackPanel>
                             <StackPanel Margin="0,12,0,0" Visibility="{Binding SilentText, Converter={StaticResource Vis}}">
-                                <TextBlock Text="Longest silent stretch" Style="{StaticResource TileNote}" />
+                                <TextBlock Text="{ctl:T 'Longest silent stretch'}" Style="{StaticResource TileNote}" />
                                 <TextBlock Text="{Binding SilentText}" Style="{StaticResource FactValue}" />
                                 <TextBlock Text="{Binding SilentNote}" Style="{StaticResource TileNote}" />
                             </StackPanel>

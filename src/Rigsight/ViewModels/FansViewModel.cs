@@ -35,10 +35,10 @@ public sealed record FanDetail(
     public IReadOnlyList<FanFact> Facts { get; init; } = [];
 
     /// <summary>The first fact's heading: "Follows", or for a graphics card that stands still, "Starts spinning".</summary>
-    public string FollowsLabel { get; init; } = "Follows";
+    public string FollowsLabel { get; init; } = Lang.T("Follows");
 
     /// <summary>The second fact's heading ("Stood still", or "Average" for a year, which is kept by the day).</summary>
-    public string StillLabel { get; init; } = "Stood still";
+    public string StillLabel { get; init; } = Lang.T("Stood still");
 
     /// <summary>The speed chart's bars are months (a year).</summary>
     public bool Monthly { get; init; }
@@ -80,7 +80,7 @@ public sealed partial class FanCard : ObservableObject
         Sensors = sensors;
         Sensor = sensors[0];
         IsGpu = Sensor.HardwareType.StartsWith("Gpu", StringComparison.OrdinalIgnoreCase);
-        Place = IsGpu ? "GPU" : Sensor.HardwareType == "Cooler" ? Sensor.HardwareName : "Motherboard";
+        Place = IsGpu ? "GPU" : Sensor.HardwareType == "Cooler" ? Sensor.HardwareName : Lang.T("Motherboard");
         Series = [.. sensors.Select((x, i) => new ChartSeries(x.DisplayName, x, IsGpu ? Colors[i % Colors.Length] : i == 0 ? "CpuColor" : Colors[i % Colors.Length]))];
     }
 
@@ -98,12 +98,12 @@ public sealed partial class FanCard : ObservableObject
     public string Place { get; internal set; }
 
     /// <summary>The row's name: a fan's own (or the name the user gave it), or "GPU fans" for a card's.</summary>
-    public string Title => IsGroup ? "GPU fans" : Sensor.DisplayName;
+    public string Title => IsGroup ? Lang.T("GPU fans") : Sensor.DisplayName;
 
     /// <summary>Under the name in the list: a warning first, then how many fans a card's row stands for, or the state.</summary>
-    public string Note => HasAlert ? "Needs a look"
-        : IsGroup ? $"{Sensors.Count} fans · {StateText.ToLowerInvariant()}"
-        : Facts?.Follows == FanFollows.Steady && State == FanState.Spinning ? "Steady speed" : StateText;
+    public string Note => HasAlert ? Lang.T("Needs a look")
+        : IsGroup ? Lang.T($"{Sensors.Count} fans · {StateText.ToLowerInvariant()}")
+        : Facts?.Follows == FanFollows.Steady && State == FanState.Spinning ? Lang.T("Steady speed") : StateText;
 
     /// <summary>The speed now: a card's fans averaged (they turn together), one fan's as it reads.</summary>
     public double? Value => (IsGroup
@@ -143,11 +143,11 @@ public sealed partial class FanCard : ObservableObject
 
     public string StateText => State switch
     {
-        FanState.Spinning => "Spinning",
-        FanState.Resting => "Resting while cool",
-        FanState.Stopped => "Stopped",
-        FanState.StoppedHot => "Stopped while hot",
-        _ => "No reading",
+        FanState.Spinning => Lang.T("Spinning"),
+        FanState.Resting => Lang.T("Resting while cool"),
+        FanState.Stopped => Lang.T("Stopped"),
+        FanState.StoppedHot => Lang.T("Stopped while hot"),
+        _ => Lang.T("No reading"),
     };
 
     /// <summary>Standing still while the chip it cools is hot, or today's insights warn about it: worth checking the fan.</summary>
@@ -155,15 +155,15 @@ public sealed partial class FanCard : ObservableObject
 
     public string FollowsText => Facts?.Follows switch
     {
-        FanFollows.Gpu => "Speeds up with your GPU",
-        FanFollows.Cpu => "Speeds up with your CPU",
-        FanFollows.Steady => "Runs at a steady speed",
-        FanFollows.Varies => "Changes speed, not clearly with your CPU or GPU",
+        FanFollows.Gpu => Lang.T("Speeds up with your GPU"),
+        FanFollows.Cpu => Lang.T("Speeds up with your CPU"),
+        FanFollows.Steady => Lang.T("Runs at a steady speed"),
+        FanFollows.Varies => Lang.T("Changes speed, not clearly with your CPU or GPU"),
         _ => "",
     };
 
     public string StoppedText => Facts is { StoppedMinutes: > 0 } f
-        ? $"{(IsGpu ? "Rested" : "Stood still")} for {Units.Duration(f.StoppedMinutes * 60)} today"
+        ? IsGpu ? Lang.T($"Rested for {Units.Duration(f.StoppedMinutes * 60)} today") : Lang.T($"Stood still for {Units.Duration(f.StoppedMinutes * 60)} today")
         : "";
 
     public bool HasFastest => Facts?.Fastest is not null;
@@ -306,8 +306,8 @@ public sealed partial class FansViewModel : ObservableObject
     public string EmptyHeadersText => EmptyHeaders switch
     {
         0 => "",
-        1 => "1 fan header free",
-        var n => $"{n} fan headers free",
+        1 => Lang.T("1 fan header free"),
+        var n => Lang.T($"{n} fan headers free"),
     };
 
     [ObservableProperty]
@@ -327,7 +327,7 @@ public sealed partial class FansViewModel : ObservableObject
     [ObservableProperty] private string _statusNote = "";
 
     /// <summary>How long a graphics card's fans stood still (a year: their average speed, as days are kept).</summary>
-    [ObservableProperty] private string _quietLabel = "QUIET TIME";
+    [ObservableProperty] private string _quietLabel = Lang.T("QUIET TIME");
     [ObservableProperty] private string _quietText = "—";
     [ObservableProperty] private string _quietNote = "";
 
@@ -344,7 +344,7 @@ public sealed partial class FansViewModel : ObservableObject
     /// <summary>The hour (a day) or the day (a week, a month) the fans spun fastest together, and what was going on.</summary>
     [ObservableProperty] private string? _loudestHour;
     [ObservableProperty] private string _loudestNote = "";
-    [ObservableProperty] private string _loudestLabel = "Loudest hour";
+    [ObservableProperty] private string _loudestLabel = Lang.T("Loudest hour");
 
     /// <summary>How many times a graphics card's fans started up (zero-rpm fans starting and stopping).</summary>
     [ObservableProperty] private string? _startsText;
@@ -471,11 +471,13 @@ public sealed partial class FansViewModel : ObservableObject
 
         // A board with two fan chips (each with its own "Fan #1"…): the second chip's fans under a heading of their own.
         // (The list's groups are made as rows are added: a row whose heading changes is added again.)
-        var chips = shown.Where(c => c.Place.StartsWith("Motherboard", StringComparison.Ordinal)).Select(c => c.Sensor.HardwareName).Distinct().ToList();
+        // The board's own fans: neither a card's nor a cooler's (the heading is in the person's language, so not compared).
+        static bool OnBoard(FanCard c) => !c.IsGpu && c.Sensor.HardwareType != "Cooler";
+        var chips = shown.Where(OnBoard).Select(c => c.Sensor.HardwareName).Distinct().ToList();
         bool regroup = false;
-        foreach (var c in shown.Where(c => c.Place.StartsWith("Motherboard", StringComparison.Ordinal)))
+        foreach (var c in shown.Where(OnBoard))
         {
-            string place = chips.IndexOf(c.Sensor.HardwareName) is > 0 and var i ? $"Motherboard (chip {i + 1})" : "Motherboard";
+            string place = chips.IndexOf(c.Sensor.HardwareName) is > 0 and var i ? Lang.T($"Motherboard (chip {i + 1})") : Lang.T("Motherboard");
             regroup |= c.Place != place;
             c.Place = place;
         }
@@ -504,30 +506,30 @@ public sealed partial class FansViewModel : ObservableObject
     {
         int needs = Fans.Count(f => f.NeedsLook), total = Fans.Sum(f => f.Sensors.Count);
         StatusOk = needs == 0;
-        StatusText = needs == 0 ? "All OK" : needs == 1 ? "1 needs a look" : $"{needs} need a look";
-        StatusNote = $"{total} fan{(total == 1 ? "" : "s")}" + (EmptyHeaders > 0 ? $" · {EmptyHeadersText}" : "");
+        StatusText = needs == 0 ? Lang.T("All OK") : needs == 1 ? Lang.T("1 needs a look") : Lang.T($"{needs} need a look");
+        StatusNote = (total == 1 ? Lang.T("1 fan") : Lang.T($"{total} fans")) + (EmptyHeaders > 0 ? $" · {EmptyHeadersText}" : "");
 
         var card = Fans.FirstOrDefault(f => f.IsGpu);
         if (IsYear)
         {
             // Kept by the day: how fast the card's fans ran on average instead of how long they stood still.
-            QuietLabel = "AVERAGE SPEED";
+            QuietLabel = Lang.T("AVERAGE SPEED");
             QuietText = card?.Detail?.AverageRpm is double avg ? Units.Format(SensorKind.Fan, avg) : "—";
-            QuietNote = card is null ? "" : "GPU fans, across the year's days";
+            QuietNote = card is null ? "" : Lang.T("GPU fans, across the year's days");
         }
         else
         {
-            QuietLabel = "QUIET TIME";
-            QuietText = card?.Facts is { StoppedMinutes: > 0 } q ? Units.Duration(q.StoppedMinutes * 60) : card is null ? "—" : "None";
-            QuietNote = card is null ? "No GPU fans reported" : card.Facts is { StoppedMinutes: > 0 } ? "GPU fans stood still while the GPU was cool" : "GPU fans turned the whole time";
+            QuietLabel = Lang.T("QUIET TIME");
+            QuietText = card?.Facts is { StoppedMinutes: > 0 } q ? Units.Duration(q.StoppedMinutes * 60) : card is null ? "—" : Lang.T("None");
+            QuietNote = card is null ? Lang.T("No GPU fans reported") : card.Facts is { StoppedMinutes: > 0 } ? Lang.T("GPU fans stood still while the GPU was cool") : Lang.T("GPU fans turned the whole time");
         }
 
         // The app that made a fan on a curve work hardest: the card's first, else any that follows a chip.
         var curve = Fans.Where(f => f.IsGpu || f.Facts?.Follows is FanFollows.Gpu or FanFollows.Cpu).OrderByDescending(f => f.IsGpu).FirstOrDefault();
         var top = curve?.Detail?.Apps.FirstOrDefault(a => !a.Dim);
-        HardestApp = top?.Name ?? "Nothing yet";
-        HardestNote = top is not null ? $"{(curve!.IsGroup ? "GPU fans" : curve.Title)} at {top.RpmText} on average"
-            : IsDay && IncludesToday ? "No game or app has warmed them up for long today" : "Nothing warmed them up for long";
+        HardestApp = top?.Name ?? Lang.T("Nothing yet");
+        HardestNote = top is not null ? Lang.T($"{(curve!.IsGroup ? Lang.T("GPU fans") : curve.Title)} at {top.RpmText} on average")
+            : IsDay && IncludesToday ? Lang.T("No game or app has warmed them up for long today") : Lang.T("Nothing warmed them up for long");
 
         var fastest = Fans.Where(f => f.Detail?.FastestRpm is not null).MaxBy(f => f.Detail!.FastestRpm);
         FastestText = fastest is null ? "—" : Units.Format(SensorKind.Fan, fastest.Detail!.FastestRpm);
@@ -547,7 +549,7 @@ public sealed partial class FansViewModel : ObservableObject
         DateTime Slot(long ts) => IsDay ? TimeUtil.FromUnix(ts).Date.AddHours(TimeUtil.FromUnix(ts).Hour) : TimeUtil.FromUnix(ts).Date;
         var loudest = total.GroupBy(x => Slot(x.Key)).Where(g => g.Count() >= (IsDay ? 20 : 60))
             .Select(g => (Slot: g.Key, Rpm: g.Average(x => x.Value))).OrderByDescending(h => h.Rpm).FirstOrDefault();
-        LoudestLabel = IsDay ? "Loudest hour" : "Loudest day";
+        LoudestLabel = IsDay ? Lang.T("Loudest hour") : Lang.T("Loudest day");
         if (loudest.Slot == default) (LoudestHour, LoudestNote) = (null, "");
         else
         {
@@ -577,11 +579,11 @@ public sealed partial class FansViewModel : ObservableObject
             }
             (wasStill, previous) = (still, ts);
         }
-        StartsText = card is null || speed.Count == 0 ? null : starts == 1 ? "1 time" : $"{starts} times";
+        StartsText = card is null || speed.Count == 0 ? null : starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times");
         int daysOn = speed.Select(x => TimeUtil.FromUnix(x.Ts).Date).Distinct().Count();
         // A rate only when there's one to give: twice in six days isn't "about 0 a day".
-        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each time the card warmed past its silent point"
-            : "Each time the card warmed past its silent point";
+        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each time the card warmed past its silent point")
+            : Lang.T("Each time the card warmed past its silent point");
         SilentText = best >= 5 ? Units.Duration(best * 60) : null;
         SilentNote = best < 5 ? ""
             : IsDay ? $"{TimeUtil.FromUnix(bestFrom):h:mm tt} – {TimeUtil.FromUnix(bestFrom + best * 60):h:mm tt}"
@@ -597,7 +599,7 @@ public sealed partial class FansViewModel : ObservableObject
             .GroupBy(d => new DateTime(TimeUtil.FromUnix(d.Day).Year, TimeUtil.FromUnix(d.Day).Month, 1))
             .Select(g => (Month: g.Key, Rpm: g.GroupBy(d => d.Fan).Sum(f => f.Sum(d => d.RpmSum) / f.Sum(d => d.RpmN))))
             .OrderByDescending(m => m.Rpm).FirstOrDefault();
-        LoudestLabel = "Loudest month";
+        LoudestLabel = Lang.T("Loudest month");
         LoudestHour = loudest.Month == default ? null : loudest.Month.ToString("MMMM yyyy");
         LoudestNote = "";
         (StartsText, StartsNote, SilentText, SilentNote) = (null, "", null, "");
@@ -614,7 +616,6 @@ public sealed partial class FansViewModel : ObservableObject
         var facts = card.Facts;
         var follows = facts?.Follows ?? FanFollows.Unknown;
         bool steady = follows == FanFollows.Steady, onGpu = card.IsGpu || follows == FanFollows.Gpu;
-        string chip = onGpu ? "GPU" : "CPU";
 
         // The row's speed each minute of the period (a card's fans averaged), with the temperature of the chip it follows.
         var speed = fans.SelectMany(f => f).GroupBy(f => f.Ts).ToDictionary(g => g.Key, g => g.Average(f => (double)f.RpmAvg));
@@ -650,7 +651,7 @@ public sealed partial class FansViewModel : ObservableObject
         {
             double level = turning.Average();
             line = [new(points.Min(p => p.X), level), new(points.Max(p => p.X), level)];
-            lineLabel = "same speed at every temperature";
+            lineLabel = Lang.T("same speed at every temperature");
         }
         else if (!steady)
         {
@@ -658,7 +659,7 @@ public sealed partial class FansViewModel : ObservableObject
                 .Select(g => (T: g.Key + FanCurves.BinDegrees / 2.0, N: g.Sum(c => c.N), Rpm: g.Sum(c => c.RpmSum) / g.Sum(c => c.N)))
                 .Where(b => b.N >= 5).OrderBy(b => b.T).Select(b => new System.Windows.Point(b.T, b.Rpm))];
             if (line.Count < 2) line = [];
-            else lineLabel = "usual curve";
+            else lineLabel = Lang.T("usual curve");
         }
 
         // What makes it spin: its average speed while each app worked the chip it follows (enough minutes to count).
@@ -685,21 +686,21 @@ public sealed partial class FansViewModel : ObservableObject
             return new Controls.FanDayBar(d, n > 0 ? ofDay.Sum(x => x.RpmSum) / n : null, ofDay.Count > 0 ? ofDay.Max(x => x.RpmMax) : null, d < changed);
         }).ToList();
 
-        string still = facts is { StoppedMinutes: > 0 } f ? Units.Duration(f.StoppedMinutes * 60) : "Never";
-        string stillNote = facts is { StoppedMinutes: > 0 } && card.MinutesOn > 0 ? $"of {Units.Duration(card.MinutesOn * 60)} on" : "Turning all the time the PC was on";
+        string still = facts is { StoppedMinutes: > 0 } f ? Units.Duration(f.StoppedMinutes * 60) : Lang.T("Never");
+        string stillNote = facts is { StoppedMinutes: > 0 } && card.MinutesOn > 0 ? Lang.T($"of {Units.Duration(card.MinutesOn * 60)} on") : Lang.T("Turning all the time the PC was on");
         var (followsValue, followsNote) = follows switch
         {
             // A card's own fans: that they follow its heat goes without saying; where they start is what's worth knowing.
-            FanFollows.Gpu when card.IsGpu && silent is double sb => ($"Around {Units.TempShort(sb)}", "Silent below that, faster as it warms"),
-            FanFollows.Gpu => ("Your GPU's heat", "Faster as it warms"),
-            FanFollows.Cpu => ("Your CPU's heat", "Faster as it warms"),
-            FanFollows.Steady => ("A set speed", $"About {Units.Format(SensorKind.Fan, turning.DefaultIfEmpty().Average())}, whatever the heat"),
-            FanFollows.Varies => ("Its own curve", "Not clearly with your CPU or GPU"),
-            _ => ("Learning", "Needs an hour of turning"),
+            FanFollows.Gpu when card.IsGpu && silent is double sb => (Lang.T($"Around {Units.TempShort(sb)}"), Lang.T("Silent below that, faster as it warms")),
+            FanFollows.Gpu => (Lang.T("Your GPU's heat"), Lang.T("Faster as it warms")),
+            FanFollows.Cpu => (Lang.T("Your CPU's heat"), Lang.T("Faster as it warms")),
+            FanFollows.Steady => (Lang.T("A set speed"), Lang.T($"About {Units.Format(SensorKind.Fan, turning.DefaultIfEmpty().Average())}, whatever the heat")),
+            FanFollows.Varies => (Lang.T("Its own curve"), Lang.T("Not clearly with your CPU or GPU")),
+            _ => (Lang.T("Learning"), Lang.T("Needs an hour of turning")),
         };
         var (thirdLabel, thirdValue, thirdNote) = steady && turning.Count > 0
-            ? ("Steadiness", $"Within {Math.Round(100 * (turning.Max() - turning.Min()) / turning.Average()):0}%", "From its slowest to its fastest")
-            : ("Fastest", card.FastestText, card.FastestLine);
+            ? (Lang.T("Steadiness"), Lang.T($"Within {Math.Round(100 * (turning.Max() - turning.Min()) / turning.Average()):0}%"), Lang.T("From its slowest to its fastest"))
+            : (Lang.T("Fastest"), card.FastestText, card.FastestLine);
 
         // Three more facts. Every fan: its average while turning. A fan on a curve: its average speed while its chip works
         // hard, and (a card's zero-rpm fans) how often they started up; a set speed: its range, and its usual speed the 30
@@ -707,20 +708,20 @@ public sealed partial class FansViewModel : ObservableObject
         string Rpm(double? v) => Units.Format(SensorKind.Fan, v);
         var more = new List<FanFact>
         {
-            new("Average while spinning", turning.Count > 0 ? Rpm(turning.Average()) : "—",
-                turning.Count > 0 ? $"Over {Units.Duration(turning.Count * 60)} of turning" : "It didn't turn"),
+            new(Lang.T("Average while spinning"), turning.Count > 0 ? Rpm(turning.Average()) : "—",
+                turning.Count > 0 ? Lang.T($"Over {Units.Duration(turning.Count * 60)} of turning") : Lang.T("It didn't turn")),
         };
         // Usual: under the setting it's on. Days of an earlier one aren't its usual any more.
         bool newSetting = changed > from.AddDays(-UsualDays);
         var usual = days.Where(d => TimeUtil.FromUnix(d.Day).Date >= from.AddDays(-UsualDays) && TimeUtil.FromUnix(d.Day).Date < from
             && !(TimeUtil.FromUnix(d.Day).Date < changed)).ToList();
         int usualN = usual.Sum(d => d.RpmN);
-        var usualFact = new FanFact("Usual", usualN > 0 ? Rpm(usual.Sum(d => d.RpmSum) / usualN) : "—",
-            newSetting ? $"{(usualN > 0 ? "Since" : "Nothing since")} its setting changed on {changed:d MMM}"
-            : usualN > 0 ? $"The {UsualDays} days before" : "Not recorded before this");
+        var usualFact = new FanFact(Lang.T("Usual"), usualN > 0 ? Rpm(usual.Sum(d => d.RpmSum) / usualN) : "—",
+            newSetting ? usualN > 0 ? Lang.T($"Since its setting changed on {changed:d MMM}") : Lang.T($"Nothing since its setting changed on {changed:d MMM}")
+            : usualN > 0 ? Lang.T($"The {UsualDays} days before") : Lang.T("Not recorded before this"));
         if (steady)
         {
-            more.Add(new("Range", turning.Count > 0 ? $"{turning.Min():N0} to {turning.Max():N0}" : "—", "Slowest to fastest while spinning, RPM"));
+            more.Add(new(Lang.T("Range"), turning.Count > 0 ? Lang.T($"{turning.Min():N0} to {turning.Max():N0}") : "—", Lang.T("Slowest to fastest while spinning, RPM")));
             more.Add(usualFact);
         }
         else
@@ -729,8 +730,9 @@ public sealed partial class FansViewModel : ObservableObject
                     && (onGpu ? m.GpuLoad >= LoadBands.GpuHeavyLoad : m.CpuLoad >= LoadBands.CpuHeavyLoad) && x.Value >= FanCard.MinSpinRpm)
                 .Select(x => x.Value).ToList();
             // The mean of those minutes, called what it is: a middle figure of a period is an average.
-            more.Add(new("Under heavy load", hard.Count >= 5 ? Rpm(hard.Average()) : "—",
-                hard.Count >= 5 ? $"Average while {(onGpu ? "games pushed the GPU" : "work pushed the CPU")}" : $"The {chip} didn't work hard for long"));
+            more.Add(new(Lang.T("Under heavy load"), hard.Count >= 5 ? Rpm(hard.Average()) : "—",
+                hard.Count >= 5 ? onGpu ? Lang.T("Average while games pushed the GPU") : Lang.T("Average while work pushed the CPU")
+                : onGpu ? Lang.T("The GPU didn't work hard for long") : Lang.T("The CPU didn't work hard for long")));
             if (card.IsGpu && speed.Count > 0)
             {
                 int starts = 0;
@@ -743,24 +745,24 @@ public sealed partial class FansViewModel : ObservableObject
                     (wasStill, previous) = (isStill, ts);
                 }
                 int daysOn = speed.Keys.Select(t => TimeUtil.FromUnix(t).Date).Distinct().Count();
-                more.Add(new("Started up", starts == 1 ? "1 time" : $"{starts} times",
-                    daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? $"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point" : "Each time the card warmed past its silent point"));
+                more.Add(new(Lang.T("Started up"), starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times"),
+                    daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point") : Lang.T("Each time the card warmed past its silent point")));
             }
             else more.Add(usualFact);
         }
 
         // Headings in the page's caption style (capitals).
-        string firstLabel = card.IsGpu && follows == FanFollows.Gpu && silent is not null ? "Starts spinning" : "Follows";
+        string firstLabel = card.IsGpu && follows == FanFollows.Gpu && silent is not null ? Lang.T("Starts spinning") : Lang.T("Follows");
         return new FanDetail(followsValue, followsNote, still, stillNote, thirdLabel, thirdValue, thirdNote,
-            $"SPEED AT EACH {chip} TEMPERATURE", dots, tempBins, line, lineLabel, silent,
-            card.IsGroup ? "WHAT MAKES THEM SPIN" : "WHAT MAKES IT SPIN", rows, "", steady, bars)
+            onGpu ? Lang.T("SPEED AT EACH GPU TEMPERATURE") : Lang.T("SPEED AT EACH CPU TEMPERATURE"), dots, tempBins, line, lineLabel, silent,
+            card.IsGroup ? Lang.T("WHAT MAKES THEM SPIN") : Lang.T("WHAT MAKES IT SPIN"), rows, "", steady, bars)
         {
-            Facts = [new(firstLabel, followsValue, followsNote), new("Stood still", still, stillNote), new(thirdLabel, thirdValue, thirdNote), .. more],
+            Facts = [new(firstLabel, followsValue, followsNote), new(Lang.T("Stood still"), still, stillNote), new(thirdLabel, thirdValue, thirdNote), .. more],
             FollowsLabel = firstLabel,
             AverageRpm = turning.Count > 0 ? speed.Values.Average() : null,
             FastestRpm = facts?.Fastest?.Rpm,
             FastestWhen = card.FastestLine,
-            SettingNote = changed > from ? $"Its speed setting changed on {changed:ddd d MMM}. These are its speeds since then." : "",
+            SettingNote = changed > from ? Lang.T($"Its speed setting changed on {changed:ddd d MMM}. These are its speeds since then.") : "",
         };
     }
 
@@ -774,7 +776,6 @@ public sealed partial class FansViewModel : ObservableObject
     {
         var follows = card.Facts?.Follows ?? FanFollows.Unknown;
         bool steady = follows == FanFollows.Steady, onGpu = card.IsGpu || follows == FanFollows.Gpu;
-        string chip = onGpu ? "GPU" : "CPU";
 
         int n = days.Sum(d => d.RpmN);
         double? average = n > 0 ? days.Sum(d => d.RpmSum) / n : null;
@@ -816,48 +817,48 @@ public sealed partial class FansViewModel : ObservableObject
                 return new Controls.FanDayBar(m, k >= 30 ? ofMonth.Sum(c => c.RpmSum) / k : null, null);
             })];
             string temp = Units.TempShort(at + FanCurves.BinDegrees / 2.0);
-            trendTitle = $"SPEED AT {temp} EACH MONTH";
-            trendLabel = $"At {temp}";
+            trendTitle = Lang.T($"SPEED AT {temp} EACH MONTH");
+            trendLabel = Lang.T($"At {temp}");
         }
 
         var (followsValue, followsNote) = follows switch
         {
-            FanFollows.Gpu => ("Your GPU's heat", "Faster as it warms"),
-            FanFollows.Cpu => ("Your CPU's heat", "Faster as it warms"),
-            FanFollows.Steady => ("A set speed", average is double a ? $"About {Units.Format(SensorKind.Fan, a)}, whatever the heat" : "Whatever the heat"),
-            FanFollows.Varies => ("Its own curve", "Not clearly with your CPU or GPU"),
-            _ => ("Learning", "Needs an hour of turning"),
+            FanFollows.Gpu => (Lang.T("Your GPU's heat"), Lang.T("Faster as it warms")),
+            FanFollows.Cpu => (Lang.T("Your CPU's heat"), Lang.T("Faster as it warms")),
+            FanFollows.Steady => (Lang.T("A set speed"), average is double a ? Lang.T($"About {Units.Format(SensorKind.Fan, a)}, whatever the heat") : Lang.T("Whatever the heat")),
+            FanFollows.Varies => (Lang.T("Its own curve"), Lang.T("Not clearly with your CPU or GPU")),
+            _ => (Lang.T("Learning"), Lang.T("Needs an hour of turning")),
         };
-        string fastestWhen = top is null ? "" : $"On {TimeUtil.FromUnix(top.Day):ddd d MMM}";
+        string fastestWhen = top is null ? "" : Lang.T($"On {TimeUtil.FromUnix(top.Day):ddd d MMM}");
 
         // Three more for a year: its average speed in games (the temperature it spent most time at), the days it has, and
         // how its speed at the same heat (a set speed: its speed) changed from the first month with data to the last.
         string Rpm(double? v) => Units.Format(SensorKind.Fan, v);
         var busiest = bins.Count > 0 ? bins.MaxBy(b => b.N) : default;
         var change = (steady ? bars : trend).Where(b => b.Average is not null).ToList();
-        string changeValue = "—", changeNote = "Needs two months of it";
+        string changeValue = "—", changeNote = Lang.T("Needs two months of it");
         if (change.Count >= 2)
         {
             double pct = 100 * (change[^1].Average!.Value / change[0].Average!.Value - 1);
-            changeValue = Math.Abs(pct) < 1 ? "No change" : $"{(pct > 0 ? "+" : "−")}{Math.Abs(pct):0}%";
-            changeNote = $"{(steady ? "Its speed" : "At the same heat")}, {change[0].Day:MMM} to {change[^1].Day:MMM}";
+            changeValue = Math.Abs(pct) < 1 ? Lang.T("No change") : $"{(pct > 0 ? "+" : "−")}{Math.Abs(pct):0}%";
+            changeNote = steady ? Lang.T($"Its speed, {change[0].Day:MMM} to {change[^1].Day:MMM}") : Lang.T($"At the same heat, {change[0].Day:MMM} to {change[^1].Day:MMM}");
         }
         var facts = new List<FanFact>
         {
-            new(steady ? "Follows" : "Follows", followsValue, followsNote),
-            new("Average", average is double av2 ? Rpm(av2) : "—", "Across the year's days"),
-            new("Fastest", top is null ? "—" : Rpm(top.RpmMax), fastestWhen),
-            new("Under heavy load", busiest.N > 0 ? Rpm(busiest.Rpm) : "—",
-                busiest.N > 0 ? $"Average at {Units.TempShort(busiest.Temp + FanCurves.BinDegrees / 2.0)}, where it spent most time" : "No steady load"),
-            new("Days recorded", $"{days.Select(d => d.Day).Distinct().Count()}", "Days with this fan's speeds"),
-            new("Change over the year", changeValue, changeNote),
+            new(Lang.T("Follows"), followsValue, followsNote),
+            new(Lang.T("Average"), average is double av2 ? Rpm(av2) : "—", Lang.T("Across the year's days")),
+            new(Lang.T("Fastest"), top is null ? "—" : Rpm(top.RpmMax), fastestWhen),
+            new(Lang.T("Under heavy load"), busiest.N > 0 ? Rpm(busiest.Rpm) : "—",
+                busiest.N > 0 ? Lang.T($"Average at {Units.TempShort(busiest.Temp + FanCurves.BinDegrees / 2.0)}, where it spent most time") : Lang.T("No steady load")),
+            new(Lang.T("Days recorded"), $"{days.Select(d => d.Day).Distinct().Count()}", Lang.T("Days with this fan's speeds")),
+            new(Lang.T("Change over the year"), changeValue, changeNote),
         };
-        return new FanDetail(followsValue, followsNote, average is double av ? Units.Format(SensorKind.Fan, av) : "—", "Across the year's days",
-            "Fastest", top is null ? "—" : Units.Format(SensorKind.Fan, top.RpmMax), fastestWhen,
-            $"SPEED AT EACH {chip} TEMPERATURE · IN GAMES", dots, tempBins, [], "", null,
-            card.IsGroup ? "WHAT MADE THEM SPIN" : "WHAT MADE IT SPIN", rows, "", steady, bars)
+        return new FanDetail(followsValue, followsNote, average is double av ? Units.Format(SensorKind.Fan, av) : "—", Lang.T("Across the year's days"),
+            Lang.T("Fastest"), top is null ? "—" : Units.Format(SensorKind.Fan, top.RpmMax), fastestWhen,
+            onGpu ? Lang.T("SPEED AT EACH GPU TEMPERATURE · IN GAMES") : Lang.T("SPEED AT EACH CPU TEMPERATURE · IN GAMES"), dots, tempBins, [], "", null,
+            card.IsGroup ? Lang.T("WHAT MADE THEM SPIN") : Lang.T("WHAT MADE IT SPIN"), rows, "", steady, bars)
         {
-            StillLabel = "Average",
+            StillLabel = Lang.T("Average"),
             Facts = facts,
             Monthly = true,
             Trend = trend,

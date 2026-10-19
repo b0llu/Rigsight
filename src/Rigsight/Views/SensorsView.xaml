@@ -59,17 +59,17 @@
                 <Button Style="{StaticResource GhostButton}" Command="{Binding SetAllExpandedCommand}" CommandParameter="False" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" />
-                        <TextBlock Text="Collapse all" />
+                        <TextBlock Text="{ctl:T 'Collapse all'}" />
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource GhostButton}" Command="{Binding SetAllExpandedCommand}" CommandParameter="True">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" />
-                        <TextBlock Text="Expand all" />
+                        <TextBlock Text="{ctl:T 'Expand all'}" />
                     </StackPanel>
                 </Button>
             </StackPanel>
-            <TextBlock Text="All sensors" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'All sensors'}" Style="{StaticResource H1}" />
         </DockPanel>
 
         <!-- Filters -->
@@ -77,28 +77,28 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0"
                         Visibility="{Binding HiddenCount, Converter={StaticResource Vis}}">
                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center"
-                          ToolTip="Hidden sensors appear dimmed; click their eye icon to bring them back.">
+                          ToolTip="{ctl:T 'Hidden sensors appear dimmed; click their eye icon to bring them back.'}">
                     <TextBlock Text="{Binding ShowHiddenText}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
                 </CheckBox>
-                <Button Style="{StaticResource GhostButton}" Content="Unhide all" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
+                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Unhide all'}" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
             </StackPanel>
             <TextBox DockPanel.Dock="Left" Style="{StaticResource SearchBox}" Tag="Search sensors…" Width="240"
                      ctl:Debounce.Text="{Binding SearchText}" />
             <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="12,0,0,0">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="All"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T All}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=All}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Temperatures"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Temperatures}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Temperature}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Load"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Load}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Load}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Fans"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Fans}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Fan}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Power"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Power}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Power}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Clocks"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Clocks}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Clock}" />
-                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="Voltages"
+                    <RadioButton Style="{StaticResource Segment}" GroupName="TypeFilter" Content="{ctl:T Voltages}"
                                  IsChecked="{Binding TypeFilter, Converter={StaticResource Equals}, ConverterParameter=Voltage}" />
                 </StackPanel>
             </Border>
@@ -139,7 +139,7 @@
                             <StackPanel>
                                 <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="10"
                                         MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
-                                        ToolTip="Click to collapse or expand. Drag to change the order.">
+                                        ToolTip="{ctl:T 'Click to collapse or expand. Drag to change the order.'}">
                                     <DockPanel>
                                         <Grid DockPanel.Dock="Right" Style="{StaticResource WithStats}">
                                             <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
@@ -198,14 +198,14 @@
                                         <ColumnDefinition Width="36" />
                                         <ColumnDefinition Width="30" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="1" Text="SENSOR" Style="{StaticResource Caption}" Margin="6,0,0,0" />
+                                    <TextBlock Grid.Column="1" Text="{ctl:T SENSOR}" Style="{StaticResource Caption}" Margin="6,0,0,0" />
                                     <Grid Grid.Column="2" Width="92" Style="{StaticResource WithSpark}">
-                                        <TextBlock Text="LAST MINUTE" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+                                        <TextBlock Text="{ctl:T 'LAST MINUTE'}" Style="{StaticResource Caption}" Margin="12,0,0,0" />
                                     </Grid>
-                                    <TextBlock Grid.Column="3" Text="VALUE" Style="{StaticResource ColHeader}" />
-                                    <TextBlock Grid.Column="4" Text="LOWEST" Style="{StaticResource StatHeader}" ToolTip="Lowest today, since midnight" />
-                                    <TextBlock Grid.Column="5" Text="HIGHEST" Style="{StaticResource StatHeader}" ToolTip="Highest today, since midnight" />
-                                    <TextBlock Grid.Column="6" Text="AVERAGE" Style="{StaticResource StatHeader}" ToolTip="Average since you opened this window" />
+                                    <TextBlock Grid.Column="3" Text="{ctl:T VALUE}" Style="{StaticResource ColHeader}" />
+                                    <TextBlock Grid.Column="4" Text="{ctl:T LOWEST}" Style="{StaticResource StatHeader}" ToolTip="{ctl:T 'Lowest today, since midnight'}" />
+                                    <TextBlock Grid.Column="5" Text="{ctl:T HIGHEST}" Style="{StaticResource StatHeader}" ToolTip="{ctl:T 'Highest today, since midnight'}" />
+                                    <TextBlock Grid.Column="6" Text="{ctl:T AVERAGE}" Style="{StaticResource StatHeader}" ToolTip="{ctl:T 'Average since you opened this window'}" />
                                 </Grid>
                             </StackPanel>
                         </ctl:SmoothBorder>
@@ -291,12 +291,12 @@
                                     <TextBlock Grid.Column="6" Text="{Binding FormattedAverage}" Style="{StaticResource Stat}" />
                                     <Button Grid.Column="7" Style="{StaticResource IconButton}" HorizontalAlignment="Right"
                                             Command="{Binding DataContext.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" ToolTip="Hide / show this sensor">
+                                            CommandParameter="{Binding}" ToolTip="{ctl:T 'Hide / show this sensor'}">
                                         <TextBlock x:Name="EyeGlyph" Text="&#xE7B3;" />
                                     </Button>
                                     <!-- Where it is shown, copying its value, hiding it. -->
                                     <Button Grid.Column="8" Style="{StaticResource IconButton}" HorizontalAlignment="Right" Click="More_Click"
-                                            ToolTip="Show it on the taskbar, the overlay, a widget or a dashboard" AutomationProperties.Name="More">
+                                            ToolTip="{ctl:T 'Show it on the taskbar, the overlay, a widget or a dashboard'}" AutomationProperties.Name="{ctl:T More}">
                                         <TextBlock Text="&#xE712;" />
                                     </Button>
                                 </Grid>
@@ -321,11 +321,11 @@
             <!-- What stands out right now, read from every sensor: nothing to pick. A line jumps to its sensor in the list. -->
             <!-- As tall as what it says and never taller than the window: past that it scrolls by itself (it ran off the
                  window's foot, and the fans and the power under them couldn't be reached). -->
-            <ctl:SmoothBorder x:Name="Pane" Grid.Column="1" Width="302" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="18,0,0,24" AutomationProperties.Name="Right now">
+            <ctl:SmoothBorder x:Name="Pane" Grid.Column="1" Width="302" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="18,0,0,24" AutomationProperties.Name="{ctl:T 'Right now'}">
                 <ctl:SmoothBorder.Resources>
                     <DataTemplate DataType="{x:Type vm:GlanceRow}">
                         <Button Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                Cursor="Hand" FocusVisualStyle="{x:Null}" HorizontalAlignment="Stretch" ToolTip="Show it in the list"
+                                Cursor="Hand" FocusVisualStyle="{x:Null}" HorizontalAlignment="Stretch" ToolTip="{ctl:T 'Show it in the list'}"
                                 AutomationProperties.Name="{Binding Sensor.DisplayName}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -388,7 +388,7 @@
                     </Style>
                 </ctl:SmoothBorder.Resources>
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Right now" Style="{StaticResource H2}" />
+                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Right now'}" Style="{StaticResource H2}" />
                     <!-- Its scrollbar has its own strip in the card's right padding (laid over the rows, it sat on the figures). The
                          scroller reaches 8 into the left padding and the rows step 8 back in, so a row's hover shade, which
                          stands 8 out on each side, isn't cut off at its left. -->
@@ -398,23 +398,23 @@
                                  Visibility="{Binding ReadingsPending, Converter={StaticResource Vis}}" />
                     <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Text="nearest its limit" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
-                            <TextBlock Text="WARMEST" Style="{StaticResource GlanceTitle}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'nearest its limit'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock Text="{ctl:T WARMEST}" Style="{StaticResource GlanceTitle}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding Warmest}" Focusable="False" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding Hardest.Count, Converter={StaticResource Vis}}">
-                        <TextBlock Text="WORKING HARDEST" Style="{StaticResource GlanceTitle}" />
+                        <TextBlock Text="{ctl:T 'WORKING HARDEST'}" Style="{StaticResource GlanceTitle}" />
                         <ItemsControl ItemsSource="{Binding Hardest}" Focusable="False" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding FastestFans.Count, Converter={StaticResource Vis}}">
-                        <TextBlock Text="FANS" Style="{StaticResource GlanceTitle}" />
+                        <TextBlock Text="{ctl:T FANS}" Style="{StaticResource GlanceTitle}" />
                         <ItemsControl ItemsSource="{Binding FastestFans}" Focusable="False" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding PowerDraw.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Text="{Binding PowerNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
-                            <TextBlock Text="DRAWING POWER" Style="{StaticResource GlanceTitle}" />
+                            <TextBlock Text="{ctl:T 'DRAWING POWER'}" Style="{StaticResource GlanceTitle}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding PowerDraw}" Focusable="False" />
                     </StackPanel>

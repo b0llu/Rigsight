@@ -5,7 +5,7 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <TextBlock Text="Temperatures" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T Temperatures}" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding SystemSummary}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
 
             <!-- CPU + GPU -->
@@ -33,13 +33,13 @@
                                  horizontal StackPanel it ran past the edge and was cut). -->
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Left" Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,3,9,0" VerticalAlignment="Top" />
-                                <TextBlock Text="Temperature, power and clock speed need admin rights on this PC." Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Temperature, power and clock speed need admin rights on this PC.'}" Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                         </Border>
 
                         <Border DockPanel.Dock="Bottom" Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <StackPanel Margin="0,14,0,0" Visibility="{Binding CpuThreads.Count, Converter={StaticResource Vis}}">
-                            <TextBlock Text="LOAD PER THREAD" Style="{StaticResource Caption}" Margin="5,0,0,8" />
+                            <TextBlock Text="{ctl:T 'LOAD PER THREAD'}" Style="{StaticResource Caption}" Margin="5,0,0,8" />
                             <ItemsControl ItemsSource="{Binding CpuThreads}" Margin="5,0">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -67,12 +67,12 @@
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <TextBlock Text="{Binding CpuLoad.Value, StringFormat='{}{0:0}%', FallbackValue='—', TargetNullValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{DynamicResource CpuBrush}" />
-                                    <TextBlock Text="LOAD" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuLoad.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{ctl:T LOAD}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding CpuLoad.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
-                                <TextBlock Text="LOAD PER THREAD" Style="{StaticResource Caption}" Margin="4,0,0,10" />
+                                <TextBlock Text="{ctl:T 'LOAD PER THREAD'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
                                 <ItemsControl ItemsSource="{Binding CpuThreads}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -99,15 +99,15 @@
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
-                                    <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{ctl:T TEMPERATURE}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Columns="2">
-                                <ctl:MetricTile Label="LOAD" Sensor="{Binding CpuLoad}" Accent="{DynamicResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
-                                <ctl:MetricTile Label="POWER" Sensor="{Binding CpuPower}" Accent="{DynamicResource CpuBrush}" />
-                                <ctl:MetricTile Label="AVERAGE CLOCK" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
-                                <ctl:MetricTile Label="CORE VOLTAGE" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="{ctl:T LOAD}" Sensor="{Binding CpuLoad}" Accent="{DynamicResource CpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="{ctl:T POWER}" Sensor="{Binding CpuPower}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="{ctl:T 'AVERAGE CLOCK'}" Sensor="{Binding CpuClock}" Accent="{DynamicResource CpuBrush}" />
+                                <ctl:MetricTile Label="{ctl:T 'CORE VOLTAGE'}" Sensor="{Binding CpuVoltage}" Accent="{DynamicResource CpuBrush}" />
                             </UniformGrid>
                         </ctl:SideOrStack>
                         </Grid>
@@ -120,10 +120,10 @@
                             <!-- Several GPUs (a processor's graphics and a card, or two cards): switch between them, at the row's right end. -->
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,-6,0" VerticalAlignment="Center" ToolTip="{Binding GpuPositionText}"
                                         Visibility="{Binding HasSeveralGpus, Converter={StaticResource Vis}}">
-                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding PreviousGpuCommand}" AutomationProperties.Name="Previous GPU">
+                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding PreviousGpuCommand}" AutomationProperties.Name="{ctl:T 'Previous GPU'}">
                                     <TextBlock Text="&#xE76B;" />
                                 </Button>
-                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding NextGpuCommand}" AutomationProperties.Name="Next GPU">
+                                <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding NextGpuCommand}" AutomationProperties.Name="{ctl:T 'Next GPU'}">
                                     <TextBlock Text="&#xE76C;" />
                                 </Button>
                             </StackPanel>
@@ -136,13 +136,13 @@
                         <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding SelectedGpu.HasVram, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                             <DockPanel Margin="0,0,0,8">
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.VramText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock Text="VIDEO MEMORY" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{ctl:T 'VIDEO MEMORY'}" Style="{StaticResource Caption}" />
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{DynamicResource GpuBrush}"
                                          Value="{Binding SelectedGpu.VramPercent, Mode=OneWay, FallbackValue=0}" />
                             <DockPanel Margin="0,12,0,0">
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.Clock.FormattedValue, FallbackValue='—'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock Text="CORE CLOCK" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{ctl:T 'CORE CLOCK'}" Style="{StaticResource Caption}" />
                             </DockPanel>
                         </StackPanel>
 
@@ -154,16 +154,16 @@
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <TextBlock Text="{Binding SelectedGpu.Temp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                                    <TextBlock Text="TEMPERATURE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{ctl:T TEMPERATURE}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Columns="2">
-                                <ctl:MetricTile Label="LOAD" Sensor="{Binding SelectedGpu.Load}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
-                                <ctl:MetricTile Label="POWER" Sensor="{Binding SelectedGpu.Power}" Accent="{DynamicResource GpuBrush}" />
-                                <ctl:MetricTile Label="HOT SPOT" Sensor="{Binding SelectedGpu.HotSpot}" Accent="{DynamicResource GpuBrush}"
+                                <ctl:MetricTile Label="{ctl:T LOAD}" Sensor="{Binding SelectedGpu.Load}" Accent="{DynamicResource GpuBrush}" SparkMinimum="0" SparkMaximum="100" />
+                                <ctl:MetricTile Label="{ctl:T POWER}" Sensor="{Binding SelectedGpu.Power}" Accent="{DynamicResource GpuBrush}" />
+                                <ctl:MetricTile Label="{ctl:T 'HOT SPOT'}" Sensor="{Binding SelectedGpu.HotSpot}" Accent="{DynamicResource GpuBrush}"
                                                 ValueBrush="{Binding SelectedGpu.HotSpot.Value, Converter={StaticResource TempBrush}, ConverterParameter='50,80,95'}" />
-                                <ctl:MetricTile Label="MEMORY JUNCTION" Sensor="{Binding SelectedGpu.MemJunction}" Accent="{DynamicResource GpuBrush}"
+                                <ctl:MetricTile Label="{ctl:T 'MEMORY JUNCTION'}" Sensor="{Binding SelectedGpu.MemJunction}" Accent="{DynamicResource GpuBrush}"
                                                 ValueBrush="{Binding SelectedGpu.MemJunction.Value, Converter={StaticResource TempBrush}, ConverterParameter='55,85,100'}" />
                             </UniformGrid>
                         </ctl:SideOrStack>
@@ -195,11 +195,11 @@
                             <TextBlock Text="{Binding ChartPlotLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
                             <Border Style="{StaticResource SegmentHost}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Average"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="{ctl:T Average}"
                                                  IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Highest"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="{ctl:T Highest}"
                                                  IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="Lowest"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="{ctl:T Lowest}"
                                                  IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
                                 </StackPanel>
                             </Border>
@@ -207,7 +207,7 @@
                         <ctl:DatePager x:Name="ChartPager" Label="{Binding ChartDayLabel}" Date="{Binding ChartDay}" MinDate="{Binding ChartHistoryStart}"
                                        CanGoPrevious="{Binding CanChartPreviousDay}" CanGoNext="{Binding CanChartNextDay}"
                                        PreviousCommand="{Binding ChartPreviousDayCommand}" NextCommand="{Binding ChartNextDayCommand}"
-                                       LabelText="Pick a range" />
+                                       LabelText="{ctl:T 'Pick a range'}" />
                         <ctl:RangeEditor x:Name="ChartRangeEditor" />
                         <!-- The range menu: a line each, the one shown ticked. It floats over the card (nothing moves). -->
                         <Popup x:Name="RangeMenu" PlacementTarget="{Binding ElementName=ChartPager}" Placement="Custom" StaysOpen="False"
@@ -257,25 +257,25 @@
                                             <Setter Property="Background" Value="{DynamicResource StrokeBrush}" />
                                         </Style>
                                     </StackPanel.Resources>
-                                    <Button Content="Last 5 minutes" CommandParameter="300"
+                                    <Button Content="{ctl:T 'Last 5 minutes'}" CommandParameter="300"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=300}" />
-                                    <Button Content="Last hour" CommandParameter="3600"
+                                    <Button Content="{ctl:T 'Last hour'}" CommandParameter="3600"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=3600}" />
-                                    <Button Content="Last 6 hours" CommandParameter="21600"
+                                    <Button Content="{ctl:T 'Last 6 hours'}" CommandParameter="21600"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=21600}" />
-                                    <Button Content="Last 24 hours" CommandParameter="86400"
+                                    <Button Content="{ctl:T 'Last 24 hours'}" CommandParameter="86400"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=86400}" />
                                     <Border Style="{StaticResource MenuRule}" />
-                                    <Button Content="Today" CommandParameter="0"
+                                    <Button Content="{ctl:T Today}" CommandParameter="0"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=0}" />
-                                    <Button Content="Last 7 days" CommandParameter="604800"
+                                    <Button Content="{ctl:T 'Last 7 days'}" CommandParameter="604800"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=604800}" />
-                                    <Button Content="Last 30 days" CommandParameter="2592000"
+                                    <Button Content="{ctl:T 'Last 30 days'}" CommandParameter="2592000"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=2592000}" />
-                                    <Button Content="Last 12 months" CommandParameter="31536000"
+                                    <Button Content="{ctl:T 'Last 12 months'}" CommandParameter="31536000"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=31536000}" />
                                     <Border Style="{StaticResource MenuRule}" />
-                                    <Button Content="Custom range…" CommandParameter="-1"
+                                    <Button Content="{ctl:T 'Custom range…'}" CommandParameter="-1"
                                             Tag="{Binding ChartWindowSeconds, Converter={StaticResource Equals}, ConverterParameter=-1}" />
                                 </StackPanel>
                             </Border>
@@ -284,7 +284,7 @@
                         <!-- Zoomed in (a drag across the graph): the stretch shown and the way back to the period picked. They
                              sit after the title, in the room before the pickers; the button keeps its place while hidden. -->
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="History" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T History}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding ZoomText, ElementName=HistoryChart}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
                                        VerticalAlignment="Center" Margin="16,0,10,0" />
                             <Button Command="{Binding ResetZoomCommand, ElementName=HistoryChart}" AutomationProperties.Name="{Binding ResetText, ElementName=HistoryChart}"
@@ -350,8 +350,8 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasDriveTemps, Converter={StaticResource Vis}}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top">
-                            <TextBlock DockPanel.Dock="Right" Text="Now, against each drive's limit" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="Drives" Style="{StaticResource H2}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against each drive\'s limit'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T Drives}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <!-- The card is as tall as the board's beside it: the rows share that height evenly, instead of
                              leaving an empty space under the last drive. -->
@@ -429,8 +429,8 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="Now, against today's range" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="Motherboard" Style="{StaticResource H2}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against today\'s range'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T Motherboard}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False">
                             <ItemsControl.ItemTemplate>
@@ -492,8 +492,8 @@
                  instead of the cards going, which read as the drives' temperatures having been taken off the page. -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <StackPanel>
-                    <TextBlock Text="Motherboard and drives" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                    <TextBlock Text="No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights."
+                    <TextBlock Text="{ctl:T 'Motherboard and drives'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                    <TextBlock Text="{ctl:T 'No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights.'}"
                                Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,2" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -508,18 +508,18 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="Each box is an hour's average" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="Warmest hours this week" Style="{StaticResource H2}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Each box is an hour\'s average'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Warmest hours this week'}" Style="{StaticResource H2}" />
                         </DockPanel>
-                        <ctl:HeatGrid Height="170" Hours="{Binding HeatWeek}" AutomationProperties.Name="The last seven days, hour by hour" />
+                        <ctl:HeatGrid Height="170" Hours="{Binding HeatWeek}" AutomationProperties.Name="{ctl:T 'The last seven days, hour by hour'}" />
                     </DockPanel>
                 </ctl:SmoothBorder>
                 <!-- Idle and settled: the same load every day, so what changes is the room and the cooling. One line a
                      chip: its figure, its usual, and its last month drawn beside them. -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="At rest, last 30 days" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <TextBlock DockPanel.Dock="Bottom" Text="Idle and settled. A flat line means the cooling is holding; a slow climb is dust or old paste. A warmer room raises these too."
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'At rest, last 30 days'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Idle and settled. A flat line means the cooling is holding; a slow climb is dust or old paste. A warmer room raises these too.'}"
                                    FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                         <ItemsControl ItemsSource="{Binding Rest}" VerticalAlignment="Center" Focusable="False">
                             <ItemsControl.ItemTemplate>

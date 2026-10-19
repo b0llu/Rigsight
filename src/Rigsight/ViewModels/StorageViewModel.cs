@@ -38,11 +38,11 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
 
     public long Used => Total - Free;
     public double UsedPercent => Total > 0 ? 100.0 * Used / Total : 0;
-    public string Title => string.IsNullOrWhiteSpace(Label) ? $"Local disk ({Root.TrimEnd('\\')})" : $"{Label} ({Root.TrimEnd('\\')})";
-    public string UsageText => $"{Units.Bytes(Used)} used of {Units.Bytes(Total)}";
-    public string FreeText => $"{Units.Bytes(Free)} free";
+    public string Title => string.IsNullOrWhiteSpace(Label) ? Lang.T($"Local disk ({Root.TrimEnd('\\')})") : $"{Label} ({Root.TrimEnd('\\')})";
+    public string UsageText => Lang.T($"{Units.Bytes(Used)} used of {Units.Bytes(Total)}");
+    public string FreeText => Lang.T($"{Units.Bytes(Free)} free");
     /// <summary>What its scan button is called for a screen reader: each drive's button says the same words.</summary>
-    public string ScanName => $"See what's inside {Root.TrimEnd('\\')}";
+    public string ScanName => Lang.T($"See what's inside {Root.TrimEnd('\\')}");
 }
 
 public sealed record CleanupItem(string Title, string Description, long Size, string? Path, bool IsRecycleBin) : System.ComponentModel.INotifyPropertyChanged
@@ -52,7 +52,7 @@ public sealed record CleanupItem(string Title, string Description, long Size, st
     public string SizeText => Units.Bytes(Size);
 
     /// <summary>What its button says: the Recycle Bin is emptied, anything else is opened for the user to look at.</summary>
-    public string ActionText => IsRecycleBin ? "Empty" : "Open";
+    public string ActionText => IsRecycleBin ? Lang.T("Empty") : Lang.T("Open");
 
     /// <summary>Its button was pressed and Windows is still at it (the Recycle Bin being emptied).</summary>
     public bool Busy
@@ -97,7 +97,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     public bool ShowScanLoader => Result is not null && IsScanning && ScanningElsewhere;
 
     /// <summary>Above the largest files, where the folders' path is in the other two views: they are of the whole scan.</summary>
-    public string FilesTitle => Result is { } r ? $"The {r.LargestFiles.Count} largest files in {r.Root.Path}" : "";
+    public string FilesTitle => Result is { } r ? Lang.T($"The {r.LargestFiles.Count} largest files in {r.Root.Path}") : "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentItems), nameof(CanGoUp))]
@@ -138,11 +138,12 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
                 if (Math.Abs(diff) >= 0.1)
                 {
                     up = diff > 0;
-                    growth = $"{(diff > 0 ? "+" : "−")}{Units.Bytes(Math.Abs(diff) * 1073741824)} in {days} day{(days == 1 ? "" : "s")}";
+                    string change = $"{(diff > 0 ? "+" : "−")}{Units.Bytes(Math.Abs(diff) * 1073741824)}";
+                    growth = days == 1 ? Lang.T($"{change} in 1 day") : Lang.T($"{change} in {days} days");
                 }
                 else
                 {
-                    growth = $"No change in {days} day{(days == 1 ? "" : "s")}";
+                    growth = days == 1 ? Lang.T("No change in 1 day") : Lang.T($"No change in {days} days");
                 }
             }
             string label;
@@ -201,20 +202,20 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
         }
 
-        Add("Temporary files", "Leftovers from installers and apps. Safe to delete anything not currently in use.", Path.GetTempPath());
-        Add("Windows temporary files", "System temp folder.", Path.Combine(windows, "Temp"));
-        Add("Old downloads", "Files in Downloads you haven't touched in 90+ days.", downloads,
+        Add(Lang.T("Temporary files"), Lang.T("Leftovers from installers and apps. Safe to delete anything not currently in use."), Path.GetTempPath());
+        Add(Lang.T("Windows temporary files"), Lang.T("System temp folder."), Path.Combine(windows, "Temp"));
+        Add(Lang.T("Old downloads"), Lang.T("Files in Downloads you haven't touched in 90+ days."), downloads,
             f => f.LastWrite < DateTime.Now.AddDays(-90) && f.LastAccess < DateTime.Now.AddDays(-90));
-        Add("Windows Update cache", "Already-installed update files. Disk Cleanup can remove these.", Path.Combine(windows, "SoftwareDistribution", "Download"));
-        Add("NVIDIA shader cache", "Rebuilt automatically by games; can be cleared if it gets large.", Path.Combine(local, "NVIDIA", "DXCache"));
-        Add("DirectX shader cache", "Rebuilt automatically; Disk Cleanup can clear it.", Path.Combine(local, "D3DSCache"));
-        Add("AMD shader cache", "Rebuilt automatically by games.", Path.Combine(local, "AMD", "DxCache"));
-        Add("Crash dumps", "Memory dumps from crashed apps.", Path.Combine(local, "CrashDumps"));
-        Add("Previous Windows installation", "Left after a Windows upgrade. Remove it with Disk Cleanup.", Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
+        Add(Lang.T("Windows Update cache"), Lang.T("Already-installed update files. Disk Cleanup can remove these."), Path.Combine(windows, "SoftwareDistribution", "Download"));
+        Add(Lang.T("NVIDIA shader cache"), Lang.T("Rebuilt automatically by games; can be cleared if it gets large."), Path.Combine(local, "NVIDIA", "DXCache"));
+        Add(Lang.T("DirectX shader cache"), Lang.T("Rebuilt automatically; Disk Cleanup can clear it."), Path.Combine(local, "D3DSCache"));
+        Add(Lang.T("AMD shader cache"), Lang.T("Rebuilt automatically by games."), Path.Combine(local, "AMD", "DxCache"));
+        Add(Lang.T("Crash dumps"), Lang.T("Memory dumps from crashed apps."), Path.Combine(local, "CrashDumps"));
+        Add(Lang.T("Previous Windows installation"), Lang.T("Left after a Windows upgrade. Remove it with Disk Cleanup."), Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
 
         var (binSize, binItems) = StorageScanner.RecycleBin();
         if (binSize > 0)
-            list.Add(new CleanupItem("Recycle Bin", $"{binItems:N0} deleted item{(binItems == 1 ? "" : "s")}.", binSize, null, true));
+            list.Add(new CleanupItem(Lang.T("Recycle Bin"), binItems == 1 ? Lang.T("1 deleted item.") : Lang.T($"{binItems:N0} deleted items."), binSize, null, true));
         return list.OrderByDescending(i => i.Size).ToList();
     }
 
@@ -237,7 +238,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         var scan = _scanCts = new CancellationTokenSource();
         ScanningElsewhere = Result is { } shown && !string.Equals(shown.Root.Path.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
         IsScanning = true;
-        ScanStatus = $"Scanning {root}…";
+        ScanStatus = Lang.T($"Scanning {root}…");
         // A drive's own card says so too (the drives may be read again meanwhile: the card is found by its drive each time).
         VolumeRow? Card() => Volumes.FirstOrDefault(v => string.Equals(v.Root, root, StringComparison.OrdinalIgnoreCase));
         foreach (var v in Volumes) v.ScanText = null;
@@ -245,7 +246,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         var progress = new Progress<(long Files, long Bytes)>(p =>
         {
             if (_scanCts != scan) return;
-            ScanStatus = $"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}";
+            ScanStatus = Lang.T($"Scanning {root}…  {p.Files:N0} files · {Units.Bytes(p.Bytes)}");
             if (Card() is { } card) card.ScanText = card.ScanProgress(p.Bytes);
         });
         try
@@ -255,12 +256,12 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             Result = result;
             Breadcrumbs.Clear();
             Open(Result.Root);
-            ScanStatus = $"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s";
+            ScanStatus = Lang.T($"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s");
             if (asked) ScanDone?.Invoke();
         }
         catch (OperationCanceledException)
         {
-            if (_scanCts == scan) ScanStatus = "Scan cancelled.";
+            if (_scanCts == scan) ScanStatus = Lang.T("Scan cancelled.");
         }
         finally
         {
@@ -275,7 +276,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     [RelayCommand]
     private async Task ChooseFolder()
     {
-        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to scan" };
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = Lang.T("Choose a folder to scan") };
         if (dialog.ShowDialog() == true) await Scan(dialog.FolderName);
     }
 
