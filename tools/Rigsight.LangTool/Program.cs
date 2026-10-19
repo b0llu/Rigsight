@@ -12,6 +12,7 @@ using Rigsight.LangTool;
 //   check   <pack>                  lists what isn't translated, or doesn't fit; exit code 1 if anything
 //   release <pack> <version> <out>  writes the release asset: translated entries only, made for <version>
 //   list                            every text and where it's used
+//   dump    <out.json>              the same as JSON, for translators
 //
 // Run from the repo root: dotnet run --project tools\Rigsight.LangTool -- sync languages\es.json
 
@@ -29,6 +30,17 @@ switch (command)
             Console.WriteLine($"{key}    [{string.Join(", ", sites.Select(s => $"{s.File}:{s.Line}"))}]");
         Console.WriteLine($"{scan.Texts.Count} texts; {scan.NotWritten.Count} lookups of a text kept elsewhere.");
         return 0;
+
+    case "dump" when args.Length == 2:
+    {
+        // Every text with where it's used, for translators: [{ "en": "...", "where": ["file:line", ...] }, ...]
+        var rows = new JsonArray();
+        foreach (var (key, sites) in scan.Texts)
+            rows.Add(new JsonObject { ["en"] = key, ["where"] = new JsonArray([.. sites.Take(4).Select(st => (JsonNode?)JsonValue.Create($"{st.File}:{st.Line}"))]) });
+        File.WriteAllText(args[1], rows.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }), new System.Text.UTF8Encoding(false));
+        Console.WriteLine($"{args[1]}: {rows.Count} texts");
+        return 0;
+    }
 
     case "sync" when args.Length == 2:
     {
