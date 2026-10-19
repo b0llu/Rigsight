@@ -154,13 +154,14 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
         if (past.Fullest is not { } fullest) return null;
         double? percent = highestPercent ?? (totalGB > 0 ? fullest.UsedGB / totalGB * 100 : null);
         if (percent is not { } p || Math.Round(p) < FullPercent) return null;
-        string apps = past.FullestApps.Count switch
+        string at = fullest.At.ToString("h:mm tt", CultureInfo.CurrentCulture);
+        string text = past.FullestApps.Count switch
         {
-            0 => "",
-            1 => $", with {past.FullestApps[0]} holding the most",
-            _ => $", with {past.FullestApps[0]} and {past.FullestApps[1]} holding the most",
+            0 => Lang.T($"At {at}."),
+            1 => Lang.T($"At {at}, with {past.FullestApps[0]} holding the most."),
+            _ => Lang.T($"At {at}, with {past.FullestApps[0]} and {past.FullestApps[1]} holding the most."),
         };
-        return new MemoryNote("FULLEST TODAY", false, "All memory", null, $"{p:0}%", $"At {fullest.At.ToString("h:mm tt", CultureInfo.CurrentCulture)}{apps}.");
+        return new MemoryNote(Lang.T("FULLEST TODAY"), false, Lang.T("All memory"), null, $"{p:0}%", text);
     }
 
     /// <summary>
@@ -173,8 +174,10 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
         var fresh = new List<MemoryNote>();
         foreach (var row in Live.Procs.Where(p => p.IsOver).OrderByDescending(p => p.MemMB - (p.UsualMB ?? 0)))
         {
-            string growing = row.GrowingSince is { } since ? $", and has grown every hour since {since}" : "";
-            fresh.Add(new MemoryNote("ABOVE ITS USUAL", true, row.Name, row.Icon, row.MemText, $"It usually holds {row.UsualText}{growing}."));
+            string text = row.GrowingSince is { } since
+                ? Lang.T($"It usually holds {row.UsualText}, and has grown every hour since {since}.")
+                : Lang.T($"It usually holds {row.UsualText}.");
+            fresh.Add(new MemoryNote(Lang.T("ABOVE ITS USUAL"), true, row.Name, row.Icon, row.MemText, text));
         }
         if (_fullest is not null) fresh.Add(_fullest);
         if (fresh.Count > MaxNotes) fresh.RemoveRange(MaxNotes, fresh.Count - MaxNotes);

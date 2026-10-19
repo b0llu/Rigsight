@@ -7,19 +7,19 @@
             <DockPanel Margin="0,0,0,18">
                 <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
                 <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
-                        AutomationProperties.Name="Refresh" ToolTip="Check the drives, the cleanup list and the scan again">
+                        AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
                     <StackPanel Orientation="Horizontal">
                         <Grid Width="12" Margin="0,0,8,0">
                                     <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
                                                Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                     <ctl:Spinner Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}}" />
                                 </Grid>
-                        <TextBlock Text="Refresh" />
+                        <TextBlock Text="{ctl:T Refresh}" />
                     </StackPanel>
                 </Button>
                 <StackPanel>
-                    <TextBlock Text="Storage" Style="{StaticResource H1}" />
-                    <TextBlock Text="How full your drives are, how fast they're filling up, and what's taking the space."
+                    <TextBlock Text="{ctl:T Storage}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'How full your drives are, how fast they\'re filling up, and what\'s taking the space.'}"
                                Style="{StaticResource Muted}" Margin="0,4,0,0" />
                 </StackPanel>
             </DockPanel>
@@ -41,7 +41,7 @@
                                             CommandParameter="{Binding Root}" AutomationProperties.Name="{Binding ScanName}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                            <TextBlock Text="See what's inside" />
+                                            <TextBlock Text="{ctl:T 'See what\'s inside'}" />
                                         </StackPanel>
                                     </Button>
                                     <!-- While this drive is being scanned: it turns, with how far along -->
@@ -99,7 +99,7 @@
                 <!-- Physical drives -->
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Drive health" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <TextBlock Text="{ctl:T 'Drive health'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <ItemsControl ItemsSource="{Binding Live.Drives}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -109,7 +109,7 @@
                                                         Visibility="{Binding HasHealth, Converter={StaticResource Vis}}" ToolTip="{Binding HealthToolTip}">
                                                 <TextBlock Text="{Binding HealthText}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"
                                                            Foreground="{Binding HealthBrush}" />
-                                                <TextBlock Text="HEALTH" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                                                <TextBlock Text="{ctl:T HEALTH}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                                             </StackPanel>
                                             <!-- In the middle of the tile's height, like the figure beside it (it sat at the top, with the room under it). -->
                                             <StackPanel VerticalAlignment="Center">
@@ -117,11 +117,11 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                     <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,0,14,0"
                                                                Visibility="{Binding PowerOnHours, Converter={StaticResource Vis}}">
-                                                        <Run Text="Powered on" /> <Run Text="{Binding PowerOnHours.Value, StringFormat='{}{0:N0} h', Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
+                                                        <Run Text="{ctl:T 'Powered on'}" /> <Run Text="{Binding PowerOnHours.Value, StringFormat='{}{0:N0} h', Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                                     </TextBlock>
                                                     <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
                                                                Visibility="{Binding UsedSpace, Converter={StaticResource Vis}}">
-                                                        <Run Text="Full" /> <Run Text="{Binding UsedSpace.ShortValue, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
+                                                        <Run Text="{ctl:T Full}" /> <Run Text="{Binding UsedSpace.ShortValue, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                                     </TextBlock>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding SectorsText}" FontSize="11.5" Foreground="{Binding SectorsBrush}" Margin="0,3,0,0"
@@ -154,7 +154,7 @@
                 <!-- Cleanup -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Space you could free" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                        <TextBlock Text="{ctl:T 'Space you could free'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
                         <!-- The shared loader until the list has been read the first time (the card stood empty while the drives
                              were read first); read again later, the page's Refresh button is what turns. -->
                         <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,40"
@@ -187,7 +187,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="Nothing here is deleted automatically: it shows where the space is, and you decide."
+                        <TextBlock Text="{ctl:T 'Nothing here is deleted automatically: it shows where the space is, and you decide.'}"
                                    FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
                     </StackPanel>
@@ -202,32 +202,32 @@
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <Border Style="{StaticResource SegmentHost}" Height="34" Margin="0,0,8,0" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="Map"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="{ctl:T Map}"
                                                  IsChecked="{Binding ScanView, Converter={StaticResource Equals}, ConverterParameter=Map}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="List"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="{ctl:T List}"
                                                  IsChecked="{Binding ScanView, Converter={StaticResource Equals}, ConverterParameter=List}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="Largest files"
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScanView" Content="{ctl:T 'Largest files'}"
                                                  IsChecked="{Binding ScanView, Converter={StaticResource Equals}, ConverterParameter=Files}" />
                                 </StackPanel>
                             </Border>
                             <Button Style="{StaticResource GhostButton}" Height="34" Margin="0,0,8,0" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
-                                    Visibility="{Binding ShowResult, Converter={StaticResource Vis}}" ToolTip="Open the folder shown here in Explorer">
+                                    Visibility="{Binding ShowResult, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Open the folder shown here in Explorer'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                    <TextBlock Text="Open in Explorer" />
+                                    <TextBlock Text="{ctl:T 'Open in Explorer'}" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource GhostButton}" Height="34" Command="{Binding ChooseFolderCommand}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                    <TextBlock Text="Scan a folder…" />
+                                    <TextBlock Text="{ctl:T 'Scan a folder…'}" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Height="34" Command="{Binding CancelScanCommand}" Content="Cancel" Margin="8,0,0,0"
+                            <Button Style="{StaticResource GhostButton}" Height="34" Command="{Binding CancelScanCommand}" Content="{ctl:T Cancel}" Margin="8,0,0,0"
                                     Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="What's taking up space" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'What\'s taking up space'}" Style="{StaticResource H2}" />
                             <TextBlock Text="{Binding ScanStatus}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
                     </DockPanel>
@@ -235,7 +235,7 @@
                     <ProgressBar IsIndeterminate="True" Height="3" Margin="0,0,0,10" Foreground="{DynamicResource AccentBrush}"
                                  Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
 
-                    <TextBlock Text="Pick “See what's inside” on a drive above, or scan any folder. Scanning reads file sizes only and takes a few seconds to a minute."
+                    <TextBlock Text="{ctl:T 'Pick “See what\'s inside” on a drive above, or scan any folder. Scanning reads file sizes only and takes a few seconds to a minute.'}"
                                Style="{StaticResource Muted}" TextWrapping="Wrap"
                                Visibility="{Binding Result, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
 
@@ -259,7 +259,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </DockPanel.Style>
-                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" ToolTip="Up one level">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" ToolTip="{ctl:T 'Up one level'}">
                                 <TextBlock Text="&#xE74A;" />
                             </Button>
                             <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" Margin="8,0" AlternationCount="1000">
@@ -339,7 +339,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,5">
-                                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="Show in Explorer"
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Show in Explorer'}"
                                                 Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Path}">
                                             <TextBlock Text="&#xE8A7;" />
                                         </Button>

@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Rigsight.Core;
 
 namespace Rigsight.Views;
 
@@ -116,7 +117,7 @@ public partial class SensorsView : UserControl
         };
 
         // The heading too (the eye, as on each row of the list): without one, its words stood left of everything under it.
-        var heading = Item("Show it on", "");
+        var heading = Item(Lang.T("Show it on"), "");
         heading.IsEnabled = false;
         menu.Items.Add(heading);
         foreach (var place in live.PlacesFor(item))
@@ -129,18 +130,18 @@ public partial class SensorsView : UserControl
                 DockPanel.SetDock(tick, Dock.Right);
                 header.Children.Add(tick);
             }
-            header.Children.Add(new TextBlock { Text = place.CanToggle ? place.Name : place.Name + " (full)" });
+            header.Children.Add(new TextBlock { Text = place.CanToggle ? place.Name : Lang.T($"{place.Name} (full)") });
             var entry = Item(header, place.Glyph);
             entry.IsEnabled = place.CanToggle;
-            AutomationProperties.SetName(entry, place.Name + (place.IsShown ? ", on" : ""));
+            AutomationProperties.SetName(entry, place.IsShown ? Lang.T($"{place.Name}, on") : place.Name);
             entry.Click += (_, _) => place.ToggleCommand.Execute(null);
             menu.Items.Add(entry);
         }
         menu.Items.Add(new Separator());
-        var copy = Item("Copy value", "");
+        var copy = Item(Lang.T("Copy value"), "");
         copy.Click += (_, _) => live.Copy(item);
         menu.Items.Add(copy);
-        var hide = Item(item.IsHidden ? "Show in the list" : "Hide", item.IsHidden ? "" : "");
+        var hide = Item(item.IsHidden ? Lang.T("Show in the list") : Lang.T("Hide"), item.IsHidden ? "" : "");
         hide.Click += (_, _) => item.ToggleHidden();
         menu.Items.Add(hide);
         menu.IsOpen = true;

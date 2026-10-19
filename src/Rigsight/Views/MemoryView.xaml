@@ -16,12 +16,12 @@
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding MemText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="18,0,0,0" />
                                     <Ellipse Width="8" Height="8" Fill="{DynamicResource RamBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Now" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="9,0,0,0" />
+                                    <TextBlock Text="{ctl:T Now}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="9,0,0,0" />
                                 </DockPanel>
                                 <DockPanel Margin="0,4,0,0" Visibility="{Binding HasUsual, Converter={StaticResource Vis}}">
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding UsualText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="18,0,0,0" />
                                     <Ellipse Width="8" Height="8" Fill="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Usually" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="9,0,0,0" />
+                                    <TextBlock Text="{ctl:T Usually}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="9,0,0,0" />
                                 </DockPanel>
                                 <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,8,0,0" Padding="0,7,0,0"
                                         Visibility="{Binding IsOver, Converter={StaticResource Vis}}">
@@ -66,8 +66,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="Memory" Style="{StaticResource H1}" />
-            <TextBlock Text="What's using your RAM right now, and which apps used the most today." Style="{StaticResource Muted}" Margin="0,4,0,18" />
+            <TextBlock Text="{ctl:T Memory}" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'What\'s using your RAM right now, and which apps used the most today.'}" Style="{StaticResource Muted}" Margin="0,4,0,18" />
         </StackPanel>
 
         <!-- Overview -->
@@ -84,14 +84,14 @@
                         <Border Style="{StaticResource Badge}" Background="{DynamicResource RamSoftBrush}">
                             <TextBlock Text="RAM" Style="{StaticResource BadgeText}" Foreground="{DynamicResource RamBrush}" />
                         </Border>
-                        <TextBlock Text="{Binding Live.RamTotalText, StringFormat='{}{0} of memory'}" Style="{StaticResource H2}" Margin="12,0,0,0" />
+                        <TextBlock Text="{Binding Live.RamHeading}" Style="{StaticResource H2}" Margin="12,0,0,0" />
                     </DockPanel>
 
                     <!-- How it's split: apps, compressed, free. -->
                     <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0">
                         <DockPanel Margin="0,0,0,8">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding Live.RamText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                            <TextBlock Text="BREAKDOWN" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T BREAKDOWN}" Style="{StaticResource Caption}" />
                         </DockPanel>
                         <Border Height="8" CornerRadius="4" Background="{DynamicResource Surface2Brush}">
                             <Grid>
@@ -109,16 +109,16 @@
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Ellipse Width="8" Height="8" Fill="{DynamicResource RamBrush}" VerticalAlignment="Center" />
                             <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,16,0">
-                                <Run Text="Apps" /> <Run Text="{Binding Live.MemAppsText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                <Run Text="{ctl:T Apps}" /> <Run Text="{Binding Live.MemAppsText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
                             </TextBlock>
                             <Ellipse Width="8" Height="8" Fill="{DynamicResource RamBrush}" Opacity="0.45" VerticalAlignment="Center" />
                             <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,16,0"
-                                       ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression.">
-                                <Run Text="Compressed" /> <Run Text="{Binding Live.Compressed.FormattedValue, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+                                       ToolTip="{ctl:T 'Memory apps aren\'t using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression.'}">
+                                <Run Text="{ctl:T Compressed}" /> <Run Text="{Binding Live.Compressed.FormattedValue, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
                             </TextBlock>
                             <Ellipse Width="8" Height="8" Fill="{DynamicResource Surface2Brush}" Stroke="{DynamicResource FaintBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0">
-                                <Run Text="Free" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
+                                <Run Text="{ctl:T Free}" /> <Run Text="{Binding Live.RamAvailable.FormattedValue, Mode=OneWay, FallbackValue='—'}" Foreground="{DynamicResource TextBrush}" />
                             </TextBlock>
                         </StackPanel>
                     </StackPanel>
@@ -132,25 +132,25 @@
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <TextBlock Text="{Binding Live.RamLoad.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
                                            Foreground="{Binding Live.RamLoad.Value, Converter={StaticResource TempBrush}, ConverterParameter='0,75,90'}" />
-                                <TextBlock Text="IN USE" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding Live.RamLoad.MinMaxText}" ToolTip="Lowest and highest today" FontSize="11" Foreground="{DynamicResource FaintBrush}"
+                                <TextBlock Text="{ctl:T 'IN USE'}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Live.RamLoad.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}"
                                            HorizontalAlignment="Center" Margin="0,4,0,0" />
                             </StackPanel>
                         </Grid>
                         <UniformGrid Columns="2">
-                            <ctl:MetricTile Label="IN USE" Sensor="{Binding Live.RamUsed}" Accent="{DynamicResource RamBrush}" />
-                            <ctl:MetricTile Label="FREE" Sensor="{Binding Live.RamAvailable}" Accent="{DynamicResource RamBrush}" />
-                            <ctl:MetricTile Label="COMPRESSED" Sensor="{Binding Live.Compressed}" Accent="{DynamicResource RamBrush}"
-                                            ToolTip="Memory apps aren't using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression." />
-                            <ctl:MetricTile Label="VIRTUAL MEMORY" Sensor="{Binding Live.VirtualLoad}" Accent="{DynamicResource RamBrush}" SparkMinimum="0" SparkMaximum="100"
-                                            ToolTip="How much of Windows' memory limit (your RAM plus the page file) is promised to apps." />
+                            <ctl:MetricTile Label="{ctl:T 'IN USE'}" Sensor="{Binding Live.RamUsed}" Accent="{DynamicResource RamBrush}" />
+                            <ctl:MetricTile Label="{ctl:T FREE}" Sensor="{Binding Live.RamAvailable}" Accent="{DynamicResource RamBrush}" />
+                            <ctl:MetricTile Label="{ctl:T COMPRESSED}" Sensor="{Binding Live.Compressed}" Accent="{DynamicResource RamBrush}"
+                                            ToolTip="{ctl:T 'Memory apps aren\'t using right now, squeezed by Windows so more fits in your RAM. Task Manager calls it Memory Compression.'}" />
+                            <ctl:MetricTile Label="{ctl:T 'VIRTUAL MEMORY'}" Sensor="{Binding Live.VirtualLoad}" Accent="{DynamicResource RamBrush}" SparkMinimum="0" SparkMaximum="100"
+                                            ToolTip="{ctl:T 'How much of Windows\' memory limit (your RAM plus the page file) is promised to apps.'}" />
                         </UniformGrid>
                     </ctl:SideOrStack>
                 </DockPanel>
             </ctl:SmoothBorder>
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="Today's biggest memory users" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                    <TextBlock Text="{ctl:T 'Today\'s biggest memory users'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
                     <!-- Rows share the peak/average column widths, so every bar starts and ends at the same place. -->
                     <ItemsControl ItemsSource="{Binding TodayTop}" Grid.IsSharedSizeScope="True">
                         <ItemsControl.ItemTemplate>
@@ -171,16 +171,16 @@
                                                  Value="{Binding MemMax, Mode=OneWay, TargetNullValue=0}" />
                                     <!-- Each phrase starts at the same place in every row ("peak 5.8 GB", "peak 886 MB"). -->
                                     <TextBlock Grid.Column="3" Style="{StaticResource Muted}" VerticalAlignment="Center">
-                                        <Run Text="peak" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                        <Run Text="{ctl:T peak}" /> <Run Text="{Binding MemMax, Converter={StaticResource Megabytes}, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                     </TextBlock>
                                     <TextBlock Grid.Column="4" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,0,0">
-                                        <Run Text="average" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
+                                        <Run Text="{ctl:T average}" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
                                     </TextBlock>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="Collecting data — check back in a few minutes." Style="{StaticResource Muted}"
+                    <TextBlock Text="{ctl:T 'Collecting data — check back in a few minutes.'}" Style="{StaticResource Muted}"
                                Visibility="{Binding ShowCollecting, Converter={StaticResource Vis}}" />
                     <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,110,0,0"
                                  Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
@@ -229,11 +229,11 @@
         <ctl:SmoothBorder Grid.Row="3" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
-                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Only apps with windows" FontSize="12.5"
+                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="12.5"
                               IsChecked="{Binding Live.OnlyWindowedApps}" />
                     <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="Search apps…" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
-                             AutomationProperties.Name="Search the apps using memory" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
-                    <TextBlock Text="Using memory right now" Style="{StaticResource H2}" />
+                             AutomationProperties.Name="{ctl:T 'Search the apps using memory'}" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
+                    <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
                 </DockPanel>
                 <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes room from
                      the rows that a fixed margin here could only guess at (the heading sat to the right of its figures). The
@@ -245,11 +245,11 @@
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="90" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="APP" Style="{StaticResource Caption}" Margin="62,0,0,0" />
-                    <TextBlock Grid.Column="2" Text="NOW" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="3" Text="USUAL" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                    <TextBlock Text="{ctl:T APP}" Style="{StaticResource Caption}" Margin="62,0,0,0" />
+                    <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="3" Text="{ctl:T USUAL}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                 </Grid>
-                <TextBlock DockPanel.Dock="Top" Text="Nothing running matches" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing running matches'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
                            Visibility="{Binding Live.NoProcsMatch, Converter={StaticResource Vis}}" />
                 <!-- An app with more than one process opens (click) to list each of them underneath. -->
                 <Grid>

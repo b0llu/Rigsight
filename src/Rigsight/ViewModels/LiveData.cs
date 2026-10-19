@@ -92,7 +92,7 @@ public sealed partial class LiveData : ObservableObject
     private GpuView? _selectedGpu;
 
     public bool HasSeveralGpus => Gpus.Count > 1;
-    public string GpuPositionText => SelectedGpu is null ? "" : $"GPU {Gpus.IndexOf(SelectedGpu) + 1} of {Gpus.Count}";
+    public string GpuPositionText => SelectedGpu is null ? "" : Lang.T($"GPU {Gpus.IndexOf(SelectedGpu) + 1} of {Gpus.Count}");
 
     [RelayCommand]
     private void NextGpu() => MoveGpu(1);
@@ -110,7 +110,12 @@ public sealed partial class LiveData : ObservableObject
     [ObservableProperty] private SensorItem? _ramUsed;
     [ObservableProperty] private SensorItem? _ramAvailable;
     [ObservableProperty] private string _ramText = "";
-    [ObservableProperty] private string _ramTotalText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RamHeading))]
+    private string _ramTotalText = "";
+
+    /// <summary>The RAM card's heading: "32 GB of memory".</summary>
+    public string RamHeading => Lang.T($"{RamTotalText} of memory");
 
     public ObservableCollection<DriveSummary> Drives { get; } = [];
     public ObservableCollection<SensorItem> Fans { get; } = [];
@@ -220,7 +225,7 @@ public sealed partial class LiveData : ObservableObject
     }
 
     /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour (the last 7 or 30 days), a day (12 months).</summary>
-    public string ChartPlotLabel => ChartStepSeconds switch { 86400 => "Each day's", 3600 => "Each hour's", _ => "Each minute's" };
+    public string ChartPlotLabel => ChartStepSeconds switch { 86400 => Lang.T("Each day's"), 3600 => Lang.T("Each hour's"), _ => Lang.T("Each minute's") };
 
     /// <summary>There's a choice to make: under an hour every reading is drawn as it was.</summary>
     public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600 or Core.Reports.ChartRange.Custom;
@@ -649,8 +654,8 @@ public sealed partial class LiveData : ObservableObject
         AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
         AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
         // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
-        AddSeries("GPU hot spot", GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, m.GpuHotMin));
-        AddSeries("GPU memory", GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, m.GpuMemMin));
+        AddSeries(Lang.T("GPU hot spot"), GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, m.GpuHotMin));
+        AddSeries(Lang.T("GPU memory"), GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, m.GpuMemMin));
         UpdatePeaks();
 
         _byKey.Clear();
@@ -849,7 +854,7 @@ public sealed partial class LiveData : ObservableObject
     }
 
     /// <summary>The word in front of the legend's figures: what they are, as the graph's choice goes.</summary>
-    public string ChartLegendLabel => ChartPlot switch { "High" => "HIGHEST", "Low" => "LOWEST", _ => "AVERAGE" };
+    public string ChartLegendLabel => ChartPlot switch { "High" => Lang.T("HIGHEST"), "Low" => Lang.T("LOWEST"), _ => Lang.T("AVERAGE") };
 
     private void SetPeak(ChartSeries series, (double Value, long At, long Named)? peak)
     {
@@ -937,7 +942,7 @@ public sealed partial class LiveData : ObservableObject
     /// Memory Windows holds compressed (the "Memory Compression" process), as a sensor of its own so it gets a
     /// tile with a chart like the real ones. It's read with the process list, every couple of seconds.
     /// </summary>
-    public SensorItem Compressed { get; } = new(new SensorMeta { Id = "/rigsight/compressed", Name = "Compressed", Kind = SensorKind.Data }, "Memory", "Memory");
+    public SensorItem Compressed { get; } = new(new SensorMeta { Id = "/rigsight/compressed", Name = Lang.T("Compressed"), Kind = SensorKind.Data }, "Memory", "Memory");
 
     /// <summary>Virtual memory in use (Windows' commit charge against its limit), if the PC reports it.</summary>
     [ObservableProperty] private SensorItem? _virtualLoad;
@@ -1052,7 +1057,7 @@ public sealed partial class LiveData : ObservableObject
         if (RamUsed?.Value is double used)
         {
             var total = used + (RamAvailable?.Value ?? 0);
-            RamText = $"{used:0.0} GB of {total:0.0} GB";
+            RamText = Lang.T($"{used:0.0} GB of {total:0.0} GB");
             RamTotalText = $"{total:0} GB";
         }
         UpdateMemorySplit();
@@ -1099,7 +1104,7 @@ public sealed partial class LiveData : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowHiddenText))]
     private int _hiddenCount;
 
-    public string ShowHiddenText => HiddenCount == 1 ? "Show 1 hidden sensor" : $"Show {HiddenCount} hidden sensors";
+    public string ShowHiddenText => HiddenCount == 1 ? Lang.T("Show 1 hidden sensor") : Lang.T($"Show {HiddenCount} hidden sensors");
 
     /// <summary>The sensors a widget, a dashboard, the overlay or the taskbar offers to add: all but the hidden ones
     /// (one already added stays where it is).</summary>
@@ -1108,10 +1113,10 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>What the page says in place of an empty list; nothing while there are rows.</summary>
     public string? SensorsEmptyText =>
         SensorRows.Count > 0 ? null
-        : _flat.Count == 0 ? "No sensors yet"
-        : Core.TextMatch.Words(SearchText).Length > 0 ? "No sensors match"
-        : TypeFilter != "All" ? "No sensors of this kind"
-        : "Every sensor is hidden";
+        : _flat.Count == 0 ? Lang.T("No sensors yet")
+        : Core.TextMatch.Words(SearchText).Length > 0 ? Lang.T("No sensors match")
+        : TypeFilter != "All" ? Lang.T("No sensors of this kind")
+        : Lang.T("Every sensor is hidden");
 
     // ── What stands out right now: the pane beside the list, read from every sensor, nothing to pick ──
 
@@ -1146,7 +1151,7 @@ public sealed partial class LiveData : ObservableObject
                 if (board && sensor.CustomLabel is null) continue;
                 double limit = reported is > 0 ? reported.Value : double.Parse(sensor.TempScale!.Split(',')[2], System.Globalization.CultureInfo.InvariantCulture);
                 if (best is null || v / limit > best.Value.Share)
-                    best = (sensor, v / limit, reported is > 0 ? $"{node.Name} · its limit is {Units.TempShort(reported)}" : node.Name);
+                    best = (sensor, v / limit, reported is > 0 ? Lang.T($"{node.Name} · its limit is {Units.TempShort(reported)}") : node.Name);
             }
             if (best is { } found) warm.Add(found);
         }
@@ -1157,7 +1162,7 @@ public sealed partial class LiveData : ObservableObject
             .Select(x => (x, (double?)null, x.HardwareName)));
         var power = new[] { CpuPower, GpuPower }.Where(x => x?.Value is > 0 && !x.IsHidden).Select(x => x!).OrderByDescending(x => x.Value).ToList();
         Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareName)));
-        PowerNote = power.Count > 1 ? $"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together" : "";
+        PowerNote = power.Count > 1 ? Lang.T($"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together") : "";
     }
 
     /// <summary>Rows kept and given what they now show (a list made anew each second would be built anew each second).</summary>
@@ -1210,10 +1215,10 @@ public sealed partial class LiveData : ObservableObject
     {
         var places = new List<SensorPlace>();
         var set = _settings.Current;
-        places.Add(new SensorPlace("The taskbar", "", set.TraySensors.Contains(sensor.Id), true,
+        places.Add(new SensorPlace(Lang.T("The taskbar"), "", set.TraySensors.Contains(sensor.Id), true,
             () => _settings.Update(x => { if (!x.TraySensors.Remove(sensor.Id)) x.TraySensors.Add(sensor.Id); })));
         bool onOverlay = set.Overlay.Sensors.Any(o => o.Id == sensor.Id);
-        places.Add(new SensorPlace("The overlay", "", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
+        places.Add(new SensorPlace(Lang.T("The overlay"), "", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
             () => _settings.Update(x =>
             {
                 if (x.Overlay.Sensors.RemoveAll(o => o.Id == sensor.Id) == 0 && x.Overlay.Sensors.Count < OverlaySettings.MaxSensors)
@@ -1227,7 +1232,7 @@ public sealed partial class LiveData : ObservableObject
             string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
             var items = WidgetCatalog.ItemsOf(w);
             bool onWidget = items.Any(i => i.Id == item);
-            places.Add(new SensorPlace($"Widget · {WidgetCatalog.Title(w)}", "", onWidget, onWidget || (WidgetCatalog.ShownItems(w).Count < WidgetCatalog.MaxItems(layout) && items.Count < WidgetCatalog.MaxKept),
+            places.Add(new SensorPlace(Lang.T($"Widget · {WidgetCatalog.Title(w)}"), "", onWidget, onWidget || (WidgetCatalog.ShownItems(w).Count < WidgetCatalog.MaxItems(layout) && items.Count < WidgetCatalog.MaxKept),
                 () => _settings.Update(x =>
                 {
                     if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;
@@ -1240,7 +1245,7 @@ public sealed partial class LiveData : ObservableObject
         }
         foreach (var page in Dashboards?.Invoke() ?? [])
         {
-            places.Add(new SensorPlace($"Dashboard · {page.Name}", "", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
+            places.Add(new SensorPlace(Lang.T($"Dashboard · {page.Name}"), "", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
             {
                 if (page.Tiles.FirstOrDefault(t => t.SensorRef == sensor.Id) is { } tile) page.Remove(tile);
                 else
@@ -1291,7 +1296,7 @@ public sealed partial class LiveData : ObservableObject
             }
             node.HasVisibleSensors = any;
             int hidden = node.Sensors.Count(s => s.IsHidden);
-            node.Summary = (node.Sensors.Count == 1 ? "1 sensor" : $"{node.Sensors.Count} sensors") + (hidden > 0 ? $"  ·  {hidden} hidden" : "");
+            node.Summary = (node.Sensors.Count == 1 ? Lang.T("1 sensor") : Lang.T($"{node.Sensors.Count} sensors")) + (hidden > 0 ? "  ·  " + Lang.T($"{hidden} hidden") : "");
         }
         RebuildRows();
         UpdateGlance();
