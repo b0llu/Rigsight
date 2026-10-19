@@ -184,22 +184,22 @@ public static class RewindPainter
         // The top five's covers fanned out, the most played in the middle.
         var covers = f.TopGames.Take(5).Select(g => Art(g.Path, banner: false, 400)).Where(a => a is not null).ToList();
         // No games: the most used apps' icons fanned out the same way, each on a tile.
-        var icons = covers.Count > 0 ? [] : f.TopApps.Take(5).Select(a => Icon(a.Path)).Where(i => i is not null).ToList();
+        var icons = covers.Count > 0 ? [] : f.TopGames.Concat(f.TopApps).Take(5).Select(a => Icon(a.Path)).Where(i => i is not null).ToList();
         if (covers.Count == 0 && icons.Count > 0)
         {
             var fan = new Canvas { Height = 34 * u, Margin = new Thickness(0, 4 * u, 0, 6 * u) };
             int[] order = icons.Count switch { 1 => [0], 2 => [1, 0], 3 => [1, 0, 2], 4 => [2, 1, 0, 3], _ => [2, 1, 0, 3, 4] };
             int mid = order.Length / 2;
-            double step = 14 * u, start = (86 * u - (order.Length - 1) * step - 24 * u) / 2;
+            double step = 16.5 * u, start = (86 * u - (order.Length - 1) * step - 22 * u) / 2;
             for (int k = 0; k < order.Length; k++)
             {
                 var tile = new Border
                 {
-                    Width = 24 * u, Height = 24 * u, CornerRadius = new CornerRadius(5 * u), Background = Frozen(new SolidColorBrush(Color.FromArgb(235, 26, 22, 64))),
+                    Width = 22 * u, Height = 22 * u, CornerRadius = new CornerRadius(5 * u), Background = Frozen(new SolidColorBrush(Color.FromArgb(235, 26, 22, 64))),
                     BorderBrush = White(0.18), BorderThickness = new Thickness(0.3 * u),
                     Child = new Image { Source = icons[order[k]], Width = 13 * u, Height = 13 * u },
                     RenderTransformOrigin = new Point(0.5, 0.5),
-                    RenderTransform = new TransformGroup { Children = { new RotateTransform((k - mid) * 7), new TranslateTransform(0, Math.Abs(k - mid) * 2 * u) } },
+                    RenderTransform = new TransformGroup { Children = { new RotateTransform((k - mid) * 4), new TranslateTransform(0, Math.Abs(k - mid) * 1.6 * u) } },
                     Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 5 * u, ShadowDepth = 2 * u, Opacity = 0.5, Direction = 270 },
                 };
                 Canvas.SetLeft(tile, start + k * step);
@@ -448,6 +448,7 @@ public static class RewindPainter
 
     private static FrameworkElement Problems(RewindCard card, RewindFacts f, double u, Color? accent)
     {
+        if (f.AppCrashes + f.ShutOffs == 0) return NothingWrong(card, u, accent);
         var body = new StackPanel { Margin = new Thickness(0, 5 * u, 0, 0) };
         body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C(RewindCards.Slate), u), 0));
         // The two counts side by side, each with its colour as the key for the bars below.
@@ -484,6 +485,22 @@ public static class RewindPainter
             body.Children.Add(Rise(grid, 3));
             body.Children.Add(Rise(Axis(f.From, f.From.AddDays(days / 2), f.From.AddDays(days - 1), u, "d MMM"), 3));
         }
+        return body;
+    }
+
+    /// <summary>A period without a crash or a sudden shut-off: a big tick and the plain sentence.</summary>
+    private static FrameworkElement NothingWrong(RewindCard card, double u, Color? accent)
+    {
+        var body = new StackPanel { Margin = new Thickness(0, 5 * u, 0, 0) };
+        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C(RewindCards.Slate), u), 0));
+        body.Children.Add(Rise(Mega(card.Big, 24, u, top: 3, bottom: 2), 1));
+        body.Children.Add(Rise(Sub(card.Sub, u), 2));
+        var hue = accent ?? RewindLook.C(RewindCards.Cyan);
+        var ring = new Grid { Width = 56 * u, Height = 56 * u, Margin = new Thickness(0, 10 * u, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
+        ring.Children.Add(new Ellipse { Fill = Frozen(Radial(new Point(0.5, 0.5), 0.5, 0.5, Color.FromArgb(90, hue.R, hue.G, hue.B))) });
+        ring.Children.Add(new Ellipse { Stroke = Frozen(new SolidColorBrush(hue)), StrokeThickness = 1.6 * u, Margin = new Thickness(8 * u) });
+        ring.Children.Add(new TextBlock { Text = "\uE73E", FontFamily = Icons, FontSize = 18 * u, Foreground = Frozen(new SolidColorBrush(hue)), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+        body.Children.Add(Rise(ring, 3));
         return body;
     }
 

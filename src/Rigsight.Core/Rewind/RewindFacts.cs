@@ -23,6 +23,9 @@ public sealed class RewindFacts
     public DateTime To { get; set; }
     public DateTime Made { get; set; }
 
+    /// <summary>A test copy's sample made from the same history (No games, Two games, Quiet PC); null for a real rewind.</summary>
+    public string? Sample { get; set; }
+
     /// <summary>Watched to the end or opened from the list: no "new" dot, no full screen.</summary>
     public bool Seen { get; set; }
     /// <summary>Already shown full screen, or put in the list because a bigger one took the screen that day.</summary>

@@ -105,6 +105,9 @@ public static class RewindCards
         var cards = new List<RewindCard>();
         string title = Title(f);
         bool games = f.Games && f.GamingSec >= 1800;
+        // A little play (a couple of games, a few hours): the games still get their cards, but what kind of user the
+        // period showed comes from the whole PC, not from a handful of sittings.
+        bool light = games && (f.GamingSec < 5 * 3600 || f.GameCount <= 2);
 
         // Cover
         string coverSub = games
@@ -128,7 +131,7 @@ public static class RewindCards
             cards.Add(new("apps", Lang.T("Most used"), Lang.T("Your most used app"), first.Name, Lang.T($"{Units.Duration(first.Value)} in front of you."))
             { Wordy = true, Rows = rows, Tag = first.Path });
         }
-        if (f.Time && !games && PeakHours(f.UseHours) is var (useFrom, useTo))
+        if (f.Time && (!games || light) && PeakHours(f.UseHours) is var (useFrom, useTo))
             cards.Add(new("hours", Lang.T("When you used it"), Lang.T("You used your PC most between"), $"{HourOfDay(useFrom)} – {HourOfDay(useTo)}",
                 Lang.T($"{Hours(f.ActiveSec)} in use in all.")) { Wordy = true });
 
@@ -187,8 +190,11 @@ public static class RewindCards
                 : Lang.T($"on {Day(h.At)}");
             string Where(RewindHeat h) => h.App is { } app ? Lang.T($"{h.At:d MMMM}, in {app}") : h.At.ToString("dddd d MMMM", CultureInfo.CurrentCulture);
             var tiles = parts.Where(p => p.Heat != max.Heat).Select(p => new RewindTile($"{p.Part}, {Where(p.Heat)}", Units.TempShort(p.Heat.Value), p.Hue)).ToList();
-            cards.Add(new("heat", Lang.T("Hottest it got"), Lang.T("The hottest it got"), Units.TempShort(max.Heat.Value),
-                Lang.T($"{max.Whole}, {When(max.Heat)}.")) { Tiles = tiles });
+            // A cool period says so: the highest was still well under what any part minds.
+            string sub = max.Heat.Value < 70
+                ? Lang.T($"{max.Whole}, {When(max.Heat)}. It stayed cool all along.")
+                : Lang.T($"{max.Whole}, {When(max.Heat)}.");
+            cards.Add(new("heat", Lang.T("Hottest it got"), Lang.T("The hottest it got"), Units.TempShort(max.Heat.Value), sub) { Tiles = tiles });
         }
 
         if (f.Changes && (f.NewDriver is not null || f.Installed + f.Updated + f.Removed > 0))
@@ -211,6 +217,10 @@ public static class RewindCards
             }
         }
 
+        // Nothing went wrong: good news is a card too.
+        if (f.Problems && f.AppCrashes + f.ShutOffs == 0 && f.DaysOn > 0)
+            cards.Add(new("problems", Lang.T("What went wrong"), Lang.T("What went wrong"), Lang.T("Nothing"),
+                Lang.T("Not one app or game crashed, and your PC never shut down without warning.")) { Wordy = true });
         if (f.Problems && f.AppCrashes + f.ShutOffs > 0)
         {
             int worst = f.CrashesByDay.Count > 0 ? f.CrashesByDay.Max() : 0;
@@ -227,7 +237,7 @@ public static class RewindCards
             });
         }
 
-        if (games && Player(f) is { } player)
+        if (games && !light && Player(f) is { } player)
         {
             var tiles = new List<RewindTile> { new(Lang.T("games"), f.GameCount.ToString(CultureInfo.CurrentCulture)), new(Lang.T("times played"), f.Plays.ToString(CultureInfo.CurrentCulture)) };
             if (f.TopGames.Count > 0 && f.TopGames[0].Count > 1) tiles.Add(new(f.TopGames[0].Name, $"{f.TopGames[0].Count}×"));
@@ -235,7 +245,7 @@ public static class RewindCards
             { Wordy = true, Tiles = tiles, Chips = [f.GameCount == 1 ? Lang.T("1 game") : Lang.T($"{f.GameCount} games")] });
         }
 
-        if (!games && f.Time && User(f) is { } user)
+        if ((!games || light) && f.Time && User(f) is { } user)
             cards.Add(new("type", Lang.T("Kind of PC user"), Lang.T("What kind of PC user you were"), user.Name, user.Why)
             {
                 Wordy = true,

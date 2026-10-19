@@ -16,7 +16,7 @@ public sealed partial class RewindEntry(RewindFacts facts, RewindViewModel owner
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(IsNew))]
     private RewindFacts _facts = facts;
 
-    public string Title => RewindCards.TitleWithYear(Facts);
+    public string Title => Facts.Sample is { } sample ? $"{RewindCards.TitleWithYear(Facts)} · {sample}" : RewindCards.TitleWithYear(Facts); // a test copy's sample says so
     public RewindKind Kind => Facts.Kind;
     public string Hue => RewindCards.KindHue(Facts.Kind);
     public bool IsNew => !Facts.Seen;
@@ -138,7 +138,12 @@ public sealed partial class RewindViewModel : ObservableObject
             {
                 var from = new DateTime(now.Year, now.Month, 1);
                 if (!RewindStore.Exists(RewindBuilder.IdOf(RewindKind.Month, from)))
-                    RewindStore.Save(RewindBuilder.Build(db, RewindKind.Month, from, now.Date.AddDays(1), s, now));
+                {
+                    var real = RewindBuilder.Build(db, RewindKind.Month, from, now.Date.AddDays(1), s, now);
+                    RewindStore.Save(real);
+                    // Samples from the same history, to see the cases a gaming PC with problems doesn't show.
+                    foreach (var sample in RewindSamples.Of(real)) RewindStore.Save(sample);
+                }
             }
             return true;
         });
@@ -224,7 +229,7 @@ public sealed partial class RewindViewModel : ObservableObject
     public bool CanGoBack => Index > 0;
     public bool CanGoNext => Index < Cards.Count;
     public string WatchedTitle => Watched is { } f ? RewindCards.TitleWithYear(f) : "";
-    public string WatchedKind => Watched is { } f ? RewindCards.KindName(f.Kind) : "";
+    public string WatchedKind => Watched is { } f ? (f.Sample is { } sample ? $"{RewindCards.KindName(f.Kind)} · {sample}" : RewindCards.KindName(f.Kind)) : "";
     public string EndTitle => Watched is { } f ? Lang.T($"That was your {RewindCards.Title(f)}") : "";
     public string EndSub => Cards.Count == 1 ? Lang.T("1 card") : Lang.T($"{Cards.Count} cards");
     public RewindCard? Current => Index < Cards.Count ? Cards[Index] : null;

@@ -164,6 +164,60 @@ public class RewindTests
         Assert.Equal(("62h", "30m"), (RewindCards.Of(f).Single(c => c.Id == "games").Big, RewindCards.Of(f).Single(c => c.Id == "games").Unit));
     }
 
+    // ── Not the happy path ──
+
+    private static RewindFacts WithApps(RewindFacts f)
+    {
+        f.TopApps = [new("Google Chrome", "chrome.exe", null, 64 * 3600), new("Visual Studio Code", "code.exe", null, 41 * 3600)];
+        f.UseHours = [0, 0, 0, 0, 0, 0, 0, .4, 3.2, 9.8, 10.4, 8.6, 4.1, 6.2, 7.4, 6.8, 5.9, 4.4, 2.1, 1.6, 1.2, .6, .2, 0];
+        return f;
+    }
+
+    [Fact]
+    public void A_PC_that_never_plays_games_gets_its_apps_its_hours_and_what_kind_of_user()
+    {
+        var f = WithApps(October());
+        f.GamingSec = 0; f.GameCount = 0; f.Plays = 0; f.TopGames = []; f.LongestGame = null;
+        var ids = RewindCards.Of(f).Select(c => c.Id).ToList();
+        Assert.Contains("apps", ids);
+        Assert.Contains("hours", ids);
+        Assert.DoesNotContain("games", ids);
+        Assert.DoesNotContain("top", ids);
+        var type = RewindCards.Of(f).Single(c => c.Id == "type");
+        Assert.Equal(("What kind of PC user you were", "Early bird"), (type.Label, type.Big));
+        Assert.Equal("Google Chrome", RewindCards.Of(f).Single(c => c.Id == "summary").Rows[0].Name);
+    }
+
+    [Fact]
+    public void A_little_play_keeps_the_games_cards_but_the_kind_comes_from_the_whole_PC()
+    {
+        var f = WithApps(October());
+        f.TopGames = [.. f.TopGames.Take(2)]; f.GameCount = 2; f.Plays = 5; f.GamingSec = 3.7 * 3600;
+        var cards = RewindCards.Of(f);
+        Assert.Contains(cards, c => c.Id == "games");
+        Assert.Contains(cards, c => c.Id == "hours");
+        Assert.Equal("What kind of PC user you were", cards.Single(c => c.Id == "type").Label);
+    }
+
+    [Fact]
+    public void Nothing_going_wrong_is_a_card_too()
+    {
+        var f = October();
+        f.Problems = true; f.AppCrashes = 0; f.ShutOffs = 0;
+        var card = RewindCards.Of(f).Single(c => c.Id == "problems");
+        Assert.Equal(("What went wrong", "Nothing"), (card.Label, card.Big));
+        Assert.Equal("Not one app or game crashed, and your PC never shut down without warning.", card.Sub);
+    }
+
+    [Fact]
+    public void A_cool_month_says_it_stayed_cool()
+    {
+        var f = October();
+        f.Heat = true;
+        f.GpuHot = new RewindHeat(61, new DateTime(2026, 10, 7, 20, 0, 0), "Dota 2", true);
+        Assert.EndsWith("It stayed cool all along.", RewindCards.Of(f).Single(c => c.Id == "heat").Sub);
+    }
+
     [Theory]
     [InlineData(0.7, 0.1, 60, 17, "One-game player")]
     [InlineData(0.3, 0.6, 60, 17, "Night player")]
