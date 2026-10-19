@@ -18,10 +18,12 @@ public sealed partial class WidgetItemRow(WidgetCard card, string id, string nam
 
     /// <summary>Why the widget's layout doesn't show it ("Tiles shows 6"), or null when it does. Kept, not dropped.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsShown))]
+    [NotifyPropertyChangedFor(nameof(IsShown), nameof(NotShownText))]
     private string? _notShown;
 
     public bool IsShown => NotShown is null;
+    /// <summary>The note under the row: "Not shown: Tiles shows 6".</summary>
+    public string? NotShownText => NotShown is null ? null : Lang.T($"Not shown: {NotShown}");
     /// <summary>What the reading is ("CPU temperature", or the sensor's name): shown when no short name is set.</summary>
     public string Name { get; } = name;
     /// <summary>Where it comes from: the sensor's hardware, or nothing for the usual readings.</summary>
@@ -139,7 +141,8 @@ public sealed partial class WidgetCard : ObservableObject
         {
             if (IsBuiltIn) return WidgetCatalog.Description(Style);
             int n = WidgetCatalog.ShownItems(Config).Count;
-            return $"{WidgetCatalog.LayoutName(LayoutValue)} · {n} reading{(n == 1 ? "" : "s")}";
+            string layout = WidgetCatalog.LayoutName(LayoutValue);
+            return n == 1 ? Lang.T($"{layout} · 1 reading") : Lang.T($"{layout} · {n} readings");
         }
     }
 
@@ -181,7 +184,7 @@ public sealed partial class WidgetCard : ObservableObject
 
     public int MaxItems => WidgetCatalog.MaxItems(LayoutValue);
     public bool CanAddMore => Items.Count(i => i.IsShown) < MaxItems && Items.Count < WidgetCatalog.MaxKept;
-    public string ItemsCount => $"{Items.Count(i => i.IsShown)} of {MaxItems}";
+    public string ItemsCount => Lang.T($"{Items.Count(i => i.IsShown)} of {MaxItems}");
 
     /// <summary>The readings that can still be added, in the overlay's order.</summary>
     public IReadOnlyList<WidgetMetricOption> Offered =>
@@ -205,7 +208,7 @@ public sealed partial class WidgetCard : ObservableObject
     [ObservableProperty] private string _pickerCategory = "all";
 
     public List<PickerChip> PickerChips { get; } =
-        [new("all", "All"), .. Enum.GetValues<WidgetCategory>().Select(c => new PickerChip(c.ToString(), WidgetCatalog.CategoryName(c)))];
+        [new("all", Lang.T("All")), .. Enum.GetValues<WidgetCategory>().Select(c => new PickerChip(c.ToString(), WidgetCatalog.CategoryName(c)))];
 
     [ObservableProperty] private List<PickerOption> _pickerOptions = [];
     [ObservableProperty] private bool _pickerEmpty;
@@ -246,7 +249,7 @@ public sealed partial class WidgetCard : ObservableObject
     {
         var layout = LayoutValue;
         bool full = !CanAddMore;
-        string? Off(string? why) => why ?? (full ? "Full: remove one to add another" : null);
+        string? Off(string? why) => why ?? (full ? Lang.T("Full: remove one to add another") : null);
         var list = new List<PickerOption>();
         foreach (var m in Enum.GetValues<OverlayMetric>())
         {
@@ -320,7 +323,7 @@ public sealed partial class WidgetCard : ObservableObject
             .ToList();
         // A heading over each group: the part under All, else the usual readings apart from the sensors.
         string Group(PickerOption o) => all ? WidgetCatalog.CategoryName(o.Category).ToUpperInvariant()
-            : o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "SENSORS" : "USUAL READINGS";
+            : o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? Lang.T("SENSORS") : Lang.T("USUAL READINGS");
         string? last = null;
         PickerOptions = [.. shown.Select(o =>
         {
@@ -332,10 +335,13 @@ public sealed partial class WidgetCard : ObservableObject
         PickerEmpty = shown.Count == 0;
         string name = PickerChips.First(c => c.Key == PickerCategory).Name;
         int elsewhere = all ? 0 : matching.Count;
-        PickerEmptyText = words.Length == 0 ? (all ? "Nothing left to add" : $"Nothing left to add in {name}")
-            : $"Nothing matches \"{PickerText.Trim()}\"{(all ? "" : $" in {name}")}";
+        string typed = PickerText.Trim();
+        PickerEmptyText = words.Length == 0 ? (all ? Lang.T("Nothing left to add") : Lang.T($"Nothing left to add in {name}"))
+            : all ? Lang.T($"Nothing matches \"{typed}\"") : Lang.T($"Nothing matches \"{typed}\" in {name}");
         CanSearchAll = PickerEmpty && elsewhere > 0;
-        PickerEmptyHint = CanSearchAll ? $"{elsewhere} match{(elsewhere == 1 ? "es" : "")} in other groups." : words.Length > 0 ? "Try another word, such as a part's name or \"fan\"." : "";
+        // (The English says "1 matches" and "2 match": kept as it was, word for word.)
+        PickerEmptyHint = CanSearchAll ? (elsewhere == 1 ? Lang.T("1 matches in other groups.") : Lang.T($"{elsewhere} match in other groups."))
+            : words.Length > 0 ? Lang.T("Try another word, such as a part's name or \"fan\".") : "";
     }
 
     [ObservableProperty]
@@ -429,8 +435,8 @@ public sealed partial class WidgetCard : ObservableObject
         foreach (var row in Items)
         {
             row.NotShown = shown.Contains(row.Id) ? null
-                : WidgetCatalog.Shows(LayoutValue, new WidgetItem { Id = row.Id }) ? $"{LayoutName} shows {MaxItems}"
-                : WidgetCatalog.WhyNot(LayoutValue, WidgetCatalog.Metric(row.Id), SensorKindOf(row.Id)) ?? $"{LayoutName} can't show this";
+                : WidgetCatalog.Shows(LayoutValue, new WidgetItem { Id = row.Id }) ? Lang.T($"{LayoutName} shows {MaxItems}")
+                : WidgetCatalog.WhyNot(LayoutValue, WidgetCatalog.Metric(row.Id), SensorKindOf(row.Id)) ?? Lang.T($"{LayoutName} can't show this");
             row.Refresh();
         }
         OnPropertyChanged(nameof(CanAddMore));
@@ -463,7 +469,7 @@ public sealed partial class WidgetCard : ObservableObject
             else if (WidgetCatalog.Sensor(item.Id) is { } sensorId)
                 Items.Add(names.TryGetValue(sensorId, out var s)
                     ? new WidgetItemRow(this, item.Id, s.DisplayName, s.HardwareName)
-                    : new WidgetItemRow(this, item.Id, SensorName(sensorId), read ? "Not found on this PC right now" : "Waiting for the readings"));
+                    : new WidgetItemRow(this, item.Id, SensorName(sensorId), read ? Lang.T("Not found on this PC right now") : Lang.T("Waiting for the readings")));
         }
     }
 
@@ -608,8 +614,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
     {
         string id = WidgetCatalog.NewId();
         int n = Custom.Count + 1;
-        string name = $"My widget {n}";
-        while (Custom.Any(c => c.Title == name)) name = $"My widget {++n}";
+        string name = Lang.T($"My widget {n}");
+        while (Custom.Any(c => c.Title == name)) name = Lang.T($"My widget {++n}");
         _settings.Update(s => s.Widgets.Add(new WidgetConfig
         {
             Style = WidgetStyle.Custom, Id = id, Name = name, Layout = WidgetLayout.Bar,
@@ -627,7 +633,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
         var layout = WidgetCatalog.LayoutOf(from);
         _settings.Update(s => s.Widgets.Add(new WidgetConfig
         {
-            Style = WidgetStyle.Custom, Id = id, Name = $"{WidgetCatalog.Title(from)} copy",
+            Style = WidgetStyle.Custom, Id = id, Name = Lang.T($"{WidgetCatalog.Title(from)} copy"),
             Layout = WidgetCatalog.CustomLayouts.Contains(layout) ? layout : WidgetLayout.Bar,
             Items = [.. WidgetCatalog.ItemsOf(from).Select(i => new WidgetItem { Id = i.Id, Label = i.Label })], Enabled = true,
             Theme = from.Theme, Grayscale = from.Grayscale, Scale = from.Scale, BackgroundOpacity = from.BackgroundOpacity, ContentOpacity = from.ContentOpacity,

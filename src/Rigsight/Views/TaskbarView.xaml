@@ -116,8 +116,8 @@
              on one side only). -->
         <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,32" MaxWidth="900">
-            <TextBlock Text="Taskbar" Style="{StaticResource H1}" />
-            <TextBlock Text="Readings next to the clock, always in view. In color, each part has its own: blue for the CPU, cyan for the GPU, purple for RAM."
+            <TextBlock Text="{ctl:T 'Taskbar'}" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'Readings next to the clock, always in view. In color, each part has its own: blue for the CPU, cyan for the GPU, purple for RAM.'}"
                        Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
             <!-- Preview: the corner of the taskbar, as it will look -->
@@ -235,13 +235,13 @@
                     <DockPanel Margin="22,14,22,16" Visibility="{Binding ShowIcons, Converter={StaticResource Vis}}">
                         <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,10,0" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
-                                   Text="Windows may tuck new icons behind the arrow next to the clock. Drag them out once and they stay in view." />
+                                   Text="{ctl:T 'Windows may tuck new icons behind the arrow next to the clock. Drag them out once and they stay in view.'}" />
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
 
             <!-- How: in the taskbar, an icon each, or an icon per part -->
-            <TextBlock Text="STYLE" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <TextBlock Text="{ctl:T 'STYLE'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
             <UniformGrid Columns="3" Margin="-6,0">
                 <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding InStrip}" Margin="6,0" AutomationProperties.Name="In the taskbar">
                     <StackPanel>
@@ -253,7 +253,7 @@
                                 </StackPanel>
                                 <StackPanel Margin="0,0,12,0">
                                     <TextBlock Text="35%" FontWeight="SemiBold" FontSize="11" Foreground="White" />
-                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#5B8CFF" Opacity="0.8" />
+                                    <TextBlock Text="{ctl:T 'Load'}" FontSize="8.5" Foreground="#5B8CFF" Opacity="0.8" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,6,0">
                                     <TextBlock Text="71°" FontWeight="SemiBold" FontSize="11" Foreground="#FBBF24" />
@@ -261,12 +261,12 @@
                                 </StackPanel>
                                 <StackPanel>
                                     <TextBlock Text="98%" FontWeight="SemiBold" FontSize="11" Foreground="White" />
-                                    <TextBlock Text="Load" FontSize="8.5" Foreground="#22D3EE" Opacity="0.8" />
+                                    <TextBlock Text="{ctl:T 'Load'}" FontSize="8.5" Foreground="#22D3EE" Opacity="0.8" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="In the taskbar" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="Beside the clock, a short name under each reading." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock Text="{ctl:T 'In the taskbar'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{ctl:T 'Beside the clock, a short name under each reading.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
                     </StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
@@ -281,8 +281,8 @@
                                 <TextBlock Text="35" FontWeight="Bold" FontSize="13" Foreground="White" />
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="An icon each" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="Small icons by the clock, a colour mark on each for its part." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock Text="{ctl:T 'An icon each'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{ctl:T 'Small icons by the clock, a colour mark on each for its part.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
                     </StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Grouped}" Margin="6,0" AutomationProperties.Name="An icon per part">
@@ -301,8 +301,8 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="An icon per part" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="Two readings stacked in each, the temperature on top. Takes the least room." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock Text="{ctl:T 'An icon per part'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{ctl:T 'Two readings stacked in each, the temperature on top. Takes the least room.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
                     </StackPanel>
                 </RadioButton>
             </UniformGrid>
@@ -310,12 +310,12 @@
                        Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
 
             <!-- The parts' colours, or grayscale -->
-            <TextBlock Text="COLORS" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
             <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" Content="Color" GroupName="traycolors"
+                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="traycolors"
                                  IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                    <RadioButton Style="{StaticResource Segment}" Content="Grayscale" GroupName="traycolors"
+                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="traycolors"
                                  IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
                 </StackPanel>
             </Border>
@@ -323,15 +323,15 @@
             <!-- What: the readings, in order -->
             <DockPanel Margin="4,26,0,10">
                 <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Bottom" />
-                <TextBlock Text="READINGS" Style="{StaticResource Caption}" />
+                <TextBlock Text="{ctl:T 'READINGS'}" Style="{StaticResource Caption}" />
             </DockPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}">
                 <StackPanel>
                     <!-- Nothing yet -->
                     <StackPanel HorizontalAlignment="Center" Margin="0,10,0,18" Visibility="{Binding HasSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <TextBlock Text="&#xE75B;" Style="{StaticResource Icon}" FontSize="26" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Text="Nothing in the taskbar yet" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,10,0,2" />
-                        <TextBlock Text="Pick a common one below, or search all your sensors." Style="{StaticResource Muted}" FontSize="12.5" HorizontalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Nothing in the taskbar yet'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,10,0,2" />
+                        <TextBlock Text="{ctl:T 'Pick a common one below, or search all your sensors.'}" Style="{StaticResource Muted}" FontSize="12.5" HorizontalAlignment="Center" />
                     </StackPanel>
 
                     <ItemsControl ItemsSource="{Binding Sensors}" Focusable="False">
@@ -340,15 +340,15 @@
                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,0,0,6">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
                                                     Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70E;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
                                                     Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70D;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Remove from the taskbar" AutomationProperties.Name="Remove"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the taskbar'}" AutomationProperties.Name="Remove"
                                                     Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE711;" />
                                             </Button>
@@ -373,7 +373,7 @@
 
                     <!-- Adding: the usual ones in one click, or any sensor by search -->
                     <StackPanel Margin="0,10,0,0" Visibility="{Binding HasQuickPicks, Converter={StaticResource Vis}}">
-                        <TextBlock Text="Quick add" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,8" />
+                        <TextBlock Text="{ctl:T 'Quick add'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,8" />
                         <ItemsControl ItemsSource="{Binding QuickPicks}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -389,9 +389,9 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <TextBlock Text="Any sensor" Style="{StaticResource Muted}" FontSize="12" Margin="0,8,0,8" />
+                    <TextBlock Text="{ctl:T 'Any sensor'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,8,0,8" />
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Add" Margin="10,0,0,0" MinWidth="72"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Add'}" Margin="10,0,0,0" MinWidth="72"
                                 Command="{Binding AddSensorCommand}" />
                         <Grid>
                             <ComboBox x:Name="Picker" ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
@@ -415,7 +415,7 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <!-- The search box's hint, while it's empty -->
-                            <TextBlock Text="Search all sensors…" IsHitTestVisible="False" Foreground="{DynamicResource FaintBrush}" FontSize="13"
+                            <TextBlock Text="{ctl:T 'Search all sensors…'}" IsHitTestVisible="False" Foreground="{DynamicResource FaintBrush}" FontSize="13"
                                        VerticalAlignment="Center" Margin="11,0,30,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">

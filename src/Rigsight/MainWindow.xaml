@@ -17,7 +17,7 @@
                                       AutomationProperties.Name="What's new">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="28,22,16,8">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="Close" AutomationProperties.Name="Close">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close">
                                     <TextBlock Text="&#xE711;" />
                                 </Button>
                                 <TextBlock Text="{Binding Heading}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
@@ -239,12 +239,12 @@
                               AutomationProperties.Name="New dashboard">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="28,22,16,4">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="Close" AutomationProperties.Name="Close">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close">
                             <TextBlock Text="&#xE711;" />
                         </Button>
-                        <TextBlock Text="New dashboard" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'New dashboard'}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Start from a preset made for this PC's sensors, then change anything you like."
+                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Start from a preset made for this PC\'s sensors, then change anything you like.'}"
                                Style="{StaticResource Muted}" Margin="28,0,28,16" TextWrapping="Wrap" />
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="22,0,10,22" Padding="0,0,12,0">
                         <ItemsControl ItemsSource="{Binding Cards}" Focusable="False">
@@ -312,10 +312,10 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <CheckBox Content="I understand that unsaved work may be lost" IsChecked="{Binding Question.Ticked}" FontSize="13" Margin="0,16,0,0"
+                    <CheckBox Content="{ctl:T 'I understand that unsaved work may be lost'}" IsChecked="{Binding Question.Ticked}" FontSize="13" Margin="0,16,0,0"
                               Foreground="{DynamicResource TextBrush}" Visibility="{Binding Question.NeedsTick, Converter={StaticResource Vis}}" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
-                        <Button Content="End anyway" Command="{Binding AnswerCommand}" CommandParameter="End" IsEnabled="{Binding Question.CanEnd}"
+                        <Button Content="{ctl:T 'End anyway'}" Command="{Binding AnswerCommand}" CommandParameter="End" IsEnabled="{Binding Question.CanEnd}"
                                 Background="{DynamicResource HotSoftBrush}" Foreground="{DynamicResource HotBrush}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
@@ -328,7 +328,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <Button Content="Cancel" Command="{Binding AnswerCommand}" CommandParameter="Cancel" Margin="10,0,0,0">
+                        <Button Content="{ctl:T 'Cancel'}" Command="{Binding AnswerCommand}" CommandParameter="Cancel" Margin="10,0,0,0">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                     <Style.Triggers>
@@ -343,7 +343,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <Button Content="Restart it" Style="{StaticResource AccentButton}" IsDefault="True" Command="{Binding AnswerCommand}" CommandParameter="Restart" Margin="10,0,0,0"
+                        <Button Content="{ctl:T 'Restart it'}" Style="{StaticResource AccentButton}" IsDefault="True" Command="{Binding AnswerCommand}" CommandParameter="Restart" Margin="10,0,0,0"
                                 Visibility="{Binding Question.CanRestart, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </StackPanel>
@@ -413,7 +413,7 @@
                                 <TextBlock Text="{Binding PromptText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
                                 <UniformGrid Columns="2">
                                     <Button Style="{StaticResource AccentButton}" Content="{Binding InstallText}" Command="{Binding InstallCommand}" Margin="0,0,4,0" />
-                                    <Button Style="{StaticResource GhostButton}" Content="Later" Command="{Binding LaterCommand}" Margin="4,0,0,0" />
+                                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Later'}" Command="{Binding LaterCommand}" Margin="4,0,0,0" />
                                 </UniformGrid>
                             </StackPanel>
                         </ctl:SmoothBorder>
@@ -425,11 +425,11 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Update didn't finish" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Update didn\'t finish'}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding FailedText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
-                                <Button Style="{StaticResource AccentButton}" Content="Try again" Command="{Binding ActionCommand}" HorizontalAlignment="Stretch" />
-                                <Button Style="{StaticResource GhostButton}" Content="Open download page" Command="{Binding OpenDownloadPageCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
+                                <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Try again'}" Command="{Binding ActionCommand}" HorizontalAlignment="Stretch" />
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Open download page'}" Command="{Binding OpenDownloadPageCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
                             </StackPanel>
                         </ctl:SmoothBorder>
                     </StackPanel>
@@ -479,12 +479,12 @@
                                 <Border DockPanel.Dock="Left" Width="28" Height="28" CornerRadius="8" Background="{DynamicResource CpuSoftBrush}" Margin="0,0,10,0">
                                     <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <TextBlock Text="Standard account" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Standard account'}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </DockPanel>
-                            <TextBlock Text="CPU temperature and a few other readings are off here." FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,10" />
+                            <TextBlock Text="{ctl:T 'CPU temperature and a few other readings are off here.'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,10" />
                             <Button Style="{StaticResource GhostButton}" Command="{Binding OpenAdminRightsCommand}" HorizontalAlignment="Stretch" AutomationProperties.Name="See what's off">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="See what's off" />
+                                    <TextBlock Text="{ctl:T 'See what\'s off'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
@@ -520,13 +520,13 @@
                             <TextBlock Text="{Binding Text}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
                             <!-- Equal halves, one height (a lone button takes the whole width): collapsed buttons take no cell. -->
                             <UniformGrid Rows="1" Margin="-3,0">
-                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="Repair" AutomationProperties.Name="Repair history"
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Repair'}" AutomationProperties.Name="Repair history"
                                         Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanRepair, Converter={StaticResource Vis}}" />
-                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="Try again" AutomationProperties.Name="Try the history repair again"
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Try again'}" AutomationProperties.Name="Try the history repair again"
                                         Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanRetry, Converter={StaticResource Vis}}" />
-                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="Open folder" AutomationProperties.Name="Open the history folder"
+                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{ctl:T 'Open folder'}" AutomationProperties.Name="Open the history folder"
                                         Command="{Binding DataContext.OpenHistoryFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanOpenFolder, Converter={StaticResource Vis}}" />
                                 <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{Binding DismissText}"
@@ -543,13 +543,13 @@
                             <TextBlock FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="Background agent not running" />
+                                        <Setter Property="Text" Value="{ctl:T 'Background agent not running'}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                                <Setter Property="Text" Value="Agent running without admin rights" />
+                                                <Setter Property="Text" Value="{ctl:T 'Agent running without admin rights'}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding AgentOutOfDate}" Value="True">
-                                                <Setter Property="Text" Value="Background agent is another version" />
+                                                <Setter Property="Text" Value="{ctl:T 'Background agent is another version'}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -584,9 +584,9 @@
                                                        Foreground="{DynamicResource FaintBrush}" Margin="8,0,0,0" />
                                             <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
                                             <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
-                                                     ToolTip="Something in Settings needs a look"
+                                                     ToolTip="{ctl:T 'Something in Settings needs a look'}"
                                                      Visibility="{Binding SettingsNeedAttention, Converter={StaticResource Vis}}" />
-                                            <TextBlock Text="Settings" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{ctl:T 'Settings'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
                                         </DockPanel>
                                     </Grid>
                                 </Border>
@@ -649,7 +649,7 @@
                                         <Setter Property="Background" Value="{DynamicResource StrokeBrush}" />
                                     </Style>
                                 </StackPanel.Resources>
-                                <Button Tag="&#xE713;" Content="Settings" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="Settings" />
+                                <Button Tag="&#xE713;" Content="{ctl:T 'Settings'}" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="Settings" />
                                 <!-- Checking for an update keeps the menu open, and the line itself becomes the answer
                                      ("Checking…", then "Up to date" with a tick) until the menu closes: see the code
                                      behind. Every other line closes the menu. -->
@@ -659,15 +659,15 @@
                                         <TextBlock x:Name="MenuUpdateAnswer" Text="{Binding Update.AnswerText}" Visibility="Collapsed" />
                                     </Grid>
                                 </Button>
-                                <Button Tag="&#xE7C3;" Content="What's new" Command="{Binding WhatsNew.SeeAllCommand}" />
+                                <Button Tag="&#xE7C3;" Content="{ctl:T 'What\'s new'}" Command="{Binding WhatsNew.SeeAllCommand}" />
                                 <Border Style="{StaticResource MenuRule}" />
-                                <Button Tag="&#xEBE8;" Content="Report a bug" Command="{Binding SettingsPage.ReportBugCommand}" />
-                                <Button Tag="&#xE8C8;" Content="Copy logs" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
-                                <Button Tag="&#xEB51;" Content="Support RigSight" Command="{Binding SettingsPage.SupportCommand}" />
+                                <Button Tag="&#xEBE8;" Content="{ctl:T 'Report a bug'}" Command="{Binding SettingsPage.ReportBugCommand}" />
+                                <Button Tag="&#xE8C8;" Content="{ctl:T 'Copy logs'}" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
+                                <Button Tag="&#xEB51;" Content="{ctl:T 'Support RigSight'}" Command="{Binding SettingsPage.SupportCommand}" />
                                 <Border Style="{StaticResource MenuRule}" />
-                                <Button Tag="&#xE946;" Content="About RigSight" Command="{Binding AboutCommand}" />
+                                <Button Tag="&#xE946;" Content="{ctl:T 'About RigSight'}" Command="{Binding AboutCommand}" />
                                 <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="10,6,10,4">
-                                    <Run Text="Version" /> <Run Text="{Binding SettingsPage.AppVersion, Mode=OneWay}" />
+                                    <Run Text="{ctl:T 'Version'}" /> <Run Text="{Binding SettingsPage.AppVersion, Mode=OneWay}" />
                                 </TextBlock>
                             </StackPanel>
                         </Border>
@@ -721,7 +721,7 @@
                     <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding DashboardsCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="dashboards"
-                            AutomationProperties.Name="{Binding DashboardsGroup.Title}" ToolTip="Show or hide your dashboards"
+                            AutomationProperties.Name="{Binding DashboardsGroup.Title}" ToolTip="{ctl:T 'Show or hide your dashboards'}"
                             Visibility="{Binding DashboardsGroup.ShowHeading, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding DashboardsGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
@@ -729,14 +729,14 @@
                     <ItemsControl ItemsSource="{Binding DashboardsGroup.Pages}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
                     <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="New dashboard"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
-                            ToolTip="Start from a preset or a blank page"
+                            ToolTip="{ctl:T 'Start from a preset or a blank page'}"
                             Visibility="{Binding DashboardsCollapsed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                        <TextBlock Text="New dashboard" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'New dashboard'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -750,14 +750,14 @@
                     </Button>
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding HardwareCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="hardware"
-                            AutomationProperties.Name="{Binding HardwareGroup.Title}" ToolTip="Show or hide these pages"
+                            AutomationProperties.Name="{Binding HardwareGroup.Title}" ToolTip="{ctl:T 'Show or hide these pages'}"
                             Visibility="{Binding HardwareGroup.ShowHeading, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding HardwareGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding OnScreenCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="onscreen"
-                            AutomationProperties.Name="{Binding OnScreenGroup.Title}" ToolTip="Show or hide these pages"
+                            AutomationProperties.Name="{Binding OnScreenGroup.Title}" ToolTip="{ctl:T 'Show or hide these pages'}"
                             Visibility="{Binding OnScreenGroup.ShowHeading, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding OnScreenGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
@@ -772,11 +772,11 @@
             <Border DockPanel.Dock="Top" Margin="28,14,28,0" Padding="14,10" CornerRadius="10" Background="{DynamicResource WarmSoftBrush}"
                     AutomationProperties.Name="Part of this page can't be read" Visibility="{Binding PageUnreadable, Converter={StaticResource Vis}}">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Repair" Command="{Binding RepairHistoryCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Repair'}" Command="{Binding RepairHistoryCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <Ellipse Width="8" Height="8" Fill="{DynamicResource WarmBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
                     <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource MutedBrush}">
-                        <Run Text="Part of this page's history can't be read." FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <Run Text="It may show less than was recorded, or nothing. A repair brings back everything that can still be read." />
+                        <Run Text="{ctl:T 'Part of this page\'s history can\'t be read.'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <Run Text="{ctl:T 'It may show less than was recorded, or nothing. A repair brings back everything that can still be read.'}" />
                     </TextBlock>
                 </DockPanel>
             </Border>
@@ -869,21 +869,21 @@
                         Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <!-- The full-size picture, scaled down: the .ico's nearest frame is 48 px, which stretched to 56 looked soft. -->
                 <Image Source="Assets/Rigsight.png" Width="56" Height="56" Margin="0,0,0,18" RenderOptions.BitmapScalingMode="HighQuality" UseLayoutRounding="True" SnapsToDevicePixels="True" />
-                <TextBlock Text="Updating RigSight" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{ctl:T 'Updating RigSight'}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                 <TextBlock Text="{Binding OverlayVersions}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,22" />
                 <ProgressBar Style="{StaticResource Bar}" Height="8" Value="{Binding OverlayFill, Mode=OneWay}" Maximum="100" />
-                <TextBlock Text="RigSight closes and opens again by itself." FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
-                <TextBlock Text="This takes about 15 seconds. Your history and settings stay as they are." FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                <TextBlock Text="{ctl:T 'RigSight closes and opens again by itself.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                <TextBlock Text="{ctl:T 'This takes about 15 seconds. Your history and settings stay as they are.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Center" Margin="0,6,0,0" />
             </StackPanel>
             <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}}">
                 <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="40" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" Margin="0,0,0,18" />
-                <TextBlock Text="The update didn't install" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{ctl:T 'The update didn\'t install'}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                 <TextBlock Text="{Binding ReleaseFeedCurrentText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,18" />
                 <UniformGrid Columns="2" Width="260">
-                    <Button Style="{StaticResource AccentButton}" Content="Try again" Command="{Binding RetryFromOverlayCommand}" Margin="0,0,4,0" />
-                    <Button Style="{StaticResource GhostButton}" Content="Close" Command="{Binding CloseOverlayCommand}" Margin="4,0,0,0" />
+                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Try again'}" Command="{Binding RetryFromOverlayCommand}" Margin="0,0,4,0" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Close'}" Command="{Binding CloseOverlayCommand}" Margin="4,0,0,0" />
                 </UniformGrid>
             </StackPanel>
         </Grid>

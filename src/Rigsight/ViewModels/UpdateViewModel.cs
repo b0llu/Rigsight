@@ -100,43 +100,43 @@ public sealed partial class UpdateViewModel : ObservableObject
     public bool ShowPrompt => !_pcUpdates() && State == UpdateState.Ready;
     public bool ShowFailed => !_pcUpdates() && State == UpdateState.Failed;
 
-    public string PromptTitle => _needsAdmin() ? "Update needs an admin" : "Update ready";
+    public string PromptTitle => _needsAdmin() ? Lang.T("Update needs an admin") : Lang.T("Update ready");
     // "Update" in the sidebar card: "Update now" wrapped onto two lines in half its width. Settings has room: "Update now".
-    public string InstallText => _needsAdmin() ? "Install" : "Update";
+    public string InstallText => _needsAdmin() ? Lang.T("Install") : Lang.T("Update");
 
-    public string LineTitle => State == UpdateState.Waiting ? "Update ready" : "Update available";
+    public string LineTitle => State == UpdateState.Waiting ? Lang.T("Update ready") : Lang.T("Update available");
     public string LineIcon => State == UpdateState.Waiting ? "" : "";
 
     public string LineTip => State == UpdateState.Waiting
-        ? $"RigSight {Version} is downloaded. Click to install it: RigSight closes and opens again by itself."
-        : $"RigSight {Version} is out. Click to download it; you can keep using RigSight meanwhile.";
+        ? Lang.T($"RigSight {Version} is downloaded. Click to install it: RigSight closes and opens again by itself.")
+        : Lang.T($"RigSight {Version} is out. Click to download it; you can keep using RigSight meanwhile.");
 
-    public string ProgressTitle => State == UpdateState.Installing ? $"Updating to {Version}…" : $"Downloading {Version}";
+    public string ProgressTitle => State == UpdateState.Installing ? Lang.T($"Updating to {Version}…") : Lang.T($"Downloading {Version}");
 
-    public string PromptText => _needsAdmin() ? $"Version {Version} is out. Someone with an admin password can install it."
+    public string PromptText => _needsAdmin() ? Lang.T($"Version {Version} is out. Someone with an admin password can install it.")
         : _autoUpdate() && _agentCanInstall()
-        ? $"Update now to get {Version}, or it installs by itself the next time you start your PC."
-        : $"Update now to get {Version}.";
+        ? Lang.T($"Update now to get {Version}, or it installs by itself the next time you start your PC.")
+        : Lang.T($"Update now to get {Version}.");
 
-    public string FailedText => $"{Error} Try again, or get the latest version from the download page.";
+    public string FailedText => Lang.T($"{Error} Try again, or get the latest version from the download page.");
 
     // ── Settings: the version, what's going on, and the one button that fits ──
 
     public string StatusText => State switch
     {
-        _ when IsChecking => "Checking for updates…",
-        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => $"Version {Version} is out. It installs the next time RigSight starts, or now.",
-        UpdateState.Installing when _pcUpdates() => "Updating: RigSight closes and reopens by itself in a minute.",
-        _ when _pcUpdates() => "This PC keeps RigSight up to date by itself.",
-        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _needsAdmin() => $"Version {Version} is out. Installing it needs an admin's password.",
-        UpdateState.Available => $"Version {Version} is available.",
-        UpdateState.Downloading => $"Downloading version {Version}… {Progress:0}%",
-        UpdateState.Ready or UpdateState.Waiting => $"Version {Version} is downloaded and ready to install.",
-        UpdateState.Installing => "Installing the update…",
-        UpdateState.Failed => $"{Error} You can also get it from the download page.",
+        _ when IsChecking => Lang.T("Checking for updates…"),
+        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => Lang.T($"Version {Version} is out. It installs the next time RigSight starts, or now."),
+        UpdateState.Installing when _pcUpdates() => Lang.T("Updating: RigSight closes and reopens by itself in a minute."),
+        _ when _pcUpdates() => Lang.T("This PC keeps RigSight up to date by itself."),
+        UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _needsAdmin() => Lang.T($"Version {Version} is out. Installing it needs an admin's password."),
+        UpdateState.Available => Lang.T($"Version {Version} is available."),
+        UpdateState.Downloading => Lang.T($"Downloading version {Version}… {Progress:0}%"),
+        UpdateState.Ready or UpdateState.Waiting => Lang.T($"Version {Version} is downloaded and ready to install."),
+        UpdateState.Installing => Lang.T("Installing the update…"),
+        UpdateState.Failed => Lang.T($"{Error} You can also get it from the download page."),
         _ when _checkError is not null => _checkError,
-        _ when _checked => "You have the latest version.",
-        _ => "RigSight checks for a new version once a day.",
+        _ when _checked => Lang.T("You have the latest version."),
+        _ => Lang.T("RigSight checks for a new version once a day."),
     };
 
     /// <summary>The button is the next step of an update (not just "Check for updates"): it stands out.</summary>
@@ -150,9 +150,9 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// </summary>
     public string AnswerText => State switch
     {
-        _ when IsChecking => "Checking…",
-        UpdateState.None when _checkError is not null => "Couldn't check",
-        UpdateState.None when _checked => "Up to date",
+        _ when IsChecking => Lang.T("Checking…"),
+        UpdateState.None when _checkError is not null => Lang.T("Couldn't check"),
+        UpdateState.None when _checked => Lang.T("Up to date"),
         _ => ActionText,
     };
 
@@ -167,14 +167,14 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     public string ActionText => State switch
     {
-        _ when IsChecking => "Checking…",
-        UpdateState.Available when _pcUpdates() => "Update now",
-        UpdateState.Available => "Download",
-        UpdateState.Downloading => "Downloading…",
-        UpdateState.Ready or UpdateState.Waiting => "Update now",
-        UpdateState.Installing => "Installing…",
-        UpdateState.Failed => "Try again",
-        _ => "Check for updates",
+        _ when IsChecking => Lang.T("Checking…"),
+        UpdateState.Available when _pcUpdates() => Lang.T("Update now"),
+        UpdateState.Available => Lang.T("Download"),
+        UpdateState.Downloading => Lang.T("Downloading…"),
+        UpdateState.Ready or UpdateState.Waiting => Lang.T("Update now"),
+        UpdateState.Installing => Lang.T("Installing…"),
+        UpdateState.Failed => Lang.T("Try again"),
+        _ => Lang.T("Check for updates"),
     };
 
     partial void OnProgressChanged(double value)
@@ -255,7 +255,7 @@ public sealed partial class UpdateViewModel : ObservableObject
             else
             {
                 // Only Settings says so: nothing is wrong with the copy you have.
-                _checkError = "Couldn't check for updates. Check your internet connection and try again.";
+                _checkError = Lang.T("Couldn't check for updates. Check your internet connection and try again.");
                 RefreshTexts();
             }
             return;
@@ -325,7 +325,7 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         // It was installed a while ago and this copy is still older: the installer didn't finish.
         if (downloaded && attempt is not null && attempt.Version == latest!.Version && DateTime.Now - attempt.At > TimeSpan.FromMinutes(5))
-            Fail("The update didn't install.");
+            Fail(Lang.T("The update didn't install."));
         else if (downloaded) AskOrWait();
         else if (autoDownload && _autoUpdate() && latest!.Version != _offered) await DownloadAsync(automatic: true);
         else State = UpdateState.Available;
@@ -361,14 +361,14 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         State = UpdateState.Downloading;
         Progress = 0;
-        ProgressText = "Connecting…";
+        ProgressText = Lang.T("Connecting…");
         var speed = new SpeedMeter();
         long received = 0;
         void Show(long done)
         {
             Progress = release.Size > 0 ? done * 100.0 / release.Size : 0;
             double mb = done / 1048576.0;
-            ProgressText = $"{mb.ToString(mb < 10 ? "0.0" : "0")} of {release.Size / 1048576.0:0} MB{speed.Text(done)}";
+            ProgressText = Lang.T($"{mb.ToString(mb < 10 ? "0.0" : "0")} of {release.Size / 1048576.0:0} MB{speed.Text(done)}");
         }
         var progress = new Progress<long>(done =>
         {
@@ -392,10 +392,10 @@ public sealed partial class UpdateViewModel : ObservableObject
             if (automatic) State = UpdateState.Available;
             else Fail(ex switch
             {
-                InvalidDataException => "The download was damaged.",
-                TimeoutException => "The download got stuck. Check your internet connection.",
-                HttpRequestException { StatusCode: null } => "Couldn't connect. Check your internet connection.",
-                _ => "The download stopped. Check your internet connection.",
+                InvalidDataException => Lang.T("The download was damaged."),
+                TimeoutException => Lang.T("The download got stuck. Check your internet connection."),
+                HttpRequestException { StatusCode: null } => Lang.T("Couldn't connect. Check your internet connection."),
+                _ => Lang.T("The download stopped. Check your internet connection."),
             });
         }
         finally
@@ -427,7 +427,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty] private bool _overlayFailed;
 
     /// <summary>Under "The update didn't install": what is still there, and what to do.</summary>
-    public string ReleaseFeedCurrentText => $"RigSight is still on {ReleaseFeed.Current.ToString(3)}, with nothing lost. Try again, or get the new version from the download page.";
+    public string ReleaseFeedCurrentText => Lang.T($"RigSight is still on {ReleaseFeed.Current.ToString(3)}, with nothing lost. Try again, or get the new version from the download page.");
 
     /// <summary>"0.24.0 → 0.25.0" under the screen's title.</summary>
     public string OverlayVersions => $"{ReleaseFeed.Current.ToString(3)} → {Version}";
@@ -487,7 +487,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         Fill(18);
         State = UpdateState.Installing;
         Progress = 100;
-        ProgressText = "RigSight closes and reopens by itself in a few seconds.";
+        ProgressText = Lang.T("RigSight closes and reopens by itself in a few seconds.");
         if (_pcUpdates())
         {
             // The PC's own updater does it: told it may close this window (and that it is to come back), then asked to run.
@@ -501,7 +501,7 @@ public sealed partial class UpdateViewModel : ObservableObject
             catch (Exception ex)
             {
                 Log.Error("update", ex);
-                Fail("The update couldn't be started.");
+                Fail(Lang.T("The update couldn't be started."));
             }
             return;
         }
@@ -532,7 +532,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         if (!await ReleaseFeed.MatchesAsync(setup, release))
         {
-            Fail("The download was damaged.");
+            Fail(Lang.T("The download was damaged."));
             return;
         }
         try
@@ -554,7 +554,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         {
             Log.Error("update", ex);
             UpdateStore.ClearAttempt();
-            Fail("The installer couldn't start.");
+            Fail(Lang.T("The installer couldn't start."));
         }
     }
 
@@ -570,7 +570,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         watchdog.Tick += (_, _) =>
         {
             watchdog.Stop();
-            if (State == UpdateState.Installing) Fail("The update didn't install.");
+            if (State == UpdateState.Installing) Fail(Lang.T("The update didn't install."));
         };
         watchdog.Start();
     }

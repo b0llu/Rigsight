@@ -34,7 +34,7 @@
                 <StackPanel>
                     <Border Height="100" CornerRadius="10" ClipToBounds="True" Background="{StaticResource Backdrop}">
                         <Grid>
-                            <TextBlock Text="Preview appears when the agent is running" Style="{StaticResource Muted}" FontSize="11.5"
+                            <TextBlock Text="{ctl:T 'Preview appears when the agent is running'}" Style="{StaticResource Muted}" FontSize="11.5"
                                        TextWrapping="Wrap" TextAlignment="Center" Margin="12,0" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="10"
@@ -43,12 +43,12 @@
                     </Border>
                     <DockPanel Margin="0,12,0,0">
                         <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center"
-                                  AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="Show it on the desktop" />
+                                  AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="{ctl:T 'Show it on the desktop'}" />
                         <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     </DockPanel>
                     <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                Height="34" Margin="0,4,0,0" />
-                    <Button Style="{StaticResource GhostButton}" Content="Edit" Command="{Binding EditCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Edit'}" Command="{Binding EditCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
                             AutomationProperties.Name="{Binding Title, StringFormat='Edit {0}'}" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -64,17 +64,17 @@
                             Margin="16,4,0,0" AutomationProperties.Name="Create widget">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
-                            <TextBlock Text="Create widget" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <StackPanel>
-                        <TextBlock Text="Desktop widgets" Style="{StaticResource H1}" />
+                        <TextBlock Text="{ctl:T 'Desktop widgets'}" Style="{StaticResource H1}" />
                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="Small readouts that sit on your desktop, always up to date. Drag one anywhere, or lock it so clicks pass straight through." />
+                                   Text="{ctl:T 'Small readouts that sit on your desktop, always up to date. Drag one anywhere, or lock it so clicks pass straight through.'}" />
                     </StackPanel>
                 </DockPanel>
 
-                <TextBlock Text="BUILT IN" Style="{StaticResource Section}" Margin="0,22,0,10" />
+                <TextBlock Text="{ctl:T 'BUILT IN'}" Style="{StaticResource Section}" Margin="0,22,0,10" />
                 <ScrollViewer x:Name="BuiltInRow" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
                               PreviewMouseWheel="BuiltInRow_PreviewMouseWheel">
                     <ItemsControl ItemsSource="{Binding BuiltIn}" ItemTemplate="{StaticResource WidgetCardTemplate}" Margin="0,0,0,4">
@@ -86,7 +86,7 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <TextBlock Text="YOUR WIDGETS" Style="{StaticResource Section}" Margin="0,18,0,10" />
+                <TextBlock Text="{ctl:T 'YOUR WIDGETS'}" Style="{StaticResource Section}" Margin="0,18,0,10" />
                 <ItemsControl ItemsSource="{Binding Custom}" ItemTemplate="{StaticResource WidgetCardTemplate}"
                               Visibility="{Binding HasCustom, Converter={StaticResource Vis}}">
                     <ItemsControl.ItemsPanel>
@@ -97,12 +97,12 @@
                 </ItemsControl>
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasCustom, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Create widget" Command="{Binding CreateCommand}"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" Command="{Binding CreateCommand}"
                                 VerticalAlignment="Center" Margin="16,0,0,0" />
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Make your own" Style="{StaticResource H2}" FontSize="15" />
+                            <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="15" />
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Text="Pick a layout and the readings you want: frame rate, temperatures, loads, or any sensor on your PC." />
+                                       Text="{ctl:T 'Pick a layout and the readings you want: frame rate, temperatures, loads, or any sensor on your PC.'}" />
                         </StackPanel>
                     </DockPanel>
                 </ctl:SmoothBorder>
@@ -125,7 +125,7 @@
                           DataContext="{Binding Editing}">
                 <StackPanel Margin="22,22,22,26">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="Close" AutomationProperties.Name="Close the editor"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"
                                 Command="{Binding DataContext.CloseEditorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" VerticalAlignment="Top">
                             <TextBlock Text="&#xE711;" />
                         </Button>
@@ -142,18 +142,18 @@
 
                     <!-- The user's own: name and layout -->
                     <StackPanel Visibility="{Binding IsCustom, Converter={StaticResource Vis}}">
-                        <TextBlock Text="NAME" Style="{StaticResource Section}" />
+                        <TextBlock Text="{ctl:T 'NAME'}" Style="{StaticResource Section}" />
                         <TextBox Text="{Binding Title, UpdateSourceTrigger=LostFocus}" MaxLength="40" AutomationProperties.Name="Widget name" />
-                        <TextBlock Text="LAYOUT" Style="{StaticResource Section}" />
+                        <TextBlock Text="{ctl:T 'LAYOUT'}" Style="{StaticResource Section}" />
                         <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Bar" GroupName="editor-layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Bar'}" GroupName="editor-layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Bar}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Tiles" GroupName="editor-layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Tiles'}" GroupName="editor-layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Tiles}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Gauges" GroupName="editor-layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Gauges'}" GroupName="editor-layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Gauges}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Graph" GroupName="editor-layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Graph'}" GroupName="editor-layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Graph}" />
                             </StackPanel>
                         </Border>
@@ -163,7 +163,7 @@
                     <StackPanel Visibility="{Binding HasReadings, Converter={StaticResource Vis}}">
                         <DockPanel Margin="0,20,0,8">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding ItemsCount}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="READINGS" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{ctl:T 'READINGS'}" Style="{StaticResource Caption}" />
                         </DockPanel>
                         <!-- Above the readings: adding one grows the list below it, so the field and its open list stay put.
                              The reading picker: one search field for the usual readings and every sensor. Typing opens the list,
@@ -221,7 +221,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
-                                        <TextBlock DockPanel.Dock="Bottom" Text="Click to add · Enter adds the first · Esc to close" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
+                                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Click to add · Enter adds the first · Esc to close'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
                                         <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource StrokeBrush}" />
                                         <Grid>
                                                 <ItemsControl x:Name="PickScroll" ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False" MaxHeight="340"
@@ -288,7 +288,7 @@
                                                            HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
                                                 <TextBlock Text="{Binding PickerEmptyHint}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"
                                                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Visibility="{Binding PickerEmptyHint, Converter={StaticResource Vis}}" />
-                                                <Button Style="{StaticResource GhostButton}" Content="Search all groups" HorizontalAlignment="Center" Margin="0,10,0,0"
+                                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Search all groups'}" HorizontalAlignment="Center" Margin="0,10,0,0"
                                                         Command="{Binding SearchAllCommand}" Visibility="{Binding CanSearchAll, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </Grid>
@@ -302,15 +302,15 @@
                                     <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
                                                         Command="{Binding DataContext.MoveItemUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                     <TextBlock Text="&#xE70E;" />
                                                 </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
                                                         Command="{Binding DataContext.MoveItemDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                     <TextBlock Text="&#xE70D;" />
                                                 </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="Remove from the widget" AutomationProperties.Name="Remove"
+                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the widget'}" AutomationProperties.Name="Remove"
                                                         Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                     <TextBlock Text="&#xE711;" />
                                                 </Button>
@@ -318,8 +318,8 @@
                                             <!-- Short name on the widget: typed over its usual one, which shows as the hint. -->
                                             <Grid DockPanel.Dock="Right" Width="110" Margin="10,0,6,0" VerticalAlignment="Center">
                                                 <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12"
-                                                         ToolTip="Short name on the widget (up to 18 letters). Leave empty for the usual one." />
-                                                <TextBlock Text="Short name" FontSize="12" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
+                                                         ToolTip="{ctl:T 'Short name on the widget (up to 18 letters). Leave empty for the usual one.'}" />
+                                                <TextBlock Text="{ctl:T 'Short name'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
                                                            Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -338,7 +338,7 @@
                                                 <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                            Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
                                                 <!-- Kept for another layout: greyed, with why. -->
-                                                <TextBlock Text="{Binding NotShown, StringFormat=Not shown: {0}}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
+                                                <TextBlock Text="{Binding NotShownText}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
                                                            Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </DockPanel>
@@ -347,40 +347,40 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Button Style="{StaticResource GhostButton}" Content="Reset to default" Command="{Binding ResetCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                Visibility="{Binding CanReset, Converter={StaticResource Vis}}" ToolTip="Back to this widget's own readings" />
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset to default'}" Command="{Binding ResetCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                Visibility="{Binding CanReset, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Back to this widget\'s own readings'}" />
                     </StackPanel>
 
                     <!-- Look -->
-                    <TextBlock Text="LOOK" Style="{StaticResource Section}" />
+                    <TextBlock Text="{ctl:T 'LOOK'}" Style="{StaticResource Section}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="THEME" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'THEME'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Dark" GroupName="editor-theme"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Dark'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Grey" GroupName="editor-theme"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grey'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Grey}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Light" GroupName="editor-theme"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Light'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="System" GroupName="editor-theme"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'System'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=System}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="COLORS" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Color" GroupName="editor-colors"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="editor-colors"
                                              IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Grayscale" GroupName="editor-colors"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="editor-colors"
                                              IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="SIZE" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'SIZE'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" Content="S" GroupName="editor-size"
@@ -398,28 +398,28 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                    <DockPanel Margin="0,4" ToolTip="The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.">
-                        <TextBlock Text="BACKGROUND" Style="{StaticResource OptionLabel}" />
+                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.'}">
+                        <TextBlock Text="{ctl:T 'BACKGROUND'}" Style="{StaticResource OptionLabel}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
                         <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                 Value="{Binding BackgroundPercent}" AutomationProperties.Name="Background" />
                     </DockPanel>
-                    <DockPanel Margin="0,4" ToolTip="The readings themselves: numbers, labels, gauges and charts.">
-                        <TextBlock Text="CONTENT" Style="{StaticResource OptionLabel}" />
+                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The readings themselves: numbers, labels, gauges and charts.'}">
+                        <TextBlock Text="{ctl:T 'CONTENT'}" Style="{StaticResource OptionLabel}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
                         <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                 Value="{Binding ContentPercent}" AutomationProperties.Name="Content" />
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Locked}" Margin="0,8,0,0">
-                        <TextBlock Text="Lock in place (click-through)" Style="{StaticResource Body}" />
+                        <TextBlock Text="{ctl:T 'Lock in place (click-through)'}" Style="{StaticResource Body}" />
                     </CheckBox>
 
                     <!-- The user's own: copy or remove -->
                     <StackPanel Orientation="Horizontal" Margin="0,24,0,0" Visibility="{Binding IsCustom, Converter={StaticResource Vis}}">
-                        <Button Style="{StaticResource GhostButton}" Content="Duplicate" Command="{Binding DuplicateCommand}" />
-                        <Button Style="{StaticResource GhostButton}" Content="Delete widget" Command="{Binding DeleteCommand}" Margin="8,0,0,0"
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Duplicate'}" Command="{Binding DuplicateCommand}" />
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Delete widget'}" Command="{Binding DeleteCommand}" Margin="8,0,0,0"
                                 Foreground="{DynamicResource HotBrush}" />
                     </StackPanel>
                 </StackPanel>

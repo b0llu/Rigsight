@@ -16,7 +16,7 @@
              on one side only). -->
         <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,32" MaxWidth="980">
-            <TextBlock Text="Game overlay" Style="{StaticResource H1}" />
+            <TextBlock Text="{ctl:T 'Game overlay'}" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,18" />
 
             <!-- Only when fullscreen games can't show the overlay -->
@@ -33,10 +33,10 @@
                         </StackPanel>
                         <TextBlock Text="{Binding RtssStatus}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}">
-                            <Button Style="{StaticResource AccentButton}" Content="Install RivaTuner" Command="{Binding InstallRtssCommand}" />
-                            <Button Style="{StaticResource GhostButton}" Content="Download from Guru3D" Margin="8,0,0,0" Command="{Binding OpenRtssDownloadCommand}" />
+                            <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Install RivaTuner'}" Command="{Binding InstallRtssCommand}" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Download from Guru3D'}" Margin="8,0,0,0" Command="{Binding OpenRtssDownloadCommand}" />
                         </StackPanel>
-                        <Button Style="{StaticResource AccentButton}" Content="Start RivaTuner" Command="{Binding StartRtssCommand}" HorizontalAlignment="Left"
+                        <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Start RivaTuner'}" Command="{Binding StartRtssCommand}" HorizontalAlignment="Left"
                                 Margin="0,12,0,0" Visibility="{Binding CanStartRtss, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </DockPanel>
@@ -54,15 +54,15 @@
                     <StackPanel>
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Enabled}">
                             <StackPanel>
-                                <TextBlock Text="Keyboard shortcut" Style="{StaticResource H2}" />
-                                <TextBlock Text="Shows and hides the overlay, even while a game has focus." Style="{StaticResource Muted}"
+                                <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
+                                <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
                                            FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
                             </StackPanel>
                         </CheckBox>
 
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0" IsEnabled="{Binding Enabled}">
                             <Button Focusable="False" Command="{Binding StartRecordingCommand}" Click="OnRecordClick"
-                                    AutomationProperties.Name="Change shortcut" ToolTip="Click, then press the new shortcut">
+                                    AutomationProperties.Name="Change shortcut" ToolTip="{ctl:T 'Click, then press the new shortcut'}">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
@@ -83,8 +83,8 @@
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Content="Reset" Margin="8,0,0,0" Command="{Binding ResetHotkeyCommand}"
-                                    ToolTip="Go back to Alt+Shift+O" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset'}" Margin="8,0,0,0" Command="{Binding ResetHotkeyCommand}"
+                                    ToolTip="{ctl:T 'Go back to Alt+Shift+O'}" />
                         </StackPanel>
                         <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Visibility="{Binding RecordHint, Converter={StaticResource Vis}}" />
@@ -92,7 +92,7 @@
                         <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="9" Padding="12,8" Margin="0,12,0,0"
                                 Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
                             <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource WarmBrush}"
-                                       Text="Another program already uses this shortcut, so RigSight can't hear it. Pick a different one." />
+                                       Text="{ctl:T 'Another program already uses this shortcut, so RigSight can\'t hear it. Pick a different one.'}" />
                         </Border>
 
                         <Button Style="{StaticResource AccentButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}"
@@ -108,7 +108,7 @@
                             </LinearGradientBrush>
                         </Border.Background>
                         <Grid>
-                            <TextBlock Text="Preview appears when the agent is running" Style="{StaticResource Muted}" FontSize="12"
+                            <TextBlock Text="{ctl:T 'Preview appears when the agent is running'}" Style="{StaticResource Muted}" FontSize="12"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- Drawn at twice the size for sharpness; shown at its real size, on the side it's placed. -->
@@ -128,8 +128,8 @@
             <!-- What it shows -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
-                    <TextBlock Text="What it shows" Style="{StaticResource H2}" />
-                    <TextBlock Text="Pick the readings you want. Fewer is easier to read at a glance. Game readings appear while a game is running; RivaTuner measures them." Style="{StaticResource Muted}"
+                    <TextBlock Text="{ctl:T 'What it shows'}" Style="{StaticResource H2}" />
+                    <TextBlock Text="{ctl:T 'Pick the readings you want. Fewer is easier to read at a glance. Game readings appear while a game is running; RivaTuner measures them.'}" Style="{StaticResource Muted}"
                                FontSize="12.5" Margin="0,2,0,14" TextWrapping="Wrap" />
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
@@ -160,10 +160,10 @@
                 <StackPanel>
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right" Text="{Binding SensorsCount}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
-                        <TextBlock Text="Your sensors" Style="{StaticResource H2}" />
+                        <TextBlock Text="{ctl:T 'Your sensors'}" Style="{StaticResource H2}" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,14" TextWrapping="Wrap"
-                               Text="Add up to 10 of your PC's sensors (fans, voltages, drive or motherboard temperatures, anything on All sensors). Each gets its own row under the readings above, in games too. Give one a short name to keep the overlay compact." />
+                               Text="{ctl:T 'Add up to 10 of your PC\'s sensors (fans, voltages, drive or motherboard temperatures, anything on All sensors). Each gets its own row under the readings above, in games too. Give one a short name to keep the overlay compact.'}" />
 
                     <ItemsControl ItemsSource="{Binding Sensors}" Visibility="{Binding HasSensors, Converter={StaticResource Vis}}" Margin="0,0,0,12">
                         <ItemsControl.ItemTemplate>
@@ -171,15 +171,15 @@
                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Move up" AutomationProperties.Name="Move up"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
                                                     Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70E;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Move down" AutomationProperties.Name="Move down"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
                                                     Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70D;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="Remove from the overlay" AutomationProperties.Name="Remove"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the overlay'}" AutomationProperties.Name="Remove"
                                                     Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE711;" />
                                             </Button>
@@ -187,7 +187,7 @@
                                         <!-- Short name on the overlay: typed over the sensor's own name, which shows as the hint. -->
                                         <Grid DockPanel.Dock="Right" Width="190" Margin="12,0,8,0" VerticalAlignment="Center">
                                             <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12.5"
-                                                     ToolTip="Short name on the overlay (up to 18 letters). Leave empty to use the sensor's own name." />
+                                                     ToolTip="{ctl:T 'Short name on the overlay (up to 18 letters). Leave empty to use the sensor\'s own name.'}" />
                                             <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
                                                        Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                 <TextBlock.Style>
@@ -213,11 +213,11 @@
                     </ItemsControl>
 
                     <DockPanel Visibility="{Binding CanAddMoreSensors, Converter={StaticResource Vis}}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Add to overlay" Margin="10,0,0,0"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Add to overlay'}" Margin="10,0,0,0"
                                 Command="{Binding AddSensorCommand}" />
                         <ComboBox ItemsSource="{Binding AllSensors}" SelectedItem="{Binding SensorToAdd}" IsEditable="True"
                                   TextSearch.TextPath="DisplayName" IsTextSearchEnabled="True" MaxDropDownHeight="360"
-                                  ToolTip="Pick a sensor (type to search)">
+                                  ToolTip="{ctl:T 'Pick a sensor (type to search)'}">
                             <ComboBox.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <VirtualizingStackPanel />
@@ -233,7 +233,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </DockPanel>
-                    <TextBlock Text="That's the most the overlay shows. Remove one to add another." Style="{StaticResource Muted}" FontSize="12"
+                    <TextBlock Text="{ctl:T 'That\'s the most the overlay shows. Remove one to add another.'}" Style="{StaticResource Muted}" FontSize="12"
                                Visibility="{Binding CanAddMoreSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -241,57 +241,57 @@
             <!-- Look -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
-                    <TextBlock Text="Look" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                    <TextBlock Text="{ctl:T 'Look'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
                     <DockPanel Margin="0,4,0,8">
-                        <TextBlock Text="POSITION" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
+                        <TextBlock Text="{ctl:T 'POSITION'}" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
                         <ctl:OverlayScreen Width="440" DockPanel.Dock="Left" VerticalAlignment="Top" AutomationProperties.Name="Overlay position"
                                            Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" Snap="{Binding SnapPosition}" />
                         <StackPanel Margin="16,0,0,0" VerticalAlignment="Top">
                             <DockPanel Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Reset position" Command="{Binding ResetPositionCommand}"
-                                        Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="Back to the top-left corner" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset position'}" Command="{Binding ResetPositionCommand}"
+                                        Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="{ctl:T 'Back to the top-left corner'}" />
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SnapPosition}" VerticalAlignment="Center">
-                                    <TextBlock Text="Snap to edges and centre" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Snap to edges and centre'}" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center" />
                                 </CheckBox>
                             </DockPanel>
-                            <TextBlock Text="It's off the screen now, so it won't show. Reset position brings it back."
+                            <TextBlock Text="{ctl:T 'It\'s off the screen now, so it won\'t show. Reset position brings it back.'}"
                                        FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Visibility="{Binding IsOffScreen, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="Drag it anywhere, even partly off the screen. It snaps to the corners, edges and centre."
+                            <TextBlock Text="{ctl:T 'Drag it anywhere, even partly off the screen. It snaps to the corners, edges and centre.'}"
                                        Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                        Visibility="{Binding SnapPosition, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="Drag it anywhere, off the screen too. Click it, then use the arrow keys to move it a pixel at a time (Shift: 10)."
+                            <TextBlock Text="{ctl:T 'Drag it anywhere, off the screen too. Click it, then use the arrow keys to move it a pixel at a time (Shift: 10).'}"
                                        Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                        Visibility="{Binding SnapPosition, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <TextBlock Text="In games RivaTuner draws in, it stops at the left and top edges: RivaTuner can't draw past them."
+                            <TextBlock Text="{ctl:T 'In games RivaTuner draws in, it stops at the left and top edges: RivaTuner can\'t draw past them.'}"
                                        FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Visibility="{Binding HangsOffLeftOrTop, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </DockPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="LAYOUT" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'LAYOUT'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Rows" GroupName="layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Rows'}" GroupName="layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Rows}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="One line" GroupName="layout"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One line'}" GroupName="layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Line}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="COLORS" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="Color" GroupName="colors"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="colors"
                                              IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="Grayscale" GroupName="colors"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="colors"
                                              IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="SIZE" Style="{StaticResource OptionLabel}" />
+                        <TextBlock Text="{ctl:T 'SIZE'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" Content="S" GroupName="size"
@@ -310,15 +310,15 @@
                         </Border>
                     </StackPanel>
                     <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520"
-                               ToolTip="The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable over the game.">
-                        <TextBlock Text="BACKGROUND" Style="{StaticResource OptionLabel}" />
+                               ToolTip="{ctl:T 'The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable over the game.'}">
+                        <TextBlock Text="{ctl:T 'BACKGROUND'}" Style="{StaticResource OptionLabel}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
                         <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                 Value="{Binding BackgroundPercent}" />
                     </DockPanel>
-                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520" ToolTip="The readings themselves.">
-                        <TextBlock Text="CONTENT" Style="{StaticResource OptionLabel}" />
+                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520" ToolTip="{ctl:T 'The readings themselves.'}">
+                        <TextBlock Text="{ctl:T 'CONTENT'}" Style="{StaticResource OptionLabel}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />
                         <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
@@ -333,11 +333,11 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="16" Margin="0,1,12,0"
                                Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Top" />
                     <StackPanel>
-                        <TextBlock Text="RigSight controls the overlay in RivaTuner too" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{ctl:T 'RigSight controls the overlay in RivaTuner too'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn't add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) RigSight draws it itself. Either way it uses the readings, position, size and opacity you pick here, so there's no need to change anything in RivaTuner. Please don't change RivaTuner's On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games." />
+                                   Text="{ctl:T 'In games the overlay is drawn by RivaTuner Statistics Server, inside the game, so it doesn\'t add lag or turn off G-Sync or FreeSync; everywhere else (the desktop, apps) RigSight draws it itself. Either way it uses the readings, position, size and opacity you pick here, so there\'s no need to change anything in RivaTuner. Please don\'t change RivaTuner\'s On-Screen Display settings (turning it off, its rendering mode or text shadow): that can hide or break the overlay in games.'}" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"
-                                   Text="A game that was already open when RivaTuner started needs a restart. RigSight itself never hooks into games, so it's safe with anti-cheat." />
+                                   Text="{ctl:T 'A game that was already open when RivaTuner started needs a restart. RigSight itself never hooks into games, so it\'s safe with anti-cheat.'}" />
                     </StackPanel>
                 </DockPanel>
             </ctl:SmoothBorder>

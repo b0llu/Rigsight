@@ -166,7 +166,7 @@ public partial class App : Application
         _showingError = true;
         try
         {
-            MessageBox.Show($"Something went wrong:\n\n{e.Exception.Message}\n\nDetails were saved to rigsight.log in {RigsightPaths.DataDir}.",
+            MessageBox.Show(Lang.T($"Something went wrong:\n\n{e.Exception.Message}\n\nDetails were saved to rigsight.log in {RigsightPaths.DataDir}."),
                 "RigSight", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally

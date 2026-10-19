@@ -94,10 +94,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool ShowKeepUpdatedForEveryone => !StandardAccount && (MachineSetup.Everyone || MachineSetup.KeepUpdated);
 
     public string KeepUpdatedHint => KeepUpdated
-        ? "RigSight keeps itself up to date on this PC. Changing this needs an admin's password."
-        : "Off. An admin installs each new version on this PC. Changing this needs an admin's password.";
+        ? Lang.T("RigSight keeps itself up to date on this PC. Changing this needs an admin's password.")
+        : Lang.T("Off. An admin installs each new version on this PC. Changing this needs an admin's password.");
 
-    public string KeepUpdatedWord => KeepUpdated ? "On" : "Off";
+    public string KeepUpdatedWord => KeepUpdated ? Lang.T("On") : Lang.T("Off");
 
     private async Task SetKeepUpdatedAsync(bool on)
     {
@@ -157,10 +157,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>The themes, each with the few colours its small picture is drawn in; "System" in Windows' own mode's.</summary>
     public List<ThemeOption> ThemeOptions => _themeOptions ??=
     [
-        ThemeOption.From(ThemeManager.Dark, "Dark", "Dark"), ThemeOption.From(ThemeManager.Grey, "Grey", "Grey"),
-        ThemeOption.From(ThemeManager.Midnight, "Midnight", "Midnight"), ThemeOption.From(ThemeManager.Forest, "Forest", "Forest"),
-        ThemeOption.From(ThemeManager.Ember, "Ember", "Ember"), ThemeOption.From(ThemeManager.Light, "Light", "Light"),
-        ThemeOption.From(ThemeManager.System, "Same as Windows", ThemeManager.WindowsUsesLight() ? "Light" : "Dark"),
+        ThemeOption.From(ThemeManager.Dark, Lang.T("Dark"), "Dark"), ThemeOption.From(ThemeManager.Grey, Lang.T("Grey"), "Grey"),
+        ThemeOption.From(ThemeManager.Midnight, Lang.T("Midnight"), "Midnight"), ThemeOption.From(ThemeManager.Forest, Lang.T("Forest"), "Forest"),
+        ThemeOption.From(ThemeManager.Ember, Lang.T("Ember"), "Ember"), ThemeOption.From(ThemeManager.Light, Lang.T("Light"), "Light"),
+        ThemeOption.From(ThemeManager.System, Lang.T("Same as Windows"), ThemeManager.WindowsUsesLight() ? "Light" : "Dark"),
     ];
 
     private List<AccentOption>? _accentOptions;
@@ -180,9 +180,9 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             {
                 _accentShades = shades;
                 // The first swatch is the theme's own accent: white on Dark, blue on Midnight…
-                _accentOptions = [.. Accents.All.Select(a => new AccentOption(a.Key, a.Name,
+                _accentOptions = [.. Accents.All.Select(a => new AccentOption(a.Key, Lang.T(a.Name),
                     Swatch(a.Key == Accents.Mono ? ThemeManager.OwnAccent : light ? a.OnLight : a.OnDark)))];
-                if (shades.Item2 is { } windows) _accentOptions.Add(new AccentOption(Accents.Windows, "Windows accent", Swatch(windows)));
+                if (shades.Item2 is { } windows) _accentOptions.Add(new AccentOption(Accents.Windows, Lang.T("Windows accent"), Swatch(windows)));
             }
             return _accentOptions;
         }
@@ -220,10 +220,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             bool shorter = value > 0 && (current == 0 || value < current);
             if (shorter)
             {
-                string label = value switch { 90 => "3 months", 365 => "1 year", _ => "2 years" };
+                string label = value switch { 90 => Lang.T("3 months"), 365 => Lang.T("1 year"), _ => Lang.T("2 years") };
                 var answer = MessageBox.Show(Application.Current.MainWindow,
-                    $"History from before {DateTime.Today.AddDays(-value):d MMMM yyyy} will be permanently deleted: temperatures, app time, sessions and crashes.\n\nKeep history for {label}?",
-                    "Keep history", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                    Lang.T($"History from before {DateTime.Today.AddDays(-value):d MMMM yyyy} will be permanently deleted: temperatures, app time, sessions and crashes.\n\nKeep history for {label}?"),
+                    Lang.T("Keep history"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes)
                 {
                     // Put the choice back once the radio button has finished changing.
@@ -238,8 +238,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsPaused => S.Tracking.IsPaused(TimeUtil.NowUnix());
     public string? PauseText => S.Tracking.PausedUntil switch
     {
-        -1 => "Tracking is paused until you resume it.",
-        > 0 when S.Tracking.PausedUntil > TimeUtil.NowUnix() => $"Tracking is paused until {TimeUtil.FromUnix(S.Tracking.PausedUntil):h:mm tt}.",
+        -1 => Lang.T("Tracking is paused until you resume it."),
+        > 0 when S.Tracking.PausedUntil > TimeUtil.NowUnix() => Lang.T($"Tracking is paused until {TimeUtil.FromUnix(S.Tracking.PausedUntil):h:mm tt}."),
         _ => null,
     };
 
@@ -354,8 +354,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>The notice's heading; null when the driver is fine (no notice).</summary>
     public string? DriverTitle => SensorStatus?.Driver switch
     {
-        "missing" => "The PawnIO driver isn't installed",
-        "stopped" => "The PawnIO driver isn't running",
+        "missing" => Lang.T("The PawnIO driver isn't installed"),
+        "stopped" => Lang.T("The PawnIO driver isn't running"),
         _ => null,
     };
 
@@ -364,14 +364,14 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     internal static string? DriverWords(SensorStatus? status) => (status?.Driver, status?.DriverInstall) switch
     {
         (null, _) => null,
-        (_, "installing") => "Installing it. This can take a minute or two.",
-        ("missing", "failed" or "no-winget") => "It couldn't be installed from here. Download it, install it, and the CPU's temperature and power show up by themselves.",
-        ("missing", _) => "The CPU's temperature and power are read through it.",
-        _ => "The CPU's temperature and power are read through it. Restarting your PC or installing PawnIO again usually brings it back.",
+        (_, "installing") => Lang.T("Installing it. This can take a minute or two."),
+        ("missing", "failed" or "no-winget") => Lang.T("It couldn't be installed from here. Download it, install it, and the CPU's temperature and power show up by themselves."),
+        ("missing", _) => Lang.T("The CPU's temperature and power are read through it."),
+        _ => Lang.T("The CPU's temperature and power are read through it. Restarting your PC or installing PawnIO again usually brings it back."),
     };
 
     /// <summary>"Install" has the agent fetch it; once that has failed, or when it is installed but not running, the button opens its site.</summary>
-    public string DriverButtonText => DriverOpensSite(SensorStatus) ? "Download" : "Install";
+    public string DriverButtonText => DriverOpensSite(SensorStatus) ? Lang.T("Download") : Lang.T("Install");
 
     internal static bool DriverOpensSite(SensorStatus? status) => status?.Driver == "stopped" || status?.DriverInstall is "failed" or "no-winget";
 
@@ -427,13 +427,14 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 if (i < 0) byApp.Add((app, [p.Part.ToLowerInvariant()]));
                 else byApp[i].Parts.Add(p.Part.ToLowerInvariant());
             }
-        return "Not read right now: " + string.Join(", ", byApp.Select(x => $"{Core.Wording.JoinAnd(x.Parts)} ({x.App})")) + ".";
+        string list = string.Join(", ", byApp.Select(x => $"{Core.Wording.JoinAnd(x.Parts)} ({x.App})"));
+        return Lang.T($"Not read right now: {list}.");
     }
 
     internal static string? SkippedText(SensorStatus? status) => status switch
     {
-        { StoppedForMemory: true } => "Windows' memory kept growing while the motherboard, fan hubs and power supply were read, so RigSight stopped reading them. Try again once your PC has restarted.",
-        { SafeMode: true } => "The last time RigSight read your hardware it didn't finish (your PC may have frozen or been restarted), so the motherboard, fan hubs and power supply are skipped for now.",
+        { StoppedForMemory: true } => Lang.T("Windows' memory kept growing while the motherboard, fan hubs and power supply were read, so RigSight stopped reading them. Try again once your PC has restarted."),
+        { SafeMode: true } => Lang.T("The last time RigSight read your hardware it didn't finish (your PC may have frozen or been restarted), so the motherboard, fan hubs and power supply are skipped for now."),
         _ => null,
     };
 
@@ -471,7 +472,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         if (!IsClearing) return;
         IsClearing = false;
-        StatusMessage = "History cleared.";
+        StatusMessage = Lang.T("History cleared.");
     }
 
     /// <summary>Supplied by the shell: the hardware as the agent listed it (type, name with its sensors counted by kind).</summary>
@@ -483,8 +484,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     /// <summary>What the two buttons say: their name, and for a moment after a press what happened ("Copied" on Copy,
     /// "Couldn't open" on Report a bug). The button is where the answer is: no line of text appears under the row.</summary>
-    [ObservableProperty] private string _reportBugText = "Report a bug";
-    [ObservableProperty] private string _copyLogsText = "Copy";
+    [ObservableProperty] private string _reportBugText = Lang.T("Report a bug");
+    [ObservableProperty] private string _copyLogsText = Lang.T("Copy");
 
     /// <summary>How long a button says what happened before it says its name again.</summary>
     internal static readonly TimeSpan ButtonSaysFor = TimeSpan.FromSeconds(2.5);
@@ -504,7 +505,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     internal void ResetReportButtons()
     {
         _buttonsBack?.Stop();
-        (ReportBugText, CopyLogsText) = ("Report a bug", "Copy");
+        (ReportBugText, CopyLogsText) = (Lang.T("Report a bug"), Lang.T("Copy"));
     }
 
     /// <summary>Puts text on the clipboard, and opens a web address in the browser (tests replace both).</summary>
@@ -528,7 +529,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     /// <summary>Logs, Copy: the report on the clipboard, to paste wherever help is asked for (a forum, a chat).</summary>
     [RelayCommand]
-    private void CopyProblemReport() => SayOnButtons(null, CopyReport() ? "Copied" : "Couldn't copy");
+    private void CopyProblemReport() => SayOnButtons(null, CopyReport() ? Lang.T("Copied") : Lang.T("Couldn't copy"));
 
     /// <summary>
     /// Report a bug: the bug form opens in the browser, and that is all (copying is the Logs row's Copy: a button that
@@ -544,7 +545,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            SayOnButtons("Couldn't open", null);
+            SayOnButtons(Lang.T("Couldn't open"), null);
         }
     }
 
@@ -616,8 +617,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public async Task LoadKnownAppsAsync()
     {
         TrackingSince = await reports.FirstDayAsync() is { } first
-            ? $"History goes back to {first:d MMMM yyyy} ({Controls.PeriodPicker.Duration(TimeSpan.FromDays((int)(DateTime.Today - first).TotalDays + 1))})."
-            : "No history yet.";
+            ? Lang.T($"History goes back to {first:d MMMM yyyy} ({Controls.PeriodPicker.Duration(TimeSpan.FromDays((int)(DateTime.Today - first).TotalDays + 1))}).")
+            : Lang.T("No history yet.");
         var apps = await reports.KnownAppsAsync() ?? [];
         KnownApps.Clear();
         foreach (var a in apps.Where(a => a.Category != AppCategory.System).OrderBy(a => a.Exe, StringComparer.OrdinalIgnoreCase))
@@ -705,19 +706,19 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         get
         {
             var h = H;
-            if (h.Checking) return "Checking every page of the file…";
-            if (h.Outcome == "waiting") return h.WaitingReason ?? "A repair is waiting.";
-            if (h.Damaged) return "Some older readings can't be read. New readings save as usual.";
-            return h.CheckedAt is { } at ? $"Healthy · checked {at:ddd d MMM, h:mm tt}, {h.CheckedWhy ?? "when you asked"}" : "Healthy";
+            if (h.Checking) return Lang.T("Checking every page of the file…");
+            if (h.Outcome == "waiting") return h.WaitingReason ?? Lang.T("A repair is waiting.");
+            if (h.Damaged) return Lang.T("Some older readings can't be read. New readings save as usual.");
+            return h.CheckedAt is { } at ? Lang.T($"Healthy · checked {at:ddd d MMM, h:mm tt}, {h.CheckedWhy ?? Lang.T("when you asked")}") : Lang.T("Healthy");
         }
     }
 
     /// <summary>The last repair, if there was one: when, and what it kept.</summary>
     public string? HistoryLastRepair => H.RepairedAt is not { } at ? null : H.Outcome switch
     {
-        "lists" => $"Lookup lists rebuilt {at:ddd d MMM}. Nothing was lost.",
-        "whole" => $"Repaired {at:ddd d MMM}. Nothing was lost.",
-        "repaired" or "nothing" => $"Repaired {at:ddd d MMM}. {H.Summary}",
+        "lists" => Lang.T($"Lookup lists rebuilt {at:ddd d MMM}. Nothing was lost."),
+        "whole" => Lang.T($"Repaired {at:ddd d MMM}. Nothing was lost."),
+        "repaired" or "nothing" => Lang.T($"Repaired {at:ddd d MMM}. {H.Summary}"),
         _ => null,
     };
 
@@ -740,7 +741,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         if (!client.IsConnected)
         {
-            StatusMessage = "The history wasn't checked: the agent isn't running.";
+            StatusMessage = Lang.T("The history wasn't checked: the agent isn't running.");
             return;
         }
         client.SendCommand("check-history");
@@ -754,13 +755,13 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         if (copy is null) return;
         var answer = MessageBox.Show(Application.Current.MainWindow,
-            $"This permanently deletes {copy.Name}, the damaged history file a repair kept. The repaired history isn't touched.\n\nDelete it?",
-            "Delete damaged copy", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            Lang.T($"This permanently deletes {copy.Name}, the damaged history file a repair kept. The repaired history isn't touched.\n\nDelete it?"),
+            Lang.T("Delete damaged copy"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
         foreach (var side in new[] { "", "-wal", "-shm" })
         {
             try { if (File.Exists(copy.Path + side)) File.Delete(copy.Path + side); }
-            catch (Exception ex) { StatusMessage = $"{copy.Name} couldn't be deleted: {ex.Message}"; return; }
+            catch (Exception ex) { StatusMessage = Lang.T($"{copy.Name} couldn't be deleted: {ex.Message}"); return; }
         }
         Log.Write("history", $"Deleted the damaged copy {copy.Name} (asked in Settings)");
         OnPropertyChanged(nameof(DamagedCopies));
@@ -770,13 +771,13 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     private void ClearHistory()
     {
         var answer = MessageBox.Show(Application.Current.MainWindow,
-            "This permanently deletes all recorded activity, temperatures and reports. Settings are kept.\n\nDelete all history?",
-            "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            Lang.T("This permanently deletes all recorded activity, temperatures and reports. Settings are kept.\n\nDelete all history?"),
+            Lang.T("Clear history"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes) return;
         // The agent keeps the history and deletes it: nothing is cleared until it says so.
         if (!client.IsConnected)
         {
-            StatusMessage = "The history wasn't cleared: the agent isn't running.";
+            StatusMessage = Lang.T("The history wasn't cleared: the agent isn't running.");
             return;
         }
         client.SendCommand("clear-history");
@@ -787,8 +788,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     private void QuitAgent()
     {
         var answer = MessageBox.Show(Application.Current.MainWindow,
-            "Quitting stops tracking, the tray icon and widgets until the agent starts again (at next sign-in, or when you open RigSight).\n\nQuit the RigSight agent?",
-            "Quit agent", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            Lang.T("Quitting stops tracking, the tray icon and widgets until the agent starts again (at next sign-in, or when you open RigSight).\n\nQuit the RigSight agent?"),
+            Lang.T("Quit agent"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer == MessageBoxResult.Yes) client.SendCommand("quit");
     }
 }

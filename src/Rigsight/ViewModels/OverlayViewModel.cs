@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
 using Rigsight.Core.Settings;
 using Rigsight.Models;
 using Rigsight.Services;
@@ -37,7 +38,7 @@ public sealed partial class OverlaySensorRow(string id, string name, string hard
     public string Id { get; } = id;
     /// <summary>The sensor's own name (or the one given on All sensors): shown when no short name is set.</summary>
     public string Name { get; } = name;
-    public string Hardware { get; } = found ? hardware : "Not found on this PC right now";
+    public string Hardware { get; } = found ? hardware : Lang.T("Not found on this PC right now");
     public bool Found { get; } = found;
 
     /// <summary>The short name on the overlay; empty uses <see cref="Name"/>.</summary>
@@ -70,12 +71,12 @@ public sealed partial class OverlayViewModel : ObservableObject
         OverlayMetricOption O(OverlayMetric m, string label) => new(m, label, settings);
         Groups =
         [
-            new("GAME", [O(OverlayMetric.Fps, "Frame rate (FPS)"), O(OverlayMetric.FrameTime, "Frame time"), O(OverlayMetric.OnePercentLow, "1% low")]),
-            new("CPU", [O(OverlayMetric.CpuTemp, "Temperature"), O(OverlayMetric.CpuLoad, "Load"), O(OverlayMetric.CpuClock, "Clock speed"), O(OverlayMetric.CpuPower, "Power")]),
-            new("GPU", [O(OverlayMetric.GpuTemp, "Temperature"), O(OverlayMetric.GpuHotSpot, "Hot spot"), O(OverlayMetric.GpuLoad, "Load"),
-                        O(OverlayMetric.GpuClock, "Clock speed"), O(OverlayMetric.GpuPower, "Power"), O(OverlayMetric.GpuMemory, "Video memory")]),
-            new("MEMORY", [O(OverlayMetric.Ram, "RAM in use")]),
-            new("OTHER", [O(OverlayMetric.Session, "App and time on it"), O(OverlayMetric.Clock, "Time of day")]),
+            new(Lang.T("GAME"), [O(OverlayMetric.Fps, Lang.T("Frame rate (FPS)")), O(OverlayMetric.FrameTime, Lang.T("Frame time")), O(OverlayMetric.OnePercentLow, Lang.T("1% low"))]),
+            new("CPU", [O(OverlayMetric.CpuTemp, Lang.T("Temperature")), O(OverlayMetric.CpuLoad, Lang.T("Load")), O(OverlayMetric.CpuClock, Lang.T("Clock speed")), O(OverlayMetric.CpuPower, Lang.T("Power"))]),
+            new("GPU", [O(OverlayMetric.GpuTemp, Lang.T("Temperature")), O(OverlayMetric.GpuHotSpot, Lang.T("Hot spot")), O(OverlayMetric.GpuLoad, Lang.T("Load")),
+                        O(OverlayMetric.GpuClock, Lang.T("Clock speed")), O(OverlayMetric.GpuPower, Lang.T("Power")), O(OverlayMetric.GpuMemory, Lang.T("Video memory"))]),
+            new(Lang.T("MEMORY"), [O(OverlayMetric.Ram, Lang.T("RAM in use"))]),
+            new(Lang.T("OTHER"), [O(OverlayMetric.Session, Lang.T("App and time on it")), O(OverlayMetric.Clock, Lang.T("Time of day"))]),
         ];
     }
 
@@ -97,7 +98,7 @@ public sealed partial class OverlayViewModel : ObservableObject
     public int MaxSensors => OverlaySettings.MaxSensors;
     public bool HasSensors => Sensors.Count > 0;
     public bool CanAddMoreSensors => Sensors.Count < OverlaySettings.MaxSensors;
-    public string SensorsCount => $"{Sensors.Count} of {OverlaySettings.MaxSensors}";
+    public string SensorsCount => Lang.T($"{Sensors.Count} of {OverlaySettings.MaxSensors}");
 
     private bool CanAddSensor() => SensorToAdd is not null && CanAddMoreSensors && Sensors.All(r => r.Id != SensorToAdd.Id);
 
@@ -181,8 +182,8 @@ public sealed partial class OverlayViewModel : ObservableObject
     public string Hotkey => Config.Hotkey;
 
     public string Intro => Enabled
-        ? $"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it."
-        : "The shortcut is off. You can still show the overlay from here or from the tray icon's menu.";
+        ? Lang.T($"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it.")
+        : Lang.T("The shortcut is off. You can still show the overlay from here or from the tray icon's menu.");
 
     /// <summary>Where the overlay goes (see <see cref="OverlayPlacement"/>): set by dragging it on the Overlay page's picture of the screen.</summary>
     public Controls.OverlaySpot Spot
@@ -305,14 +306,14 @@ public sealed partial class OverlayViewModel : ObservableObject
     public bool CanInstallRtss => RtssState is "missing" or "install-failed";
     public bool CanStartRtss => RtssState == "stopped";
 
-    public string RtssTitle => RtssState == "installing" ? "Installing RivaTuner…" : "The overlay won't show in fullscreen games";
+    public string RtssTitle => RtssState == "installing" ? Lang.T("Installing RivaTuner…") : Lang.T("The overlay won't show in fullscreen games");
 
     public string RtssStatus => RtssState switch
     {
-        "stopped" => "Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, and it isn't running. Start it, then restart any game that's already open.",
-        "installing" => "This takes a minute. Restart any game that's already open once it's done.",
-        "install-failed" => "Couldn't install RivaTuner automatically. Download it from Guru3D and install it, then come back here.",
-        _ => "Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, a free tool that anti-cheat accepts. It isn't installed yet.",
+        "stopped" => Lang.T("Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, and it isn't running. Start it, then restart any game that's already open."),
+        "installing" => Lang.T("This takes a minute. Restart any game that's already open once it's done."),
+        "install-failed" => Lang.T("Couldn't install RivaTuner automatically. Download it from Guru3D and install it, then come back here."),
+        _ => Lang.T("Fullscreen games hide every window, so RigSight shows the overlay inside them through RivaTuner Statistics Server, a free tool that anti-cheat accepts. It isn't installed yet."),
     };
 
     [RelayCommand]
@@ -340,7 +341,7 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     [ObservableProperty] private bool _hotkeyTaken;
 
-    public string ToggleText => IsVisible ? "Hide overlay" : "Show overlay";
+    public string ToggleText => IsVisible ? Lang.T("Hide overlay") : Lang.T("Show overlay");
 
     [RelayCommand]
     private void Toggle() => _client.SendCommand("overlay-toggle");
@@ -354,13 +355,13 @@ public sealed partial class OverlayViewModel : ObservableObject
     /// <summary>Why the last key press wasn't accepted, if it wasn't.</summary>
     [ObservableProperty] private string _recordHint = "";
 
-    public string RecordText => IsRecording ? "Press the new shortcut…" : Hotkey;
+    public string RecordText => IsRecording ? Lang.T("Press the new shortcut…") : Hotkey;
 
     [RelayCommand]
     private void StartRecording()
     {
         IsRecording = true;
-        RecordHint = "Hold Ctrl, Alt or Shift and press a key. Esc cancels.";
+        RecordHint = Lang.T("Hold Ctrl, Alt or Shift and press a key. Esc cancels.");
     }
 
     public void CancelRecording()
@@ -375,12 +376,12 @@ public sealed partial class OverlayViewModel : ObservableObject
         var hotkey = new Hotkey(modifiers, virtualKey);
         if (!Core.Settings.Hotkey.IsSupportedKey(virtualKey))
         {
-            RecordHint = "That key can't be used. Try a letter, a number or an F-key.";
+            RecordHint = Lang.T("That key can't be used. Try a letter, a number or an F-key.");
             return;
         }
         if (!hotkey.IsValid)
         {
-            RecordHint = "Add Ctrl, Alt or Shift, so the shortcut doesn't clash with your games.";
+            RecordHint = Lang.T("Add Ctrl, Alt or Shift, so the shortcut doesn't clash with your games.");
             return;
         }
         Change(c => c.Hotkey = hotkey.ToString(), nameof(Hotkey));

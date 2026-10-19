@@ -43,8 +43,8 @@ public sealed partial class NetAppRow : ObservableObject
     /// <summary>The colour the app has on the chart (a brush's name), or the one all other apps share.</summary>
     public required string DotKey { get; set; }
     /// <summary>"↓ 3.1 GB   ↑ 102 MB   12% in the background". Nothing about the background means none of it was.</summary>
-    public string SubText => $"↓ {DownText}   ↑ {UpText}" + (BackgroundOnly ? "   background only"
-        : Stat.Use.Background >= 1 << 20 && BackgroundPercent >= 1 ? $"   {BackgroundPercent}% in the background" : "");
+    public string SubText => $"↓ {DownText}   ↑ {UpText}" + (BackgroundOnly ? "   " + Lang.T("background only")
+        : Stat.Use.Background >= 1 << 20 && BackgroundPercent >= 1 ? "   " + Lang.T($"{BackgroundPercent}% in the background") : "");
 
     /// <summary>The bars' lengths, against the biggest app in the list (0–100).</summary>
     public double DownBar { get; set; }
@@ -54,7 +54,7 @@ public sealed partial class NetAppRow : ObservableObject
     public void Changed() => OnPropertyChanged(string.Empty);
 
     public int BackgroundPercent => Stat.Use.Total > 0 ? (int)Math.Round(100.0 * Stat.Use.Background / Stat.Use.Total) : 0;
-    public string BackgroundText => $"{BackgroundPercent}% background";
+    public string BackgroundText => Lang.T($"{BackgroundPercent}% background");
 
     [ObservableProperty] private bool _isOpen;
 
@@ -62,13 +62,13 @@ public sealed partial class NetAppRow : ObservableObject
     public double FrontShare => Share(Stat.Use.Total - Stat.Use.Background);
     public double BgShare => Share(Stat.Use.BgDown + Stat.Use.BgUp);
     public double AwayShare => Share(Stat.Use.AwayDown + Stat.Use.AwayUp);
-    public string FrontText => $"In front {Percent(FrontShare)}";
-    public string BgText => $"Background {Percent(BgShare)}";
-    public string AwayText => $"While you were away {Percent(AwayShare)}";
+    public string FrontText => Lang.T($"In front {Percent(FrontShare)}");
+    public string BgText => Lang.T($"Background {Percent(BgShare)}");
+    public string AwayText => Lang.T($"While you were away {Percent(AwayShare)}");
 
     public required string BusiestLabel { get; set; }
     public required string BusiestText { get; set; }
-    public string LocalText => Stat.Use.Lan > 0 ? Units.Data(Stat.Use.Lan) : "None";
+    public string LocalText => Stat.Use.Lan > 0 ? Units.Data(Stat.Use.Lan) : Lang.T("None");
 
     private double Share(long part) => Stat.Use.Total > 0 ? Math.Clamp((double)part / Stat.Use.Total, 0, 1) : 0;
     private static string Percent(double share) => $"{Math.Round(share * 100):0}%";
@@ -147,7 +147,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     public string PeriodWord => Controls.PeriodPicker.Words(Unit, Anchor);
 
     /// <summary>What the page says when the period has nothing.</summary>
-    public string EmptyText => $"Not recorded {PeriodWord}. Internet use is recorded while the agent runs as admin.";
+    public string EmptyText => Lang.T($"Not recorded {PeriodWord}. Internet use is recorded while the agent runs as admin.");
 
     partial void OnUnitChanged(ReportRange value) { SelectedBin = -1; _ = RefreshAsync(); }
     partial void OnAnchorChanged(DateTime value) { SelectedBin = -1; _ = RefreshAsync(); }
@@ -205,7 +205,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(LiveButtonText))]
     private bool _showLive;
     /// <summary>The button at the line's end, in a word.</summary>
-    public string LiveButtonText => ShowLive ? "Collapse" : "Expand";
+    public string LiveButtonText => ShowLive ? Lang.T("Collapse") : Lang.T("Expand");
 
     [RelayCommand]
     private void ToggleLive() => ShowLive = !ShowLive;
@@ -251,15 +251,15 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         // Asking Windows about every adapter takes a moment on a PC with many (VPNs, virtual machines): not on the window's thread.
         var (c, online) = await Task.Run(() => (NetAdapters.Current(), NetAdapters.WindowsSeesInternet()));
-        Subtitle = c is null ? "Not connected" : string.Join(" · ", new[] { c.Kind, c.Adapter, c.Vpn is null ? null : $"through {c.Vpn}" }.OfType<string>());
+        Subtitle = c is null ? Lang.T("Not connected") : string.Join(" · ", new[] { c.Kind, c.Adapter, c.Vpn is null ? null : Lang.T($"through {c.Vpn}") }.OfType<string>());
         Facts = Models.Kept.Or(Facts,
         [
-            new("Connection", c?.Kind ?? "None"),
-            new("Link speed", c is { LinkBitsPerSecond: > 0 } ? Units.Mbps(c.LinkBitsPerSecond / 8.0) : "—"),
-            new("VPN", c?.Vpn ?? "Off"),
-            new("IP address", c?.IPv4 ?? "—"),
-            new("Internet", online switch { true => "Connected", false => "Not reachable", _ => "—" }),
-            new("Local network", report is { HasData: true } ? Units.Data(report.Lan) : "—", PeriodWord),
+            new(Lang.T("Connection"), c?.Kind ?? Lang.T("None")),
+            new(Lang.T("Link speed"), c is { LinkBitsPerSecond: > 0 } ? Units.Mbps(c.LinkBitsPerSecond / 8.0) : "—"),
+            new("VPN", c?.Vpn ?? Lang.T("Off")),
+            new(Lang.T("IP address"), c?.IPv4 ?? "—"),
+            new(Lang.T("Internet"), online switch { true => Lang.T("Connected"), false => Lang.T("Not reachable"), _ => "—" }),
+            new(Lang.T("Local network"), report is { HasData: true } ? Units.Data(report.Lan) : "—", PeriodWord),
         ]);
     }
 
@@ -282,13 +282,13 @@ public sealed partial class NetworkViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(BackgroundCaption), nameof(NoAppsText))]
     private bool _wholeOnly;
 
-    public string BackgroundCaption => WholeOnly ? "WHILE YOU WERE AWAY" : "IN THE BACKGROUND";
-    public string NoAppsText => WholeOnly ? "Each app's internet use needs admin rights on this PC." : "No app used 1 MB or more.";
+    public string BackgroundCaption => WholeOnly ? Lang.T("WHILE YOU WERE AWAY") : Lang.T("IN THE BACKGROUND");
+    public string NoAppsText => WholeOnly ? Lang.T("Each app's internet use needs admin rights on this PC.") : Lang.T("No app used 1 MB or more.");
     [ObservableProperty] private string _totalText = "—";
     [ObservableProperty] private string _totalNote = "";
 
     [ObservableProperty] private IReadOnlyList<NetBin> _bins = [];
-    [ObservableProperty] private string _chartTitle = "Usage each hour";
+    [ObservableProperty] private string _chartTitle = Lang.T("Usage each hour");
 
     /// <summary>How the chart's bars are split: by app, or by in front and background.</summary>
     [ObservableProperty] private string _chartMode = "App";
@@ -309,7 +309,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     [RelayCommand]
     private void ClearSelection() => SelectedBin = -1;
 
-    [ObservableProperty] private string _appsTitle = "Apps";
+    [ObservableProperty] private string _appsTitle = Lang.T("Apps");
 
     /// <summary>What the apps list is sorted by, and what each row's figure is: Total, Download, Upload or Background.</summary>
     [ObservableProperty] private string _sort = "Total";
@@ -331,12 +331,12 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private bool _hasApps;
 
     /// <summary>The period's biggest hours (a day) or days (longer), whole: everything every app moved then.</summary>
-    [ObservableProperty] private string _downloadsTitle = "Biggest hours";
+    [ObservableProperty] private string _downloadsTitle = Lang.T("Biggest hours");
     [ObservableProperty] private IReadOnlyList<NetBiggestRow> _downloads = [];
     public bool HasDownloads => Downloads.Count > 0;
     partial void OnDownloadsChanged(IReadOnlyList<NetBiggestRow> value) => OnPropertyChanged(nameof(HasDownloads));
     /// <summary>What the card says when no hour (or day) reached <see cref="NetReportBuilder.MinBiggest"/>.</summary>
-    public string NoBiggestText => IsDay ? $"No hour reached {Units.Data(NetReportBuilder.MinBiggest)}." : $"No day reached {Units.Data(NetReportBuilder.MinBiggest)}.";
+    public string NoBiggestText => IsDay ? Lang.T($"No hour reached {Units.Data(NetReportBuilder.MinBiggest)}.") : Lang.T($"No day reached {Units.Data(NetReportBuilder.MinBiggest)}.");
 
     /// <summary>The room a biggest hour's bar is drawn in: its parts' widths add up to this (the view stretches it).</summary>
     public const double BarRoom = 1000;
@@ -422,28 +422,28 @@ public sealed partial class NetworkViewModel : ObservableObject
         // No app to colour by: the graph shows the PC's use, lighter for what moved with nobody there.
         if (WholeOnly && ChartMode != "Background") ChartMode = "Background";
         TotalText = Units.Data(r.Down + r.Up);
-        TotalNote = WholeOnly ? "all network use, local devices included" : r.Apps.Count == 1 ? "download and upload · 1 app" : $"download and upload · {r.Apps.Count} apps";
+        TotalNote = WholeOnly ? Lang.T("all network use, local devices included") : r.Apps.Count == 1 ? Lang.T("download and upload · 1 app") : Lang.T($"download and upload · {r.Apps.Count} apps");
         DownText = Units.Data(r.Down);
         DownNote = r.Range == ReportRange.Day && r.UsualDayDown is long usual
-            ? $"vs {Units.Data(usual)} on a usual day"
+            ? Lang.T($"vs {Units.Data(usual)} on a usual day")
             : r.PreviousDown is long before ? Against(r.Down, before, LastWord(r.Range, now)) : "";
         UpText = Units.Data(r.Up);
         var topUp = r.Apps.Where(a => a.Use.Up > 0).MaxBy(a => a.Use.Up);
-        UpNote = topUp is null ? "" : $"{topUp.Name} the most";
+        UpNote = topUp is null ? "" : Lang.T($"{topUp.Name} the most");
         long away = r.AwayDown + r.AwayUp;
         BackgroundText = Units.Data(WholeOnly ? away : r.Background);
-        BackgroundNote = WholeOnly ? (away > 0 ? $"{Math.Round(100.0 * away / (r.Down + r.Up)):0}% of all use" : "")
+        BackgroundNote = WholeOnly ? (away > 0 ? Lang.T($"{Math.Round(100.0 * away / (r.Down + r.Up)):0}% of all use") : "")
             : r.Down + r.Up > 0
-            ? $"{Math.Round(100.0 * r.Background / (r.Down + r.Up)):0}% of all use" + (away >= 50 << 20 ? $" · {Units.Data(away)} while you were away" : "")
+            ? Lang.T($"{Math.Round(100.0 * r.Background / (r.Down + r.Up)):0}% of all use") + (away >= 50 << 20 ? " · " + Lang.T($"{Units.Data(away)} while you were away") : "")
             : "";
 
         Bins = Models.Kept.Or(Bins, r.Bins);
         if (SelectedBin >= Bins.Count) SelectedBin = -1;
         ChartTitle = r.Range switch
         {
-            ReportRange.Day => "Usage each hour",
-            ReportRange.Year => "Usage each month",
-            _ => "Usage each day",
+            ReportRange.Day => Lang.T("Usage each hour"),
+            ReportRange.Year => Lang.T("Usage each month"),
+            _ => Lang.T("Usage each day"),
         };
         ColorApps = Models.Kept.Or(ColorApps, r.ColorApps);
         var names = r.Apps.ToDictionary(a => a.Id, a => a.Name);
@@ -453,7 +453,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         FillApps();
 
         // The biggest hours (a day) or days (longer), whole, each with the apps that made it in the chart's colours.
-        DownloadsTitle = r.Range == ReportRange.Day ? $"Biggest hours {PeriodWord}" : $"Biggest days {PeriodWord}";
+        DownloadsTitle = r.Range == ReportRange.Day ? Lang.T($"Biggest hours {PeriodWord}") : Lang.T($"Biggest days {PeriodWord}");
         Downloads = Models.Kept.Or(Downloads, [.. r.Biggest.Select(s => BiggestRow(s, r.Range, ColorApps, AppNames))]);
 
         FillDrops(r);
@@ -463,13 +463,13 @@ public sealed partial class NetworkViewModel : ObservableObject
     private void FillLegend()
     {
         IReadOnlyList<NetLegend> legend = WholeOnly
-            ? [new("SkyBrush", "This PC"), new("SkyBrush", "While you were away", 0.45)]
+            ? [new("SkyBrush", Lang.T("This PC")), new("SkyBrush", Lang.T("While you were away"), 0.45)]
             : ChartMode == "Background"
-            ? [new("SkyBrush", "The app in front"), new("SkyBrush", "In the background, or while you were away", 0.45)]
+            ? [new("SkyBrush", Lang.T("The app in front")), new("SkyBrush", Lang.T("In the background, or while you were away"), 0.45)]
             : [.. ColorApps.Take(Controls.NetBarsChart.AppBrushKeys.Length).Select((id, i) => new NetLegend(Controls.NetBarsChart.AppBrushKeys[i], AppNames.GetValueOrDefault(id, "Unknown")))
                     .Where(l => l.Text != "Unknown"),
-               new(Controls.NetBarsChart.OtherBrushKey, "Every other app")];
-        if (Bins.Any(b => b.UnrecordedMinutes >= Controls.NetBarsChart.MinUnrecorded)) legend = [.. legend, new NetLegend("MutedBrush", "Not recorded", 0.7)];
+               new(Controls.NetBarsChart.OtherBrushKey, Lang.T("Every other app"))];
+        if (Bins.Any(b => b.UnrecordedMinutes >= Controls.NetBarsChart.MinUnrecorded)) legend = [.. legend, new NetLegend("MutedBrush", Lang.T("Not recorded"), 0.7)];
         Legend = Models.Kept.Or(Legend, legend);
     }
 
@@ -486,7 +486,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         var open = _openApp;
         // The whole period, or only the bar picked on the chart (each app as it was in that hour or day).
         var picked = SelectedBin >= 0 && SelectedBin < r.Bins.Count ? r.Bins[SelectedBin] : null;
-        AppsTitle = picked is null ? "Apps" : "Apps · " + (r.Range switch
+        AppsTitle = picked is null ? Lang.T("Apps") : Lang.T("Apps") + " · " + (r.Range switch
         {
             ReportRange.Day => $"{picked.Start:h tt} – {picked.Start.AddHours(1):h tt}",
             ReportRange.Year => picked.Start.ToString("MMMM"),
@@ -513,7 +513,7 @@ public sealed partial class NetworkViewModel : ObservableObject
                 Stat = stat, BackgroundOnly = BackgroundOnly,
                 DownBar = Sort == "Upload" ? 0 : length * down / both, UpBar = Sort == "Download" ? 0 : length * up / both,
                 Amount = Units.Data(key), DotKey = DotKey(stat.Id),
-                BusiestLabel = r.Range == ReportRange.Day ? "Busiest hour" : "Busiest day",
+                BusiestLabel = r.Range == ReportRange.Day ? Lang.T("Busiest hour") : Lang.T("Busiest day"),
                 BusiestText = stat.BusiestAt is { } at
                     ? $"{(r.Range == ReportRange.Day ? $"{at:h tt} – {at.AddHours(1):h tt}" : $"{at:ddd d MMM}")} · {Units.Data(stat.BusiestBytes)}"
                     : "—",
@@ -565,10 +565,10 @@ public sealed partial class NetworkViewModel : ObservableObject
             // The words of the week's and month's squares: up, dropped, not recorded (the PC off is nothing recorded too).
             string what = state switch
             {
-                NetQuarter.Online => "Up",
-                NetQuarter.Dropped => "Dropped",
-                NetQuarter.Unrecorded => "Not recorded",
-                _ => from > DateTime.Now ? "Still to come" : "Not recorded",
+                NetQuarter.Online => Lang.T("Up"),
+                NetQuarter.Dropped => Lang.T("Dropped"),
+                NetQuarter.Unrecorded => Lang.T("Not recorded"),
+                _ => from > DateTime.Now ? Lang.T("Still to come") : Lang.T("Not recorded"),
             };
             string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
             return new NetStripCell(state, $"{span} · {what}");
@@ -582,10 +582,10 @@ public sealed partial class NetworkViewModel : ObservableObject
         // "No drops", never "online all day": a day still going on, or one the PC was off for half of, wasn't that.
         string title = drops.Count switch
         {
-            0 => "No drops",
-            1 => "Dropped once",
-            2 => "Dropped twice",
-            var n => $"Dropped {n} times",
+            0 => Lang.T("No drops"),
+            1 => Lang.T("Dropped once"),
+            2 => Lang.T("Dropped twice"),
+            var n => Lang.T($"Dropped {n} times"),
         };
         var parts = new List<string>();
         // A week or a month lists every drop under its strip, the longest among them: the line doesn't pick one out.
@@ -593,18 +593,19 @@ public sealed partial class NetworkViewModel : ObservableObject
         {
             var longest = drops.MaxBy(d => d.Seconds)!;
             var at = TimeUtil.FromUnix(longest.Start);
-            parts.Add($"Longest {Took(longest.Seconds)} {(r.Range == ReportRange.Day ? $"at {at:h:mm tt}" : $"on {at:ddd d MMM}")}");
+            string took = Took(longest.Seconds);
+            parts.Add(r.Range == ReportRange.Day ? Lang.T($"Longest {took} at {at:h:mm tt}") : Lang.T($"Longest {took} on {at:ddd d MMM}"));
         }
-        else if (drops.Count == 0 && r.Range != ReportRange.Day) parts.Add($"The internet stayed up {periodWord}");
+        else if (drops.Count == 0 && r.Range != ReportRange.Day) parts.Add(Lang.T($"The internet stayed up {periodWord}"));
         // Time the PC was on with nothing written isn't time without drops: say how long, so "No drops" isn't read as the whole day.
         if (r.Unrecorded.Count > 0)
         {
-            string missing = $"{Took(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds))} not recorded";
+            string took = Took(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds));
             // Alone on the line, a longer period's part says which period it is ("7h 30m not recorded this month").
-            parts.Add(parts.Count == 0 && r.Range != ReportRange.Day ? $"{missing} {periodWord}" : missing);
+            parts.Add(parts.Count == 0 && r.Range != ReportRange.Day ? Lang.T($"{took} not recorded {periodWord}") : Lang.T($"{took} not recorded"));
         }
         // A year isn't searched for stretches not recorded: it says when recording began, when that was inside it.
-        if (r.Range == ReportRange.Year && r.RecordedSince is { } since) parts.Add($"recorded since {since:d MMM}");
+        if (r.Range == ReportRange.Year && r.RecordedSince is { } since) parts.Add(Lang.T($"recorded since {since:d MMM}"));
         return (title, string.Join(" · ", parts));
     }
 
@@ -645,24 +646,24 @@ public sealed partial class NetworkViewModel : ObservableObject
         switch (d.State)
         {
             case NetDayState.ToCome:
-                lines.Add("Still to come");
+                lines.Add(Lang.T("Still to come"));
                 break;
             case NetDayState.NotRecorded:
-                lines.Add("Not recorded");
+                lines.Add(Lang.T("Not recorded"));
                 break;
             case NetDayState.Up:
-                lines.Add(d.Day.Date == today.Date ? "No drops so far" : "Up all day");
+                lines.Add(d.Day.Date == today.Date ? Lang.T("No drops so far") : Lang.T("Up all day"));
                 break;
             default:
-                if (d.Drops.Count == 1) lines.Add($"Dropped once: {Drop(d.Drops[0])}");
+                if (d.Drops.Count == 1) lines.Add(Lang.T($"Dropped once: {Drop(d.Drops[0])}"));
                 else
                 {
-                    lines.Add(d.Drops.Count == 2 ? "Dropped twice" : $"Dropped {d.Drops.Count} times");
+                    lines.Add(d.Drops.Count == 2 ? Lang.T("Dropped twice") : Lang.T($"Dropped {d.Drops.Count} times"));
                     lines.AddRange(d.Drops.Select(Drop));
                 }
                 break;
         }
-        if (d.State is NetDayState.Up or NetDayState.Dropped && d.RecordedMinutes > 0) lines.Add($"Recorded {Took(d.RecordedMinutes * 60.0)}");
+        if (d.State is NetDayState.Up or NetDayState.Dropped && d.RecordedMinutes > 0) lines.Add(Lang.T($"Recorded {Took(d.RecordedMinutes * 60.0)}"));
         return string.Join("\n", lines);
     }
 
@@ -680,8 +681,8 @@ public sealed partial class NetworkViewModel : ObservableObject
         var parts = apps.Where(a => colored.Contains(a.App)).Select(a => (Key: keys[colored.IndexOf(a.App)], a.Bytes, Name: names[a.App])).ToList();
         long rest = s.Bytes - parts.Sum(p => p.Bytes);
         // No app's use read (a standard account): the PC's, as the chart has it then.
-        if (apps.Count == 0) parts.Add(("SkyBrush", s.Bytes, "This PC"));
-        else if (rest >= 1 << 20) parts.Add((Controls.NetBarsChart.OtherBrushKey, rest, "Every other app"));
+        if (apps.Count == 0) parts.Add(("SkyBrush", s.Bytes, Lang.T("This PC")));
+        else if (rest >= 1 << 20) parts.Add((Controls.NetBarsChart.OtherBrushKey, rest, Lang.T("Every other app")));
         double sum = Math.Max(1, parts.Sum(p => p.Bytes));
         return new NetBiggestRow(
             range == ReportRange.Day ? $"{s.Start:h tt} – {s.End:h tt}" : $"{s.Start:ddd d MMM}",
@@ -710,18 +711,18 @@ public sealed partial class NetworkViewModel : ObservableObject
         return strip;
     }
 
-    private static string LastWord(ReportRange range, bool now) => (range switch
+    private static string LastWord(ReportRange range, bool now) => range switch
     {
-        ReportRange.Day => "yesterday",
-        ReportRange.Week => "last week",
-        ReportRange.Month => "last month",
-        _ => "last year",
-    }) + (now ? " by now" : "");
+        ReportRange.Day => now ? Lang.T("yesterday by now") : Lang.T("yesterday"),
+        ReportRange.Week => now ? Lang.T("last week by now") : Lang.T("last week"),
+        ReportRange.Month => now ? Lang.T("last month by now") : Lang.T("last month"),
+        _ => now ? Lang.T("last year by now") : Lang.T("last year"),
+    };
 
     private static string Against(long now, long before, string last)
     {
         double ratio = (double)now / Math.Max(1, before);
-        return ratio >= 1.25 ? $"{ratio:0.0}× {last}" : ratio <= 0.8 ? $"{(1 - ratio) * 100:0}% less than {last}" : $"About the same as {last}";
+        return ratio >= 1.25 ? Lang.T($"{ratio:0.0}× {last}") : ratio <= 0.8 ? Lang.T($"{(1 - ratio) * 100:0}% less than {last}") : Lang.T($"About the same as {last}");
     }
 
     /// <summary>"21m", "2h 51m", "40s", as every duration in the app is written (a drop is never "0s").</summary>
