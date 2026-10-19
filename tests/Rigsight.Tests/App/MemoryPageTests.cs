@@ -383,8 +383,8 @@ public sealed class MemoryPageTests
             live.ApplyProcs(next);
             Assert.Single(vm.Notes); // as it was left
             vm.SetShown(true);
-            Assert.Empty(vm.Notes);
-            Assert.False(vm.HasNotes);
+            // Nothing above its usual now: only the app holding the most, saying so.
+            Assert.Equal("HOLDING THE MOST", Assert.Single(vm.Notes).Caption);
             vm.SetShown(false);
         });
     }
@@ -554,19 +554,16 @@ public sealed class MemoryPageTests
             Assert.Equal(four[0].Left, four[3].Left);
             Ui.Run(() => Ui.SavePng(view, Path.Combine(TestEnvironment.DataDir, "screens", "memory-page-four.png")));
 
-            // Nothing to say: the row takes no room, and the list moves up into it.
-            double listTop = Ui.Run(() => ((FrameworkElement)view.FindName("LiveCard")).TranslatePoint(new Point(), view).Y);
+            // Nothing above its usual: one card, the app holding the most, across the whole row (no empty half beside it).
             Ui.Run(() =>
             {
                 live.RamLoad!.SetTodayRange(31, 60);
                 vm.Apply(Past(p => p.Usual["discord.exe"] = 1000), Now);
             });
             Ui.Pump(200);
-            Ui.Run(() =>
-            {
-                Assert.False(((ItemsControl)view.FindName("NotesRow")).IsVisible);
-                Assert.True(((FrameworkElement)view.FindName("LiveCard")).TranslatePoint(new Point(), view).Y < listTop - 100);
-            });
+            Assert.True(Ui.Run(() => ((ItemsControl)view.FindName("NotesRow")).IsVisible));
+            var calm = Assert.Single(Cards());
+            Assert.Equal(pageRight, calm.Right, 1.0);
 
             // A long list scrolls, and the headings still end at the figures.
             Ui.Run(() =>

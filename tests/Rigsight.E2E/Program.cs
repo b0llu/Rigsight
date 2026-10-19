@@ -1321,9 +1321,15 @@ internal sealed class AppUi(Process app)
     {
         // The first by that name that can be pressed: in another language a label can share a button's words ("Ajustes").
         AutomationElement? Find(string n) => Pressable(Say(n)) ?? (Lang.Translating ? Pressable(n) : null);
-        AutomationElement? Pressable(string n) => Root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, n))
-            .Cast<AutomationElement>().FirstOrDefault(x => x.TryGetCurrentPattern(SelectionItemPattern.Pattern, out _)
-                || x.TryGetCurrentPattern(InvokePattern.Pattern, out _) || x.TryGetCurrentPattern(TogglePattern.Pattern, out _));
+        // One search that stops at the first match, asked in a single condition. Listing every element of that name and
+        // then asking each for its patterns made the app build an automation peer for every control on the page, which
+        // the page's first-visit CPU then counted: about twice the baseline on every page from 0.30.0 on (2026-10-19).
+        AutomationElement? Pressable(string n) => Root.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.NameProperty, n),
+            new OrCondition(
+                new PropertyCondition(AutomationElement.IsSelectionItemPatternAvailableProperty, true),
+                new PropertyCondition(AutomationElement.IsInvokePatternAvailableProperty, true),
+                new PropertyCondition(AutomationElement.IsTogglePatternAvailableProperty, true))));
         var e = Find(name);
         // Settings is a line of the menu its row at the foot of the sidebar opens: open that first. Asked again for a
         // few seconds, the row included: while the window is busy (a page just switched, the menu being built as a

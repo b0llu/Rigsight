@@ -100,7 +100,7 @@ public sealed partial class RewindViewModel : ObservableObject
 
     private void OnPropertyChanged(params string[] names)
     {
-        foreach (var name in names) OnPropertyChanged(name);
+        foreach (var name in names) base.OnPropertyChanged(name);
     }
 
     // ── The list ─────────────────────────────────────────────────────────

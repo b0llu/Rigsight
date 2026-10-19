@@ -77,7 +77,7 @@ public static class RewindCards
 
         // Cover
         string coverSub = games
-            ? Lang.T($"Your PC was on for {Hours(f.OnSec)}, and {Hours(f.GamingSec)} of them went to games.")
+            ? Lang.T($"Your PC was on for {Hours(f.OnSec)}, and {Math.Round(f.GamingSec / 3600):0} of them went to games.")
             : Lang.T($"Your PC was on for {Hours(f.OnSec)}, on {f.DaysOn} of its {f.Days} days.");
         cards.Add(new("cover", title, Lang.T("A look back at"), CoverWord(f), coverSub, [], KindHue(f.Kind), Cyan));
 
