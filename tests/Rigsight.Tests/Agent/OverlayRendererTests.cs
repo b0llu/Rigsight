@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Text.RegularExpressions;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
@@ -365,9 +365,10 @@ public partial class OverlayRendererTests
             Sensors = [.. Enum.GetValues<SensorKind>().Select(k => new OverlaySensorReading(k.ToString(), k, 1234.5678))],
         };
         string text = Rtss(Only(), d);
-        foreach (var unit in new[] { "°<", "%<", " GHz<", " W<", " V<", " A<", " RPM<", " L/h<", " GB<", " MB<", " Hz<", " dBA<" })
+        foreach (var unit in new[] { "°<", "%<", " GHz<", " W<", " V<", " A<", " RPM<", " L/h<", " TB<", " MB<", " Hz<", " dBA<" })
             Assert.Contains(unit, text);
         Assert.Contains(">1235<", text);   // fan
+        Assert.Contains(">1.2<", text);    // data: 1,234.6 GB is 1.2 TB
         Assert.Contains(">1.23<", text);   // clock in GHz
         Assert.Contains(">1234.568<", text);  // voltage
         d.Sensors = [.. Enum.GetValues<SensorKind>().Select(k => new OverlaySensorReading(k.ToString(), k, null))];
