@@ -2182,7 +2182,6 @@
     "The picture couldn't be copied. Try again in a moment.": "No se pudo copiar la imagen. Vuelve a intentarlo en un momento.",
     "Copy picture {0}": "Copiar la imagen {0}",
     "Copy pictures {0} to {1}": "Copiar las imágenes {0} a {1}",
-    "My {0} on my PC, from RigSight Rewind": "Mi {0} en mi PC, con RigSight Rewind",
     "X opened with the text filled in. The pictures are copied: paste them into the post.": "X se abrió con el texto ya escrito. Las imágenes están copiadas: pégalas en la publicación.",
     "X opened with the text filled in. The first 4 pictures are copied: paste them into the post, then copy the next ones for a reply.": "X se abrió con el texto ya escrito. Las 4 primeras imágenes están copiadas: pégalas en la publicación y después copia las siguientes para una respuesta.",
     "Copied: paste them into a reply under your post.": "Copiadas: pégalas en una respuesta a tu publicación.",
@@ -3623,7 +3622,8 @@
     "The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.": "El panel detrás de las lecturas. Al 0% solo se ven las lecturas, con una sombra suave para que se lean bien.",
     "The readings themselves: numbers, labels, gauges and charts.": "Las propias lecturas: números, etiquetas, indicadores y gráficos.",
     "Duplicate": "Duplicar",
-    "Delete widget": "Eliminar widget"
+    "Delete widget": "Eliminar widget",
+    "My {0} on my PC, from #RigSight Rewind": "Mi {0} en mi PC, con #RigSight Rewind"
   },
   "stale": {
     "More {0} {1} {2}: {3}": "Más {0} {1} {2}: {3}",

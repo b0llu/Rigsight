@@ -365,7 +365,7 @@ public sealed partial class RewindViewModel : ObservableObject
         var picks = Included;
         if (Watched is not { } f || picks.Count == 0 || !CopyPictures(picks.Take(XBatch).ToList())) return;
         _xNext = Math.Min(XBatch, picks.Count);
-        Open("https://x.com/intent/post?text=" + Uri.EscapeDataString(Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from RigSight Rewind")));
+        Open("https://x.com/intent/post?text=" + Uri.EscapeDataString(Lang.T($"My {RewindCards.TitleWithYear(f)} on my PC, from #RigSight Rewind")));
         SetNextBatch();
         Say(picks.Count <= XBatch
             ? Lang.T("X opened with the text filled in. The pictures are copied: paste them into the post.")
