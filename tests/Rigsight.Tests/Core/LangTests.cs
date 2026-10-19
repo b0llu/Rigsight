@@ -136,4 +136,28 @@ public class LangTests
         Assert.Null(LanguageStore.FindAsset(doc.RootElement, LanguageStore.AssetName("fr")));
         Assert.Null(LanguageStore.FindAsset(doc.RootElement, LanguageStore.AssetName("de")));
     }
+
+    [Fact]
+    public void The_same_English_with_another_meaning_has_its_own_entry()
+    {
+        string t = "9:14 PM";
+        using (Lang.UseHere(null))
+        {
+            Assert.Equal("Up", Lang.C("connection", "Up"));
+            Assert.Equal("At 9:14 PM", Lang.C("time", $"At {t}"));
+        }
+        using (Lang.UseHere(Pack(("Up", "Subida"), ("‹connection›Up", "Conectado"), ("At {0}", "A {0}"), ("‹time›At {0}", "A las {0}"))))
+        {
+            Assert.Equal("Subida", Lang.T("Up"));
+            Assert.Equal("Conectado", Lang.C("connection", "Up"));
+            Assert.Equal("A las 9:14 PM", Lang.C("time", $"At {t}"));
+            Assert.Equal("A 9:14 PM", Lang.T($"At {t}"));
+        }
+        // Without its own entry, it's translated like the plain text.
+        using (Lang.UseHere(Pack(("Up", "Subida"), ("At {0}", "A {0}"))))
+        {
+            Assert.Equal("Subida", Lang.C("connection", "Up"));
+            Assert.Equal("A 9:14 PM", Lang.C("time", $"At {t}"));
+        }
+    }
 }

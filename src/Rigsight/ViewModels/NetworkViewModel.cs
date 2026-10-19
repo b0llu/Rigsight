@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -565,7 +565,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             // The words of the week's and month's squares: up, dropped, not recorded (the PC off is nothing recorded too).
             string what = state switch
             {
-                NetQuarter.Online => Lang.T("Up"),
+                NetQuarter.Online => Lang.C("connection", "Up"),
                 NetQuarter.Dropped => Lang.T("Dropped"),
                 NetQuarter.Unrecorded => Lang.T("Not recorded"),
                 _ => from > DateTime.Now ? Lang.T("Still to come") : Lang.T("Not recorded"),

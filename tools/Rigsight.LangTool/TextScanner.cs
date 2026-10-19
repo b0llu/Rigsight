@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
@@ -55,17 +55,26 @@ public static partial class TextScanner
         var root = CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Preview)).GetRoot();
         foreach (var call in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
-            if (call.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "T" or "F" or "Key" } member) continue;
+            if (call.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "T" or "F" or "Key" or "C" } member) continue;
             if (Rightmost(member.Expression) != "Lang") continue;
             var site = new TextSite(file, call.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
-            var arg = call.ArgumentList.Arguments.FirstOrDefault()?.Expression;
+            var args = call.ArgumentList.Arguments;
+            string? context = null;
+            if (member.Name.Identifier.ValueText == "C")
+            {
+                // Lang.C("context", text): listed as "‹context›text".
+                if (args.Count < 2 || args[0].Expression is not LiteralExpressionSyntax ctx) { result.NotWritten.Add(site); continue; }
+                context = ctx.Token.ValueText;
+                args = args.RemoveAt(0);
+            }
+            var arg = args.FirstOrDefault()?.Expression;
             switch (arg)
             {
                 case LiteralExpressionSyntax lit when lit.IsKind(SyntaxKind.StringLiteralExpression):
-                    result.Add(lit.Token.ValueText, site);
+                    result.Add(WithContext(context, lit.Token.ValueText), site);
                     break;
-                case InterpolatedStringExpressionSyntax interpolated when member.Name.Identifier.ValueText == "T":
-                    result.Add(Template(interpolated), site);
+                case InterpolatedStringExpressionSyntax interpolated when member.Name.Identifier.ValueText is "T" or "C":
+                    result.Add(WithContext(context, Template(interpolated)), site);
                     break;
                 default:
                     result.NotWritten.Add(site);
@@ -73,6 +82,8 @@ public static partial class TextScanner
             }
         }
     }
+
+    private static string WithContext(string? context, string key) => context is null ? key : Rigsight.Core.Lang.Context(context, key);
 
     private static string? Rightmost(ExpressionSyntax e) => e switch
     {

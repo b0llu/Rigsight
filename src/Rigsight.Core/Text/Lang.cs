@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -59,6 +59,23 @@ public static class Lang
     }
 
     /// <summary>
+    /// The same English with another meaning in another place ("Up" for a connection, not an upload): the pack holds it
+    /// as "‹context›English" and may say it differently; without that entry it's translated like the plain text.
+    /// </summary>
+    public static string C(string context, string english)
+    {
+        var pack = Pack;
+        if (pack is null) return english;
+        return pack.Strings.TryGetValue(Context(context, english), out var text) ? text : T(english);
+    }
+
+    /// <summary>A text with holes and a meaning of its own here (see <see cref="C(string, string)"/>).</summary>
+    public static string C(string context, [InterpolatedStringHandlerArgument("context")] ref LangText text) => text.ToStringAndClear();
+
+    /// <summary>The pack's key for a text with a context: "‹time›At {0}".</summary>
+    public static string Context(string context, string english) => $"‹{context}›{english}";
+
+    /// <summary>
     /// Marks an English text that's kept in a table and translated later with <see cref="T(string)"/>, so the language
     /// tool lists it. Returns it unchanged.
     /// </summary>
@@ -101,6 +118,10 @@ public ref struct LangText
     private readonly LanguagePack? _pack;
     private StringBuilder? _template;
     private List<object?>? _args;
+
+    private readonly string? _context;
+
+    public LangText(int literalLength, int formattedCount, string context) : this(literalLength, formattedCount) => _context = context;
 
     public LangText(int literalLength, int formattedCount)
     {
@@ -149,6 +170,11 @@ public ref struct LangText
         if (_template is null) return _english.ToStringAndClear();
         string template = _template.ToString();
         object?[] args = [.. _args!];
+        if (_context is not null && _pack!.Strings.TryGetValue(Lang.Context(_context, template), out var inContext))
+        {
+            try { return string.Format(CultureInfo.CurrentCulture, inContext, args); }
+            catch (FormatException) { /* the plain text below */ }
+        }
         if (_pack!.Strings.TryGetValue(template, out var text))
         {
             try { return string.Format(CultureInfo.CurrentCulture, text, args); }

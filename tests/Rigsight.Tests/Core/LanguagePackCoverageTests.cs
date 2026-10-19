@@ -55,10 +55,12 @@ public sealed class LanguagePackCoverageTests
                 _ = Lang.F("{0} froze", app);
                 _ = Lang.Key("Average");
                 _ = Lang.T(app);
+                _ = Lang.C("connection", "Up");
+                _ = Lang.C("time", $"At {t:t}");
             } }
             """, "C.cs", result);
         TextScanner.ScanXaml("""<TextBlock Text="{ctl:T Memory}" ToolTip="{ctl:T 'Average, today'}" Tag="{ctl:T 'It\'s &amp; more'}" />""", "V.xaml", result);
-        Assert.Equal(["Crashes", "{0} crashed at {1:0.0}° {{x}}", "[{0,-8}]", "{0} froze", "Average", "Memory", "Average, today", "It's & more"], result.Texts.Keys);
+        Assert.Equal(["Crashes", "{0} crashed at {1:0.0}° {{x}}", "[{0,-8}]", "{0} froze", "Average", "‹connection›Up", "‹time›At {0:t}", "Memory", "Average, today", "It's & more"], result.Texts.Keys);
         Assert.Single(result.NotWritten);
     }
 

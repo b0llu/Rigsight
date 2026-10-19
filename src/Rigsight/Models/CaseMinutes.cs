@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 
 namespace Rigsight.Models;
@@ -130,7 +130,7 @@ public sealed partial class CaseReadout : ObservableObject
         if (_seconds)
         {
             // To the second: the reading nearest the crash, then how far from it each other one is.
-            Title = pointing ? Lang.T($"At {said}") : Lang.T($"Last reading before the {_word}, {said}");
+            Title = pointing ? Lang.C("time", $"At {said}") : Lang.T($"Last reading before the {_word}, {said}");
             double from = ((_crashAt ?? _minutes[_crash].Time) - m.Time).TotalSeconds;
             When = !pointing ? Lang.T("Point at the lanes for any other moment") : Math.Abs(from) < 1.5 ? Lang.T($"The {_word}'s own moment")
                 : from > 0 ? Lang.T($"{Ago(from)} before the {_word}") : Lang.T($"{Ago(-from)} after it");
@@ -139,7 +139,7 @@ public sealed partial class CaseReadout : ObservableObject
         {
             // The crash's own minute where it was recorded; else the last before it (a PC that went off records nothing after).
             bool own = _crashAt is not DateTime crashAt || m.Time.AddMinutes(1) > crashAt;
-            Title = pointing ? Lang.T($"At {said}") : own ? Lang.T($"At the {_word}, {said}") : Lang.T($"Just before the {_word}, {said}");
+            Title = pointing ? Lang.C("time", $"At {said}") : own ? Lang.T($"At the {_word}, {said}") : Lang.T($"Just before the {_word}, {said}");
             int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
             int after = -before;
             When = !pointing ? Lang.T("Point at the lanes for any other minute") : before > 0 ? Lang.T($"{before} min before the {_word}") : before < 0 ? Lang.T($"{after} min after it") : Lang.T($"The {_word}'s own minute");
