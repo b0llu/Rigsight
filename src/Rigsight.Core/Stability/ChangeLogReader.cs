@@ -83,13 +83,13 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     public string Short => $"{Title} ({Time:d MMM})";
 
     /// <summary>A second line under the title: what it was before.</summary>
-    public string? Detail => Kind == ChangeKind.Storage ? $"Was {Was} used, now {Now}"
-        : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : $"It held {Now}.")
+    public string? Detail => Kind == ChangeKind.Storage ? Lang.T($"Was {Was} used, now {Now}")
+        : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : Lang.T($"It held {Now}."))
         : Kind == ChangeKind.Fans ? Now
-        : string.IsNullOrEmpty(Was) ? null : $"Was {Was}";
+        : string.IsNullOrEmpty(Was) ? null : Lang.T($"Was {Was}");
 
     /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>
-    public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? $"Installed: {Title}" : Title;
+    public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? Lang.T($"Installed: {Title}") : Title;
 
     /// <summary>A graphics card's driver (the inventory follows those by version, see <see cref="Inventory"/>).</summary>
     public bool IsGraphicsDriver => Kind == ChangeKind.Driver && Title.Contains("graphics driver", StringComparison.OrdinalIgnoreCase);

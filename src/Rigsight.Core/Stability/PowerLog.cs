@@ -56,11 +56,11 @@ public static class PowerLog
     /// <summary>The reason in the words the chart shows (null: not known, nothing to add to "Not recorded").</summary>
     public static string? Words(GapReason reason) => reason switch
     {
-        GapReason.Off => "PC was off",
-        GapReason.ShutOff => "PC shut off suddenly",
-        GapReason.Crashed => "Windows crashed",
-        GapReason.Asleep => "PC was asleep",
-        GapReason.NotRunning => "RigSight wasn't running",
+        GapReason.Off => Lang.T("PC was off"),
+        GapReason.ShutOff => Lang.T("PC shut off suddenly"),
+        GapReason.Crashed => Lang.T("Windows crashed"),
+        GapReason.Asleep => Lang.T("PC was asleep"),
+        GapReason.NotRunning => Lang.T("RigSight wasn't running"),
         _ => null,
     };
 }

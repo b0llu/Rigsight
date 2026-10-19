@@ -31,8 +31,9 @@ public static class CloseUpWords
         if (before.Count < 3) return said;
         long last = before[^1].T;
 
-        Rise(said, before, last, p => p.GpuHot, "GPU hot spot", GpuRise);
-        Rise(said, before, last, p => p.GpuTemp, "GPU", GpuRise);
+        // Only one line for the GPU: its hot spot says more than its edge, when both rose.
+        if (!Rise(said, before, last, p => p.GpuHot, "GPU hot spot", GpuRise))
+            Rise(said, before, last, p => p.GpuTemp, "GPU", GpuRise);
         Rise(said, before, last, p => p.CpuTemp, "CPU", CpuRise);
         Power(said, before, last, p => p.GpuPower, "GPU power");
         Power(said, before, last, p => p.CpuPower, "CPU power");
@@ -40,10 +41,10 @@ public static class CloseUpWords
 
         var lastMinute = Window(before, last - LastSec * 1000L, last);
         if (lastMinute.Max(p => p.Commit) is double commit && commit >= 95)
-            said.Add(new StoodOut($"Windows was nearly out of memory in the last minute: {commit:0}% of what it can promise was promised to apps.", true));
+            said.Add(new StoodOut(Lang.T($"Windows was nearly out of memory in the last minute: {commit:0}% of what it can promise was promised to apps."), true));
 
         if (said.Count == 0)
-            said.Add(new StoodOut("Nothing climbing in the seconds before: no jump in temperature, power or memory.", false, IsCalm: true));
+            said.Add(new StoodOut(Lang.T("Nothing climbing in the seconds before: no jump in temperature, power or memory."), false, IsCalm: true));
 
         if (After(points, crashTs, nameOf, crashedApp) is { } after) said.Insert(said.FindIndex(s => s.IsCalm) is int calm and >= 0 ? calm : said.Count, after);
         return said;
@@ -61,27 +62,35 @@ public static class CloseUpWords
     private static string Since(long from, long last)
     {
         int s = (int)Math.Max(2, Math.Round((last - from) / 1000.0));
-        return s >= 90 ? $"in the last {Math.Round(s / 60.0):0} minutes" : $"in the last {s} seconds";
+        return s >= 90 ? Lang.T($"in the last {Math.Round(s / 60.0):0} minutes") : Lang.T($"in the last {s} seconds");
     }
 
-    private static void Rise(List<StoodOut> said, List<CloseUpPoint> before, long last, Func<CloseUpPoint, double?> value, string what, double least)
+    /// <summary>Which reading rose, by the name <see cref="Find"/> gives it: each a whole sentence of its own.</summary>
+    private static string RoseText(string what, string from, string to, string since) => what switch
+    {
+        "GPU hot spot" => Lang.T($"GPU hot spot rose from {from} to {to} {since}."),
+        "GPU" => Lang.T($"GPU rose from {from} to {to} {since}."),
+        _ => Lang.T($"CPU rose from {from} to {to} {since}."),
+    };
+
+    /// <summary>Says the reading's rise, if it rose enough; whether it did.</summary>
+    private static bool Rise(List<StoodOut> said, List<CloseUpPoint> before, long last, Func<CloseUpPoint, double?> value, string what, double least)
     {
         var late = Window(before, last - LastSec * 1000L, last).Where(p => value(p) is not null).ToList();
         var early = Window(before, last - (LastSec + BaseSec) * 1000L, last - LastSec * 1000L - 1).Where(p => value(p) is not null).ToList();
-        if (late.Count < 3 || early.Count < 5) return;
+        if (late.Count < 3 || early.Count < 5) return false;
         double from = Median(early.Select(p => value(p)!.Value));
         var peak = late.MaxBy(p => value(p)!.Value)!;
         double to = value(peak)!.Value;
-        if (to - from < least || to < WarmEnough) return;
-        // Only one line for the GPU: its hot spot says more than its edge, when both rose.
-        if (what == "GPU" && said.Any(s => s.Text.StartsWith("GPU hot spot", StringComparison.Ordinal))) return;
+        if (to - from < least || to < WarmEnough) return false;
         var start = late.First(p => value(p) >= from + (to - from) / 3);
-        string text = $"{what} rose from {Units.TempShort(from)} to {Units.TempShort(to)} {Since(start.T, last)}.";
+        string text = RoseText(what, Units.TempShort(from), Units.TempShort(to), Since(start.T, last));
         // What a minute's average made of it, where that hid most of the rise.
         long minute = last / 60_000 * 60_000;
         var own = Window(before, minute, last).Select(p => value(p)).OfType<double>().ToList();
-        if (own.Count >= 3 && own.Average() <= to - 3) text += $" The minute's average showed only {Units.TempShort(own.Average())}.";
+        if (own.Count >= 3 && own.Average() <= to - 3) text += " " + Lang.T($"The minute's average showed only {Units.TempShort(own.Average())}.");
         said.Add(new StoodOut(text, true));
+        return true;
     }
 
     private static void Power(List<StoodOut> said, List<CloseUpPoint> before, long last, Func<CloseUpPoint, double?> value, string what)
@@ -93,7 +102,10 @@ public static class CloseUpWords
         double from = Median(early.Select(p => value(p)!.Value)), to = late.Average(p => value(p)!.Value);
         if (to < from * PowerTimes || to - from < PowerWatts) return;
         var start = Window(before, last - 60_000, last).First(p => value(p) >= from + (to - from) / 2);
-        said.Add(new StoodOut($"{what.Substring(0, 1).ToUpperInvariant()}{what[1..]} jumped to about {to:0} W for the last {Math.Max(2, (last - start.T) / 1000)} seconds, from about {from:0} W.", true));
+        long seconds = Math.Max(2, (last - start.T) / 1000);
+        said.Add(new StoodOut(what == "GPU power"
+            ? Lang.T($"GPU power jumped to about {to:0} W for the last {seconds} seconds, from about {from:0} W.")
+            : Lang.T($"CPU power jumped to about {to:0} W for the last {seconds} seconds, from about {from:0} W."), true));
     }
 
     private static void Vram(List<StoodOut> said, List<CloseUpPoint> before, long last)
@@ -106,8 +118,11 @@ public static class CloseUpWords
         if (peak.Vram!.Value - from < VramRiseMb) return;
         var start = late.First(p => p.Vram >= from + (peak.Vram.Value - from) / 3);
         bool full = peak.VramTotal is double total && total > 0 && peak.Vram.Value >= total * 0.95;
-        said.Add(new StoodOut($"Graphics memory climbed from {from / 1024:0.0} GB to {peak.Vram.Value / 1024:0.0} GB"
-            + (peak.VramTotal is double all && all > 0 ? $" of {all / 1024:0} GB" : "") + $" {Since(start.T, last)}.", full));
+        string since = Since(start.T, last);
+        double fromGb = from / 1024, toGb = peak.Vram.Value / 1024;
+        said.Add(new StoodOut(peak.VramTotal is double all && all > 0
+            ? Lang.T($"Graphics memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB of {all / 1024:0} GB {since}.")
+            : Lang.T($"Graphics memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB {since}."), full));
     }
 
     /// <summary>What came after an app's crash, in its seconds: the graphics card going quiet, the app back in front.</summary>
@@ -116,15 +131,19 @@ public static class CloseUpWords
         long at = crashTs * 1000;
         var after = points.Where(p => p.T > at + 999).OrderBy(p => p.T).ToList();
         if (after.Count < 3) return null;
-        var parts = new List<string>();
         double? gpuBefore = points.Where(p => p.T <= at + 999 && p.T >= at - 20_000).Select(p => p.GpuLoad).OfType<double>().DefaultIfEmpty(double.NaN).Average();
         double? gpuAfter = after.Where(p => p.T <= at + 20_000).Select(p => p.GpuLoad).OfType<double>().DefaultIfEmpty(double.NaN).Average();
-        if (gpuBefore >= 50 && gpuAfter < 20) parts.Add($"the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once");
-        if (crashedApp is long app)
+        bool quiet = gpuBefore >= 50 && gpuAfter < 20;
+        string? name = null, later = null;
+        if (crashedApp is long app && after.FirstOrDefault(p => p.Front == app && p.T > at + 10_000) is { } back)
+            (name, later) = (nameOf(app), CrashFindings.Words((back.T - at) / 1000.0));
+        string? text = (quiet, name) switch
         {
-            var back = after.FirstOrDefault(p => p.Front == app && p.T > at + 10_000);
-            if (back is not null) parts.Add($"{nameOf(app)} was back in front {CrashFindings.Words((back.T - at) / 1000.0)} later");
-        }
-        return parts.Count == 0 ? null : new StoodOut($"After: {string.Join(", and ", parts)}.", false);
+            (true, not null) => Lang.T($"After: the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once, and {name} was back in front {later} later."),
+            (true, null) => Lang.T($"After: the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once."),
+            (false, not null) => Lang.T($"After: {name} was back in front {later} later."),
+            _ => null,
+        };
+        return text is null ? null : new StoodOut(text, false);
     }
 }

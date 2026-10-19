@@ -21,6 +21,8 @@ public sealed record GpuMemoryAtCrash(double UsedMb, double TotalMb, double Usua
 
     /// <summary>The point said for it, or null when it isn't well above.</summary>
     public Evidence? Point(string app) => !WellAbove ? null : new("warn",
-        $"GPU memory was possibly running out: {UsedMb / 1024:0.0} of {TotalMb / 1024:0} GB",
-        $"{(UpClose ? "In the last 30 seconds" : "In its last minute")}. {app} usually uses about {UsualMb / 1024:0.0} GB on this PC. Running out of it can crash a game; a game that simply loaded more looks the same.");
+        Lang.T($"GPU memory was possibly running out: {UsedMb / 1024:0.0} of {TotalMb / 1024:0} GB"),
+        UpClose
+            ? Lang.T($"In the last 30 seconds. {app} usually uses about {UsualMb / 1024:0.0} GB on this PC. Running out of it can crash a game; a game that simply loaded more looks the same.")
+            : Lang.T($"In its last minute. {app} usually uses about {UsualMb / 1024:0.0} GB on this PC. Running out of it can crash a game; a game that simply loaded more looks the same."));
 }
