@@ -565,6 +565,26 @@
                         </StackPanel>
                     </ctl:SmoothBorder>
 
+                    <!-- The newest language pack couldn't be had after an update: the old one keeps working, the newest words
+                         show in English until it's downloaded (Settings → Language has the same line). -->
+                    <ctl:SmoothBorder CornerRadius="12" Padding="12" Margin="0,0,0,10" Background="{DynamicResource WarmSoftBrush}"
+                            BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" DataContext="{Binding Language}"
+                            Visibility="{Binding ShowCard, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'The latest language pack couldn\'t be downloaded'}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="{ctl:T 'Some new words show in English until it\'s downloaded.'}" FontSize="11.5"
+                                       Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <Button Style="{StaticResource AccentButton}" Command="{Binding ActCommand}" HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="Try the language pack again">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="{ctl:T 'Try again'}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
                     <!-- Settings: always at the foot of the sidebar, however far the pages above are scrolled. A press opens a
                          small menu over it (Settings first, then the things people come looking for: updates, what's new,
                          reporting a bug); the menu floats, so nothing moves. Marked like a page while Settings is open. -->

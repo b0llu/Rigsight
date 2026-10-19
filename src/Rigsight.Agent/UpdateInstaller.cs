@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Rigsight.Core;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Updates;
@@ -42,6 +42,8 @@ internal static class UpdateInstaller
                 return false;
             }
 
+            // The language pack for the new version, if the download didn't bring it (quick when it did).
+            await LanguageStore.PrepareForUpdateAsync(SettingsStore.Load().Language, release.Version);
             Log.Write("update", $"Installing {release.Version}");
             // Recorded first: the installer stops every Rigsight process, this one included. If this copy is
             // still older afterwards, the app says the update didn't install (and it isn't retried at every start).
@@ -165,6 +167,8 @@ internal static class BackgroundUpdater
         {
             await UpdateStore.DownloadAsync(latest!);
             Log.Write("update", $"Downloaded {latest!.Version}");
+            // The language pack for it too, so the updated app starts in the same language.
+            await LanguageStore.PrepareForUpdateAsync(settings.Language, latest.Version);
             return Downloaded;
         }
         catch (Exception ex)

@@ -89,19 +89,28 @@ public static class LanguageStore
     /// Nothing to do in English. Returns whether it's ready; never throws (the updated app tries once more, then
     /// Settings says the newest pack couldn't be had).
     /// </summary>
-    public static async Task<bool> PrepareForUpdateAsync(Version target, CancellationToken ct = default)
+    public static async Task<bool> PrepareForUpdateAsync(string? code, Version target, CancellationToken ct = default)
     {
-        if (Lang.Pack is not { } pack) return true;
+        if (string.IsNullOrEmpty(code) || code == LanguagePack.English) return true;
+        target = ReleaseFeed.Normalize(target);
+        if (ForVersion(NextPackPath(code), code, target)) return true; // set aside already (the app and the agent both ask)
         try
         {
-            var next = await GetAsync(pack.Code, target, nextPath: true, ct);
-            return ReleaseFeed.ParseVersion(next.ForApp) == ReleaseFeed.Normalize(target);
+            var next = await GetAsync(code, target, nextPath: true, ct);
+            return ReleaseFeed.ParseVersion(next.ForApp) == target;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            Log.Write("Language", $"The {pack.Code} pack for the update to {target.ToString(3)} couldn't be had; the updated app tries again: {ex.Message}");
+            Log.Write("Language", $"The {code} pack for the update to {target.ToString(3)} couldn't be had; the updated app tries again: {ex.Message}");
             return false;
         }
+    }
+
+    /// <summary>Whether the file is <paramref name="code"/>'s pack made for exactly <paramref name="version"/>.</summary>
+    private static bool ForVersion(string path, string code, Version version)
+    {
+        try { return File.Exists(path) && LanguagePack.Load(path) is { } p && p.Code == code && ReleaseFeed.ParseVersion(p.ForApp) == version; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return false; }
     }
 
     /// <summary>The pack set aside for an update, until the updated app puts it in place.</summary>
@@ -194,7 +203,8 @@ public static class LanguageStore
             return here;
         }
         Directory.CreateDirectory(Folder);
-        string path = next ? NextPackPath(code) : PackPath(code), temp = path + ".new";
+        // The app and the agent may both be fetching: each writes its own file and moves it into place.
+        string path = next ? NextPackPath(code) : PackPath(code), temp = $"{path}.{Environment.ProcessId}.new";
         await File.WriteAllBytesAsync(temp, bytes, ct);
         File.Move(temp, path, overwrite: true);
         Log.Write("Language", $"Downloaded {asset} from {release.ToString(3)} for {ReleaseFeed.Current.ToString(3)}: v{pack.Version} for {pack.ForApp}, {pack.Strings.Count} texts, {bytes.LongLength} bytes, sha256 {hash}");
@@ -236,7 +246,15 @@ public static class LanguageStore
     public static async Task<bool> RefreshAsync(bool mayCheck, CancellationToken ct = default)
     {
         var pack = Lang.Pack;
-        if (pack is null || !IsOlder(pack) || !mayCheck) return false;
+        if (pack is null || !IsOlder(pack)) return false;
+        // The other program (app or agent) may have fetched it already.
+        if (Find(pack.Code) is { } here && IsNewer(here, pack))
+        {
+            Lang.Use(here);
+            if (!IsOlder(here)) return true;
+            pack = here;
+        }
+        if (!mayCheck) return false;
         try
         {
             var fresh = await DownloadAsync(pack.Code, ct);

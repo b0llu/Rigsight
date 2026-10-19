@@ -197,6 +197,9 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     /// <summary>Supplied by the shell: the user's dashboards, which can also be the start page.</summary>
     public Func<IEnumerable<PageOption>>? GetCustomPages { get; set; }
+    /// <summary>Settings → General → Language (also the sidebar card's, through the shell).</summary>
+    public LanguageViewModel? Language { get; set; }
+
     public List<PageOption> StartPageOptions => [.. ShellViewModel.BuiltInPages, .. GetCustomPages?.Invoke() ?? []];
     public string StartPage
     {

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -355,6 +355,8 @@ public sealed partial class UpdateViewModel : ObservableObject
         string setup = UpdateStore.SetupPath(release);
         if (await ReleaseFeed.MatchesAsync(setup, release))
         {
+            // Downloaded earlier: the language pack for it too, if it isn't yet (quick when it is).
+            await Task.Run(() => LanguageStore.PrepareForUpdateAsync(Lang.Code, release.Version));
             AskOrWait();
             return;
         }
@@ -383,6 +385,9 @@ public sealed partial class UpdateViewModel : ObservableObject
         {
             // Off the UI thread: the app stays fully usable. A download that gets stuck starts again by itself (twice at most).
             await Task.Run(() => UpdateStore.DownloadAsync(release, progress));
+            // The language pack for the new version comes with it, so the updated app starts in the same language
+            // with nothing more to download. Never fails the update: the updated app tries again, then says so.
+            await Task.Run(() => LanguageStore.PrepareForUpdateAsync(Lang.Code, release.Version));
             AskOrWait();
         }
         catch (Exception ex)

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Rigsight;
@@ -36,13 +36,33 @@ public static partial class Program
         }
         Environment.SetEnvironmentVariable(Gen0Variable, null);
 
+        // Opened again in another language: the old window closes first (one window at a time), and the language
+        // picked is used even if the agent hasn't saved it yet.
+        string? language = null;
+        for (int i = 0; i + 1 < args.Length; i++)
+        {
+            if (args[i] == "--after" && int.TryParse(args[i + 1], out int pid)) WaitForExit(pid);
+            if (args[i] == "--language") language = args[i + 1];
+        }
+
         // The language first: every page reads its text once as it's built, and picking another language starts the
         // app again (see LanguageStore).
-        Core.LanguageStore.Apply(Core.Settings.SettingsStore.Load().Language);
+        Core.LanguageStore.Apply(language ?? Core.Settings.SettingsStore.Load().Language);
 
         var app = new App();
         app.InitializeComponent();
         return app.Run();
+    }
+
+    private static void WaitForExit(int pid)
+    {
+        try
+        {
+            using var old = Process.GetProcessById(pid);
+            old.WaitForExit(10_000);
+        }
+        catch (ArgumentException) { } // already gone
+        catch (InvalidOperationException) { }
     }
 
     [LibraryImport("user32.dll")]

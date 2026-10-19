@@ -145,6 +145,9 @@ internal sealed class AgentContext : ApplicationContext
         ForgetRiggySetting();
         Units.Fahrenheit = _settings.UseFahrenheit;
         LanguageStore.Apply(_settings.Language);
+        // Just updated and the new pack didn't come with it: one more try, where updates may reach GitHub by themselves.
+        if (LanguageStore.NewestMissing)
+            _ = LanguageStore.RefreshAsync(mayCheck: _settings.AutoUpdate && !RigsightPaths.IsTestInstance);
         DarkMenuRenderer.Theme = _settings.Theme;
         // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
         // step aside for it from the very first scan (that first scan is when two programs colliding does the most harm).

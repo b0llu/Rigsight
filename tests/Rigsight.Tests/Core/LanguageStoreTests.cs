@@ -181,9 +181,11 @@ public sealed class LanguageStoreTests : IDisposable
         var next = PackFile(target.ToString(3), crashes: "Fallos (nuevo)");
         using var gh = GitHub(s => new { tag_name = "v" + target.ToString(3), assets = new[] { Asset(s.Url("/files/next"), next) } }, _ => [],
             new() { ["/files/next"] = next });
-        using var _ = Lang.UseHere(LanguageStore.Find("es"));
-
-        Assert.True(await LanguageStore.PrepareForUpdateAsync(target));
+        Assert.True(await LanguageStore.PrepareForUpdateAsync("es", target));
+        // Asked again (the app and the agent both ask): it's there already, nothing is fetched.
+        int fetched = gh.Requests;
+        Assert.True(await LanguageStore.PrepareForUpdateAsync("es", target));
+        Assert.Equal(fetched, gh.Requests);
 
         // Before the update is installed, this version keeps its own pack: the next one waits.
         Assert.True(File.Exists(LanguageStore.NextPackPath("es")));
@@ -230,7 +232,7 @@ public sealed class LanguageStoreTests : IDisposable
         using var gh = GitHub(_ => null, _ => [], []);
         using var _ = Lang.UseHere(LanguageStore.Find("es"));
 
-        Assert.False(await LanguageStore.PrepareForUpdateAsync(new Version(Current.Major, Current.Minor + 1, 0)));
+        Assert.False(await LanguageStore.PrepareForUpdateAsync("es", new Version(Current.Major, Current.Minor + 1, 0)));
         Assert.False(File.Exists(LanguageStore.NextPackPath("es")));
         // The pack in use is older than this version: Settings shows the warning.
         Assert.True(LanguageStore.NewestMissing);
@@ -240,7 +242,8 @@ public sealed class LanguageStoreTests : IDisposable
     public async Task In_English_an_update_needs_no_pack()
     {
         using var _ = Lang.UseHere(null);
-        Assert.True(await LanguageStore.PrepareForUpdateAsync(new Version(Current.Major, Current.Minor + 1, 0)));
+        Assert.True(await LanguageStore.PrepareForUpdateAsync("en", new Version(Current.Major, Current.Minor + 1, 0)));
+        Assert.True(await LanguageStore.PrepareForUpdateAsync(null, new Version(Current.Major, Current.Minor + 1, 0)));
         Assert.False(LanguageStore.NewestMissing);
     }
 }

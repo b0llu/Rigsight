@@ -88,6 +88,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
+        Language = new LanguageViewModel(Settings);
+        SettingsPage.Language = Language;
+        // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
+        _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin,
             // On a PC that keeps Rigsight up to date for everyone, the PC's updater does it for an admin too: their own
             // install would close the other people's Rigsight and couldn't start it again.
@@ -223,6 +227,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public TaskbarViewModel Taskbar { get; }
     public WhatsNewViewModel WhatsNew { get; }
     public SettingsViewModel SettingsPage { get; }
+    public LanguageViewModel Language { get; }
     public UpdateViewModel Update { get; }
     public SidebarViewModel Sidebar { get; }
 

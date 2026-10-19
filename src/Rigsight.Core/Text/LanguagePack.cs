@@ -1,11 +1,13 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Rigsight.Core;
 
 /// <summary>A language the app can be shown in, before its pack is downloaded.</summary>
 /// <param name="Code">"es"; also the pack's file name (es.json) and its release asset (Rigsight-Language-es.json).</param>
 /// <param name="Name">The language's own name for itself, as the picker lists it: "Español".</param>
-public sealed record LanguageInfo(string Code, string Name);
+/// <param name="SizeKB">About how big its pack is, shown before it's downloaded (a test keeps it near the real size).</param>
+/// <param name="Reopens">What happens when it's picked, said in the language in use: "RigSight opens again in Spanish."</param>
+public sealed record LanguageInfo(string Code, string Name, int SizeKB, string Reopens);
 
 /// <summary>
 /// One language's translation of the app: every English text (the key, see <see cref="Lang"/>) to its own words.
@@ -18,8 +20,8 @@ public sealed class LanguagePack
     /// <summary>The languages the picker offers. English is built in; the rest come as packs.</summary>
     public static IReadOnlyList<LanguageInfo> Known { get; } =
     [
-        new(English, "English"),
-        new("es", "Español"),
+        new(English, "English", 0, Lang.Key("RigSight opens again in English.")),
+        new("es", "Español", 310, Lang.Key("RigSight opens again in Spanish.")),
     ];
 
     public string Code { get; }

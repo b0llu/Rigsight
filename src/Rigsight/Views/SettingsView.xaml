@@ -262,6 +262,99 @@
             <StackPanel Visibility="{Binding IsGeneral, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
+                    <!-- Language: English is built in; another language is downloaded when picked (its size shows until
+                         then), and RigSight then asks to open again in it. The list floats, so nothing moves. -->
+                    <StackPanel DataContext="{Binding Language}">
+                        <DockPanel Style="{StaticResource Row}">
+                            <Grid DockPanel.Dock="Right" Width="190" VerticalAlignment="Center">
+                                <ComboBox ItemsSource="{Binding Options}" SelectedValuePath="Code" SelectedValue="{Binding Chosen}"
+                                          IsEnabled="{Binding CanPick}" AutomationProperties.Name="Language">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <!-- The tick and the size only in the open list, not on the closed box. -->
+                                                <Grid DockPanel.Dock="Left" Width="20"
+                                                      Visibility="{Binding IsVisible, RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" VerticalAlignment="Center"
+                                                               Visibility="{Binding IsCurrent, Converter={StaticResource Vis}}" />
+                                                </Grid>
+                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,0">
+                                                    <StackPanel.Style>
+                                                        <Style TargetType="StackPanel">
+                                                            <Setter Property="Visibility" Value="{Binding IsVisible, RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Note}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </StackPanel.Style>
+                                                    <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                    <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                            <Setter Property="MinWidth" Value="260" />
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
+                                <!-- Downloading: the app's spinner in the box, with the language being fetched. -->
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4" Padding="12,0" IsHitTestVisible="False"
+                                        Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ctl:Spinner Width="14" Height="14" StrokeThickness="2" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding TargetName}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{ctl:T 'Language'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <!-- One statement, a real button at its end: ready to open again, or what went wrong and Try again. -->
+                        <ctl:SmoothBorder Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="14,10" Margin="0,-2,0,10"
+                                          Visibility="{Binding ShowStatus, Converter={StaticResource Vis}}">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Left" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource GoodBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding IsReady, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding IsWarning, Converter={StaticResource Vis}}" />
+                                </Grid>
+                                <!-- Ready: the main action (filled); a problem: Try again (quieter). -->
+                                <Button DockPanel.Dock="Right" Margin="12,0,0,0" Style="{StaticResource AccentButton}" Command="{Binding ActCommand}"
+                                        VerticalAlignment="Center" Content="{Binding ActionText}" AutomationProperties.Name="{Binding ActionText}"
+                                        Visibility="{Binding IsReady, Converter={StaticResource Vis}}" />
+                                <Button DockPanel.Dock="Right" Margin="12,0,0,0" Style="{StaticResource GhostButton}" Command="{Binding ActCommand}"
+                                        VerticalAlignment="Center" AutomationProperties.Name="{Binding ActionText}"
+                                        Visibility="{Binding IsWarning, Converter={StaticResource Vis}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,7,0" />
+                                        <TextBlock Text="{Binding ActionText}" />
+                                    </StackPanel>
+                                </Button>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding StatusText}" FontSize="13" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding StatusDetail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </ctl:SmoothBorder>
+                    </StackPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
