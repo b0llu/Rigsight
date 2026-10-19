@@ -80,4 +80,28 @@ public sealed class LanguagePackCoverageTests
             .DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
         Assert.Equal("{0} crashed at {1:0.0}° {{x}}", TextScanner.Template(call));
     }
+
+    /// <summary>Product names a page may write as they are.</summary>
+    private static readonly HashSet<string> AsIs = ["RigSight", "True", "False"];
+
+    [Fact]
+    public void No_page_writes_its_English_directly()
+    {
+        // Words in a page go through {ctl:T ...}; one written straight in would stay English in every language.
+        var attribute = new System.Text.RegularExpressions.Regex(@"(Text|Content|ToolTip|Header|Title|PlaceholderText|Label|LabelText)=""([A-Za-z][^""{]*[a-z][^""{]*)""");
+        var sentence = new System.Text.RegularExpressions.Regex(@"Value=""([A-Z][a-z]+ [^""{]*)""");
+        var found = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(Repo.Root, "src"), "*.xaml", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
+            string xaml = File.ReadAllText(file);
+            foreach (System.Text.RegularExpressions.Match m in attribute.Matches(xaml))
+                if (!AsIs.Contains(m.Groups[2].Value)) found.Add($"{Path.GetFileName(file)}: {m.Value}");
+            foreach (System.Text.RegularExpressions.Match m in sentence.Matches(xaml))
+                found.Add($"{Path.GetFileName(file)}: {m.Value}");
+        }
+        Assert.True(found.Count == 0, "English written straight into a page:
+" + string.Join("
+", found));
+    }
 }

@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.StorageView"
+﻿<UserControl x:Class="Rigsight.Views.StorageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
@@ -139,10 +139,10 @@
                         <TextBlock TextWrapping="Wrap" Visibility="{Binding Live.Drives.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                                    <Setter Property="Text" Value="Drive health appears once the agent is running with admin rights." />
+                                    <Setter Property="Text" Value="{ctl:T 'Drive health appears once the agent is running with admin rights.'}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Live.StandardAccount}" Value="True">
-                                            <Setter Property="Text" Value="Drive health needs admin rights on this PC." />
+                                            <Setter Property="Text" Value="{ctl:T 'Drive health needs admin rights on this PC.'}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

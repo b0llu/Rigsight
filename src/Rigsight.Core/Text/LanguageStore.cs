@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 using Rigsight.Core.Updates;
 
@@ -49,6 +49,7 @@ public static class LanguageStore
         if (!string.IsNullOrEmpty(code) && code != LanguagePack.English) PromoteNext(code);
         var pack = Find(code);
         Lang.Use(pack);
+        UseNames(pack);
         if (pack is not null)
         {
             string fit = pack.Dropped.Count == 0 ? "" : $"; {pack.Dropped.Count} left English because they didn't fit (first: \"{pack.Dropped[0]}\")";
@@ -59,6 +60,47 @@ public static class LanguageStore
             Log.Write("Language", $"{code} was picked but no pack is at {PackPath(code)}: English");
         }
     }
+
+    /// <summary>Windows' own region settings, as this program started with them.</summary>
+    private static readonly System.Globalization.CultureInfo Region = System.Globalization.CultureInfo.CurrentCulture;
+
+    /// <summary>
+    /// Day and month names in the pack's language ("lunes", "oct."), while numbers, the clock and the order of a date
+    /// keep following Windows' region settings. English (no pack) goes back to the region exactly as it was.
+    /// </summary>
+    private static void UseNames(LanguagePack? pack)
+    {
+        var culture = Region;
+        if (pack is not null && !Region.TwoLetterISOLanguageName.Equals(pack.Code, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var names = System.Globalization.CultureInfo.GetCultureInfo(pack.Code).DateTimeFormat;
+                culture = (System.Globalization.CultureInfo)Region.Clone();
+                var f = culture.DateTimeFormat;
+                f.DayNames = names.DayNames;
+                f.AbbreviatedDayNames = names.AbbreviatedDayNames;
+                f.ShortestDayNames = names.ShortestDayNames;
+                f.MonthNames = names.MonthNames;
+                f.AbbreviatedMonthNames = names.AbbreviatedMonthNames;
+                f.MonthGenitiveNames = names.MonthGenitiveNames;
+                f.AbbreviatedMonthGenitiveNames = names.AbbreviatedMonthGenitiveNames;
+            }
+            catch (System.Globalization.CultureNotFoundException)
+            {
+                culture = Region;
+            }
+        }
+        System.Globalization.CultureInfo.CurrentCulture = culture;
+        System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture == Region ? null : culture;
+    }
+
+    /// <summary>
+    /// The language the pages' own bindings format dates in while a pack is in use: Windows' region when it's already
+    /// in the pack's language (es-MX for Spanish), else the pack's language itself.
+    /// </summary>
+    public static string BindingLanguage(LanguagePack pack) =>
+        Region.TwoLetterISOLanguageName.Equals(pack.Code, StringComparison.OrdinalIgnoreCase) ? Region.IetfLanguageTag : pack.Code;
 
     /// <summary>
     /// The warning's condition: a pack is in use but not this version's, so the newest text shows in English (its

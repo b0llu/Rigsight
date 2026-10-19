@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Controls.PeriodPicker"
+﻿<UserControl x:Class="Rigsight.Controls.PeriodPicker"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -7,12 +7,12 @@
     <StackPanel x:Name="Bar" Orientation="Horizontal" VerticalAlignment="Center">
         <Border Style="{StaticResource SegmentHost}">
             <StackPanel x:Name="UnitButtons" Orientation="Horizontal">
-                <RadioButton Style="{StaticResource Segment}" Content="Day" Tag="Day" Checked="Unit_Checked" />
-                <RadioButton Style="{StaticResource Segment}" Content="Week" Tag="Week" Checked="Unit_Checked" />
-                <RadioButton Style="{StaticResource Segment}" Content="Month" Tag="Month" Checked="Unit_Checked" />
-                <RadioButton Style="{StaticResource Segment}" Content="Year" Tag="Year" Checked="Unit_Checked" />
-                <RadioButton x:Name="AllButton" Style="{StaticResource Segment}" Content="All time" Tag="All" Checked="Unit_Checked" />
-                <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" Content="Custom" Tag="Custom" Checked="Unit_Checked" />
+                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Day}" Tag="Day" Checked="Unit_Checked" />
+                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Week}" Tag="Week" Checked="Unit_Checked" />
+                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Month}" Tag="Month" Checked="Unit_Checked" />
+                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Year}" Tag="Year" Checked="Unit_Checked" />
+                <RadioButton x:Name="AllButton" Style="{StaticResource Segment}" Content="{ctl:T 'All time'}" Tag="All" Checked="Unit_Checked" />
+                <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" Content="{ctl:T Custom}" Tag="Custom" Checked="Unit_Checked" />
             </StackPanel>
         </Border>
         <ctl:DatePager x:Name="Pager" Margin="12,0,0,0"

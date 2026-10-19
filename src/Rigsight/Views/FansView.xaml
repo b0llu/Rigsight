@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.FansView"
+﻿<UserControl x:Class="Rigsight.Views.FansView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -65,10 +65,10 @@
             <TextBlock TextWrapping="Wrap" Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                        <Setter Property="Text" Value="No fan speeds reported. Most motherboards share them only with the agent running as admin." />
+                        <Setter Property="Text" Value="{ctl:T 'No fan speeds reported. Most motherboards share them only with the agent running as admin.'}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Live.StandardAccount}" Value="True">
-                                <Setter Property="Text" Value="Fan speeds need admin rights on this PC." />
+                                <Setter Property="Text" Value="{ctl:T 'Fan speeds need admin rights on this PC.'}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

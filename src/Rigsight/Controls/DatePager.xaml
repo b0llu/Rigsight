@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Controls.DatePager"
+﻿<UserControl x:Class="Rigsight.Controls.DatePager"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -6,7 +6,7 @@
     <!-- ‹  [Yesterday ▾]  ›   The middle says which period is shown; clicking it opens a calendar. 32 px tall, like the
          segmented buttons it usually sits next to. -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Previous_Click" ToolTip="Previous" AutomationProperties.Name="Previous"
+        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Previous_Click" ToolTip="{ctl:T Previous}" AutomationProperties.Name="Previous"
                 IsEnabled="{Binding CanGoPrevious, ElementName=Root}">
             <TextBlock Text="&#xE76B;" />
         </Button>
@@ -33,7 +33,7 @@
                 <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" />
             </StackPanel>
         </Button>
-        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Next_Click" ToolTip="Next" AutomationProperties.Name="Next"
+        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Next_Click" ToolTip="{ctl:T Next}" AutomationProperties.Name="Next"
                 IsEnabled="{Binding CanGoNext, ElementName=Root}">
             <TextBlock Text="&#xE76C;" />
         </Button>
@@ -51,11 +51,11 @@
                     <StackPanel x:Name="MonthPanel" Width="264" Visibility="Collapsed">
                         <DockPanel Margin="6,2,0,10">
                             <Button DockPanel.Dock="Right" x:Name="NextYear" Style="{StaticResource IconButton}" Click="NextYear_Click"
-                                    ToolTip="Next year" AutomationProperties.Name="Next year">
+                                    ToolTip="{ctl:T 'Next year'}" AutomationProperties.Name="Next year">
                                 <TextBlock Text="&#xE76C;" />
                             </Button>
                             <Button DockPanel.Dock="Right" x:Name="PreviousYear" Style="{StaticResource IconButton}" Click="PreviousYear_Click"
-                                    ToolTip="Previous year" AutomationProperties.Name="Previous year">
+                                    ToolTip="{ctl:T 'Previous year'}" AutomationProperties.Name="Previous year">
                                 <TextBlock Text="&#xE76B;" />
                             </Button>
                             <TextBlock x:Name="YearText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
@@ -64,11 +64,11 @@
                     </StackPanel>
                     <!-- Year ranges pick a year from the years with history. -->
                     <StackPanel x:Name="YearPanel" Width="264" Visibility="Collapsed">
-                        <TextBlock Text="Pick a year" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="6,6,0,12" />
+                        <TextBlock Text="{ctl:T 'Pick a year'}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="6,6,0,12" />
                         <UniformGrid x:Name="YearGrid" Columns="4" />
                     </StackPanel>
                     <DockPanel Margin="4,8,4,0">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Today" Click="Today_Click" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T Today}" Click="Today_Click" />
                         <TextBlock x:Name="SinceText" Style="{StaticResource Muted}" FontSize="11.5" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>

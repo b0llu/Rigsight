@@ -25,11 +25,11 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // In another language, dates and numbers in the pages' bindings follow Windows' region settings, as the code's
-        // do (WPF's bindings use US English otherwise). In English they stay exactly as they always were.
-        if (Lang.Translating)
+        // In another language, the pages' bindings write dates with that language's day and month names (WPF's
+        // bindings use US English otherwise); see LanguageStore.BindingLanguage. In English they stay exactly as they were.
+        if (Lang.Pack is { } pack)
             FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement),
-                new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage(System.Globalization.CultureInfo.CurrentCulture.IetfLanguageTag)));
+                new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage(LanguageStore.BindingLanguage(pack))));
         DispatcherUnhandledException += OnUnhandledException;
         // Off the UI thread nothing above sees an error: one on a thread of its own ends the app, so it's logged first;
         // one in a task nobody waited on is logged and kept from mattering.
