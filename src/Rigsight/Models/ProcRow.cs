@@ -114,7 +114,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
 
     // Worked out once: it is asked on every update of the list.
     private bool? _ordinary;
-    private bool Ordinary => _ordinary ??= EndRisks.Classify(Exe, Path, marked: Critical) == EndRisk.None;
+    internal bool Ordinary => _ordinary ??= EndRisks.Classify(Exe, Path, marked: Critical) == EndRisk.None;
 
     partial void OnUsualMBChanged(double? value) => Judge();
 

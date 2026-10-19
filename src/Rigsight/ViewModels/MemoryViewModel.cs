@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows.Media;
@@ -178,6 +178,15 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
                 ? Lang.T($"It usually holds {row.UsualText}, and has grown every hour since {since}.")
                 : Lang.T($"It usually holds {row.UsualText}.");
             fresh.Add(new MemoryNote(Lang.T("ABOVE ITS USUAL"), true, row.Name, row.Icon, row.MemText, text));
+        }
+        // Nothing above its usual: the app holding the most now, against its own usual, says so with a fact instead
+        // of leaving the fullest-today card alone.
+        if (fresh.Count == 0 && Live.Procs.Where(p => p.MemMB > 0 && p.Ordinary).MaxBy(p => p.MemMB) is { } top)
+        {
+            string text = top.UsualMB is not null
+                ? Lang.T($"Its usual is {top.UsualText}. No app is holding more than its usual right now.")
+                : Lang.T("No app is holding more than its usual right now.");
+            fresh.Add(new MemoryNote(Lang.T("HOLDING THE MOST"), false, top.Name, top.Icon, top.MemText, text));
         }
         if (_fullest is not null) fresh.Add(_fullest);
         if (fresh.Count > MaxNotes) fresh.RemoveRange(MaxNotes, fresh.Count - MaxNotes);

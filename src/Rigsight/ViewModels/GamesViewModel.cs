@@ -141,8 +141,8 @@ public sealed partial class GamesViewModel : ObservableObject
     /// <summary>Something is typed and no game has it.</summary>
     public bool NoMatch => Ready && _all.Count > 0 && Cards.Count == 0 && Core.TextMatch.Words(Search).Length > 0;
 
-    partial void OnSortChanged(string value) => BuildCards();
-    partial void OnFilterChanged(string value) => BuildCards();
+    partial void OnSortChanged(string value) { BuildCards(); _ = RefreshHeroAsync(); }
+    partial void OnFilterChanged(string value) { BuildCards(); _ = RefreshHeroAsync(); }
     partial void OnSearchChanged(string value) => BuildCards();
 
     public bool HasShelf => Shelf.Count > 0;
@@ -184,12 +184,12 @@ public sealed partial class GamesViewModel : ObservableObject
         _all = library;
         var last = library.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
         SetRunning(FindRunning());
-        var hero = _running ?? last;
+        var hero = HeroPick() ?? _running ?? last;
         _heroStory = hero is null ? null : await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
         await Task.Run(() => { foreach (var g in library) Prewarm(g); });
         BuildCards();
         BuildShelf();
-        BuildHero(last);
+        BuildHero(HeroPick() ?? last);
         IsLoading = false;
         Ready = true;
         OnPropertyChanged(nameof(IsEmpty));
@@ -204,16 +204,16 @@ public sealed partial class GamesViewModel : ObservableObject
         else GamePictures.Icon(g.ExePath ?? GamePictures.ProgramIn(g.Installed?.InstallDir));
     }
 
-    private void BuildCards()
+    /// <summary>The library as the filter and order pick it (and the search, when asked), the game running now first.</summary>
+    private List<GameEntry> Ordered(bool searched)
     {
-        var now = DateTime.Now;
         IEnumerable<GameEntry> list = Filter switch
         {
             "installed" => _all.Where(g => g.IsInstalled),
             "before" => _all.Where(g => !g.IsInstalled),
             _ => _all,
         };
-        var words = Core.TextMatch.Words(Search);
+        var words = searched ? Core.TextMatch.Words(Search) : [];
         if (words.Length > 0) list = list.Where(g => Core.TextMatch.Has(words, g.Name, LauncherName(g.Launcher)));
         list = Sort switch
         {
@@ -225,6 +225,13 @@ public sealed partial class GamesViewModel : ObservableObject
         var playing = PlayingEntry();
         var ordered = list.ToList();
         if (playing is not null && ordered.Remove(playing)) ordered.Insert(0, playing);
+        return ordered;
+    }
+
+    private void BuildCards()
+    {
+        var playing = PlayingEntry();
+        var ordered = Ordered(searched: true);
         Cards.Clear();
         foreach (var g in ordered) Cards.Add(CardOf(g, playing));
         CountText = Cards.Count == 1 ? Lang.T("1 game") : Lang.T($"{Cards.Count} games");
@@ -267,10 +274,16 @@ public sealed partial class GamesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasShelf));
     }
 
+    /// <summary>
+    /// The banner's game: the first of the library as filtered and ordered (the search aside, so typing doesn't swap
+    /// it), which is the game running now when it is in that list. Null when the list is empty.
+    /// </summary>
+    private GameEntry? HeroPick() => Ordered(searched: false).FirstOrDefault();
+
     private void BuildHero(GameEntry? last)
     {
         // The game running now takes the banner; its figures are its last play's, like any other.
-        var hero = PlayingEntry() ?? last;
+        var hero = last;
         if (hero is null) { HeroGame = null; return; }
         if (_heroStory?.Entry.Key != hero.Key) _heroStory = null;
         HeroGame = hero;
@@ -279,7 +292,12 @@ public sealed partial class GamesViewModel : ObservableObject
         HeroLogo = GamePictures.Picture(hero.Installed?.Art.Logo, 720);
         HeroIcon = HeroBanner is null ? GamePictures.Icon(hero.ExePath) : null;
         var play = _heroStory?.Plays.LastOrDefault();
-        HeroEyebrow = HeroLive ? Lang.T("PLAYING NOW") : play is null ? Lang.T("CONTINUE") : Lang.T($"CONTINUE · LAST PLAYED {play.StartTime:ddd d MMM}").ToUpperInvariant();
+        // "Continue" only for a game that can be: one no longer installed (Played before) or never played says so.
+        HeroEyebrow = HeroLive ? Lang.T("PLAYING NOW")
+            : !hero.IsInstalled ? (play is null ? Lang.T("NOT INSTALLED") : Lang.T($"LAST PLAYED {play.StartTime:ddd d MMM} · NOT INSTALLED").ToUpperInvariant())
+            : play is not null ? Lang.T($"CONTINUE · LAST PLAYED {play.StartTime:ddd d MMM}").ToUpperInvariant()
+            : hero.HasHistory || hero.Installed?.LastPlayed is not null ? Lang.T("CONTINUE")
+            : NotPlayedYet.ToUpperInvariant();
         var pills = new List<GamePill>();
         if (play is not null)
         {
@@ -360,12 +378,22 @@ public sealed partial class GamesViewModel : ObservableObject
         }
     }
 
-    /// <summary>The banner after a game starts or closes: the running one, else the last played, with its last play's figures.</summary>
+    private int _heroAsk;
+
+    /// <summary>
+    /// The banner after a game starts or closes, or the filter or order changes: the first game of the list as shown,
+    /// with its last play's figures. Of quick clicks, only the last one's game is put up.
+    /// </summary>
     private async Task RefreshHeroAsync()
     {
-        var hero = _running ?? _all.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
-        if (hero is not null && _heroStory?.Entry.Key != hero.Key)
-            _heroStory = await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
+        int ask = ++_heroAsk;
+        // An empty list (nothing played before, say) keeps the last game played up there rather than no banner.
+        var hero = HeroPick() ?? _all.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
+        GameStory? story = _heroStory;
+        if (hero is not null && story?.Entry.Key != hero.Key)
+            story = await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
+        if (ask != _heroAsk) return;
+        _heroStory = story;
         BuildHero(hero);
     }
 

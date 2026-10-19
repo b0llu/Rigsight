@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
@@ -129,6 +129,7 @@ internal static partial class WidgetRenderer
                 SensorKind.Current => (v?.ToString("0.00"), "A", "88.88"),
                 SensorKind.Fan => (v?.ToString("0"), "RPM", "8888"),
                 SensorKind.Flow => (v?.ToString("0.0"), "L/h", "888.8"),
+                SensorKind.Data when v >= 1000 => ((v / 1000)?.ToString("0.0"), "TB", "888.8"),
                 SensorKind.Data => (v?.ToString("0.0"), "GB", "888.8"),
                 SensorKind.SmallData => (v?.ToString("0"), "MB", "88888"),
                 SensorKind.Frequency => (v?.ToString("0"), "Hz", "8888"),

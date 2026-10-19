@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         ShowPage(vm.CurrentPage);
 
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
+        SetUpTitleBar();
         // Charts and lists grow with a taller window (see Roomy).
         SizeChanged += (_, e) => Controls.Roomy.Fit(e.NewSize.Height);
         // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.

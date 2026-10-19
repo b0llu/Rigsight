@@ -1,4 +1,4 @@
-namespace Rigsight.Core;
+﻿namespace Rigsight.Core;
 
 /// <summary>Sensor kinds (mirrors LibreHardwareMonitor's SensorType so the app doesn't need that library).</summary>
 public enum SensorKind
@@ -31,7 +31,7 @@ public static class Units
             SensorKind.Current => $"{v:0.00} A",
             SensorKind.Fan => $"{v:0} RPM",
             SensorKind.Flow => $"{v:0.0} L/h",
-            SensorKind.Data => $"{v:0.0} GB",
+            SensorKind.Data => DataGb(v),
             SensorKind.SmallData => $"{v:0} MB",
             SensorKind.Throughput => Rate(v),
             SensorKind.Frequency => $"{v:0} Hz",
@@ -68,10 +68,14 @@ public static class Units
             SensorKind.Temperature => $"{Temp(v):0}°",
             SensorKind.Clock when v >= 1000 => $"{v / 1000:0.00}",
             SensorKind.Voltage => $"{v:0.00}",
+            SensorKind.Data when v >= 1000 => DataGb(v), // a value read as GB would be off by a thousand
             SensorKind.Data when v < 100 => $"{v:0.0}", // "↓ 9.6 ↑ 10.2" GB, not "↓ 10 ↑ 10"
             _ => $"{v:0}",
         };
     }
+
+    /// <summary>A Data reading (decimal GB, as the drives report it): TB from 1,000 GB, so "97.8 TB" and not "97771.0 GB".</summary>
+    public static string DataGb(double gb) => Math.Abs(gb) >= 1000 ? $"{gb / 1000:0.0} TB" : $"{gb:0.0} GB";
 
     public static string TempShort(double? celsius) => Short(SensorKind.Temperature, celsius);
 
@@ -117,7 +121,7 @@ public static class Units
             SensorKind.Voltage => text + " V",
             SensorKind.Current => text + " A",
             SensorKind.SmallData => text + (v >= 1024 ? " GB" : " MB"),
-            SensorKind.Data => text + " GB",
+            SensorKind.Data => v >= 1000 ? TrayText(kind, v / 1000) + " TB" : text + " GB",
             SensorKind.Throughput => text + " MB/s",
             _ => text,
         };

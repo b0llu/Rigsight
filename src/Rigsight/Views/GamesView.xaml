@@ -163,13 +163,22 @@
                         </Grid>
 
                         <StackPanel Margin="28,22,28,30">
-                            <!-- Title, count, which games and in what order. -->
-                            <DockPanel Margin="0,0,0,16">
-                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Title, count, which games and in what order. Where the window is too narrow for all on one
+                                 line (or the words are longer, as in Spanish), the search and buttons go under the title. -->
+                            <Grid x:Name="LibraryHead" Margin="0,0,0,16" SizeChanged="LibraryHead_SizeChanged">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel x:Name="LibraryTitle" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="{ctl:T 'Library'}" FontSize="20" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding CountText}" Style="{StaticResource Muted}" Margin="10,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <StackPanel x:Name="LibraryTools" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,0,0,0">
                                     <TextBox Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search games…'}" Width="200" Margin="0,0,10,0" VerticalAlignment="Center"
                                              AutomationProperties.Name="{ctl:T 'Search the games'}" ctl:Debounce.Text="{Binding Search}" />
                                     <Border Style="{StaticResource SegmentHost}" Margin="0,0,10,0">
@@ -190,7 +199,7 @@
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
-                            </DockPanel>
+                            </Grid>
 
                             <TextBlock Text="{ctl:T 'No games yet. A game shows here once a launcher lists it as installed or RigSight sees it played.'}"
                                        Style="{StaticResource Muted}" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}" />

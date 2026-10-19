@@ -19,6 +19,22 @@ public partial class GamesView : UserControl
         };
     }
 
+    /// <summary>
+    /// The library's search and buttons beside its title where they fit, else on a line of their own under it (at the
+    /// window's narrowest they ran over the title and the search box was cut).
+    /// </summary>
+    private void LibraryHead_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        LibraryTitle.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        LibraryTools.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        bool below = LibraryTitle.DesiredSize.Width + 20 + LibraryTools.DesiredSize.Width > LibraryHead.ActualWidth;
+        Grid.SetRow(LibraryTools, below ? 1 : 0);
+        Grid.SetColumn(LibraryTools, below ? 0 : 1);
+        Grid.SetColumnSpan(LibraryTools, below ? 2 : 1);
+        LibraryTools.HorizontalAlignment = below ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        LibraryTools.Margin = below ? new Thickness(0, 14, 0, 0) : new Thickness(20, 0, 0, 0);
+    }
+
     private double _libraryOffset;
     private bool _wasGame;
 

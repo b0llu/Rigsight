@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 
 namespace Rigsight.Tests.Core;
 
@@ -38,6 +38,10 @@ public sealed class UnitsTests : IDisposable
     [InlineData(SensorKind.Fan, 0, "0 RPM")]
     [InlineData(SensorKind.Flow, 120, "120.0 L/h")]
     [InlineData(SensorKind.Data, 12.34, "12.3 GB")]
+    [InlineData(SensorKind.Data, 999.9, "999.9 GB")]
+    [InlineData(SensorKind.Data, 1000.2, "1.0 TB")]
+    [InlineData(SensorKind.Data, 97771, "97.8 TB")]
+    [InlineData(SensorKind.Data, 125921, "125.9 TB")]
     [InlineData(SensorKind.SmallData, 512, "512 MB")]
     [InlineData(SensorKind.Throughput, 0, "0 B/s")]
     [InlineData(SensorKind.Throughput, 1536, "2 KB/s")]

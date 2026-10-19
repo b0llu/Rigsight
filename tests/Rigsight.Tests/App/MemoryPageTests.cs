@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using Rigsight.Core.Data;
@@ -289,10 +289,13 @@ public sealed class MemoryPageTests
         Ui.Run(() =>
         {
             Assert.False(vm.HasNotes);
-            // Nothing stands out: no row at all.
+            // Nothing stands out: one card, the app holding the most now, saying no app is above its usual.
             vm.Apply(Past(p => p.Usual["discord.exe"] = 1000), Now);
-            Assert.False(vm.HasNotes);
-            Assert.Empty(vm.Notes);
+            Assert.True(vm.HasNotes);
+            var calm = Assert.Single(vm.Notes);
+            Assert.Equal("HOLDING THE MOST", calm.Caption);
+            Assert.False(calm.IsWarm);
+            Assert.EndsWith("No app is holding more than its usual right now.", calm.Text);
 
             live.RamLoad!.SetTodayRange(31, 86);
             var fullest = (DateTime.Today.AddHours(14).AddMinutes(10), 13.8);

@@ -9,6 +9,12 @@
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         UseLayoutRounding="True"
         FontFamily="Segoe UI Variable Text, Segoe UI">
+    <!-- The window draws its own title bar: Windows' own one was made shorter when maximized, squeezing its buttons
+         (see TitleBar below and MainWindow.TitleBar.cs). The frame, shadow, rounded corners and resizing stay Windows'. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" GlassFrameThickness="-1" UseAeroCaptionButtons="False" CornerRadius="0"
+                      ResizeBorderThickness="{x:Static SystemParameters.WindowResizeBorderThickness}" />
+    </WindowChrome.WindowChrome>
     <Window.Resources>
         <!-- What's new (see the layer at the end of the window). -->
         <DataTemplate x:Key="WhatsNewCard">
@@ -349,7 +355,69 @@
                 </StackPanel>
             </ctl:SmoothBorder>
         </DataTemplate>
+        <!-- A title bar button: Windows 11's size and glyphs; close turns red under the pointer. Hover and press come
+             from Tag for maximize, whose pointer Windows keeps (it is a maximize button to Windows, for snap layouts). -->
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <TextBlock x:Name="Glyph" Text="{TemplateBinding Content}" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                       Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                            <Trigger Property="Tag" Value="hover"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" /></Trigger>
+                            <Trigger Property="Tag" Value="pressed"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <TextBlock x:Name="Glyph" Text="{TemplateBinding Content}" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                       Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C42B1C" />
+                                <Setter TargetName="Glyph" Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C83C30" />
+                                <Setter TargetName="Glyph" Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
+    <!-- Maximized, Windows puts the window's edge a frame's width beyond the screen: Frame's padding takes it back. -->
+    <Border x:Name="Frame">
+    <DockPanel>
+    <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="32" Background="{DynamicResource BgBrush}">
+        <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+            <Image Source="Assets/Rigsight.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock x:Name="TitleText" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="12" Margin="10,0,0,0"
+                       VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" AutomationProperties.Name="Minimize" />
+            <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" AutomationProperties.Name="Maximize" />
+            <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="Close" />
+        </StackPanel>
+    </Grid>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="232" />
@@ -908,4 +976,6 @@
             </StackPanel>
         </Grid>
     </Grid>
+    </DockPanel>
+    </Border>
 </Window>
