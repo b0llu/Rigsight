@@ -427,8 +427,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             foreach (var app in p.Because)
             {
                 int i = byApp.FindIndex(x => x.App == app);
-                if (i < 0) byApp.Add((app, [p.Part.ToLowerInvariant()]));
-                else byApp[i].Parts.Add(p.Part.ToLowerInvariant());
+                // The part's name is saved in English (HardwareApps.PartName); said in the language in use.
+                string part = SavedText.Show(p.Part).ToLowerInvariant();
+                if (i < 0) byApp.Add((app, [part]));
+                else byApp[i].Parts.Add(part);
             }
         string list = string.Join(", ", byApp.Select(x => $"{Core.Wording.JoinAnd(x.Parts)} ({x.App})"));
         return Lang.T($"Not read right now: {list}.");
@@ -710,9 +712,9 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         {
             var h = H;
             if (h.Checking) return Lang.T("Checking every page of the file…");
-            if (h.Outcome == "waiting") return h.WaitingReason ?? Lang.T("A repair is waiting.");
+            if (h.Outcome == "waiting") return h.WaitingReason is { } why ? SavedText.Show(why) : Lang.T("A repair is waiting.");
             if (h.Damaged) return Lang.T("Some older readings can't be read. New readings save as usual.");
-            return h.CheckedAt is { } at ? Lang.T($"Healthy · checked {at:ddd d MMM, h:mm tt}, {h.CheckedWhy ?? Lang.T("when you asked")}") : Lang.T("Healthy");
+            return h.CheckedAt is { } at ? Lang.T($"Healthy · checked {at:ddd d MMM, h:mm tt}, {(h.CheckedWhy is { } checkedWhy ? SavedText.Show(checkedWhy) : Lang.T("when you asked"))}") : Lang.T("Healthy");
         }
     }
 
@@ -721,7 +723,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         "lists" => Lang.T($"Lookup lists rebuilt {at:ddd d MMM}. Nothing was lost."),
         "whole" => Lang.T($"Repaired {at:ddd d MMM}. Nothing was lost."),
-        "repaired" or "nothing" => Lang.T($"Repaired {at:ddd d MMM}. {H.Summary}"),
+        "repaired" or "nothing" => Lang.T($"Repaired {at:ddd d MMM}. {SavedText.Show(H.Summary)}"),
         _ => null,
     };
 

@@ -44,6 +44,12 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
 {
     public long Id { get; init; }
 
+    /// <summary>
+    /// The title as shown, in the language in use. <see cref="Title"/> is the saved English, which checks and
+    /// comparisons read; this is only for what people see (see <see cref="SavedText"/>).
+    /// </summary>
+    public string Shown => SavedText.Show(Title);
+
     /// <summary>What changed, the same from one change of it to the next (a driver's package, an app's name).</summary>
     public string Subject { get; init; } = "";
 
@@ -168,7 +174,7 @@ public static partial class ChangeLogReader
                 {
                     // NVIDIA's installer logs its audio and helper parts, not the display driver itself: one entry per install.
                     if (list.Any(c => c.Kind == ChangeKind.Driver && c.Title.StartsWith("NVIDIA graphics") && Math.Abs((c.Time - (r.TimeCreated ?? from)).TotalHours) < 2)) continue;
-                    title = "NVIDIA graphics driver installed";
+                    title = Lang.Key("NVIDIA graphics driver installed"); // saved in English, shown through SavedText
                     (subject, now) = ("nvidia-graphics", null);
                 }
                 else if (inf.Equals("pawnio", StringComparison.OrdinalIgnoreCase))
@@ -211,9 +217,9 @@ public static partial class ChangeLogReader
         var kb = Kb().Match(title);
         // .NET first: its updates are called "Cumulative Update for .NET Framework…" and ".NET 8.0.20 Security Update…".
         if (title.Contains(".NET", StringComparison.OrdinalIgnoreCase))
-            return kb.Success ? $".NET update {kb.Value}" : ".NET update";
+            return kb.Success ? $".NET update {kb.Value}" : Lang.Key(".NET update");
         if (title.Contains("Cumulative Update", StringComparison.OrdinalIgnoreCase) || title.Contains("Security Update", StringComparison.OrdinalIgnoreCase))
-            return kb.Success ? $"Windows update {kb.Value}" : "Windows update";
+            return kb.Success ? $"Windows update {kb.Value}" : Lang.Key("Windows update");
         // Drivers delivered by Windows Update: "NVIDIA - Display - 32.0.15.8097".
         // "LG Electronics Inc. Extension Driver Update (1.1.2026.6241)".
         var driver = DriverUpdate().Match(title);

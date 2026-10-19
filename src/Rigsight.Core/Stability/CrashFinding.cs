@@ -762,7 +762,7 @@ public static class CrashFindings
             .OrderByDescending(c => c.IsGraphicsDriver).ThenByDescending(c => c.Time).FirstOrDefault();
         if (change is null) return new("ok", Lang.T("Nothing new was installed"), Lang.T("No new driver or Windows update in the 7 days before."));
         // The change's title is kept as Windows' record gave it (see ChangeLogReader).
-        string name = change.Title.EndsWith(" installed", StringComparison.Ordinal) ? change.Title[..^" installed".Length] : change.Title;
+        string name = SavedText.ChangeName(change);
         int days = (int)(at.Date - change.Time.Date).TotalDays;
         long ts = TimeUtil.ToUnix(change.Earliest);
         int before = x.Earlier.Count(p => p.Ts < ts && p.Ts >= ts - 30L * 86400), since = x.Earlier.Count(p => p.Ts >= ts) + 1;

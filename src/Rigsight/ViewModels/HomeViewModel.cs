@@ -362,8 +362,10 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     {
         var list = changes.ToList();
         var pinned = results.Values.Where(r => r.Day >= today.AddDays(-PinDays) && list.Contains(r.Main)).MaxBy(r => r.Day);
-        var rest = ChangeLines(list.Where(c => c != pinned?.Main), pinned is null ? CardLines : CardLines - 1, c => DayWord(c.Time.Date, today))
-            .Select((line, i) => line with { Text = Brief(line.Text), Detail = null, When = line.Detail }).ToList();
+        // Shortened on the saved English, then shown in the language in use.
+        var rest = ChangeLines(list.Where(c => c != pinned?.Main), pinned is null ? CardLines : CardLines - 1, c => DayWord(c.Time.Date, today),
+                text: c => SavedText.Show(Brief(c.Title)))
+            .Select((line, i) => line with { Detail = null, When = line.Detail }).ToList();
         if (pinned is null) return rest;
         var top = ChangeLines([pinned.Main], 1, c => DayWord(c.Time.Date, today))[0] with
         {
@@ -378,7 +380,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         title.IndexOf(" updated to ", StringComparison.Ordinal) is > 0 and var at ? title[..(at + " updated".Length)] : title;
 
     /// <summary>A big change by a short name, before what it did: "Driver 618.10", else its title.</summary>
-    internal static string ChangeName(SystemChange c) => c.IsGraphicsDriver && c.Now is { Length: > 0 } version ? Lang.T($"Driver {version}") : Brief(c.Title);
+    internal static string ChangeName(SystemChange c) => c.IsGraphicsDriver && c.Now is { Length: > 0 } version ? Lang.T($"Driver {version}") : SavedText.Show(Brief(c.Title));
 
     /// <summary>Opens a change's before and after on the Timeline.</summary>
     public Action<DateTime>? OpenChange { get; set; }
@@ -422,7 +424,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     }
 
     /// <summary>The latest <paramref name="count"/> changes, newest first, each with its icon, its colour and what <paramref name="detail"/> says under it.</summary>
-    internal static List<HomeLine> ChangeLines(IEnumerable<SystemChange> changes, int count, Func<SystemChange, string> detail) =>
+    internal static List<HomeLine> ChangeLines(IEnumerable<SystemChange> changes, int count, Func<SystemChange, string> detail, Func<SystemChange, string>? text = null) =>
         [.. changes.OrderByDescending(c => c.Time).Take(count).Select(c =>
         {
             var (icon, brush) = c.Kind switch
@@ -437,7 +439,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
                 ChangeKind.Storage => ("\uEDA2", "PurpleBrush"),
                 _ => ("\uE713", "MutedBrush"),
             };
-            return new HomeLine(icon, brush, c.Title, detail(c));
+            return new HomeLine(icon, brush, text?.Invoke(c) ?? c.Shown, detail(c));
         })];
 
     /// <summary>"Today", "Yesterday", the day's name within a week, else its date.</summary>

@@ -98,7 +98,7 @@ public sealed class CrashRow
         Event.Facts?.Driver is { } driver ? Lang.T($"driver {driver}") : null,
         Event.Facts?.ReportType is { } type ? Lang.T($"report {type}") : null,
         Event.Code is null ? null : Lang.T($"code {Event.Code}"),
-        Event.Detail,
+        SavedText.Show(Event.Detail),
         WindowsTimeNote,
         DumpPath is null ? null : Lang.T($"dump {DumpPath}"),
     }.Where(s => !string.IsNullOrEmpty(s)));

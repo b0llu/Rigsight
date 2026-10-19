@@ -375,7 +375,7 @@ public static class ChangeEffects
 
             checks.Add(of.Count == 1
                 ? new(true, Lang.T("Nothing else big changed in these days"), BoundsText())
-                : new(false, Lang.T("Two big changes on one day"), Lang.T($"{And(of.Select(c => c.Title))} came in on the same day, so they can't be told apart.")));
+                : new(false, Lang.T("Two big changes on one day"), Lang.T($"{And(of.Select(c => c.Shown))} came in on the same day, so they can't be told apart.")));
 
             string dB = Days(_daysBefore), dA = Days(_daysAfter);
             string why = (open ? Lang.T($"{dB} before, {dA} since") : Lang.T($"{dB} before, {dA} after"))

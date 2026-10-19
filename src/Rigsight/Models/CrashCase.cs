@@ -90,7 +90,7 @@ public sealed partial class CrashCase : ObservableObject
     private ChangePointLine? _changePoint;
 
     /// <summary>The points as shown: the crash's own line about a change gives way to that change's point, which says it once.</summary>
-    public List<CaseEvidence> ShownPoints => ChangePoint is { Change.Length: > 0 } c ? [.. Points.Where(p => !p.Title.StartsWith(c.Change, StringComparison.Ordinal))] : Points;
+    public List<CaseEvidence> ShownPoints => ChangePoint is { Change.Length: > 0 } c ? [.. Points.Where(p => !p.Title.Contains(c.Change, StringComparison.Ordinal))] : Points;
 
     /// <summary>The 45 minutes before and the 10 after, a reading a minute (see <see cref="Controls.CaseLanes"/>).</summary>
     public required CaseView Wide { get; init; }

@@ -21,13 +21,13 @@ public sealed record HistoryCard(string Kind, string Title, string Text)
     {
         if (h is null || h.Dismissed && h.Outcome != "waiting") return null;
         if (h.Outcome == "waiting")
-            return new("waiting", Lang.T("History repair is waiting"), h.WaitingReason ?? Lang.T("It tries again by itself every 10 minutes."));
+            return new("waiting", Lang.T("History repair is waiting"), h.WaitingReason is { } why ? SavedText.Show(why) : Lang.T("It tries again by itself every 10 minutes."));
         if (h.Damaged)
             return new("damaged", Lang.T("Part of your history can't be read"), Lang.T("Some older readings can't be read. New readings save as usual."));
         return h.Outcome switch
         {
-            "repaired" => new("repaired", Lang.T("History repaired"), h.Summary ?? Lang.T("The damaged file is kept.")),
-            "nothing" => new("nothing", Lang.T("Your history couldn't be saved"), h.Summary ?? Lang.T("RigSight started a new history today. The old file is kept.")),
+            "repaired" => new("repaired", Lang.T("History repaired"), h.Summary is { } kept ? SavedText.Show(kept) : Lang.T("The damaged file is kept.")),
+            "nothing" => new("nothing", Lang.T("Your history couldn't be saved"), h.Summary is { } lost ? SavedText.Show(lost) : Lang.T("RigSight started a new history today. The old file is kept.")),
             _ => null,
         };
     }

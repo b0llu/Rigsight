@@ -497,12 +497,13 @@ public static partial class Inventory
         {
             if (on is bool value) list.Add(new(Setting, key, name, value ? On : Off));
         }
-        Add("fast-startup", "Fast Startup", Number(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\Session Manager\Power", "HiberbootEnabled") is int f ? f != 0 : null);
-        Add("gpu-scheduling", "Hardware-accelerated GPU scheduling",
+        // The names are saved in English and said in the language in use where shown (SavedText).
+        Add("fast-startup", Lang.Key("Fast Startup"), Number(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\Session Manager\Power", "HiberbootEnabled") is int f ? f != 0 : null);
+        Add("gpu-scheduling", Lang.Key("Hardware-accelerated GPU scheduling"),
             Number(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\GraphicsDrivers", "HwSchMode") is int h ? h == 2 : null);
         // Both are on (Game Mode) or off (memory integrity) until Windows writes the value.
-        Add("game-mode", "Game Mode", (Number(Registry.CurrentUser, @"Software\Microsoft\GameBar", "AutoGameModeEnabled") ?? 1) != 0);
-        Add("memory-integrity", "Memory integrity",
+        Add("game-mode", Lang.Key("Game Mode"),(Number(Registry.CurrentUser, @"Software\Microsoft\GameBar", "AutoGameModeEnabled") ?? 1) != 0);
+        Add("memory-integrity", Lang.Key("Memory integrity"),
             (Number(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled") ?? 0) != 0);
 
         // The power plan in use: other programs switch it (a game booster, a maker's tool, a driver install), and nothing says so.
@@ -525,10 +526,10 @@ public static partial class Inventory
         if (name.Length > 0) return name;
         return id.ToLowerInvariant() switch
         {
-            "381b4222-f694-41f0-9685-ff5bb260df2e" => "Balanced",
-            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => "High performance",
-            "a1841308-3541-4fab-bc81-f71556f20b4a" => "Power saver",
-            "e9a42b02-d5df-448d-aa00-03f14749eb61" => "Ultimate Performance",
+            "381b4222-f694-41f0-9685-ff5bb260df2e" => Lang.Key("Balanced"),
+            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => Lang.Key("High performance"),
+            "a1841308-3541-4fab-bc81-f71556f20b4a" => Lang.Key("Power saver"),
+            "e9a42b02-d5df-448d-aa00-03f14749eb61" => Lang.Key("Ultimate Performance"),
             _ => null,
         };
     }
