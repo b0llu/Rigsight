@@ -1319,7 +1319,11 @@ internal sealed class AppUi(Process app)
 
     public void Press(string name)
     {
-        AutomationElement? Find(string n) => ByName(n);
+        // The first by that name that can be pressed: in another language a label can share a button's words ("Ajustes").
+        AutomationElement? Find(string n) => Pressable(Say(n)) ?? (Lang.Translating ? Pressable(n) : null);
+        AutomationElement? Pressable(string n) => Root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, n))
+            .Cast<AutomationElement>().FirstOrDefault(x => x.TryGetCurrentPattern(SelectionItemPattern.Pattern, out _)
+                || x.TryGetCurrentPattern(InvokePattern.Pattern, out _) || x.TryGetCurrentPattern(TogglePattern.Pattern, out _));
         var e = Find(name);
         // Settings is a line of the menu its row at the foot of the sidebar opens: open that first. Asked again for a
         // few seconds, the row included: while the window is busy (a page just switched, the menu being built as a

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 
 namespace Rigsight.Services;
@@ -109,6 +109,14 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        // This one is about another language, so it's said in it too (older entries stay as they were written).
+        V("0.30.0", 10, 19,
+            feature: new(Lang.T("RigSight in Spanish"), Lang.T("RigSight can now run fully in Spanish, downloaded only if you pick it."),
+                [Lang.T("Pick Español in Settings, General, Language: RigSight downloads it and opens again in Spanish."),
+                    Lang.T("Every page, notification, widget and the overlay are in Spanish, and so is your history from before the switch."),
+                    Lang.T("Each update brings the newest Spanish with it, so you never download it again by hand.")],
+                "settings", "\uE774") { OpenText = Lang.T("Open Settings") },
+            added: [Lang.T("In Spanish, dates read the Spanish way and spreadsheet exports come out in Spanish, headings and all.")]),
         V("0.29.1", 10, 19,
             added: ["Search the Games library by a game's name or its launcher, right above the covers."],
             better: ["With only one play recorded, How it runs on the Games page charts that play minute by minute instead of staying empty.",
