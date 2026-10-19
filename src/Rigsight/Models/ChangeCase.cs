@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Rigsight.Core;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Stability;
@@ -12,7 +12,11 @@ public sealed record ChangeCheckLine(string Icon, string Brush, string Title, st
 public sealed record ChangeProblemLine(DateTime Time, string When, string Title, string Side);
 
 /// <summary>One graphics driver this PC had, and what it did where that's known: "617.42 · 7 Oct to now · Hotter".</summary>
-public sealed record DriverLine(string Version, string Dates, string? Result, string Brush, DateTime Day, bool IsThis, bool CanOpen);
+public sealed record DriverLine(string Version, string Dates, string? Result, string Brush, DateTime Day, bool IsThis, bool CanOpen)
+{
+    /// <summary>The version, marked when it's the one this page is about: "618.10  (this one)".</summary>
+    public string VersionThis => Lang.T($"{Version}  (this one)");
+}
 
 /// <summary>
 /// A change opened from its result (the Timeline, Home, Reports, Crashes): what it made better or worse, every reading

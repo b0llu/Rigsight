@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
@@ -25,7 +25,15 @@ public sealed partial class DriveSummary : ObservableObject
                 OnPropertyChanged(nameof(HealthBrush));
                 OnPropertyChanged(nameof(HealthReason));
             };
+        if (usedSpace is not null)
+            usedSpace.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(SensorItem.ShortValue) or "" or null) OnPropertyChanged(nameof(FullText));
+            };
     }
+
+    /// <summary>How full, for a dashboard's drive list: "73% full" (nothing for a drive without the reading).</summary>
+    public string FullText => UsedSpace is null ? "" : Lang.T($"{UsedSpace.ShortValue} full");
 
     public string Name { get; }
     public SensorItem? Temperature { get; }

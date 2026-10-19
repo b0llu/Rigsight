@@ -619,7 +619,7 @@ public sealed partial class GamesViewModel : ObservableObject
         double top = Math.Max(st.WeekSec.DefaultIfEmpty(0).Max(), 1);
         string[] names = [Lang.T("3 wks ago"), Lang.T("2 wks ago"), Lang.T("Last week"), Lang.T("This week")];
         Weeks = st.WeekSec.Select((s, i) => new WeekBar(names[i], s >= 60 ? Units.Duration(s) : "", Math.Max(2, s / top * 62), i == 3)).ToList();
-        PlayedMostOn = st.PlayedMostOn is { } d ? Lang.T($"{d}s") : "—";
+        PlayedMostOn = st.PlayedMostOn is { } d ? OnDays(d) : "—";
 
         // Every play, newest first, with the changes between them.
         var rows = new List<PlayRow>();
@@ -700,6 +700,18 @@ public sealed partial class GamesViewModel : ObservableObject
     private static string None => Lang.T("None");
 
     private static string NotPlayedYet => Lang.T("Not played yet");
+
+    /// <summary>A weekday as a habit, whole for each day ("Saturdays"): another language says it its own way ("los sábados").</summary>
+    private static string OnDays(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => Lang.T("Mondays"),
+        DayOfWeek.Tuesday => Lang.T("Tuesdays"),
+        DayOfWeek.Wednesday => Lang.T("Wednesdays"),
+        DayOfWeek.Thursday => Lang.T("Thursdays"),
+        DayOfWeek.Friday => Lang.T("Fridays"),
+        DayOfWeek.Saturday => Lang.T("Saturdays"),
+        _ => Lang.T("Sundays"),
+    };
 
     private static string LastPlayed(DateTime d)
     {

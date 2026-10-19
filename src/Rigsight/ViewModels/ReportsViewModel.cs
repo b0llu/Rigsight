@@ -53,7 +53,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     /// <summary>Under the time in use: how it compares ("4h 38m more than your usual day of 8h 47m"), or how long the PC was on.</summary>
     public string ActiveLine => Report is not { } r ? ""
-        : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? Bare(compare.Text)
+        // In another language the sentence's own opening can't be cut off by its English words: its one statement is used.
+        : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? (Lang.Translating && compare.Short is { } s ? s : Bare(compare.Text))
         : PcOnFor(Units.Duration(r.OnSec));
 
     private static string PcOnFor(string time) => Lang.T($"PC on for {time}");

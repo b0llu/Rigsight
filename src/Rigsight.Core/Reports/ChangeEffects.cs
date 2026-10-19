@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Stability;
 
 namespace Rigsight.Core.Reports;
@@ -350,7 +350,15 @@ public static class ChangeEffects
                         : since.Count == 0 ? Lang.T($"none, against {wordsBefore} in the {daysBefore} before") : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before");
                     string lower = what.ToLowerInvariant(), since0 = Since;
                     bool more = tone == EffectTone.Worse;
-                    findings.Add(new(tone, sure, more ? Lang.T($"More {lower} {since0} {thisOne}: {counts}") : Lang.T($"Fewer {lower} {since0} {thisOne}: {counts}"),
+                    // Whole for each case: "since this driver" and "in the 5 days after this driver" join the change differently elsewhere.
+                    string said = (more, open) switch
+                    {
+                        (true, true) => Lang.T($"More {lower} since {thisOne}: {counts}"),
+                        (true, false) => Lang.T($"More {lower} in the {_daysAfter} days after {thisOne}: {counts}"),
+                        (false, true) => Lang.T($"Fewer {lower} since {thisOne}: {counts}"),
+                        (false, false) => Lang.T($"Fewer {lower} in the {_daysAfter} days after {thisOne}: {counts}"),
+                    };
+                    findings.Add(new(tone, sure, said,
                         Lang.T("Counted against the hours the PC was used on each side."), more ? Lang.T($"More {lower} {since0}") : Lang.T($"Fewer {lower} {since0}"), false, false)
                         { Plain = more ? Lang.T($"more {lower}: {counts}") : Lang.T($"fewer {lower}: {counts}") });
                     problemCheck = new(sure == Confidence.Likely, sure == Confidence.Likely ? Lang.T("Enough problems to go on") : Lang.T("A small count"),
@@ -443,7 +451,8 @@ public static class ChangeEffects
                 (false, _, false) => Lang.T($"{who} ran {by} cooler on the {part}"),
             };
             string since = Since;
-            return (row, new(tone, sure, Lang.T($"{plain} {since} {thisOne}"), context,
+            string headline = open ? Lang.T($"{plain} since {thisOne}") : Lang.T($"{plain} in the {_daysAfter} days after {thisOne}");
+            return (row, new(tone, sure, headline, context,
                 hotter ? Lang.T($"{by} hotter {where} {since}") : Lang.T($"{by} cooler {where} {since}"), true, diff > 0 && now >= warm) { Plain = plain });
         }
 
