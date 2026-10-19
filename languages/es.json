@@ -3469,8 +3469,7 @@
     "Notification while RigSight is closed": "Notificación si RigSight está cerrado",
     "Never show in a rewind": "No mostrar nunca en un Rewind",
     "Search your games and apps…": "Buscar en tus juegos y apps…",
-    "Search games and apps…": "Buscar juegos y apps…",
-    "Search games and apps": "Buscar juegos y apps",
+    "Search your games and apps": "Buscar en tus juegos y apps",
     "MOST USED THIS MONTH": "LOS MÁS USADOS ESTE MES",
     "Leave out": "Excluir",
     "Left out": "Excluido",
@@ -3666,6 +3665,8 @@
     "Reddit opened. The pictures are copied: paste them into the post.": "Reddit se abrió. Las imágenes están copiadas: pégalas en la publicación.",
     "1 picture saved to Pictures › RigSight Rewind › {0}": "1 imagen guardada en Imágenes › RigSight Rewind › {0}",
     "{0} pictures saved to Pictures › RigSight Rewind › {1}": "{0} imágenes guardadas en Imágenes › RigSight Rewind › {1}",
-    "The pictures couldn't be saved.": "No se pudieron guardar las imágenes."
+    "The pictures couldn't be saved.": "No se pudieron guardar las imágenes.",
+    "Search games and apps…": "Buscar juegos y apps…",
+    "Search games and apps": "Buscar juegos y apps"
   }
 }

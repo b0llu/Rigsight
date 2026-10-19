@@ -455,10 +455,10 @@ public sealed partial class RewindViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task TogglePicker()
+    private async Task OpenPicker()
     {
-        IsPicking = !IsPicking;
-        if (IsPicking && _used.Count == 0) await LoadUsedAsync();
+        IsPicking = true;
+        if (_used.Count == 0) await LoadUsedAsync();
     }
 
     [RelayCommand]

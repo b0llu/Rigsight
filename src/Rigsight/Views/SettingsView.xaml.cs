@@ -249,4 +249,15 @@ public partial class SettingsView : UserControl
         }
         return null;
     }
+
+    /// <summary>Settings → Rewind's "Never show": the list opens as the search box is clicked or gets the keyboard.</summary>
+    private void LeaveSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
+        (DataContext as ViewModels.SettingsViewModel)?.Rewind?.OpenPickerCommand.Execute(null);
+
+    private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (DataContext is not ViewModels.SettingsViewModel { Rewind: { } rewind }) return;
+        if (e.Key == System.Windows.Input.Key.Escape) { rewind.IsPicking = false; e.Handled = true; }
+        else rewind.OpenPickerCommand.Execute(null);
+    }
 }

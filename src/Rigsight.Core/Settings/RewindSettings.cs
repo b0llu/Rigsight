@@ -1,4 +1,4 @@
-namespace Rigsight.Core.Settings;
+﻿namespace Rigsight.Core.Settings;
 
 /// <summary>
 /// Rewind: a look back at a month, three months, six months or a year, as cards to watch in the app and share as
@@ -11,13 +11,13 @@ public sealed class RewindSettings
     public bool Half { get; set; } = true;
     public bool Year { get; set; } = true;
 
-    // What goes in (the user's defaults, 2026-10-19): time, games and internet on; heat, changes and problems off.
+    // What goes in: everything on by default (the user's word, 2026-10-19, after first trying heat, changes and problems off).
     public bool Time { get; set; } = true;
     public bool Games { get; set; } = true;
     public bool Internet { get; set; } = true;
-    public bool Heat { get; set; }
-    public bool Changes { get; set; }
-    public bool Problems { get; set; }
+    public bool Heat { get; set; } = true;
+    public bool Changes { get; set; } = true;
+    public bool Problems { get; set; } = true;
 
     /// <summary>Games and apps (exe names) never shown in a rewind; their time still counts in the totals.</summary>
     public List<string> LeftOut { get; set; } = [];

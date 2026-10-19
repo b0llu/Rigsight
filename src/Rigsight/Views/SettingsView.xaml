@@ -1168,30 +1168,15 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12">
                 <StackPanel>
                     <Grid>
-                        <ToggleButton x:Name="LeavePickerButton" Command="{Binding TogglePickerCommand}" IsChecked="{Binding IsPicking, Mode=OneWay}" Cursor="Hand"
-                                      HorizontalContentAlignment="Stretch" AutomationProperties.Name="Search your games and apps">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="Bd" CornerRadius="6" Padding="12,8" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FaintBrush}" /></Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" />
-                                <TextBlock Text="{ctl:T 'Search your games and apps…'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
-                            </StackPanel>
-                        </ToggleButton>
-                        <!-- Floats over what is under it: nothing moves when it opens. -->
-                        <Popup IsOpen="{Binding IsPicking}" PlacementTarget="{Binding ElementName=LeavePickerButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
-                               Width="{Binding ActualWidth, ElementName=LeavePickerButton}" VerticalOffset="6">
+                        <!-- The box is the search: clicked or typed in, the list opens under it and narrows as you type. -->
+                        <TextBox x:Name="LeaveSearchBox" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search your games and apps…'}"
+                                 AutomationProperties.Name="{ctl:T 'Search your games and apps'}" ctl:Debounce.Text="{Binding LeaveSearch}"
+                                 GotKeyboardFocus="LeaveSearch_Open" PreviewMouseLeftButtonDown="LeaveSearch_Open" PreviewKeyDown="LeaveSearch_Key" />
+                        <!-- Floats over what is under it: nothing moves when it opens. Clicking the box itself doesn't close it. -->
+                        <Popup x:Name="LeavePopup" IsOpen="{Binding IsPicking}" PlacementTarget="{Binding ElementName=LeaveSearchBox}" Placement="Bottom" StaysOpen="False"
+                               AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=LeaveSearchBox}" MinWidth="420" VerticalOffset="6">
                             <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="4">
                                 <DockPanel>
-                                    <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search games and apps…'}" Margin="4,4,4,6"
-                                             AutomationProperties.Name="{ctl:T 'Search games and apps'}" ctl:Debounce.Text="{Binding LeaveSearch}" />
                                     <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'MOST USED THIS MONTH'}" Style="{StaticResource Caption}" Margin="8,4,8,4" />
                                     <ScrollViewer MaxHeight="236" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding LeaveOptions}">
