@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using Rigsight.Core;
 
 namespace Rigsight.Core.Settings;
 
@@ -12,6 +13,9 @@ public sealed class RigsightSettings
     public int SettingsVersion { get; set; }
 
     public bool UseFahrenheit { get; set; }
+
+    /// <summary>The language the app and the agent show: "en" (built in) or a downloaded pack's code ("es").</summary>
+    public string Language { get; set; } = LanguagePack.English;
 
     /// <summary>The app's colors: "dark", "grey", "midnight", "forest", "ember", "light" or "system" (follow Windows).</summary>
     public string Theme { get; set; } = "dark";

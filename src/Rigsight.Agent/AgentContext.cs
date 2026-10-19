@@ -144,6 +144,7 @@ internal sealed class AgentContext : ApplicationContext
         _settings = SettingsStore.Load();
         ForgetRiggySetting();
         Units.Fahrenheit = _settings.UseFahrenheit;
+        LanguageStore.Apply(_settings.Language);
         DarkMenuRenderer.Theme = _settings.Theme;
         // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
         // step aside for it from the very first scan (that first scan is when two programs colliding does the most harm).
@@ -1962,6 +1963,8 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         Units.Fahrenheit = updated.UseFahrenheit;
+        // Another language picked (its pack downloaded by the app first): notifications, the tray and widgets switch now.
+        if (updated.Language != Lang.Code) LanguageStore.Apply(updated.Language);
         DarkMenuRenderer.Theme = updated.Theme;
         RunOnSampler(() => _tracker.SetSettings(updated));
         // A reading added to or removed from the taskbar, or another way of showing them: there now, not at the next read.

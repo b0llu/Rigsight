@@ -36,6 +36,10 @@ public static partial class Program
         }
         Environment.SetEnvironmentVariable(Gen0Variable, null);
 
+        // The language first: every page reads its text once as it's built, and picking another language starts the
+        // app again (see LanguageStore).
+        Core.LanguageStore.Apply(Core.Settings.SettingsStore.Load().Language);
+
         var app = new App();
         app.InitializeComponent();
         return app.Run();
