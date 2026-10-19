@@ -365,7 +365,11 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         var r = results.Values.Where(r => r.Tone == Core.Reports.EffectTone.Worse && e.Time >= r.Main.Earliest && e.Time < r.To).MaxBy(r => r.Day);
         if (r is null) return null;
-        bool graphics = e.Kind is CrashKind.GpuDriverReset or CrashKind.SystemCrash || finding.Head.Contains("driver", StringComparison.OrdinalIgnoreCase);
+        // Graphics: by the kind, the finding's cause (kept in English) or the file it crashed in, never by the headline's
+        // words, which are in the person's language.
+        bool graphics = e.Kind is CrashKind.GpuDriverReset or CrashKind.SystemCrash
+                        || finding.Cause is "THE DRIVER INSTALL" or "THE GRAPHICS DRIVER"
+                        || CrashExplainer.Module(e.Module)?.Culprit is { } culprit && culprit.Contains("driver", StringComparison.OrdinalIgnoreCase);
         if (r.Changes.All(c => c.IsGraphicsDriver) && !graphics) return null;
         int days = (e.Time.Date - r.Day).Days;
         string change = r.Main.Title, chip = Core.Wording.Running(r.Chip);

@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -36,6 +36,12 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
 
     /// <summary>The game a line is about (its name as shown), which the line opens on the Games page.</summary>
     public string? Game { get; init; }
+
+    /// <summary>The fan a fan line is about (its name as the sensor gives it), so a page finds its line without reading the words.</summary>
+    public string? FanName { get; init; }
+
+    /// <summary>Whether that fan is the GPU's.</summary>
+    public bool FanGpu { get; init; }
 }
 
 /// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>

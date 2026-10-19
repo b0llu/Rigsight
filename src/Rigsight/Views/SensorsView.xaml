@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.SensorsView"
+﻿<UserControl x:Class="Rigsight.Views.SensorsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -181,7 +181,7 @@
                                         </ItemsControl>
                                         <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
                                         <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
-                                            <TextBlock Text="{Binding Badge}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
+                                            <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                         </Border>
                                         <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" Margin="12,0,0,3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
                                     </DockPanel>

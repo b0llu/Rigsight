@@ -19,15 +19,15 @@ public static class Accents
 
     public static readonly IReadOnlyList<Accent> All =
     [
-        new(Mono, Lang.T("The theme's own"), Colors.White, Colors.Black),
-        new("blue", Lang.T("Blue"), Hex("#60A5FA"), Hex("#2563EB")),
-        new("teal", Lang.T("Teal"), Hex("#2DD4BF"), Hex("#0D9488")),
-        new("green", Lang.T("Green"), Hex("#4ADE80"), Hex("#16A34A")),
-        new("purple", Lang.T("Purple"), Hex("#A78BFA"), Hex("#7C3AED")),
-        new("pink", Lang.T("Pink"), Hex("#F472B6"), Hex("#DB2777")),
-        new("red", Lang.T("Red"), Hex("#F87171"), Hex("#DC2626")),
-        new("orange", Lang.T("Orange"), Hex("#FB923C"), Hex("#EA580C")),
-        new("yellow", Lang.T("Yellow"), Hex("#FACC15"), Hex("#CA8A04")),
+        new(Mono, Lang.Key("The theme's own"), Colors.White, Colors.Black),
+        new("blue", Lang.Key("Blue"), Hex("#60A5FA"), Hex("#2563EB")),
+        new("teal", Lang.Key("Teal"), Hex("#2DD4BF"), Hex("#0D9488")),
+        new("green", Lang.Key("Green"), Hex("#4ADE80"), Hex("#16A34A")),
+        new("purple", Lang.Key("Purple"), Hex("#A78BFA"), Hex("#7C3AED")),
+        new("pink", Lang.Key("Pink"), Hex("#F472B6"), Hex("#DB2777")),
+        new("red", Lang.Key("Red"), Hex("#F87171"), Hex("#DC2626")),
+        new("orange", Lang.Key("Orange"), Hex("#FB923C"), Hex("#EA580C")),
+        new("yellow", Lang.Key("Yellow"), Hex("#FACC15"), Hex("#CA8A04")),
     ];
 
     public static string Normalize(string? key) =>

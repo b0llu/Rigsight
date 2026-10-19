@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
 
@@ -414,7 +414,7 @@ public sealed class PcUsual
         if (r?.Usual is not { } usual || r.Range is not (ReportRange.Week or ReportRange.Month or ReportRange.Custom)) return [];
         if (r.Range == ReportRange.Custom && r.To - r.From < TimeSpan.FromDays(7)) return [];
         // Only a warning about one of the fans in the row (the motherboard's): the GPU's fans aren't in it.
-        var fan = r.Insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older" && usual.Fans.Any(f => i.Line.StartsWith(f.Name + " ", StringComparison.Ordinal)));
+        var fan = r.Insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older" && i.FanName is { } name && !i.FanGpu && usual.Fans.Any(f => f.Name == name));
         return usual.Rows(fan);
     }
 

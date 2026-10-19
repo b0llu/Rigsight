@@ -739,7 +739,13 @@ public sealed partial class GamesViewModel : ObservableObject
             string drive = DriveOf(inst.InstallDir);
             if (drive.Length > 0) rows.Add(new(Lang.T("Drive"), Lang.T($"{drive} drive"))); // the game's drive, not how full it is
             rows.Add(new(Lang.T("Folder"), inst.InstallDir));
-            if (!string.IsNullOrEmpty(inst.Version)) rows.Add(new(Lang.T("Version"), inst.Launcher == Core.Games.Launcher.Steam && !inst.Version.StartsWith("build", StringComparison.OrdinalIgnoreCase) ? Lang.T($"Build {inst.Version}") : char.ToUpperInvariant(inst.Version[0]) + inst.Version[1..]));
+            if (!string.IsNullOrEmpty(inst.Version))
+            {
+                // Steam gives a build number ("build 1234" as the library keeps it): worded here, in the person's language.
+                string build = inst.Version.StartsWith("build ", StringComparison.OrdinalIgnoreCase) ? inst.Version[6..] : inst.Version;
+                rows.Add(new(Lang.T("Version"), inst.Launcher == Core.Games.Launcher.Steam || build.Length != inst.Version.Length
+                    ? Lang.T($"Build {build}") : char.ToUpperInvariant(inst.Version[0]) + inst.Version[1..]));
+            }
         }
         if ((st.LastUpdate ?? inst?.Updated) is { } updated) rows.Add(new(Lang.T("Last updated"), Day(updated)));
         if (e.ExePath is { } exe) rows.Add(new(Lang.T("Program"), Path.GetFileName(exe)));

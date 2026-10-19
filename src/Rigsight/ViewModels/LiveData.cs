@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
@@ -1290,7 +1290,7 @@ public sealed partial class LiveData : ObservableObject
             {
                 bool show = (ShowHidden || !s.IsHidden)
                             && MatchesType(s.Kind)
-                            && Core.TextMatch.Has(words, s.DisplayName, s.Name, node.Name, node.Badge);
+                            && Core.TextMatch.Has(words, s.DisplayName, s.Name, node.Name, node.Badge, node.BadgeText);
                 s.IsShown = show;
                 any |= show;
             }
