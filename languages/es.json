@@ -218,7 +218,6 @@
     "No change": "Sin cambios",
     "{0:0}% lower": "{0:0}% menos",
     "{0:0}% higher": "{0:0}% más",
-    "build {0}": "compilación {0}",
     "a game": "un juego",
     "these changes": "estos cambios",
     "ONE OF THESE": "UNO DE ESTOS",
@@ -1621,6 +1620,12 @@
     "warmest": "más caliente",
     "1 fan spinning": "1 ventilador girando",
     "{0} fans spinning": "{0} ventiladores girando",
+    "BOARD": "PLACA",
+    "DRIVE": "UNIDAD",
+    "COOLER": "REFRIGERACIÓN",
+    "BATTERY": "BATERÍA",
+    "NET": "RED",
+    "DEVICE": "DISPOSITIVO",
     "Not now": "Ahora no",
     "Dismiss": "Descartar",
     "History repair is waiting": "La reparación del historial está pendiente",
@@ -3106,6 +3111,7 @@
   "stale": {
     "More {0} {1} {2}: {3}": "Más {0} {1} {2}: {3}",
     "Fewer {0} {1} {2}: {3}": "Menos {0} {1} {2}: {3}",
-    "{0} {1} {2}": "{0} {1} {2}"
+    "{0} {1} {2}": "{0} {1} {2}",
+    "build {0}": "compilación {0}"
   }
 }
