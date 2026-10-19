@@ -22,8 +22,8 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
 
     /// <summary>"NVIDIA graphics driver 618.10 (10 Oct; since it, Crimson Desert runs 10° hotter on the GPU, likely the driver)".</summary>
     public string Changed => string.Join("; ", ChangesBefore.Select(ch => Results.TryGetValue(ch.Time.Date, out var r) && r.Main == ch
-        ? Lang.T($"{ch.Title} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})")
-        : $"{ch.Title} ({ch.Time:d MMM})"));
+        ? Lang.T($"{ch.Shown} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})")
+        : $"{ch.Shown} ({ch.Time:d MMM})"));
 
     /// <summary>What stood out in its close-up, a reading every two seconds, where one was kept (see <see cref="CloseUp"/>).</summary>
     public IReadOnlyList<string> InLastMinutes { get; init; } = [];

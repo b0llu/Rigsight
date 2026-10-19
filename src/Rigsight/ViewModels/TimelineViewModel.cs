@@ -313,7 +313,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var words = Core.TextMatch.Words(Search);
         if (words.Length > 0)
         {
-            changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now))];
+            // Found by the words as saved or as shown (searching in Spanish finds "actualizado").
+            changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now) || Core.TextMatch.Has(words, c.Shown))];
             problems = [.. problems.Where(p => Core.TextMatch.Has(words, p.Title))];
         }
 
@@ -484,7 +485,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             bool updates = key == "updated";
             var names = updates
                 ? of.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList()
-                : [.. of.Select(c => c.Title)];
+                : [.. of.Select(c => c.Shown)];
             int shown = updates ? 8 : 3;
             string list = string.Join(", ", names.Take(shown));
             int more = names.Count - shown;
@@ -492,7 +493,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = Lang.F(many, of.Count), IsKey = of[0].IsSystemLevel,
                 Detail = more > 0 ? Lang.T($"{list} and {more} more") : list,
-                Children = [.. of.Select(c => new TimelineEntry { Title = c.Title, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}") })],
+                Children = [.. of.Select(c => new TimelineEntry { Title = c.Shown, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}") })],
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, key)),
             });
         }
@@ -516,7 +517,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         TimeText = when ?? TimeOf(c),
         TimeTip = TipOf(c),
         Icon = IconOf(c.Kind),
-        Title = c.Title,
+        Title = c.Shown,
         // An app just installed has no "before": its version is the detail.
         Detail = c.Kind == ChangeKind.AppInstalled ? c.Now : c.Detail,
         GameKey = c.Kind == ChangeKind.GameUpdated && c.Subject is { } subject && subject.StartsWith(Inventory.Game + ":", StringComparison.Ordinal)
@@ -643,7 +644,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             }
             // Hovering a day says what's on it.
             var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
-                .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Title)).ToList();
+                .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Shown)).ToList();
             if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
             cell.Tip = string.Join("\n", lines);
         }

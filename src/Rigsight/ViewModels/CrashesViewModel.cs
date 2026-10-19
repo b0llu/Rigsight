@@ -353,7 +353,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         var results = await reports.ChangeResultsAsync();
         if (Case != opened || ChangePointOf(opened.Row.Event, opened.Finding, results) is not { } point) return;
         // The crash's own line about this change ("installed 2 days before") says it already: one line, with its result.
-        var own = opened.Points.FirstOrDefault(p => p.Title.StartsWith(point.Change, StringComparison.Ordinal));
+        // Contains, not StartsWith: another language may put the change's name anywhere in the line.
+        var own = opened.Points.FirstOrDefault(p => p.Title.Contains(point.Change, StringComparison.Ordinal));
         opened.ChangePoint = own is null ? point : point with { Title = own.Title, Detail = $"{own.Detail} {point.Detail}".Trim() };
     }
 
@@ -372,9 +373,10 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
                         || CrashExplainer.Module(e.Module)?.Culprit is { } culprit && culprit.Contains("driver", StringComparison.OrdinalIgnoreCase);
         if (r.Changes.All(c => c.IsGraphicsDriver) && !graphics) return null;
         int days = (e.Time.Date - r.Day).Days;
-        string change = r.Main.Title, chip = Core.Wording.Running(r.Chip);
+        string change = r.Main.Shown, chip = Core.Wording.Running(r.Chip);
         string title = days == 0 ? Lang.T($"The same day as {change}") : days == 1 ? Lang.T($"A day after {change}") : Lang.T($"{days} days after {change}");
-        return new(title, Lang.T($"Since it, {r.Plain}, {chip}. That alone doesn't prove this crash."), r.Day) { Change = r.Main.Title };
+        // As shown: the crash's own line about it holds the change as shown too (see CrashFinding, SavedText.ChangeName).
+        return new(title, Lang.T($"Since it, {r.Plain}, {chip}. That alone doesn't prove this crash."), r.Day) { Change = change };
     }
 
     /// <summary>The page an opened crash came from (Timeline, Reports, Home), to go back to; null when it was opened here.</summary>

@@ -77,7 +77,7 @@ public static class FanSettings
             { Was.Steady: true } => $"{f.Fan.Name} from a set {f.Was.Rpm:N0} rpm to following the temperature",
             _ => $"{f.Fan.Name} now set at {f.Now.Rpm:N0} rpm",
         }));
-        return new SystemChange(at, ChangeKind.Fans, "Fan speeds changed while the PC was off")
+        return new SystemChange(at, ChangeKind.Fans, Lang.Key("Fan speeds changed while the PC was off"))
         {
             Subject = subject,
             Was = string.Join(" · ", fans.Select(f => $"{f.Fan.Name} {f.Was.Rpm:N0}")),

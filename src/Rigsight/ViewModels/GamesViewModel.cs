@@ -566,7 +566,7 @@ public sealed partial class GamesViewModel : ObservableObject
             if (FpsByMinute || before < 0 || before >= withFps.Count - 1) continue;
             string driver = c.Change.Now ?? c.Change.Title.Split(' ').LastOrDefault() ?? "";
             string label = c.Change.Kind == ChangeKind.GameUpdated ? Lang.T("Game update") : Lang.T($"Driver {driver}");
-            marks.Add(new FpsMark(before + 0.5, label, c.Change.Title, c.Change.Time));
+            marks.Add(new FpsMark(before + 0.5, label, c.Change.Shown, c.Change.Time));
         }
         FpsMarks = marks;
 
@@ -637,7 +637,7 @@ public sealed partial class GamesViewModel : ObservableObject
         IsChange = true,
         IsGameUpdate = c.Kind == ChangeKind.GameUpdated,
         Glyph = c.Kind switch { ChangeKind.Fans => "", ChangeKind.GameUpdated => "", ChangeKind.WindowsUpdate or ChangeKind.Windows => "", _ => "" },
-        Text = c.Kind == ChangeKind.GameUpdated && c.Now is { } v ? $"{c.Title} ({v})" : c.Title,
+        Text = c.Kind == ChangeKind.GameUpdated && c.Now is { } v ? $"{c.Shown} ({v})" : c.Shown,
         When = c.Time.ToString("ddd d MMM, h:mm tt"),
     };
 

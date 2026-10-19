@@ -384,14 +384,14 @@ public sealed class ReportService(SettingsModel settings)
             {
                 var week = db.GetChanges(ts - 7 * 86400, ts + 120);
                 foreach (var c in week.Where(c => c.IsSystemLevel).OrderByDescending(c => c.Time).Take(6))
-                    changes.Add(new Models.CaseLine(c.Title, c.Detail, $"{(c.IsApproximate ? "~" : "")}{c.Time:ddd d MMM, h:mm tt}"));
+                    changes.Add(new Models.CaseLine(c.Shown, c.Detail, $"{(c.IsApproximate ? "~" : "")}{c.Time:ddd d MMM, h:mm tt}"));
                 var others = week.Where(c => c.Kind is Core.Stability.ChangeKind.AppInstalled or Core.Stability.ChangeKind.AppUpdated or Core.Stability.ChangeKind.AppRemoved).ToList();
                 if (others.Count > 0)
                 {
                     var names = others.Select(c => c.Title.Split(new[] { " updated", " installed", " removed" }, StringSplitOptions.None)[0]).Distinct().ToList();
                     string shown = string.Join(", ", names.Take(4));
                     int more = names.Count - 4;
-                    changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Title : Lang.T($"{others.Count} apps installed, updated or removed"),
+                    changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Shown : Lang.T($"{others.Count} apps installed, updated or removed"),
                         others.Count == 1 ? null : names.Count > 4 ? Lang.T($"{shown} and {more} more") : shown,
                         others.Count == 1 ? $"~{others[0].Time:ddd d MMM, h:mm tt}" : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
                 }
