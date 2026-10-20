@@ -2259,7 +2259,7 @@
     "REMOVED": "ELIMINADO",
     "The taskbar readings can sit at the left end of the taskbar, with its icons centred: pick Left on the Taskbar page.": "Las lecturas de la barra de tareas pueden ir en su extremo izquierdo, con los iconos centrados: elige Izquierda en la página Barra de tareas.",
     "Switch on Graph for any taskbar reading to see its last two minutes filled in behind the number.": "Activa Gráfico en cualquier lectura de la barra de tareas para ver sus dos últimos minutos rellenos detrás del número.",
-    "Hold Ctrl and scroll, or press Ctrl and plus or minus, to zoom RigSight up to 130%. Ctrl and 0 goes back.": "Mantén Ctrl y usa la rueda, o pulsa Ctrl y más o menos, para ampliar RigSight hasta el 130 %. Ctrl y 0 vuelve al tamaño normal.",
+    "Hold Ctrl and scroll, or press Ctrl and plus or minus, to zoom RigSight from 80% to 150%. Ctrl and 0 goes back.": "Mantén Ctrl y usa la rueda, o pulsa Ctrl y más o menos, para ampliar o reducir RigSight del 80 % al 150 %. Ctrl y 0 vuelve al tamaño normal.",
     "The Settings page sits in the middle of the window, like the other pages.": "La página Ajustes queda en el centro de la ventana, como las demás páginas.",
     "Rewind": "Rewind",
     "A look back at your PC every month, as cards to watch and share, coming soon.": "Un repaso a tu PC cada mes, en tarjetas para ver y compartir, muy pronto.",
@@ -3760,6 +3760,7 @@
     "You tried {0} different games.": "Probaste {0} juegos distintos.",
     "{0} times in all, about {1} each time.": "{0} veces en total, unas {1} cada vez.",
     "Same as the app": "Igual que la app",
-    "Every day": "Cada día"
+    "Every day": "Cada día",
+    "Hold Ctrl and scroll, or press Ctrl and plus or minus, to zoom RigSight up to 130%. Ctrl and 0 goes back.": "Mantén Ctrl y usa la rueda, o pulsa Ctrl y más o menos, para ampliar RigSight hasta el 130 %. Ctrl y 0 vuelve al tamaño normal."
   }
 }
