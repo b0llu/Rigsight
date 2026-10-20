@@ -72,6 +72,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         public double Cpu, Gpu, Mem, Disk;
         public int MemN, Pid;
+        /// <summary>The most of the card's own memory the app held at any sample, in MB (null: none, or not known).</summary>
+        public double? VramMax;
     }
 
     private sealed class FanAcc
@@ -491,7 +493,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     }
 
     /// <summary>The least an app must be doing in a sample (% of the CPU or GPU, MB of memory, bytes a second) to be kept for the minute at all.</summary>
-    private const double KeepCpu = 0.5, KeepGpu = 1, KeepMemMb = 150, KeepDisk = 100_000;
+    private const double KeepCpu = 0.5, KeepGpu = 1, KeepMemMb = 150, KeepDisk = 100_000, KeepVramMb = 100;
 
     /// <summary>
     /// Adds this sample to the minute: what the drives were doing, and each app with something to show. The samples
@@ -506,7 +508,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         foreach (var usage in snapshot.Apps.Values)
         {
             double gpu = snapshot.Gpu.GetValueOrDefault(usage.Exe);
-            if (usage.Cpu < KeepCpu && gpu < KeepGpu && usage.MemMB < KeepMemMb && usage.Disk < KeepDisk) continue;
+            double? vram = snapshot.GpuMemMb.TryGetValue(usage.Exe, out var held) ? held : null;
+            if (usage.Cpu < KeepCpu && gpu < KeepGpu && usage.MemMB < KeepMemMb && usage.Disk < KeepDisk && vram is not >= KeepVramMb) continue;
             // Not Windows' own parts without a file, apps the user left out of tracking, or Rigsight.
             if (!Nameable(usage.Exe)) continue;
             if (!m.Apps.TryGetValue(usage.Exe, out var acc)) m.Apps[usage.Exe] = acc = new AppAcc();
@@ -516,7 +519,21 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             acc.MemN++;
             acc.Disk += usage.Disk;
             acc.Pid = usage.FirstPid;
+            acc.VramMax = Max(acc.VramMax, vram);
         }
+    }
+
+    /// <summary>
+    /// The video memory the minute's app in front held itself (its most at any sample, MB): a game's own share of the
+    /// card, where the minute's VramUsed is every app's together. Null when it held none or Windows couldn't say.
+    /// </summary>
+    private double? FrontVram(MinuteAcc m)
+    {
+        if (m.Foreground.Count == 0) return null;
+        long front = m.Foreground.MaxBy(kv => kv.Value).Key;
+        foreach (var (exe, acc) in m.Apps)
+            if (acc.VramMax is double v && apps.Get(exe, acc.Pid).Id == front) return v;
+        return null;
     }
 
     /// <summary>How many apps a minute keeps for each thing, and the least each must average to be one of them.</summary>
@@ -693,6 +710,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     OnBattery = m.OnBattery,
                     VramUsed = Avg(m.VramSum, m.VramN),
                     VramTotal = m.VramTotal,
+                    FgVram = FrontVram(m),
                     // Ten seconds of frames at least, so a game glimpsed while switching away doesn't give the minute a rate.
                     Fps = m.FpsN >= 10 ? m.FpsSum / m.FpsN : null,
                     FpsLow = m.FpsN >= 10 && m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null,

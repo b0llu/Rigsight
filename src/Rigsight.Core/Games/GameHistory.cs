@@ -305,7 +305,7 @@ public static class GameHistory
             Gpu = W(p => p.Gpu), Cpu = W(p => p.Cpu), GpuLoad = W(p => p.GpuLoad), GpuPower = W(p => p.GpuPower), Power = W(p => p.Power),
             GpuMax = list.Max(p => p.GpuMax), CpuMax = list.Max(p => p.CpuMax), HotMax = list.Max(p => p.HotMax),
             GpuFullMinutes = list.Sum(p => p.GpuFullMinutes),
-            VramMax = list.Max(p => p.VramMax), VramTotal = list.Max(p => p.VramTotal),
+            VramMax = list.Max(p => p.VramMax), VramTotal = list.Max(p => p.VramTotal), VramOwnMax = list.Max(p => p.VramOwnMax),
             Fps = W(p => p.Fps, p => p.FpsMinutes), FpsLow = W(p => p.FpsLow, p => p.FpsMinutes), FpsMinutes = list.Sum(p => p.FpsMinutes),
         };
     }

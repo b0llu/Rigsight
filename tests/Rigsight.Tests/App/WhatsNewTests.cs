@@ -61,6 +61,21 @@ public sealed class WhatsNewTests
     }
 
     [Fact]
+    public void Switched_off_it_doesnt_open_after_an_update_but_see_all_still_does()
+    {
+        var (card, settings) = Make(seen: "0.6.3");
+        settings.Update(s => s.ShowWhatsNew = false);
+        Ui.Run(() =>
+        {
+            card.CheckOnStart();
+            Assert.False(card.IsOpen);
+            Assert.Equal("0.7.0", settings.Current.WhatsNewSeen);
+            card.SeeAllCommand.Execute(null);
+            Assert.True(card.IsOpen);
+        });
+    }
+
+    [Fact]
     public void After_an_update_it_shows_what_came_since_once()
     {
         var (card, settings) = Make(seen: "0.6.3");

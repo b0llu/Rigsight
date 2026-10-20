@@ -25,6 +25,11 @@ public sealed record PlayStats
     public int GpuFullMinutes { get; init; }
     public double? VramMax { get; init; }
     public double? VramTotal { get; init; }
+    /// <summary>
+    /// The game's own video memory at most (MB), recorded since 0.31.2. Where it's null, <see cref="VramMax"/> is all
+    /// the card had in use, every app together: older plays only have that.
+    /// </summary>
+    public double? VramOwnMax { get; init; }
     public double? Fps { get; init; }
     public double? FpsLow { get; init; }
     public int FpsMinutes { get; init; }
@@ -63,10 +68,11 @@ public sealed partial class RigsightDb
     {
         string vram = HasVram ? "max(vram_used), max(vram_total)" : "NULL, NULL";
         string fps = HasFps ? "AVG(fps), AVG(fps_low), COUNT(fps)" : "NULL, NULL, 0";
+        string own = HasFgVram ? "max(fg_vram)" : "NULL";
         using var cmd = Cmd($"""
             SELECT COUNT(*), AVG(gpu_temp), max(gpu_temp_max), AVG(cpu_temp), max(cpu_temp_max), max(gpu_hot_max), AVG(gpu_load),
                 AVG(gpu_power), AVG(CASE WHEN cpu_power IS NULL AND gpu_power IS NULL THEN NULL ELSE coalesce(cpu_power, 0) + coalesce(gpu_power, 0) END),
-                SUM(CASE WHEN gpu_load >= 95 THEN 1 ELSE 0 END), {vram}, {fps}
+                SUM(CASE WHEN gpu_load >= 95 THEN 1 ELSE 0 END), {vram}, {fps}, {own}
             FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app = $app
             """, ("$from", from), ("$to", to), ("$app", appId));
         using var r = cmd.ExecuteReader();
@@ -76,6 +82,7 @@ public sealed partial class RigsightDb
             Minutes = r.GetInt32(0), Gpu = D(r, 1), GpuMax = D(r, 2), Cpu = D(r, 3), CpuMax = D(r, 4), HotMax = D(r, 5),
             GpuLoad = D(r, 6), GpuPower = D(r, 7), Power = D(r, 8), GpuFullMinutes = r.IsDBNull(9) ? 0 : r.GetInt32(9),
             VramMax = D(r, 10), VramTotal = D(r, 11), Fps = D(r, 12), FpsLow = D(r, 13), FpsMinutes = r.IsDBNull(14) ? 0 : r.GetInt32(14),
+            VramOwnMax = D(r, 15),
         };
     }
 

@@ -6,7 +6,7 @@ namespace Rigsight.ViewModels;
 
 /// <summary>
 /// The "What's new" card: once after an update, the first time the app opens (never on a new install, never on its
-/// own over a game), and any time from Settings → About. Shows what came since the version last seen, or every version.
+/// own over a game, never when switched off in Settings → About), and any time from Settings → About. Shows what came since the version last seen, or every version.
 /// </summary>
 /// <param name="go">Opens a page (a new feature's "Open" button).</param>
 /// <param name="factFor">Something true about this PC for a new feature's page ("31 changes already found…"), if there is.</param>
@@ -60,9 +60,10 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
             return;
         }
         var since = Changelog.Since(seen, current);
-        if (since.Count == 0)
+        if (since.Count == 0 || !settings.Current.ShowWhatsNew)
         {
-            if (seen < current) MarkSeen(); // an update with nothing a person would notice
+            // An update with nothing a person would notice, or the card switched off: only remember where we are.
+            if (seen < current) MarkSeen();
             return;
         }
         Shown = since;

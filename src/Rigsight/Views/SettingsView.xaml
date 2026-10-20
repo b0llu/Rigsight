@@ -1266,6 +1266,9 @@
                               ToolTip="{ctl:T 'On: RigSight looks for a new version once a day and installs it. Off: it doesn\'t contact GitHub unless you press Check for updates.'}">
                         <TextBlock Text="{ctl:T 'Update automatically'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowWhatsNew}" Margin="0,10">
+                        <TextBlock Text="{ctl:T 'Show What\'s new after an update'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
                     <!-- A standard account can't install an update: whether the PC does it for them, set on the Admin rights tab. -->
                     <DockPanel Style="{StaticResource Row}" Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">

@@ -64,6 +64,7 @@ internal sealed class AgentContext : ApplicationContext
     private readonly Tracker _tracker;
     private readonly ProcessSampler _procSampler = new();
     private readonly GpuSampler _gpuSampler = new();
+    private readonly GpuMemorySampler _gpuMemory = new();
     private readonly ProcessLabels _procLabels = new();
     private readonly CriticalMarks _criticalMarks = new();
     private bool _procsNow; // sampler thread: sample processes on this pass
@@ -504,6 +505,7 @@ internal sealed class AgentContext : ApplicationContext
                     var snapshot = _procSampler.Sample();
                     if (firstProcs) MemoryAt("processes sampled");
                     snapshot.Gpu = _gpuSampler.Sample(snapshot);
+                    snapshot.GpuMemMb = _gpuMemory.Sample(snapshot);
                     if (firstProcs) MemoryAt("GPU use by app sampled");
                     Measure("processes", t0);
                     t0 = Stopwatch.GetTimestamp();
@@ -588,6 +590,7 @@ internal sealed class AgentContext : ApplicationContext
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
         Step("sensors", _sensors.Close);
         Step("GPU sampler", _gpuSampler.Dispose);
+        Step("GPU memory sampler", _gpuMemory.Dispose);
         Step("database", _db.Dispose);
         Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir)); // closed normally: no check at the next start
     }
@@ -658,6 +661,7 @@ internal sealed class AgentContext : ApplicationContext
         }
 
         _sensors = host;
+        _gpuMemory.Reset();
         _gpuSampler.Reset(); // the graphics card may be a different one to Windows now (a driver update gives it a new identity)
         var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
         string left = skip == SensorParts.None ? ""

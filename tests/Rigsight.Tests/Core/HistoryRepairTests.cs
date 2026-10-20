@@ -261,7 +261,8 @@ public sealed class HistoryRepairTests
         Assert.Equal(TimeUtil.FromUnix(lost[0]), span.From);
         Assert.Equal(TimeUtil.FromUnix(lost[^1] + 60), span.To);
         Assert.Equal(Days, report.Days);
-        Assert.Equal(Days - 1, report.DaysWhole);
+        // Two pages fall in one day or across a midnight, as the rows' size has them: each day they touch isn't whole.
+        Assert.Equal(Days - lost.Select(t => TimeUtil.FromUnix(t).Date).Distinct().Count(), report.DaysWhole);
         // Everything else is all there.
         Assert.Equal(3, Count(path, "apps"));
         Assert.Equal(60, Count(path, "sessions"));

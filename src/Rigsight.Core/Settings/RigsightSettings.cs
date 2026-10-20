@@ -147,6 +147,9 @@ public sealed class RigsightSettings
     /// </summary>
     public string? WhatsNewSeen { get; set; }
 
+    /// <summary>What's new opens by itself after an update (Settings › About). Off, it's still there from "See all updates".</summary>
+    public bool ShowWhatsNew { get; set; } = true;
+
     /// <summary>The app window's zoom, Ctrl + wheel (1 = 100%; see <see cref="AppZoom"/>).</summary>
     public double Zoom { get; set; } = 1;
 

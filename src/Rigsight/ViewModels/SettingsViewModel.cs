@@ -596,6 +596,13 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         set { Set(s => s.AutoUpdate = value); Update?.OnAutoUpdateChanged(); }
     }
 
+    /// <summary>What's new opening by itself after an update.</summary>
+    public bool ShowWhatsNew
+    {
+        get => S.ShowWhatsNew;
+        set => Set(s => s.ShowWhatsNew = value);
+    }
+
     /// <summary>Supplied by the shell: the Updates section.</summary>
     public UpdateViewModel? Update { get; set; }
 

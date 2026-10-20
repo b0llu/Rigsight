@@ -197,6 +197,17 @@ public sealed partial class GamesViewModel : ObservableObject
         else if (Opened is { } open && _all.FirstOrDefault(g => g.Key == open.Entry.Key) is { } fresh) await OpenAsync(fresh, quiet: true);
     }
 
+    /// <summary>
+    /// The game's own video memory where it was recorded (since 0.31.2); older plays only kept all the card had in use,
+    /// every app together, so that says so rather than passing for the game's.
+    /// </summary>
+    internal static string GraphicsMemory(PlayStats s)
+    {
+        if (s.VramTotal is not double t) return Lang.T("Not recorded");
+        if (s.VramOwnMax is double own) return Lang.T($"up to {own / 1024:0.0} of {t / 1024:0} GB");
+        return s.VramMax is double v ? Lang.T($"up to {v / 1024:0.0} of {t / 1024:0} GB · whole card, all apps") : Lang.T("Not recorded");
+    }
+
     /// <summary>The pictures of a game read off the window's thread (they're frozen), so the cards build without a pause.</summary>
     private static void Prewarm(GameEntry g)
     {
@@ -639,7 +650,7 @@ public sealed partial class GamesViewModel : ObservableObject
             new(Lang.T("CPU while playing"), st.Usual is { } uc ? Lang.T($"{Units.TempShort(uc.Cpu)} usual") : Units.TempShort(st.All.Cpu), Brush("CpuBrush")),
             new(Lang.T("Hot spot peak"), Units.TempShort(st.All.HotMax), Brush("PurpleBrush")),
             new(Lang.T("CPU and GPU power"), st.All.Power is double p ? Lang.T($"{p:0} W · {p / 1000:0.00} kWh an hour") : "—"),
-            new(Lang.T("Graphics memory"), st.All.VramMax is double v && st.All.VramTotal is double t ? Lang.T($"up to {v / 1024:0.0} of {t / 1024:0} GB") : Lang.T("Not recorded")),
+            new(Lang.T("Graphics memory"), GraphicsMemory(st.All)),
         };
         Heat = heat;
 

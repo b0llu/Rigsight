@@ -32,6 +32,8 @@ internal sealed class ProcessSnapshot
     public List<(int Pid, long Created)> Processes { get; } = [];
     /// <summary>Share of the main GPU each app kept busy, 0–100, by exe (see <see cref="GpuSampler"/>); empty when unknown.</summary>
     public Dictionary<string, double> Gpu { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Each app's own video memory on the main card, in MB, by exe (see <see cref="GpuMemorySampler"/>); empty when unknown.</summary>
+    public Dictionary<string, double> GpuMemMb { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>What every process together (Windows' own "System" too) read and wrote since the last sample, in bytes a second.</summary>
     public double Disk { get; set; }
 }

@@ -130,6 +130,8 @@ public sealed partial class RigsightDb : IDisposable
         // The game in front's frames a second and 1% low over the minute, as RivaTuner measured them (0.29.0, the Games page).
         if (!HasColumn("system_minute", "fps"))
             Exec("ALTER TABLE system_minute ADD COLUMN fps REAL; ALTER TABLE system_minute ADD COLUMN fps_low REAL");
+        // The app in front's own video memory (0.31.2): vram_used is every app's together, which a game was credited with.
+        if (!HasColumn("system_minute", "fg_vram")) Exec("ALTER TABLE system_minute ADD COLUMN fg_vram INTEGER");
         Exec("CREATE TABLE IF NOT EXISTS app_minute(ts INTEGER NOT NULL, app INTEGER NOT NULL, cpu REAL NOT NULL, gpu REAL NOT NULL,"
             + " mem INTEGER NOT NULL, disk INTEGER NOT NULL, PRIMARY KEY(ts, app)) WITHOUT ROWID");
 
@@ -401,13 +403,13 @@ public sealed partial class RigsightDb : IDisposable
             INSERT OR REPLACE INTO system_minute(ts, cpu_temp, cpu_temp_max, gpu_temp, gpu_temp_max, gpu_hot_max, gpu_mem_max, cpu_load, gpu_load,
                 cpu_power, gpu_power, cpu_volt_max, gpu_volt_max, ram_used, fg_app, cpu_app, gpu_app, cpu_clock, gpu_clock, active_sec, idle_sec,
                 cpu_temp_min, gpu_temp_min, gpu_hot_avg, gpu_mem_avg, gpu_hot_min, gpu_mem_min, disk_rate, disk_rate_max, commit_pct, battery, on_battery,
-                vram_used, vram_total, fps, fps_low)
+                vram_used, vram_total, fps, fps_low, fg_vram)
             VALUES($ts, $ct, $ctm, $gt, $gtm, $gh, $gm, $cl, $gl, $cp, $gp, $cv, $gv, $ram, $fg, $ca, $ga, $cc, $gc, $act, $idle, $ctl, $gtl, $gha, $gma, $ghl, $gml,
-                $disk, $diskMax, $commit, $battery, $onBattery, $vram, $vramTotal, $fps, $fpsLow)
+                $disk, $diskMax, $commit, $battery, $onBattery, $vram, $vramTotal, $fps, $fpsLow, $fgVram)
             """,
             // Whole numbers: nothing shows a fraction of a byte a second or of a percent, and the row stays short.
             ("$disk", WholeOrNull(m.DiskRate)), ("$diskMax", WholeOrNull(m.DiskRateMax)), ("$commit", WholeOrNull(m.CommitPct)),
-            ("$vram", WholeOrNull(m.VramUsed)), ("$vramTotal", WholeOrNull(m.VramTotal)),
+            ("$vram", WholeOrNull(m.VramUsed)), ("$vramTotal", WholeOrNull(m.VramTotal)), ("$fgVram", WholeOrNull(m.FgVram)),
             ("$fps", Tenth(m.Fps)), ("$fpsLow", Tenth(m.FpsLow)),
             ("$battery", m.Battery), ("$onBattery", m.OnBattery is bool onBattery ? (onBattery ? 1 : 0) : null),
             ("$ghl", m.GpuHotMin), ("$gml", m.GpuMemMin),
@@ -1103,6 +1105,8 @@ public sealed partial class RigsightDb : IDisposable
     private bool HasDrives => _hasDrives ??= HasColumn("system_minute", "disk_rate");
     private bool? _hasVram;
     private bool HasVram => _hasVram ??= HasColumn("system_minute", "vram_used");
+    private bool? _hasFgVram;
+    internal bool HasFgVram => _hasFgVram ??= HasColumn("system_minute", "fg_vram");
 
     // An average to a tenth of a degree: nothing shows more, and the row isn't made longer by digits nobody reads.
     private static double? Tenth(double? v) => v is double d ? Math.Round(d, 1) : null;

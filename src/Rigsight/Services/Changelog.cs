@@ -110,6 +110,9 @@ public static class Changelog
     [
         // Version and date settled at release.
         // This one is about another language, so it's said in it too (older entries stay as they were written).
+        V("0.31.2", 10, 20,
+            added: [Lang.T("Switch off Show What's new after an update in Settings, About, and this card won't open by itself any more.")],
+            fixedBugs: [Lang.T("A game's graphics memory on the Games page is now its own, not everything on the graphics card while it ran; plays from before say \"whole card, all apps\".")]),
         // The support card that came with 0.31.1 is left out on purpose (the user's word).
         V("0.31.1", 10, 20,
             added: [Lang.T("The taskbar readings can sit at the left end of the taskbar, with its icons centred: pick Left on the Taskbar page."),
