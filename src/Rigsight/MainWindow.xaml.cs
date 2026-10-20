@@ -101,6 +101,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            // The Ask window last: the cards above it close first.
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Ask.IsOpen)
+            {
+                _vm.Ask.CloseCommand.Execute(null);
+                e.Handled = true;
+            }
         };
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };

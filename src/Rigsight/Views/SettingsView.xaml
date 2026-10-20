@@ -114,6 +114,29 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- A box that opens a list under it (Settings › Ask RigSight's model): like a drop-down, its text on the left. -->
+        <Style x:Key="PickerButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Height="32" CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,0">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="Margin" Value="4,26,0,8" />
         </Style>
@@ -279,6 +302,7 @@
                         </StackPanel>
                     </RadioButton>
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Notifications'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=notifications}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Ask RigSight'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=ai}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'History'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=history}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Rewind'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=rewind}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'About'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=about}" />
@@ -806,6 +830,356 @@
             </ctl:SmoothBorder>
             </StackPanel>
 
+            <!-- AI: how the helper answers, each way's own settings, what it may send, and its button. Laid out as drawn in
+                 the approved mock-up (2026-10-20). -->
+            <StackPanel Visibility="{Binding DataContext.IsAi, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" DataContext="{Binding Ai}">
+                <!-- The first visit: what the helper sends, as a warning to read, put away with its close button. -->
+                <ctl:SmoothBorder CornerRadius="12" Padding="16,14,44,14" Margin="0,0,0,14" Background="{DynamicResource WarmSoftBrush}"
+                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="What the AI helper sends"
+                                  Visibility="{Binding ShowSendingNote, Converter={StaticResource Vis}}">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'The AI helper sends some of your PC\'s records to an AI model'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                            <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0">
+                                <Run Text="{ctl:T 'When you ask a question, RigSight sends it with the records it needs to answer: crashes, temperatures, the apps and games you used, recent changes and your PC\'s parts.'}" />
+                                <Run Text="{Binding SendingWhere, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Text="{ctl:T 'For the best answers everything is shared. Under What RigSight sends you can switch off anything you\'d rather keep to yourself. Your Windows user name, file and folder paths and your licence key are never sent.'}"
+                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="0,-6,-34,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Command="{Binding CloseSendingNoteCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
+                            <!-- Drawn, not a font glyph: a glyph's box never quite matches the cross, which sat off centre. -->
+                            <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Width="10" Height="10" Stretch="None" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" SnapsToDevicePixels="False" />
+                        </Button>
+                    </Grid>
+                </ctl:SmoothBorder>
+
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                    <StackPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Off'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=off}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'RigSight AI'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=rigsight}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'My own key'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=own}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Ollama on my PC'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=ollama}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{ctl:T 'AI helper'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock Text="{ctl:T 'Ask and Explain buttons are hidden while this is off.'}" Style="{StaticResource Hint}" Margin="0,0,0,12"
+                               Visibility="{Binding IsOff, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- My own key or Ollama: what they miss without RigSight AI, mostly web search, until closed. -->
+                <ctl:SmoothBorder CornerRadius="12" Padding="16,14,44,14" Margin="0,14,0,0" Background="{DynamicResource WarmSoftBrush}"
+                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="Web search"
+                                  Visibility="{Binding ShowWebNote, Converter={StaticResource Vis}}">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'You\'re missing web search'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                            <TextBlock Text="{ctl:T 'Your records say what happened on this PC. With RigSight AI, the answer can also check the web for what they mean, for example:'}"
+                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,4" />
+                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{Binding PartsLine}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
+                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{ctl:T 'Known problems with your graphics driver, a Windows update or a game you play, and how other people fixed them.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
+                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{ctl:T 'Whether a newer driver or BIOS fixes the crash you\'re seeing.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
+                            <TextBlock Text="{ctl:T 'There\'s also nothing to set up: no key to make, and the model is already tested with RigSight.'}"
+                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Switch to RigSight AI'}" Command="{Binding UseRigSightCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                        </StackPanel>
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="0,-6,-34,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Command="{Binding CloseWebNoteCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
+                            <!-- Drawn, not a font glyph: a glyph's box never quite matches the cross, which sat off centre. -->
+                            <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Width="10" Height="10" Stretch="None" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" SnapsToDevicePixels="False" />
+                        </Button>
+                    </Grid>
+                </ctl:SmoothBorder>
+
+                <!-- RigSight AI: the licence (none yet, in use here, on another PC), questions left and the packs. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Margin="0,14,0,0" Visibility="{Binding IsRigSight, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <StackPanel Visibility="{Binding LicenceActive, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <DockPanel Style="{StaticResource Row}">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBox Width="260" Style="{StaticResource FieldBox}" FontFamily="Consolas" Text="{Binding LicenceKey, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Licence key'}" />
+                                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Activate'}" Command="{Binding ActivateCommand}" Margin="8,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{ctl:T 'Licence key'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <DockPanel Margin="0,0,0,10" Visibility="{Binding LicenceElsewhere, Converter={StaticResource Vis}}">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding EmailSupportCommand}" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE715;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                        <TextBlock Text="{ctl:T 'Email support'}" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Text="{ctl:T 'This key is in use on another PC. To move it here, contact support with your key.'}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding FreeLeft}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"
+                                       Visibility="{Binding NoLicence, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding LicenceActive, Converter={StaticResource Vis}}">
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsLeft}" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Questions left'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,6">
+                                        <TextBlock Text="{Binding LicenceShown}" FontFamily="Consolas" FontSize="13" />
+                                    </Border>
+                                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Copy'}" Command="{Binding CopyLicenceCommand}" Margin="8,0,0,0" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="{ctl:T 'Licence key'}" Style="{StaticResource Title}" />
+                                    <TextBlock Text="{ctl:T 'Locked to this PC.'}" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </StackPanel>
+                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4,0,0" />
+                        <TextBlock Text="{ctl:T 'Buy questions'}" Style="{StaticResource Title}" Margin="0,14,0,10" />
+                        <ItemsControl ItemsSource="{Binding Packs}" Margin="0,0,-10,0">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                            <DockPanel Margin="0,6,0,10">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Each}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
+                                                <TextBlock Text="{Binding Price}" FontSize="15" />
+                                            </DockPanel>
+                                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource HoverBrush}"
+                                                    Command="{Binding DataContext.BuyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{ctl:T 'Buy on rigsight.app'}" />
+                                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </ctl:SmoothBorder>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <DockPanel Margin="0,12,0,10" Visibility="{Binding LicenceActive, Converter={StaticResource Vis}}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding EmailSupportCommand}" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE715;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="{ctl:T 'Email support'}" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{ctl:T 'Moving to a new PC? Contact support with your key.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Border Height="14" Visibility="{Binding LicenceActive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- My own key: the service, the key, and the models that service lists for it. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Margin="0,14,0,0" Visibility="{Binding IsOwnKey, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <ComboBox DockPanel.Dock="Right" Width="280" ItemsSource="{Binding Services}" SelectedItem="{Binding Service}" AutomationProperties.Name="{ctl:T 'AI service'}" />
+                            <TextBlock Text="{ctl:T 'AI service'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}" Visibility="{Binding IsCustom, Converter={StaticResource Vis}}">
+                            <TextBox DockPanel.Dock="Right" Width="280" Style="{StaticResource FieldBox}" Text="{Binding CustomAddress, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="{ctl:T 'Address'}" />
+                            <TextBlock Text="{ctl:T 'Address'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <PasswordBox Width="280" Style="{StaticResource FieldPassword}" AutomationProperties.Name="{ctl:T 'API key'}" PasswordChanged="ApiKey_Changed" />
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Test'}" Command="{Binding TestKeyCommand}" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Text="{ctl:T 'API key'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,6" Visibility="{Binding KeyChecked, Converter={StaticResource Vis}}">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource GoodBrush}" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding KeyWorks}" FontSize="12.5" Foreground="{DynamicResource GoodBrush}" />
+                        </StackPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Grid DockPanel.Dock="Right" Width="360" VerticalAlignment="Center">
+                                <Button x:Name="ModelButton" Style="{StaticResource PickerButton}" IsEnabled="{Binding KeyChecked}" Command="{Binding OpenModelsCommand}" AutomationProperties.Name="{ctl:T 'Model'}">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="10,0,0,0" />
+                                        <TextBlock Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </Button>
+                                <!-- The service's models, the tested ones first, with a search; floats so nothing moves. -->
+                                <Popup IsOpen="{Binding IsPickingModel}" PlacementTarget="{Binding ElementName=ModelButton}" Placement="Bottom" StaysOpen="False"
+                                       AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=ModelButton}" VerticalOffset="6" Opened="ModelPopup_Opened">
+                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="6">
+                                        <DockPanel>
+                                            <TextBox x:Name="ModelSearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search models'}" Margin="0,0,0,6"
+                                                     AutomationProperties.Name="{ctl:T 'Search models'}" Text="{Binding ModelSearch, UpdateSourceTrigger=PropertyChanged}" />
+                                            <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding ModelGroups}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="8,8,8,4" />
+                                                                <ItemsControl ItemsSource="{Binding Models}">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Button Style="{StaticResource PickRow}" AutomationProperties.Name="{Binding Name}"
+                                                                                    Command="{Binding DataContext.PickModelCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
+                                                                                <DockPanel>
+                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding PriceText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
+                                                                                    <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                                                </DockPanel>
+                                                                            </Button>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </DockPanel>
+                                    </ctl:SmoothBorder>
+                                </Popup>
+                            </Grid>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Model'}" Style="{StaticResource Title}" />
+                                <TextBlock Text="{Binding ModelPrice}" Style="{StaticResource Hint}" Visibility="{Binding ModelPrice, Converter={StaticResource Vis}}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- Ollama on my PC: where it runs, then one search box that drops down its models. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Margin="0,14,0,0" Visibility="{Binding IsOllama, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ctl:Spinner Width="14" Height="14" Margin="0,0,10,0" Visibility="{Binding ConnectOllamaCommand.IsRunning, Converter={StaticResource Vis}}" />
+                                <TextBox Width="280" Style="{StaticResource FieldBox}" Text="{Binding OllamaAddress, UpdateSourceTrigger=PropertyChanged, Delay=400}" AutomationProperties.Name="{ctl:T 'Ollama address'}" />
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Connect'}" Command="{Binding ConnectOllamaCommand}" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Text="{ctl:T 'Ollama address'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,6" Visibility="{Binding OllamaConnected, Converter={StaticResource Vis}}">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource GoodBrush}" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding OllamaStatus}" FontSize="12.5" Foreground="{DynamicResource GoodBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding OllamaProblem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" TextAlignment="Right" Margin="0,-4,0,6"
+                                   Visibility="{Binding HasOllamaProblem, Converter={StaticResource Vis}}" />
+                        <DockPanel Style="{StaticResource Row}">
+                            <Grid DockPanel.Dock="Right" Width="360" VerticalAlignment="Center">
+                                <TextBox x:Name="OllamaSearchBox" Style="{StaticResource SearchBox}" IsEnabled="{Binding OllamaConnected}" Tag="{Binding OllamaModel}" AutomationProperties.Name="{ctl:T 'Search Ollama models'}"
+                                         Text="{Binding OllamaSearch, UpdateSourceTrigger=PropertyChanged}" GotKeyboardFocus="OllamaSearch_Focus" PreviewMouseLeftButtonUp="OllamaSearch_Open" PreviewKeyDown="OllamaSearch_Key" />
+                                <Popup IsOpen="{Binding IsPickingOllama}" PlacementTarget="{Binding ElementName=OllamaSearchBox}" Placement="Bottom" StaysOpen="False"
+                                       AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=OllamaSearchBox}" VerticalOffset="6">
+                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="6">
+                                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding OllamaShown}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource PickRow}" AutomationProperties.Name="{Binding Name}"
+                                                                Command="{Binding DataContext.PickOllamaCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
+                                                            <DockPanel>
+                                                                <!-- Only a model that can't look things up says so, with an i that explains on hover. -->
+                                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding CanLookUp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                                    <TextBlock Text="{ctl:T 'Can\'t look things up'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" Background="Transparent"
+                                                                               ToolTipService.InitialShowDelay="150">
+                                                                        <TextBlock.ToolTip>
+                                                                            <TextBlock MaxWidth="300" TextWrapping="Wrap"
+                                                                                       Text="{ctl:T 'This model can\'t ask RigSight for your records, so it can\'t see your crashes, temperatures, games or changes. Its answers would be guesses, so RigSight doesn\'t let you pick it.'}" />
+                                                                        </TextBlock.ToolTip>
+                                                                    </TextBlock>
+                                                                </StackPanel>
+                                                                <TextBlock FontSize="13">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding CanLookUp}" Value="False"><Setter Property="Opacity" Value="0.45" /></DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                    <Run Text="{Binding Name, Mode=OneWay}" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Size, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" FontSize="11.5" />
+                                                                </TextBlock>
+                                                            </DockPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </ctl:SmoothBorder>
+                                </Popup>
+                            </Grid>
+                            <TextBlock Text="{ctl:T 'Model'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- What it may send: everything on by default. -->
+                <TextBlock Text="{ctl:T 'What RigSight sends'}" Style="{StaticResource SubHead}" Visibility="{Binding IsOn, Converter={StaticResource Vis}}" />
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Visibility="{Binding IsOn, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareCrashes}" Margin="0,8"><TextBlock Text="{ctl:T 'Crashes and shut-offs'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareHeat}" Margin="0,8"><TextBlock Text="{ctl:T 'Temperatures and fans'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareApps}" Margin="0,8"><TextBlock Text="{ctl:T 'Apps and games you use'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareChanges}" Margin="0,8"><TextBlock Text="{ctl:T 'Changes: drivers, updates, BIOS, settings'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareMemory}" Margin="0,8"><TextBlock Text="{ctl:T 'Memory and storage'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareNetwork}" Margin="0,8"><TextBlock Text="{ctl:T 'Internet use'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareParts}" Margin="0,8"><TextBlock Text="{ctl:T 'Your PC\'s parts (CPU, graphics card, motherboard)'}" Style="{StaticResource Title}" /></CheckBox>
+                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, file and folder paths, your licence key.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,12" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- The Ask button, its shortcut, and how long conversations stay. -->
+                <TextBlock Text="{ctl:T 'Ask button and conversations'}" Style="{StaticResource SubHead}" Visibility="{Binding IsOn, Converter={StaticResource Vis}}" />
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Visibility="{Binding IsOn, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskPlace" Content="{ctl:T 'Top bar'}" IsChecked="{Binding Place, Converter={StaticResource Equals}, ConverterParameter=top}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskPlace" Content="{ctl:T 'Sidebar'}" IsChecked="{Binding Place, Converter={StaticResource Equals}, ConverterParameter=sidebar}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{ctl:T 'Ask button'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,6" MinWidth="170">
+                                    <TextBlock Text="{Binding Shortcut}" FontSize="13" Foreground="{DynamicResource FaintBrush}" />
+                                </Border>
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Set'}" Command="{Binding SetShortcutCommand}" Margin="8,0,0,0" AutomationProperties.Name="{ctl:T 'Set a shortcut'}" />
+                            </StackPanel>
+                            <TextBlock Text="{ctl:T 'Shortcut'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4" />
+                        <DockPanel Style="{StaticResource Row}">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskKeep" Content="{ctl:T '30 days'}" IsChecked="{Binding KeepConversationDays, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskKeep" Content="{ctl:T '3 months'}" IsChecked="{Binding KeepConversationDays, Converter={StaticResource Equals}, ConverterParameter=90}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskKeep" Content="{ctl:T '1 year'}" IsChecked="{Binding KeepConversationDays, Converter={StaticResource Equals}, ConverterParameter=365}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="AskKeep" Content="{ctl:T 'Forever'}" IsChecked="{Binding KeepConversationDays, Converter={StaticResource Equals}, ConverterParameter=0}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{ctl:T 'Keep conversations for'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ClearConversationsCommand}" AutomationProperties.Name="{ctl:T 'Clear all conversations'}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource HotBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{ctl:T 'Clear all…'}" Foreground="{DynamicResource HotBrush}" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{ctl:T 'Conversations'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </StackPanel>
+
             <!-- History -->
             <StackPanel Visibility="{Binding IsHistory, Converter={StaticResource Vis}}">
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
@@ -1182,7 +1556,7 @@
                         <!-- The box is the search: clicked or typed in, the list opens under it and narrows as you type. -->
                         <TextBox x:Name="LeaveSearchBox" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search your games and apps…'}"
                                  AutomationProperties.Name="{ctl:T 'Search your games and apps'}" ctl:Debounce.Text="{Binding LeaveSearch}"
-                                 GotKeyboardFocus="LeaveSearch_Open" PreviewMouseLeftButtonDown="LeaveSearch_Open" PreviewKeyDown="LeaveSearch_Key" />
+                                 GotKeyboardFocus="LeaveSearch_Focus" PreviewMouseLeftButtonUp="LeaveSearch_Open" PreviewKeyDown="LeaveSearch_Key" />
                         <!-- Floats over what is under it: nothing moves when it opens. Clicking the box itself doesn't close it. -->
                         <Popup x:Name="LeavePopup" IsOpen="{Binding IsPicking}" PlacementTarget="{Binding ElementName=LeaveSearchBox}" Placement="Bottom" StaysOpen="False"
                                AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=LeaveSearchBox}" MinWidth="420" VerticalOffset="6">

@@ -325,6 +325,15 @@
                         </StackPanel>
                     </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,-9,0" DataContext="{Binding Case.Group}">
+                        <!-- The AI helper on this case: a filled button, because it starts something (hidden while the helper is off). -->
+                        <Button Style="{StaticResource AccentButton}" Margin="0,0,12,0" AutomationProperties.Name="Explain this crash"
+                                Command="{Binding DataContext.Ask.ExplainCaseCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ExplainSubject}"
+                                Visibility="{Binding DataContext.Ask.IsEnabled, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE99A;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                <TextBlock Text="{ctl:T 'Explain this crash'}" />
+                            </StackPanel>
+                        </Button>
                         <Button Style="{StaticResource ActionButton}" Content="{Binding CopyText}"
                                 Command="{Binding DataContext.CopyCommand, ElementName=Page}" CommandParameter="{Binding}"
                                 ToolTip="{ctl:T 'Copies the whole case (what happened, how sure, what points to it, what was ruled out, and your PC\'s hardware) to paste into a forum post or support request'}" />

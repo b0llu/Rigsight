@@ -64,7 +64,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool KeepStatusColors { get => S.KeepStatusColors; set => Set(s => s.KeepStatusColors = value); }
 
     // ── The page's tabs ───────────────────────────────────────────────────
-    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "history", "rewind", "about", "admin"];
+    public static readonly string[] Tabs = ["general", "appearance", "tracking", "sensors", "notifications", "ai", "history", "rewind", "about", "admin"];
 
     /// <summary>
     /// The agent runs under a standard account: the "Admin rights" tab is there, saying what can't be read without them.
@@ -139,6 +139,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             if (value is null || value == _tab || !Tabs.Contains(value)) return;
             // "Admin rights" only exists on a standard account.
             if (value == "admin" && !StandardAccount) return;
+            Ai?.ClosePickers();
             _tab = value;
             OnPropertyChanged(string.Empty);
         }
@@ -153,6 +154,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsAbout => _tab == "about";
     public bool IsAdminRights => _tab == "admin";
     public bool IsRewind => _tab == "rewind";
+    public bool IsAi => _tab == "ai";
+
+    /// <summary>Settings › Ask RigSight (set by the shell).</summary>
+    public AiSettingsViewModel? Ai { get; set; }
 
     /// <summary>Settings → Rewind: the rewinds made, and what is made and how (set by the shell).</summary>
     public global::Rigsight.Rewind.RewindViewModel? Rewind { get; set; }

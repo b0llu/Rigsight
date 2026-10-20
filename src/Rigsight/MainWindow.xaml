@@ -417,6 +417,27 @@
                        VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <!-- The AI helper's Ask button, beside the window's own buttons (Settings › Ask RigSight can move it to the sidebar).
+                 Filled in the accent with a chat icon, so it's easy to find (the user, 2026-10-20). -->
+            <Button x:Name="AskButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand"
+                    VerticalAlignment="Stretch" AutomationProperties.Name="Ask RigSight" ToolTip="{ctl:T 'Ask RigSight about this PC'}"
+                    Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <!-- A box the bar's full height like the window's own buttons, filled in the accent so it stands out; a chat icon and the word. -->
+                        <Border x:Name="Bd" Height="32" Background="{DynamicResource AccentBrush}" Padding="14,0,16,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8F2;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
+                                <TextBlock Text="{ctl:T 'Ask'}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.88" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.75" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
             <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" AutomationProperties.Name="Minimize" />
             <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" AutomationProperties.Name="Maximize" />
             <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="Close" />
@@ -688,6 +709,10 @@
                     <!-- Settings: always at the foot of the sidebar, however far the pages above are scrolled. A press opens a
                          small menu over it (Settings first, then the things people come looking for: updates, what's new,
                          reporting a bug); the menu floats, so nothing moves. Marked like a page while Settings is open. -->
+                    <!-- Ask, when Settings › Ask RigSight puts its button in the sidebar instead of the top bar. -->
+                    <RadioButton Style="{StaticResource NavItem}" GroupName="AskSide" Tag="&#xE8F2;" Content="{ctl:T 'Ask'}" Command="{Binding Ask.ToggleCommand}"
+                                 IsChecked="{Binding Ask.IsOpen, Mode=OneWay}" AutomationProperties.Name="Ask RigSight" Margin="0,0,0,4"
+                                 Visibility="{Binding Ask.InSidebar, Converter={StaticResource Vis}}" />
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,4,12,10" />
                     <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="Settings and more" Cursor="Hand" Focusable="False"
                                   HorizontalAlignment="Stretch" Foreground="{DynamicResource MutedBrush}"
@@ -1058,6 +1083,22 @@
                 </ContentControl.Style>
             </ContentControl>
         </Grid>
+        <!-- The Ask window: over the pages, but not in their way (only the window itself takes clicks). Built only while
+             open, like the cards above; what it shows stays in Ask between openings. -->
+        <ContentControl Grid.ColumnSpan="2" Content="{Binding Ask}" Focusable="False" Visibility="{Binding Ask.IsOpen, Converter={StaticResource Vis}}">
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Setter Property="ContentTemplate" Value="{x:Null}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Ask.IsOpen}" Value="True">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value><DataTemplate><views:AskWindow /></DataTemplate></Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
         <!-- Rewind: the full screen when one is ready (like the update screen), then the cards and Share. -->
         <rw:RewindLayer Grid.ColumnSpan="2" DataContext="{Binding Rewind}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}" />
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see

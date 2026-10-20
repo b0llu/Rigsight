@@ -74,6 +74,7 @@
     <conv:InsightBrushConverter x:Key="InsightBrush" />
     <conv:DataSizeConverter x:Key="DataSize" />
     <conv:KindBrushConverter x:Key="KindBrush" />
+    <conv:ShareStarConverter x:Key="ShareStar" />
 
     <!-- ── Selectable list rows (Apps page) ───────────────────────────── -->
     <Style x:Key="RowItem" TargetType="ListBoxItem">
@@ -836,6 +837,52 @@
         </Setter>
     </Style>
 
+    <!-- A box to type a value in (an address, a key): the search box's look without its magnifier. Typing in it only
+         lifts its edge a little; Windows' own box drew a bright line under it that stayed after Connect. -->
+    <Style x:Key="FieldBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="10" Padding="10,7">
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FieldPassword" TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="10" Padding="10,7">
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="ToolTip">
         <Setter Property="Background" Value="{DynamicResource TooltipBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -844,6 +891,31 @@
     <!-- A whole row that opens: quiet until hovered. -->
     <!-- A list row that opens something: nothing behind it until the pointer is on it, and its content takes the row's
          whole width (GhostButton centres its content, so a row made of one had to be told its width). -->
+    <!-- A row in a list that picks something (Ask's History, Settings › Ask RigSight's model lists): its padding and background
+         are its own (FlatRowButton takes neither), so a row can be marked as the picked one; the hover shade sits over it. -->
+    <Style x:Key="PickRow" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="Padding" Value="8,7" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="7" />
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="7" Opacity="0" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Cursor" Value="Arrow" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style x:Key="FlatRowButton" TargetType="Button">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="False" />

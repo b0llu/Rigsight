@@ -112,6 +112,7 @@ public static class SettingsStore
         s.Tracking ??= new TrackingSettings();
         s.Tracking.ExcludedApps ??= [];
         s.Alerts ??= new AlertSettings();
+        s.Ai ??= new AiSettings();
         s.HistoryFile ??= new HistoryFileState();
         s.CustomPages = [.. (s.CustomPages ?? []).Where(p => p is not null)];
         s.SensorLabels ??= [];

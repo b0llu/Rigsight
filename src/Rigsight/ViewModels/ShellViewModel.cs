@@ -99,6 +99,8 @@ public sealed partial class ShellViewModel : ObservableObject
         };
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
+        Ask = new AskViewModel(Settings) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
+        SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin,
@@ -247,6 +249,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public global::Rigsight.Rewind.RewindViewModel Rewind { get; }
     public SettingsViewModel SettingsPage { get; }
     public LanguageViewModel Language { get; }
+    /// <summary>The Ask window over every page, and its button in the top bar or the sidebar.</summary>
+    public AskViewModel Ask { get; }
     public UpdateViewModel Update { get; }
     public SidebarViewModel Sidebar { get; }
 
@@ -441,6 +445,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PageUnreadable));
         Games.IsShown = value == "games";
+        if (value != "settings") SettingsPage.Ai?.ClosePickers();
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
         _ = RefreshCurrentPageAsync();

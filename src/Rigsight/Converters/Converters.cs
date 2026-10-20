@@ -472,3 +472,15 @@ public sealed class TimeFormatConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>A share (0 to 1) as a star width, for a bar drawn as two grid columns; "rest" gives what's left of it.</summary>
+public sealed class ShareStarConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        double share = value is double d && double.IsFinite(d) ? Math.Clamp(d, 0, 1) : 0;
+        return new GridLength(parameter as string == "rest" ? 1 - share : share, GridUnitType.Star);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}

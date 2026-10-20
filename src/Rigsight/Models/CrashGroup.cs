@@ -93,6 +93,8 @@ public sealed partial class CrashGroup : ObservableObject
     public string KindLabel => IsIncident ? (Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? Lang.T("PC FROZE") : Lang.T("SEVERAL AT ONCE")) : Latest.KindLabel;
 
     public string Title => IsIncident ? IncidentTitle : Latest.Title;
+    /// <summary>What an Explain button hands the AI helper, and its window shows as "Looking at: …": the title and when.</summary>
+    public string ExplainSubject => Title + ", " + Latest.TimeText;
     public string Reason => IsIncident ? IncidentReason : Latest.Reason;
     public string Advice => Finding?.Advice ?? (IsIncident ? IncidentAdvice : Latest.Advice);
     public string? IconPath => IsIncident ? null : Latest.IconPath;

@@ -24,6 +24,11 @@ public partial class SettingsView : UserControl
         // Each time Settings is opened (the page is kept between visits), and when something new needs a look while it's
         // open: go straight to that section.
         IsVisibleChanged += (_, e) => { if (e.NewValue is true) ScrollToAttention(); };
+        // A list dropped from a search box closes on a click anywhere else. The popup's own closing can't be relied on:
+        // the box takes the mouse on the press and lets it go on the release, after the list opened, and from then on
+        // a click outside never reached the popup.
+        PreviewMouseDown += (_, e) => ClosePickers(e.OriginalSource as DependencyObject);
+        Loaded += (_, _) => { if (Window.GetWindow(this) is { } w) { w.Deactivated -= OnWindowDeactivated; w.Deactivated += OnWindowDeactivated; } };
         DataContextChanged += (_, e) =>
         {
             if (e.OldValue is INotifyPropertyChanged old) old.PropertyChanged -= OnViewModelChanged;
@@ -250,9 +255,59 @@ public partial class SettingsView : UserControl
         return null;
     }
 
-    /// <summary>Settings → Rewind's "Never show": the list opens as the search box is clicked or gets the keyboard.</summary>
+    private void OnWindowDeactivated(object? sender, EventArgs e) => ClosePickers(null);
+
+    /// <summary>Closes each open drop-down list unless the click was on the box that opened it (which keeps it open).</summary>
+    private void ClosePickers(DependencyObject? clicked)
+    {
+        bool On(FrameworkElement box) => clicked is Visual v && (v == box || box.IsAncestorOf(v));
+        if (DataContext is not SettingsViewModel vm) return;
+        if (vm.Ai is { } ai)
+        {
+            if (ai.IsPickingOllama && !On(OllamaSearchBox)) ai.IsPickingOllama = false;
+            if (ai.IsPickingModel && !On(ModelButton)) ai.IsPickingModel = false;
+        }
+        if (vm.Rewind is { IsPicking: true } rewind && !On(LeaveSearchBox)) rewind.IsPicking = false;
+    }
+
+    /// <summary>Settings → Rewind's "Never show": the list opens as the click on the search box lets go, or as it gets the keyboard.</summary>
     private void LeaveSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
         (DataContext as ViewModels.SettingsViewModel)?.Rewind?.OpenPickerCommand.Execute(null);
+
+    /// <summary>Reached with the keyboard, the list opens too; a click's own focus waits for the click to end (as Ollama's box).</summary>
+    private void LeaveSearch_Focus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) LeaveSearch_Open(sender, e);
+    }
+
+    /// <summary>Settings › Ask RigSight → My own key: what's typed goes to the view model (the box keeps it out of bindings).</summary>
+    private void ApiKey_Changed(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (DataContext is ViewModels.SettingsViewModel { Ai: { } ai } && sender is System.Windows.Controls.PasswordBox box) ai.ApiKey = box.Password;
+    }
+
+    /// <summary>Settings › Ask RigSight: the model list opens with its search box ready to type in.</summary>
+    private void ModelPopup_Opened(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() => ModelSearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+
+    /// <summary>
+    /// Settings › Ask RigSight → Ollama: the box is the search, and its list opens as the click lets go (opened on the press, the
+    /// list closed again as the button came up, so it only stayed while the mouse was held).
+    /// </summary>
+    private void OllamaSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
+        (DataContext as ViewModels.SettingsViewModel)?.Ai?.OpenOllamaModelsCommand.Execute(null);
+
+    /// <summary>Reached with the keyboard (Tab), the list opens too; a click's own focus waits for the click to end.</summary>
+    private void OllamaSearch_Focus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) OllamaSearch_Open(sender, e);
+    }
+
+    private void OllamaSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (DataContext is not ViewModels.SettingsViewModel { Ai: { } ai }) return;
+        if (e.Key == System.Windows.Input.Key.Escape) { ai.IsPickingOllama = false; e.Handled = true; }
+        else ai.OpenOllamaModelsCommand.Execute(null);
+    }
 
     private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
     {
