@@ -90,6 +90,13 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage = new SettingsViewModel(Settings, client, Reports);
         Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
         SettingsPage.Rewind = Rewind;
+        Support = new SupportViewModel(Settings, Reports);
+        // A rewind watched to its last card and closed: a good moment for the support card (it asks only if it may).
+        Rewind.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Rewind.IsWatching) && !Rewind.IsWatching && Rewind.AtEnd)
+                _ = Support.TryAskAsync("end of a rewind", stillGood: () => !Rewind.IsOpen);
+        };
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
@@ -234,6 +241,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public OverlayViewModel Overlay { get; }
     public TaskbarViewModel Taskbar { get; }
     public WhatsNewViewModel WhatsNew { get; }
+    public SupportViewModel Support { get; }
 
     /// <summary>Rewind: the full screen when one is ready, watching, Share, and Settings → Rewind's list.</summary>
     public global::Rigsight.Rewind.RewindViewModel Rewind { get; }

@@ -690,11 +690,17 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         }
     }
 
-    /// <summary>Settings → About: opens the Buy Me a Coffee page in the browser; the app itself never contacts it.</summary>
+    /// <summary>
+    /// Settings → About and the Settings menu: opens the Buy Me a Coffee page in the browser (the app itself never
+    /// contacts it); pressed once, the menu's item stops standing out in yellow.
+    /// </summary>
     [RelayCommand]
-    private static void Support()
+    private void Support()
     {
-        try { Process.Start(new ProcessStartInfo("https://buymeacoffee.com/bollu") { UseShellExecute = true })?.Dispose(); } catch { }
+        try { Process.Start(new ProcessStartInfo(Core.Settings.SupportAsk.CoffeeUrl) { UseShellExecute = true })?.Dispose(); } catch { }
+        if (settings.Current.Support.Clicked) return;
+        settings.Update(s => s.Support.Clicked = true);
+        settings.Flush();
     }
 
     /// <summary>Opens the Export box over the window (set by the shell, which owns it).</summary>

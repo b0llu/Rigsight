@@ -29,20 +29,48 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         SetUpTitleBar();
         // Charts and lists grow with a taller window (see Roomy).
-        SizeChanged += (_, e) => Controls.Roomy.Fit(e.NewSize.Height);
+        // Zoomed, the pages have the window's room divided by the zoom.
+        SizeChanged += (_, _) => ApplyZoom();
+        // Ctrl + wheel zooms the window, as a browser does (nothing in the app uses Ctrl + wheel for itself).
+        PreviewMouseWheel += (_, e) =>
+        {
+            if (!System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) || e.Delta == 0) return;
+            Zoom(e.Delta > 0 ? 1 : -1);
+            e.Handled = true;
+        };
         // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.
         ContentRendered += (_, _) =>
         {
             _vm.WhatsNew.CheckOnStart();
             // A rewind finished since RigSight was last open: made now, and the biggest shown full screen.
             _ = _vm.Rewind.StartAsync();
+            AskForSupportLater(whatsNewShown: _vm.WhatsNew.IsOpen);
         };
         // Listened to weakly: the card outlives any one window (the tests host several).
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
+        PropertyChangedEventManager.AddHandler(vm.Support, OnSupportOpened, nameof(SupportViewModel.IsOpen));
         PropertyChangedEventManager.AddHandler(vm.Processes.Question, OnEndQuestionOpened, nameof(EndQuestionViewModel.IsOpen));
         PropertyChangedEventManager.AddHandler(vm.Update, OnUpdateScreen, nameof(UpdateViewModel.ShowOverlay));
         PreviewKeyDown += (_, e) =>
         {
+            // Ctrl + plus or minus zooms, Ctrl + 0 back to 100%; not in a text box (Overlay's shortcut box records Ctrl + keys).
+            if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control
+                && System.Windows.Input.Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase)
+            {
+                int? steps = e.Key switch
+                {
+                    System.Windows.Input.Key.OemPlus or System.Windows.Input.Key.Add => 1,
+                    System.Windows.Input.Key.OemMinus or System.Windows.Input.Key.Subtract => -1,
+                    System.Windows.Input.Key.D0 or System.Windows.Input.Key.NumPad0 => 0,
+                    _ => null,
+                };
+                if (steps is int n)
+                {
+                    Zoom(n);
+                    e.Handled = true;
+                    return;
+                }
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Processes.Question.IsOpen)
             {
                 _vm.Processes.Question.Cancel();
@@ -58,6 +86,12 @@ public partial class MainWindow : Window
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
             {
                 _vm.Presets.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Support.IsOpen)
+            {
+                _vm.Support.LaterCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
@@ -87,6 +121,77 @@ public partial class MainWindow : Window
         PageHost.Content = null;
         ShowPage(_vm.CurrentPage);
     }
+
+    /// <summary>One step in or out (0: back to 100%), kept in the settings, and shown for a moment in the title bar.</summary>
+    private void Zoom(int steps)
+    {
+        double chosen = steps == 0 ? 1 : Core.Settings.AppZoom.Stepped(_vm.Settings.Current.Zoom, steps);
+        if (chosen != _vm.Settings.Current.Zoom)
+        {
+            Core.Log.Write("app", $"Zoom: {_vm.Settings.Current.Zoom:P0} -> {chosen:P0}");
+            _vm.Settings.Update(s => s.Zoom = chosen);
+        }
+        double used = ApplyZoom();
+        ZoomText.Text = Core.Lang.T($"Zoom {Math.Round(used * 100):0}%");
+        ZoomText.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+        {
+            KeyFrames =
+            {
+                new System.Windows.Media.Animation.DiscreteDoubleKeyFrame(1, TimeSpan.Zero),
+                new System.Windows.Media.Animation.DiscreteDoubleKeyFrame(1, TimeSpan.FromSeconds(1.2)),
+                new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(1.6)),
+            },
+        });
+    }
+
+    /// <summary>
+    /// The chosen zoom on everything under the title bar, as far as the window has room for it (see AppZoom), and the
+    /// pages that grow with the window told the room they really have. Returns the zoom used.
+    /// </summary>
+    private double ApplyZoom()
+    {
+        double width = Frame.ActualWidth, height = Frame.ActualHeight - TitleBar.ActualHeight;
+        double room = width > 0 && height > 0 ? Math.Min(width / MinWidth, height / (MinHeight - TitleBar.ActualHeight)) : double.NaN;
+        double used = Core.Settings.AppZoom.Used(_vm.Settings.Current.Zoom, room);
+        if (Body.LayoutTransform is not System.Windows.Media.ScaleTransform current ? used != 1 : current.ScaleX != used)
+            Body.LayoutTransform = used == 1 ? System.Windows.Media.Transform.Identity : new System.Windows.Media.ScaleTransform(used, used);
+        Controls.Roomy.Fit(double.IsNaN(height) || height <= 0 ? ActualHeight : ActualHeight / used);
+        return used;
+    }
+
+    /// <summary>
+    /// The opening moment for the support card: 20 seconds after the window opened, if it settled on Home with nothing
+    /// else over it, and What's new didn't show this time (one card an opening). Whether it may ask at all is
+    /// SupportAsk's to say.
+    /// </summary>
+    private void AskForSupportLater(bool whatsNewShown)
+    {
+        if (whatsNewShown) return;
+        var wait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        wait.Tick += (_, _) =>
+        {
+            wait.Stop();
+            if (!CalmOnHome()) return;
+            _ = _vm.Support.TryAskAsync("opening", stillGood: CalmOnHome);
+        };
+        wait.Start();
+    }
+
+    private bool CalmOnHome() => IsVisible && WindowState != WindowState.Minimized && _vm.CurrentPage == "home"
+        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.Presets.IsOpen
+        && !_vm.Processes.Question.IsOpen && !_vm.Update.ShowOverlay;
+
+    /// <summary>The support card fades in over the window, as What's new does.</summary>
+    private void OnSupportOpened(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!_vm.Support.IsOpen || !Motion.Enabled) return;
+        SupportLayer.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            { FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop });
+        Motion.PopIn(SupportCard);
+    }
+
+    /// <summary>A click beside the support card: "Maybe later".</summary>
+    private void SupportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Support.LaterCommand.Execute(null);
 
     /// <summary>The What's new card fades in over the window when it opens.</summary>
     private void OnWhatsNewOpened(object? sender, PropertyChangedEventArgs e)

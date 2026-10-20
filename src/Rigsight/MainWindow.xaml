@@ -408,6 +408,9 @@
     <Border x:Name="Frame">
     <DockPanel>
     <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="32" Background="{DynamicResource BgBrush}">
+        <!-- The zoom, for a moment while it changes (Ctrl + wheel): up here, where it isn't zoomed itself -->
+        <TextBlock x:Name="ZoomText" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Opacity="0"
+                   Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False" />
         <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
             <Image Source="Assets/Rigsight.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" />
             <TextBlock x:Name="TitleText" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="12" Margin="10,0,0,0"
@@ -419,7 +422,8 @@
             <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="Close" />
         </StackPanel>
     </Grid>
-    <Grid>
+    <!-- Everything under the title bar, zoomed with Ctrl + wheel (MainWindow.xaml.cs, ApplyZoom) -->
+    <Grid x:Name="Body">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="232" />
             <ColumnDefinition Width="*" />
@@ -739,13 +743,15 @@
                                         <Setter Property="Focusable" Value="False" />
                                         <Setter Property="HorizontalAlignment" Value="Stretch" />
                                         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <!-- The icon's colour (an item can have its own, as Support RigSight's yellow) -->
+                                        <Setter Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="Button">
                                                     <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,8">
                                                         <DockPanel>
                                                             <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="14"
-                                                                       Foreground="{DynamicResource MutedBrush}" Width="16" TextAlignment="Center" />
+                                                                       Foreground="{TemplateBinding BorderBrush}" Width="16" TextAlignment="Center" />
                                                             <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextElement.FontSize="13"
                                                                               TextElement.Foreground="{TemplateBinding Foreground}" />
                                                         </DockPanel>
@@ -779,7 +785,19 @@
                                 <Border Style="{StaticResource MenuRule}" />
                                 <Button Tag="&#xEBE8;" Content="{ctl:T 'Report a bug'}" Command="{Binding SettingsPage.ReportBugCommand}" />
                                 <Button Tag="&#xE8C8;" Content="{ctl:T 'Copy logs'}" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
-                                <Button Tag="&#xEB51;" Content="{ctl:T 'Support RigSight'}" Command="{Binding SettingsPage.SupportCommand}" />
+                                <!-- In Buy Me a Coffee's yellow until it has been pressed, or the support card answered for good -->
+                                <Button Tag="&#xEB51;" Content="{ctl:T 'Support RigSight'}" Command="{Binding SettingsPage.SupportCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Support.HighlightMenu}" Value="True">
+                                                    <Setter Property="Foreground" Value="#FFDD00" />
+                                                    <Setter Property="BorderBrush" Value="#FFDD00" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                                 <Border Style="{StaticResource MenuRule}" />
                                 <Button Tag="&#xE946;" Content="{ctl:T 'About RigSight'}" Command="{Binding AboutCommand}" />
                                 <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="10,6,10,4">
@@ -917,6 +935,58 @@
                     </Style>
                 </ContentControl.Style>
             </ContentControl>
+        </Grid>
+
+        <!-- "Enjoying RigSight?": in the middle of the window, the page dimmed behind it, at a good moment only (see
+             SupportViewModel). Esc or a click beside it is "Maybe later". Buy Me a Coffee's yellow in every theme. -->
+        <Grid x:Name="SupportLayer" Grid.ColumnSpan="2" DataContext="{Binding Support}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+            <!-- Darker than What's new's: the card is about as dark as the page's own cards, so the page steps back further -->
+            <Border Background="#B8000000" MouseLeftButtonDown="SupportBackdrop_MouseDown" />
+            <!-- The card's shadow, on a box of its own behind it: on the card itself it would soften the text -->
+            <Border Width="420" Height="{Binding ActualHeight, ElementName=SupportCard}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    CornerRadius="16" Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="48" ShadowDepth="10" Opacity="0.75" Color="Black" />
+                </Border.Effect>
+            </Border>
+            <ctl:SmoothBorder x:Name="SupportCard" Width="420" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28,28,28,22"
+                              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1.5" CornerRadius="16"
+                              AutomationProperties.Name="Support RigSight">
+                <StackPanel>
+                    <Border Width="52" Height="52" CornerRadius="14" Background="#FFDD00" HorizontalAlignment="Center">
+                        <Grid>
+                            <!-- A heart while asking (as the menu's Support RigSight), a tick once thanked -->
+                            <TextBlock Text="&#xEB51;" Style="{StaticResource Icon}" FontSize="24" Foreground="#000000" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding Thanked, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="24" Foreground="#000000" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding Thanked, Converter={StaticResource Vis}}" />
+                        </Grid>
+                    </Border>
+                    <!-- Asking -->
+                    <StackPanel Visibility="{Binding Thanked, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <TextBlock Text="{ctl:T 'Enjoying RigSight?'}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Center" Margin="0,14,0,0" />
+                        <TextBlock Text="{ctl:T 'I build RigSight on my own, in my spare time. If it\'s been useful to you, a coffee helps me keep working on it.'}"
+                                   FontSize="13.5" LineHeight="21" Foreground="{DynamicResource TextBrush}" Opacity="0.85" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" />
+                        <Button Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="{ctl:T 'Buy me a coffee'}"
+                                Command="{Binding CoffeeCommand}" HorizontalAlignment="Stretch" Margin="0,18,0,0" Padding="14,10" FontSize="14"
+                                AutomationProperties.Name="Buy me a coffee" />
+                        <UniformGrid Columns="2" Margin="-4,8,-4,0">
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Maybe later'}" Command="{Binding LaterCommand}" Margin="4,0" Padding="12,9"
+                                    HorizontalAlignment="Stretch" AutomationProperties.Name="Maybe later" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Don\'t show again'}" Command="{Binding NeverCommand}" Margin="4,0" Padding="12,9"
+                                    HorizontalAlignment="Stretch" AutomationProperties.Name="Don't show again" />
+                        </UniformGrid>
+                    </StackPanel>
+                    <!-- After the coffee button -->
+                    <StackPanel Visibility="{Binding Thanked, Converter={StaticResource Vis}}">
+                        <TextBlock Text="{ctl:T 'Thank you'}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Center" Margin="0,14,0,0" />
+                        <TextBlock Text="{ctl:T 'It means a lot. RigSight won\'t ask again.'}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" Opacity="0.85"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,6" />
+                    </StackPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
         </Grid>
 
         <!-- New dashboard: presets this PC can fill, and a blank page. Closed with the x, Esc or a click outside. -->

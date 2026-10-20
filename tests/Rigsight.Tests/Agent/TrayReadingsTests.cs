@@ -389,6 +389,83 @@ public class TrayReadingsTests
         Assert.True(names.Min() >= numbers.Min() - 3 && names.Max() <= numbers.Max() + 3, "on the same line");
     }
 
+    [Fact]
+    public void A_graph_is_filled_in_behind_the_number_and_its_word()
+    {
+        // A user asked for graphs on the strip like taskbar-monitor's: the number and its word over the graph.
+        var points = Enumerable.Range(0, 11).Select(i => new PointF(i / 10f, i / 10f)).ToList();
+        var blue = Color.FromArgb(91, 140, 255);
+        StripCell Showing(StripGraph? graph) => new("CPU", blue, [new("62°", Color.White, "CPU", "88°", graph)]);
+        using var number = WidgetRenderer.RenderStrip([Showing(null)], 48, 1, out _);
+        using var graph = WidgetRenderer.RenderStrip([Showing(new StripGraph(points, blue))], 48, 1, out _);
+        Assert.True(graph.Width >= (int)Math.Ceiling(8 + WidgetRenderer.StripGraphWidth), "room for two minutes");
+        Assert.True(graph.Width >= number.Width);
+        // The digits are still drawn, white.
+        Assert.NotEmpty(Ink(graph, c => c.A > 200 && c.R > 200 && c.G > 200 && c.B > 200));
+        // The fill: see-through blue, from the bottom of the bar, deep on the right (high) and shallow on the left (low).
+        bool Fill(Color c) => c.A is > 40 and < 160 && c.B > c.R;
+        int Top(int x) => Enumerable.Range(0, graph.Height).FirstOrDefault(y => Fill(graph.GetPixel(x, y)), graph.Height);
+        Assert.True(Fill(graph.GetPixel(graph.Width - 6, graph.Height - 5)), "filled down to the bottom");
+        Assert.True(Top(graph.Width - 6) < Top(6) - 10, $"rises to the right ({Top(6)} → {Top(graph.Width - 6)})");
+    }
+
+    [Fact]
+    public void A_graph_never_reaches_over_its_number()
+    {
+        // The user's word: at its highest the graph goes up to the number, behind the word only.
+        var blue = Color.FromArgb(91, 140, 255);
+        List<PointF> full = [new(0, 1), new(1, 1)];
+        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("88%", Color.White, "CPU", Graph: new StripGraph(full, blue))])], 48, 1, out _);
+        int fillTop = Enumerable.Range(0, bmp.Height).First(y => bmp.GetPixel(bmp.Width / 2, y) is { A: > 40 and < 255 } c && c.B > c.R);
+        int digitsBottom = Ink(bmp, c => c.A > 200 && c.R > 200 && c.G > 200 && c.B > 200).Max(p => p.Y);
+        Assert.True(fillTop > digitsBottom - 2, $"fill from {fillTop}, digits down to {digitsBottom}");
+    }
+
+    [Theory]
+    [InlineData(1920, 1f, 38)]
+    [InlineData(1366, 1f, 38)] // never narrower than the least
+    [InlineData(2560, 1f, 50.7)]
+    [InlineData(3440, 1f, 68.1)] // an ultrawide
+    [InlineData(5120, 1f, 76)] // never wider than the most
+    [InlineData(3840, 1.5f, 50.7)] // a 4K taskbar at 150% is a 2560 one
+    public void A_wider_taskbar_gives_the_graphs_more_room(int barWidth, float scale, double width) =>
+        Assert.Equal(width, WidgetRenderer.StripGraphWidthFor(barWidth, scale), 1);
+
+    [Fact]
+    public void A_gap_in_a_graphs_readings_is_a_gap_in_its_fill()
+    {
+        var blue = Color.FromArgb(91, 140, 255);
+        List<PointF> points = [new(0, 0.5f), new(0.2f, 0.5f), new(0.4f, float.NaN), new(0.6f, float.NaN), new(0.8f, 0.5f), new(1, 0.5f)];
+        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("", blue, "", Graph: new StripGraph(points, blue))])], 48, 1, out _);
+        int middle = 4 + (int)(WidgetRenderer.StripGraphWidth / 2);
+        Assert.DoesNotContain(Enumerable.Range(0, bmp.Height - 5), y => bmp.GetPixel(middle, y).A > 40);
+        Assert.True(bmp.GetPixel(6, bmp.Height - 5).A > 40, "either side of it filled");
+    }
+
+    [Theory]
+    [InlineData(SensorKind.Load, new float[] { 2, 5 }, 0, 5)] // the peak fills the strip: the number says how much
+    [InlineData(SensorKind.Load, new float[] { 0, 0 }, 0, 1)] // never left 0: flat on the floor
+    [InlineData(SensorKind.Temperature, new float[] { 60, 61 }, 51, 61)] // 10° at least, a shape not a block
+    [InlineData(SensorKind.Temperature, new float[] { 40, 80 }, 40, 80)]
+    [InlineData(SensorKind.Power, new float[] { 300, 320 }, 0, 320)]
+    [InlineData(SensorKind.Voltage, new float[] { -0.1f, 0.05f }, -0.1, 0.05)] // below 0: from its lowest
+    [InlineData(SensorKind.Fan, new float[] { float.NaN }, 0, 1)] // nothing read yet
+    public void A_graphs_range_fits_its_reading(SensorKind kind, float[] values, double min, double max)
+    {
+        var (lo, hi) = TrayParts.GraphRange(kind, values);
+        Assert.Equal(min, lo, 2);
+        Assert.Equal(max, hi, 2);
+    }
+
+    private static List<Point> Ink(Bitmap bmp, Func<Color, bool> match)
+    {
+        var ink = new List<Point>();
+        for (int y = 0; y < bmp.Height; y++)
+            for (int x = 0; x < bmp.Width; x++)
+                if (bmp.GetPixel(x, y) is { A: > 100 } c && match(c)) ink.Add(new Point(x, y));
+        return ink;
+    }
+
     private static List<int> Rows(Bitmap bmp, Func<Color, bool> match)
     {
         var rows = new List<int>();

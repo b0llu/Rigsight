@@ -12,9 +12,29 @@ namespace Rigsight.ViewModels;
 /// <summary>A common reading offered with one click ("CPU temperature").</summary>
 public sealed record TaskbarQuickPick(string Label, SensorItem Sensor);
 
-/// <summary>A sensor in the taskbar: what it is, the part it's about (its colour mark), and its live reading for the preview.</summary>
-public sealed class TaskbarSensorRow(string id, string name, string hardware, SensorItem? sensor)
+/// <summary>
+/// A sensor in the taskbar: what it is, the part it's about (its colour mark), its live reading for the preview, and
+/// whether the strip draws it as a graph.
+/// </summary>
+public sealed partial class TaskbarSensorRow(string id, string name, string hardware, SensorItem? sensor) : ObservableObject
 {
+    /// <summary>On the strip as a graph of the last two minutes, not its number.</summary>
+    [ObservableProperty]
+    private bool _graph;
+
+    /// <summary>Told when the switch is flipped, to save it (the page sets it from settings before listening).</summary>
+    internal Action<TaskbarSensorRow, bool>? GraphPicked;
+
+    partial void OnGraphChanged(bool value) => GraphPicked?.Invoke(this, value);
+
+    /// <summary>Whether the readings show as the strip (the only way a graph is drawn): the Graph switch shows then.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowShapeSwitch))]
+    private bool _inStrip;
+
+    public bool ShowShapeSwitch => InStrip && Found;
+
+
     public string Id { get; } = id;
     public string Name { get; } = name;
     public string Hardware { get; } = sensor is null ? Lang.T("Not found on this PC right now") : hardware;
@@ -144,9 +164,67 @@ public sealed partial class TaskbarViewModel : ObservableObject
         }
     }
 
+    /// <summary>Where the strip sits: next to the clock, or at the taskbar's left end (see <see cref="TraySide"/>).</summary>
+    public TraySide Side
+    {
+        get => _settings.Current.TraySide;
+        set
+        {
+            if (value == Side) return;
+            _settings.Update(s => s.TraySide = value);
+            OnStyleChanged();
+        }
+    }
+
+    /// <summary>"Left" or "Right", for the side switch.</summary>
+    public string SideText { get => Side.ToString(); set => Side = value == nameof(TraySide.Left) ? TraySide.Left : TraySide.Right; }
+
+    public bool OnLeft => Side == TraySide.Left;
+
+    /// <summary>Whether Windows has the taskbar's icons aligned left (its own setting): then the left end is full.</summary>
+    public bool IconsAlignedLeft { get; } = ReadIconsAlignedLeft();
+
+    private static bool ReadIconsAlignedLeft()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            return key?.GetValue("TaskbarAl") is int v && v == 0; // missing: centred, Windows 11's own default
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Under the side switch, when the left side was picked but Windows' icons fill that end.</summary>
+    public string SideNote => ShowStrip && OnLeft && IconsAlignedLeft
+        ? Lang.T("Your taskbar's icons are aligned left, so the readings stay next to the clock. Centre them in Windows' taskbar settings to use the left side.")
+        : "";
+
+    [RelayCommand]
+    private void ShowAsGraph(TaskbarSensorRow row) => SetGraph(row, true);
+
+    [RelayCommand]
+    private void ShowAsNumber(TaskbarSensorRow row) => SetGraph(row, false);
+
+    private void SetGraph(TaskbarSensorRow row, bool on)
+    {
+        row.Graph = on; // from a command; from the row's own pair it already is (and this is its call)
+        if (_settings.Current.TrayGraphs.Contains(row.Id) == on) return; // already saved (or read from settings)
+        _settings.Update(s =>
+        {
+            s.TrayGraphs.Remove(row.Id);
+            if (on) s.TrayGraphs.Add(row.Id);
+        });
+        OnPropertyChanged(nameof(PreviewStrip));
+    }
+
     private void OnStyleChanged()
     {
         OnPropertyChanged(nameof(Style));
+        OnPropertyChanged(nameof(Side));
+        OnPropertyChanged(nameof(SideText));
+        OnPropertyChanged(nameof(OnLeft));
+        OnPropertyChanged(nameof(SideNote));
+        foreach (var row in Sensors) row.InStrip = ShowStrip;
         OnPropertyChanged(nameof(InStrip));
         OnPropertyChanged(nameof(Separate));
         OnPropertyChanged(nameof(Grouped));
@@ -283,6 +361,13 @@ public sealed partial class TaskbarViewModel : ObservableObject
                 var item = byId.GetValueOrDefault(id);
                 Sensors.Add(new TaskbarSensorRow(id, item?.DisplayName ?? id, item?.HardwareShown ?? "", item));
             }
+        }
+        var graphs = _settings.Current.TrayGraphs;
+        foreach (var row in Sensors)
+        {
+            row.Graph = graphs.Contains(row.Id);
+            row.InStrip = ShowStrip;
+            row.GraphPicked ??= SetGraph;
         }
         OnPropertyChanged(nameof(HasSensors));
         OnPropertyChanged(nameof(CountText));

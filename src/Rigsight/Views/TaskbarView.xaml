@@ -146,9 +146,22 @@
                             </StackPanel>
                             <!-- The readings, as the icons will be: an icon each or grouped by part, each with its part's colour
                                  mark (the part's name under it, here only, to learn the colours by) -->
-                            <!-- The strip: each part's readings over its name, as the agent draws it (at the real size) -->
-                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding PreviewStrip}" VerticalAlignment="Center" Focusable="False" Margin="0,0,6,0"
+                            <!-- The strip: each part's readings over its name, as the agent draws it (at the real size), next
+                                 to the clock or at the left end -->
+                            <ItemsControl ItemsSource="{Binding PreviewStrip}" VerticalAlignment="Center" Focusable="False"
                                           Visibility="{Binding ShowStrip, Converter={StaticResource Vis}}">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="DockPanel.Dock" Value="Right" />
+                                        <Setter Property="Margin" Value="0,0,6,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OnLeft}" Value="True">
+                                                <Setter Property="DockPanel.Dock" Value="Left" />
+                                                <Setter Property="Margin" Value="-16,0,0,0" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
@@ -165,8 +178,17 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <StackPanel Margin="0,0,7,0">
-                                                            <TextBlock FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="12">
+                                                        <Grid Margin="0,0,7,0">
+                                                        <!-- A graph behind the number and word: its shape here, the last two minutes in the taskbar -->
+                                                        <Path MinWidth="38" Height="30" Stretch="Fill" VerticalAlignment="Center" StrokeLineJoin="Round"
+                                                              Stroke="{Binding LabelBrush}" StrokeThickness="1" Data="M0,22 L4,20 8,21 12,14 16,17 20,8 24,12 28,10 32,15 36,5 38,7 38,30 0,30 Z"
+                                                              Visibility="{Binding Row.Graph, Converter={StaticResource Vis}}">
+                                                            <Path.Fill>
+                                                                <SolidColorBrush Color="{Binding LabelBrush.Color}" Opacity="0.35" />
+                                                            </Path.Fill>
+                                                        </Path>
+                                                        <StackPanel HorizontalAlignment="Right">
+                                                            <TextBlock FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Right">
                                                                 <TextBlock.Text>
                                                                     <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
                                                                         <Binding Path="Row.Sensor.Kind" />
@@ -183,8 +205,9 @@
                                                                 </TextBlock.Foreground>
                                                             </TextBlock>
                                                             <TextBlock Text="{Binding Label}" Foreground="{Binding LabelBrush}" Opacity="{Binding LabelOpacity}"
-                                                                       FontFamily="Segoe UI" FontWeight="{Binding LabelWeight}" FontSize="9.5" />
+                                                                       FontFamily="Segoe UI" FontWeight="{Binding LabelWeight}" FontSize="9.5" HorizontalAlignment="Right" />
                                                         </StackPanel>
+                                                        </Grid>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
@@ -309,16 +332,35 @@
             <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
                        Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
 
-            <!-- The parts' colours, or grayscale -->
-            <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
-            <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="traycolors"
-                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="traycolors"
-                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+            <!-- Colours and, for the strip, which end of the taskbar: side by side, one row -->
+            <StackPanel Orientation="Horizontal" Margin="0,26,0,0">
+                <!-- The parts' colours, or grayscale -->
+                <StackPanel Margin="0,0,40,0">
+                    <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
+                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="traycolors"
+                                         IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
+                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="traycolors"
+                                         IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
-            </Border>
+                <!-- Where the strip sits: the taskbar's left end, or the right, next to the clock -->
+                <StackPanel Visibility="{Binding ShowStrip, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{ctl:T 'PLACE'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
+                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Left'}" GroupName="trayside"
+                                         IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Left}" />
+                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Right'}" GroupName="trayside"
+                                         IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Right}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Text="{Binding SideNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding SideNote, Converter={StaticResource Vis}}" />
 
             <!-- What: the readings, in order -->
             <DockPanel Margin="4,26,0,10">
@@ -353,6 +395,10 @@
                                                 <TextBlock Text="&#xE711;" />
                                             </Button>
                                         </StackPanel>
+                                        <!-- On the strip: a graph behind its number, or not (the number always shows) -->
+                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Graph'}" FontSize="12.5" VerticalAlignment="Center"
+                                                  Margin="18,0,4,0" IsChecked="{Binding Graph}" AutomationProperties.Name="{Binding Name, StringFormat=Graph behind {0}}"
+                                                  Visibility="{Binding ShowShapeSwitch, Converter={StaticResource Vis}}" />
                                         <!-- The live reading -->
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="13.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />

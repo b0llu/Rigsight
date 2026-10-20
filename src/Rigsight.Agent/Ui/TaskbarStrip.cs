@@ -11,11 +11,16 @@ namespace Rigsight.Agent.Ui;
 /// name, like the clock's time over its date, grouped as <see cref="TrayParts"/> groups them. It's a see-through window
 /// made a child of the taskbar (as TrafficMonitor does), so it moves, hides and shows with it, full-screen games
 /// included. Checked on every update: a restarted Explorer (a new taskbar) gets a new strip, a tray that grew or shrank
-/// moves it. A click opens Rigsight; right-click removes a part's readings, switches to icons, or opens the Taskbar
-/// page; hovering names the hardware and each reading. When it can't be placed (Windows 10, whose taskbar lays out
-/// its buttons itself, or no taskbar) <see cref="Update"/> says so and the readings show as icons. UI thread only.
+/// moves it. On the left (<see cref="TraySide.Left"/>) it sits at the taskbar's left end, after Widgets and clear of
+/// Start, wherever the centred icons have moved Start to; with no room there (icons aligned left, or too many) it
+/// stays next to the clock, and the log says why. A reading can have a graph of its last two minutes filled in behind
+/// its number (<see cref="RigsightSettings.TrayGraphs"/>). A click opens Rigsight; right-click removes a part's readings,
+/// switches a reading between number and graph, the strip between the two ends, to icons, or opens the Taskbar page;
+/// hovering names the hardware and each reading. When it can't be placed (Windows 10, whose taskbar lays out its
+/// buttons itself, or no taskbar) <see cref="Update"/> says so and the readings show as icons. UI thread only.
 /// </summary>
-internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> remove, Action<TrayStyle> setStyle, Action openPage) : IDisposable
+internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> remove, Action<TrayStyle> setStyle, Action openPage,
+    Action<TraySide> setSide, Action<string, bool> setGraph) : IDisposable
 {
     /// <summary>Windows 11 (build 22000) and later: the taskbar's buttons leave room beside the tray.</summary>
     public static bool Supported => Environment.OSVersion.Version.Build >= 22000;
@@ -24,6 +29,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     private IntPtr _taskbar;
     private string _drawn = "";
     private Rectangle _placed;
+    private Size _size; // the strip as last drawn
     private List<List<TrayReading>> _cells = [];
     private float[] _edges = [];
     private TipWindow? _tip;
@@ -43,6 +49,18 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
 
     private bool _wired;
 
+    private TraySide _side;
+    private HashSet<string> _graphIds = [];
+    private TaskbarButtons? _buttons;
+    private SynchronizationContext? _ui;
+    private IntPtr _taskList;
+
+    /// <summary>Why the strip isn't on the left as asked ("" when it is, or wasn't asked): logged when it changes.</summary>
+    private string? _sideNote;
+
+    /// <summary>Each graph's readings with their times (ms), the last <see cref="TrayParts.GraphSeconds"/> kept.</summary>
+    private readonly Dictionary<string, Queue<(long At, float Value)>> _graphs = [];
+
     /// <summary>Each reading's widest shape so far ("88°", "888 W"): the place kept for it (see <see cref="Shape"/>).</summary>
     private readonly Dictionary<string, string> _widest = [];
 
@@ -50,12 +68,21 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// Shows <paramref name="readings"/> in the taskbar, in grayscale when <paramref name="gray"/>; false when it can't
     /// (nothing is shown then).
     /// </summary>
-    public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false)
+    public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false, TraySide side = TraySide.Right, IReadOnlyCollection<string>? graphs = null)
     {
+        _side = side;
+        HashSet<string> graphIds = [.. graphs ?? []];
+        if (!graphIds.SetEquals(_graphIds))
+            Log.Write("taskbar", $"Graphs on the strip: {graphIds.Count} ({string.Join(", ", graphIds)}), of {readings.Count} readings ({string.Join(", ", readings.Select(r => r.Id))})");
+        _graphIds = graphIds;
+        Remember(readings);
         if (readings.Count == 0 || !Supported) { Hide(); return false; }
         if (!_wired)
         {
             _wired = true;
+            // Told on its own thread when Start or Widgets moved: the strip follows on its own.
+            _ui = SynchronizationContext.Current;
+            _buttons = new TaskbarButtons(() => _ui?.Post(_ => Follow(), null));
             _follow.Tick += (_, _) => Follow();
             _tipDelay.Tick += (_, _) => ShowTip();
         }
@@ -76,8 +103,11 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
                 MakeChild(_window.Handle, taskbar);
                 _taskbar = taskbar;
                 _follow.Start();
+                _taskList = FindWindowEx(taskbar, IntPtr.Zero, "ReBarWindow32", null);
                 Watch(tray);
             }
+            if (side == TraySide.Left) _buttons!.Watch(taskbar);
+            else _buttons!.Stop();
 
             bool light = WidgetRenderer.TaskbarIsLight();
             float scale = GetDpiForWindow(taskbar) / 96f;
@@ -88,22 +118,24 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             var cells = _cells.Select((c, i) =>
             {
                 var labels = TrayParts.StripLabels([.. c.Select(r => r.Short)], names[i]);
-                return new StripCell(names[i], WidgetRenderer.TrayMark(c[0].Part, light, gray),
-                    [.. c.Select((r, j) => Value(r, light, gray, labels[j]))]);
+                var mark = WidgetRenderer.TrayMark(c[0].Part, light, gray);
+                return new StripCell(names[i], mark, [.. c.Select((r, j) => Value(r, light, gray, labels[j], mark))]);
             }).ToList();
 
             // Drawn again only when something shown changed; placed again whenever the tray moved.
-            string key = $"{barHeight}|{scale}|{light}|{gray}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb()))));
-            Size size = _placed.Size;
+            // A graph moves with every reading, so a strip with one is drawn each time.
+            string key = $"{barHeight}|{bar.R - bar.L}|{scale}|{light}|{gray}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb()
+                + (v.Graph is { } graph ? string.Join(';', graph.Points.Select(pt => $"{pt.X:0.###},{pt.Y:0.###}")) : "")))));
+            Size size = _size;
             if (key != _drawn)
             {
-                using var bmp = WidgetRenderer.RenderStrip(cells, barHeight, scale, out _edges);
-                size = bmp.Size;
-                Place(notify.L - bar.L, size, scale);
+                using var bmp = WidgetRenderer.RenderStrip(cells, barHeight, scale, out _edges, WidgetRenderer.StripGraphWidthFor(bar.R - bar.L, scale));
+                _size = size = bmp.Size;
+                Place(bar, notify, size, scale);
                 Push(_window.Handle, bmp);
                 _drawn = key;
             }
-            else Place(notify.L - bar.L, size, scale);
+            else Place(bar, notify, size, scale);
             return true;
         }
         catch (Exception ex)
@@ -114,12 +146,40 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
     }
 
-    private StripValue Value(TrayReading r, bool light, bool gray, string label)
+    private StripValue Value(TrayReading r, bool light, bool gray, string label, Color mark)
     {
         string text = Units.StripText(r.Kind, r.Value);
         string shape = Shape(text);
         if (!_widest.TryGetValue(r.Id, out var widest) || shape.Length > widest.Length) _widest[r.Id] = widest = shape;
-        return new StripValue(text, WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray), label, widest);
+        // A graph behind the number in the part's colour, as its name under it (grayscale: the taskbar's text colour).
+        StripGraph? graph = _graphIds.Contains(r.Id)
+            ? new StripGraph(GraphPoints(r), gray ? WidgetRenderer.TrayColor(SensorKind.Load, 0, light, gray: true) : mark)
+            : null;
+        return new StripValue(text, WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray), label, widest, graph);
+    }
+
+    /// <summary>Keeps each graph's reading (and forgets the readings no longer drawn as graphs).</summary>
+    private void Remember(IReadOnlyList<TrayReading> readings)
+    {
+        long now = Environment.TickCount64;
+        foreach (var gone in _graphs.Keys.Where(id => !_graphIds.Contains(id) || readings.All(r => r.Id != id)).ToList()) _graphs.Remove(gone);
+        foreach (var r in readings)
+        {
+            if (!_graphIds.Contains(r.Id)) continue;
+            if (!_graphs.TryGetValue(r.Id, out var points)) _graphs[r.Id] = points = new();
+            points.Enqueue((now, r.Value is double v && double.IsFinite(v) ? (float)v : float.NaN));
+            while (points.Count > 0 && now - points.Peek().At > TrayParts.GraphSeconds * 1000L) points.Dequeue();
+        }
+    }
+
+    /// <summary>A graph's points, across its two minutes (now at the right) and up its range (see <see cref="TrayParts.GraphRange"/>).</summary>
+    private List<PointF> GraphPoints(TrayReading r)
+    {
+        if (!_graphs.TryGetValue(r.Id, out var points) || points.Count == 0) return [];
+        long now = Environment.TickCount64, window = TrayParts.GraphSeconds * 1000L;
+        var (lo, hi) = TrayParts.GraphRange(r.Kind, [.. points.Select(p => p.Value)]);
+        return [.. points.Select(p => new PointF(1 - (now - p.At) / (float)window,
+            float.IsFinite(p.Value) && hi > lo ? (float)((p.Value - lo) / (hi - lo)) : float.NaN))];
     }
 
     /// <summary>
@@ -142,7 +202,13 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         // Called from Windows' own code: an error here would unwind through it, so none gets out.
         _trayMoved ??= (_, _, hwnd, idObject, _, _, _) =>
         {
-            try { if (hwnd == _trayWindow && idObject == OBJID_WINDOW) Follow(); }
+            // The tray as it grows; the apps' buttons as they come and go (they move Start, which the left side keeps clear of).
+            try
+            {
+                if (idObject != OBJID_WINDOW) return;
+                if (hwnd == _trayWindow) Follow();
+                else if (hwnd == _taskList && _side == TraySide.Left) _buttons?.Check();
+            }
             catch (Exception ex) { Rigsight.Core.Log.Write("taskbar", $"Following the tray failed: {ex.Message}"); }
         };
         // Only the thread the tray's window lives on: all of Explorer would send every move of every File Explorer
@@ -160,17 +226,46 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// <summary>Between readings: the strip kept beside the tray as it changes size (see <see cref="_follow"/>).</summary>
     private void Follow()
     {
-        if (_window is null || _placed.IsEmpty) return;
+        if (_window is null || _size.IsEmpty) return;
         IntPtr tray = FindWindowEx(_taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
         if (tray == IntPtr.Zero || !GetWindowRect(_taskbar, out var bar) || !GetWindowRect(tray, out var notify)) return; // the next reading sorts it out
-        Place(notify.L - bar.L, _placed.Size, _scale);
+        Place(bar, notify, _size, _scale);
     }
 
-    /// <summary>Just left of the tray, a little apart from it, the full height of the bar.</summary>
-    private void Place(int trayLeft, Size size, float scale)
+    /// <summary>
+    /// Just left of the tray, a little apart from it, the full height of the bar; on the left, at the bar's left end
+    /// (after Widgets) when it fits before Start, else beside the tray after all.
+    /// </summary>
+    private void Place(RECT bar, RECT notify, Size size, float scale)
     {
         if (_window is null) return;
-        var at = new Rectangle(trayLeft - size.Width - (int)Math.Round(6 * scale), 0, size.Width, size.Height);
+        int gap = (int)Math.Round(6 * scale);
+        int x = notify.L - bar.L - size.Width - gap;
+        string note = "";
+        if (_side == TraySide.Left)
+        {
+            // Not shown until it's known where the buttons are: it would show by the clock, then jump.
+            if (_buttons?.Latest is not { } places) return;
+            var (start, widgets) = (places.Start, places.Widgets);
+            if (start.IsEmpty)
+                note = "Start wasn't found on the taskbar";
+            else
+            {
+                // Widgets is at the left end only with the icons centred; aligned left, it comes after them.
+                int from = (widgets.IsEmpty || widgets.Left > start.Left ? 0 : widgets.Right - bar.L) + gap * 2;
+                int until = start.Left - bar.L - gap * 2;
+                if (from + size.Width <= until) x = from;
+                else note = $"no room before Start (needed {size.Width} px, found {Math.Max(0, until - from)} px from {from} to {until}"
+                            + (start.Left - bar.L < size.Width ? ": the taskbar's icons look aligned left)" : ")");
+            }
+        }
+        if (note != _sideNote)
+        {
+            if (note.Length > 0) Log.Write("taskbar", $"The strip was asked for the left side but stays next to the clock: {note}");
+            else if (_sideNote is not null) Log.Write("taskbar", _side == TraySide.Left ? "The strip is on the left side" : "The strip is next to the clock");
+            _sideNote = note;
+        }
+        var at = new Rectangle(x, 0, size.Width, size.Height);
         if (at == _placed) return;
         SetWindowPos(_window.Handle, IntPtr.Zero, at.X, at.Y, at.Width, at.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         _placed = at;
@@ -178,6 +273,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
 
     public void Hide()
     {
+        _buttons?.Stop();
         if (_window is null) return;
         _follow.Stop();
         Unwatch();
@@ -186,6 +282,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         _window = null;
         _drawn = "";
         _placed = Rectangle.Empty;
+        _size = Size.Empty;
     }
 
     /// <summary>The part under the pointer, by the drawn edges (null past the last).</summary>
@@ -210,6 +307,19 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             removeItem.Click += (_, _) => remove([.. cell.Select(r => r.Id)]);
             menu.Items.Add(removeItem);
         }
+        if (cell is not null)
+            foreach (var r in cell)
+            {
+                bool graph = _graphIds.Contains(r.Id);
+                string name = r.Name.Length is > 0 and <= 40 ? r.Name : TrayParts.Label(r.Part);
+                var item = new ToolStripMenuItem(graph ? Lang.T($"Remove the graph behind {name}") : Lang.T($"Add a graph behind {name}"));
+                item.Click += (_, _) => setGraph(r.Id, !graph);
+                menu.Items.Add(item);
+            }
+        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
+        var sideItem = new ToolStripMenuItem(_side == TraySide.Left ? Lang.T("Move next to the clock") : Lang.T("Move to the left side"));
+        sideItem.Click += (_, _) => setSide(_side == TraySide.Left ? TraySide.Right : TraySide.Left);
+        menu.Items.Add(sideItem);
         var icons = new ToolStripMenuItem(Lang.T("Show as icons instead"));
         icons.Click += (_, _) => setStyle(TrayStyle.Icons);
         var page = new ToolStripMenuItem(Lang.T("Taskbar settings…"));
@@ -257,6 +367,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     public void Dispose()
     {
         Hide();
+        _buttons?.Dispose();
         _follow.Dispose();
         _tipDelay.Dispose();
         _tip?.Dispose();

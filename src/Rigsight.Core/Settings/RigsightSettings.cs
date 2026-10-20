@@ -85,6 +85,12 @@ public sealed class RigsightSettings
     /// </summary>
     public bool TrayGrayscale { get; set; } = true;
 
+    /// <summary>Where the strip sits: next to the clock, or at the taskbar's left end (with its icons centred).</summary>
+    public TraySide TraySide { get; set; }
+
+    /// <summary>Taskbar readings drawn on the strip with a graph of their last minutes behind the number (by sensor id).</summary>
+    public List<string> TrayGraphs { get; set; } = [];
+
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
 
@@ -140,6 +146,12 @@ public sealed class RigsightSettings
     /// app then sets it without showing anything.
     /// </summary>
     public string? WhatsNewSeen { get; set; }
+
+    /// <summary>The app window's zoom, Ctrl + wheel (1 = 100%; see <see cref="AppZoom"/>).</summary>
+    public double Zoom { get; set; } = 1;
+
+    /// <summary>The "Enjoying RigSight?" card's record (see <see cref="SupportAsk"/>).</summary>
+    public SupportAskState Support { get; set; } = new();
 
     /// <summary>Last version the agent sent an "update ready" notification for (one each).</summary>
     public string? LastUpdateNotice { get; set; }
@@ -262,6 +274,12 @@ public sealed class AlertSettings
 /// <see cref="Grouped"/>: an icon per part, up to two readings stacked (see <see cref="TrayParts"/>).
 /// </summary>
 public enum TrayStyle { Strip, Icons, Grouped }
+
+/// <summary>
+/// Where the taskbar strip sits. <see cref="Left"/>: at the taskbar's left end, before Start, which needs the taskbar's
+/// icons centred (Windows 11's own setting); left-aligned icons fill that end, so the strip stays next to the clock.
+/// </summary>
+public enum TraySide { Right, Left }
 
 public enum NotificationStyle
 {

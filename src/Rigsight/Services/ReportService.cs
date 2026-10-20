@@ -88,6 +88,15 @@ public sealed class ReportService(SettingsModel settings)
     public Task<MemoryPast?> MemoryPastAsync() => Run(db => MemoryPast.Read(db, DateTime.Now));
 
     /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
+    /// <summary>
+    /// What the support card's rule needs (see SupportAsk): the history's first day, the days with use, and the apps
+    /// ("" for the PC) of crashes and shut-offs in the last 24 hours.
+    /// </summary>
+    public Task<(DateTime? FirstDay, int DaysUsed, List<string> RecentCrashes)> SupportFactsAsync() => Run(db => (
+        db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null,
+        db.DaysUsed(),
+        db.CrashesSince(TimeUtil.NowUnix() - 86_400)));
+
     public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 
     /// <summary>The last day before <paramref name="before"/> the PC was really used (five minutes or more), if any.</summary>

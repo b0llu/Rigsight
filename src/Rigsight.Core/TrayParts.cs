@@ -157,5 +157,24 @@ public static class TrayParts
     public static List<string> StripLabels(IReadOnlyList<string> shortLabels, string partName) =>
         [.. shortLabels.Select((label, i) => i == 0 ? partName : label)];
 
+    /// <summary>The time a strip graph shows, ending now: two minutes.</summary>
+    public const int GraphSeconds = 120;
+
+    /// <summary>
+    /// The bottom and top of a reading's graph on the strip. The top is the highest the graph holds, so its peak always
+    /// fills the strip (the user's word: the number over it says how much; a 5% load at 0-100 was a line on the floor).
+    /// The bottom is 0 (a temperature: 10° under its top at least, so it's a shape, not a full block), or the lowest
+    /// for a reading that goes below 0. A reading that never left 0 is a flat graph on the floor.
+    /// </summary>
+    public static (double Min, double Max) GraphRange(SensorKind kind, IReadOnlyList<float> values)
+    {
+        var known = values.Where(float.IsFinite).ToList();
+        if (known.Count == 0) return (0, 1);
+        double lo = Math.Min(0, known.Min()), hi = known.Max();
+        if (kind == SensorKind.Temperature) lo = Math.Min(known.Min(), hi - 10);
+        if (hi - lo < 1e-6) hi = lo + 1;
+        return (lo, hi);
+    }
+
     private static int Rank(SensorKind kind) => kind switch { SensorKind.Temperature => 0, SensorKind.Load => 1, _ => 2 };
 }

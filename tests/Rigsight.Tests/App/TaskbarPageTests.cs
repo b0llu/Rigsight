@@ -181,6 +181,73 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
+    public void The_strip_goes_to_the_left_side_and_back()
+    {
+        var (page, settings, _) = Make();
+        Ui.Run(() =>
+        {
+            Assert.Equal(("Right", false), (page.SideText, page.OnLeft)); // next to the clock to start
+            page.SideText = "Left";
+            Assert.Equal(TraySide.Left, settings.Current.TraySide);
+            Assert.True(page.OnLeft);
+            // Said only when Windows' icons fill the left end.
+            Assert.Equal(page.ShowStrip && page.IconsAlignedLeft, page.SideNote.Length > 0);
+            page.SideText = "Right";
+            Assert.Equal(TraySide.Right, settings.Current.TraySide);
+            Assert.Equal("", page.SideNote);
+        });
+    }
+
+    [Fact]
+    public void Each_reading_on_the_strip_can_have_a_graph_behind_it()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU temperature"));
+            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU load"));
+            var (temp, load) = (page.Sensors[0], page.Sensors[1]);
+            Assert.False(temp.Graph || load.Graph); // numbers alone to start
+            Assert.Equal(TaskbarViewModel.StripSupported, temp.ShowShapeSwitch);
+
+            page.ShowAsGraphCommand.Execute(load);
+            Assert.Equal([live.CpuLoad!.Id], settings.Current.TrayGraphs);
+            Assert.True(load.Graph);
+            Assert.False(temp.Graph);
+            Assert.Equal([false, true], page.PreviewStrip.Single().Readings.Select(r => r.Row.Graph));
+
+            page.ShowAsGraphCommand.Execute(load); // once only
+            Assert.Single(settings.Current.TrayGraphs);
+            page.ShowAsNumberCommand.Execute(load);
+            Assert.Empty(settings.Current.TrayGraphs);
+            Assert.False(load.Graph);
+
+            // The row's own switch (a click, keys or a screen reader), saved as the commands are.
+            temp.Graph = true;
+            Assert.Equal([live.CpuTemp!.Id], settings.Current.TrayGraphs);
+            temp.Graph = false;
+            Assert.Empty(settings.Current.TrayGraphs);
+
+            // As icons there's no graph to draw: no switch.
+            page.Separate = true;
+            Assert.False(temp.ShowShapeSwitch);
+        });
+    }
+
+    [Fact]
+    public void A_graph_picked_from_the_taskbar_shows_on_the_page()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
+            settings.Update(s => s.TrayGraphs.Add(live.GpuTemp!.Id)); // as the agent's right-click menu does
+            page.LoadSensors();
+            Assert.True(page.Sensors.Single().Graph);
+        });
+    }
+
+    [Fact]
     public void The_preview_shows_what_the_taskbar_will()
     {
         // The same short numbers as the real icons (the agent's drawing uses Units.TrayText too).

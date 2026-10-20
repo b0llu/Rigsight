@@ -1428,6 +1428,23 @@ public sealed partial class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
+    /// <summary>The days with any use in the history (a day someone was at the PC), for the support card.</summary>
+    public int DaysUsed()
+    {
+        using var cmd = Cmd("SELECT count(*) FROM system_day WHERE active_sec > 0");
+        return cmd.ExecuteScalar() is long n ? (int)n : 0;
+    }
+
+    /// <summary>The apps (exe names, "" for the PC itself) of crashes and shut-offs since <paramref name="since"/> (Unix seconds).</summary>
+    public List<string> CrashesSince(long since)
+    {
+        using var cmd = Cmd("SELECT app_exe FROM crashes WHERE ts >= $since", ("$since", since));
+        using var r = cmd.ExecuteReader();
+        var list = new List<string>();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list;
+    }
+
     /// <summary>When the oldest minute of history is from (Unix seconds), if any.</summary>
     public long? FirstMinuteTime()
     {

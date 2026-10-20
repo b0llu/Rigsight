@@ -110,6 +110,12 @@ public static class Changelog
     [
         // Version and date settled at release.
         // This one is about another language, so it's said in it too (older entries stay as they were written).
+        // The support card that came with 0.31.1 is left out on purpose (the user's word).
+        V("0.31.1", 10, 20,
+            added: [Lang.T("The taskbar readings can sit at the left end of the taskbar, with its icons centred: pick Left on the Taskbar page."),
+                Lang.T("Switch on Graph for any taskbar reading to see its last two minutes filled in behind the number."),
+                Lang.T("Hold Ctrl and scroll, or press Ctrl and plus or minus, to zoom RigSight up to 130%. Ctrl and 0 goes back.")],
+            better: [Lang.T("The Settings page sits in the middle of the window, like the other pages.")]),
         V("0.31.0", 10, 19,
             feature: new(Lang.T("Rewind"), Lang.T("A look back at your PC every month, as cards to watch and share, coming soon."),
                 [Lang.T("Nothing to watch yet: a rewind is made when a month ends, so just wait for your first one."),

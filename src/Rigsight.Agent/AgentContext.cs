@@ -190,7 +190,9 @@ internal sealed class AgentContext : ApplicationContext
         _taskbarStrip = new TaskbarStrip(open: () => OpenApp(null),
             remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
             setStyle: style => MutateSettings(s => s.TrayStyle = style),
-            openPage: () => OpenApp("taskbar"));
+            openPage: () => OpenApp("taskbar"),
+            setSide: side => MutateSettings(s => s.TraySide = side),
+            setGraph: (id, on) => MutateSettings(s => { s.TrayGraphs.Remove(id); if (on) s.TrayGraphs.Add(id); }));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
@@ -1067,7 +1069,7 @@ internal sealed class AgentContext : ApplicationContext
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
             // In the taskbar where it can be (Windows 11), else as icons.
-            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings, settings.TrayGrayscale);
+            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayGraphs);
             if (settings.TrayStyle != TrayStyle.Strip) _taskbarStrip.Hide();
             _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale);
             // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
@@ -1969,6 +1971,8 @@ internal sealed class AgentContext : ApplicationContext
         void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
         Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
+        if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
+        Note("taskbar graphs", before.TrayGraphs.Count, after.TrayGraphs.Count);
         Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
         // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
         Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
@@ -1993,6 +1997,7 @@ internal sealed class AgentContext : ApplicationContext
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
+                          || updated.TraySide != current.TraySide || !updated.TrayGraphs.SequenceEqual(current.TrayGraphs)
                           || !updated.TraySensors.SequenceEqual(current.TraySensors);
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;

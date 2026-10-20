@@ -485,4 +485,19 @@ public sealed class SettingsStoreTests
         s.TrayGrayscale = false;
         Assert.False(SettingsStore.Deserialize(SettingsStore.Serialize(s)).TrayGrayscale);
     }
+
+    [Fact]
+    public void The_strips_side_and_graphs_are_kept_and_start_as_before()
+    {
+        // Settings from before them: next to the clock, every reading a number.
+        var old = SettingsStore.Deserialize("""{ "SettingsVersion": 12, "TraySensors": ["/a", "/b"] }""");
+        Assert.Equal(TraySide.Right, old.TraySide);
+        Assert.Empty(old.TrayGraphs);
+
+        old.TraySide = TraySide.Left;
+        old.TrayGraphs.Add("/b");
+        var back = SettingsStore.Deserialize(SettingsStore.Serialize(old));
+        Assert.Equal(TraySide.Left, back.TraySide);
+        Assert.Equal(["/b"], back.TrayGraphs);
+    }
 }
