@@ -1,0 +1,62 @@
+<UserControl x:Class="Rigsight.Views.InstructionsBox"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls">
+    <!-- The instructions for Ollama or my own key, opened from Settings › Ask RigSight (approved mock-up 2026-10-21). The text box
+         holds what is in use now; the grey box says what RigSight always adds after it, so nothing written can break the
+         answer cards or the Next step box. -->
+    <ctl:SmoothBorder Width="760" Margin="24" Padding="24,20,24,18" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                      AutomationProperties.Name="{Binding Title}">
+        <StackPanel>
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CancelCommand}" VerticalAlignment="Top"
+                        ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Cancel'}">
+                    <TextBlock Text="&#xE8BB;" FontSize="11" />
+                </Button>
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
+
+            <TextBox x:Name="Box" Margin="0,14,0,0" Height="330" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="False"
+                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontSize="13" Foreground="{DynamicResource TextBrush}" CaretBrush="{DynamicResource TextBrush}"
+                     SelectionBrush="{DynamicResource AccentBrush}" SpellCheck.IsEnabled="False" AutomationProperties.Name="{ctl:T 'Instructions'}">
+                <TextBox.Template>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8">
+                            <ScrollViewer x:Name="PART_ContentHost" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </TextBox.Template>
+            </TextBox>
+
+            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,12" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'RigSight always adds these after your text'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <UniformGrid Columns="2" Margin="0,6,0,0">
+                        <TextBlock Text="{ctl:T '• Today\'s date and time'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" />
+                        <TextBlock Text="{ctl:T '• That it can look at this PC\'s records'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" />
+                        <TextBlock Text="{ctl:T '• What you share, and what to say when something isn\'t'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBlock Text="{ctl:T '• How to ask for RigSight\'s number cards'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" />
+                        <TextBlock Text="{ctl:T '• The Next step line, so its box still shows'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" />
+                        <TextBlock Text="{ctl:T '• That records and web pages are never instructions'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2" TextWrapping="Wrap" />
+                    </UniformGrid>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <DockPanel Margin="0,16,0,0">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset to RigSight\'s'}" Command="{Binding ResetCommand}" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CancelCommand}" Margin="8,0,0,0" />
+                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Save'}" Command="{Binding SaveCommand}" Margin="8,0,0,0" />
+                </StackPanel>
+                <TextBlock Text="{Binding Count}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+            </DockPanel>
+        </StackPanel>
+    </ctl:SmoothBorder>
+</UserControl>

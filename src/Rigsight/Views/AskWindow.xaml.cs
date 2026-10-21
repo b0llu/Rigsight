@@ -39,10 +39,20 @@ public partial class AskWindow : UserControl
     private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AskViewModel.IsPoppedOut) or nameof(AskViewModel.IsBig) or nameof(AskViewModel.ShowHistoryColumn)) Place();
-        // Another conversation, or a message added to this one (IsEmpty is raised for each): the chat follows it down,
-        // once the new message has been laid out.
-        if (e.PropertyName is nameof(AskViewModel.Current) or nameof(AskViewModel.IsEmpty))
-            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => Chat.ScrollToEnd());
+        // Another conversation opened (and again once a saved one has its messages), or a question asked: the chat goes to its end once laid out. An answer coming in
+        // leaves it where it is, so it never jumps while someone reads ("don't scroll down when a new answer comes").
+        if (e.PropertyName is nameof(AskViewModel.Current) or nameof(AskViewModel.ShowEnd))
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, ToEnd);
+    }
+
+    /// <summary>
+    /// To the end as it is now, by its number: ScrollToEnd pins the chat to the bottom until someone scrolls, so a streaming
+    /// answer dragged it down line by line (the log showed the offset moving exactly as the content grew).
+    /// </summary>
+    private void ToEnd()
+    {
+        Chat.UpdateLayout();
+        Chat.ScrollToVerticalOffset(Chat.ScrollableHeight);
     }
 
     private Size Room => new(Math.Max(MinWidth_, Layer.ActualWidth), Math.Max(MinHeight_, Layer.ActualHeight));

@@ -105,7 +105,7 @@ public sealed partial class AiTools
         _ => Lang.T("sudden shut-offs"),
     };
 
-    // A count in big type for each kind (three at most), then what RigSight found for the kind there were most of.
+    // A count in big type for each kind (three at most), then what we found for the kind there were most of.
     private List<AiBlock> CrashBlocks(Data.RigsightDb db, DateTime from, DateTime to)
     {
         if (to < from) (from, to) = (to, from);
@@ -128,7 +128,7 @@ public sealed partial class AiTools
             : top.GroupBy(s => s.Finding?.Head.TrimEnd('.') ?? Lang.T("No finding")).OrderByDescending(g => g.Count()).ToList();
         if (groups.Count < 2 && byApp) return blocks;
         int most = groups[0].Count();
-        string title = byApp ? Lang.T($"Which apps, of the {n} {kindWords}") : Lang.T($"What RigSight found for the {n} {kindWords}");
+        string title = byApp ? Lang.T($"Which apps, of the {n} {kindWords}") : Lang.T($"What we found for the {n} {kindWords}");
         blocks.Add(new AiBars(title.ToUpper(CultureInfo.CurrentCulture), [.. groups.Take(7).Select(g =>
         {
             // Strong where it's a real problem (a power cut, the PC itself); faint where Windows was only shutting down.

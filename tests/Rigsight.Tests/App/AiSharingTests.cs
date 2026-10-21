@@ -69,8 +69,8 @@ public sealed class AiSharingTests
     public void Every_way_of_answering_is_told_what_to_say_when_something_isnt_shared()
     {
         var now = new DateTime(2026, 10, 21, 9, 0, 0);
-        foreach (var search in new[] { false, true })
-            Assert.Contains("Not shared", AiPrompt.System(true, search, now));
+        foreach (var prompt in AskAnswerTests.EveryPrompt(now).Where(p => !p.Contains("can't look at this PC's records")))
+            Assert.Contains("Not shared", prompt);
     }
 
     [Fact]

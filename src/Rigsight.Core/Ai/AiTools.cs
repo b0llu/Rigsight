@@ -130,7 +130,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.ShareUsage) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.ShareUsage)) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
 
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
@@ -147,7 +147,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // The newest 15 at most, so a long period stays readable.
         int all = stories.Count;
         stories = [.. stories.OrderByDescending(x => x.Crash.Ts).Take(15).Select(Shared)];
-        string text = ReadableExport.CrashesText(stories, $"{from:d MMM yyyy} to {to:d MMM yyyy}", DateTime.Now, "RigSight");
+        string text = WithoutMaker(ReadableExport.CrashesText(stories, $"{from:d MMM yyyy} to {to:d MMM yyyy}", DateTime.Now, "RigSight"));
         return summary + (all > 15 ? $"Details of the newest 15 of {all} follow; ask for a shorter period for older ones. Use the counts above for totals.\n\n" : "\n") + text
             + LeftOut(Switch.Heat, Switch.Apps, Switch.Memory, Switch.Changes);
     }
@@ -177,6 +177,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             // The close-up's lines are readings and apps every two seconds.
             InLastMinutes = a.ShareHeat && a.ShareApps ? s.InLastMinutes : [],
         };
+    }
+
+    /// <summary>
+    /// An export's text without the lines naming the app that made it ("RigSight report", "Made by RigSight … on …"):
+    /// the model copied them into "RigSight found…" where it should speak as RigSight.
+    /// </summary>
+    private static string WithoutMaker(string text)
+    {
+        // The maker line is one text with the version and time in it: matched by its start, in English or the pack's words.
+        string made = Lang.T($"Made by RigSight {"VERSION"} on {"WHEN"}. Everything here was recorded on this PC.").Split("VERSION")[0];
+        return string.Join(Environment.NewLine, text.Split('\n').Select(l => l.TrimEnd('\r'))
+            .Where(l => l.Trim() != Lang.T("RigSight report") && !l.StartsWith(made, StringComparison.Ordinal)));
     }
 
     /// <summary>Every problem in the period with what was going on and RigSight's finding (muted apps left out).</summary>
@@ -243,7 +255,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var sb = new StringBuilder($"TOTALS for this period ({stories.Count} problems in all: {string.Join(", ", kinds.Select(k => $"{k.Count()} {Kind(k.Key).ToLowerInvariant()}"))}):\n");
         foreach (var kind in kinds)
         {
-            sb.AppendLine($"{Kind(kind.Key)}: {kind.Count()} in all, first {TimeUtil.FromUnix(kind.Min(s => s.Crash.Ts)):d MMM}, last {TimeUtil.FromUnix(kind.Max(s => s.Crash.Ts)):d MMM}. RigSight's finding for them:");
+            sb.AppendLine($"{Kind(kind.Key)}: {kind.Count()} in all, first {TimeUtil.FromUnix(kind.Min(s => s.Crash.Ts)):d MMM}, last {TimeUtil.FromUnix(kind.Max(s => s.Crash.Ts)):d MMM}. What we found for them:");
             foreach (var found in kind.GroupBy(s => s.Finding is { } f ? $"{f.Head.TrimEnd('.')} ({char.ToLowerInvariant(f.HowSure[0])}{f.HowSure[1..]})" : "no finding").OrderByDescending(g => g.Count()))
                 sb.AppendLine($"  {found.Count()} of the {kind.Count()}: {found.Key}");
             var apps = kind.Where(s => s.App is not null).GroupBy(s => s.App!).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()}").ToList();
@@ -277,7 +289,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (games.Count == 0) return "No games recorded.";
         var sb = new StringBuilder();
         // Said first: a model asked about one day once took the busiest games of all time for that day's.
-        sb.AppendLine($"Every game over all of RigSight's history ({games.Min(g => g.FirstPlayed):d MMM yyyy} to {games.Max(g => g.LastPlayed):d MMM yyyy}), not any one day or week. For a period, ask with from and to.");
+        sb.AppendLine($"Every game in the whole history ({games.Min(g => g.FirstPlayed):d MMM yyyy} to {games.Max(g => g.LastPlayed):d MMM yyyy}), not any one day or week. For a period, ask with from and to.");
         foreach (var g in games)
             sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {g.Sessions} sessions, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average" : ""));
@@ -318,7 +330,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var games = Library(db).Where(g => g.HasHistory).ToList();
         var entry = games.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             ?? games.FirstOrDefault(g => g.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
-        if (entry is null) return $"No game called '{name}' in RigSight's history. Known: {string.Join(", ", games.Select(g => g.Name))}.";
+        if (entry is null) return $"No game called '{name}' in the history. Known: {string.Join(", ", games.Select(g => g.Name))}.";
         var story = GameHistory.Story(db, entry, settings, DateTime.Now);
         var sb = new StringBuilder();
         sb.AppendLine($"{entry.Name}: {Units.Duration(entry.ActiveSec)} in {story.Plays.Count} plays."
@@ -399,7 +411,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         lines.Add($"RAM: {Math.Round(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1073741824.0):0} GB");
         using (var nt = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
             lines.Add($"Windows: build {nt?.GetValue("CurrentBuild")} {nt?.GetValue("DisplayVersion")}");
-        lines.Add("Cooling: not known to RigSight (it reads fan and pump speeds, not the cooler's model).");
+        lines.Add("Cooling: not known (fan and pump speeds are recorded, not the cooler's model).");
         return string.Join("\n", lines);
     }
 }

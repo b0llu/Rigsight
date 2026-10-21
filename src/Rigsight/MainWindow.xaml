@@ -1066,6 +1066,30 @@
             </ContentControl>
         </Grid>
 
+        <!-- Instructions for Ollama or my own key: opened from Settings › Ask RigSight. Closed with the x, Cancel, Esc or a click outside. -->
+        <Grid x:Name="InstructionsLayer" Grid.ColumnSpan="2" DataContext="{Binding SettingsPage.Ai.Editor}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
+              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
+            <Border Background="#99000000" MouseLeftButtonDown="InstructionsBackdrop_MouseDown" />
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate">
+                                    <Setter.Value>
+                                        <DataTemplate>
+                                            <views:InstructionsBox />
+                                        </DataTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+
         <!-- "End … ?": asked before a part of Windows is ended from the Processes page. Esc or a click outside cancels. -->
         <Grid x:Name="EndQuestionLayer" Grid.ColumnSpan="2" DataContext="{Binding Processes.Question}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
               Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">

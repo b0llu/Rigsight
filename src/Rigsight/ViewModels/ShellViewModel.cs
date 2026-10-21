@@ -101,6 +101,7 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Language = Language;
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
+        Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
         Update = new UpdateViewModel(client, agentCanInstall: () => IsConnected && AgentIsAdmin,

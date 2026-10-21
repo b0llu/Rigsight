@@ -89,7 +89,7 @@ public sealed partial class AiTools
         var off = Needs(name);
         string which = string.Join(" or ", off.Select(s => $"\"{Label(s)}\""));
         Log.Write("ask", $"{name} asked for, not shared ({which} off)");
-        return $"Not shared: the user turned off {which} in Settings › Ask RigSight, so RigSight sends none of these records. "
+        return $"Not shared: the user turned off {which} in Settings › Ask RigSight, so none of these records are sent. "
             + $"Tell them you couldn't look at this because it's turned off, and that they can turn on {which} there and ask again. Don't guess what it would show.";
     }
 
@@ -152,7 +152,7 @@ public sealed partial class AiTools
         {
             string before = db.LastMinuteBefore(t) is long b ? TimeUtil.FromUnix(b).ToString("d MMM h:mm tt", CultureInfo.InvariantCulture) : "never";
             string after = db.GetMinutes(t, t + 86400).FirstOrDefault() is { } next ? TimeUtil.FromUnix(next.Ts).ToString("d MMM h:mm tt", CultureInfo.InvariantCulture) : "not within a day";
-            sb.AppendLine($"Nothing was recorded then: the PC was off or asleep (or RigSight wasn't running). Last minute recorded before: {before}. First after: {after}.");
+            sb.AppendLine($"Nothing was recorded then: the PC was off or asleep (or recording wasn't running). Last minute recorded before: {before}. First after: {after}.");
         }
         else
         {
@@ -322,7 +322,7 @@ public sealed partial class AiTools
         var days = db.GetDriveDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-90)));
         if (days.Count == 0) return "No drive sizes recorded.";
         var sb = new StringBuilder();
-        sb.AppendLine("Drives (from RigSight's daily record of how full each is):");
+        sb.AppendLine("Drives (from the daily record of how full each is):");
         foreach (var g in days.GroupBy(d => d.Drive).OrderBy(g => g.Key))
         {
             var list = g.OrderBy(d => d.Day).ToList();
@@ -333,7 +333,7 @@ public sealed partial class AiTools
             var jumps = list.Zip(list.Skip(1), (a, b) => (b.Day, Gb: b.UsedGb - a.UsedGb)).Where(j => Math.Abs(j.Gb) >= 1).OrderByDescending(j => Math.Abs(j.Gb)).Take(3).ToList();
             if (jumps.Count > 0) sb.AppendLine("    Biggest changes in a day: " + string.Join(", ", jumps.Select(j => $"{TimeUtil.FromUnix(j.Day):d MMM} {Said(j.Gb)}")));
         }
-        sb.AppendLine("RigSight records how full each drive is once a day, not which files changed.");
+        sb.AppendLine("How full each drive is gets recorded once a day, not which files changed.");
         return sb.ToString();
     }
 
@@ -370,13 +370,13 @@ public sealed partial class AiTools
         if ((t - f) > 3 * 86400)
         {
             var use = db.GetDayUse(f, t);
-            if (use.Count == 0) return $"Nothing recorded on {said}: the PC was off, or RigSight wasn't running.";
+            if (use.Count == 0) return $"Nothing recorded on {said}: the PC was off, or recording wasn't running.";
             sb.AppendLine($"The PC on {said}, day by day (on, and in use):");
             foreach (var d in use) sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: on {Units.Duration(d.OnSec)}, in use {Units.Duration(d.ActiveSec)}");
             return sb.ToString();
         }
         var minutes = db.GetMinutes(f, t);
-        if (minutes.Count == 0) return $"Nothing recorded on {said}: the PC was off, or RigSight wasn't running.";
+        if (minutes.Count == 0) return $"Nothing recorded on {said}: the PC was off, or recording wasn't running.";
         // A gap of more than three minutes is the PC off or asleep (RigSight records every minute it's on).
         var runs = new List<(long Start, long End, int Active)>();
         foreach (var m in minutes)
@@ -384,7 +384,7 @@ public sealed partial class AiTools
             if (runs.Count > 0 && m.Ts - runs[^1].End <= 180) runs[^1] = (runs[^1].Start, m.Ts + 60, runs[^1].Active + m.ActiveSec);
             else runs.Add((m.Ts, m.Ts + 60, m.ActiveSec));
         }
-        sb.AppendLine($"The PC on {said}. Between these stretches it was off or asleep (RigSight can't tell which):");
+        sb.AppendLine($"The PC on {said}. Between these stretches it was off or asleep (the records can't tell which):");
         foreach (var r in runs.TakeLast(40))
             sb.AppendLine($"  {TimeUtil.FromUnix(r.Start):ddd d MMM h:mm tt} to {TimeUtil.FromUnix(r.End):h:mm tt}: on {Units.Duration(r.End - r.Start)}, in use {Units.Duration(r.Active)}");
         if (settings.Ai.ShareCrashes && db.GetCrashes(f, t).Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).ToList() is { Count: > 0 } downs)

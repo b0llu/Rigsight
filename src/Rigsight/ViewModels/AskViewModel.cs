@@ -54,6 +54,30 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     public IReadOnlyDictionary<string, IReadOnlyList<AiBlock>> Drawn { get; init; } = new Dictionary<string, IReadOnlyList<AiBlock>>();
 }
 
+/// <summary>
+/// An answer still being written, shown as it streams in. It changes in place (its first line, then each part as it
+/// grows), so what is already on screen stays put; the finished <see cref="AskAnswer"/> takes its place, drawn the same.
+/// </summary>
+public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPropertyChanged
+{
+    private string _verdict = "";
+    public string Verdict { get => _verdict; private set { if (_verdict == value) return; _verdict = value; PropertyChanged?.Invoke(this, new(nameof(Verdict))); } }
+    public System.Collections.ObjectModel.ObservableCollection<object> Parts { get; } = [];
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Takes on the parts of the answer so far, replacing only those that changed.</summary>
+    public void Show(AskAnswer now)
+    {
+        Verdict = now.Verdict;
+        for (int i = 0; i < now.Parts.Count; i++)
+        {
+            if (i >= Parts.Count) Parts.Add(now.Parts[i]);
+            else if (!Equals(Parts[i], now.Parts[i])) Parts[i] = now.Parts[i];
+        }
+        while (Parts.Count > now.Parts.Count) Parts.RemoveAt(Parts.Count - 1);
+    }
+}
+
 /// <summary>No answer came: Ollama not running, the model gone, and so on, said plainly.</summary>
 public sealed record AskProblem(string Text) : AskMessage;
 
@@ -72,10 +96,30 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
     public DateTime Since { get; private set; } = DateTime.Now;
     public bool Loading { get; private set; }
 
+    /// <summary>When the question went in: the bouncing dots show alone for the first moments.</summary>
+    public DateTime Started { get; } = DateTime.Now;
+    /// <summary>
+    /// Taking a while (past <see cref="DotsFor"/>, or a model being loaded): the dots give way to what it's doing,
+    /// pulsing, so the wait makes sense.
+    /// </summary>
+    public bool Slow { get; private set; }
+    public static readonly TimeSpan DotsFor = TimeSpan.FromSeconds(3);
+
     public void Show(string step, string? note = null, bool loading = false)
     {
         (Step, Note, Loading, Since) = (step, note, loading, DateTime.Now);
         foreach (var name in new[] { nameof(Step), nameof(Note), nameof(HasNote) }) PropertyChanged?.Invoke(this, new(name));
+        if (loading) BeSlow();
+    }
+
+    /// <summary>Called by the window's timer: the dots step aside once the wait passes <see cref="DotsFor"/>.</summary>
+    public void Tick() { if (!Slow && DateTime.Now - Started >= DotsFor) BeSlow(); }
+
+    private void BeSlow()
+    {
+        if (Slow) return;
+        Slow = true;
+        PropertyChanged?.Invoke(this, new(nameof(Slow)));
     }
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
@@ -94,6 +138,8 @@ public sealed partial class AskConversation : ObservableObject
     public DateTime When { get; set; } = DateTime.Now;
     [ObservableProperty] private bool _isPinned;
     [ObservableProperty] private bool _isArchived;
+    /// <summary>What was typed in it and not sent yet, back in the box when it is opened again (this run only).</summary>
+    public string Draft { get; set; } = "";
     /// <summary>Its ⋯ menu is open.</summary>
     [ObservableProperty] private bool _isMenuOpen;
     /// <summary>Its title is being typed over (Rename), with what's typed so far.</summary>
@@ -174,6 +220,9 @@ public sealed partial class AskViewModel : ObservableObject
         OnPropertyChanged(nameof(InSidebar));
         OnPropertyChanged(nameof(ShowQuestionsLeft));
         OnPropertyChanged(nameof(IsOutOfQuestions));
+        foreach (var name in new[] { nameof(ShareCrashes), nameof(ShareHeat), nameof(ShareApps), nameof(ShareChanges), nameof(ShareMemory), nameof(ShareNetwork), nameof(ShareUsage), nameof(ShareParts) })
+            OnPropertyChanged(name);
+        FirstQuestionChanged();
         Regroup();
     }
 
@@ -217,15 +266,30 @@ public sealed partial class AskViewModel : ObservableObject
     [ObservableProperty] private string _historySearch = "";
     partial void OnHistorySearchChanged(string value) => Regroup();
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(LookingAt), nameof(HasLookingAt))] private AskConversation? _current;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(ShowChat), nameof(ShowStarters), nameof(LookingAt), nameof(HasLookingAt))] private AskConversation? _current;
     partial void OnCurrentChanged(AskConversation? oldValue, AskConversation? newValue)
     {
-        if (oldValue is not null) { oldValue.IsCurrent = false; oldValue.Messages.CollectionChanged -= OnMessagesChanged; }
+        if (oldValue is not null) { oldValue.IsCurrent = false; oldValue.Messages.CollectionChanged -= OnMessagesChanged; oldValue.Draft = Draft; }
         if (newValue is not null) { newValue.IsCurrent = true; newValue.Messages.CollectionChanged += OnMessagesChanged; }
+        // Each conversation keeps its own unsent words: what was typed in one never carries into another.
+        Draft = newValue?.Draft ?? "";
     }
-    private void OnMessagesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(IsEmpty));
+    private void OnMessagesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowChat));
+        OnPropertyChanged(nameof(ShowStarters));
+    }
 
     public bool IsEmpty => Current is null || Current.Messages.Count == 0;
+
+    /// <summary>
+    /// Raised when the chat should show its end: the person asked something (their question shows), or a saved
+    /// conversation finished opening. Answers coming in don't raise it, so they never scroll the chat.
+    /// </summary>
+    public int ShowEnd { get; private set; }
+
+    private void ToEnd() { ShowEnd++; OnPropertyChanged(nameof(ShowEnd)); }
     public string? LookingAt => Current?.LookingAt is { } at ? Lang.T($"Looking at: {at}") : null;
     public bool HasLookingAt => Current?.LookingAt is not null;
 
@@ -242,7 +306,7 @@ public sealed partial class AskViewModel : ObservableObject
 
     // ── Questions left (RigSight AI only) ────────────────────────────────
     /// <summary>Every PC gets this many free questions to try RigSight AI before buying any.</summary>
-    public const int FreeQuestions = 5;
+    public const int FreeQuestions = 10;
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(IsLow), nameof(IsOutOfQuestions))] private int _questionsLeft = FreeQuestions;
     /// <summary>A bought licence is on this PC; without one, the free questions are counted.</summary>
@@ -258,6 +322,112 @@ public sealed partial class AskViewModel : ObservableObject
     };
     public bool IsLow => QuestionsLeft <= 5;
     public bool IsOutOfQuestions => ShowQuestionsLeft && QuestionsLeft <= 0;
+
+    // ── Before the first question (each way of answering once) ───────────
+    /// <summary>
+    /// The first time someone asks with a way of answering, the window says what is sent and where before anything goes,
+    /// with the same switches as Settings › Ask RigSight (approved mock-up 2026-10-21). Start asking closes it for that way.
+    /// </summary>
+    public bool ShowFirstQuestion => IsEnabled && !Ai.FirstQuestionSeen.Contains(Ai.Mode);
+    public bool ShowChat => !IsEmpty && !ShowFirstQuestion;
+    public bool ShowStarters => IsEmpty && !ShowFirstQuestion;
+
+    /// <summary>An Explain pressed before Start asking: it goes once they have read it.</summary>
+    private Action? _afterFirst;
+
+    [RelayCommand]
+    private void StartAsking()
+    {
+        var mode = Ai.Mode;
+        _settings.Update(s => { if (!s.Ai.FirstQuestionSeen.Contains(mode)) s.Ai.FirstQuestionSeen = [.. s.Ai.FirstQuestionSeen, mode]; });
+        Log.Write("ask", $"First question window read for {mode}");
+        FirstQuestionChanged();
+        var then = _afterFirst;
+        _afterFirst = null;
+        then?.Invoke();
+    }
+
+    private void FirstQuestionChanged()
+    {
+        foreach (var name in new[] { nameof(ShowFirstQuestion), nameof(ShowChat), nameof(ShowStarters), nameof(FirstIntro), nameof(FirstWhere),
+                     nameof(FirstWhereText), nameof(FirstMore), nameof(FirstMoreText), nameof(FirstNever), nameof(FirstExtra), nameof(FirstTone) })
+            OnPropertyChanged(name);
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>About what a question costs on the picked model at the service's prices ("0.3¢"), when it publishes them; set by the shell.</summary>
+    public Func<string?>? PerQuestion { get; set; }
+
+    private string Service => Ai.Service.Length > 0 ? Ai.Service : Lang.T("the service");
+
+    public string FirstIntro => Ai.Mode switch
+    {
+        AiMode.OwnKey => Lang.T("Your own key answers from your PC's records. To do that, RigSight sends your question and the records it needs to the service you picked."),
+        AiMode.Ollama when OllamaHere => Lang.T("Ollama answers from your PC's records, right here on this PC."),
+        AiMode.Ollama => Lang.T("Ollama answers from your PC's records. To do that, RigSight sends your question and the records it needs to the computer Ollama runs on."),
+        _ => Lang.T("RigSight AI answers from your PC's records. To do that, RigSight sends your question and the records it needs."),
+    };
+
+    /// <summary>Where it goes, in bold, then what that means.</summary>
+    public string FirstWhere => Ai.Mode switch
+    {
+        AiMode.OwnKey => Lang.T($"Goes to {Service}."),
+        AiMode.Ollama when OllamaHere => Lang.T("Stays on this PC."),
+        AiMode.Ollama => Lang.T($"Goes to the Ollama at {Ollama.Host(Ai.OllamaAddress)}."),
+        _ => Lang.T("Goes to RigSight AI."),
+    };
+    public string FirstWhereText => Ai.Mode switch
+    {
+        AiMode.OwnKey => Ai.Model.Length > 0
+            ? Lang.T($"Your question and these records go to {Ai.Model} with your key. What happens to them there is up to {Service}'s terms.")
+            : Lang.T($"Your question and these records go to the model you pick there, with your key. What happens to them there is up to {Service}'s terms."),
+        AiMode.Ollama when OllamaHere => Lang.T("Ollama runs on this PC, so your question and records never go over the internet."),
+        AiMode.Ollama => Lang.T("That's another computer, so your question and these records leave this PC to get there. They don't go to RigSight."),
+        _ => Lang.T("Your question and these records go through RigSight's server to the AI model. Nothing is kept after the answer."),
+    };
+
+    /// <summary>The second note: web search, what it costs, or the first answer's wait.</summary>
+    public string FirstMore => Ai.Mode switch
+    {
+        AiMode.OwnKey => Lang.T("Paid with your key."),
+        AiMode.Ollama => Lang.T("The first answer can be slow"),
+        _ => Lang.T("It can also search the web"),
+    };
+    public string FirstMoreText => Ai.Mode switch
+    {
+        AiMode.OwnKey => PerQuestion?.Invoke() is { } each
+            ? Lang.T($"About {each} a question at {Service}'s prices, charged to your {Service} account.")
+            : Lang.T($"Each question is charged to your {Service} account at its prices."),
+        AiMode.Ollama => Ai.OllamaModel.Length > 0
+            ? Lang.T($"while Ollama loads {Ai.OllamaModel}. After that it's quicker.")
+            : Lang.T("while Ollama loads the model. After that it's quicker."),
+        _ => Lang.T("for your parts, drivers and games. A search never includes your name or files."),
+    };
+
+    public string? FirstNever => Ai.Mode switch
+    {
+        AiMode.OwnKey => Lang.T("Never sent: your Windows user name, and file and folder paths."),
+        AiMode.Ollama when OllamaHere => null,
+        AiMode.Ollama => Lang.T("Never sent: your Windows user name, and file and folder paths."),
+        _ => Lang.T("Never sent: your Windows user name, file and folder paths, and your licence key."),
+    };
+    public string? FirstExtra => Ai.Mode == AiMode.RigSight && !HasLicence ? Lang.T($"You have {FreeQuestions} free questions to start.") : null;
+
+    /// <summary>The dot's colour: blue to RigSight AI, amber out to another service or computer, green staying on the PC.</summary>
+    public string FirstTone => Ai.Mode switch { AiMode.OwnKey => "warm", AiMode.Ollama => OllamaHere ? "good" : "warm", _ => "accent" };
+
+    /// <summary>Ollama's address is this PC: then, and only then, nothing leaves it.</summary>
+    private bool OllamaHere => Ollama.IsOnThisPc(Ai.OllamaAddress);
+
+    // The same switches as Settings › Ask RigSight › What RigSight sends.
+    public bool ShareCrashes { get => Ai.ShareCrashes; set => _settings.Update(s => s.Ai.ShareCrashes = value); }
+    public bool ShareHeat { get => Ai.ShareHeat; set => _settings.Update(s => s.Ai.ShareHeat = value); }
+    public bool ShareApps { get => Ai.ShareApps; set => _settings.Update(s => s.Ai.ShareApps = value); }
+    public bool ShareChanges { get => Ai.ShareChanges; set => _settings.Update(s => s.Ai.ShareChanges = value); }
+    public bool ShareMemory { get => Ai.ShareMemory; set => _settings.Update(s => s.Ai.ShareMemory = value); }
+    public bool ShareNetwork { get => Ai.ShareNetwork; set => _settings.Update(s => s.Ai.ShareNetwork = value); }
+    public bool ShareUsage { get => Ai.ShareUsage; set => _settings.Update(s => s.Ai.ShareUsage = value); }
+    public bool ShareParts { get => Ai.ShareParts; set => _settings.Update(s => s.Ai.ShareParts = value); }
 
     /// <summary>Opens Settings › Ask RigSight (the questions-left pill, "Buy more"); set by the shell.</summary>
     public Action? OpenSettings { get; set; }
@@ -291,6 +461,9 @@ public sealed partial class AskViewModel : ObservableObject
         // An empty conversation is reused instead of piling up blank ones in History.
         // A saved one not opened yet has no messages loaded: it isn't empty (reusing it once sent a question into an old chat).
         Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0 && c.Unopened is null && c.Title.Length == 0) ?? NewConversation();
+        // A new conversation starts with an empty box, also when the empty one in use is the one reused.
+        Current.Draft = "";
+        Draft = "";
         IsHistoryOpen = false;
     }
 
@@ -388,9 +561,10 @@ public sealed partial class AskViewModel : ObservableObject
         IsHistoryOpen = false;
     }
 
-    [RelayCommand] private void Starter(string? text) { if (!string.IsNullOrWhiteSpace(text)) Ask(text); }
+    [RelayCommand] private void Starter(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion) Ask(text); }
 
-    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !IsOutOfQuestions && !IsAnswering;
+    // Nothing goes before the first-question window is read: Start asking is the way past it.
+    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !IsOutOfQuestions && !IsAnswering && !ShowFirstQuestion;
 
     /// <summary>An answer is on its way: another question waits for it.</summary>
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private bool _isAnswering;
@@ -415,6 +589,14 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>An Explain button: the window opens on a new conversation about that crash or change.</summary>
     public void Explain(string what)
     {
+        if (ShowFirstQuestion)
+        {
+            // Opened on the first-question window: the Explain goes once they press Start asking.
+            _afterFirst = () => Explain(what);
+            IsHistoryOpen = false;
+            IsOpen = true;
+            return;
+        }
         var talk = new AskConversation { Title = Lang.T($"Explain: {what}"), LookingAt = what };
         Conversations.Insert(0, talk);
         Current = talk;
@@ -444,6 +626,7 @@ public sealed partial class AskViewModel : ObservableObject
         talk.Messages.Add(new AskQuestion(text));
         talk.Messages.Add(new AskThinking());
         Changed();
+        ToEnd();
         Answer(talk, text);
     }
 
@@ -453,20 +636,32 @@ public sealed partial class AskViewModel : ObservableObject
     private string _ollamaModelsFrom = "";
 
     /// <summary>
-    /// Gets the answer and puts it in place of the "Thinking…" line. Ollama on my PC answers now; RigSight AI and
-    /// my own key are wired with the relay and the services.
+    /// Gets the answer and puts it in place of the "Thinking…" line. Ollama on my PC and my own key answer now; RigSight
+    /// AI is wired with the relay.
     /// </summary>
     private async void Answer(AskConversation talk, string question)
     {
-        if (Ai.Mode != AiMode.Ollama) return;
+        // A test copy with a search key stands in for RigSight AI until the relay is built: the saved key and model,
+        // with RigSight AI's instructions and web search.
+        bool standIn = Ai.Mode == AiMode.RigSight && WebSearch.TestKey is not null;
+        if (Ai.Mode is not (AiMode.Ollama or AiMode.OwnKey) && !standIn)
+        {
+            // RigSight AI answers once the relay is built; until then it says so rather than leaving "Thinking…" up.
+            Log.Write("ask", $"Not asked: {Ai.Mode} can't answer in this build");
+            Unwait(talk);
+            talk.Messages.Add(new AskProblem(Lang.T("RigSight AI can't answer yet. Pick your own key or Ollama in Settings › Ask RigSight.")));
+            _ = Save();
+            return;
+        }
         IsAnswering = true;
         using var stop = new CancellationTokenSource();
         _answering = stop;
         // One stage going on far longer than usual (but not the model loading, which says so): say it's still at it,
         // once, rather than rotating lines to fill the time.
-        var longWait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        var longWait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(0.5) };
         longWait.Tick += (_, _) =>
         {
+            talk.Messages.OfType<AskThinking>().LastOrDefault()?.Tick();
             if (talk.Messages.OfType<AskThinking>().LastOrDefault() is { Loading: false } thinking && DateTime.Now - thinking.Since > StillWorkingAfter
                 && thinking.Step != StillWorking)
                 thinking.Show(StillWorking);
@@ -474,33 +669,100 @@ public sealed partial class AskViewModel : ObservableObject
         longWait.Start();
         try
         {
-            var reply = await AskOllama(talk, question, stop.Token);
-            foreach (var waiting in talk.Messages.OfType<AskThinking>().ToList()) talk.Messages.Remove(waiting);
+            var reply = Ai.Mode == AiMode.Ollama ? await AskOllama(talk, question, stop.Token) : await AskOwnKey(talk, question, stop.Token, asRigSightAi: standIn);
             if (reply.Text is { } text)
             {
                 talk.Sent.Add(new AiTurn(true, question));
-                talk.Sent.Add(new AiTurn(false, text));
-                // RigSight's own numbers are read from the history, so off the window's thread.
+                talk.Sent.Add(new AiTurn(false, text, reply.LookUps));
+                // RigSight's own numbers are read from the history, so off the window's thread. The answer as it streamed
+                // stays up meanwhile, and the finished one takes its place in one step: taking it away first left the chat
+                // empty for a moment ("it flashes").
                 var tools = _tools!;
-                var answer = await Task.Run(() => ToAnswer(text, reply.LookUps, marker => tools.Blocks(marker, reply.LookUps)));
-                talk.Messages.Add(answer with { Model = reply.Model });
+                var answer = await Task.Run(() => ToAnswer(text, reply.LookUps, marker => tools.Blocks(marker, reply.LookUps))) with { Model = reply.Model };
+                int at = talk.Messages.IndexOf(talk.Messages.FirstOrDefault(m => m is AskWriting)!);
+                if (at >= 0) talk.Messages[at] = answer;
+                Unwait(talk);
+                if (at < 0) talk.Messages.Add(answer);
             }
-            else talk.Messages.Add(new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
+            else
+            {
+                Unwait(talk);
+                talk.Messages.Add(new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
+            }
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
             // The question stays where it was; it isn't sent again with the next one, since it got no answer.
             Log.Write("ask", "Stopped before the answer came");
-            foreach (var waiting in talk.Messages.OfType<AskThinking>().ToList()) talk.Messages.Remove(waiting);
+            Unwait(talk);
             talk.Messages.Add(new AskStopped(Lang.T("Stopped. Ask again whenever you like.")));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Log.Error("ask", ex);
-            foreach (var waiting in talk.Messages.OfType<AskThinking>().ToList()) talk.Messages.Remove(waiting);
+            Unwait(talk);
             talk.Messages.Add(new AskProblem(Lang.T("Something went wrong while answering. Ask again.")));
         }
         finally { IsAnswering = false; _answering = null; longWait.Stop(); Save(); }
+    }
+
+    /// <summary>Takes the "Thinking…" line and any half-written answer away, for the finished answer or a problem.</summary>
+    private static void Unwait(AskConversation talk)
+    {
+        foreach (var waiting in talk.Messages.Where(m => m is AskThinking or AskWriting).ToList()) talk.Messages.Remove(waiting);
+    }
+
+    /// <summary>
+    /// The words so far, in place of the "Thinking…" line, drawn the way the finished answer will be: RigSight's numbers as
+    /// soon as their marker line is complete (each read once), a line still being typed held back while it could turn
+    /// into a marker, a table or the next step. At most every 120 ms; null puts "Thinking…" back (the words led into more
+    /// look-ups).
+    /// </summary>
+    private Action<string?, IReadOnlyList<AiLookUp>> Writer(AskConversation talk)
+    {
+        var last = DateTime.MinValue;
+        AskThinking? held = null;
+        var drawn = new Dictionary<string, IReadOnlyList<AiBlock>>();
+        var tools = _tools;
+        return (text, lookUps) =>
+        {
+            var writing = talk.Messages.OfType<AskWriting>().FirstOrDefault();
+            if (text is null)
+            {
+                if (writing is not null) talk.Messages.Remove(writing);
+                if (held is not null && !talk.Messages.Contains(held)) talk.Messages.Add(held);
+                return;
+            }
+            if (writing is not null && DateTime.Now - last < TimeSpan.FromMilliseconds(120)) return;
+            last = DateTime.Now;
+            var shown = ToAnswer(Settled(text), [], marker =>
+            {
+                if (!drawn.TryGetValue(marker, out var blocks)) drawn[marker] = blocks = tools?.Blocks(marker, lookUps) ?? [];
+                return blocks;
+            }, writing: true);
+            if (writing is null)
+            {
+                writing = new AskWriting();
+                held = talk.Messages.OfType<AskThinking>().LastOrDefault();
+                if (held is not null) talk.Messages.Remove(held);
+                talk.Messages.Add(writing);
+            }
+            writing.Show(shown);
+        };
+    }
+
+    /// <summary>
+    /// The text so far without a last line that is still being typed and could become something else: a marker
+    /// ("[show: te"), a table row, or the next step ("Next st"). Shown once it is finished, so it never flashes up as words.
+    /// </summary>
+    internal static string Settled(string text)
+    {
+        int cut = text.LastIndexOf('\n');
+        string tail = text[(cut + 1)..].TrimStart();
+        if (tail.Length == 0) return text;
+        bool becoming = tail.StartsWith('[') || tail.StartsWith('|')
+            || (tail.Length < 12 && "next step:".StartsWith(tail.TrimStart('-', '*', ' ').ToLowerInvariant(), StringComparison.Ordinal));
+        return becoming ? (cut < 0 ? "" : text[..cut]) : text;
     }
 
     private static readonly TimeSpan StillWorkingAfter = TimeSpan.FromSeconds(40);
@@ -523,6 +785,20 @@ public sealed partial class AskViewModel : ObservableObject
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct);
     }
 
+    private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct, bool asRigSightAi = false)
+    {
+        if (KeyStore.Load() is not { Length: > 0 } key)
+            return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Test."), []);
+        if (Ai.Model.Length == 0)
+            return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
+        _tools ??= new AiTools(_settings.Current);
+        return await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
+            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct, asRigSightAi);
+    }
+
+    /// <summary>Past this many characters a first line is a paragraph, not an opening sentence.</summary>
+    private const int LongestVerdict = 160;
+
     private static readonly Regex Point = new(@"^\s*([-*•]|\d+[.)])\s+");
     private static readonly Regex LeadIn = new(@"^(?<lead>[^:.!?|]{3,28}:\s)(?<rest>.+)$");
     private static readonly Regex Marker = new(@"^\[\s*show\s*:\s*(?<what>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
@@ -540,9 +816,11 @@ public sealed partial class AskViewModel : ObservableObject
     /// numbers where a marker asks for them (<paramref name="blocks"/> reads them; a marker for a record it didn't look at
     /// shows nothing), its tables, the next step in a box, and the chips.
     /// </summary>
-    public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null)
+    public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null, bool writing = false)
     {
-        var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim()).Where(l => l.Length > 0).ToList();
+        var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim())
+            // The note RigSight adds to earlier answers when it sends them again, copied by a model into its own answer.
+            .Where(l => l.Length > 0 && !l.StartsWith("(Records you looked at", StringComparison.OrdinalIgnoreCase)).ToList();
         string verdict = lines.Count > 0 && !Marker.IsMatch(lines[0]) && !lines[0].StartsWith('|') ? Point.Replace(lines[0], "") : "";
         if (verdict.Length > 0) lines.RemoveAt(0);
         var parts = new List<object>();
@@ -583,7 +861,7 @@ public sealed partial class AskViewModel : ObservableObject
                 string step = next.Groups["rest"].Value;
                 // "Next step: want to know more about a game?" is an offer to keep talking, not a step.
                 if (step.EndsWith('?') || AsksBack.IsMatch(step)) { Log.Write("ask", $"Dropped a next step that was a question back: {step}"); continue; }
-                var (opens, label) = Opens(lookUps);
+                var (opens, label) = Opens(step);
                 parts.Add(new AskNext(char.ToUpper(step[0], System.Globalization.CultureInfo.CurrentCulture) + step[1..], opens, label));
                 continue;
             }
@@ -591,17 +869,28 @@ public sealed partial class AskViewModel : ObservableObject
             string body = Point.Replace(l, "");
             parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) : new AskLine(body, isPoint));
         }
+        // The first line stands out only as an opening sentence with more after it: a short reply alone, or a whole
+        // paragraph first, read as all bold ("text feels so bold", 2026-10-21).
+        if (verdict.Length > 0 && ((parts.Count == 0 && !writing) || verdict.Length > LongestVerdict))
+        {
+            parts.Insert(0, new AskLine(verdict, false));
+            verdict = "";
+        }
         return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy };
     }
 
     /// <summary>The page the next step points to: where the records the answer leaned on are shown.</summary>
-    private static (string? Page, string? Label) Opens(IReadOnlyList<AiLookUp> lookUps)
+    /// <summary>
+    /// The page the next step sends them to, when it names one ("open Crashes and…"): a button for a page the step
+    /// doesn't mention read as unrelated ("Open Reports" under "check AMD's spec page", 2026-10-21).
+    /// </summary>
+    private static (string? Page, string? Label) Opens(string step)
     {
-        var tools = lookUps.Select(l => l.Tool).ToHashSet();
-        if (tools.Contains("get_crashes")) return ("crashes", Lang.T("Open Crashes"));
-        if (tools.Contains("get_changes")) return ("timeline", Lang.T("Open Timeline"));
-        if (tools.Contains("get_game") || tools.Contains("list_games")) return ("games", Lang.T("Open Games"));
-        if (tools.Contains("get_report")) return ("reports", Lang.T("Open Reports"));
+        bool Names(params string[] words) => words.Any(w => Regex.IsMatch(step, $@"\b{Regex.Escape(w)}\b", RegexOptions.IgnoreCase));
+        if (Names("Crashes", Lang.T("Crashes"))) return ("crashes", Lang.T("Open Crashes"));
+        if (Names("Timeline", Lang.T("Timeline"))) return ("timeline", Lang.T("Open Timeline"));
+        if (Names("Games page", "Games", Lang.T("Games"))) return ("games", Lang.T("Open Games"));
+        if (Names("Reports", Lang.T("Reports"))) return ("reports", Lang.T("Open Reports"));
         return (null, null);
     }
 
@@ -629,6 +918,7 @@ public sealed partial class AskViewModel : ObservableObject
                 "get_changes" => new("", Lang.T($"Changes, {Range(l)}"), Lang.T("Drivers, updates, settings and apps that changed"), "timeline"),
                 "list_games" => new("", Lang.T("Your games"), Lang.T("Hours played and how hard each works the graphics card"), "games"),
                 "get_game" => new("", (string?)l.Args["name"] ?? Lang.T("A game"), Lang.T("Every play's loads, temperatures and how it ended"), "games"),
+                "search_web" when (string?)l.Args["query"] is { Length: > 0 } query => new("", Lang.T("The web"), Lang.T($"Searched: {query}"), null),
                 _ => null,
             };
             if (chip is not null && !chips.Any(c => c.Text == chip.Text)) chips.Add(chip);
@@ -652,7 +942,7 @@ public sealed partial class AskViewModel : ObservableObject
         talk.Unopened = null;
         foreach (var pair in saved.Zip(saved.Skip(1)))
             if (pair.First.Kind == SavedMessage.Question && pair.Second.Kind == SavedMessage.Answer)
-                talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text)]);
+                talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text, pair.Second.LookUps?.Select(l => l.ToLookUp()).ToList())]);
         _tools ??= new AiTools(_settings.Current);
         var tools = _tools;
         List<AskMessage> messages;
@@ -687,6 +977,7 @@ public sealed partial class AskViewModel : ObservableObject
             messages = [new AskProblem(Lang.T("This conversation couldn't be opened."))];
         }
         foreach (var m in messages) talk.Messages.Add(m);
+        if (talk == Current) ToEnd();
     }
 
     /// <summary>Writes every conversation with something in it to the file, off the window's thread.</summary>

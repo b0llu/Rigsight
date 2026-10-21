@@ -44,8 +44,28 @@ public sealed class AskConversationsTests
         Assert.True(again.IsEmpty);
         Assert.Equal("PINNED", again.Groups[0].Heading);
         again.PickCommand.Execute(back);
-        await Until(() => back.Messages.Count == 1);
+        // RigSight AI (the default) can't answer before the relay, and says so: that's kept with the question.
+        await Until(() => back.Messages.Count == 2);
         Assert.Equal("why did my PC turn off?", Assert.IsType<AskQuestion>(back.Messages[0]).Text);
+        Assert.IsType<AskProblem>(back.Messages[1]);
+    }
+
+    [Fact]
+    public void Words_typed_in_one_conversation_stay_with_it()
+    {
+        var window = Window(NewFile());
+        window.Draft = "why is my fan loud?";
+        var first = window.Current!;
+        // A new conversation, even the empty one reused, starts with an empty box.
+        window.NewCommand.Execute(null);
+        Assert.Equal("", window.Draft);
+        window.Draft = "something else";
+        var second = new AskConversation { Title = "Older one" };
+        window.Conversations.Add(second);
+        window.PickCommand.Execute(second);
+        Assert.Equal("", window.Draft);
+        window.PickCommand.Execute(window.Conversations.First(c => c != second));
+        Assert.Equal("something else", window.Draft);
     }
 
     [Fact]

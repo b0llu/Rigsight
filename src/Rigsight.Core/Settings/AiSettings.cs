@@ -28,6 +28,9 @@ public sealed class AiSettings
     /// <summary>The box about web search (on your own key or Ollama) was closed.</summary>
     public bool WebSearchNoteClosed { get; set; }
 
+    /// <summary>The ways of answering whose first-question window (what is sent, and where) has been read and closed with Start asking.</summary>
+    public List<AiMode> FirstQuestionSeen { get; set; } = [];
+
     // Your own key: the service, and the model picked from the ones it lists for that key. The key itself is kept
     // apart from settings, protected by Windows (never in settings.json).
     public string Service { get; set; } = "OpenRouter";

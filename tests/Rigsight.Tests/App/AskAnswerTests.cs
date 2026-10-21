@@ -17,8 +17,9 @@ public sealed class AskAnswerTests
     public void Small_talk_is_only_words()
     {
         var answer = AskViewModel.ToAnswer("Hey! Ask me anything about your PC.", [], _ => throw new InvalidOperationException("no marker, nothing drawn"));
-        Assert.Equal("Hey! Ask me anything about your PC.", answer.Verdict);
-        Assert.Empty(answer.Parts);
+        // A reply of one line is plain words, not a bold headline.
+        Assert.Equal("", answer.Verdict);
+        Assert.Equal("Hey! Ask me anything about your PC.", Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text);
         Assert.Empty(answer.Looked);
     }
 
@@ -53,12 +54,14 @@ public sealed class AskAnswerTests
     }
 
     [Fact]
-    public void The_next_step_gets_its_box_and_the_page_the_records_are_on()
+    public void The_next_step_gets_its_box_and_a_button_only_for_the_page_it_names()
     {
         var answer = AskViewModel.ToAnswer("A power cut, most likely.\nNext step: check whether other things in the room lost power too.", [Crashes]);
         var next = Assert.IsType<AskNext>(Assert.Single(answer.Parts));
         Assert.Equal("Check whether other things in the room lost power too.", next.Text);
-        Assert.Equal("crashes", next.Opens);
+        Assert.Null(next.Opens);
+        var named = AskViewModel.ToAnswer("A power cut, most likely.\nNext step: when it happens again, open Crashes and note the time.", [Crashes]);
+        Assert.Equal("crashes", Assert.IsType<AskNext>(Assert.Single(named.Parts)).Opens);
     }
 
     [Fact]
@@ -69,20 +72,27 @@ public sealed class AskAnswerTests
         Assert.Empty(tools.Blocks("temps", [Crashes]));
         Assert.Empty(tools.Blocks("psu", [Crashes]));
         var answer = AskViewModel.ToAnswer("Probably the power supply.\n[show: psu]\n[show: crashes]", [], what => tools.Blocks(what, []));
-        Assert.Empty(answer.Parts);
+        OnlyWords(answer, "Probably the power supply.");
     }
 
     [Fact]
     public void Only_RigSight_AI_is_told_it_can_search_the_web()
     {
         var now = new DateTime(2026, 10, 20, 15, 0, 0);
-        Assert.Contains("You can't search the web", AiPrompt.System(true, withSearch: false, now));
-        Assert.DoesNotContain("You can search the web", AiPrompt.System(true, withSearch: false, now));
-        Assert.Contains("You can search the web", AiPrompt.System(true, withSearch: true, now));
+        foreach (var prompt in new[] { AiPrompt.Ollama(true, now), AiPrompt.OwnKey(now) })
+        {
+            Assert.Contains("You can't search the web", prompt);
+            Assert.DoesNotContain("You can search the web", prompt);
+        }
+        Assert.Contains("You can search the web", AiPrompt.RigSightAi(withSearch: true, now));
         // The same rules for how sure to be, whichever way it answers.
-        foreach (var search in new[] { false, true })
-            Assert.Contains("not proof that a part is failing", AiPrompt.System(true, search, now));
+        foreach (var prompt in EveryPrompt(now))
+            Assert.Contains("not proof that a part is failing", prompt);
     }
+
+    /// <summary>Every copy of the prompt: Ollama with and without look-ups, own key, RigSight AI with and without search.</summary>
+    internal static IEnumerable<string> EveryPrompt(DateTime now) =>
+        [AiPrompt.Ollama(true, now), AiPrompt.Ollama(false, now), AiPrompt.OwnKey(now), AiPrompt.RigSightAi(true, now), AiPrompt.RigSightAi(false, now)];
 
     [Fact]
     public void A_long_conversation_sends_its_first_exchange_and_the_latest()
@@ -110,9 +120,8 @@ public sealed class AskAnswerTests
     public void Every_way_of_answering_is_told_not_to_end_on_offers()
     {
         var now = new DateTime(2026, 10, 20, 15, 0, 0);
-        foreach (var (look, search) in new[] { (true, false), (false, false), (true, true) })
+        foreach (var prompt in EveryPrompt(now))
         {
-            string prompt = AiPrompt.System(look, search, now);
             Assert.Contains("Never end with offers", prompt);
             Assert.Contains("never tell them to turn on recording", prompt);
         }
@@ -122,7 +131,7 @@ public sealed class AskAnswerTests
     public void A_next_step_that_is_only_a_question_back_is_dropped()
     {
         var answer = AskViewModel.ToAnswer("Your PC was busy yesterday.\n**Next Step**: Want to dive deeper into a specific game or app?", []);
-        Assert.Empty(answer.Parts);
+        OnlyWords(answer, "Your PC was busy yesterday.");
     }
 
     [Fact]
@@ -138,8 +147,8 @@ public sealed class AskAnswerTests
     public void Every_way_of_answering_is_told_to_stay_in_the_period_asked_about()
     {
         var now = new DateTime(2026, 10, 21, 9, 0, 0);
-        foreach (var search in new[] { false, true })
-            Assert.Contains("Stay in the period they ask about", AiPrompt.System(true, search, now));
+        foreach (var prompt in EveryPrompt(now))
+            Assert.Contains("Stay in the period they ask about", prompt);
     }
 
     [Fact]
@@ -155,6 +164,42 @@ public sealed class AskAnswerTests
     [InlineData("Next step: Ask me about a specific game.")]
     public void A_next_step_with_nothing_to_do_gets_no_box(string line)
     {
-        Assert.Empty(AskViewModel.ToAnswer("Apex Legends used the most memory.\n" + line, []).Parts);
+        OnlyWords(AskViewModel.ToAnswer("Apex Legends used the most memory.\n" + line, []), "Apex Legends used the most memory.");
+    }
+
+    [Fact]
+    public void An_answer_sent_again_says_which_records_it_came_from()
+    {
+        var report = new AiLookUp("get_report", new JsonObject { ["from"] = "2026-10-14", ["to"] = "2026-10-21" }, 6000);
+        string sent = (string)AiTurns.Message(new AiTurn(false, "You were on it for 83 hours.", [report]))["content"]!;
+        Assert.StartsWith("You were on it for 83 hours.", sent);
+        Assert.Contains("Records you looked at for this answer: get_report from 2026-10-14, to 2026-10-21", sent);
+        // A question goes as it was asked.
+        Assert.Equal("why?", (string)AiTurns.Message(new AiTurn(true, "why?"))["content"]!);
+    }
+
+    [Fact]
+    public void The_records_note_copied_into_an_answer_is_left_out()
+    {
+        var answer = AskViewModel.ToAnswer("Yes, 82 °C is fine.\nIt was a short spike.\n(Records you looked at for this answer: get_temperatures from 2026-10-14.)", []);
+        Assert.Equal("Yes, 82 °C is fine.", answer.Verdict);
+        Assert.Equal("It was a short spike.", Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text);
+    }
+
+    [Theory]
+    [InlineData("Your CPU is fine.\n[show: te", "Your CPU is fine.")]
+    [InlineData("Your CPU is fine.\n| Part | Peak", "Your CPU is fine.")]
+    [InlineData("Your CPU is fine.\nNext st", "Your CPU is fine.")]
+    [InlineData("Your CPU is fine.\nIt peaked at 82", "Your CPU is fine.\nIt peaked at 82")]
+    public void A_line_still_being_typed_that_could_become_a_chart_waits(string text, string shown)
+    {
+        Assert.Equal(shown, AskViewModel.Settled(text));
+    }
+
+    // Nothing but the one sentence: no box, no drawn numbers, and (alone) not a bold headline.
+    private static void OnlyWords(AskAnswer answer, string text)
+    {
+        Assert.Equal("", answer.Verdict);
+        Assert.Equal(text, Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text);
     }
 }

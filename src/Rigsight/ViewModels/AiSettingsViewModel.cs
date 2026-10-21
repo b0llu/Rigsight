@@ -9,10 +9,10 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>A pack of RigSight AI questions on sale: how many, the price, and the price per question.</summary>
-public sealed record AiPack(int Questions, string Price)
+public sealed record AiPack(int Questions, string Price, string PerQuestion)
 {
-    public string Name => Lang.T($"{Questions} questions");
-    public string Each => Lang.T("10¢ a question");
+    public string Name => Lang.T($"{Questions:N0} questions");
+    public string Each => Lang.T($"{PerQuestion} a question");
 }
 
 /// <summary>A model a service offers for the person's key, with about what a question costs where the service says so.</summary>
@@ -44,9 +44,17 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     {
         _settings = settings;
         _ask = ask;
-        _ask.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence)) OnPropertyChanged(string.Empty); };
+        Editor.Saved += InstructionsChanged;
+        _ask.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence)) OnPropertyChanged(string.Empty);
+            // A switch turned in the Ask window's first-question window shows here too.
+            else if (e.PropertyName?.StartsWith("Share", StringComparison.Ordinal) == true) OnPropertyChanged(e.PropertyName);
+        };
         // Ollama chosen before: its models are listed straight away, as if Connect had been pressed.
         if (Ai.Mode == AiMode.Ollama) _ = ConnectOllamaCommand.ExecuteAsync(null);
+        // A key saved before: its models are listed straight away, as if Test had been pressed.
+        if (Ai.Mode == AiMode.OwnKey && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
     }
 
     private void Set(Action<AiSettings> change, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)
@@ -64,9 +72,11 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         {
             var mode = value switch { "rigsight" => AiMode.RigSight, "own" => AiMode.OwnKey, "ollama" => AiMode.Ollama, _ => AiMode.Off };
             if (mode == Ai.Mode) return;
+            Log.Write("settings", $"Ask RigSight now answers with: {mode} (was {Ai.Mode})");
             ClosePickers();
             _settings.Update(s => s.Ai.Mode = mode);
             OnPropertyChanged(string.Empty);
+            if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
         }
     }
 
@@ -91,7 +101,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool ShowSendingNote => !Ai.SendingNoteClosed && !IsOff;
     /// <summary>With Ollama everything stays on the PC; otherwise records go to the model that writes the answer.</summary>
     public string SendingWhere => IsOllama
-        ? Lang.T("With Ollama on your PC, all of it stays on this PC.")
+        ? Ollama.IsOnThisPc(Ai.OllamaAddress)
+            ? Lang.T("With Ollama on your PC, all of it stays on this PC.")
+            : Lang.T($"With Ollama at {Ollama.Host(Ai.OllamaAddress)}, it goes to that computer, not to RigSight.")
         : Lang.T("They go to the AI model that writes the answer, and RigSight AI keeps none of them.");
     [RelayCommand] private void CloseSendingNote() { _settings.Update(s => s.Ai.SendingNoteClosed = true); OnPropertyChanged(nameof(ShowSendingNote)); }
 
@@ -117,7 +129,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool IsOutOfQuestions => QuestionsLeft <= 0;
     public string FreeLeft => QuestionsLeft == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{QuestionsLeft} free questions left to try RigSight AI.");
 
-    public IReadOnlyList<AiPack> Packs { get; } = [new(20, "$1.99"), new(50, "$4.99"), new(100, "$9.99")];
+    /// <summary>One-time packs that never run out (the user's pick, 2026-10-21): a bigger pack is cheaper a question.</summary>
+    public IReadOnlyList<AiPack> Packs { get; } = [new(100, "$2.99", "3¢"), new(300, "$6.99", "2.3¢"), new(1000, "$17.99", "1.8¢")];
 
     /// <summary>Activating checks the key with RigSight AI and locks it to this PC; wired with the relay.</summary>
     [RelayCommand] private void Activate() { }
@@ -153,6 +166,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             // Another service: its key has to be tested before any of its models show.
             _models = [];
             KeyChecked = false;
+            KeyProblem = null;
             ModelSearch = "";
             OnPropertyChanged(string.Empty);
         }
@@ -167,6 +181,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>A different key hasn't been tested: its models wait for Test.</summary>
     partial void OnApiKeyChanged(string value)
     {
+        KeyProblem = null;
         if (!KeyChecked) return;
         _models = [];
         KeyChecked = false;
@@ -176,11 +191,49 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>The key was tried and the service listed its models.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Model), nameof(ModelPrice))] private bool _keyChecked;
     public string KeyWorks => Lang.T("Works · its models are loaded");
-    private bool CanTestKey() => ApiKey.Trim().Length > 0;
+    /// <summary>Why Test found no models: the key refused, no credit, the service not answering.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasKeyProblem))] private string? _keyProblem;
+    public bool HasKeyProblem => KeyProblem is not null;
+    /// <summary>A key typed in, or one saved before (the box stays empty: a saved key is never shown again).</summary>
+    private bool CanTestKey() => ApiKey.Trim().Length > 0 || KeyStore.Load() is { Length: > 0 };
 
-    /// <summary>Tests the key with the service, which then lists the models it offers for it; wired with the services.</summary>
+    /// <summary>
+    /// Tests the key with the service, which then lists the models it offers for it. A key that works is kept, locked to
+    /// this Windows account (<see cref="KeyStore"/>).
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanTestKey))]
-    private void TestKey() { }
+    private async Task TestKey()
+    {
+        string typed = ApiKey.Trim();
+        string? key = typed.Length > 0 ? typed : KeyStore.Load();
+        if (key is null) return;
+        var (found, problem) = await OwnKey.ModelsAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key);
+        _models = found is null ? [] : [.. found
+            .OrderByDescending(m => m.Tested).ThenBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(m => new AiModelOption(m.Id, m.CentsPerQuestion is double c ? PerQuestion(c) : null, m.Tested))];
+        KeyProblem = problem;
+        if (found is not null && typed.Length > 0)
+        {
+            try { KeyStore.Save(typed); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyStore.CryptographicException)
+            {
+                Log.Error("ai-settings", ex);
+                KeyProblem = Lang.T("The key works, but Windows couldn't keep it safely on this PC. Try Test again.");
+            }
+        }
+        // A model picked earlier that the key can't use any more: none until one is picked.
+        if (found is not null && Ai.Model.Length > 0 && !_models.Any(m => m.Name == Ai.Model)) Set(a => a.Model = "", nameof(Model));
+        KeyChecked = _models.Count > 0;
+        OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(ModelPrice));
+        OnPropertyChanged(nameof(ModelGroups));
+        OnPropertyChanged(nameof(HasModels));
+    }
+
+    /// <summary>"0.4¢" under a dollar's tenth, "$0.07" from there.</summary>
+    private static string PerQuestion(double cents) => cents < 10
+        ? (cents < 0.1 ? "0.1¢" : $"{cents.ToString(cents < 1 ? "0.0" : "0", System.Globalization.CultureInfo.CurrentCulture)}¢")
+        : (cents / 100).ToString("$0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private List<AiModelOption> _models = [];
 
@@ -189,6 +242,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         : Ai.Model.Length > 0 ? Ai.Model : _models.FirstOrDefault()?.Name ?? "";
     public bool HasModels => _models.Count > 0;
     /// <summary>OpenRouter publishes its prices: about what a question costs on the picked model.</summary>
+    /// <summary>About what a question costs on the picked model ("0.3¢"), for the Ask window's first-question note.</summary>
+    public string? ModelPerQuestion => KeyChecked ? _models.FirstOrDefault(m => m.Name == Model)?.PerQuestion : null;
     public string? ModelPrice => KeyChecked && _models.FirstOrDefault(m => m.Name == Model)?.PerQuestion is { } p
         ? Lang.T($"About {p} a question at {Ai.Service}'s prices.") : null;
 
@@ -231,6 +286,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         {
             if ((value ?? "") == Ai.OllamaAddress) return;
             Set(a => a.OllamaAddress = value ?? "");
+            OnPropertyChanged(nameof(SendingWhere));
             // Another address: Connect again before its models show.
             _ollamaModels = [];
             OllamaConnected = false;
@@ -252,7 +308,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _ollamaModels = found is null ? [] : [.. found
             .OrderByDescending(m => m.CanLookUp).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
             .Select(m => new OllamaModelOption(m.Name, Units.Bytes(m.Bytes), m.CanLookUp))];
-        OllamaProblem = found is null ? Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running and the address is right.")
+        OllamaProblem = found is null && !Ollama.IsOnThisPc(Ai.OllamaAddress) && Internet.IsOff() ? Internet.NoInternet(inSettings: true)
+            : found is null ? Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running and the address is right.")
             : found.Count == 0 ? Lang.T("Ollama is running but has no models yet. Download one in Ollama, then press Connect again.")
             : null;
         OllamaConnected = _ollamaModels.Count > 0;
@@ -282,6 +339,35 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         Set(a => a.OllamaModel = model.Name, nameof(OllamaModel));
         IsPickingOllama = false;
         OllamaSearch = "";
+    }
+
+    // ── Instructions (my own key and Ollama) ─────────────────────────────
+    /// <summary>The box where they change them, over the window; the shell shows it.</summary>
+    public InstructionsEditorViewModel Editor { get; } = new();
+
+    private AiMode EditMode => IsOllama ? AiMode.Ollama : AiMode.OwnKey;
+
+    /// <summary>Only my own key and Ollama: RigSight AI's instructions live on the relay.</summary>
+    public bool CanEditInstructions => IsOwnKey || IsOllama;
+    public bool HasOwnInstructions => CanEditInstructions && AiInstructions.Custom(EditMode) is not null;
+    public bool InstructionsOutdated => CanEditInstructions && AiInstructions.DefaultChangedSince(EditMode);
+
+    public string InstructionsNote => HasOwnInstructions && AiInstructions.SavedOn(EditMode) is { } on
+        ? Lang.T($"Your own, saved {on:d MMM}.")
+        : Lang.T("How the AI works out and writes its answers.");
+
+    public string EditInstructionsText => HasOwnInstructions ? Lang.T("Edit") : Lang.T("Edit instructions");
+
+    [RelayCommand] private void EditInstructions() => Editor.Open(EditMode);
+
+    [RelayCommand] private void ResetInstructions() { AiInstructions.Reset(EditMode); InstructionsChanged(); }
+
+    [RelayCommand] private void KeepInstructions() { AiInstructions.Keep(EditMode); InstructionsChanged(); }
+
+    private void InstructionsChanged()
+    {
+        foreach (var name in new[] { nameof(HasOwnInstructions), nameof(InstructionsOutdated), nameof(InstructionsNote), nameof(EditInstructionsText) })
+            OnPropertyChanged(name);
     }
 
     // ── What RigSight sends ──────────────────────────────────────────────

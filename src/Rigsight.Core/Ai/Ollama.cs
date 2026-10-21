@@ -12,7 +12,8 @@ public sealed record OllamaModel(string Name, long Bytes, bool CanLookUp);
 public sealed record AiLookUp(string Tool, JsonObject Args, int Chars);
 
 /// <summary>A message earlier in the conversation, sent again so a follow-up question has its context.</summary>
-public sealed record AiTurn(bool FromUser, string Text);
+/// <summary>One message of a conversation as sent again; an answer keeps the records it was written from.</summary>
+public sealed record AiTurn(bool FromUser, string Text, IReadOnlyList<AiLookUp>? LookUps = null);
 
 public static class AiTurns
 {
@@ -30,6 +31,19 @@ public static class AiTurns
         // Begin the recent ones on a question, never on an answer cut from its question.
         while (start < all.Count && !all[start].FromUser) start++;
         return [.. all.Take(2), .. all.Skip(start)];
+    }
+
+    /// <summary>
+    /// A message as the model reads it again. An answer ends with the records it was written from: without them, asked
+    /// "why did you say that?", a model saw no look-ups and said it had made the numbers up (gpt-6-luna, 2026-10-21).
+    /// </summary>
+    public static JsonObject Message(AiTurn turn)
+    {
+        string text = turn.Text;
+        if (!turn.FromUser && turn.LookUps is { Count: > 0 } looked)
+            text += "\n\n(Records you looked at for this answer: " + string.Join("; ", looked.Select(l => l.Args.Count == 0 ? l.Tool
+                : l.Tool + " " + string.Join(", ", l.Args.Select(a => $"{a.Key} {a.Value}")))) + ".)";
+        return new JsonObject { ["role"] = turn.FromUser ? "user" : "assistant", ["content"] = text };
     }
 }
 
@@ -63,6 +77,19 @@ public static class Ollama
         var a = address.Trim().TrimEnd('/');
         return a.Length == 0 || a.Contains("://") ? a : "http://" + a;
     }
+
+    /// <summary>
+    /// True when the address is this PC (localhost, 127.x, ::1), so nothing sent to it leaves the PC. Any other address
+    /// (another PC at home, a rented server) is somewhere else, and RigSight says so before the first question.
+    /// </summary>
+    public static bool IsOnThisPc(string address)
+    {
+        if (!Uri.TryCreate(Normalise(address), UriKind.Absolute, out var uri)) return false;
+        return uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The address's computer for people to read: "192.168.1.20" or "gpu-box", without http:// and the port.</summary>
+    public static string Host(string address) => Uri.TryCreate(Normalise(address), UriKind.Absolute, out var uri) ? uri.Host : address.Trim();
 
     /// <summary>The models Ollama at <paramref name="address"/> has; null when it doesn't answer.</summary>
     public static async Task<IReadOnlyList<OllamaModel>?> ModelsAsync(string address, CancellationToken ct = default)
@@ -110,8 +137,8 @@ public static class Ollama
     {
         var root = Normalise(address);
         var started = DateTime.Now;
-        var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = AiPrompt.System(canLookUp, withSearch: false, started) } };
-        foreach (var turn in AiTurns.Recent(earlier)) messages.Add(new JsonObject { ["role"] = turn.FromUser ? "user" : "assistant", ["content"] = turn.Text });
+        var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = AiPrompt.Ollama(canLookUp, started, AiInstructions.Custom(Settings.AiMode.Ollama)) } };
+        foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
         var definitions = canLookUp ? tools.Definitions() : null;
@@ -141,6 +168,8 @@ public static class Ollama
             catch (Exception ex) when (ex is HttpRequestException or UriFormatException or InvalidOperationException)
             {
                 Log.Write("ollama", $"No answer from {root} for {model}: {ex.Message}");
+                // Ollama on another computer needs the network; on this PC it doesn't.
+                if (!IsOnThisPc(root) && await Internet.ExplainsAsync(ex)) return new AiReply(null, Internet.NoInternet(), lookUps);
                 return new AiReply(null, Lang.T($"Ollama isn't answering at {root}. Check that it's running, then ask again."), lookUps);
             }
             JsonNode? json = null;
@@ -192,8 +221,9 @@ public static class Ollama
     }
 
     /// <summary>What the Ask window says while a look-up runs.</summary>
-    private static string Reviewing(string tool, JsonObject args) => tool switch
+    public static string Reviewing(string tool, JsonObject args) => tool switch
     {
+        "search_web" => Lang.T("Searching the web…"),
         "get_report" => Lang.T("Reviewing your report…"),
         "get_crashes" => Lang.T("Reviewing your crashes…"),
         "get_changes" => Lang.T("Reviewing what changed…"),
