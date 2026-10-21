@@ -216,6 +216,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private void PickModel(AiModelOption? model)
     {
         if (model is null) return;
+        Log.Write("settings", $"Ask RigSight model picked (own key): {model.Name}");
         Set(a => a.Model = model.Name, nameof(Model));
         OnPropertyChanged(nameof(ModelPrice));
         IsPickingModel = false;
@@ -277,6 +278,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private void PickOllama(OllamaModelOption? model)
     {
         if (model is not { CanLookUp: true }) return;
+        Log.Write("settings", $"Ask RigSight model picked (Ollama): {model.Name}");
         Set(a => a.OllamaModel = model.Name, nameof(OllamaModel));
         IsPickingOllama = false;
         OllamaSearch = "";
@@ -289,6 +291,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool ShareChanges { get => Ai.ShareChanges; set => Set(a => a.ShareChanges = value); }
     public bool ShareMemory { get => Ai.ShareMemory; set => Set(a => a.ShareMemory = value); }
     public bool ShareNetwork { get => Ai.ShareNetwork; set => Set(a => a.ShareNetwork = value); }
+    public bool ShareUsage { get => Ai.ShareUsage; set => Set(a => a.ShareUsage = value); }
     public bool ShareParts { get => Ai.ShareParts; set => Set(a => a.ShareParts = value); }
 
     // ── The Ask button and conversations ─────────────────────────────────
@@ -298,8 +301,21 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>Setting a shortcut listens for the next keys pressed; wired with the window's key handling.</summary>
     [RelayCommand] private void SetShortcut() { }
 
-    public int KeepConversationDays { get => Ai.KeepConversationDays; set => Set(a => a.KeepConversationDays = value); }
-    [RelayCommand] private void ClearConversations() { }
+    public int KeepConversationDays
+    {
+        get => Ai.KeepConversationDays;
+        set { Set(a => a.KeepConversationDays = value); _ask.Keep(); }
+    }
+
+    [RelayCommand]
+    private void ClearConversations()
+    {
+        if (!_ask.HasHistory) return;
+        var answer = System.Windows.MessageBox.Show(System.Windows.Application.Current.MainWindow,
+            Lang.T("This permanently deletes every Ask RigSight conversation on this PC, pinned and archived ones too.\n\nDelete all conversations?"),
+            Lang.T("Clear conversations"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning, System.Windows.MessageBoxResult.No);
+        if (answer == System.Windows.MessageBoxResult.Yes) _ask.ClearAll();
+    }
 
 }
 

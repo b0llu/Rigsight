@@ -11,6 +11,11 @@ public enum AiTone { Plain, Cpu, Gpu, Warm, Good, Faint }
 /// Something RigSight draws inside an answer from its own records (never from the model's words): the model only says
 /// which one, with a marker such as [show: crashes], and only after looking at that record.
 /// </summary>
+[System.Text.Json.Serialization.JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[System.Text.Json.Serialization.JsonDerivedType(typeof(AiTiles), "tiles")]
+[System.Text.Json.Serialization.JsonDerivedType(typeof(AiBars), "bars")]
+[System.Text.Json.Serialization.JsonDerivedType(typeof(AiBarTable), "table")]
+[System.Text.Json.Serialization.JsonDerivedType(typeof(AiBands), "bands")]
 public abstract record AiBlock;
 
 /// <summary>A big number with what it counts, and a fainter line under it ("19 · sudden shut-offs · 20 Sep – 20 Oct").</summary>
@@ -42,12 +47,15 @@ public sealed record AiBands(string Title, IReadOnlyList<AiBand> Bands) : AiBloc
 
 public sealed partial class AiTools
 {
-    /// <summary>The markers the model may use, each with the look-up it needs first.</summary>
-    public static readonly IReadOnlyDictionary<string, string> Markers = new Dictionary<string, string>
+    /// <summary>The markers the model may use, each with the look-ups that let it (any one of them first).</summary>
+    public static readonly IReadOnlyDictionary<string, string[]> Markers = new Dictionary<string, string[]>
     {
-        ["crashes"] = "get_crashes",
-        ["temps"] = "get_report",
-        ["games"] = "list_games",
+        ["crashes"] = ["get_crashes"],
+        ["temps"] = ["get_report", "get_temperatures"],
+        ["games"] = ["list_games"],
+        ["apps"] = ["get_apps", "get_report"],
+        ["memory"] = ["get_memory"],
+        ["internet"] = ["get_network"],
     };
 
     /// <summary>
@@ -56,16 +64,20 @@ public sealed partial class AiTools
     /// </summary>
     public IReadOnlyList<AiBlock> Blocks(string marker, IReadOnlyList<AiLookUp> lookUps)
     {
-        if (!Markers.TryGetValue(marker, out var tool) || !Allowed(tool)) return [];
+        if (!Markers.TryGetValue(marker, out var tools)) return [];
         // The last time it looked: a follow-up asking about another period shows that period.
-        if (lookUps.LastOrDefault(l => l.Tool == tool) is not { } look) return [];
+        if (lookUps.LastOrDefault(l => tools.Contains(l.Tool) && Allowed(l.Tool)) is not { } look) return [];
         try
         {
             return marker switch
             {
                 "crashes" => WithDb(db => CrashBlocks(db, Day(look.Args, "from"), Day(look.Args, "to"))),
                 "temps" => WithDb(db => TempBlocks(db, Day(look.Args, "from"), Day(look.Args, "to"))),
-                "games" => WithDb(GameBlocks),
+                "games" => WithDb(db => look.Args["from"] is null && look.Args["to"] is null ? GameBlocks(db)
+                    : GamesInBlocks(db, Day(look.Args, look.Args["from"] is null ? "to" : "from"), Day(look.Args, look.Args["to"] is null ? "from" : "to"))),
+                "apps" => WithDb(db => AppBlocks(db, Day(look.Args, "from"), Day(look.Args, "to"))),
+                "memory" => WithDb(db => MemoryBlocks(db, Day(look.Args, "from"), Day(look.Args, "to"))),
+                "internet" => WithDb(db => InternetBlocks(db, Day(look.Args, "from"), Day(look.Args, "to"))),
                 _ => [],
             };
         }
@@ -179,6 +191,81 @@ public sealed partial class AiTools
     }
 
     // The games that work the graphics card hardest, with how long each was played.
+    // Asked for a period: only the games played then, with the time played in it (the all-time list once showed for "yesterday").
+    private List<AiBlock> GamesInBlocks(Data.RigsightDb db, DateTime from, DateTime to)
+    {
+        var games = PlayedIn(db, from, to).Take(8).ToList();
+        if (games.Count == 0) return [];
+        double most = games.Max(g => g.Sec);
+        return [new AiBars(Lang.T($"GAMES PLAYED, {Period(from, to).ToUpper(CultureInfo.CurrentCulture)}"),
+            [.. games.Select(g => new AiBar(g.Game.Name, g.Sec / most, Units.Duration(g.Sec), AiTone.Gpu))])];
+    }
+
+    // The apps with the most time in front, as bars.
+    private List<AiBlock> AppBlocks(Data.RigsightDb db, DateTime from, DateTime to)
+    {
+        var (f, t, _) = Span(from, to);
+        var name = Namer(db);
+        var top = db.GetAppTotals(f, t).Where(a => a.FgSec >= 60).OrderByDescending(a => a.FgSec).Take(6).ToList();
+        if (top.Count == 0) return [];
+        double most = top[0].FgSec;
+        return [new AiBars(Lang.T($"TIME IN FRONT, {Period(from, to).ToUpper(CultureInfo.CurrentCulture)}"),
+            [.. top.Select(a => new AiBar(name(a.AppId), a.FgSec / most, Units.Duration(a.FgSec), AiTone.Plain))])];
+    }
+
+    // The fullest minute and the average in big type, then the apps holding the most.
+    private List<AiBlock> MemoryBlocks(Data.RigsightDb db, DateTime from, DateTime to)
+    {
+        var (f, t, _) = Span(from, to);
+        var minutes = db.GetMinutes(f, t).Where(m => m.RamUsed is not null).ToList();
+        if (minutes.Count == 0) return [];
+        string period = Period(from, to);
+        var full = minutes.MaxBy(m => m.RamUsed!.Value)!;
+        var tiles = new List<AiTile>
+        {
+            new($"{full.RamUsed:0.0} GB", Lang.T("memory at its fullest"), Data.TimeUtil.FromUnix(full.Ts).ToString("d MMM, h:mm tt", CultureInfo.CurrentCulture), AiTone.Plain),
+            new($"{minutes.Average(m => m.RamUsed!.Value):0.0} GB", Lang.T("in use on average"), period, AiTone.Plain),
+        };
+        if (minutes.Where(m => m.CommitPct is not null).MaxBy(m => m.CommitPct) is { CommitPct: double c })
+            tiles.Add(new($"{c:0}%", Lang.T("closest to running out"), period, c >= 90 ? AiTone.Warm : AiTone.Plain));
+        var blocks = new List<AiBlock> { new AiTiles(tiles) };
+        if (settings.Ai.ShareApps)
+        {
+            var name = Namer(db);
+            var most = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).Select(x => (x.AppId, Mb: x.MemSum / x.MemN)).OrderByDescending(x => x.Mb).Take(6).ToList();
+            if (most.Count > 1)
+                blocks.Add(new AiBars(Lang.T("APPS USING THE MOST MEMORY"), [.. most.Select(m => new AiBar(name(m.AppId), m.Mb / most[0].Mb, Units.Megabytes(m.Mb), AiTone.Plain))]));
+        }
+        return blocks;
+    }
+
+    // Downloaded, uploaded and the drops in big type, then the apps that used the most.
+    private List<AiBlock> InternetBlocks(Data.RigsightDb db, DateTime from, DateTime to)
+    {
+        var (f, t, _) = Span(from, to);
+        var days = db.GetNetDays(f, t);
+        if (days.Count == 0) return [];
+        string period = Period(from, to);
+        int drops = db.GetNetDrops(f, t).Count;
+        var blocks = new List<AiBlock>
+        {
+            new AiTiles(
+            [
+                new(Units.Data(days.Sum(d => d.Down)), Lang.T("downloaded"), period, AiTone.Plain),
+                new(Units.Data(days.Sum(d => d.Up)), Lang.T("uploaded"), period, AiTone.Plain),
+                new(drops.ToString(CultureInfo.CurrentCulture), drops == 1 ? Lang.T("connection drop") : Lang.T("connection drops"), period, drops > 0 ? AiTone.Warm : AiTone.Good),
+            ]),
+        };
+        if (settings.Ai.ShareApps)
+        {
+            var name = Namer(db);
+            var apps = db.GetNetAppTotals(f, t).Where(a => a.Down > 0).OrderByDescending(a => a.Down).Take(6).ToList();
+            if (apps.Count > 1)
+                blocks.Add(new AiBars(Lang.T("APPS THAT DOWNLOADED THE MOST"), [.. apps.Select(a => new AiBar(name(a.App), (double)a.Down / apps[0].Down, Units.Data(a.Down), AiTone.Plain))]));
+        }
+        return blocks;
+    }
+
     private List<AiBlock> GameBlocks(Data.RigsightDb db)
     {
         var games = Played(db).Where(g => g.GpuLoad is not null).OrderByDescending(g => g.GpuLoad).Take(8).ToList();

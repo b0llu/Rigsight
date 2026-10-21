@@ -25,26 +25,26 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     private List<InstalledGame>? _installed;
     private readonly object _gamesLock = new();
 
-    private bool Allowed(string name) => name switch
-    {
-        "get_pc_info" => settings.Ai.ShareParts,
-        "get_report" => settings.Ai.ShareHeat || settings.Ai.ShareApps,
-        "get_crashes" => settings.Ai.ShareCrashes,
-        "get_changes" => settings.Ai.ShareChanges,
-        "list_games" or "get_game" => settings.Ai.ShareApps,
-        _ => false,
-    };
+    /// <summary>A look-up answers when any switch it needs is on (see Needs); otherwise it says it isn't shared.</summary>
+    private bool Allowed(string name) => Needs(name).Any(On);
 
     public JsonArray Definitions()
     {
-        var list = new JsonArray();
         var all = new JsonArray
         {
             Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version.", new JsonObject()),
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes. Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the week before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
-            Def("list_games", "The games RigSight knows on this PC: hours played, sessions, first and last played, launcher, how hard each works the graphics card.", new JsonObject()),
+            Def("list_games", "The games played on this PC with hours played, sessions, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["from"] = new JsonObject { ["type"] = "string", ["description"] = "First day, yyyy-MM-dd (leave out for the whole history)." },
+                    ["to"] = new JsonObject { ["type"] = "string", ["description"] = "Last day included, yyyy-MM-dd." },
+                },
+            }),
             Def("get_game", "One game's history: each play with its length, CPU/GPU load and temperature, power, frame rate when recorded, how it ended; its usual; crashes; changes between plays.", new JsonObject
             {
                 ["type"] = "object",
@@ -52,13 +52,10 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                 ["required"] = new JsonArray("name"),
             }),
         };
-        // Only the records Settings › Ask RigSight lets it send.
-        foreach (var def in all.ToList())
-        {
-            all.Remove(def);
-            if (Allowed((string)def!["function"]!["name"]!)) list.Add(def);
-        }
-        return list;
+        foreach (var def in MoreDefinitions()) all.Add(def!.DeepClone());
+        // Every look-up is offered, whatever Settings › Ask RigSight sends: one it turns off answers that it isn't shared, so
+        // the model can say so and where to turn it on, instead of never knowing the records exist.
+        return all;
     }
 
     private static JsonObject Dates() => new()
@@ -89,7 +86,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         JsonObject args;
         try { args = JsonNode.Parse(string.IsNullOrWhiteSpace(argsJson) ? "{}" : argsJson) as JsonObject ?? []; }
         catch (JsonException) { return "Error: the arguments weren't valid JSON."; }
-        if (!Allowed(name)) return $"Error: there is no tool called {name}.";
+        if (!Known(name)) return $"Error: there is no tool called {name}.";
+        if (!Allowed(name)) return NotShared(name);
         string key = name + " " + args.ToJsonString();
         if (_cache.TryGetValue(key, out var hit)) return hit;
         string result;
@@ -101,9 +99,11 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                 "get_report" => WithDb(db => Report(db, Day(args, "from"), Day(args, "to"))),
                 "get_crashes" => WithDb(db => Crashes(db, Day(args, "from"), Day(args, "to"))),
                 "get_changes" => WithDb(db => Changes(db, Day(args, "from"), Day(args, "to"))),
+                "list_games" when args["from"] is not null || args["to"] is not null =>
+                    WithDb(db => GamesIn(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
                 "list_games" => WithDb(ListGames),
                 "get_game" => WithDb(db => Game(db, (string?)args["name"] ?? "")),
-                _ => $"Error: there is no tool called {name}.",
+                _ => RunMore(name, args) ?? $"Error: there is no tool called {name}.",
             };
         }
         catch (FormatException ex) { result = "Error: " + ex.Message; }
@@ -128,8 +128,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     {
         if (to < from) (from, to) = (to, from);
         var report = BuildReport(db, from, to);
+        Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return ReadableExport.ReportText(report, title, "RigSight");
+        return ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.ShareUsage) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
 
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
@@ -145,9 +146,37 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         string summary = Summary(stories);
         // The newest 15 at most, so a long period stays readable.
         int all = stories.Count;
-        stories = [.. stories.OrderByDescending(x => x.Crash.Ts).Take(15)];
+        stories = [.. stories.OrderByDescending(x => x.Crash.Ts).Take(15).Select(Shared)];
         string text = ReadableExport.CrashesText(stories, $"{from:d MMM yyyy} to {to:d MMM yyyy}", DateTime.Now, "RigSight");
-        return summary + (all > 15 ? $"Details of the newest 15 of {all} follow; ask for a shorter period for older ones. Use the counts above for totals.\n\n" : "\n") + text;
+        return summary + (all > 15 ? $"Details of the newest 15 of {all} follow; ask for a shorter period for older ones. Use the counts above for totals.\n\n" : "\n") + text
+            + LeftOut(Switch.Heat, Switch.Apps, Switch.Memory, Switch.Changes);
+    }
+
+    /// <summary>
+    /// A crash with only what the switches share around it: the readings just before (temperatures and fans), the app in
+    /// front and how long it ran (apps), memory, the changes before it. The crash itself and RigSight's finding stay.
+    /// </summary>
+    private CrashStory Shared(CrashStory s)
+    {
+        var a = settings.Ai;
+        var c = s.Context;
+        if (c is not null)
+        {
+            if (!a.ShareHeat) c = c with { CpuBefore = null, GpuBefore = null, CpuLoad = null, GpuLoad = null, GpuPower = null };
+            if (!a.ShareApps) c = c with { FrontApp = null, SessionSec = null };
+            if (!a.ShareMemory) c = c with { RamUsed = null };
+        }
+        // RigSight's own finding keeps its sentence; the lines under it that rest on a reading not shared go.
+        var finding = s.Finding is { } f ? f with { Points = Keep(f.Points), RuledOut = Keep(f.RuledOut), NotChecked = Keep(f.NotChecked) } : null;
+        return s with
+        {
+            Finding = finding,
+            Context = c,
+            AppInFront = a.ShareApps ? s.AppInFront : null,
+            ChangesBefore = a.ShareChanges ? s.ChangesBefore : [],
+            // The close-up's lines are readings and apps every two seconds.
+            InLastMinutes = a.ShareHeat && a.ShareApps ? s.InLastMinutes : [],
+        };
     }
 
     /// <summary>Every problem in the period with what was going on and RigSight's finding (muted apps left out).</summary>
@@ -181,6 +210,20 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                     : [],
             };
         })];
+    }
+
+    // A finding's lines by the reading each rests on (titles as CrashCases words them, in the language shown).
+    private static readonly string[] HeatLines = ["It wasn't overheating", "It was running hot", "Temperatures weren't recorded", "The CPU wasn't overheating",
+        "The GPU wasn't overheating", "It was working hard", "It wasn't doing much"];
+    private static readonly string[] MemoryLines = ["Memory wasn't full", "Memory was nearly full", "Windows was running out of memory"];
+
+    private List<Evidence> Keep(List<Evidence> lines)
+    {
+        var a = settings.Ai;
+        return [.. lines.Where(e =>
+            !(!a.ShareHeat && HeatLines.Any(t => Lang.T(t) == e.Title))
+            && !(!a.ShareMemory && MemoryLines.Any(t => Lang.T(t) == e.Title))
+            && !(!a.ShareUsage && Lang.T("Nobody was using it") == e.Title))];
     }
 
     private static string Kind(CrashKind kind) => kind switch
@@ -233,10 +276,39 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var games = Played(db);
         if (games.Count == 0) return "No games recorded.";
         var sb = new StringBuilder();
+        // Said first: a model asked about one day once took the busiest games of all time for that day's.
+        sb.AppendLine($"Every game over all of RigSight's history ({games.Min(g => g.FirstPlayed):d MMM yyyy} to {games.Max(g => g.LastPlayed):d MMM yyyy}), not any one day or week. For a period, ask with from and to.");
         foreach (var g in games)
             sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {g.Sessions} sessions, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average" : ""));
         return sb.ToString();
+    }
+
+    /// <summary>Only the games played in the period, with the time played in it (from each game's plays).</summary>
+    private string GamesIn(RigsightDb db, DateTime from, DateTime to)
+    {
+        if (to < from) (from, to) = (to, from);
+        DateTime end = to.AddDays(1);
+        string period = from == to ? from.ToString("dddd d MMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
+        var sb = new StringBuilder();
+        foreach (var (g, sec, plays) in PlayedIn(db, from, to))
+            sb.AppendLine($"{g.Name}: {Units.Duration(sec)} in {plays} {(plays == 1 ? "play" : "plays")}"
+                + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average (over all its plays)" : ""));
+        return sb.Length == 0 ? $"No games played on {period}." : $"Games played on {period} (only these were played then):\n" + sb;
+    }
+
+    /// <summary>The games played from one day to another (both included), with the time in front and the plays then.</summary>
+    private List<(GameEntry Game, double Sec, int Plays)> PlayedIn(RigsightDb db, DateTime from, DateTime to)
+    {
+        if (to < from) (from, to) = (to, from);
+        DateTime end = to.AddDays(1);
+        var list = new List<(GameEntry, double, int)>();
+        foreach (var g in Played(db).Where(g => g.FirstPlayed is not { } first || g.LastPlayed is not { } last || (first < end && last >= from)))
+        {
+            var plays = GameHistory.Story(db, g, settings, DateTime.Now).Plays.Where(p => p.StartTime < end && p.EndTime >= from).ToList();
+            if (plays.Count > 0) list.Add((g, plays.Sum(p => p.ActiveSec), plays.Count));
+        }
+        return [.. list.OrderByDescending(x => x.Item2)];
     }
 
     private List<GameEntry> Played(RigsightDb db) => [.. Library(db).Where(g => g.HasHistory).OrderByDescending(g => g.ActiveSec)];
@@ -249,20 +321,22 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (entry is null) return $"No game called '{name}' in RigSight's history. Known: {string.Join(", ", games.Select(g => g.Name))}.";
         var story = GameHistory.Story(db, entry, settings, DateTime.Now);
         var sb = new StringBuilder();
-        sb.AppendLine($"{entry.Name}: {Units.Duration(entry.ActiveSec)} in {story.Plays.Count} plays. Crashes {story.Crashes}, hangs {story.Hangs}, driver resets {story.DriverResets}, shut-offs {story.ShutOffs}, power cuts {story.PowerCuts.Count}.");
-        if (story.Usual is { } u) sb.AppendLine($"Its usual (from {u.Plays} plays at like graphics card power): GPU {u.Gpu:0} °C, CPU {u.Cpu:0} °C, power {u.Power:0} W.");
+        sb.AppendLine($"{entry.Name}: {Units.Duration(entry.ActiveSec)} in {story.Plays.Count} plays."
+            + (settings.Ai.ShareCrashes ? $" Crashes {story.Crashes}, hangs {story.Hangs}, driver resets {story.DriverResets}, shut-offs {story.ShutOffs}, power cuts {story.PowerCuts.Count}." : ""));
+        if (settings.Ai.ShareHeat && story.Usual is { } u) sb.AppendLine($"Its usual (from {u.Plays} plays at like graphics card power): GPU {u.Gpu:0} °C, CPU {u.Cpu:0} °C, power {u.Power:0} W.");
         if (story.SinceUpdate is { } since) sb.AppendLine($"Frame rate since its last update ({story.LastUpdate:d MMM}): {since}.");
         sb.AppendLine("All plays together: " + Stats(story.All));
-        sb.AppendLine("Graphics card memory is recorded for the whole card, not per app: before saying a game uses more, check what else was using the card in that play.");
+        if (settings.Ai.ShareMemory) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
         sb.AppendLine("Plays, newest first (at most 15):");
         // Video memory is the whole card's (every app together), so each play says what else had the card at the time.
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var own = entry.AppIds.ToHashSet();
         foreach (var p in story.Plays.OrderByDescending(p => p.Start).Take(15))
-            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front, ended: {p.Ending}. {Stats(p.Stats)}"
+            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.ShareCrashes ? $", ended: {p.Ending}" : "")}. {Stats(p.Stats)}"
                 + Alongside(db, p, own, apps));
-        foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
-        return sb.ToString();
+        if (settings.Ai.ShareChanges)
+            foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
+        return sb.ToString() + LeftOut(Switch.Heat, Switch.Memory, Switch.Changes, Switch.Crashes);
     }
 
     /// <summary>
@@ -273,7 +347,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     {
         var parts = new List<string>();
         var minutes = db.GetMinutes(p.Start, p.End);
-        if (minutes.Where(m => m.VramUsed is not null).ToList() is { Count: > 0 } vram)
+        if (settings.Ai.ShareMemory && minutes.Where(m => m.VramUsed is not null).ToList() is { Count: > 0 } vram)
             parts.Add($"graphics card memory in use (all apps) {vram[0].VramUsed / 1024:0.0} GB at the start, highest {vram.Max(m => m.VramUsed) / 1024:0.0} GB");
         int n = Math.Max(1, (int)((p.End - p.Start) / 60));
         var others = db.GetAppMinutes(p.Start, p.End).Where(a => !own.Contains(a.App)).GroupBy(a => a.App)
@@ -286,15 +360,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         return ". With it: " + string.Join("; ", parts) + ".";
     }
 
-    private static string Stats(PlayStats s)
+    private string Stats(PlayStats s)
     {
         var parts = new List<string>();
-        void Add(string label, double? v, string unit) { if (v is double x) parts.Add($"{label} {x:0}{unit}"); }
+        bool heat = settings.Ai.ShareHeat, memory = settings.Ai.ShareMemory;
+        void Add(string label, double? v, string unit) { if (heat && v is double x) parts.Add($"{label} {x:0}{unit}"); }
         Add("GPU temp avg", s.Gpu, " °C"); Add("GPU temp max", s.GpuMax, " °C"); Add("hot spot max", s.HotMax, " °C");
         Add("CPU temp avg", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");
-        Add("GPU power", s.GpuPower, " W"); Add("CPU+GPU power", s.Power, " W"); Add("FPS avg", s.Fps, "");
-        if (s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB (the whole card, every app together, not this game alone)");
-        if (s.Minutes > 0) parts.Add($"GPU at 95%+ for {s.GpuFullMinutes} of {s.Minutes} min");
+        Add("GPU power", s.GpuPower, " W"); Add("CPU+GPU power", s.Power, " W");
+        if (s.Fps is double fps) parts.Add($"FPS avg {fps:0}");
+        if (memory && s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB (the whole card, every app together, not this game alone)");
+        if (memory && s.VramOwnMax is double own) parts.Add($"the game's own video memory max {own / 1024:0.0} GB");
+        if (heat && s.Minutes > 0) parts.Add($"GPU at 95%+ for {s.GpuFullMinutes} of {s.Minutes} min");
         return string.Join(", ", parts);
     }
 

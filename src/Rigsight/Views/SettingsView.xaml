@@ -1128,6 +1128,7 @@
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareChanges}" Margin="0,8"><TextBlock Text="{ctl:T 'Changes: drivers, updates, BIOS, settings'}" Style="{StaticResource Title}" /></CheckBox>
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareMemory}" Margin="0,8"><TextBlock Text="{ctl:T 'Memory and storage'}" Style="{StaticResource Title}" /></CheckBox>
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareNetwork}" Margin="0,8"><TextBlock Text="{ctl:T 'Internet use'}" Style="{StaticResource Title}" /></CheckBox>
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareUsage}" Margin="0,8"><TextBlock Text="{ctl:T 'When your PC was on and in use'}" Style="{StaticResource Title}" /></CheckBox>
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareParts}" Margin="0,8"><TextBlock Text="{ctl:T 'Your PC\'s parts (CPU, graphics card, motherboard)'}" Style="{StaticResource Title}" /></CheckBox>
                         <TextBlock Text="{ctl:T 'Never sent: your Windows user name, file and folder paths, your licence key.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,12" />
                     </StackPanel>

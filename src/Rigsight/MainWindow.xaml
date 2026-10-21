@@ -419,7 +419,7 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <!-- The AI helper's Ask button, beside the window's own buttons (Settings › Ask RigSight can move it to the sidebar).
                  Filled in the accent with a chat icon, so it's easy to find (the user, 2026-10-20). -->
-            <Button x:Name="AskButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand"
+            <Button x:Name="AskButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
                     VerticalAlignment="Stretch" AutomationProperties.Name="Ask RigSight" ToolTip="{ctl:T 'Ask RigSight about this PC'}"
                     Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
                 <Button.Template>

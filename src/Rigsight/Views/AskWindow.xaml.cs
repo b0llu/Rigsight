@@ -30,9 +30,9 @@ public partial class AskWindow : UserControl
 
     private void Attach(AskViewModel? vm)
     {
-        if (_vm is not null) _vm.PropertyChanged -= OnVmChanged;
+        if (_vm is not null) { _vm.PropertyChanged -= OnVmChanged; _vm.SearchWanted = null; }
         _vm = vm;
-        if (_vm is not null) _vm.PropertyChanged += OnVmChanged;
+        if (_vm is not null) { _vm.PropertyChanged += OnVmChanged; _vm.SearchWanted = FocusSearch; }
         Place();
     }
 
@@ -52,7 +52,6 @@ public partial class AskWindow : UserControl
     {
         if (_vm is null || Layer.ActualWidth <= 0) return;
         var room = Room;
-        HistoryColumn.Width = new GridLength(_vm.ShowHistoryColumn ? 240 : 0);
         PopIcon.Text = _vm.IsPoppedOut ? "" : "";
         PopButton.ToolTip = _vm.IsPoppedOut ? Lang.T("Stick to the corner") : Lang.T("Pop out");
         AutomationProperties_Name(PopButton, (string)PopButton.ToolTip);
@@ -79,6 +78,9 @@ public partial class AskWindow : UserControl
             Panel.Height = size.Height;
             Panel.Margin = new Thickness(x, y, 0, 0);
         }
+        // The rail and the column follow the width.
+        _vm.PanelWidth = Panel.Width;
+        HistoryColumn.Width = new GridLength(_vm.ShowHistoryColumn ? 260 : 0);
     }
 
     private static void AutomationProperties_Name(DependencyObject element, string name) => System.Windows.Automation.AutomationProperties.SetName(element, name);
@@ -108,13 +110,23 @@ public partial class AskWindow : UserControl
         Place();
     }
 
-    // ── Moving by the top bar ────────────────────────────────────────────
+    // ── Moving by the top strip (over the chat, or the sidebar's top) ────
+    private UIElement? _dragBy;
+
     private void Bar_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (_vm is null || e.OriginalSource is DependencyObject d && FindButton(d)) return;
+        if (_vm is null || sender is not UIElement by || e.OriginalSource is DependencyObject d && FindButton(d, by)) return;
         _dragFrom = e.GetPosition(Layer);
         _panelFrom = new Point(Panel.Margin.Left, Panel.Margin.Top);
-        Bar.CaptureMouse();
+        _dragBy = by;
+        by.CaptureMouse();
+        e.Handled = true;
+    }
+
+    /// <summary>The strip lies over the chat's top: the wheel still scrolls the chat under it.</summary>
+    private void Bar_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        Chat.ScrollToVerticalOffset(Chat.VerticalOffset - e.Delta / 3.0);
         e.Handled = true;
     }
 
@@ -150,7 +162,8 @@ public partial class AskWindow : UserControl
     {
         if (_dragFrom is null) return;
         _dragFrom = null;
-        Bar.ReleaseMouseCapture();
+        _dragBy?.ReleaseMouseCapture();
+        _dragBy = null;
         if (DropSpot.Visibility == Visibility.Visible && _vm is not null)
         {
             DropSpot.Visibility = Visibility.Collapsed;
@@ -159,11 +172,58 @@ public partial class AskWindow : UserControl
         Place();
     }
 
-    private bool FindButton(DependencyObject d)
+    private static bool FindButton(DependencyObject d, DependencyObject stop)
     {
-        for (var at = d; at is not null && at != Bar; at = System.Windows.Media.VisualTreeHelper.GetParent(at))
+        for (var at = d; at is not null && at != stop; at = System.Windows.Media.VisualTreeHelper.GetParent(at))
             if (at is ButtonBase) return true;
         return false;
+    }
+
+    /// <summary>The rail's search: the cursor goes into the conversations' search box once it's on screen.</summary>
+    private void FocusSearch() => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+    {
+        if (Find<TextBox>(Panel, t => t.Name == "HistorySearchBox" && t.IsVisible) is { } box) { box.Focus(); box.SelectAll(); }
+    });
+
+    private static T? Find<T>(DependencyObject from, Func<T, bool> wanted) where T : DependencyObject
+    {
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(from); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(from, i);
+            if (child is T found && wanted(found)) return found;
+            if (Find(child, wanted) is { } deeper) return deeper;
+        }
+        return null;
+    }
+
+    /// <summary>A click on the dimmed chat closes the conversations opened over it.</summary>
+    private void Dim_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_vm is not null) _vm.IsHistoryOpen = false;
+        e.Handled = true;
+    }
+
+    // Rename: the box takes the cursor with its text selected; Enter keeps what's typed, Esc puts the title back, and
+    // clicking away keeps it.
+    private void Rename_Shown(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true && sender is TextBox box)
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () => { box.Focus(); box.SelectAll(); });
+    }
+
+    private void Rename_Key(object sender, KeyEventArgs e)
+    {
+        if (_vm is null || (sender as FrameworkElement)?.DataContext is not AskConversation talk) return;
+        if (e.Key is Key.Enter or Key.Escape)
+        {
+            _vm.FinishRename(talk, keep: e.Key == Key.Enter);
+            e.Handled = true;
+        }
+    }
+
+    private void Rename_Lost(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_vm is not null && (sender as FrameworkElement)?.DataContext is AskConversation talk) _vm.FinishRename(talk, keep: true);
     }
 
     /// <summary>Enter sends the question; Shift+Enter starts a new line.</summary>

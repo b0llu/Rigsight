@@ -74,7 +74,8 @@ public static class ReadableExport
     }
 
     /// <summary>The period as the Reports page tells it, laid out as text: totals, peaks, what stood out, every app, the crashes.</summary>
-    public static string ReportText(Report r, string title, string version)
+    /// <param name="times">With the period's times (active, on, in games): off where they aren't to be shared.</param>
+    public static string ReportText(Report r, string title, string version, bool times = true)
     {
         var sb = new StringBuilder();
         sb.AppendLine(Lang.T("RigSight report"));
@@ -85,15 +86,23 @@ public static class ReadableExport
             sb.AppendLine(Lang.T("Nothing was recorded in this time."));
             return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
         }
-        var totals = new List<object?[]> { new object?[] { Lang.T("Active"), Units.Duration(r.ActiveSec) }, new object?[] { Lang.T("PC on"), Units.Duration(r.OnSec) } };
-        if (r.GamingSec >= 60) totals.Add([Lang.T("In games"), Units.Duration(r.GamingSec)]);
+        var totals = new List<object?[]>();
+        if (times)
+        {
+            totals.Add([Lang.T("Active"), Units.Duration(r.ActiveSec)]);
+            totals.Add([Lang.T("PC on"), Units.Duration(r.OnSec)]);
+            if (r.GamingSec >= 60) totals.Add([Lang.T("In games"), Units.Duration(r.GamingSec)]);
+        }
         if (r.Net is { } net && net.Down + net.Up > 0) totals.Add([Lang.T("Internet"), Lang.T($"{Units.Data(net.Down)} downloaded, {Units.Data(net.Up)} uploaded")]);
         void Peak(string name, Peak? p, Func<double, string> say) { if (p is not null) totals.Add([name, $"{say(p.Value)}  ({PeakLine(p)})"]); }
         Peak(Lang.T("CPU peak"), r.CpuTempPeak, v => Units.TempShort(v));
         Peak(Lang.T("GPU peak"), r.GpuTempPeak, v => Units.TempShort(v));
-        Heading(sb, Lang.T("The period"));
-        int name = totals.Max(t => ((string)t[0]!).Length);
-        foreach (var t in totals) sb.AppendLine($"  {((string)t[0]!).PadRight(name)}  {t[1]}");
+        if (totals.Count > 0)
+        {
+            Heading(sb, Lang.T("The period"));
+            int name = totals.Max(t => ((string)t[0]!).Length);
+            foreach (var t in totals) sb.AppendLine($"  {((string)t[0]!).PadRight(name)}  {t[1]}");
+        }
 
         if (r.Insights.Count > 0)
         {

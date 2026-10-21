@@ -11,7 +11,10 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>One record an answer looked at: what the chip says, what was in it (on hover), and the page it opens.</summary>
-public sealed record AskLook(string Icon, string Text, string Detail, string? Opens);
+public sealed record AskLook(string Icon, string Text, string Detail, string? Opens)
+{
+    public bool CanOpen => Opens is not null;
+}
 
 /// <summary>A line of an answer: a paragraph, or one point of a list (shown with a bullet).</summary>
 public sealed record AskLine(string Text, bool IsPoint, string? Lead = null);
@@ -42,11 +45,13 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
 {
     public bool HasWeb => FromWeb is not null;
     public bool HasLooked => Looked.Count > 0;
-    /// <summary>Which model wrote it, where the person picked one themselves ("Answered by gemma4:12b on this PC"); null otherwise.</summary>
-    public string? By { get; init; }
-    /// <summary>The model that wrote it, so the next answer only says "Answered by" again when another one did.</summary>
+    /// <summary>The model that wrote it, kept with the saved answer.</summary>
     public string? Model { get; init; }
-    public bool HasBy => By is not null;
+    /// <summary>The model's own text and what it looked at: what is saved, and what the answer is drawn again from.</summary>
+    public string Raw { get; init; } = "";
+    public IReadOnlyList<AiLookUp> LookUps { get; init; } = [];
+    /// <summary>RigSight's numbers as drawn for each marker: saved with the answer, so it shows the same when opened again.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<AiBlock>> Drawn { get; init; } = new Dictionary<string, IReadOnlyList<AiBlock>>();
 }
 
 /// <summary>No answer came: Ollama not running, the model gone, and so on, said plainly.</summary>
@@ -76,11 +81,26 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }
 
-/// <summary>A conversation kept in History: its first question as the title, when it was, and what was said.</summary>
+/// <summary>
+/// A conversation kept in History: its first question as the title (renamed by hand if wanted), when it was, what was
+/// said, and whether it's pinned to the top or archived out of the way.
+/// </summary>
 public sealed partial class AskConversation : ObservableObject
 {
-    public required string Title { get; init; }
-    public DateTime When { get; init; } = DateTime.Now;
+    public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    private string _title = "";
+    public required string Title { get => _title; set => SetProperty(ref _title, value); }
+    /// <summary>When it was last asked in: what History groups it by, and what "Keep conversations for" counts from.</summary>
+    public DateTime When { get; set; } = DateTime.Now;
+    [ObservableProperty] private bool _isPinned;
+    [ObservableProperty] private bool _isArchived;
+    /// <summary>Its ⋯ menu is open.</summary>
+    [ObservableProperty] private bool _isMenuOpen;
+    /// <summary>Its title is being typed over (Rename), with what's typed so far.</summary>
+    [ObservableProperty] private bool _isRenaming;
+    [ObservableProperty] private string _renameText = "";
+    /// <summary>Loaded from the file but not opened yet: its messages are drawn when it is (RigSight's numbers read again).</summary>
+    public IReadOnlyList<SavedMessage>? Unopened { get; set; }
     /// <summary>The crash or change it was opened from with an Explain button ("Looking at: …"), if any.</summary>
     public string? LookingAt { get; init; }
     public ObservableCollection<AskMessage> Messages { get; } = [];
@@ -102,12 +122,48 @@ public sealed partial class AskViewModel : ObservableObject
     private readonly SettingsModel _settings;
     private AiSettings Ai => _settings.Current.Ai;
 
-    public AskViewModel(SettingsModel settings)
+    private readonly string? _file;
+
+    /// <param name="file">Where conversations are kept; null keeps them only while the app is open (the tests).</param>
+    public AskViewModel(SettingsModel settings, string? file = null)
     {
         _settings = settings;
+        _file = file;
         _settings.Changed += OnSettingsChanged;
-        Current = Conversations.FirstOrDefault() ?? NewConversation();
+        if (file is not null)
+            foreach (var saved in AiConversations.Load(file).OrderByDescending(c => c.When))
+                Conversations.Add(FromSaved(saved));
+        // A fresh conversation to start in, as when the window is first opened; the old ones wait in History.
+        Current = NewConversation();
+        Keep();
         Regroup();
+    }
+
+    /// <summary>
+    /// Settings › Ask RigSight → "Keep conversations for": the ones not asked in for longer go (pinned ones stay, as
+    /// pinning is keeping). Run at the start and whenever the choice changes.
+    /// </summary>
+    public void Keep()
+    {
+        int days = Ai.KeepConversationDays;
+        if (days <= 0) return;
+        var before = DateTime.Now.AddDays(-days);
+        var old = Conversations.Where(c => !c.IsPinned && c != Current && c.When < before).ToList();
+        if (old.Count == 0) return;
+        foreach (var c in old) Conversations.Remove(c);
+        Log.Write("ask", $"Removed {old.Count} conversation(s) not asked in for over {days} days");
+        Changed();
+    }
+
+    /// <summary>Settings › Ask RigSight → "Clear all…": every conversation goes, pinned and archived ones too.</summary>
+    public void ClearAll()
+    {
+        int n = Conversations.Count(c => c.Title.Length > 0);
+        Conversations.Clear();
+        ShowingArchived = false;
+        Current = NewConversation();
+        Log.Write("ask", $"Cleared all {n} conversation(s)");
+        Changed();
     }
 
     private void OnSettingsChanged()
@@ -128,23 +184,35 @@ public sealed partial class AskViewModel : ObservableObject
 
     [ObservableProperty] private bool _isOpen;
     /// <summary>Floating anywhere over the window instead of stuck to its bottom-right corner.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowHistoryColumn), nameof(ShowHistoryOver))] private bool _isPoppedOut;
+    [ObservableProperty] private bool _isPoppedOut;
+    /// <summary>How wide the window is now (the view says): what decides between the column and over the chat.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowHistoryColumn), nameof(ShowHistoryOver), nameof(HistoryPressed))] private double _panelWidth = 600;
     /// <summary>Stuck to the corner at the bigger size.</summary>
     [ObservableProperty] private bool _isBig;
-    /// <summary>Stuck: History slides over the chat while this is on.</summary>
+    /// <summary>Narrow: the conversations lie over the chat while this is on.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowHistoryOver))] private bool _isHistoryOpen;
-    /// <summary>Popped out: History is a column beside the chat, which the History button hides and shows.</summary>
+    /// <summary>Wide: the conversations are a column beside the chat, which its button hides and shows.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowHistoryColumn))] private bool _historyColumn = true;
 
-    public bool ShowHistoryColumn => IsPoppedOut && HistoryColumn;
-    public bool ShowHistoryOver => !IsPoppedOut && IsHistoryOpen;
-    public bool HistoryPressed => IsPoppedOut ? HistoryColumn : IsHistoryOpen;
+    /// <summary>Wide (stuck or popped out): the conversations get a column of their own beside the chat. Narrower, the
+    /// button at the top left opens them over the chat (as on a phone).</summary>
+    private bool RoomForColumn => PanelWidth >= ColumnFrom;
+    public bool ShowHistoryColumn => RoomForColumn && HistoryColumn;
+    public bool ShowHistoryOver => !RoomForColumn && IsHistoryOpen;
+    public bool HistoryPressed => RoomForColumn ? HistoryColumn : IsHistoryOpen;
+    public const double ColumnFrom = 720;
 
     partial void OnIsPoppedOutChanged(bool value) { IsHistoryOpen = false; OnPropertyChanged(nameof(HistoryPressed)); }
     partial void OnIsHistoryOpenChanged(bool value) => OnPropertyChanged(nameof(HistoryPressed));
     partial void OnHistoryColumnChanged(bool value) => OnPropertyChanged(nameof(HistoryPressed));
 
     public ObservableCollection<AskConversation> Conversations { get; } = [];
+    /// <summary>History shows the archived conversations instead of the rest.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ArchivedText))] private bool _showingArchived;
+    partial void OnShowingArchivedChanged(bool value) => Regroup();
+    public int ArchivedCount => Conversations.Count(c => c.IsArchived && c.Title.Length > 0);
+    public bool HasArchived => ArchivedCount > 0 || ShowingArchived;
+    public string ArchivedText => ShowingArchived ? Lang.T("Back to conversations") : Lang.T("Archived");
     [ObservableProperty] private IReadOnlyList<AskGroup> _groups = [];
     [ObservableProperty] private string _historySearch = "";
     partial void OnHistorySearchChanged(string value) => Regroup();
@@ -213,7 +281,7 @@ public sealed partial class AskViewModel : ObservableObject
     [RelayCommand]
     private void ToggleHistory()
     {
-        if (IsPoppedOut) HistoryColumn = !HistoryColumn;
+        if (RoomForColumn) HistoryColumn = !HistoryColumn;
         else IsHistoryOpen = !IsHistoryOpen;
     }
 
@@ -221,14 +289,101 @@ public sealed partial class AskViewModel : ObservableObject
     private void New()
     {
         // An empty conversation is reused instead of piling up blank ones in History.
-        Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0) ?? NewConversation();
+        // A saved one not opened yet has no messages loaded: it isn't empty (reusing it once sent a question into an old chat).
+        Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0 && c.Unopened is null && c.Title.Length == 0) ?? NewConversation();
         IsHistoryOpen = false;
+    }
+
+    /// <summary>The rail's search button: History opens with its search box ready (the window puts the cursor in it).</summary>
+    [RelayCommand]
+    private void SearchHistory()
+    {
+        ShowingArchived = false;
+        if (RoomForColumn) HistoryColumn = true;
+        else IsHistoryOpen = true;
+        SearchWanted?.Invoke();
+    }
+
+    /// <summary>Set by the window: put the cursor in History's search box.</summary>
+    public Action? SearchWanted { get; set; }
+
+    // ── A conversation's ⋯ menu ──────────────────────────────────────────
+    [RelayCommand]
+    private void OpenMenu(AskConversation? talk)
+    {
+        foreach (var c in Conversations) c.IsMenuOpen = c == talk;
+    }
+
+    [RelayCommand]
+    private void TogglePin(AskConversation? talk)
+    {
+        if (talk is null) return;
+        talk.IsMenuOpen = false;
+        talk.IsPinned = !talk.IsPinned;
+        if (talk.IsPinned) talk.IsArchived = false;
+        Changed();
+    }
+
+    [RelayCommand]
+    private void ToggleArchive(AskConversation? talk)
+    {
+        if (talk is null) return;
+        talk.IsMenuOpen = false;
+        talk.IsArchived = !talk.IsArchived;
+        if (talk.IsArchived) talk.IsPinned = false;
+        if (ArchivedCount == 0) ShowingArchived = false;
+        Changed();
+    }
+
+    [RelayCommand]
+    private void Delete(AskConversation? talk)
+    {
+        if (talk is null) return;
+        talk.IsMenuOpen = false;
+        Conversations.Remove(talk);
+        if (Current == talk) Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0 && c.Unopened is null) ?? NewConversation();
+        if (ArchivedCount == 0) ShowingArchived = false;
+        Changed();
+    }
+
+    [RelayCommand]
+    private void StartRename(AskConversation? talk)
+    {
+        if (talk is null) return;
+        talk.IsMenuOpen = false;
+        foreach (var c in Conversations) c.IsRenaming = false;
+        talk.RenameText = talk.Title;
+        talk.IsRenaming = true;
+    }
+
+    /// <summary>Enter, or the box losing the cursor: the typed title is kept (an emptied one goes back to what it was).</summary>
+    public void FinishRename(AskConversation talk, bool keep)
+    {
+        if (!talk.IsRenaming) return;
+        talk.IsRenaming = false;
+        string typed = talk.RenameText.Trim();
+        if (keep && typed.Length > 0 && typed != talk.Title)
+        {
+            talk.Title = typed;
+            Changed();
+        }
+    }
+
+    [RelayCommand] private void ToggleArchived() => ShowingArchived = !ShowingArchived;
+
+    /// <summary>Something about the conversations changed: History again, and the file.</summary>
+    private void Changed()
+    {
+        Regroup();
+        Save();
     }
 
     [RelayCommand]
     private void Pick(AskConversation? conversation)
     {
         if (conversation is null) return;
+        foreach (var c in Conversations) c.IsMenuOpen = false;
+        if (conversation.Unopened is not null) Open(conversation);
         Current = conversation;
         IsHistoryOpen = false;
     }
@@ -266,7 +421,14 @@ public sealed partial class AskViewModel : ObservableObject
         talk.Messages.Add(new AskThinking());
         IsHistoryOpen = false;
         IsOpen = true;
-        Regroup();
+        Changed();
+        // What it explains is a crash or shut-off: with those not shared, it isn't sent, and the window says where to turn them on.
+        if (!Ai.ShareCrashes)
+        {
+            talk.Messages.Clear();
+            talk.Messages.Add(new AskProblem(Lang.T("Explain needs “Crashes and shut-offs” turned on in Settings › Ask RigSight.")));
+            return;
+        }
         Answer(talk, $"Explain this from my PC's records: {what}");
     }
 
@@ -274,18 +436,14 @@ public sealed partial class AskViewModel : ObservableObject
     private void Ask(string text)
     {
         var talk = Current ?? NewConversation();
-        if (talk.Messages.Count == 0 && talk.Title.Length == 0)
-        {
-            var titled = new AskConversation { Title = text };
-            Conversations.Remove(talk);
-            Conversations.Insert(0, titled);
-            talk = titled;
-            Current = titled;
-        }
+        if (talk.Messages.Count == 0 && talk.Title.Length == 0) talk.Title = text;
+        talk.When = DateTime.Now;
+        // The conversation asked in is the newest: it moves to the top of its heading.
+        if (Conversations.IndexOf(talk) is > 0 and var at) Conversations.Move(at, 0);
         foreach (var waiting in talk.Messages.OfType<AskThinking>().ToList()) talk.Messages.Remove(waiting);
         talk.Messages.Add(new AskQuestion(text));
         talk.Messages.Add(new AskThinking());
-        Regroup();
+        Changed();
         Answer(talk, text);
     }
 
@@ -325,13 +483,7 @@ public sealed partial class AskViewModel : ObservableObject
                 // RigSight's own numbers are read from the history, so off the window's thread.
                 var tools = _tools!;
                 var answer = await Task.Run(() => ToAnswer(text, reply.LookUps, marker => tools.Blocks(marker, reply.LookUps)));
-                // Said under the first answer, and again only where another model took over.
-                string? before = talk.Messages.OfType<AskAnswer>().LastOrDefault()?.Model;
-                talk.Messages.Add(answer with
-                {
-                    Model = reply.Model,
-                    By = reply.Model is { } model && model != before ? Lang.T($"Answered by {model} on this PC") : null,
-                });
+                talk.Messages.Add(answer with { Model = reply.Model });
             }
             else talk.Messages.Add(new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
         }
@@ -348,7 +500,7 @@ public sealed partial class AskViewModel : ObservableObject
             foreach (var waiting in talk.Messages.OfType<AskThinking>().ToList()) talk.Messages.Remove(waiting);
             talk.Messages.Add(new AskProblem(Lang.T("Something went wrong while answering. Ask again.")));
         }
-        finally { IsAnswering = false; _answering = null; longWait.Stop(); }
+        finally { IsAnswering = false; _answering = null; longWait.Stop(); Save(); }
     }
 
     private static readonly TimeSpan StillWorkingAfter = TimeSpan.FromSeconds(40);
@@ -377,6 +529,11 @@ public sealed partial class AskViewModel : ObservableObject
     // "Next step: …", also as small models write it at times: in brackets, or as a point ("[next step: …]", "- Next step: …").
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     private static readonly Regex TableRule = new(@"^\|?\s*:?-{2,}");
+    // *Risk of Rain 2*: the stars go, the words stay (a "* " point keeps its star).
+    // "Tell me the app's name and I'll look": the model asking back, not a step to take.
+    // ...or "Next step: none." where it has none to give.
+    private static readonly Regex AsksBack = new(@"^(tell me|ask me|let me know|dime|pregúntame)\b|^(none|n/?a|nothing|no next step|ninguno|nada)\W*$", RegexOptions.IgnoreCase);
+    private static readonly Regex Italic = new(@"(?<![*\w])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![*\w])");
 
     /// <summary>
     /// The model's text as an answer: its first line as the plain statement, then paragraphs and points, RigSight's own
@@ -385,11 +542,12 @@ public sealed partial class AskViewModel : ObservableObject
     /// </summary>
     public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null)
     {
-        var lines = text.Replace("\r", "").Split('\n').Select(l => l.Replace("**", "").Replace("__", "").TrimStart('#').Trim()).Where(l => l.Length > 0).ToList();
+        var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim()).Where(l => l.Length > 0).ToList();
         string verdict = lines.Count > 0 && !Marker.IsMatch(lines[0]) && !lines[0].StartsWith('|') ? Point.Replace(lines[0], "") : "";
         if (verdict.Length > 0) lines.RemoveAt(0);
         var parts = new List<object>();
         var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var drawnBy = new Dictionary<string, IReadOnlyList<AiBlock>>();
         for (int i = 0; i < lines.Count; i++)
         {
             string l = lines[i];
@@ -400,6 +558,7 @@ public sealed partial class AskViewModel : ObservableObject
                 {
                     var drawn = blocks(what);
                     if (drawn.Count == 0) Log.Write("ask", $"[show: {what}] drew nothing (not looked at, or nothing to show)");
+                    else drawnBy[what] = drawn;
                     parts.AddRange(drawn);
                 }
                 continue;
@@ -421,8 +580,10 @@ public sealed partial class AskViewModel : ObservableObject
             }
             if (NextStep.Match(l) is { Success: true } next)
             {
-                var (opens, label) = Opens(lookUps);
                 string step = next.Groups["rest"].Value;
+                // "Next step: want to know more about a game?" is an offer to keep talking, not a step.
+                if (step.EndsWith('?') || AsksBack.IsMatch(step)) { Log.Write("ask", $"Dropped a next step that was a question back: {step}"); continue; }
+                var (opens, label) = Opens(lookUps);
                 parts.Add(new AskNext(char.ToUpper(step[0], System.Globalization.CultureInfo.CurrentCulture) + step[1..], opens, label));
                 continue;
             }
@@ -430,7 +591,7 @@ public sealed partial class AskViewModel : ObservableObject
             string body = Point.Replace(l, "");
             parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) : new AskLine(body, isPoint));
         }
-        return new AskAnswer(verdict, parts, null, Chips(lookUps));
+        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy };
     }
 
     /// <summary>The page the next step points to: where the records the answer leaned on are shown.</summary>
@@ -475,6 +636,78 @@ public sealed partial class AskViewModel : ObservableObject
         return chips;
     }
 
+    // ── Kept between runs ────────────────────────────────────────────────
+    private static AskConversation FromSaved(SavedConversation c) => new()
+    {
+        Id = c.Id, Title = c.Title, When = c.When, LookingAt = c.LookingAt, IsPinned = c.Pinned, IsArchived = c.Archived, Unopened = c.Messages,
+    };
+
+    /// <summary>
+    /// A saved conversation opened for the first time this run: its questions and answers back in place (answers drawn
+    /// again, RigSight's numbers read from the same records over the same periods), and what was said, for follow-ups.
+    /// </summary>
+    private async void Open(AskConversation talk)
+    {
+        if (talk.Unopened is not { } saved) return;
+        talk.Unopened = null;
+        foreach (var pair in saved.Zip(saved.Skip(1)))
+            if (pair.First.Kind == SavedMessage.Question && pair.Second.Kind == SavedMessage.Answer)
+                talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text)]);
+        _tools ??= new AiTools(_settings.Current);
+        var tools = _tools;
+        List<AskMessage> messages;
+        try
+        {
+            messages = await Task.Run(() =>
+            {
+                var list = new List<AskMessage>();
+                foreach (var m in saved)
+                {
+                    switch (m.Kind)
+                    {
+                        case SavedMessage.Question: list.Add(new AskQuestion(m.Text)); break;
+                        case SavedMessage.Problem: list.Add(new AskProblem(m.Text)); break;
+                        case SavedMessage.Stopped: list.Add(new AskStopped(m.Text)); break;
+                        case SavedMessage.Answer:
+                            var looks = (m.LookUps ?? []).Select(l => l.ToLookUp()).ToList();
+                            // The numbers as they were shown then; an answer saved before they were kept is drawn again.
+                            Func<string, IReadOnlyList<AiBlock>> draw = m.Drawn is { } kept
+                                ? marker => kept.TryGetValue(marker, out var b) ? b : []
+                                : marker => tools.Blocks(marker, looks);
+                            list.Add(ToAnswer(m.Text, looks, draw) with { Model = m.Model });
+                            break;
+                    }
+                }
+                return list;
+            });
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Log.Error("ask", ex);
+            messages = [new AskProblem(Lang.T("This conversation couldn't be opened."))];
+        }
+        foreach (var m in messages) talk.Messages.Add(m);
+    }
+
+    /// <summary>Writes every conversation with something in it to the file, off the window's thread.</summary>
+    internal Task Save()
+    {
+        if (_file is null) return Task.CompletedTask;
+        var snapshot = Conversations.Where(c => c.Title.Length > 0).Select(ToSaved).ToList();
+        string file = _file;
+        return Task.Run(() => AiConversations.Save(snapshot, file));
+    }
+
+    private static SavedConversation ToSaved(AskConversation c) => new(c.Id, c.Title, c.When, c.LookingAt, c.IsPinned, c.IsArchived,
+        c.Unopened ?? [.. c.Messages.Select(m => m switch
+        {
+            AskQuestion q => new SavedMessage(SavedMessage.Question, q.Text),
+            AskAnswer a => new SavedMessage(SavedMessage.Answer, a.Raw, a.Model, [.. a.LookUps.Select(SavedLookUp.From)], a.Drawn),
+            AskProblem p => new SavedMessage(SavedMessage.Problem, p.Text),
+            AskStopped x => new SavedMessage(SavedMessage.Stopped, x.Text),
+            _ => null,
+        }).OfType<SavedMessage>()]);
+
     private AskConversation NewConversation()
     {
         var talk = new AskConversation { Title = "" };
@@ -483,21 +716,30 @@ public sealed partial class AskViewModel : ObservableObject
         return talk;
     }
 
-    /// <summary>History's headings: Today, Yesterday, Earlier, newest first; blank conversations and non-matches left out.</summary>
+    /// <summary>
+    /// History's headings: Pinned, then Today, Yesterday, Earlier, newest first (or only Archived, while that's open);
+    /// blank conversations and non-matches left out.
+    /// </summary>
     private void Regroup()
     {
-        var shown = Conversations.Where(c => c.Title.Length > 0 && (HistorySearch.Length == 0 || TextMatch.Has(TextMatch.Words(HistorySearch), c.Title))).ToList();
+        var shown = Conversations.Where(c => c.Title.Length > 0 && c.IsArchived == ShowingArchived
+            && (HistorySearch.Length == 0 || TextMatch.Has(TextMatch.Words(HistorySearch), c.Title))).ToList();
         var today = DateTime.Today;
-        Groups =
-        [
-            .. new[]
-            {
-                new AskGroup(Lang.T("TODAY"), [.. shown.Where(c => c.When >= today)]),
-                new AskGroup(Lang.T("YESTERDAY"), [.. shown.Where(c => c.When >= today.AddDays(-1) && c.When < today)]),
-                new AskGroup(Lang.T("EARLIER"), [.. shown.Where(c => c.When < today.AddDays(-1))]),
-            }.Where(g => g.Conversations.Count > 0),
-        ];
+        var rest = shown.Where(c => !c.IsPinned).ToList();
+        Groups = ShowingArchived
+            ? [.. new[] { new AskGroup(Lang.T("ARCHIVED"), shown) }.Where(g => g.Conversations.Count > 0)]
+            : [
+                .. new[]
+                {
+                    new AskGroup(Lang.T("PINNED"), [.. shown.Where(c => c.IsPinned)]),
+                    new AskGroup(Lang.T("TODAY"), [.. rest.Where(c => c.When.Date == today)]),
+                    new AskGroup(Lang.T("YESTERDAY"), [.. rest.Where(c => c.When.Date == today.AddDays(-1))]),
+                    new AskGroup(Lang.T("EARLIER"), [.. rest.Where(c => c.When.Date < today.AddDays(-1))]),
+                }.Where(g => g.Conversations.Count > 0),
+            ];
         OnPropertyChanged(nameof(HasHistory));
+        OnPropertyChanged(nameof(ArchivedCount));
+        OnPropertyChanged(nameof(HasArchived));
     }
 
     public bool HasHistory => Groups.Count > 0;

@@ -27,6 +27,26 @@
             </Style.Resources>
         </Style>
 
+        <!-- Over the chat: a shaded square, so it stays readable over the text under it. -->
+        <Style x:Key="FloatButton" TargetType="Button" BasedOn="{StaticResource BarButton}">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Send: a filled square with the arrow in its middle. -->
         <Style x:Key="SendButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
@@ -42,6 +62,59 @@
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.86" /></Trigger>
                             <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.72" /></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.4" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A record an answer looked at: a quiet pill with an arrow when it opens a page, plain when it doesn't (the PC's parts). -->
+        <Style x:Key="LookLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Height="26" CornerRadius="13" Padding="10,0" Background="{DynamicResource Surface2Brush}"
+                                BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="Txt" Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding CanOpen}" Value="False">
+                                <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A conversation's ⋯ menu: one line per thing to do. -->
+        <Style x:Key="MenuLine" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Height="32" CornerRadius="6" Padding="10,0" Background="Transparent">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="12" Foreground="{TemplateBinding Foreground}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="12.5" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -375,53 +448,44 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,8,0" VerticalAlignment="Top" />
                     <TextBlock Text="{Binding FromWeb}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                 </DockPanel>
-                <!-- What it looked at, which is also what was sent: folded under an arrow; each chip opens its page, and says
+                <!-- What it looked at, which is also what was sent: one quiet line of links, each opening its page, and saying
                      what was in it on hover. -->
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,4,0,0" Visibility="{Binding HasLooked, Converter={StaticResource Vis}}">
-                    <StackPanel>
-                        <ToggleButton x:Name="LookedToggle" HorizontalAlignment="Left" Cursor="Hand" Focusable="False" AutomationProperties.Name="{ctl:T 'Looked at'}">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <StackPanel Orientation="Horizontal" Background="Transparent">
-                                        <TextBlock Text="{ctl:T 'LOOKED AT'}" Style="{StaticResource Caption}" x:Name="Label" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                        <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="&#xE70D;" /></Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource MutedBrush}" />
-                                            <Setter TargetName="Arrow" Property="Foreground" Value="{DynamicResource MutedBrush}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
-                        <ItemsControl ItemsSource="{Binding Looked}" Margin="0,8,0,0" Visibility="{Binding IsChecked, ElementName=LookedToggle, Converter={StaticResource Vis}}">
-                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Style="{StaticResource GhostButton}" Height="26" Padding="9,0" Margin="0,0,6,6" ToolTip="{Binding Detail}"
-                                            Command="{Binding DataContext.OpenLookCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,6,0" />
-                                            <TextBlock Text="{Binding Text}" FontSize="12.5" />
-                                        </StackPanel>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-                <!-- Ollama: which model wrote it, so a wrong pick shows in the chat itself. -->
-                <TextBlock Text="{Binding By}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,4,0,0"
-                           Visibility="{Binding HasBy, Converter={StaticResource Vis}}" />
+                <WrapPanel Margin="0,6,0,0" Visibility="{Binding HasLooked, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{ctl:T 'From your records'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,8,6" />
+                    <ItemsControl ItemsSource="{Binding Looked}" Focusable="False">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LookLink}" ToolTip="{Binding Detail}" AutomationProperties.Name="{Binding Text}"
+                                        Command="{Binding DataContext.OpenLookCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </WrapPanel>
             </StackPanel>
         </DataTemplate>
 
-        <!-- History:a search, the conversations under Today / Yesterday / Earlier, and how long they're kept. -->
+        <!-- The conversations: a new one, a search, then Pinned, Today, Yesterday and Earlier, each with its ⋯ menu (Pin,
+             Rename, Archive, Delete), and the archived ones behind a line at the foot. -->
         <DataTemplate x:Key="HistoryList">
-            <DockPanel Margin="10">
-                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search conversations'}" Margin="0,0,0,6"
+            <DockPanel Margin="8,0,8,8">
+                <Button DockPanel.Dock="Top" Style="{StaticResource PickRow}" Command="{Binding NewCommand}"
+                        AutomationProperties.Name="{ctl:T 'New conversation'}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'New conversation'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
+                    </StackPanel>
+                </Button>
+                <Button DockPanel.Dock="Top" Style="{StaticResource PickRow}" Command="{Binding ToggleArchivedCommand}"
+                        AutomationProperties.Name="{Binding ArchivedText}" Visibility="{Binding HasArchived, Converter={StaticResource Vis}}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ArchivedCount}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                                   Visibility="{Binding ShowingArchived, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE7B8;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ArchivedText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
+                    </DockPanel>
+                </Button>
+                <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search conversations'}" Margin="0,12,0,0"
                          AutomationProperties.Name="{ctl:T 'Search conversations'}" Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged}" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" FocusVisualStyle="{x:Null}">
                     <StackPanel>
@@ -431,21 +495,80 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4" />
+                                        <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="10,20,8,6" />
                                         <ItemsControl ItemsSource="{Binding Conversations}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Button Margin="0,0,0,1" AutomationProperties.Name="{Binding Title}"
-                                                            Command="{Binding DataContext.PickCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                                        <Button.Style>
-                                                            <Style TargetType="Button" BasedOn="{StaticResource PickRow}">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Background" Value="{DynamicResource Surface2Brush}" /></DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Button.Style>
-                                                        <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
-                                                    </Button>
+                                                    <Grid x:Name="Row" Background="Transparent">
+                                                        <Button Padding="8,7,34,7" AutomationProperties.Name="{Binding Title}"
+                                                                Command="{Binding DataContext.PickCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource PickRow}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Background" Value="{DynamicResource Surface2Brush}" /></DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <DockPanel>
+                                                                <TextBlock DockPanel.Dock="Left" Text="&#xE718;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}"
+                                                                           Margin="0,1,8,0" VerticalAlignment="Center" Visibility="{Binding IsPinned, Converter={StaticResource Vis}}" />
+                                                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
+                                                            </DockPanel>
+                                                        </Button>
+                                                        <!-- Rename: the title typed over in place; Enter keeps it, Esc puts it back. -->
+                                                        <TextBox Style="{StaticResource FieldBox}" Padding="0" FontSize="12.5" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
+                                                                 AutomationProperties.Name="{ctl:T 'Conversation name'}" MaxLength="80"
+                                                                 Visibility="{Binding IsRenaming, Converter={StaticResource Vis}}"
+                                                                 IsVisibleChanged="Rename_Shown" PreviewKeyDown="Rename_Key" LostKeyboardFocus="Rename_Lost" />
+                                                        <Button x:Name="More" HorizontalAlignment="Right" VerticalAlignment="Center" Width="26" Height="26" Margin="0,0,4,0"
+                                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{ctl:T 'More'}" Cursor="Hand"
+                                                                Command="{Binding DataContext.OpenMenuCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource BarButton}">
+                                                                    <Setter Property="Visibility" Value="Hidden" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=Row}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsMenuOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Hidden" /></DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <TextBlock Text="&#xE712;" FontSize="12" />
+                                                        </Button>
+                                                        <Popup IsOpen="{Binding IsMenuOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=More}" Placement="Bottom" StaysOpen="False"
+                                                               AllowsTransparency="True" HorizontalOffset="-140" VerticalOffset="4"
+                                                               Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="5" Width="170">
+                                                                <StackPanel>
+                                                                    <Button Tag="&#xE718;" Command="{Binding Tag.TogglePinCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
+                                                                        <Button.Style>
+                                                                            <Style TargetType="Button" BasedOn="{StaticResource MenuLine}">
+                                                                                <Setter Property="Content" Value="{ctl:T 'Pin'}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsPinned}" Value="True"><Setter Property="Content" Value="{ctl:T 'Unpin'}" /><Setter Property="Tag" Value="&#xE77A;" /></DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Button.Style>
+                                                                    </Button>
+                                                                    <Button Style="{StaticResource MenuLine}" Tag="&#xE8AC;" Content="{ctl:T 'Rename'}"
+                                                                            Command="{Binding Tag.StartRenameCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}" />
+                                                                    <Button Tag="&#xE7B8;" Command="{Binding Tag.ToggleArchiveCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
+                                                                        <Button.Style>
+                                                                            <Style TargetType="Button" BasedOn="{StaticResource MenuLine}">
+                                                                                <Setter Property="Content" Value="{ctl:T 'Archive'}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter Property="Content" Value="{ctl:T 'Unarchive'}" /></DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Button.Style>
+                                                                    </Button>
+                                                                    <Button Style="{StaticResource MenuLine}" Tag="&#xE74D;" Content="{ctl:T 'Delete'}" Foreground="{DynamicResource WarmBrush}"
+                                                                            Command="{Binding Tag.DeleteCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}" />
+                                                                </StackPanel>
+                                                            </ctl:SmoothBorder>
+                                                        </Popup>
+                                                    </Grid>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
@@ -455,6 +578,26 @@
                         </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
+            </DockPanel>
+        </DataTemplate>
+        <!-- From top to bottom: RigSight's name and the button that hides it (its top also moves the window), then the list. -->
+        <DataTemplate x:Key="Sidebar">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Height="46" Padding="14,0,8,0" Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Bar_MouseDown" MouseMove="Bar_MouseMove" MouseLeftButtonUp="Bar_MouseUp">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource BarButton}" Command="{Binding ToggleHistoryCommand}" Cursor="Hand"
+                                ToolTip="{ctl:T 'Hide conversations'}" AutomationProperties.Name="{ctl:T 'Hide conversations'}">
+                            <!-- The sidebar sign: a rounded frame with a line down its left part. -->
+                            <Grid Width="16" Height="14">
+                                <Border BorderThickness="1.3" CornerRadius="3.5" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Border Width="1.3" HorizontalAlignment="Left" Margin="5.2,0,0,0" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Grid>
+                        </Button>
+                        <TextBlock Text="{ctl:T 'Ask RigSight'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HistoryList}" />
             </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
@@ -471,8 +614,6 @@
             </ctl:SmoothBorder.Effect>
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="46" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -482,79 +623,24 @@
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
 
-                <!-- The top bar: dragged to move (stuck, a drag pops it out). -->
-                <Border x:Name="Bar" Grid.ColumnSpan="2" Background="Transparent" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1"
-                        Padding="6,0" MouseLeftButtonDown="Bar_MouseDown" MouseMove="Bar_MouseMove" MouseLeftButtonUp="Bar_MouseUp" Cursor="SizeAll">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Left" Command="{Binding ToggleHistoryCommand}" ToolTip="{ctl:T 'History'}" AutomationProperties.Name="{ctl:T 'History'}" Cursor="Hand">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource BarButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HistoryPressed}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <TextBlock Text="&#xE81C;" />
-                        </Button>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource BarButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}" Cursor="Hand">
-                            <TextBlock Text="&#xE711;" FontSize="12" />
-                        </Button>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource BarButton}" Command="{Binding PopOutCommand}" x:Name="PopButton" Cursor="Hand"
-                                ToolTip="{ctl:T 'Pop out'}" AutomationProperties.Name="{ctl:T 'Pop out'}">
-                            <TextBlock x:Name="PopIcon" Text="&#xE8A7;" />
-                        </Button>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource BarButton}" Command="{Binding ToggleSizeCommand}" x:Name="SizeButton" Cursor="Hand"
-                                ToolTip="{ctl:T 'Bigger'}" AutomationProperties.Name="{ctl:T 'Bigger'}"
-                                Visibility="{Binding IsPoppedOut, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <TextBlock x:Name="SizeIcon" Text="&#xE740;" />
-                        </Button>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource BarButton}" Command="{Binding NewCommand}" ToolTip="{ctl:T 'New conversation'}" AutomationProperties.Name="{ctl:T 'New conversation'}" Cursor="Hand">
-                            <TextBlock Text="&#xE710;" />
-                        </Button>
-                        <!-- Questions left on RigSight AI: amber from 5; opens Settings › Ask RigSight to buy more. -->
-                        <Button DockPanel.Dock="Right" Command="{Binding SettingsCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Cursor="Hand"
-                                ToolTip="{ctl:T 'Buy more in Settings › Ask RigSight'}" Visibility="{Binding ShowQuestionsLeft, Converter={StaticResource Vis}}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="11" Background="{DynamicResource Surface2Brush}" Padding="10,3">
-                                        <TextBlock x:Name="Txt" Text="{Binding QuestionsLeftText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                        </Trigger>
-                                        <DataTrigger Binding="{Binding IsLow}" Value="True">
-                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                        </DataTrigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                        <StackPanel VerticalAlignment="Center" Margin="6,0,8,0">
-                            <TextBlock Text="{ctl:T 'Ask RigSight'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock Text="{Binding LookingAt}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding LookingAt}"
-                                       Visibility="{Binding HasLookingAt, Converter={StaticResource Vis}}" />
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
-
-                <!-- History as a column while popped out. -->
-                <Border Grid.Row="1" Grid.RowSpan="4" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0"
+                <!-- Wide: the conversations as a column from top to bottom beside the chat. -->
+                <Border Grid.RowSpan="3" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0"
                         Visibility="{Binding ShowHistoryColumn, Converter={StaticResource Vis}}">
-                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HistoryList}" />
+                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource Sidebar}" />
                 </Border>
-
 
                 <!-- The conversation, or where to start on a new one. -->
-                <Grid Grid.Row="2" Grid.Column="1">
-                    <ScrollViewer x:Name="Chat" VerticalScrollBarVisibility="Auto" Focusable="False" FocusVisualStyle="{x:Null}" Padding="16,16,16,4" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                        <ItemsControl ItemsSource="{Binding Current.Messages}" />
+                <Grid Grid.Column="1">
+                    <ScrollViewer x:Name="Chat" VerticalScrollBarVisibility="Auto" Focusable="False" FocusVisualStyle="{x:Null}" Padding="16,0,16,4" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <!-- The room for the floating buttons is the content's, not the scroll box's: the chat scrolls up under them. -->
+                        <StackPanel Margin="0,52,0,0">
+                            <!-- Opened from an Explain button: what it is about. -->
+                            <TextBlock Text="{Binding LookingAt}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,10" Visibility="{Binding HasLookingAt, Converter={StaticResource Vis}}" />
+                            <ItemsControl ItemsSource="{Binding Current.Messages}" />
+                        </StackPanel>
                     </ScrollViewer>
-                    <StackPanel Margin="16,30,16,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                    <StackPanel Margin="16,64,16,0" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
                         <TextBlock Text="{ctl:T 'Ask anything about this PC'}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         <TextBlock Text="{ctl:T 'Answers come from what RigSight has recorded on it.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}"
                                    HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,16" />
@@ -571,8 +657,60 @@
                     </StackPanel>
                 </Grid>
 
+
+                <!-- No top bar: its top strip moves the window (stuck, a drag pops it out), the buttons float over the chat. -->
+                <Border x:Name="Bar" Grid.Column="1" Height="46" VerticalAlignment="Top" Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Bar_MouseDown" MouseMove="Bar_MouseMove" MouseLeftButtonUp="Bar_MouseUp" PreviewMouseWheel="Bar_MouseWheel" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,8,0,0"
+                            Visibility="{Binding ShowHistoryColumn, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <Button Style="{StaticResource FloatButton}" Command="{Binding ToggleHistoryCommand}" ToolTip="{ctl:T 'Show conversations'}" AutomationProperties.Name="{ctl:T 'Conversations'}" Margin="0,0,4,0">
+                        <!-- The sidebar sign: a rounded frame with a line down its left part. -->
+                            <Grid Width="16" Height="14">
+                                <Border BorderThickness="1.3" CornerRadius="3.5" BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Border Width="1.3" HorizontalAlignment="Left" Margin="5.2,0,0,0" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Grid>
+                    </Button>
+                    <Button Style="{StaticResource FloatButton}" Command="{Binding NewCommand}" ToolTip="{ctl:T 'New conversation'}" AutomationProperties.Name="{ctl:T 'New conversation'}">
+                        <TextBlock Text="&#xE70F;" />
+                    </Button>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0">
+                        <!-- Questions left on RigSight AI: amber from 5; opens Settings › Ask RigSight to buy more. -->
+                        <Button Command="{Binding SettingsCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Height="30" Cursor="Hand"
+                                ToolTip="{ctl:T 'Buy more in Settings › Ask RigSight'}" Visibility="{Binding ShowQuestionsLeft, Converter={StaticResource Vis}}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="10,0">
+                                        <TextBlock x:Name="Txt" Text="{Binding QuestionsLeftText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsLow}" Value="True">
+                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    <Button Style="{StaticResource FloatButton}" Command="{Binding ToggleSizeCommand}" x:Name="SizeButton" Margin="0,0,4,0"
+                            ToolTip="{ctl:T 'Bigger'}" AutomationProperties.Name="{ctl:T 'Bigger'}"
+                            Visibility="{Binding IsPoppedOut, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <TextBlock x:Name="SizeIcon" Text="&#xE740;" />
+                    </Button>
+                    <Button Style="{StaticResource FloatButton}" Command="{Binding PopOutCommand}" x:Name="PopButton" Margin="0,0,4,0"
+                            ToolTip="{ctl:T 'Pop out'}" AutomationProperties.Name="{ctl:T 'Pop out'}">
+                        <TextBlock x:Name="PopIcon" Text="&#xE8A7;" />
+                    </Button>
+                    <Button Style="{StaticResource FloatButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
+                        <TextBlock Text="&#xE711;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+
                 <!-- RigSight AI with nothing left: where to get more. -->
-                <ctl:SmoothBorder Grid.Row="3" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding IsOutOfQuestions, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="{ctl:T 'You\'ve used all your questions.'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
@@ -581,7 +719,7 @@
                 </ctl:SmoothBorder>
 
                 <!-- Where the question is typed; Enter sends it, Shift+Enter starts a new line. -->
-                <Border Grid.Row="4" Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="12,10">
+                <Border Grid.Row="2" Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="12,10">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource SendButton}" Margin="8,0,0,0" VerticalAlignment="Bottom"
                                 Command="{Binding SendCommand}" ToolTip="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send'}"
@@ -596,19 +734,21 @@
                     </DockPanel>
                 </Border>
 
-                <!-- History over the chat while stuck. -->
-                <Border Grid.Row="1" Grid.RowSpan="4" Grid.ColumnSpan="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="0,0,14,14"
-                        Visibility="{Binding ShowHistoryOver, Converter={StaticResource Vis}}">
-                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HistoryList}" Focusable="False" FocusVisualStyle="{x:Null}" />
-                </Border>
-
+                <!-- Narrow: the conversations open over the chat, which dims behind them (a click on it closes them). -->
+                <Grid Grid.RowSpan="3" Grid.ColumnSpan="2" Visibility="{Binding ShowHistoryOver, Converter={StaticResource Vis}}">
+                    <Border Background="#73000000" CornerRadius="14" MouseLeftButtonDown="Dim_MouseDown" />
+                    <Border Width="290" HorizontalAlignment="Left" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" CornerRadius="14,0,0,14">
+                        <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="0" Opacity="0.45" Color="Black" /></Border.Effect>
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource Sidebar}" Focusable="False" FocusVisualStyle="{x:Null}" />
+                    </Border>
+                </Grid>
                 <!-- The edges it resizes from: top and left while stuck (it grows up and to the left), bottom and right popped out. -->
-                <Thumb x:Name="TopEdge" Grid.RowSpan="5" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Top" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="LeftEdge" Grid.RowSpan="5" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Left" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="TopLeft" Grid.RowSpan="5" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="BottomEdge" Grid.RowSpan="5" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="RightEdge" Grid.RowSpan="5" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="BottomRight" Grid.RowSpan="5" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="TopEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Top" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="LeftEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Left" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="TopLeft" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="BottomEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="RightEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="BottomRight" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
             </Grid>
         </ctl:SmoothBorder>
     </Grid>

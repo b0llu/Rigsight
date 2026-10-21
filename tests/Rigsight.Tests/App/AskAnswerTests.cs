@@ -117,4 +117,44 @@ public sealed class AskAnswerTests
             Assert.Contains("never tell them to turn on recording", prompt);
         }
     }
+
+    [Fact]
+    public void A_next_step_that_is_only_a_question_back_is_dropped()
+    {
+        var answer = AskViewModel.ToAnswer("Your PC was busy yesterday.\n**Next Step**: Want to dive deeper into a specific game or app?", []);
+        Assert.Empty(answer.Parts);
+    }
+
+    [Fact]
+    public void Stars_around_a_name_go_and_points_keep_theirs()
+    {
+        var answer = AskViewModel.ToAnswer("Busy day.\n* mostly *Risk of Rain 2*, then 2*3 checks", []);
+        var line = Assert.IsType<AskLine>(Assert.Single(answer.Parts));
+        Assert.Equal("mostly Risk of Rain 2, then 2*3 checks", line.Text);
+        Assert.True(line.IsPoint);
+    }
+
+    [Fact]
+    public void Every_way_of_answering_is_told_to_stay_in_the_period_asked_about()
+    {
+        var now = new DateTime(2026, 10, 21, 9, 0, 0);
+        foreach (var search in new[] { false, true })
+            Assert.Contains("Stay in the period they ask about", AiPrompt.System(true, search, now));
+    }
+
+    [Fact]
+    public void A_next_step_that_asks_them_to_tell_it_something_is_dropped_and_code_marks_go()
+    {
+        var answer = AskViewModel.ToAnswer("Most were Rigsight starting up.\nRigsight.Agent had a `.NET` error.\nNext step: Tell me the name of the app, and I'll look up the details.", []);
+        Assert.Equal("Rigsight.Agent had a .NET error.", Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text);
+    }
+
+    [Theory]
+    [InlineData("Next step: none.")]
+    [InlineData("Next step: N/A")]
+    [InlineData("Next step: Ask me about a specific game.")]
+    public void A_next_step_with_nothing_to_do_gets_no_box(string line)
+    {
+        Assert.Empty(AskViewModel.ToAnswer("Apex Legends used the most memory.\n" + line, []).Parts);
+    }
 }

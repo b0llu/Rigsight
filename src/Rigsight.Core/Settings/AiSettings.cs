@@ -47,4 +47,6 @@ public sealed class AiSettings
     public bool ShareMemory { get; set; } = true;
     public bool ShareNetwork { get; set; } = true;
     public bool ShareParts { get; set; } = true;
+    /// <summary>When the PC was on and someone was using it (the report's times, get_on_times).</summary>
+    public bool ShareUsage { get; set; } = true;
 }

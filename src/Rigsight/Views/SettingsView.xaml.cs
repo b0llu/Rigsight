@@ -260,8 +260,14 @@ public partial class SettingsView : UserControl
     /// <summary>Closes each open drop-down list unless the click was on the box that opened it (which keeps it open).</summary>
     private void ClosePickers(DependencyObject? clicked)
     {
+        // A click on words in a line (a Run, as each model's name and size are) comes from the words, not a Visual:
+        // taken from the line they are in, or it would count as a click outside and close the list before the pick.
+        while (clicked is FrameworkContentElement words) clicked = words.Parent;
         bool On(FrameworkElement box) => clicked is Visual v && (v == box || box.IsAncestorOf(v));
         if (DataContext is not SettingsViewModel vm) return;
+        // A click inside an open list (a popup, its own window) reaches here too: it is a pick, so the list stays open
+        // until the pick closes it (closing it on the press lost every pick).
+        if (clicked is Visual inside && PresentationSource.FromVisual(inside) is { } source && source != PresentationSource.FromVisual(this)) return;
         if (vm.Ai is { } ai)
         {
             if (ai.IsPickingOllama && !On(OllamaSearchBox)) ai.IsPickingOllama = false;
