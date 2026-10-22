@@ -51,7 +51,7 @@ public static class InsightEngine
             var ex = CrashExplainer.Explain(latest, name);
             int problems = r.Crashes.Count;
             string more = problems > 1 ? " " + Lang.T($"{problems} problems in all, each on the Crashes page.") : "";
-            string when = isDay ? $"{latest.Time:h:mm tt}" : $"{latest.Time:ddd d MMM, h:mm tt}";
+            string when = isDay ? $"{TimeText.At(latest.Time, "h:mm tt")}" : $"{TimeText.At(latest.Time, "ddd d MMM, h:mm tt")}";
             // What happened, as the fact Windows recorded, and its cause with how sure that is, in the words every other
             // page uses for it. A problem whose cause was outside the PC (a power cut) is said plainly, not as a warning.
             if (r.CrashFindings.GetValueOrDefault(latest.Id) is { } finding)
@@ -430,7 +430,7 @@ public static class InsightEngine
         if (r.LongestStretch is { } stretch && stretch.Seconds >= 90 * 60)
         {
             string app = stretch.App is null ? "" : Lang.T($", mostly {stretch.App}");
-            string range = isDay ? $"{stretch.Start:h:mm tt} – {Until(r, stretch.End)}" : $"{stretch.Start:ddd d MMM, h:mm tt}";
+            string range = isDay ? $"{TimeText.At(stretch.Start, "h:mm tt")} – {Until(r, stretch.End)}" : $"{TimeText.At(stretch.Start, "ddd d MMM, h:mm tt")}";
             list.Add(new Insight(IconStretch, Lang.T($"Your longest stretch without a break was {Units.Duration(stretch.Seconds)} ({range}){app}."),
                 InsightTone.Neutral, "stretch", 58) { Short = Lang.T($"{Units.Duration(stretch.Seconds)} without a break") });
         }
@@ -627,7 +627,7 @@ public static class InsightEngine
     }
 
     /// <summary>When something ended: its time, or "past midnight" when it ran to the end of the day and on.</summary>
-    private static string Until(Report r, DateTime end) => end >= r.To && r.Range == ReportRange.Day ? Lang.T("past midnight") : end.ToString("h:mm tt");
+    private static string Until(Report r, DateTime end) => end >= r.To && r.Range == ReportRange.Day ? Lang.T("past midnight") : end.ToString(TimeText.Fit("h:mm tt"));
 
     /// <summary>A session's active time within the period (one from the night before counts from midnight).</summary>
     private static double InPeriod(Report r, SessionInfo s)
@@ -647,8 +647,8 @@ public static class InsightEngine
         {
             (true, true) => Lang.T($"at {time:h:mm tt}"),
             (true, false) => Lang.T($"at {time:ddd d MMM, h:mm tt}"),
-            (false, true) => time.ToString("h:mm tt"),
-            (false, false) => time.ToString("ddd d MMM, h:mm tt"),
+            (false, true) => time.ToString(TimeText.Fit("h:mm tt")),
+            (false, false) => time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")),
         };
     }
 
@@ -778,7 +778,7 @@ public static class InsightEngine
     private static string CrashDetail(Report r) => string.Join(" · ", r.Crashes.Take(4).Select(c =>
         r.CrashContexts.GetValueOrDefault(c.Id) is { } ctx && (ctx.CpuBefore is not null || ctx.GpuBefore is not null)
             ? Lang.T($"{c.Time:d MMM h:mm tt}: {string.Join(", ", new[] { ctx.CpuBefore is { } cb ? $"CPU {Units.TempShort(cb)}" : null, ctx.GpuBefore is { } gb ? $"GPU {Units.TempShort(gb)}" : null }.OfType<string>())} just before")
-            : $"{c.Time:d MMM h:mm tt}"));
+            : $"{TimeText.At(c.Time, "d MMM h:mm tt")}"));
 
     /// <summary>"a month", "three months", "a year": how far back a record holds.</summary>
     private static string Span(int days) => days switch { 30 => Lang.T("a month"), 90 => Lang.T("three months"), _ => Lang.T("a year") };

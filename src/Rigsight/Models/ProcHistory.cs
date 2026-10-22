@@ -65,9 +65,9 @@ public sealed partial class ProcHistory : ObservableObject
     {
         var culture = CultureInfo.CurrentCulture;
         int days = (int)(now.Date - started.Date).TotalDays;
-        return days <= 0 ? started.ToString("h:mm tt", culture)
-            : days == 1 ? Lang.T($"Yesterday, {started.ToString("h:mm tt", culture)}")
-            : started.ToString("d MMM, h:mm tt", culture);
+        return days <= 0 ? started.ToString(TimeText.Fit("h:mm tt"), culture)
+            : days == 1 ? Lang.T($"Yesterday, {started.ToString(TimeText.Fit("h:mm tt"), culture)}")
+            : started.ToString(TimeText.Fit("d MMM, h:mm tt"), culture);
     }
 
     /// <summary>"5 h 40 min", "22 min", "Under a minute"; "None" for no time at all.</summary>

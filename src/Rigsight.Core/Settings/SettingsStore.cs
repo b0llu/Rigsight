@@ -92,6 +92,13 @@ public static class SettingsStore
 
     public static string Serialize(RigsightSettings s) => JsonSerializer.Serialize(s, JsonOptions);
 
+    /// <summary>Colours made with the picker: readable codes, each once, the newest kept when there are too many.</summary>
+    private static List<string> CustomColors(List<string>? list)
+    {
+        var codes = (list ?? []).Select(TrayColors.Parse).OfType<(byte R, byte G, byte B)>().Select(c => TrayColors.Hex(c.R, c.G, c.B)).Distinct().ToList();
+        return [.. codes.Skip(Math.Max(0, codes.Count - RigsightSettings.MaxTrayCustomColors))];
+    }
+
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
@@ -223,6 +230,18 @@ public static class SettingsStore
         }
 
         s.TraySensors = [.. (s.TraySensors ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
+        // A reading's own colours: only codes RigSight can read (and "heat" for a number); nothing picked, no entry.
+        var colors = new Dictionary<string, TrayColor>();
+        foreach (var (id, c) in s.TrayColors ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(id) || c is null) continue;
+            string? number = c.Number == TrayColors.Heat ? TrayColors.Heat : TrayColors.Parse(c.Number) is { } n ? TrayColors.Hex(n.R, n.G, n.B) : null;
+            string? name = TrayColors.Parse(c.Name) is { } m ? TrayColors.Hex(m.R, m.G, m.B) : null;
+            if (number is not null || name is not null) colors[id] = new TrayColor { Number = number, Name = name };
+        }
+        s.TrayColors = colors;
+        s.TrayNumberColors = CustomColors(s.TrayNumberColors);
+        s.TrayNameColors = CustomColors(s.TrayNameColors);
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         var t = s.Tracking;

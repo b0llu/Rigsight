@@ -49,6 +49,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     // ── General ───────────────────────────────────────────────────────────
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
+    public ClockStyle ClockStyle { get => S.ClockStyle; set => Set(s => s.ClockStyle = value); }
     public string Theme { get => S.Theme; set { if (value is not null) Set(s => s.Theme = value); } }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
 

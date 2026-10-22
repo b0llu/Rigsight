@@ -692,6 +692,17 @@
                     <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="Settings and more" Cursor="Hand" Focusable="False"
                                   HorizontalAlignment="Stretch" Foreground="{DynamicResource MutedBrush}"
                                   Tag="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
+                        <!-- While the menu is open, a press on the row only closes it: the menu shuts on that press, and the
+                             row would otherwise take the same press and open it again. -->
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsOpen, ElementName=SettingsMenu}" Value="True">
+                                        <Setter Property="IsHitTestVisible" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">

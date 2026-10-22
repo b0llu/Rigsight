@@ -40,7 +40,7 @@ public sealed class CrashRow
     public DateTime Time => Event.Time;
     public string TimeText => Time.Date == DateTime.Today ? Lang.T($"Today, {Time:h:mm tt}")
         : Time.Date == DateTime.Today.AddDays(-1) ? Lang.T($"Yesterday, {Time:h:mm tt}")
-        : Time.ToString("ddd d MMM, h:mm tt");
+        : Time.ToString(Core.TimeText.Fit("ddd d MMM, h:mm tt"));
     public string Title => Explanation.Title;
     public string Reason => Explanation.Reason;
     public string Advice => Explanation.Advice;
@@ -89,7 +89,7 @@ public sealed class CrashRow
     /// </summary>
     public string? WindowsTimeNote => Event.Kind is not (CrashKind.SystemCrash or CrashKind.UnexpectedShutdown) ? null
         : Event.WindowsTs is not long w || Math.Abs(w - Event.Ts) < 60 ? Lang.T("time from Windows' log, which is often earlier than the moment itself")
-        : Lang.T($"Windows' log says {Core.Data.TimeUtil.FromUnix(w).ToString(Core.Data.TimeUtil.FromUnix(w).Date == Time.Date ? "h:mm tt" : "ddd d MMM, h:mm tt")}, readings were recorded until {Time:h:mm tt}");
+        : Lang.T($"Windows' log says {Core.Data.TimeUtil.FromUnix(w).ToString(Core.TimeText.Fit(Core.Data.TimeUtil.FromUnix(w).Date == Time.Date ? "h:mm tt" : "ddd d MMM, h:mm tt"))}, readings were recorded until {Time:h:mm tt}");
 
     public string TechnicalText => string.Join("  ·  ", new[]
     {

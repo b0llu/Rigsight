@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Converters;
@@ -183,11 +183,15 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     private static string DayEmptyText(string day) => Lang.T($"{day}'s active time, most-used apps and highlights show here once there's history for it.");
 
+    // The hours just after noon and in the early evening carry their own context: a language whose day splits
+    // differently (Spanish keeps "buenos días" until lunch and "buenas tardes" until about nine) says them its own way.
     public string Greeting => DateTime.Now.Hour switch
     {
         < 5 => Lang.T("Up late"),
         < 12 => Lang.T("Good morning"),
+        < 14 => Lang.C("midday", "Good afternoon"),
         < 17 => Lang.T("Good afternoon"),
+        < 21 => Lang.C("early evening", "Good evening"),
         _ => Lang.T("Good evening"),
     };
 

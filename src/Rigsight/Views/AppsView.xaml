@@ -304,7 +304,7 @@
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="SessionHeat" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Style="{StaticResource Body}" TextTrimming="CharacterEllipsis">
-                                                <Run Text="{Binding Start, StringFormat='{}{0:ddd d MMM, h:mm tt}', Mode=OneWay}" /><Run Text=" – " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding End, StringFormat='{}{0:h:mm tt}', Mode=OneWay}" />
+                                                <Run Text="{Binding Start, Converter={StaticResource TimeFormat}, ConverterParameter='ddd d MMM, h:mm tt', Mode=OneWay}" /><Run Text=" – " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding End, Converter={StaticResource TimeFormat}, ConverterParameter='h:mm tt', Mode=OneWay}" />
                                             </TextBlock>
                                             <TextBlock Grid.Column="1" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="16,0,0,0" MinWidth="52" />
                                             <TextBlock Grid.Column="2" Style="{StaticResource Muted}" HorizontalAlignment="Right" Margin="22,0,0,0">

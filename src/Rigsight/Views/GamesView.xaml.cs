@@ -37,6 +37,7 @@ public partial class GamesView : UserControl
 
     private double _libraryOffset;
     private bool _wasGame;
+    private string? _openKey;
 
     private void OnChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -51,10 +52,14 @@ public partial class GamesView : UserControl
         if (e.PropertyName != nameof(ViewModels.GamesViewModel.IsGame) || sender is not ViewModels.GamesViewModel vm) return;
         bool wasGame = _wasGame;
         _wasGame = vm.IsGame;
+        string? key = vm.Opened?.Entry.Key;
+        bool sameGame = wasGame && key == _openKey;
+        _openKey = key;
         if (vm.IsGame)
         {
             if (!wasGame) _libraryOffset = PageScroll.VerticalOffset;
-            PageScroll.ScrollToTop();
+            // The page's own refresh opens the same game again: the reader stays where they were.
+            if (!sameGame) PageScroll.ScrollToTop();
         }
         else if (wasGame)
         {

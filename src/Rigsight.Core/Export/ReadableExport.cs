@@ -69,7 +69,7 @@ public static class ReadableExport
 
     private static string Foot(DateTime made, string version)
     {
-        string when = made.ToString("d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture);
+        string when = made.ToString(TimeText.Fit("d MMMM yyyy, h:mm tt"), CultureInfo.InvariantCulture);
         return Lang.T($"Made by RigSight {version} on {when}. Everything here was recorded on this PC.");
     }
 
@@ -120,7 +120,7 @@ public static class ReadableExport
         if (r.Crashes.Count > 0)
         {
             Heading(sb, Lang.T("Crashes and sudden shut-offs"));
-            foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeUtil.FromUnix(c.Ts):d MMM, h:mm tt}  {CrashExplainer.Explain(c).Title}");
+            foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeText.At(TimeUtil.FromUnix(c.Ts), "d MMM, h:mm tt")}  {CrashExplainer.Explain(c).Title}");
         }
         return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
     }
@@ -136,7 +136,7 @@ public static class ReadableExport
             var said = CrashExplainer.Explain(s.Crash, s.App);
             sb.AppendLine();
             sb.AppendLine(said.Title);
-            sb.AppendLine(TimeUtil.FromUnix(s.Crash.Ts).ToString("dddd, d MMMM yyyy, h:mm tt"));
+            sb.AppendLine(TimeUtil.FromUnix(s.Crash.Ts).ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt")));
             var rows = new List<(string Label, string? Value)>(s.Found());
             if (s.Context is { NoReadings: false } c)
             {
@@ -168,7 +168,7 @@ public static class ReadableExport
     {
         var sb = new StringBuilder();
         sb.AppendLine(Lang.T("RigSight PC snapshot"));
-        sb.AppendLine($"{at.ToString("dddd, d MMMM yyyy, h:mm tt", CultureInfo.InvariantCulture)}  ·  RigSight {version}");
+        sb.AppendLine($"{at.ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt"), CultureInfo.InvariantCulture)}  ·  RigSight {version}");
         sb.AppendLine();
         sb.AppendLine(Lang.T("THIS PC"));
         foreach (var line in pc.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) sb.AppendLine("  " + line);
@@ -241,7 +241,7 @@ public static class ReadableExport
         return sb.ToString();
     }
 
-    private static string PeakLine(Peak? p) => p is null ? "" : p.App is null ? p.Time.ToString("d MMM, h:mm tt") : $"{p.Time:d MMM, h:mm tt} · {p.App}";
+    private static string PeakLine(Peak? p) => p is null ? "" : p.App is null ? p.Time.ToString(TimeText.Fit("d MMM, h:mm tt")) : $"{TimeText.At(p.Time, "d MMM, h:mm tt")} · {p.App}";
 
     /// <summary>The period as the Reports page tells it: totals, peaks, what stood out, temperatures drawn, every app, the crashes.</summary>
     public static string Report(Report r, string title, string version)
@@ -295,7 +295,7 @@ public static class ReadableExport
         {
             sb.Append($"<h2>{H(Lang.T("Crashes and sudden shut-offs"))}</h2><ul>");
             foreach (var c in r.Crashes.OrderBy(c => c.Ts))
-                sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString("d MMM, h:mm tt"))}: {H(CrashExplainer.Explain(c).Title)}</li>");
+                sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString(TimeText.Fit("d MMM, h:mm tt")))}: {H(CrashExplainer.Explain(c).Title)}</li>");
             sb.Append("</ul>");
         }
         return End(sb, r.BuiltAt, version);
@@ -337,8 +337,8 @@ public static class ReadableExport
             sb.Append($"<text x=\"0\" y=\"{y}\" dy=\"4\" font-size=\"11\" fill=\"var(--muted)\">{H(Units.TempShort(v))}</text>");
         }
         bool days = have[^1].Time - have[0].Time > TimeSpan.FromHours(36);
-        sb.Append($"<text x=\"{L}\" y=\"{Ht - 4}\" font-size=\"11\" fill=\"var(--muted)\">{H(have[0].Time.ToString(days ? "d MMM" : "h:mm tt"))}</text>");
-        sb.Append($"<text x=\"{W}\" y=\"{Ht - 4}\" font-size=\"11\" fill=\"var(--muted)\" text-anchor=\"end\">{H(have[^1].Time.ToString(days ? "d MMM" : "h:mm tt"))}</text>");
+        sb.Append($"<text x=\"{L}\" y=\"{Ht - 4}\" font-size=\"11\" fill=\"var(--muted)\">{H(have[0].Time.ToString(days ? "d MMM" : TimeText.Fit("h:mm tt")))}</text>");
+        sb.Append($"<text x=\"{W}\" y=\"{Ht - 4}\" font-size=\"11\" fill=\"var(--muted)\" text-anchor=\"end\">{H(have[^1].Time.ToString(days ? "d MMM" : TimeText.Fit("h:mm tt")))}</text>");
         sb.Append($"<path d=\"{Line(p => p.Cpu)}\" fill=\"none\" stroke=\"var(--cpu)\" stroke-width=\"1.6\"/>");
         sb.Append($"<path d=\"{Line(p => p.Gpu)}\" fill=\"none\" stroke=\"var(--gpu)\" stroke-width=\"1.6\"/>");
         return sb.Append("</svg>").ToString();
@@ -352,7 +352,7 @@ public static class ReadableExport
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);
-            sb.Append($"<div class=\"crash\"><h3>{H(said.Title)}</h3><div class=\"sub\">{H(TimeUtil.FromUnix(s.Crash.Ts).ToString("dddd, d MMMM yyyy, h:mm tt"))}</div><dl>");
+            sb.Append($"<div class=\"crash\"><h3>{H(said.Title)}</h3><div class=\"sub\">{H(TimeUtil.FromUnix(s.Crash.Ts).ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt")))}</div><dl>");
             void Row(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) sb.Append($"<dt>{H(label)}</dt><dd>{H(value)}</dd>"); }
             foreach (var (label, value) in s.Found()) Row(label, value);
             if (s.Context is { NoReadings: false } c)

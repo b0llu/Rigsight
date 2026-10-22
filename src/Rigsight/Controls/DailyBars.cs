@@ -113,7 +113,7 @@ public sealed class DailyBars : FrameworkElement
                 : (days.Count - 1 - i) % labelEvery == 0;
             if (labelled)
             {
-                string label = hourly ? d.Day.ToString("h tt")
+                string label = hourly ? d.Day.ToString(TimeText.Fit("h tt"))
                     : monthly ? (days.Count > 12 && d.Day.Month == 1 ? d.Day.ToString("yyyy") : d.Day.ToString("MMM"))
                     : d.Day == DateTime.Today ? Lang.T("Today") : days.Count <= 7 ? d.Day.ToString("ddd d") : d.Day.Day.ToString();
                 var brush = d.Day == current ? ChartPaint.TextBrush : ChartPaint.Label;
@@ -126,7 +126,7 @@ public sealed class DailyBars : FrameworkElement
             var d = days[_hover];
             var lines = new List<(string, Brush, bool)>
             {
-                (hourly ? $"{d.Day:h tt} – {d.Day.AddHours(1):h tt}" : d.Day.ToString(monthly ? "MMMM yyyy" : "dddd, d MMM"), ChartPaint.TextBrush, true),
+                (hourly ? $"{TimeText.At(d.Day, "h tt")} – {TimeText.At(d.Day.AddHours(1), "h tt")}" : d.Day.ToString(monthly ? "MMMM yyyy" : "dddd, d MMM"), ChartPaint.TextBrush, true),
                 (d.ActiveSec > 0 ? Lang.T($"{Units.Duration(d.ActiveSec)} active") : Lang.T("No activity"), ChartPaint.Muted, false),
             };
             if (d.TopApp is not null) lines.Add((Lang.T($"Most used: {d.TopApp}"), ChartPaint.Muted, false));

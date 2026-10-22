@@ -1,4 +1,4 @@
-using System.Windows.Threading;
+﻿using System.Windows.Threading;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
@@ -19,6 +19,7 @@ public sealed class SettingsModel
         _client = client;
         Current = SettingsStore.Load();
         Units.Fahrenheit = Current.UseFahrenheit;
+        TimeText.Style = Current.ClockStyle;
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _debounce.Tick += (_, _) => Flush();
     }
@@ -40,6 +41,7 @@ public sealed class SettingsModel
         change(Current);
         if (SettingsStore.Serialize(Current) == before) return;
         Units.Fahrenheit = Current.UseFahrenheit;
+        TimeText.Style = Current.ClockStyle;
         _dirty = true;
         _debounce.Stop();
         _debounce.Start();
@@ -80,6 +82,7 @@ public sealed class SettingsModel
         if (SettingsStore.Serialize(settings) == SettingsStore.Serialize(Current)) return;
         Current = settings;
         Units.Fahrenheit = settings.UseFahrenheit;
+        TimeText.Style = settings.ClockStyle;
         Changed?.Invoke();
     }
 }

@@ -145,6 +145,7 @@ internal sealed class AgentContext : ApplicationContext
         _settings = SettingsStore.Load();
         ForgetRiggySetting();
         Units.Fahrenheit = _settings.UseFahrenheit;
+        TimeText.Style = _settings.ClockStyle;
         LanguageStore.Apply(_settings.Language);
         // Just updated and the new pack didn't come with it: one more try, where updates may reach GitHub by themselves.
         if (LanguageStore.NewestMissing)
@@ -1019,7 +1020,8 @@ internal sealed class AgentContext : ApplicationContext
         {
             list.Add(_sensors.ReadSensor(id) is { } r
                 ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
-                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)))
+                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id))
                 : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, ""));
         }
         return list;
@@ -1567,7 +1569,7 @@ internal sealed class AgentContext : ApplicationContext
                 if (e.Kind == CrashKind.GpuDriverReset && !_crashNotices.Allow("graphics driver", e.Time)) continue;
                 var ex = CrashExplainer.Explain(e);
                 // The title by its kind ("Sudden shut-off"), the event with its time and cause under it.
-                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Told(e.Time.ToString("ddd h:mm tt")) : $"{e.Time:ddd h:mm tt}. {ex.Reason}";
+                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Told(e.Time.ToString(TimeText.Fit("ddd h:mm tt"))) : $"{TimeText.At(e.Time, "ddd h:mm tt")}. {ex.Reason}";
                 _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(e.Kind, ""),
                     $"{said} {Wording.FullPicture}", Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
             }
@@ -1970,6 +1972,10 @@ internal sealed class AgentContext : ApplicationContext
     /// A line in the log for a change to what's shown or tracked (the taskbar readings, the overlay's sensors, the
     /// widgets on, the apps left out), saying where it came from: a list that vanished can be traced.
     /// </summary>
+    /// <summary>The taskbar readings' own colours in one line ("id=number/name; ..."), to compare and to log.</summary>
+    private static string TrayColorsText(RigsightSettings s) =>
+        string.Join("; ", s.TrayColors.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value.Number ?? "-"}/{kv.Value.Name ?? "-"}"));
+
     private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
     {
         void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
@@ -1977,6 +1983,7 @@ internal sealed class AgentContext : ApplicationContext
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
         Note("taskbar graphs", before.TrayGraphs.Count, after.TrayGraphs.Count);
+        if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colours: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
         Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
         // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
         Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
@@ -2002,13 +2009,14 @@ internal sealed class AgentContext : ApplicationContext
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
                           || updated.TraySide != current.TraySide || !updated.TrayGraphs.SequenceEqual(current.TrayGraphs)
-                          || !updated.TraySensors.SequenceEqual(current.TraySensors);
+                          || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current);
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
         }
 
         Units.Fahrenheit = updated.UseFahrenheit;
+        TimeText.Style = updated.ClockStyle;
         // Another language picked (its pack downloaded by the app first): notifications, the tray and widgets switch now.
         if (updated.Language != Lang.Code) LanguageStore.Apply(updated.Language);
         DarkMenuRenderer.Theme = updated.Theme;

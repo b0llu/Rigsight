@@ -118,13 +118,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             var cells = _cells.Select((c, i) =>
             {
                 var labels = TrayParts.StripLabels([.. c.Select(r => r.Short)], names[i]);
-                var mark = WidgetRenderer.TrayMark(c[0].Part, light, gray);
-                return new StripCell(names[i], mark, [.. c.Select((r, j) => Value(r, light, gray, labels[j], mark))]);
+                return new StripCell(names[i], c[0].NameOn(light, gray), [.. c.Select((r, j) => Value(r, light, gray, labels[j]))]);
             }).ToList();
 
             // Drawn again only when something shown changed; placed again whenever the tray moved.
             // A graph moves with every reading, so a strip with one is drawn each time.
-            string key = $"{barHeight}|{bar.R - bar.L}|{scale}|{light}|{gray}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb()
+            string key = $"{barHeight}|{bar.R - bar.L}|{scale}|{light}|{gray}|" + string.Join('|', cells.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb() + "/" + v.LabelColor?.ToArgb()
                 + (v.Graph is { } graph ? string.Join(';', graph.Points.Select(pt => $"{pt.X:0.###},{pt.Y:0.###}")) : "")))));
             Size size = _size;
             if (key != _drawn)
@@ -146,16 +145,17 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
     }
 
-    private StripValue Value(TrayReading r, bool light, bool gray, string label, Color mark)
+    private StripValue Value(TrayReading r, bool light, bool gray, string label)
     {
         string text = Units.StripText(r.Kind, r.Value);
         string shape = Shape(text);
         if (!_widest.TryGetValue(r.Id, out var widest) || shape.Length > widest.Length) _widest[r.Id] = widest = shape;
-        // A graph behind the number in the part's colour, as its name under it (grayscale: the taskbar's text colour).
+        // A graph behind the number in its name's colour (its part's, or the one picked; grayscale: the taskbar's text colour).
+        var name = r.NameOn(light, gray);
         StripGraph? graph = _graphIds.Contains(r.Id)
-            ? new StripGraph(GraphPoints(r), gray ? WidgetRenderer.TrayColor(SensorKind.Load, 0, light, gray: true) : mark)
+            ? new StripGraph(GraphPoints(r), gray ? WidgetRenderer.TrayColor(SensorKind.Load, 0, light, gray: true) : name)
             : null;
-        return new StripValue(text, WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray), label, widest, graph);
+        return new StripValue(text, r.NumberOn(light, gray), label, widest, graph, name);
     }
 
     /// <summary>Keeps each graph's reading (and forgets the readings no longer drawn as graphs).</summary>

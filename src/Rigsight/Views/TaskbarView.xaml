@@ -23,6 +23,7 @@
                             <Binding Path="Sensor.Value" />
                             <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
                             <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                            <Binding Path="NumberColor" />
                         </MultiBinding>
                     </TextBlock.Foreground>
                 </TextBlock>
@@ -117,7 +118,7 @@
         <Grid MaxWidth="{StaticResource PageFrame}">
         <StackPanel Margin="32,26,32,32" MaxWidth="900">
             <TextBlock Text="{ctl:T 'Taskbar'}" Style="{StaticResource H1}" />
-            <TextBlock Text="{ctl:T 'Readings next to the clock, always in view. In color, each part has its own: blue for the CPU, cyan for the GPU, purple for RAM.'}"
+            <TextBlock Text="{ctl:T 'Readings next to the clock, always in view. In color, each part has its own, and any reading can have its own colors too.'}"
                        Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
             <!-- Preview: the corner of the taskbar, as it will look -->
@@ -201,6 +202,7 @@
                                                                         <Binding Path="Row.Sensor.Value" />
                                                                         <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
                                                                         <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                                        <Binding Path="Row.NumberColor" />
                                                                     </MultiBinding>
                                                                 </TextBlock.Foreground>
                                                             </TextBlock>
@@ -399,6 +401,25 @@
                                         <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Graph'}" FontSize="12.5" VerticalAlignment="Center"
                                                   Margin="18,0,4,0" IsChecked="{Binding Graph}" AutomationProperties.Name="{Binding Name, StringFormat=Graph behind {0}}"
                                                   Visibility="{Binding ShowShapeSwitch, Converter={StaticResource Vis}}" />
+                                        <!-- Its own colours: the number's and the name's dots, a picker floating under it -->
+                                        <Button DockPanel.Dock="Right" Padding="10,6" Margin="16,0,0,0" VerticalAlignment="Center" Click="Colors_Click"
+                                                Background="{DynamicResource SurfaceBrush}" AutomationProperties.Name="{Binding ColorsName}"
+                                                IsEnabled="{Binding DataContext.Colored, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Visibility="{Binding Found, Converter={StaticResource Vis}}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="12" Height="12" CornerRadius="3" Background="{Binding NumberDot}" Margin="0,0,3,0" />
+                                                <Border Width="12" Height="12" CornerRadius="3" Background="{Binding Mark}" Margin="0,0,8,0" />
+                                                <TextBlock Text="{ctl:T 'Colors'}" FontSize="12.5" VerticalAlignment="Center" />
+                                                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9" Margin="7,1,0,0" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
                                         <!-- The live reading -->
                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="13.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />
@@ -478,6 +499,9 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+
+            <!-- A reading's colours, floating next to its Colors button (takes no room on the page) -->
+            <ctl:ColorPicker x:Name="ColorPick" />
         </StackPanel>
         </Grid>
     </ScrollViewer>

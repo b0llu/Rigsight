@@ -7,12 +7,26 @@ namespace Rigsight.Agent.Ui;
 /// <summary>
 /// A sensor for the taskbar, as read on the sampler thread: its name for the tooltip, its reading, the part it's
 /// about (for its colour mark and grouping) with that hardware's name, and the word under it on the strip
-/// (<see cref="TrayParts.ShortLabel"/>).
+/// (<see cref="TrayParts.ShortLabel"/>), and the colours picked for it on the Taskbar page (see <see cref="TrayColors"/>).
 /// </summary>
-internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "")
+internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "",
+    string? NumberColor = null, string? NameColor = null)
 {
     /// <summary>Readings with the same group share icons when grouped (see <see cref="TrayParts.GroupOf"/>).</summary>
     public string Group => TrayParts.GroupOf(Part, Id);
+
+    /// <summary>
+    /// The number's colour: the one picked (made readable on this taskbar), else as RigSight colours it (a temperature
+    /// by how warm it is, the rest in the taskbar's text colour). Grayscale is grey whatever was picked.
+    /// </summary>
+    public Color NumberOn(bool light, bool gray) =>
+        !gray && TrayColors.Parse(NumberColor) is { } c ? Of(TrayColors.ForTaskbar(c, light)) : WidgetRenderer.TrayColor(Kind, Value, light, gray);
+
+    /// <summary>The name's colour, which its mark and graph take too: the one picked, else its part's.</summary>
+    public Color NameOn(bool light, bool gray) =>
+        !gray && TrayColors.Parse(NameColor) is { } c ? Of(TrayColors.ForTaskbar(c, light)) : WidgetRenderer.TrayMark(Part, light, gray);
+
+    private static Color Of((byte R, byte G, byte B) c) => Color.FromArgb(c.R, c.G, c.B);
 }
 
 /// <summary>
@@ -92,9 +106,9 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
         slot.Menu.Show(Cursor.Position);
     }
 
-    /// <summary>The icon's colour mark: its part's (none while a reading isn't found, as the part isn't known).</summary>
+    /// <summary>The icon's colour mark: its first reading's name colour (none while a reading isn't found, as the part isn't known).</summary>
     private static Color? Mark(IReadOnlyList<TrayReading> icon, bool light, bool gray) =>
-        icon.All(r => r.Hardware.Length == 0) ? null : WidgetRenderer.TrayMark(icon[0].Part, light, gray);
+        icon.All(r => r.Hardware.Length == 0) ? null : icon[0].NameOn(light, gray);
 
     /// <summary>
     /// Right-click: remove this icon's readings, switch between an icon each and grouped by part, or open the Taskbar
@@ -133,7 +147,7 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
     };
 
     private static (string Text, Color Color) Line(TrayReading r, bool light, bool gray) =>
-        (WidgetRenderer.TrayText(r.Kind, r.Value), WidgetRenderer.TrayColor(r.Kind, r.Value, light, gray));
+        (WidgetRenderer.TrayText(r.Kind, r.Value), r.NumberOn(light, gray));
 
     private static void Draw(Slot slot, List<(string Text, Color Color)> lines, Color? mark, string tip, int size, bool light)
     {

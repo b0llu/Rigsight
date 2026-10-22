@@ -188,7 +188,7 @@ public sealed partial class CaseReadout : ObservableObject
         int i = index is int at ? Math.Clamp(at, 0, _minutes.Count - 1) : _crash;
         pointing &= index is not null;
         var m = _minutes[i];
-        string said = m.Time.ToString(_seconds ? "h:mm:ss tt" : "h:mm tt");
+        string said = m.Time.ToString(_seconds ? TimeText.Fit("h:mm:ss tt") : TimeText.Fit("h:mm tt"));
         if (_seconds)
         {
             // To the second: the reading nearest the crash, then how far from it each other one is.
@@ -286,7 +286,7 @@ public sealed class CaseView
         get
         {
             if (Minutes.Count == 0) return "";
-            string format = IsCloseUp ? "h:mm:ss tt" : "h:mm tt";
+            string format = IsCloseUp ? TimeText.Fit("h:mm:ss tt") : TimeText.Fit("h:mm tt");
             string from = ChartFrom.ToString(format), to = ChartTo.ToString(format);
             return Lang.T($"{from} to {to} · {Rate}");
         }

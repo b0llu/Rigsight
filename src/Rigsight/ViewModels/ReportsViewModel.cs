@@ -314,7 +314,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private IReadOnlyList<HomeLine> ChangeLines(IEnumerable<Core.Stability.SystemChange> changes) =>
         HomeViewModel.ChangeLines(changes, ChangesShown, c =>
             c.Kind == Core.Stability.ChangeKind.Storage ? IsDay ? Lang.T("All day") : c.Time.ToString("ddd d MMM")
-            : IsDay ? (c.IsApproximate ? "~" : "") + c.Time.ToString("h:mm tt") : c.Time.ToString("ddd d MMM, h:mm tt"));
+            : IsDay ? (c.IsApproximate ? "~" : "") + c.Time.ToString(TimeText.Fit("h:mm tt")) : c.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")));
 
     partial void OnShowBackgroundAppsChanged(bool value) => SyncApps();
 
@@ -505,7 +505,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (r is null) return [];
         var rows = new List<PeakRow>();
         bool oneDay = IsDay && r.From.Date == r.To.AddTicks(-1).Date;
-        string At(DateTime t) => oneDay ? t.ToString("h:mm tt") : IsDay ? t.ToString("ddd h:mm tt") : IsYear ? t.ToString("d MMM, h:mm tt") : t.ToString("ddd d MMM, h:mm tt");
+        string At(DateTime t) => oneDay ? t.ToString(TimeText.Fit("h:mm tt")) : IsDay ? t.ToString(TimeText.Fit("ddd h:mm tt")) : IsYear ? t.ToString(TimeText.Fit("d MMM, h:mm tt")) : t.ToString(TimeText.Fit("ddd d MMM, h:mm tt"));
         string When(Peak p) => At(p.Time);
         var tempBrush = new TempToBrushConverter();
         Brush TempBrush(double c) => (Brush)tempBrush.Convert(c, typeof(Brush), null, System.Globalization.CultureInfo.CurrentCulture);

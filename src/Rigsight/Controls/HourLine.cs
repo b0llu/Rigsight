@@ -66,7 +66,7 @@ public sealed class HourLine : FrameworkElement
     internal string? HoverText(int hour)
     {
         if (Values is not { } values || hour < 0 || hour >= values.Count) return null;
-        string when = hour == values.Count - 1 ? Lang.T("Now") : DateTime.Today.AddHours(hour).ToString("h tt", System.Globalization.CultureInfo.CurrentCulture);
+        string when = hour == values.Count - 1 ? Lang.T("Now") : DateTime.Today.AddHours(hour).ToString(TimeText.Fit("h tt"), System.Globalization.CultureInfo.CurrentCulture);
         return $"{when} · {(values[hour] is { } mb ? Units.Megabytes(mb) : Wording.NotRecorded)}";
     }
 

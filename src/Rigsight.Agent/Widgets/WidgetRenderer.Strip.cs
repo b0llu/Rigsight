@@ -9,7 +9,7 @@ namespace Rigsight.Agent.Widgets;
 /// One reading on the taskbar strip, as drawn: "56°" in its colour, the word under it ("VRAM"), and the widest text its
 /// place is kept for ("88°"), so it doesn't move the strip each time a digit comes or goes.
 /// </summary>
-internal readonly record struct StripValue(string Text, Color Color, string Label = "", string Reserve = "", StripGraph? Graph = null);
+internal readonly record struct StripValue(string Text, Color Color, string Label = "", string Reserve = "", StripGraph? Graph = null, Color? LabelColor = null);
 
 /// <summary>
 /// A reading's graph of the last minutes, filled in behind its number and word (as taskbar-monitor draws them): its points, each across (time, 0 = the
@@ -118,7 +118,11 @@ internal static partial class WidgetRenderer
                 }
                 g.DrawString(value.Text, valueFont, brush, right - Width(value.Text, valueFont), valueTop, format);
                 if (twoLines && value.Label.Length > 0)
-                    g.DrawString(value.Label, nameFont, nameBrush, right - Width(value.Label, nameFont), nameTop, format);
+                {
+                    // Each word in its own reading's colour (its part's unless one was picked).
+                    using var labelBrush = new SolidBrush(value.LabelColor ?? cell.NameColor);
+                    g.DrawString(value.Label, nameFont, labelBrush, right - Width(value.Label, nameFont), nameTop, format);
+                }
                 vx += columns[k][i] + inner;
             }
             x += widths[k];

@@ -53,6 +53,7 @@
     <conv:TrayTextConverter x:Key="TrayText" />
     <conv:TrayBrushConverter x:Key="TrayBrush" />
     <conv:EqualsConverter x:Key="Equals" />
+    <conv:TimeFormatConverter x:Key="TimeFormat" />
     <conv:NavIconConverter x:Key="NavIcon" />
     <conv:EqualsToVisibilityConverter x:Key="EqualsVis" />
     <conv:VisibilityConverter x:Key="Vis" />

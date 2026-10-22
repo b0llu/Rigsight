@@ -110,6 +110,14 @@ public static class Changelog
     [
         // Version and date settled at release.
         // This one is about another language, so it's said in it too (older entries stay as they were written).
+        V("0.32.0", 10, 22,
+            added: [Lang.T("Give any taskbar reading its own colors, for its number and its name, from quick picks or any color you make."),
+                Lang.T("Pick a 12-hour or 24-hour clock in Settings, General, or keep the one Windows uses.")],
+            better: [Lang.T("A game's page on Games now says whether a frame cap sets the pace, how smoothly it plays and what your graphics card has left."),
+                Lang.T("Every play on a game's page names a crash, a shut-off or a power cut right after its times, instead of a column of Closed."),
+                Lang.T("The Spanish greeting on Home follows the time of day as Spanish speakers say it, and several Spanish labels read more naturally.")],
+            fixedBugs: [Lang.T("A game's page on Games no longer jumps back to the top every couple of minutes."),
+                Lang.T("Pressing Settings in the sidebar while its menu is open now closes the menu instead of opening it again.")]),
         V("0.31.2", 10, 20,
             added: [Lang.T("Switch off Show What's new after an update in Settings, About, and this card won't open by itself any more.")],
             fixedBugs: [Lang.T("A game's graphics memory on the Games page is now its own, not everything on the graphics card while it ran; plays from before say \"whole card, all apps\".")]),

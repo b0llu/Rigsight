@@ -299,7 +299,7 @@ public sealed class DayTimeline : FrameworkElement
             var seg = (Segments ?? []).FirstOrDefault(s => s.Start <= time && time < s.End);
             var point = temps.Where(t => Math.Abs((t.Time - time).TotalMinutes) <= 1.5).MinBy(t => Math.Abs((t.Time - time).TotalSeconds));
 
-            var lines = new List<(string, Brush, bool)> { (time.ToString("h:mm tt"), ChartPaint.TextBrush, true) };
+            var lines = new List<(string, Brush, bool)> { (time.ToString(TimeText.Fit("h:mm tt")), ChartPaint.TextBrush, true) };
             if (seg?.App is { } app)
                 lines.Add((seg.Away ? Lang.T($"{app} (away)") : app, BrushesFor(seg.Category).Solid, false));
             else if (point is null)

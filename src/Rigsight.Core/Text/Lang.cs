@@ -93,10 +93,10 @@ public static class Lang
         var pack = Pack;
         if (pack is not null && pack.Strings.TryGetValue(template, out var text))
         {
-            try { return string.Format(CultureInfo.CurrentCulture, text, args); }
+            try { return string.Format(CultureInfo.CurrentCulture, text, Fitted(args)); }
             catch (FormatException) { /* checked when the pack loads; English below if it still doesn't fit */ }
         }
-        return string.Format(CultureInfo.CurrentCulture, template, args);
+        return string.Format(CultureInfo.CurrentCulture, template, Fitted(args));
     }
 
     /// <summary>
@@ -110,11 +110,14 @@ public static class Lang
         var pack = Pack;
         if (pack is not null && pack.Strings.TryGetValue(template, out var text))
         {
-            try { return string.Format(CultureInfo.CurrentCulture, text, args); }
+            try { return string.Format(CultureInfo.CurrentCulture, text, Fitted(args)); }
             catch (FormatException) { /* the plain template below */ }
         }
         return F(english, args);
     }
+
+    /// <summary>Times in <paramref name="args"/> written in the clock picked (see <see cref="TimeText"/>).</summary>
+    internal static object?[] Fitted(object?[] args) => [.. args.Select(TimeText.Fitted)];
 
     /// <summary>The holes of a template, as their numbers: "{0} at {1:t}" → 0, 1.</summary>
     internal static readonly Regex Hole = new(@"(?<!\{)\{(\d+)(?:,-?\d+)?(?::[^{}]*)?\}(?!\})", RegexOptions.Compiled);
@@ -170,14 +173,15 @@ public ref struct LangText
     {
         if (_template is null)
         {
-            _english.AppendFormatted(value, alignment, format);
+            // A time in a 12-hour format ("h:mm tt") comes out in the clock picked (see TimeText).
+            _english.AppendFormatted(value, alignment, format is not null && value is DateTime or DateTimeOffset ? TimeText.Fit(format) : format);
             return;
         }
         _template.Append('{').Append(_args!.Count.ToString(CultureInfo.InvariantCulture));
         if (alignment != 0) _template.Append(',').Append(alignment.ToString(CultureInfo.InvariantCulture));
         if (format is not null) _template.Append(':').Append(format);
         _template.Append('}');
-        _args.Add(value);
+        _args.Add(TimeText.Fitted(value));
     }
 
     public void AppendFormatted(string? value) => AppendFormatted<string?>(value, 0, null);

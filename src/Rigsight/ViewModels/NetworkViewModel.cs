@@ -488,7 +488,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         var picked = SelectedBin >= 0 && SelectedBin < r.Bins.Count ? r.Bins[SelectedBin] : null;
         AppsTitle = picked is null ? Lang.T("Apps") : Lang.T("Apps") + " · " + (r.Range switch
         {
-            ReportRange.Day => $"{picked.Start:h tt} – {picked.Start.AddHours(1):h tt}",
+            ReportRange.Day => $"{TimeText.At(picked.Start, "h tt")} – {TimeText.At(picked.Start.AddHours(1), "h tt")}",
             ReportRange.Year => picked.Start.ToString("MMMM"),
             _ => picked.Start.ToString("ddd d MMM"),
         });
@@ -515,7 +515,7 @@ public sealed partial class NetworkViewModel : ObservableObject
                 Amount = Units.Data(key), DotKey = DotKey(stat.Id),
                 BusiestLabel = r.Range == ReportRange.Day ? Lang.T("Busiest hour") : Lang.T("Busiest day"),
                 BusiestText = stat.BusiestAt is { } at
-                    ? $"{(r.Range == ReportRange.Day ? $"{at:h tt} – {at.AddHours(1):h tt}" : $"{at:ddd d MMM}")} · {Units.Data(stat.BusiestBytes)}"
+                    ? $"{(r.Range == ReportRange.Day ? $"{TimeText.At(at, "h tt")} – {TimeText.At(at.AddHours(1), "h tt")}" : $"{at:ddd d MMM}")} · {Units.Data(stat.BusiestBytes)}"
                     : "—",
                 IsOpen = stat.Id == open,
             };
@@ -570,7 +570,7 @@ public sealed partial class NetworkViewModel : ObservableObject
                 NetQuarter.Unrecorded => Lang.T("Not recorded"),
                 _ => from > DateTime.Now ? Lang.T("Still to come") : Lang.T("Not recorded"),
             };
-            string span = from.Hour < 12 == to.Hour < 12 ? $"{from:h:mm} – {to:h:mm tt}" : $"{from:h:mm tt} – {to:h:mm tt}";
+            string span = from.Hour < 12 == to.Hour < 12 ? $"{TimeText.At(from, "h:mm")} – {TimeText.At(to, "h:mm tt")}" : $"{TimeText.At(from, "h:mm tt")} – {TimeText.At(to, "h:mm tt")}";
             return new NetStripCell(state, $"{span} · {what}");
         })]);
     }
@@ -628,7 +628,7 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     /// <summary>The drops as the week's or month's list has them: when each began, and how long it lasted.</summary>
     internal static List<NetDropRow> DropList(IEnumerable<NetDrop> drops) =>
-        [.. drops.OrderBy(d => d.Start).Select(d => new NetDropRow($"{TimeUtil.FromUnix(d.Start):ddd d MMM}, {TimeUtil.FromUnix(d.Start):h:mm tt}", Took(d.Seconds)))];
+        [.. drops.OrderBy(d => d.Start).Select(d => new NetDropRow($"{TimeUtil.FromUnix(d.Start):ddd d MMM}, {TimeText.At(TimeUtil.FromUnix(d.Start), "h:mm tt")}", Took(d.Seconds)))];
 
     /// <summary>A year's days as twelve rows, each with as many squares as its month has days.</summary>
     internal static List<NetMonthRow> YearRows(IReadOnlyList<NetDayLink> days, DateTime today) =>
@@ -641,7 +641,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     /// </summary>
     internal static string DayTip(NetDayLink d, DateTime today)
     {
-        static string Drop(NetDrop x) => $"{TimeUtil.FromUnix(x.Start):h:mm tt}, {Took(x.Seconds)}";
+        static string Drop(NetDrop x) => $"{TimeText.At(TimeUtil.FromUnix(x.Start), "h:mm tt")}, {Took(x.Seconds)}";
         var lines = new List<string> { d.Day.ToString("ddd d MMM") };
         switch (d.State)
         {
@@ -685,7 +685,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         else if (rest >= 1 << 20) parts.Add((Controls.NetBarsChart.OtherBrushKey, rest, Lang.T("Every other app")));
         double sum = Math.Max(1, parts.Sum(p => p.Bytes));
         return new NetBiggestRow(
-            range == ReportRange.Day ? $"{s.Start:h tt} – {s.End:h tt}" : $"{s.Start:ddd d MMM}",
+            range == ReportRange.Day ? $"{TimeText.At(s.Start, "h tt")} – {TimeText.At(s.End, "h tt")}" : $"{s.Start:ddd d MMM}",
             Units.Data(s.Bytes),
             [.. parts.Select(p => new NetSegment(p.Key, BarRoom * p.Bytes / sum, $"{p.Name} · {Units.Data(p.Bytes)}"))],
             string.Join(" · ", apps.Take(3).Select(a => $"{names[a.App]} {Units.Data(a.Bytes)}")));

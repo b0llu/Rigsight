@@ -884,7 +884,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         else sb.AppendLine(Lang.T($"What happened: {g.Reason}"));
         if (g.IsIncident)
             foreach (var r in g.Rows.OrderBy(r => r.Time))
-                sb.AppendLine($"  {r.Time:h:mm:ss tt}  {(r.Event.Kind == CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
+                sb.AppendLine($"  {TimeText.At(r.Time, "h:mm:ss tt")}  {(r.Event.Kind == CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
                               (string.IsNullOrEmpty(r.TechnicalText) || r.Event.Kind == CrashKind.GpuDriverReset ? "" : $" ({r.TechnicalText})"));
         if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine(Lang.T($"Technical: {g.TechnicalText}"));
         sb.AppendLine(Lang.T($"What to try: {g.Advice}"));

@@ -188,11 +188,11 @@ public sealed class CaseLanes : FrameworkElement
             if ((t - crash).Duration() >= near) ticks.Add(t); // none crowding the crash's own time
         foreach (var t in ticks)
         {
-            var label = ChartPaint.Format(this, t.ToString(c.IsCloseUp ? "h:mm:ss" : "h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Label);
+            var label = ChartPaint.Format(this, t.ToString(c.IsCloseUp ? TimeText.Fit("h:mm:ss") : TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture), 11, ChartPaint.Label);
             double x = t == c.ChartFrom ? plotLeft : X(t) - label.Width / 2;
             dc.DrawText(label, new Point(Math.Max(plotLeft, x), y + 5));
         }
-        var end = ChartPaint.Format(this, crash.ToString(c.IsCloseUp ? "h:mm:ss tt" : "h:mm tt", CultureInfo.CurrentCulture), 11, ChartPaint.Hot, bold: true);
+        var end = ChartPaint.Format(this, crash.ToString(c.IsCloseUp ? TimeText.Fit("h:mm:ss tt") : TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture), 11, ChartPaint.Hot, bold: true);
         dc.DrawText(end, new Point(Math.Min(plotRight - end.Width, X(crash) - end.Width / 2), y + 5));
 
         // ── Marks, across every lane and strip ──

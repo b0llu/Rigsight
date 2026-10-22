@@ -1,3 +1,4 @@
+using Rigsight.Core;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
@@ -151,7 +152,7 @@ public sealed class ChartZoom
 
     /// <summary>A time as the charts write it: "3 PM" on the hour, "9:30 AM" otherwise.</summary>
     public static string Clock(DateTime t) =>
-        t.ToString(t.Minute == 0 ? "h tt" : "h:mm tt", CultureInfo.CurrentCulture);
+        t.ToString(t.Minute == 0 ? TimeText.Fit("h tt") : TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture);
 
     private static readonly TimeSpan[] TickSteps =
     [

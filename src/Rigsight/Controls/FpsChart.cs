@@ -138,7 +138,7 @@ public sealed class FpsChart : FrameworkElement
 
         // Times (or days) along the bottom, about one every 120 px: the first and last at the ends, the rest centred under
         // their point; a day already written (two plays on one day) isn't written again.
-        string when = byMinute ? "h:mm tt" : "ddd d MMM";
+        string when = byMinute ? TimeText.Fit("h:mm tt") : "ddd d MMM";
         int labels = Math.Clamp((int)((w - Left - Right) / 120) + 1, 2, pts.Count);
         string? written = null;
         for (int k = 0; k < labels; k++)
@@ -156,7 +156,7 @@ public sealed class FpsChart : FrameworkElement
         {
             var m = marks.Where(x => x.Between >= 0 && x.Between < pts.Count - 1).ElementAtOrDefault(_hoverMark);
             if (m is not null)
-                ChartPaint.InfoBox(dc, this, [(m.Title, ChartPaint.TextBrush, true), (m.Time.ToString("ddd d MMM, h:mm tt"), ChartPaint.Muted, false)],
+                ChartPaint.InfoBox(dc, this, [(m.Title, ChartPaint.TextBrush, true), (m.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")), ChartPaint.Muted, false)],
                     new Point(_labels[_hoverMark].Right, _labels[_hoverMark].Bottom), bounds);
         }
         else if (_hover >= 0 && _hover < pts.Count)
@@ -168,7 +168,7 @@ public sealed class FpsChart : FrameworkElement
             // The average's box: when, the frame rate, the graphics card.
             var lines = new List<(string, Brush, bool)>
             {
-                (byMinute ? $"{p.Start:ddd d MMM}  {p.Start:h:mm tt}" : Lang.T($"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}"), ChartPaint.TextBrush, true),
+                (byMinute ? $"{p.Start:ddd d MMM}  {TimeText.At(p.Start, "h:mm tt")}" : Lang.T($"{p.Start:ddd d MMM}  {p.Start:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}"), ChartPaint.TextBrush, true),
                 (Lang.T($"{p.Fps:0} fps average"), accent, false),
             };
             if (p.Gpu is double gpu) lines.Add(($"GPU {Units.TempShort(gpu)}" + (p.Watts is double watts ? $" · {watts:0} W" : ""), ChartPaint.Muted, false));

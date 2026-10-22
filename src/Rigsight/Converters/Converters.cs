@@ -92,6 +92,14 @@ public sealed class TrayBrushConverter : IMultiValueConverter
     {
         if (values is not [SensorKind kind, var value, ..]) return TempToBrushConverter.None;
         bool gray = values is [_, _, _, true, ..];
+        // A colour picked for the number (Taskbar page): made readable on this taskbar, as the agent draws it.
+        if (!gray && value is double && values is [_, _, var lightValue, _, string picked, ..] && TrayColors.Parse(picked) is { } c)
+        {
+            var (r, g, b) = TrayColors.ForTaskbar(c, lightValue is true);
+            var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            return brush;
+        }
         if (kind == SensorKind.Temperature && !gray) return Temp.Convert(value, targetType, null, culture);
         if (value is not double) return TempToBrushConverter.None;
         return values is [_, _, bool light, ..] ? light ? Brushes.Black : Brushes.White
@@ -454,4 +462,13 @@ public sealed class FractionConverter : IMultiValueConverter
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
+}
+
+/// <summary>A date and time in the 12-hour format given as the parameter ("ddd h:mm tt"), written in the clock picked (see <see cref="TimeText"/>).</summary>
+public sealed class TimeFormatConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is DateTime t && parameter is string format ? TimeText.At(t, format, culture) : value?.ToString();
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }

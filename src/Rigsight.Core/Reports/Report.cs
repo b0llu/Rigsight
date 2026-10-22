@@ -366,7 +366,7 @@ public sealed class Report
     /// </summary>
     public static string CustomTitle(DateTime from, DateTime to)
     {
-        static string Hour(DateTime t) => t.ToString(t.Minute == 0 ? "h tt" : "h:mm tt");
+        static string Hour(DateTime t) => t.ToString(t.Minute == 0 ? TimeText.Fit("h tt") : TimeText.Fit("h:mm tt"));
         // Ending at midnight belongs to the day it ends (Thu 8 AM – 12 AM), not the next.
         var lastDay = to.TimeOfDay == TimeSpan.Zero && to > from ? to.AddDays(-1).Date : to.Date;
         bool years = from.Year != DateTime.Today.Year || lastDay.Year != DateTime.Today.Year;

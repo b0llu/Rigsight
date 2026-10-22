@@ -46,16 +46,33 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     /// <summary>The word under it on the strip (after its part's first, see <see cref="TrayParts.ShortLabel"/>).</summary>
     public string Short => Sensor is null ? "" : TrayParts.ShortLabel(Sensor.Kind, Sensor.Name, Part, Sensor.CustomLabel);
 
-    /// <summary>The part's colour, as the taskbar icon marks it.</summary>
-    public Brush Mark => TaskbarViewModel.MarkBrush(Part, light: false);
+    /// <summary>The number's colour picked (null: as RigSight colours it; <see cref="TrayColors.Heat"/>; or a code).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NumberDot))]
+    private string? _numberColor;
+
+    /// <summary>The name's colour picked, which its mark and graph take too (null: its part's).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Mark))]
+    private string? _nameColor;
+
+    public bool IsTemperature => Sensor?.Kind == SensorKind.Temperature;
+
+    /// <summary>Its name's colour (its part's unless one was picked), as the taskbar marks it.</summary>
+    public Brush Mark => TaskbarViewModel.NameBrush(this, light: false, gray: false);
+
+    /// <summary>The number's colour on its Colors button: by heat (blue, green, amber), the one picked, or the text's.</summary>
+    public Brush NumberDot => TaskbarViewModel.NumberDot(this);
+
+    public string ColorsName => Lang.T($"Colors for {Name}");
 }
 
 /// <summary>A part on the taskbar strip, in the preview: its readings side by side, its name under them in its colour.</summary>
-public sealed record TaskbarStripPart(IReadOnlyList<TaskbarSensorRow> Rows, Brush NameBrush, string Name)
+public sealed record TaskbarStripPart(IReadOnlyList<TaskbarSensorRow> Rows, Brush NameBrush, string Name, IReadOnlyList<Brush> LabelBrushes)
 {
-    /// <summary>Each reading with the word under it: the part's name under the first, its own under the rest.</summary>
+    /// <summary>Each reading with the word under it (the part's name under the first, its own under the rest), in its name's colour.</summary>
     public IReadOnlyList<TaskbarStripReading> Readings =>
-        [.. TrayParts.StripLabels([.. Rows.Select(r => r.Short)], Name).Select((label, i) => new TaskbarStripReading(Rows[i], label, i == 0, NameBrush))];
+        [.. TrayParts.StripLabels([.. Rows.Select(r => r.Short)], Name).Select((label, i) => new TaskbarStripReading(Rows[i], label, i == 0, LabelBrushes[i]))];
 
     public string Tooltip => string.Join('\n', Rows.Select(r => r.Name).Prepend(Rows[0].Hardware));
 }
@@ -234,6 +251,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(StripNote));
         OnPropertyChanged(nameof(Colors));
         OnPropertyChanged(nameof(Gray));
+        OnPropertyChanged(nameof(Colored));
         OnPropertyChanged(nameof(PreviewStrip));
     }
 
@@ -276,7 +294,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var found = Sensors.Where(r => r.Found).ToList();
             var parts = TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind), int.MaxValue);
             var names = TrayParts.Names([.. parts.Select(p => p[0].Part)]);
-            return [.. parts.Select((rows, i) => new TaskbarStripPart(rows, MarkBrush(rows[0].Part, TaskbarLight, Gray), names[i]))];
+            return [.. parts.Select((rows, i) => new TaskbarStripPart(rows, NameBrush(rows[0], TaskbarLight, Gray), names[i],
+                [.. rows.Select(r => NameBrush(r, TaskbarLight, Gray))]))];
         }
     }
 
@@ -289,7 +308,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var icons = Style == TrayStyle.Grouped
                 ? TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind))
                 : [.. found.Select(r => new List<TaskbarSensorRow> { r })];
-            return [.. icons.Select(rows => new TaskbarPreviewIcon(rows, MarkBrush(rows[0].Part, TaskbarLight, Gray), rows[0].PartLabel))];
+            return [.. icons.Select(rows => new TaskbarPreviewIcon(rows, NameBrush(rows[0], TaskbarLight, Gray), rows[0].PartLabel))];
         }
     }
 
@@ -304,6 +323,69 @@ public sealed partial class TaskbarViewModel : ObservableObject
         brush = new SolidColorBrush(Color.FromRgb(r, g, b));
         brush.Freeze();
         return Marks[(part, light)] = brush;
+    }
+
+    /// <summary>A reading's name colour (its mark and graph too): the one picked, made readable on this taskbar, else its part's.</summary>
+    public static Brush NameBrush(TaskbarSensorRow row, bool light, bool gray) =>
+        !gray && TrayColors.Parse(row.NameColor) is { } c ? Solid(TrayColors.ForTaskbar(c, light)) : MarkBrush(row.Part, light, gray);
+
+    private static readonly Brush HeatDot = Frozen(new LinearGradientBrush(
+        [new GradientStop(Color.FromRgb(0x38, 0xBD, 0xF8), 0), new GradientStop(Color.FromRgb(0x38, 0xBD, 0xF8), 0.33),
+         new GradientStop(Color.FromRgb(0x34, 0xD3, 0x99), 0.33), new GradientStop(Color.FromRgb(0x34, 0xD3, 0x99), 0.66),
+         new GradientStop(Color.FromRgb(0xFB, 0xBF, 0x24), 0.66), new GradientStop(Color.FromRgb(0xFB, 0xBF, 0x24), 1)], 45));
+
+    /// <summary>A reading's number colour for its Colors button: by heat, the one picked, or the text's.</summary>
+    public static Brush NumberDot(TaskbarSensorRow row) =>
+        (row.NumberColor ?? (row.IsTemperature ? TrayColors.Heat : null)) switch
+        {
+            TrayColors.Heat => HeatDot,
+            { } hex when TrayColors.Parse(hex) is { } c => Solid(c),
+            _ => System.Windows.Application.Current?.TryFindResource("TextBrush") as Brush ?? Brushes.White,
+        };
+
+    /// <summary>A part's own colour as a code ("#5B8CFF"), for the picker's default.</summary>
+    public static string PartHex(TrayPart part)
+    {
+        var (r, g, b) = TrayParts.Color(part, light: false);
+        return TrayColors.Hex(r, g, b);
+    }
+
+    private static Brush Solid((byte R, byte G, byte B) c) => Frozen(new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B)));
+
+    private static Brush Frozen(Brush b)
+    {
+        b.Freeze();
+        return b;
+    }
+
+    /// <summary>Whether the readings show in colour, so the Colors buttons can be used (in grayscale they wait).</summary>
+    public bool Colored => !Gray;
+
+    /// <summary>The colours made with the picker's "+" for numbers, and for names and marks, in the order made.</summary>
+    public IReadOnlyList<string> NumberCustomColors => _settings.Current.TrayNumberColors;
+    public IReadOnlyList<string> NameCustomColors => _settings.Current.TrayNameColors;
+
+    /// <summary>Keeps a colour made with "+" after the others of its row (the oldest go past the most kept).</summary>
+    public void AddCustomColor(string kind, string hex) => _settings.Update(s =>
+    {
+        var list = kind == "number" ? s.TrayNumberColors : s.TrayNameColors;
+        if (list.Any(c => string.Equals(c, hex, StringComparison.OrdinalIgnoreCase))) return;
+        list.Add(hex);
+        if (list.Count > RigsightSettings.MaxTrayCustomColors) list.RemoveRange(0, list.Count - RigsightSettings.MaxTrayCustomColors);
+    });
+
+    /// <summary>Saves a reading's colours (both null: back to RigSight's).</summary>
+    public void SetColors(TaskbarSensorRow row, string? number, string? name)
+    {
+        row.NumberColor = number;
+        row.NameColor = name;
+        _settings.Update(s =>
+        {
+            if (number is null && name is null) s.TrayColors.Remove(row.Id);
+            else s.TrayColors[row.Id] = new TrayColor { Number = number, Name = name };
+        });
+        OnPropertyChanged(nameof(PreviewStrip));
+        OnPropertyChanged(nameof(PreviewIcons));
     }
 
     private bool CanAddSensor() => SensorToAdd is not null && Sensors.All(r => r.Id != SensorToAdd.Id);
@@ -366,6 +448,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         foreach (var row in Sensors)
         {
             row.Graph = graphs.Contains(row.Id);
+            row.NumberColor = TrayColors.NumberOf(_settings.Current, row.Id);
+            row.NameColor = TrayColors.NameOf(_settings.Current, row.Id);
             row.InStrip = ShowStrip;
             row.GraphPicked ??= SetGraph;
         }

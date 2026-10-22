@@ -60,6 +60,9 @@ public sealed record ProblemRow(string Label, string Value, string Note, bool Wa
 /// <summary>A label and its value in "Heat and power".</summary>
 public sealed record HeatRow(string Label, string Value, Brush? Brush = null);
 
+/// <summary>One line in "Can it run better?": an icon in the part's colour and one statement.</summary>
+public sealed record BetterLine(string Glyph, string Text, Brush? Brush);
+
 /// <summary>One week's bar in "Play time".</summary>
 public sealed record WeekBar(string Label, string Value, double Height, bool Current);
 
@@ -83,10 +86,10 @@ public sealed record PlayRow
     public string? Usual { get; init; }
     public bool UsualWarm { get; init; }
     public string Power { get; init; } = "";
-    public string Ended { get; init; } = "";
-    public string? EndedSub { get; init; }
+    /// <summary>How a play ended, only when it ended badly ("Game crashed 1h 30m in"); a closed game says nothing.</summary>
+    public string? Ended { get; init; }
+    public string EndedJoin => Ended is null ? "" : " · ";
     public bool EndedWarm { get; init; }
-    public bool EndedGrey { get; init; }
     // A change row
     public string Glyph { get; init; } = "";
     public string Text { get; init; } = "";
@@ -469,15 +472,8 @@ public sealed partial class GamesViewModel : ObservableObject
     [RelayCommand] private void StartRtss() => _overlay.StartRtssCommand.Execute(null);
     [RelayCommand] private void InstallRtss() => _overlay.InstallRtssCommand.Execute(null);
 
-    // What holds it back
-    [ObservableProperty] private string _limitSay = "";
-    [ObservableProperty] private string _limitSub = "";
-    [ObservableProperty] private double _gpuFull;
-    [ObservableProperty] private string _gpuFullText = "";
-    [ObservableProperty] private string _roomText = "";
-    [ObservableProperty] private string? _capLine;
-    public bool HasCapLine => CapLine is not null;
-    partial void OnCapLineChanged(string? value) => OnPropertyChanged(nameof(HasCapLine));
+    // Can it run better?
+    [ObservableProperty] private IReadOnlyList<BetterLine> _better = [];
 
     [ObservableProperty] private IReadOnlyList<ProblemRow> _problems = [];
     [ObservableProperty] private IReadOnlyList<HeatRow> _heat = [];
@@ -609,27 +605,7 @@ public sealed partial class GamesViewModel : ObservableObject
         }
         FpsMarks = marks;
 
-        // What holds it back: how much of the time the graphics card was at full load.
-        double full = st.GpuFullShare ?? 0;
-        GpuFull = Math.Round(full);
-        GpuFullText = Lang.T($"Graphics card at full load {GpuFull:0}%");
-        double spare = 100 - GpuFull, busy = st.All.GpuLoad ?? 0;
-        RoomText = Lang.T($"Room to spare {spare:0}%");
-        (LimitSay, LimitSub) = full >= 70
-            ? (Lang.T("Your graphics card is the limit"), Lang.T($"It ran at full load {full:0}% of the time you played. More frames means lower settings or a faster graphics card."))
-            : full >= 30
-                ? (Lang.T("Partly your graphics card"), Lang.T($"It was at full load {full:0}% of the time. The rest of the time something else set the pace: a frame cap, V-Sync or the CPU."))
-                : (Lang.T("Your graphics card has room to spare"), full >= 1
-                    ? Lang.T($"It averaged {busy:0}% busy and was at full load only {full:0}% of the time. Frames are held by a frame cap or V-Sync, or by the CPU.")
-                    : Lang.T($"It averaged {busy:0}% busy and was never at full load. Frames are held by a frame cap or V-Sync, or by the CPU."));
-        CapLine = null;
-        if (withFps.Count >= 3 && full < 70)
-        {
-            double max = withFps.Max(p => p.Stats.Fps!.Value), median = withFps.Select(p => p.Stats.Fps!.Value).OrderBy(x => x).ElementAt(withFps.Count / 2);
-            CapLine = median >= max * 0.97
-                ? Lang.T($"Flat at {max:0} fps most of the time, so it's a frame cap, not the CPU.")
-                : Lang.T("FPS moves with the action and never sits flat, so the CPU sets the pace.");
-        }
+        Better = BetterLines(st, withFps);
 
         // Problems: the game's own, and the PC's that weren't a power cut. Power cuts in grey.
         var problems = new List<ProblemRow>
@@ -671,13 +647,52 @@ public sealed partial class GamesViewModel : ObservableObject
         Rows = rows;
     }
 
+    /// <summary>
+    /// "Can it run better?": whether a frame cap sets the pace, how smooth it plays (1% low against the average) and
+    /// what the graphics card has left. Each line only when there's data for it.
+    /// </summary>
+    private static List<BetterLine> BetterLines(GameStory st, List<GamePlay> withFps)
+    {
+        var lines = new List<BetterLine>();
+        double? cap = null;
+        if (withFps.Count >= 3)
+        {
+            double max = withFps.Max(p => p.Stats.Fps!.Value), median = withFps.Select(p => p.Stats.Fps!.Value).OrderBy(x => x).ElementAt(withFps.Count / 2);
+            if (median >= max * 0.97)
+            {
+                cap = max;
+                lines.Add(new("", Lang.T($"Flat at {max:0} fps most of the time, so a frame cap or V-Sync sets the pace."), Brush("FpsBrush")));
+            }
+        }
+        if (st.All.Fps is double avg && st.All.FpsLow is double low && avg > 0)
+        {
+            double share = low / avg;
+            string say = share >= 0.7 ? Lang.T($"The 1% lows stay at {low:0} fps, close to the {avg:0} average, so it plays smoothly.")
+                : share >= 0.5 ? Lang.T($"The 1% lows drop to {low:0} fps against a {avg:0} average, so you may feel the odd stutter.")
+                : Lang.T($"The 1% lows fall to {low:0} fps against a {avg:0} average, so it stutters.");
+            lines.Add(new("", say, Brush("FpsBrush")));
+        }
+        if (st.GpuFullShare is double full)
+        {
+            double busy = st.All.GpuLoad ?? 0;
+            string load = full >= 1 ? Lang.T($"was at full load only {full:0}% of the time") : Lang.T("never hit full load");
+            string say = full >= 70 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so lower settings would give more frames.")
+                : full >= 30 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so in busy scenes it's the limit.")
+                : cap is double c ? Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so you can raise the settings and keep {c:0} fps.")
+                : Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so something else sets the pace, most likely the CPU.");
+            lines.Add(new("", say, Brush("GpuBrush")));
+        }
+        if (lines.Count == 0) lines.Add(new("", Lang.T("Not enough recorded yet to say. Play it with RivaTuner running to see its frame rate here."), Brush("FaintBrush")));
+        return lines;
+    }
+
     private static PlayRow ChangeRow(SystemChange c) => new()
     {
         IsChange = true,
         IsGameUpdate = c.Kind == ChangeKind.GameUpdated,
         Glyph = c.Kind switch { ChangeKind.Fans => "", ChangeKind.GameUpdated => "", ChangeKind.WindowsUpdate or ChangeKind.Windows => "", _ => "" },
         Text = c.Kind == ChangeKind.GameUpdated && c.Now is { } v ? $"{c.Shown} ({v})" : c.Shown,
-        When = c.Time.ToString("ddd d MMM, h:mm tt"),
+        When = c.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")),
     };
 
     private static PlayRow PlayRowOf(GamePlay p, GameUsual? usual)
@@ -691,15 +706,16 @@ public sealed partial class GamesViewModel : ObservableObject
             if (Math.Abs(diff) >= 4) { note = diff > 0 ? Lang.T($"{degrees} hotter than usual") : Lang.T($"{degrees} cooler than usual"); warm = diff > 0; }
             else note = Lang.T("as usual");
         }
-        var (ended, sub, endWarm, grey) = p.Ending switch
+        // Only a play that ended badly says how: amber for a crash or the PC going off, grey for a power cut.
+        var (ended, endWarm) = p.Ending switch
         {
-            PlayEnd.PowerCut => (Lang.T("Power cut"), In(p), false, true),
-            PlayEnd.ShutOff => (Lang.T("PC went off"), In(p), true, false),
-            PlayEnd.BlueScreen => (Lang.T("Blue screen"), In(p), true, false),
-            PlayEnd.DriverReset => (Lang.T("Driver reset"), In(p), true, false),
-            PlayEnd.Crashed => (Lang.T("Game crashed"), In(p), true, false),
-            PlayEnd.Hung => (Lang.T("Stopped responding"), In(p), true, false),
-            _ => (Lang.T("Closed"), null, false, false),
+            PlayEnd.PowerCut => (Lang.T("Power cut"), false),
+            PlayEnd.ShutOff => (Lang.T("PC went off"), true),
+            PlayEnd.BlueScreen => (Lang.T("Blue screen"), true),
+            PlayEnd.DriverReset => (Lang.T("Driver reset"), true),
+            PlayEnd.Crashed => (Lang.T("Game crashed"), true),
+            PlayEnd.Hung => (Lang.T("Stopped responding"), true),
+            _ => ((string?)null, false),
         };
         return new PlayRow
         {
@@ -713,10 +729,8 @@ public sealed partial class GamesViewModel : ObservableObject
             Usual = note,
             UsualWarm = warm,
             Power = p.Stats.GpuPower is double w ? $"{w:0} W" : "",
-            Ended = ended,
-            EndedSub = sub,
+            Ended = ended is null ? null : $"{ended} {In(p)}",
             EndedWarm = endWarm,
-            EndedGrey = grey,
         };
 
         static string In(GamePlay p) => p.ActiveSec < 90 ? Lang.T("about a minute in") : Lang.T($"{Units.Duration(p.ActiveSec)} in");
@@ -782,7 +796,7 @@ public sealed partial class GamesViewModel : ObservableObject
         rows.Add(new(Lang.T("Launcher"), launcher));
         if (inst is null)
         {
-            rows.Add(new(Lang.T("Installed"), Lang.T("Not any more")));
+            rows.Add(new(Lang.C("about", "Installed"), Lang.T("Not any more")));
         }
         else
         {

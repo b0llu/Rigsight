@@ -14,6 +14,9 @@ public sealed class RigsightSettings
 
     public bool UseFahrenheit { get; set; }
 
+    /// <summary>How times of day are written: as Windows' region does, or always 12-hour or 24-hour (see <see cref="TimeText"/>).</summary>
+    public ClockStyle ClockStyle { get; set; }
+
     /// <summary>The language the app and the agent show: "en" (built in) or a downloaded pack's code ("es").</summary>
     public string Language { get; set; } = LanguagePack.English;
 
@@ -90,6 +93,17 @@ public sealed class RigsightSettings
 
     /// <summary>Taskbar readings drawn on the strip with a graph of their last minutes behind the number (by sensor id).</summary>
     public List<string> TrayGraphs { get; set; } = [];
+
+    /// <summary>Taskbar readings given colours of their own (by sensor id); a reading not listed looks as RigSight colours it.</summary>
+    public Dictionary<string, TrayColor> TrayColors { get; set; } = [];
+
+    /// <summary>
+    /// The colours made with the picker's "+" for numbers, and for names and marks, each in the order made (the newest
+    /// last, just before "+"), offered after the quick picks for every reading.
+    /// </summary>
+    public List<string> TrayNumberColors { get; set; } = [];
+    public List<string> TrayNameColors { get; set; } = [];
+    public const int MaxTrayCustomColors = 30;
 
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
@@ -283,6 +297,19 @@ public enum TrayStyle { Strip, Icons, Grouped }
 /// icons centred (Windows 11's own setting); left-aligned icons fill that end, so the strip stays next to the clock.
 /// </summary>
 public enum TraySide { Right, Left }
+
+/// <summary>
+/// A taskbar reading's own colours: its number's (null: as RigSight colours it; "heat": by how warm, temperatures
+/// only; else a code like "#5B8CFF") and its name's, which also colours its mark and graph (null: its part's).
+/// </summary>
+public sealed class TrayColor
+{
+    public string? Number { get; set; }
+    public string? Name { get; set; }
+}
+
+/// <summary>The clock times are written in: Windows' own (its region's), 12-hour ("6:41 PM") or 24-hour ("18:41").</summary>
+public enum ClockStyle { Windows, H12, H24 }
 
 public enum NotificationStyle
 {

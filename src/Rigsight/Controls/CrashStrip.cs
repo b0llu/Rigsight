@@ -173,7 +173,7 @@ public sealed class CrashStrip : FrameworkElement
             if (DayOf(r.Time) is { } day)
             {
                 day.Counts[(int)severity]++;
-                day.Problems.Add($"{r.Time:h:mm tt}  {r.Title}");
+                day.Problems.Add($"{TimeText.At(r.Time, "h:mm tt")}  {r.Title}");
             }
         foreach (var c in changes)
             if (DayOf(c.Time) is { } day) day.Changes.Add(c);

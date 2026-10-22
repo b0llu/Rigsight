@@ -652,10 +652,10 @@ public static partial class HistoryRepair
     /// <summary>A lost span as the log and the card say it: "3:10 PM to 6:40 PM on Tue 7 Oct".</summary>
     public static string Describe(LostSpan s) => (s.From, s.To) switch
     {
-        ({ } a, { } b) when a.Date == b.Date => $"{a:h:mm tt} to {b:h:mm tt} on {a:ddd d MMM}",
-        ({ } a, { } b) => $"{a:ddd d MMM, h:mm tt} to {b:ddd d MMM, h:mm tt}",
-        ({ } a, null) => $"everything after {a:ddd d MMM, h:mm tt}",
-        (null, { } b) => $"everything before {b:ddd d MMM, h:mm tt}",
+        ({ } a, { } b) when a.Date == b.Date => $"{TimeText.At(a, "h:mm tt")} to {TimeText.At(b, "h:mm tt")} on {a:ddd d MMM}",
+        ({ } a, { } b) => $"{TimeText.At(a, "ddd d MMM, h:mm tt")} to {TimeText.At(b, "ddd d MMM, h:mm tt")}",
+        ({ } a, null) => $"everything after {TimeText.At(a, "ddd d MMM, h:mm tt")}",
+        (null, { } b) => $"everything before {TimeText.At(b, "ddd d MMM, h:mm tt")}",
         _ => "some readings",
     };
 

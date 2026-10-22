@@ -234,7 +234,7 @@ public sealed class NetBarsChart : NetChartBase
 
     private string? AxisLabel(DateTime t, int i) => Unit switch
     {
-        ReportRange.Day => i % 3 == 0 ? t.ToString("h tt") : null,
+        ReportRange.Day => i % 3 == 0 ? t.ToString(TimeText.Fit("h tt")) : null,
         ReportRange.Week => t.ToString("ddd"),
         ReportRange.Year => t.ToString("MMM"),
         _ => i % 5 == 0 ? t.ToString("d MMM") : null,
@@ -242,7 +242,7 @@ public sealed class NetBarsChart : NetChartBase
 
     internal string Title(DateTime t) => Unit switch
     {
-        ReportRange.Day => $"{t:h tt} – {t.AddHours(1):h tt}",
+        ReportRange.Day => $"{TimeText.At(t, "h tt")} – {TimeText.At(t.AddHours(1), "h tt")}",
         ReportRange.Year => t.ToString("MMMM yyyy"),
         _ => t.ToString("dddd, d MMMM"),
     };

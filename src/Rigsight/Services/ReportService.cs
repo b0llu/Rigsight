@@ -393,7 +393,7 @@ public sealed class ReportService(SettingsModel settings)
             {
                 var week = db.GetChanges(ts - 7 * 86400, ts + 120);
                 foreach (var c in week.Where(c => c.IsSystemLevel).OrderByDescending(c => c.Time).Take(6))
-                    changes.Add(new Models.CaseLine(c.Shown, c.Detail, $"{(c.IsApproximate ? "~" : "")}{c.Time:ddd d MMM, h:mm tt}"));
+                    changes.Add(new Models.CaseLine(c.Shown, c.Detail, $"{(c.IsApproximate ? "~" : "")}{TimeText.At(c.Time, "ddd d MMM, h:mm tt")}"));
                 var others = week.Where(c => c.Kind is Core.Stability.ChangeKind.AppInstalled or Core.Stability.ChangeKind.AppUpdated or Core.Stability.ChangeKind.AppRemoved).ToList();
                 if (others.Count > 0)
                 {
@@ -402,7 +402,7 @@ public sealed class ReportService(SettingsModel settings)
                     int more = names.Count - 4;
                     changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Shown : Lang.T($"{others.Count} apps installed, updated or removed"),
                         others.Count == 1 ? null : names.Count > 4 ? Lang.T($"{shown} and {more} more") : shown,
-                        others.Count == 1 ? $"~{others[0].Time:ddd d MMM, h:mm tt}" : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
+                        others.Count == 1 ? $"~{TimeText.At(others[0].Time, "ddd d MMM, h:mm tt")}" : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
                 }
                 if (changes.Count == 0) noChanges = Lang.T("Nothing changed on the PC in the 7 days before.");
             }
@@ -420,7 +420,7 @@ public sealed class ReportService(SettingsModel settings)
                 bars = [.. months.Select((m, i) => new Models.CaseBar(m.ToString("MMM"), counts[i], counts[i] / (double)max))];
             }
             else
-                times = [.. all.AsEnumerable().Reverse().Skip(1).Take(5).Select(t => new Models.CaseLine(t.ToString("ddd d MMM yyyy"), null, t.ToString("h:mm tt")))];
+                times = [.. all.AsEnumerable().Reverse().Skip(1).Take(5).Select(t => new Models.CaseLine(t.ToString("ddd d MMM yyyy"), null, t.ToString(TimeText.Fit("h:mm tt"))))];
             string note = all.Count == 1 ? Lang.T("This is the only time on record.") : Lang.T($"{all.Count} times on record, the first on {all[0]:d MMM yyyy}.");
             if (all.Count >= 8 && all.GroupBy(t => t.Hour).MaxBy(g => g.Count()) is { } hour && hour.Count() * 4 >= all.Count)
                 note += Lang.T($" The busiest hour is {new DateTime(2000, 1, 1, hour.Key, 0, 0):h tt}, with {hour.Count()} of them.");
@@ -437,7 +437,7 @@ public sealed class ReportService(SettingsModel settings)
                 bars = [];
                 times = [.. group.Rows.OrderBy(r => r.Time).Select(r => new Models.CaseLine(
                     r.Event.Kind == Core.Stability.CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe,
-                    r.Event.Facts?.WaitedOn is { } on ? Lang.T($"waiting on {on}") : null, r.Time.ToString("h:mm:ss tt")))];
+                    r.Event.Facts?.WaitedOn is { } on ? Lang.T($"waiting on {on}") : null, TimeText.At(r.Time, "h:mm:ss tt")))];
                 note = "";
                 if (group.Rows.Select(r => r.Event.Facts?.WaitedOn).FirstOrDefault(w => w is not null) is { } waited)
                 {
@@ -507,7 +507,7 @@ public sealed class ReportService(SettingsModel settings)
                 {
                     string head = e.Kind == Core.Stability.CrashKind.GpuDriverReset ? Lang.T("Graphics driver reset") : e.AppExe;
                     string waiting = f?.WaitedOn is { } o ? Lang.T($", waiting on {o} {f.WaitedOnVersion}") : "";
-                    Add(r.Time.ToString("h:mm:ss tt"), $"{head}{(f?.AppVersion is { } v ? $" {v}" : "")}{waiting}{(f?.ReportType is { } t ? $" ({t})" : "")}");
+                    Add(r.Time.ToString(TimeText.Fit("h:mm:ss tt")), $"{head}{(f?.AppVersion is { } v ? $" {v}" : "")}{waiting}{(f?.ReportType is { } t ? $" ({t})" : "")}");
                 }
                 if (group.IsIncident) continue;
                 // "0.0.0.0" is a file that carries no version, and "unknown" Windows not knowing which file.

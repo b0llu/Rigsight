@@ -486,32 +486,26 @@
                                 <ColumnDefinition Width="18" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <!-- What holds it back -->
+                            <!-- Can it run better?: a frame cap, how smooth, what the graphics card has left -->
                             <ctl:SmoothBorder Style="{StaticResource Card}">
                                 <StackPanel>
-                                    <TextBlock Text="{ctl:T 'What holds it back'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                                    <TextBlock Text="{Binding LimitSay}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding LimitSub}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,12" />
-                                    <Grid Height="10" Margin="0,0,0,10">
-                                        <Border CornerRadius="5" Background="{DynamicResource Surface2Brush}" />
-                                        <ProgressBar Style="{StaticResource Bar}" Height="10" Maximum="100" Value="{Binding GpuFull, Mode=OneWay}" Foreground="{DynamicResource GpuBrush}" />
-                                    </Grid>
-                                    <WrapPanel>
-                                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource GpuBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding GpuFullText}" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
-                                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Surface2Brush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding RoomText}" Style="{StaticResource Muted}" FontSize="12" />
-                                    </WrapPanel>
-                                    <Grid Margin="0,14,0,0" Visibility="{Binding HasCapLine, Converter={StaticResource Vis}}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Style="{StaticResource IconBox}" Width="28" Height="28" VerticalAlignment="Top">
-                                            <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource FpsBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-                                        <TextBlock Grid.Column="1" Text="{Binding CapLine}" TextWrapping="Wrap" Margin="12,4,0,0" />
-                                    </Grid>
+                                    <TextBlock Text="{ctl:T 'Can it run better?'}" Style="{StaticResource H2}" Margin="0,0,0,4" />
+                                    <ItemsControl ItemsSource="{Binding Better}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,12,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Style="{StaticResource IconBox}" Width="28" Height="28" VerticalAlignment="Top">
+                                                        <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="13" Foreground="{Binding Brush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="Wrap" Margin="12,4,0,0" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </ctl:SmoothBorder>
                             <!-- Play time -->
@@ -650,14 +644,12 @@
                                         <ColumnDefinition Width="120" />
                                         <ColumnDefinition Width="0.9*" />
                                         <ColumnDefinition Width="70" />
-                                        <ColumnDefinition Width="140" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{ctl:T 'WHEN'}" Style="{StaticResource Caption}" />
                                     <TextBlock Grid.Column="1" Text="{ctl:T 'PLAYED'}" Style="{StaticResource Caption}" />
                                     <TextBlock Grid.Column="2" Text="{ctl:T 'FPS · 1% LOW'}" Style="{StaticResource Caption}" />
                                     <TextBlock Grid.Column="3" Text="GPU" Style="{StaticResource Caption}" />
                                     <TextBlock Grid.Column="4" Text="{ctl:T 'GPU POWER'}" Style="{StaticResource Caption}" />
-                                    <TextBlock Grid.Column="5" Text="{ctl:T 'ENDED'}" Style="{StaticResource Caption}" />
                                 </Grid>
                                 <ScrollViewer Style="{StaticResource CardScroll}" ctl:Roomy.MaxHeight="400" ctl:WheelChain.Enabled="True">
                                     <ItemsControl ItemsSource="{Binding Rows}">
@@ -680,11 +672,22 @@
                                                                 <ColumnDefinition Width="120" />
                                                                 <ColumnDefinition Width="0.9*" />
                                                                 <ColumnDefinition Width="70" />
-                                                                <ColumnDefinition Width="140" />
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Day}" FontWeight="Medium" />
-                                                                <TextBlock Text="{Binding Times}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                                                <!-- A play that ended badly says so after its times: amber for a crash or the PC going off, grey for a power cut. -->
+                                                                <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap">
+                                                                    <Run Text="{Binding Times, Mode=OneWay}" /><Run Text="{Binding EndedJoin, Mode=OneWay}" /><Run Text="{Binding Ended, Mode=OneWay}">
+                                                                        <Run.Style>
+                                                                            <Style TargetType="Run">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding EndedWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Run.Style>
+                                                                    </Run>
+                                                                </TextBlock>
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" Text="{Binding Played}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                             <TextBlock Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding Fps, Converter={StaticResource Vis}}">
@@ -708,20 +711,6 @@
                                                                 </TextBlock>
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="4" Text="{Binding Power}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                            <StackPanel Grid.Column="5" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Ended}">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding EndedWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger>
-                                                                                <DataTrigger Binding="{Binding EndedGrey}" Value="True"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-                                                                <TextBlock Text="{Binding EndedSub}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Visibility="{Binding EndedSub, Converter={StaticResource Vis}}" />
-                                                            </StackPanel>
                                                         </Grid>
                                                     </Border>
                                                     <!-- A change between plays: blue for drivers, Windows and fans; amber for the game's own update. -->

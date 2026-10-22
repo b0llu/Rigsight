@@ -511,7 +511,23 @@ public sealed class ConverterTests
             Assert.Same(TempToBrushConverter.None, Of(SensorKind.Load, null!, true)); // no reading: faint
             Assert.Same(TempToBrushConverter.None, Of(DependencyProperty.UnsetValue));
             Assert.Empty(brush.ConvertBack(Brushes.White, [typeof(SensorKind)], null, CultureInfo.InvariantCulture));
+            // A colour picked for the number (Taskbar page) wins, made readable on a light taskbar; grayscale still wins over it.
+            Assert.Equal(Color.FromRgb(0xE8, 0x79, 0xF9), ((SolidColorBrush)Of(SensorKind.Load, 40.0, false, false, "#E879F9")).Color);
+            Assert.NotEqual(Colors.White, ((SolidColorBrush)Of(SensorKind.Load, 40.0, true, false, "#FFFFFF")).Color);
+            Assert.Same(Brushes.White, Of(SensorKind.Load, 40.0, false, true, "#E879F9"));
         });
+    }
+
+    [Fact]
+    public void A_time_is_written_in_the_clock_picked()
+    {
+        var time = new TimeFormatConverter();
+        var evening = new DateTime(2026, 10, 21, 18, 41, 0);
+        var en = CultureInfo.GetCultureInfo("en-US");
+        using (TimeText.UseHere(ClockStyle.H24)) Assert.Equal("Wed 18:41", time.Convert(evening, typeof(string), "ddd h:mm tt", en));
+        using (TimeText.UseHere(ClockStyle.H12)) Assert.Equal("Wed 6:41 PM", time.Convert(evening, typeof(string), "ddd h:mm tt", en));
+        Assert.Null(time.Convert(null, typeof(string), "h:mm tt", en));
+        Assert.Throws<NotSupportedException>(() => time.ConvertBack("18:41", typeof(DateTime), null, en));
     }
 
     [Fact]
@@ -564,7 +580,7 @@ public sealed class ConverterTests
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
-            typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter),
+            typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

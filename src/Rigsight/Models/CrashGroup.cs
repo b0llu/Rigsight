@@ -161,7 +161,7 @@ public sealed partial class CrashGroup : ObservableObject
         {
             var apps = IncidentApps;
             int minutes = Math.Max(1, (int)Math.Ceiling((Latest.Time - First.Time).TotalMinutes));
-            string start = First.Time.ToString("h:mm tt");
+            string start = First.Time.ToString(TimeText.Fit("h:mm tt"));
             if (Rows.Any(r => r.Event.Kind == CrashKind.GpuDriverReset))
             {
                 string within = minutes == 1 ? Lang.T($"within 1 minute, starting at {start}") : Lang.T($"within {minutes} minutes, starting at {start}");

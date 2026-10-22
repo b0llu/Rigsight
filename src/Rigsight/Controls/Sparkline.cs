@@ -147,7 +147,7 @@ public sealed class Sparkline : FrameworkElement
         if (i < 0 || Source is not { } buffer) return null;
         double v = buffer.ValueAt(i);
         var when = DateTimeOffset.FromUnixTimeMilliseconds(buffer.TimeAt(i)).LocalDateTime;
-        return $"{(Kind is { } kind ? Units.Format(kind, v) : v.ToString("0.#"))} · {when.ToString(WindowSeconds > 3600 ? "h:mm tt" : "h:mm:ss tt")}";
+        return $"{(Kind is { } kind ? Units.Format(kind, v) : v.ToString("0.#"))} · {when.ToString(WindowSeconds > 3600 ? TimeText.Fit("h:mm tt") : TimeText.Fit("h:mm:ss tt"))}";
     }
 
     protected override void OnRender(DrawingContext dc)

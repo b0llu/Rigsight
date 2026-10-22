@@ -402,6 +402,20 @@
                         </Border>
                         <TextBlock Text="{ctl:T 'Temperature unit'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
+                    <!-- How times are written everywhere: as Windows does, or always 12-hour or 24-hour -->
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Clock" Content="{ctl:T 'As Windows'}"
+                                             IsChecked="{Binding ClockStyle, Converter={StaticResource Equals}, ConverterParameter=Windows}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Clock" Content="{ctl:T '12-hour'}"
+                                             IsChecked="{Binding ClockStyle, Converter={StaticResource Equals}, ConverterParameter=H12}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Clock" Content="{ctl:T '24-hour'}"
+                                             IsChecked="{Binding ClockStyle, Converter={StaticResource Equals}, ConverterParameter=H24}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{ctl:T 'Clock'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <ComboBox DockPanel.Dock="Right" Width="190" VerticalAlignment="Center" ItemsSource="{Binding StartPageOptions}"
                                   DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding StartPage}" />

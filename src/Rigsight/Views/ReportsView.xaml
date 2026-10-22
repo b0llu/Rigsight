@@ -495,7 +495,7 @@
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Style="{StaticResource Muted}" VerticalAlignment="Center">
-                                            <Run Text="{Binding Start, StringFormat='{}{0:ddd h:mm tt}', Mode=OneWay}" /><Run Text=" – " /><Run Text="{Binding End, StringFormat='{}{0:h:mm tt}', Mode=OneWay}" />
+                                            <Run Text="{Binding Start, Converter={StaticResource TimeFormat}, ConverterParameter='ddd h:mm tt', Mode=OneWay}" /><Run Text=" – " /><Run Text="{Binding End, Converter={StaticResource TimeFormat}, ConverterParameter='h:mm tt', Mode=OneWay}" />
                                         </TextBlock>
                                         <TextBlock Grid.Column="3" Text="{Binding ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}"
                                                    FontWeight="SemiBold" VerticalAlignment="Center" />

@@ -79,8 +79,8 @@ public static class RewindCards
     private static string Month(DateTime d) => d.ToString("MMMM", CultureInfo.CurrentCulture);
     private static string Short(DateTime d) => d.ToString("MMM", CultureInfo.CurrentCulture);
     private static string Day(DateTime d) => d.ToString("dddd d MMMM", CultureInfo.CurrentCulture);
-    private static string Clock(DateTime d) => d.ToString("h:mm tt", CultureInfo.CurrentCulture);
-    private static string HourOfDay(int h) => DateTime.Today.AddHours(h % 24).ToString("h tt", CultureInfo.CurrentCulture);
+    private static string Clock(DateTime d) => d.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture);
+    private static string HourOfDay(int h) => DateTime.Today.AddHours(h % 24).ToString(TimeText.Fit("h tt"), CultureInfo.CurrentCulture);
     private static string Hours(double sec) => Lang.T($"{Math.Round(sec / 3600):0} hours");
     private static string Whole(double v) => Math.Round(v).ToString("0", CultureInfo.CurrentCulture);
 

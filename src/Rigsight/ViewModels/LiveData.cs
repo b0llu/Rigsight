@@ -864,10 +864,10 @@ public sealed partial class LiveData : ObservableObject
         var local = DateTimeOffset.FromUnixTimeMilliseconds(at.Named).LocalDateTime;
         var culture = System.Globalization.CultureInfo.CurrentCulture;
         series.PeakWhen = ChartStepSeconds == 86400 ? local.ToString("ddd d MMM", culture)
-            : IsChartLong ? local.ToString("ddd d MMM, h tt", culture)
+            : IsChartLong ? local.ToString(TimeText.Fit("ddd d MMM, h tt"), culture)
             // The last 24 hours (or a custom range) reach into another day: a time alone could be either day's.
-            : (!IsChartPaged && ChartWindowSeconds >= 86400) || IsChartCustom ? local.ToString("ddd h:mm tt", culture)
-            : local.ToString("h:mm tt", culture);
+            : (!IsChartPaged && ChartWindowSeconds >= 86400) || IsChartCustom ? local.ToString(TimeText.Fit("ddd h:mm tt"), culture)
+            : local.ToString(TimeText.Fit("h:mm tt"), culture);
     }
 
     /// <summary>

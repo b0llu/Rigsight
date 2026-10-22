@@ -142,7 +142,7 @@ public static class NetInsights
             list.Add(new Insight(IconDrop,
                 Lang.T($"Your internet dropped {drops} times {period}, the longest for {Units.Duration(longest.Seconds)} at {TimeUtil.FromUnix(longest.Start):h:mm tt}.") + why,
                 InsightTone.Warn, "net-drops", 74,
-                string.Join(" · ", r.Drops.Select(d => $"{TimeUtil.FromUnix(d.Start):h:mm tt} {Units.Duration(d.Seconds)}"))) { Short = Lang.T($"Your internet dropped {drops} times") });
+                string.Join(" · ", r.Drops.Select(d => $"{TimeText.At(TimeUtil.FromUnix(d.Start), "h:mm tt")} {Units.Duration(d.Seconds)}"))) { Short = Lang.T($"Your internet dropped {drops} times") });
         }
 
         return list;

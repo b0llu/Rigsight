@@ -63,7 +63,7 @@ public sealed class HeatGrid : FrameworkElement
     /// <summary>"Thu 7 PM · CPU 66° (up to 74°), GPU 68° · Apex Legends", or that nothing was recorded then.</summary>
     internal static string TipOf(DateTime hour, HeatHour? read)
     {
-        string when = hour.ToString("ddd h tt", CultureInfo.CurrentCulture);
+        string when = hour.ToString(TimeText.Fit("ddd h tt"), CultureInfo.CurrentCulture);
         // No hour on record: Rigsight wasn't recording; an hour with no temperature in it: it was, and read none.
         if (read is null) return $"{when} · {Wording.NotRecorded}";
         if (read.Cpu is null && read.Gpu is null) return $"{when} · {Wording.NoReading}";
@@ -129,7 +129,7 @@ public sealed class HeatGrid : FrameworkElement
         // The hours along the foot, each at the left of its column.
         foreach (int hour in (int[])[0, 6, 12, 18])
         {
-            ChartPaint.Text(dc, this, new DateTime(2000, 1, 1, hour, 0, 0).ToString("h tt", CultureInfo.CurrentCulture),
+            ChartPaint.Text(dc, this, new DateTime(2000, 1, 1, hour, 0, 0).ToString(TimeText.Fit("h tt"), CultureInfo.CurrentCulture),
                 new Point(Left + hour * w, ActualHeight - Foot + 4), 11, ChartPaint.Label, middle: false);
         }
     }

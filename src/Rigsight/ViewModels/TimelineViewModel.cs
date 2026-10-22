@@ -390,7 +390,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             string brush = first.Outside ? "MutedBrush" : first.IsCritical ? "HotBrush" : "WarmBrush";
             entries.Add((first.Time, new TimelineEntry
             {
-                TimeText = first.Time.ToString("h:mm tt"), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
+                TimeText = first.Time.ToString(TimeText.Fit("h:mm tt")), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
                 CrashTime = n == 1 ? first.Time : null,
                 Title = n == 1 ? first.Title : first.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             }));
@@ -530,7 +530,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// by a check of the PC happened in the minutes before that check ("~7:20 PM"); the rest is to the minute.
     /// </summary>
     private static string TimeOf(SystemChange c) =>
-        c.Kind == ChangeKind.Storage ? Lang.T("All day") : c.IsApproximate ? $"~{c.Time:h:mm tt}" : c.Time.ToString("h:mm tt");
+        c.Kind == ChangeKind.Storage ? Lang.T("All day") : c.IsApproximate ? $"~{TimeText.At(c.Time, "h:mm tt")}" : c.Time.ToString(TimeText.Fit("h:mm tt"));
 
     private static string? TipOf(SystemChange c)
     {
@@ -541,7 +541,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     }
 
     /// <summary>A time of the same day, or with its day when the check before was on an earlier one (the PC was off overnight).</summary>
-    private static string Moment(DateTime t, DateTime sameDayAs) => t.Date == sameDayAs.Date ? t.ToString("h:mm tt") : t.ToString("ddd d MMM, h:mm tt");
+    private static string Moment(DateTime t, DateTime sameDayAs) => t.Date == sameDayAs.Date ? t.ToString(TimeText.Fit("h:mm tt")) : t.ToString(TimeText.Fit("ddd d MMM, h:mm tt"));
 
     private static string IconOf(ChangeKind kind) => kind switch
     {

@@ -474,7 +474,7 @@ public sealed class LineChart : FrameworkElement
                 double x = plot.Left + plot.Width * hr / hours;
                 if (!_pastDay && plot.Right - x < 48) break; // leave room for "now"
                 // The first label starts at the chart's left edge: centred on the corner, it runs under the lowest temperature.
-                DrawText(dc, day.AddHours(hr).ToString("h tt", CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: hr > 0);
+                DrawText(dc, day.AddHours(hr).ToString(TimeText.Fit("h tt"), CultureInfo.CurrentCulture), new Point(x, plot.Bottom + 12), dpi, center: hr > 0);
             }
         }
         else if (Fixed && Step == 86400)
@@ -517,7 +517,7 @@ public sealed class LineChart : FrameworkElement
             {
                 double x = plot.Right - plot.Width * t / window;
                 string label = t == 0 ? Lang.T("now")
-                    : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString("h:mm tt") // as times are written everywhere else in the app
+                    : window > 3600 ? DateTimeOffset.FromUnixTimeMilliseconds(to - t * 1000L).LocalDateTime.ToString(TimeText.Fit("h:mm tt")) // as times are written everywhere else in the app
                     : t < 60 ? $"-{t}s" : $"-{t / 60}m";
                 DrawText(dc, label, new Point(x, plot.Bottom + 12), dpi, center: x - plot.Left > 1);
             }
@@ -598,8 +598,8 @@ public sealed class LineChart : FrameworkElement
     {
         dc.DrawLine(HoverLine, new Point(Math.Round(hx) + 0.5, plot.Top), new Point(Math.Round(hx) + 0.5, plot.Bottom));
         DateTime start = DateTimeOffset.FromUnixTimeMilliseconds(gap.From).LocalDateTime, end = DateTimeOffset.FromUnixTimeMilliseconds(gap.To).LocalDateTime;
-        string Moment(DateTime t) => Long ? t.ToString(Step == 86400 ? "d MMM" : "ddd d MMM, h tt", CultureInfo.CurrentCulture)
-            : (t.Date == DateTime.Today ? "" : t.ToString("ddd ", CultureInfo.CurrentCulture)) + t.ToString("h:mm tt", CultureInfo.CurrentCulture);
+        string Moment(DateTime t) => Long ? t.ToString(Step == 86400 ? "d MMM" : TimeText.Fit("ddd d MMM, h tt"), CultureInfo.CurrentCulture)
+            : (t.Date == DateTime.Today ? "" : t.ToString("ddd ", CultureInfo.CurrentCulture)) + t.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture);
         // Why, where Windows' log says; otherwise only that nothing was.
         var reason = GapReason?.Invoke(gap.From, gap.To) ?? Core.Stability.GapReason.Unknown;
         string? why = Core.Stability.PowerLog.Words(reason);
@@ -717,8 +717,8 @@ public sealed class LineChart : FrameworkElement
         rows = [.. rows.OrderByDescending(r => r.At ?? double.NegativeInfinity)];
 
         var local = DateTimeOffset.FromUnixTimeMilliseconds(shownTime).LocalDateTime;
-        string when = Long ? local.ToString(Step == 86400 ? "ddd d MMM yyyy" : "ddd d MMM, h tt", CultureInfo.CurrentCulture)
-            : (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture)) + local.ToString(fromMinutes ? "h:mm tt" : "h:mm:ss tt");
+        string when = Long ? local.ToString(Step == 86400 ? "ddd d MMM yyyy" : TimeText.Fit("ddd d MMM, h tt"), CultureInfo.CurrentCulture)
+            : (local.Date == DateTime.Today ? "" : local.ToString("ddd ", CultureInfo.CurrentCulture)) + local.ToString(fromMinutes ? TimeText.Fit("h:mm tt") : TimeText.Fit("h:mm:ss tt"));
 
         var title = Text(when, HoverFont, 12, HoverText, dpi);
         // One value a line, or three columns under their names: the minute's average, highest and lowest.

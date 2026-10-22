@@ -553,7 +553,7 @@ public sealed partial class FansViewModel : ObservableObject
         if (loudest.Slot == default) (LoudestHour, LoudestNote) = (null, "");
         else
         {
-            LoudestHour = IsDay ? $"{loudest.Slot:h tt} – {loudest.Slot.AddHours(1):h tt}" : loudest.Slot.ToString("dddd d MMM");
+            LoudestHour = IsDay ? $"{TimeText.At(loudest.Slot, "h tt")} – {TimeText.At(loudest.Slot.AddHours(1), "h tt")}" : loudest.Slot.ToString("dddd d MMM");
             // What was in front most of it, in the peaks' words ("While playing Rematch").
             var front = total.Keys.Where(t => Slot(t) == loudest.Slot && minutes.TryGetValue(t, out var m) && m.FgApp is not null)
                 .GroupBy(t => minutes[t].FgApp!.Value).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
@@ -586,8 +586,8 @@ public sealed partial class FansViewModel : ObservableObject
             : Lang.T("Each time the card warmed past its silent point");
         SilentText = best >= 5 ? Units.Duration(best * 60) : null;
         SilentNote = best < 5 ? ""
-            : IsDay ? $"{TimeUtil.FromUnix(bestFrom):h:mm tt} – {TimeUtil.FromUnix(bestFrom + best * 60):h:mm tt}"
-            : $"{TimeUtil.FromUnix(bestFrom):ddd d MMM, h:mm tt} – {TimeUtil.FromUnix(bestFrom + best * 60):h:mm tt}";
+            : IsDay ? $"{TimeText.At(TimeUtil.FromUnix(bestFrom), "h:mm tt")} – {TimeText.At(TimeUtil.FromUnix(bestFrom + best * 60), "h:mm tt")}"
+            : $"{TimeText.At(TimeUtil.FromUnix(bestFrom), "ddd d MMM, h:mm tt")} – {TimeText.At(TimeUtil.FromUnix(bestFrom + best * 60), "h:mm tt")}";
         OnPropertyChanged(nameof(HasToday));
     }
 

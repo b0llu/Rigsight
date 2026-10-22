@@ -118,7 +118,7 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
         row.UsualMB = _past!.Usual.TryGetValue(row.Exe, out double usual) ? usual : null;
         var started = row.Started > 0 ? TimeUtil.FromUnix(row.Started) : (DateTime?)null;
         row.GrowingSince = _past.Hours.TryGetValue(row.Exe, out var hours) && GrowingSince(hours, row.MemMB, row.UsualMB, started, _readAt) is { } since
-            ? since.ToString("h:mm tt", CultureInfo.CurrentCulture)
+            ? since.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture)
             : null;
     }
 
@@ -154,7 +154,7 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
         if (past.Fullest is not { } fullest) return null;
         double? percent = highestPercent ?? (totalGB > 0 ? fullest.UsedGB / totalGB * 100 : null);
         if (percent is not { } p || Math.Round(p) < FullPercent) return null;
-        string at = fullest.At.ToString("h:mm tt", CultureInfo.CurrentCulture);
+        string at = fullest.At.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture);
         string text = past.FullestApps.Count switch
         {
             0 => Lang.T($"At {at}."),

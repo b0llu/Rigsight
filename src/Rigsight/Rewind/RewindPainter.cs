@@ -908,7 +908,7 @@ public static class RewindPainter
         foreach (int h in new[] { 0, 6, 12, 18 })
         {
             double angle = h / 24.0 * 2 * Math.PI - Math.PI / 2;
-            var t = Text(DateTime.Today.AddHours(h).ToString("h tt", CultureInfo.CurrentCulture), 3.4 * s, FontWeights.Normal, White(0.6), Ui);
+            var t = Text(DateTime.Today.AddHours(h).ToString(TimeText.Fit("h tt"), CultureInfo.CurrentCulture), 3.4 * s, FontWeights.Normal, White(0.6), Ui);
             t.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var p = P(16, angle);
             Canvas.SetLeft(t, p.X - t.DesiredSize.Width / 2);
