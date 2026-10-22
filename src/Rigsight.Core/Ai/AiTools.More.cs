@@ -207,7 +207,7 @@ public sealed partial class AiTools
         var (f, t, said) = Span(from, to);
         bool byDay = (t - f) > 2 * 86400;
         var rows = db.GetTempHours(f, t, byDay);
-        if (rows.Count == 0) return $"No temperatures recorded on {said}.";
+        if (rows.Count == 0) return $"No temperature readings on {said}.";
         var sb = new StringBuilder();
         sb.AppendLine($"Temperatures on {said}, {(byDay ? "day by day" : "hour by hour")} (average / highest):");
         foreach (var r in rows.TakeLast(MaxRows))
@@ -370,13 +370,13 @@ public sealed partial class AiTools
         if ((t - f) > 3 * 86400)
         {
             var use = db.GetDayUse(f, t);
-            if (use.Count == 0) return $"Nothing recorded on {said}: the PC was off, or recording wasn't running.";
+            if (use.Count == 0) return $"Not recorded on {said}: the PC was off, or recording wasn't running.";
             sb.AppendLine($"The PC on {said}, day by day (on, and in use):");
             foreach (var d in use) sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: on {Units.Duration(d.OnSec)}, in use {Units.Duration(d.ActiveSec)}");
             return sb.ToString();
         }
         var minutes = db.GetMinutes(f, t);
-        if (minutes.Count == 0) return $"Nothing recorded on {said}: the PC was off, or recording wasn't running.";
+        if (minutes.Count == 0) return $"Not recorded on {said}: the PC was off, or recording wasn't running.";
         // A gap of more than three minutes is the PC off or asleep (RigSight records every minute it's on).
         var runs = new List<(long Start, long End, int Active)>();
         foreach (var m in minutes)

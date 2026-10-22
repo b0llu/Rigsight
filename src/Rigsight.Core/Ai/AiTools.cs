@@ -34,7 +34,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         {
             Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version.", new JsonObject()),
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes. Dates are the user's local dates.", Dates()),
-            Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the week before.", Dates()),
+            Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
             Def("list_games", "The games played on this PC with hours played, sessions, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
             {
@@ -377,10 +377,10 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var parts = new List<string>();
         bool heat = settings.Ai.ShareHeat, memory = settings.Ai.ShareMemory;
         void Add(string label, double? v, string unit) { if (heat && v is double x) parts.Add($"{label} {x:0}{unit}"); }
-        Add("GPU temp avg", s.Gpu, " °C"); Add("GPU temp max", s.GpuMax, " °C"); Add("hot spot max", s.HotMax, " °C");
-        Add("CPU temp avg", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");
+        Add("GPU temp average", s.Gpu, " °C"); Add("GPU temp max", s.GpuMax, " °C"); Add("hot spot max", s.HotMax, " °C");
+        Add("CPU temp average", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");
         Add("GPU power", s.GpuPower, " W"); Add("CPU+GPU power", s.Power, " W");
-        if (s.Fps is double fps) parts.Add($"FPS avg {fps:0}");
+        if (s.Fps is double fps) parts.Add($"FPS average {fps:0}");
         if (memory && s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB (the whole card, every app together, not this game alone)");
         if (memory && s.VramOwnMax is double own) parts.Add($"the game's own video memory max {own / 1024:0.0} GB");
         if (heat && s.Minutes > 0) parts.Add($"GPU at 95%+ for {s.GpuFullMinutes} of {s.Minutes} min");

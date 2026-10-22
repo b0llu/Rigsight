@@ -87,7 +87,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Taskbar = new TaskbarViewModel(Settings, Live);
         Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
-        SettingsPage = new SettingsViewModel(Settings, client, Reports);
+        SettingsPage = new SettingsViewModel(Settings, client, Reports) { SeeAllUpdatesCommand = WhatsNew.SeeAllCommand };
         Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
         SettingsPage.Rewind = Rewind;
         Support = new SupportViewModel(Settings, Reports);

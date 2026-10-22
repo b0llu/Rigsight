@@ -346,11 +346,12 @@ public sealed class LookTests
         {
             var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
             Assert.Equal("general", vm.Tab);
-            bool[] Flags() => [vm.IsGeneral, vm.IsAppearance, vm.IsTracking, vm.IsSensors, vm.IsNotifications, vm.IsHistory, vm.IsRewind, vm.IsAbout];
-            for (int i = 0; i < 8; i++)
+            // Ask RigSight is a tab with the AI preview on, as in every test copy (Core.Ai.AiPreview).
+            bool[] Flags() => [vm.IsGeneral, vm.IsAppearance, vm.IsTracking, vm.IsSensors, vm.IsNotifications, vm.IsAi, vm.IsHistory, vm.IsRewind, vm.IsAbout];
+            for (int i = 0; i < 9; i++)
             {
                 vm.Tab = SettingsViewModel.Tabs[i];
-                Assert.Equal(Enumerable.Range(0, 8).Select(n => n == i), Flags());
+                Assert.Equal(Enumerable.Range(0, 9).Select(n => n == i), Flags());
             }
             // Anything else is not a tab: the page stays where it is.
             vm.Tab = "privacy";
@@ -389,19 +390,20 @@ public sealed class LookTests
             try
             {
                 bool Shown(string text) => Visuals.Descendants<TextBlock>(window).Any(t => t.Text == text && t.IsVisible);
-                // "Admin rights" is the ninth, and only a standard account sees it.
+                // "Admin rights" is the tenth, and only a standard account sees it. Ask RigSight shows with the AI preview
+                // on, as in every test copy.
                 var every = Visuals.Descendants<RadioButton>(window).Where(r => r.GroupName == "SettingsTab").ToList();
-                Assert.Equal(9, every.Count);
-                Assert.False(every[8].IsVisible);
+                Assert.Equal(10, every.Count);
+                Assert.False(every[9].IsVisible);
                 var tabs = every.Where(r => r.IsVisible).ToList();
-                Assert.Equal(8, tabs.Count);
+                Assert.Equal(9, tabs.Count);
                 Assert.True(tabs[0].IsChecked);
 
                 // One line that belongs to each tab, in the tabs' order. Privacy sits with Tracking, Updates with About.
                 string[][] own =
                 [
                     ["Temperature unit"], ["Accent colour"], ["Pause tracking", "Privacy", "Apps that are never recorded"], ["Background sensor sampling"],
-                    ["Daily recap"], ["Keep history for"], ["Rewinds to make", "What goes in"], ["Updates", "Update automatically", "Background agent", "Open-source notices"],
+                    ["Daily recap"], ["AI helper"], ["Keep history for"], ["Rewinds to make", "What goes in"], ["Updates", "Update automatically", "Background agent", "Open-source notices"],
                 ];
                 for (int i = 0; i < tabs.Count; i++)
                 {
@@ -424,8 +426,8 @@ public sealed class LookTests
                 // On a standard account the ninth tab shows, with what is off there.
                 vm.StandardAccount = true;
                 Ui.Pump(120);
-                Assert.True(every[8].IsVisible);
-                every[8].IsChecked = true;
+                Assert.True(every[9].IsVisible);
+                every[9].IsChecked = true;
                 Ui.Pump(120);
                 Assert.Equal("admin", vm.Tab);
                 Assert.True(Shown("This is a standard account"));

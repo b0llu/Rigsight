@@ -158,6 +158,10 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsAdminRights => _tab == "admin";
     public bool IsRewind => _tab == "rewind";
     public bool IsAi => _tab == "ai";
+    /// <summary>About's "See all updates": What's new with every release, handed in by the shell (a binding that looked
+    /// for it up the window's tree missed whenever the tab was built before the page sat in the window).</summary>
+    public System.Windows.Input.ICommand? SeeAllUpdatesCommand { get; init; }
+
     /// <summary>The Ask RigSight tab shows: the AI preview is on for this PC.</summary>
     public bool ShowAiTab => Rigsight.Core.Ai.AiPreview.IsOn;
 

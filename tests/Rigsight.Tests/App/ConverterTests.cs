@@ -571,6 +571,20 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void A_share_becomes_the_two_star_widths_of_a_bar()
+    {
+        var c = new ShareStarConverter();
+        GridLength W(object v, string? p = null) => (GridLength)c.Convert(v, typeof(GridLength), p, CultureInfo.InvariantCulture);
+        Assert.Equal(new GridLength(0.25, GridUnitType.Star), W(0.25));
+        Assert.Equal(new GridLength(0.75, GridUnitType.Star), W(0.25, "rest"));
+        // Past the ends, or no number at all: clamped, never a negative or endless width.
+        Assert.Equal(new GridLength(1, GridUnitType.Star), W(1.7));
+        Assert.Equal(new GridLength(0, GridUnitType.Star), W(-0.2));
+        Assert.Equal(new GridLength(0, GridUnitType.Star), W(double.NaN));
+        Assert.Equal(new GridLength(1, GridUnitType.Star), W("x", "rest"));
+    }
+
+    [Fact]
     public void Every_converter_the_theme_declares_is_tested_here()
     {
         Type[] tested =
@@ -580,7 +594,7 @@ public sealed class ConverterTests
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
-            typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter),
+            typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter), typeof(ShareStarConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

@@ -1792,7 +1792,7 @@
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See all updates'}"
-                                Command="{Binding DataContext.WhatsNew.SeeAllCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Command="{Binding SeeAllUpdatesCommand}"
                                 VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="See all updates" />
                         <TextBlock Text="{ctl:T 'What\'s new'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
