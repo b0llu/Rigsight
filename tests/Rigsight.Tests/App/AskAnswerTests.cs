@@ -95,6 +95,16 @@ public sealed class AskAnswerTests
         [AiPrompt.Ollama(true, now), AiPrompt.Ollama(false, now), AiPrompt.OwnKey(now)];
 
     [Fact]
+    public void A_marker_written_inside_a_sentence_still_draws_its_card()
+    {
+        var asked = new List<string>();
+        var answer = AskViewModel.ToAnswer("Your PC shut off.\nWe put 9 down to a power cut, which could point to the mains. [show: crashes]\nCheck the lights.",
+            [], marker => { asked.Add(marker); return []; });
+        Assert.Equal(["crashes"], asked);
+        Assert.DoesNotContain(answer.Parts.OfType<AskLine>(), l => l.Text.Contains("[show", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_long_conversation_sends_its_first_exchange_and_the_latest()
     {
         var all = Enumerable.Range(0, 30).Select(i => new AiTurn(i % 2 == 0, $"m{i}")).ToList();

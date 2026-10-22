@@ -825,6 +825,7 @@ public sealed partial class AskViewModel : ObservableObject
 
     private static readonly Regex Point = new(@"^\s*([-*•]|\d+[.)])\s+");
     private static readonly Regex LeadIn = new(@"^(?<lead>[^:.!?|]{3,28}:\s)(?<rest>.+)$");
+    private static readonly Regex InlineMarker = new(@"[ \t]*\[\s*show\s*:\s*(?<what>[a-z]+)\s*\][ \t]*", RegexOptions.IgnoreCase);
     private static readonly Regex Marker = new(@"^\[\s*show\s*:\s*(?<what>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
     // "Next step: …", also as small models write it at times: in brackets, or as a point ("[next step: …]", "- Next step: …").
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
@@ -842,6 +843,9 @@ public sealed partial class AskViewModel : ObservableObject
     /// </summary>
     public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null, bool writing = false)
     {
+        // A marker written inside a sentence ("…the power supply. [show: crashes]", Haiku, 2026-10-22) gets a line of its
+        // own, so its card is drawn instead of the code showing as words.
+        text = InlineMarker.Replace(text, m => $"\n[show: {m.Groups["what"].Value.ToLowerInvariant()}]\n");
         var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim())
             // The note RigSight adds to earlier answers when it sends them again, copied by a model into its own answer.
             .Where(l => l.Length > 0 && !l.StartsWith("(Records you looked at", StringComparison.OrdinalIgnoreCase)).ToList();
