@@ -60,7 +60,8 @@ public sealed class AiInstructionsTests
             // Each way keeps its own: own key is untouched.
             Assert.Null(AiInstructions.Custom(AiMode.OwnKey));
 
-            AiInstructions.Save(AiMode.Ollama, AiPrompt.OllamaInstructions.Replace("\n", "\r\n"));
+            // As a text box gives it back: Windows line endings, whatever the source file had.
+            AiInstructions.Save(AiMode.Ollama, AiPrompt.OllamaInstructions.ReplaceLineEndings("\r\n"));
             Assert.Null(AiInstructions.Custom(AiMode.Ollama));
             Assert.Equal(AiPrompt.OllamaInstructions, AiInstructions.Current(AiMode.Ollama));
 
