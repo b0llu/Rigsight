@@ -801,13 +801,15 @@ public sealed partial class AskViewModel : ObservableObject
     /// start-up on its own, so an install nobody asks from never reaches the relay (no usage tracking, the plan's rule).
     /// <paramref name="theyAsked"/>: a button they pressed themselves (Buy), which may ask the relay before that.
     /// </summary>
-    public async Task RefreshQuestionsAsync(bool theyAsked = false)
+    /// <returns>Why it couldn't be refreshed (the relay unreachable, offline), or null when it was or wasn't asked.</returns>
+    public async Task<string?> RefreshQuestionsAsync(bool theyAsked = false)
     {
-        if (Ai.Mode != AiMode.RigSight) return;
-        if (!theyAsked && !Ai.FirstQuestionSeen.Contains(AiMode.RigSight)) return;
+        if (Ai.Mode != AiMode.RigSight) return null;
+        if (!theyAsked && !Ai.FirstQuestionSeen.Contains(AiMode.RigSight)) return null;
         var (status, problem) = await Relay.StatusAsync();
-        if (status is null) { Log.Write("ask", $"Questions left not refreshed: {problem}"); return; }
+        if (status is null) { Log.Write("ask", $"Questions left not refreshed: {problem}"); return problem; }
         Show(status);
+        return null;
     }
 
     /// <summary>What the relay said about this PC, shown in the pill and Settings.</summary>

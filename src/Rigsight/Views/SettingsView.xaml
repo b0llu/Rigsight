@@ -957,7 +957,7 @@
                             <TextBlock Text="{Binding LicenceProblem}" FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
                         <TextBlock Text="{Binding FreeLeft}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"
-                                   Visibility="{Binding NoLicence, Converter={StaticResource Vis}}" />
+                                   Visibility="{Binding ShowFreeLeft, Converter={StaticResource Vis}}" />
                         <!-- After Buy: the app checks for the purchase by itself; this box takes the divider's place meanwhile. -->
                         <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,0,0,4"
                                           Visibility="{Binding WaitingForPurchase, Converter={StaticResource Vis}}">

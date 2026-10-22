@@ -122,7 +122,12 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// this PC shows without opening Ask first. Only once the person has started asking with RigSight AI: looking at the
     /// card alone never reaches the relay (the user's ruling, 2026-10-22: a PC nobody asks from leaves no trace there).
     /// </summary>
-    public void Shown() => _ = _ask.RefreshQuestionsAsync();
+    public async void Shown()
+    {
+        // The relay out of reach: said on the card, so the questions shown aren't taken for what the relay says now.
+        if (await _ask.RefreshQuestionsAsync() is { } problem && !WaitingForPurchase) { LicenceProblem = problem; LicenceProblemNeedsSupport = false; }
+        else if (LicenceProblem is not null && _ask.Standing is not null && !LicenceProblemNeedsSupport) LicenceProblem = null;
+    }
 
     /// <summary>The relay's word on this PC: its licence (in use here, or none) and the key to show; "another PC" comes from Activate.</summary>
     private void ShowStanding()
@@ -134,7 +139,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         OnPropertyChanged(string.Empty);
     }
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(NoLicence), nameof(LicenceActive), nameof(LicenceElsewhere))] private AiLicenceState _licence;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(NoLicence), nameof(LicenceActive), nameof(LicenceElsewhere), nameof(ShowFreeLeft))] private AiLicenceState _licence;
     public bool NoLicence => Licence == AiLicenceState.None;
     public bool LicenceActive => Licence == AiLicenceState.Active;
     public bool LicenceElsewhere => Licence == AiLicenceState.OtherPc;
@@ -149,10 +154,12 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool HasQuestionsMadeOf => LicenceActive && _ask.Standing?.FreeLeft > 0;
     public bool IsOutOfQuestions => QuestionsLeft <= 0;
     private int Free => _ask.Standing?.FreeLeft ?? QuestionsLeft;
+    /// <summary>The free questions line: hidden while the relay can't be asked, since the number would only be a guess.</summary>
+    public bool ShowFreeLeft => NoLicence && (_ask.Standing is not null || !HasLicenceProblem);
     public string FreeLeft => Free == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{Free} free questions left to try RigSight AI.");
 
     /// <summary>Why the key typed in can't be used, or why buying can't open; under the key.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasLicenceProblem))] private string? _licenceProblem;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasLicenceProblem), nameof(ShowFreeLeft))] private string? _licenceProblem;
     public bool HasLicenceProblem => LicenceProblem is not null;
     /// <summary>The relay turned the key down (not found, refunded, turned off): only support can sort that out.</summary>
     [ObservableProperty] private bool _licenceProblemNeedsSupport;
@@ -186,7 +193,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         LicenceProblem = null;
         LicenceProblemNeedsSupport = false;
         if (pack is null) return;
-        if (_ask.Standing is null) await _ask.RefreshQuestionsAsync(theyAsked: true);
+        if (_ask.Standing is null && await _ask.RefreshQuestionsAsync(theyAsked: true) is { } unreachable)
+        {
+            // Offline, or the relay down: that's why, not "buying isn't open".
+            Log.Write("ai-settings", $"Buy {pack.Questions}: the relay couldn't be asked for the checkout: {unreachable}");
+            LicenceProblem = unreachable;
+            return;
+        }
         var url = _ask.Standing?.Packs.FirstOrDefault(p => p.Questions == pack.Questions)?.Url;
         if (string.IsNullOrEmpty(url))
         {

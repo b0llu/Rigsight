@@ -28,6 +28,9 @@ public static class Relay
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(3) };
 
+    /// <summary>How long a streamed answer may say nothing at all (not even a keep-alive) before the app gives up on it.</summary>
+    internal static TimeSpan QuietLimit { get; set; } = TimeSpan.FromSeconds(90);
+
     /// <summary>
     /// The relay. A test copy can point at another: relay-url.txt in its data folder (e.g. wrangler dev's), or
     /// RIGSIGHT_RELAY_URL (the tests, so they never reach the real one).
@@ -36,6 +39,7 @@ public static class Relay
     {
         get
         {
+            if (TestRoot.Value is { } forTest) return forTest;
             if (RigsightPaths.IsTestInstance)
             {
                 if (Environment.GetEnvironmentVariable("RIGSIGHT_RELAY_URL") is { Length: > 0 } fromTests) return fromTests.TrimEnd('/');
@@ -46,6 +50,9 @@ public static class Relay
             return "https://api.rigsight.app";
         }
     }
+
+    /// <summary>Tests: a relay for the calls made in this async flow only, so tests running side by side never share one.</summary>
+    internal static readonly AsyncLocal<string?> TestRoot = new();
 
     public static string Version { get; } = typeof(Relay).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
@@ -88,12 +95,14 @@ public static class Relay
             using var res = await Http.SendAsync(Request(HttpMethod.Get, "/v1/status"), ct);
             string text = await res.Content.ReadAsStringAsync(ct);
             if (!res.IsSuccessStatusCode) return (null, Problem(text, (int)res.StatusCode));
-            return (ReadStatus(JsonNode.Parse(text)), null);
+            if (ReadStatus(text) is { } status) return (status, null);
+            Log.Write("relay", $"Expected this PC's questions from {Root}, got HTTP {(int)res.StatusCode} {Short(text)}");
+            return (null, Lang.T("Couldn't check your questions right now. Try again in a minute."));
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
         {
             Log.Write("relay", $"Expected this PC's questions from {Root}, got {ex.GetType().Name}: {ex.Message}");
-            return (null, await Unreachable(ex));
+            return (null, await Unreachable(ex, checking: true));
         }
     }
 
@@ -111,23 +120,43 @@ public static class Relay
                 Log.Write("relay", $"Activating a key: expected it to work here, got HTTP {(int)res.StatusCode} {text}");
                 return (null, Problem(text, (int)res.StatusCode, activating: true), Reason(text));
             }
+            if (ReadStatus(text) is not { } status)
+            {
+                Log.Write("relay", $"Activating a key: expected this PC's licence, got HTTP {(int)res.StatusCode} {Short(text)}");
+                return (null, Lang.T("RigSight AI isn't answering, so the key couldn't be checked. Try again in a minute."), null);
+            }
             Log.Write("relay", "Licence activated on this PC");
-            return (ReadStatus(JsonNode.Parse(text)), null, null);
+            return (status, null, null);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
         {
             Log.Write("relay", $"Activating a key at {Root}: {ex.GetType().Name}: {ex.Message}");
             return (null, await Unreachable(ex, inSettings: true), null);
         }
     }
 
-    private static RelayStatus? ReadStatus(JsonNode? s) => s is null ? null : new(
-        (int?)s["questions_left"] ?? 0,
-        (int?)s["free_left"] ?? 0,
-        (string?)s["licence"]?["key"],
-        (int?)s["licence"]?["questions_left"] ?? 0,
-        (string?)s["licence"]?["status"],
-        [.. (s["packs"] as JsonArray ?? []).Select(p => new RelayPack((int?)p?["questions"] ?? 0, (string?)p?["price"] ?? "", (string?)p?["url"] ?? "")).Where(p => p.Questions > 0)]);
+    /// <summary>The relay's standing for this PC, or null when the reply isn't one (a page, nonsense, the wrong shape).</summary>
+    internal static RelayStatus? ReadStatus(string text)
+    {
+        JsonNode? node;
+        try { node = JsonNode.Parse(text); } catch (JsonException) { return null; }
+        if (node is not JsonObject s || OwnKey.Num(s["questions_left"]) is not { } left) return null;
+        var licence = s["licence"] as JsonObject;
+        return new(
+            (int)Math.Clamp(left, 0, int.MaxValue),
+            (int)Math.Clamp(OwnKey.Num(s["free_left"]) ?? 0, 0, int.MaxValue),
+            Text(licence?["key"]),
+            (int)Math.Clamp(OwnKey.Num(licence?["questions_left"]) ?? 0, 0, int.MaxValue),
+            Text(licence?["status"]),
+            [.. (s["packs"] as JsonArray ?? []).OfType<JsonObject>()
+                .Select(p => new RelayPack((int)Math.Clamp(OwnKey.Num(p["questions"]) ?? 0, 0, int.MaxValue), Text(p["price"]) ?? "", Text(p["url"]) ?? ""))
+                .Where(p => p.Questions > 0)]);
+    }
+
+    private static string? Text(JsonNode? node) => node is JsonValue v && v.TryGetValue(out string? s) ? s : null;
+
+    /// <summary>A reply for the log: the start of it, on one line.</summary>
+    private static string Short(string text) => text.Length <= 200 ? text.ReplaceLineEndings(" ") : text[..200].ReplaceLineEndings(" ") + "…";
 
     // ── Asking ───────────────────────────────────────────────────────────
     /// <summary>
@@ -174,15 +203,21 @@ public static class Relay
                     Log.Write("relay", $"Round {round}: expected an answer, got HTTP {(int)res.StatusCode} {text}");
                     return new AiReply(null, Problem(text, (int)res.StatusCode), lookUps);
                 }
-                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct);
+                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct, QuietLimit);
             }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException && !ct.IsCancellationRequested)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
             {
                 Log.Write("relay", $"No answer from {Root} in round {round}: {ex.GetType().Name}: {ex.Message}");
                 return new AiReply(null, await Unreachable(ex), lookUps);
             }
             if (got.Error is not null)
             {
+                // Stopped here (silence, a dropped connection): the relay may have counted it, so no "wasn't counted".
+                if (got.CutOff)
+                {
+                    Log.Write("relay", $"Round {round}: expected the answer to its end, got: {got.Error} ({got.Text.Length} chars came)");
+                    return new AiReply(null, Lang.T("The answer stopped before it finished. Ask again in a minute."), lookUps);
+                }
                 Log.Write("relay", $"Round {round}: the answer broke off ({got.Error}); the relay gives the question back");
                 return new AiReply(null, Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."), lookUps);
             }
@@ -219,8 +254,9 @@ public static class Relay
             if (answer.Length == 0) return new AiReply(null, Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."), lookUps);
             return new AiReply(answer, null, lookUps, Note: searchFailed ? Lang.T("Web search wasn't working, so this answer is from your records only.") : null);
         }
+        // The relay counted it (its rounds were used), so no "wasn't counted".
         Log.Write("relay", $"Still looking things up after {OwnKey.MaxRounds} rounds");
-        return new AiReply(null, Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."), lookUps);
+        return new AiReply(null, Lang.T("This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time."), lookUps);
     }
 
     /// <summary>A web search the model asked for, run by the relay; a failure is one line the model reads, and the answer goes on.</summary>
@@ -234,7 +270,7 @@ public static class Relay
             var node = JsonNode.Parse(await res.Content.ReadAsStringAsync(ct));
             return ((string?)node?["text"] ?? "Error: web search isn't answering right now.", (bool?)node?["failed"] ?? !res.IsSuccessStatusCode);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or JsonException or InvalidOperationException && !ct.IsCancellationRequested)
         {
             Log.Write("relay", $"Searching \"{query}\" failed: {ex.GetType().Name}: {ex.Message}");
             return ("Error: web search isn't answering right now.", true);
@@ -272,6 +308,8 @@ public static class Relay
             ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. Buy a pack to keep using RigSight AI."),
             ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
+            // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".
+            ("unavailable", "stopped") => Lang.T("This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time."),
             ("unavailable", "busy") => Lang.T("RigSight AI is busy right now. Your question wasn't counted. Ask again in a moment."),
             _ when status >= 500 || kind == "unavailable" => Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."),
             _ => Lang.T($"RigSight AI couldn't answer this time (error {status}). Ask again in a minute."),
@@ -279,8 +317,11 @@ public static class Relay
     }
 
     /// <summary>No reply from the relay at all: offline, or the relay is down.</summary>
-    private static async Task<string> Unreachable(Exception ex, bool inSettings = false) =>
-        await Internet.ExplainsAsync(ex) ? Internet.NoInternet(inSettings)
+    /// <param name="checking">Asking for questions left (no question was asked, so none to count).</param>
+    private static async Task<string> Unreachable(Exception ex, bool inSettings = false, bool checking = false) =>
+        // Settings' RigSight AI card has no Test button: "try again", not Own key's "press Test again".
+        await Internet.ExplainsAsync(ex) ? (inSettings || checking ? Lang.T("Your PC isn't connected to the internet. Connect, then try again.") : Internet.NoInternet())
         : inSettings ? Lang.T("RigSight AI isn't answering, so the key couldn't be checked. Try again in a minute.")
+        : checking ? Lang.T("Couldn't check your questions right now. Try again in a minute.")
         : Lang.T("RigSight AI isn't answering right now. Your question wasn't counted. Try again in a minute.");
 }

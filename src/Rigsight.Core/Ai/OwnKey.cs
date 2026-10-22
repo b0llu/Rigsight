@@ -273,41 +273,72 @@ public static class OwnKey
         return new AiReply(null, Lang.T($"{model} kept asking for records without answering. Ask again, or pick another model in Settings › Ask RigSight."), lookUps);
     }
 
+    /// <summary>How long a streamed answer may say nothing at all before it counts as stopped; a slow model thinking hard
+    /// on someone's own key can be quiet a long while before its first words.</summary>
+    internal static TimeSpan QuietLimit { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>A text from a chunk, or null when it's missing or not text (one odd chunk never breaks an answer).</summary>
+    private static string? Str(JsonNode? node) => node is JsonValue v && v.TryGetValue(out string? s) ? s : null;
+
+    /// <summary>A number from a chunk, whole or not, or null.</summary>
+    internal static long? Num(JsonNode? node) =>
+        node is not JsonValue v ? null
+        : v.TryGetValue(out long l) ? l
+        : v.TryGetValue(out double d) && double.IsFinite(d) && Math.Abs(d) < long.MaxValue ? (long)d
+        : null;
+
     /// <summary>One round's reply put back together from the stream: its words, its look-ups, why it stopped.</summary>
-    internal sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords);
+    /// <remarks><paramref name="CutOff"/>: the app stopped it (silence, a dropped connection), not the service: whether
+    /// the service counted it isn't known.</remarks>
+    internal sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords, bool CutOff = false);
 
     /// <summary>
     /// Reads a streamed reply (server-sent events, "data: {...}" lines ending with "data: [DONE]"), handing on the words so
     /// far as they come and putting each look-up back together from its pieces (they arrive by index, the arguments in parts).
     /// </summary>
-    internal static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct)
+    internal static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct, TimeSpan? quiet = null)
     {
         var text = new StringBuilder();
         var calls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();
         string finish = "";
         long tokensIn = 0, tokensOut = 0;
         DateTime? first = null;
+        bool done = false;
         using var stream = await res.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        while (await reader.ReadLineAsync(ct) is { } line)
+        while (true)
         {
+            // A service that says nothing at all for this long (not even a keep-alive) has stopped; waiting on would
+            // leave "Thinking…" up for ever, since the request's own timeout ends once the first bytes have come.
+            string? line;
+            using (var silence = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                silence.CancelAfter(quiet ?? QuietLimit);
+                try { line = await reader.ReadLineAsync(silence.Token); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    return new(text.ToString(), [], finish, tokensIn, tokensOut, $"nothing came for {(quiet ?? QuietLimit).TotalSeconds:0} s", first, CutOff: true);
+                }
+            }
+            if (line is null) break;
             // Blank lines end an event; ": ..." lines are keep-alive comments (OpenRouter's "processing").
             if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
             string data = line[5..].Trim();
-            if (data == "[DONE]") break;
+            if (data == "[DONE]") { done = true; break; }
             JsonNode? chunk;
             try { chunk = JsonNode.Parse(data); } catch (JsonException) { continue; }
-            if (chunk?["error"] is { } err) return new(text.ToString(), [], finish, tokensIn, tokensOut, (string?)err["message"] ?? err.ToJsonString(), first);
-            if (chunk?["usage"] is { } usage)
+            if (chunk is not JsonObject) continue;
+            if (chunk["error"] is { } err) return new(text.ToString(), [], finish, tokensIn, tokensOut, Str(err["message"]) ?? err.ToJsonString(), first);
+            if (chunk["usage"] is JsonObject usage)
             {
-                tokensIn = (long?)usage["prompt_tokens"] ?? tokensIn;
-                tokensOut = (long?)usage["completion_tokens"] ?? tokensOut;
+                tokensIn = Num(usage["prompt_tokens"]) ?? tokensIn;
+                tokensOut = Num(usage["completion_tokens"]) ?? tokensOut;
             }
-            var choice = chunk?["choices"]?[0];
-            if (choice is null) continue;
-            if ((string?)choice["finish_reason"] is { Length: > 0 } why) finish = why;
-            var delta = choice["delta"];
-            if ((string?)delta?["content"] is { Length: > 0 } words)
+            // The last chunk of some services is usage alone, with no choices ("choices": []).
+            if (chunk["choices"] is not JsonArray { Count: > 0 } choices || choices[0] is not JsonObject choice) continue;
+            if (Str(choice["finish_reason"]) is { Length: > 0 } why) finish = why;
+            var delta = choice["delta"] as JsonObject;
+            if (Str(delta?["content"]) is { Length: > 0 } words)
             {
                 first ??= DateTime.Now;
                 text.Append(words);
@@ -315,14 +346,18 @@ public static class OwnKey
             }
             foreach (var piece in delta?["tool_calls"] as JsonArray ?? [])
             {
-                int index = (int?)piece?["index"] ?? calls.Count;
+                if (piece is not JsonObject) continue;
+                int index = (int?)Num(piece["index"]) ?? calls.Count;
                 var (id, name, args) = calls.TryGetValue(index, out var had) ? had : ("", "", new StringBuilder());
-                if ((string?)piece?["id"] is { Length: > 0 } newId) id = newId;
-                if ((string?)piece?["function"]?["name"] is { Length: > 0 } newName) name = newName;
-                args.Append((string?)piece?["function"]?["arguments"] ?? "");
+                if (Str(piece["id"]) is { Length: > 0 } newId) id = newId;
+                if (Str(piece["function"]?["name"]) is { Length: > 0 } newName) name = newName;
+                args.Append(Str(piece["function"]?["arguments"]) ?? "");
                 calls[index] = (id, name, args);
             }
         }
+        // Ended with neither [DONE] nor a reason to stop: the connection dropped, and what came is only part of it.
+        if (!done && finish.Length == 0 && (text.Length > 0 || calls.Count > 0))
+            return new(text.ToString(), [], finish, tokensIn, tokensOut, "the answer was cut off before its end", first, CutOff: true);
         var list = calls.Values.Select(c => new JsonObject
         {
             ["id"] = c.Id,
