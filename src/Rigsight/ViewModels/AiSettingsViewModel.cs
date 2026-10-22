@@ -171,7 +171,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     {
         LicenceProblem = null;
         if (pack is null) return;
-        if (_ask.Standing is null) await _ask.RefreshQuestionsAsync();
+        if (_ask.Standing is null) await _ask.RefreshQuestionsAsync(theyAsked: true);
         var url = _ask.Standing?.Packs.FirstOrDefault(p => p.Questions == pack.Questions)?.Url;
         if (string.IsNullOrEmpty(url))
         {

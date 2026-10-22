@@ -345,6 +345,12 @@ public sealed partial class AskViewModel : ObservableObject
         var then = _afterFirst;
         _afterFirst = null;
         then?.Invoke();
+        if (mode == AiMode.RigSight) _ = RefreshQuestionsAsync();
+    }
+
+    partial void OnIsOpenChanged(bool value)
+    {
+        if (value) _ = RefreshQuestionsAsync();
     }
 
     private void FirstQuestionChanged()
@@ -789,10 +795,16 @@ public sealed partial class AskViewModel : ObservableObject
         finally { _ = RefreshQuestionsAsync(); }
     }
 
-    /// <summary>Questions left and the licence, from the relay: at start with RigSight AI picked, after each question, and after Activate.</summary>
-    public async Task RefreshQuestionsAsync()
+    /// <summary>
+    /// Questions left and the licence, from the relay. Only once the person has chosen RigSight AI (pressed Start asking
+    /// on its first-question window): then when the Ask window opens, after each question, and in Settings. Never at
+    /// start-up on its own, so an install nobody asks from never reaches the relay (no usage tracking, the plan's rule).
+    /// <paramref name="theyAsked"/>: a button they pressed themselves (Buy), which may ask the relay before that.
+    /// </summary>
+    public async Task RefreshQuestionsAsync(bool theyAsked = false)
     {
         if (Ai.Mode != AiMode.RigSight) return;
+        if (!theyAsked && !Ai.FirstQuestionSeen.Contains(AiMode.RigSight)) return;
         var (status, problem) = await Relay.StatusAsync();
         if (status is null) { Log.Write("ask", $"Questions left not refreshed: {problem}"); return; }
         Show(status);
