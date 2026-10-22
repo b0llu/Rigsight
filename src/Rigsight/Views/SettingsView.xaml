@@ -302,7 +302,8 @@
                         </StackPanel>
                     </RadioButton>
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Notifications'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=notifications}" />
-                    <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Ask RigSight'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=ai}" />
+                    <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Ask RigSight'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=ai}"
+                                 Visibility="{Binding ShowAiTab, Converter={StaticResource Vis}}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'History'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=history}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Rewind'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=rewind}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'About'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=about}" />

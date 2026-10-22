@@ -51,6 +51,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             // A switch turned in the Ask window's first-question window shows here too.
             else if (e.PropertyName?.StartsWith("Share", StringComparison.Ordinal) == true) OnPropertyChanged(e.PropertyName);
         };
+        // Hidden until the AI preview is on: nothing reaches Ollama or a service at start-up either.
+        if (!AiPreview.IsOn) return;
         // Ollama chosen before: its models are listed straight away, as if Connect had been pressed.
         if (Ai.Mode == AiMode.Ollama) _ = ConnectOllamaCommand.ExecuteAsync(null);
         // A key saved before: its models are listed straight away, as if Test had been pressed.

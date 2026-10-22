@@ -139,6 +139,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             if (value is null || value == _tab || !Tabs.Contains(value)) return;
             // "Admin rights" only exists on a standard account.
             if (value == "admin" && !StandardAccount) return;
+            // The AI helper's tab exists only with the AI preview on (Core.Ai.AiPreview).
+            if (value == "ai" && !Rigsight.Core.Ai.AiPreview.IsOn) return;
             Ai?.ClosePickers();
             _tab = value;
             OnPropertyChanged(string.Empty);
@@ -156,6 +158,8 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool IsAdminRights => _tab == "admin";
     public bool IsRewind => _tab == "rewind";
     public bool IsAi => _tab == "ai";
+    /// <summary>The Ask RigSight tab shows: the AI preview is on for this PC.</summary>
+    public bool ShowAiTab => Rigsight.Core.Ai.AiPreview.IsOn;
 
     /// <summary>Settings › Ask RigSight (set by the shell).</summary>
     public AiSettingsViewModel? Ai { get; set; }

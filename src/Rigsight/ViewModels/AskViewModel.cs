@@ -227,7 +227,8 @@ public sealed partial class AskViewModel : ObservableObject
     }
 
     /// <summary>An answer can come from somewhere: Ask and Explain buttons show. Off hides every one of them.</summary>
-    public bool IsEnabled => Ai.Mode != AiMode.Off;
+    /// <remarks>Hidden whatever the setting until the AI preview is on for this PC (<see cref="AiPreview"/>).</remarks>
+    public bool IsEnabled => AiPreview.IsOn && Ai.Mode != AiMode.Off;
     public bool InTopBar => IsEnabled && Ai.Place == AskPlace.TopBar;
     public bool InSidebar => IsEnabled && Ai.Place == AskPlace.Sidebar;
 
