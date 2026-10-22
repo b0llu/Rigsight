@@ -112,7 +112,7 @@ public static class Changelog
         // until it launches.
         V("0.32.1", 10, 22,
             added: [Lang.T("Contact support in the Settings menu opens an email to RigSight's support, with your version already in it.")],
-            fixedBugs: [Lang.T("Games no launcher lists, like one copied into a folder of its own, now show as installed on the Games page while they're still on your PC.")]),
+            fixedBugs: [Lang.T("Games no launcher lists, like one in a folder of its own, are now found and show on the Games page, installed while they're still on your PC.")]),
         // This one is about another language, so it's said in it too (older entries stay as they were written).
         V("0.32.0", 10, 22,
             added: [Lang.T("Give any taskbar reading its own colors, for its number and its name, from quick picks or any color you make."),

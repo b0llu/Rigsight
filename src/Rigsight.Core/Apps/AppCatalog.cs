@@ -100,6 +100,7 @@ public static class AppCatalog
             if (Games.GameLibrary.Find(InstalledGames, path) is not null) return AppCategory.Game;
             if (InLauncherFolder(path)) return AppCategory.Launcher;
             if (GameFolders.Any(path.ToLowerInvariant().Contains)) return AppCategory.Game;
+            if (EngineOf(exe, path) is not null) return AppCategory.Game;
         }
         if (path is not null && path.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.Windows), StringComparison.OrdinalIgnoreCase))
             return AppCategory.System;
@@ -119,6 +120,45 @@ public static class AppCatalog
         if (saved == AppCategory.Game && (Known.ContainsKey(exe) || IsAntiCheatStarter(exe) || path is not null && InLauncherFolder(path))) return now;
         return null;
     }
+
+    /// <summary>
+    /// The game engine a program was made with, from the files every game made with it carries beside it, or null.
+    /// This finds a game wherever it came from and wherever it sits (a folder in Downloads, a standalone install),
+    /// including light games that never work the graphics card hard enough for the play rule (Super Battle Golf, a
+    /// Unity game, kept it at 35-39%, 2026-10-22). Read from the disk once a folder, then remembered.
+    /// </summary>
+    public static string? EngineOf(string exe, string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(exe);
+        // The engines' own editors and tools sit among the same files: not games.
+        if (name.StartsWith("UnrealEditor", StringComparison.OrdinalIgnoreCase) || name.StartsWith("UE4Editor", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("Unity", StringComparison.OrdinalIgnoreCase) || name.StartsWith("Unity Hub", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("CrashHandler", StringComparison.OrdinalIgnoreCase) || name.Contains("CrashReport", StringComparison.OrdinalIgnoreCase))
+            return null;
+        string key = path.ToLowerInvariant();
+        if (Engines.TryGetValue(key, out var known)) return known;
+        string? engine = null;
+        try
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (dir is not null)
+            {
+                if (File.Exists(Path.Combine(dir, "UnityPlayer.dll")) || Directory.Exists(Path.Combine(dir, name + "_Data"))) engine = "Unity";
+                // Unreal: <Game>\Binaries\Win64\<Game>-Win64-Shipping.exe, its packed content in <Game>\Content\Paks.
+                else if (key.Contains(@"\binaries\win64\") || key.Contains(@"\binaries\wingdk\"))
+                {
+                    if (Directory.Exists(Path.GetFullPath(Path.Combine(dir, "..", "..", "Content", "Paks")))) engine = "Unreal";
+                }
+                else if (File.Exists(Path.ChangeExtension(path, ".pck"))) engine = "Godot";
+                else if (File.Exists(Path.Combine(dir, "data.win"))) engine = "GameMaker";
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
+        Engines[key] = engine;
+        return engine;
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string?> Engines = new();
 
     /// <summary>
     /// A game's anti-cheat starter, which sits in the game's own folder and only starts it: "RocketLeague_EAC.exe"

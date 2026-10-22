@@ -143,7 +143,7 @@ internal sealed class AppResolver
                 try
                 {
                     db.Recategorize(a.Id, now);
-                    Log.Write("apps", $"{name} ({a.Exe}): filed as {a.Category}, now {now} ({(now == AppCategory.Game ? "a launcher lists its folder" : "not a game")}); its sessions follow");
+                    Log.Write("apps", $"{name} ({a.Exe}): filed as {a.Category}, now {now} ({(now == AppCategory.Game ? AppCatalog.EngineOf(a.Exe, a.Path ?? "") is { } engine ? $"made with {engine}" : "a launcher lists its folder" : "not a game")}); its sessions follow");
                     category = now;
                 }
                 catch (Exception ex) { Log.Error("apps", ex); }
