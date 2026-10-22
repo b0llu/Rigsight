@@ -137,6 +137,9 @@ public static class AppCatalog
             return null;
         string key = path.ToLowerInvariant();
         if (Engines.TryGetValue(key, out var known)) return known;
+        // A network path or a drive that isn't there: not looked at (Windows can wait seconds on each), and not
+        // remembered either, so the program is looked at again once its drive is back.
+        if (!ReadyDisk.Holds(path)) return null;
         string? engine = null;
         try
         {

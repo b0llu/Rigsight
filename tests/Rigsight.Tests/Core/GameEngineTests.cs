@@ -7,6 +7,7 @@ namespace Rigsight.Tests.Core;
 /// A game is known by the files its engine leaves beside it, wherever it sits (a folder in Downloads, a standalone
 /// install): Unity, Unreal, Godot, GameMaker. Each case builds the real folder layout on disk.
 /// </summary>
+[Collection("Disks")]
 public sealed class GameEngineTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "rigsight-tests", "engines-" + Guid.NewGuid().ToString("N")[..8]);

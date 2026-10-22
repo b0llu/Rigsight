@@ -244,14 +244,23 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         OnPropertyChanged(nameof(HasMore));
     }
 
-    /// <summary>Back to the first page of cards (the newest), when more were loaded by scrolling.</summary>
+    /// <summary>Rows kept when the page is left: what a visit loads by itself (the box asks for a second page at once) and more.</summary>
+    internal const int KeepWhenLeaving = PageSize * 3;
+
+    /// <summary>
+    /// Leaving the page: rows past the first few pages go, so a list scrolled far down doesn't lay out a hundred rows and
+    /// more on the next visit. The rows kept stay as they are, built: a new list here (as before 0.32.2) built every row
+    /// again on each visit, and every switch to Crashes froze the window for 100 ms and more (2026-10-22).
+    /// </summary>
     public void ShowFirstPage()
     {
-        if (_limit == PageSize) return;
-        _limit = PageSize;
-        ShowPage();
+        if (GroupsShown.Count <= KeepWhenLeaving) return;
+        for (int i = GroupsShown.Count - 1; i >= KeepWhenLeaving; i--) GroupsShown.RemoveAt(i);
+        _limit = KeepWhenLeaving;
+        OnPropertyChanged(nameof(HasMore));
     }
 
+    /// <summary>The first <c>_limit</c> rows of what matches, as a new list (a new filter, search or period).</summary>
     private void ShowPage()
     {
         GroupsShown = new(_matching.Take(_limit));

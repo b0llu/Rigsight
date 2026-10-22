@@ -556,12 +556,23 @@ public sealed class CrashesPageTests
             vm.ShowMuted = true;
             Assert.Equal(20, vm.GroupsShown.Count);
 
-            // Leaving the page: back to the newest twenty.
+            // Leaving the page after a visit that loaded a page more by itself (the box asks for it at once): the rows
+            // stay as they are, the same list, so coming back builds nothing (a new list built every row again: 100 ms
+            // and more on each switch to Crashes, 2026-10-22).
             vm.ShowMoreCommand.Execute(null);
-            vm.ShowMoreCommand.Execute(null);
+            var list = vm.GroupsShown;
             vm.ShowFirstPage();
-            Assert.Equal(20, vm.GroupsShown.Count);
+            Assert.Same(list, vm.GroupsShown);
+            Assert.Equal(40, vm.GroupsShown.Count);
+            // Scrolled far down: trimmed back to the first three pages, in place, the newest kept.
+            while (vm.HasMore) vm.ShowMoreCommand.Execute(null);
+            var newest = vm.GroupsShown.Take(CrashesViewModel.KeepWhenLeaving).ToList();
+            vm.ShowFirstPage();
+            Assert.Same(list, vm.GroupsShown);
+            Assert.Equal(newest, vm.GroupsShown);
             Assert.True(vm.HasMore);
+            vm.ShowMoreCommand.Execute(null);
+            Assert.Equal(CrashesViewModel.KeepWhenLeaving + 20, vm.GroupsShown.Count);
         });
     }
 

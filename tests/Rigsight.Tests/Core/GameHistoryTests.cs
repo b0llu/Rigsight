@@ -9,6 +9,7 @@ using static Rigsight.Tests.Data.Make;
 namespace Rigsight.Tests.Core;
 
 /// <summary>A game's plays, usual and story, from the sessions, minutes, crashes and changes already recorded.</summary>
+[Collection("Disks")]
 public class GameHistoryTests
 {
     private static readonly long Day = U(2026, 10, 10, 20);

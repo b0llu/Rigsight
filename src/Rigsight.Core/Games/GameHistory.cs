@@ -95,7 +95,8 @@ public static class GameHistory
     /// <summary>The game's program still at the path it was played from (a drive unplugged or a game deleted: not).</summary>
     private static bool ProgramThere(string? path)
     {
-        try { return !string.IsNullOrWhiteSpace(path) && Path.IsPathFullyQualified(path) && File.Exists(path); }
+        // Only on a local drive that's there: a network path or an unplugged drive could hold the page up for seconds.
+        try { return Apps.ReadyDisk.Holds(path) && File.Exists(path); }
         catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException) { return false; }
     }
 
