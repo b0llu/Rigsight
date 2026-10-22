@@ -44,7 +44,13 @@ public sealed record GameEntry
     /// <summary>How busy it kept the graphics card on average, for the "Hardest on your PC" order.</summary>
     public double? GpuLoad { get; init; }
 
-    public bool IsInstalled => Installed is not null;
+    /// <summary>
+    /// No launcher lists it, but the program RigSight saw played is still on the PC: a game copied into a folder, a
+    /// standalone install, one from a launcher RigSight can't read. It counts as installed (it can be played from here).
+    /// </summary>
+    public bool OnDisk { get; init; }
+
+    public bool IsInstalled => Installed is not null || OnDisk;
     public bool HasHistory => AppIds.Count > 0;
     public string Key => Installed?.Key ?? "app:" + (Exes.FirstOrDefault() ?? Name);
 }
@@ -86,6 +92,13 @@ public static class GameHistory
     public const double UsualPlaySec = 15 * 60;
 
     /// <summary>Every game: those RigSight saw played (any launcher, or none) and those the launchers list as installed.</summary>
+    /// <summary>The game's program still at the path it was played from (a drive unplugged or a game deleted: not).</summary>
+    private static bool ProgramThere(string? path)
+    {
+        try { return !string.IsNullOrWhiteSpace(path) && Path.IsPathFullyQualified(path) && File.Exists(path); }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException) { return false; }
+    }
+
     public static List<GameEntry> Library(RigsightDb db, IReadOnlyList<InstalledGame> installed, RigsightSettings s)
     {
         var apps = db.LoadApps();
@@ -115,6 +128,7 @@ public static class GameHistory
                 Exes = ordered.Select(x => x.App.Exe).ToList(),
                 ExePath = main.Path,
                 Installed = game,
+                OnDisk = game is null && ProgramThere(main.Path),
                 Launcher = game?.Launcher ?? LauncherOfPath(main.Path),
                 ActiveSec = active,
                 Sessions = ordered.Sum(x => x.Total.Sessions),

@@ -209,4 +209,32 @@ public class GameHistoryTests
         // A game uninstalled is the apps' change ("removed"), not the game record's.
         Assert.Empty(Inventory.Diff(Inventory.Game, after, before.Take(0), new DateTime(2026, 10, 16, 8, 0, 0)));
     }
+
+    // ── A game no launcher lists ──
+
+    [Fact]
+    public void A_game_no_launcher_lists_is_installed_while_its_program_is_still_there()
+    {
+        using var t = new TestDb("game-on-disk");
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "on-disk-" + Guid.NewGuid().ToString("N")[..8], "Games", "Hollow Peak");
+        Directory.CreateDirectory(dir);
+        var exe = Path.Combine(dir, "HollowPeak.exe");
+        File.WriteAllText(exe, "");
+        try
+        {
+            long game = t.Db.UpsertApp("hollowpeak.exe", "Hollow Peak", exe, AppCategory.Game);
+            long gone = t.Db.UpsertApp("oldgame.exe", "Old Game", Path.Combine(dir, "..", "Old Game", "OldGame.exe"), AppCategory.Game);
+            t.Db.InsertSession(Session(game, Day, Day + 1800, game: true));
+            t.Db.InsertSession(Session(gone, Day, Day + 1800, game: true));
+
+            var library = GameHistory.Library(t.Db, [], Settings());
+            var there = library.Single(e => e.Name == "Hollow Peak");
+            Assert.True(there.OnDisk);
+            Assert.True(there.IsInstalled);
+            Assert.Null(there.Installed); // no launcher, so nothing a launcher would say (size, art)
+            var deleted = library.Single(e => e.Name == "Old Game");
+            Assert.False(deleted.IsInstalled);
+        }
+        finally { Directory.Delete(Path.GetDirectoryName(Path.GetDirectoryName(dir))!, true); }
+    }
 }

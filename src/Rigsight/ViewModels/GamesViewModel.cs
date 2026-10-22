@@ -272,7 +272,8 @@ public sealed partial class GamesViewModel : ObservableObject
     private void BuildShelf()
     {
         var cutoff = DateTime.Now.AddDays(-14);
-        var idle = _all.Where(g => g.IsInstalled && (g.HasHistory ? g.LastPlayed < cutoff : !(g.Installed!.LastPlayed >= cutoff)))
+        // Launcher games only: their size is known. A game found from its own program (OnDisk) has none to show.
+        var idle = _all.Where(g => g.Installed is not null && (g.HasHistory ? g.LastPlayed < cutoff : !(g.Installed.LastPlayed >= cutoff)))
             .OrderByDescending(g => g.Installed!.SizeBytes ?? 0).ToList();
         Shelf.Clear();
         foreach (var g in idle)

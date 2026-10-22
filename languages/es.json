@@ -274,6 +274,8 @@
     "The AI preview is on for this PC. Restart RigSight to see Ask RigSight.": "La vista previa de IA está activada en este PC. Reinicia RigSight para ver Pregunta a RigSight.",
     "The AI preview is off for this PC. Restart RigSight to hide it.": "La vista previa de IA está desactivada en este PC. Reinicia RigSight para ocultarla.",
     "Couldn't change the AI preview: {0}": "No se ha podido cambiar la vista previa de IA: {0}",
+    "Contact support in the Settings menu opens an email to RigSight's support, with your version already in it.": "Contactar con soporte, en el menú de Ajustes, abre un correo al soporte de RigSight con tu versión ya escrita.",
+    "Games no launcher lists, like one copied into a folder of its own, now show as installed on the Games page while they're still on your PC.": "Los juegos que ningún launcher muestra, como uno copiado en su propia carpeta, ahora aparecen como instalados en la página Juegos mientras sigan en tu PC.",
     "The answer stopped before it finished. Ask again in a minute.": "La respuesta se cortó antes de terminar. Vuelve a preguntar en un minuto.",
     "This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time.": "Esta respuesta necesitaba demasiados pasos, así que RigSight AI la detuvo. Prueba a preguntar por una sola cosa cada vez.",
     "Games": "Juegos",
