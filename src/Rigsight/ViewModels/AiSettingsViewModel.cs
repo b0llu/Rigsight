@@ -126,7 +126,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     {
         // The relay out of reach: said on the card, so the questions shown aren't taken for what the relay says now.
         if (await _ask.RefreshQuestionsAsync() is { } problem && !WaitingForPurchase) { LicenceProblem = problem; LicenceProblemNeedsSupport = false; }
-        else if (LicenceProblem is not null && _ask.Standing is not null && !LicenceProblemNeedsSupport) LicenceProblem = null;
+        // An old "couldn't check" goes once the relay answers; why the licence stopped (set from that answer) stays.
+        else if (LicenceProblem is not null && _ask.Standing is not null && !LicenceProblemNeedsSupport && LicenceProblem != LicenceStopped) LicenceProblem = null;
     }
 
     /// <summary>The relay's word on this PC: its licence (in use here, or none) and the key to show; "another PC" comes from Activate.</summary>
