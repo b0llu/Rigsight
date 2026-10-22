@@ -142,6 +142,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             Ai?.ClosePickers();
             _tab = value;
             OnPropertyChanged(string.Empty);
+            if (value == "ai") Ai?.Shown();
         }
     }
 

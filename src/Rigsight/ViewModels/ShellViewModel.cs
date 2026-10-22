@@ -447,6 +447,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(PageUnreadable));
         Games.IsShown = value == "games";
         if (value != "settings") SettingsPage.Ai?.ClosePickers();
+        else if (SettingsPage.IsAi) SettingsPage.Ai?.Shown();
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
         _ = RefreshCurrentPageAsync();

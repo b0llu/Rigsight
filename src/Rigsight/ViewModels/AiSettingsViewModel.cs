@@ -9,7 +9,7 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>A pack of RigSight AI questions on sale: how many, the price, and the price per question.</summary>
-public sealed record AiPack(int Questions, string Price, string PerQuestion)
+public sealed record AiPack(int Questions, string Price, string PerQuestion, bool IsBestValue = false)
 {
     public string Name => Lang.T($"{Questions:N0} questions");
     public string Each => Lang.T($"{PerQuestion} a question");
@@ -117,6 +117,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public string PartsLine => Lang.T($"The temperatures your {Parts.Cpu} and {Parts.Gpu} are built to run at.");
 
     // ── RigSight AI ──────────────────────────────────────────────────────
+    /// <summary>
+    /// This tab shown with RigSight AI picked: the licence card asks the relay where it stands, so a key bought or put on
+    /// this PC shows without opening Ask first. Only once the person has started asking with RigSight AI: looking at the
+    /// card alone never reaches the relay (the user's ruling, 2026-10-22: a PC nobody asks from leaves no trace there).
+    /// </summary>
+    public void Shown() => _ = _ask.RefreshQuestionsAsync();
+
     /// <summary>The relay's word on this PC: its licence (in use here, or none) and the key to show; "another PC" comes from Activate.</summary>
     private void ShowStanding()
     {
@@ -137,6 +144,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [ObservableProperty] private string _licenceShown = "";
 
     public int QuestionsLeft => _ask.QuestionsLeft;
+    /// <summary>What the total is made of while free questions remain ("100 bought · 9 free"); they're used first.</summary>
+    public string QuestionsMadeOf => Lang.T($"{_ask.Standing?.LicenceQuestions ?? 0} bought · {_ask.Standing?.FreeLeft ?? 0} free");
+    public bool HasQuestionsMadeOf => LicenceActive && _ask.Standing?.FreeLeft > 0;
     public bool IsOutOfQuestions => QuestionsLeft <= 0;
     private int Free => _ask.Standing?.FreeLeft ?? QuestionsLeft;
     public string FreeLeft => Free == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{Free} free questions left to try RigSight AI.");
@@ -144,15 +154,18 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>Why the key typed in can't be used, or why buying can't open; under the key.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasLicenceProblem))] private string? _licenceProblem;
     public bool HasLicenceProblem => LicenceProblem is not null;
+    /// <summary>The relay turned the key down (not found, refunded, turned off): only support can sort that out.</summary>
+    [ObservableProperty] private bool _licenceProblemNeedsSupport;
 
     /// <summary>One-time packs that never run out (the user's pick, 2026-10-21): a bigger pack is cheaper a question.</summary>
-    public IReadOnlyList<AiPack> Packs { get; } = [new(100, "$2.99", "3¢"), new(300, "$6.99", "2.3¢"), new(1000, "$17.99", "1.8¢")];
+    public IReadOnlyList<AiPack> Packs { get; } = [new(100, "$2.99", "3¢"), new(300, "$6.99", "2.3¢"), new(1000, "$17.99", "1.8¢", IsBestValue: true)];
 
     /// <summary>Activating checks the key with the relay and puts it on this PC; one in use on another PC is refused.</summary>
     [RelayCommand]
     private async Task Activate()
     {
         LicenceProblem = null;
+        LicenceProblemNeedsSupport = false;
         if (LicenceKey.Trim().Length == 0) { LicenceProblem = Lang.T("Type or paste your licence key first."); return; }
         var (status, problem, reason) = await Relay.ActivateAsync(LicenceKey);
         if (status is not null)
@@ -163,13 +176,15 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
         if (reason == "other_pc") Licence = AiLicenceState.OtherPc;
         LicenceProblem = reason == "other_pc" ? null : problem;
+        LicenceProblemNeedsSupport = reason is not null and not "other_pc";
     }
 
     /// <summary>Buying opens the pack's checkout, which carries this PC's id, so the questions land here with no key to type.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanBuy))]
     private async Task Buy(AiPack? pack)
     {
         LicenceProblem = null;
+        LicenceProblemNeedsSupport = false;
         if (pack is null) return;
         if (_ask.Standing is null) await _ask.RefreshQuestionsAsync(theyAsked: true);
         var url = _ask.Standing?.Packs.FirstOrDefault(p => p.Questions == pack.Questions)?.Url;
@@ -181,8 +196,58 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
         Log.Write("ai-settings", $"Opening the checkout for {pack.Questions} questions");
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); return; }
+        _ = WaitForPurchaseAsync(pack.Questions);
     }
+
+    private bool CanBuy(AiPack? pack) => !WaitingForPurchase;
+
+    /// <summary>After Buy, until the purchase lands here, the person cancels, or <see cref="PurchaseWait"/> passes.</summary>
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(BuyCommand))] private bool _waitingForPurchase;
+    private CancellationTokenSource? _purchaseWait;
+
+    /// <summary>Paying happens in the browser, often slowly (a card form, a bank's check), so the app waits this long.</summary>
+    private static readonly TimeSpan PurchaseWait = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan PurchaseCheckEvery = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The checkout carries this PC's id, so a paid order adds its questions to this PC's licence on the relay. The app
+    /// asks the relay every few seconds and shows the new standing as soon as the licence holds more than before.
+    /// </summary>
+    private async Task WaitForPurchaseAsync(int questions)
+    {
+        _purchaseWait?.Cancel();
+        var cts = _purchaseWait = new CancellationTokenSource(PurchaseWait);
+        var before = _ask.Standing?.LicenceQuestions ?? 0;
+        WaitingForPurchase = true;
+        Log.Write("ai-settings", $"Waiting for the {questions}-question purchase: the licence holds {before} now");
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(PurchaseCheckEvery, cts.Token);
+                var (status, problem) = await Relay.StatusAsync(cts.Token);
+                if (status is null) { Log.Write("ai-settings", $"Purchase check: {problem}"); continue; }
+                if (status.LicenceQuestions <= before) continue;
+                Log.Write("ai-settings", $"Purchase landed: the licence went from {before} to {status.LicenceQuestions} questions");
+                _ask.Show(status);
+                break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Write("ai-settings", cts.IsCancellationRequested && _purchaseWait != cts ? "Purchase wait replaced by a new one"
+                : $"Purchase wait ended without a purchase (cancelled or {PurchaseWait.TotalMinutes:0} minutes passed)");
+        }
+        finally
+        {
+            if (_purchaseWait == cts) { _purchaseWait = null; WaitingForPurchase = false; }
+            cts.Dispose();
+        }
+    }
+
+    [RelayCommand]
+    private void StopWaiting() => _purchaseWait?.Cancel();
 
     [RelayCommand]
     private void CopyLicence()

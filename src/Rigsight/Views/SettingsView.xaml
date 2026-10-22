@@ -921,18 +921,21 @@
                                 <TextBlock FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
                                            Text="{ctl:T 'This key is in use on another PC. To move it here, contact support with your key.'}" />
                             </DockPanel>
-                            <TextBlock Text="{Binding FreeLeft}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"
-                                       Visibility="{Binding NoLicence, Converter={StaticResource Vis}}" />
                         </StackPanel>
                         <StackPanel Visibility="{Binding LicenceActive, Converter={StaticResource Vis}}">
                             <DockPanel Style="{StaticResource Row}">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsLeft}" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding QuestionsLeft}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding QuestionsMadeOf}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right"
+                                               Visibility="{Binding HasQuestionsMadeOf, Converter={StaticResource Vis}}" />
+                                </StackPanel>
                                 <TextBlock Text="{ctl:T 'Questions left'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                             </DockPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,6">
-                                        <TextBlock Text="{Binding LicenceShown}" FontFamily="Consolas" FontSize="13" />
+                                    <!-- Stretches to the Copy button's height; the key sits in its middle, not at its top. -->
+                                    <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,0">
+                                        <TextBlock Text="{Binding LicenceShown}" FontFamily="Consolas" FontSize="13" VerticalAlignment="Center" />
                                     </Border>
                                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Copy'}" Command="{Binding CopyLicenceCommand}" Margin="8,0,0,0" />
                                 </StackPanel>
@@ -942,26 +945,64 @@
                                 </StackPanel>
                             </DockPanel>
                         </StackPanel>
-                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4,0,0" />
-                        <!-- Why the key can't be used here, or why buying can't open yet. -->
-                        <TextBlock Text="{Binding LicenceProblem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" TextAlignment="Right" Margin="0,-4,0,6"
-                                   Visibility="{Binding HasLicenceProblem, Converter={StaticResource Vis}}" />
+                        <!-- Why the key can't be used here, or why buying can't open yet: its own line under the key, like "another PC". -->
+                        <DockPanel Margin="0,0,0,10" Visibility="{Binding HasLicenceProblem, Converter={StaticResource Vis}}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding EmailSupportCommand}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                    Visibility="{Binding LicenceProblemNeedsSupport, Converter={StaticResource Vis}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE715;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                        <TextBlock Text="{ctl:T 'Email support'}" />
+                                    </StackPanel>
+                                </Button>
+                            <TextBlock Text="{Binding LicenceProblem}" FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding FreeLeft}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10"
+                                   Visibility="{Binding NoLicence, Converter={StaticResource Vis}}" />
+                        <!-- After Buy: the app checks for the purchase by itself; this box takes the divider's place meanwhile. -->
+                        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,0,0,4"
+                                          Visibility="{Binding WaitingForPurchase, Converter={StaticResource Vis}}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding StopWaitingCommand}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                <ctl:Spinner DockPanel.Dock="Left" Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Waiting for your purchase…'}" FontSize="13" />
+                                    <TextBlock Text="{ctl:T 'Finish paying in your browser. Your questions appear here on their own.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
+                        </ctl:SmoothBorder>
+                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4,0,0"
+                                Visibility="{Binding WaitingForPurchase, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <TextBlock Text="{ctl:T 'Buy questions'}" Style="{StaticResource Title}" Margin="0,14,0,10" />
                         <ItemsControl ItemsSource="{Binding Packs}" Margin="0,0,-10,0">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0">
+                                    <ctl:SmoothBorder CornerRadius="10" Padding="14" Margin="0,0,10,0" BorderThickness="1">
+                                        <ctl:SmoothBorder.Style>
+                                            <Style TargetType="ctl:SmoothBorder">
+                                                <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Surface2Brush}" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ctl:SmoothBorder.Style>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Right" CornerRadius="9" Background="{DynamicResource AccentSoftBrush}" Padding="8,2" VerticalAlignment="Center"
+                                                        Visibility="{Binding IsBestValue, Converter={StaticResource Vis}}">
+                                                    <TextBlock Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                            </DockPanel>
                                             <DockPanel Margin="0,6,0,10">
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding Each}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
                                                 <TextBlock Text="{Binding Price}" FontSize="15" />
                                             </DockPanel>
-                                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource HoverBrush}"
+                                            <Button Style="{StaticResource TileButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                     Command="{Binding DataContext.BuyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{ctl:T 'Buy on rigsight.app'}" />
+                                                    <TextBlock Text="{ctl:T 'Buy'}" />
                                                     <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
                                                 </StackPanel>
                                             </Button>
