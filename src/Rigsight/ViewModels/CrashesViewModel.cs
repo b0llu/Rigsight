@@ -79,6 +79,10 @@ public sealed record CrashPattern(string Icon, string Brush, string Text);
 
 public sealed partial class CrashesViewModel(ReportService reports, SettingsModel settings) : ObservableObject
 {
+    /// <summary>The AI helper, for the opened case's Explain button; handed in by the shell (the page reaches it through its own
+    /// data, not by looking up the window's tree, which was a cost on every switch to Crashes).</summary>
+    public AskViewModel? Ask { get; set; }
+
     /// <summary>What a dashboard's Crashes tile shows (see <see cref="RecentCrashes"/>).</summary>
     public RecentCrashes Recent { get; } = new(reports, settings);
 

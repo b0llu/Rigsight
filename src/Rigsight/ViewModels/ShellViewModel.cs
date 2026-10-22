@@ -100,6 +100,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
+        Crashes.Ask = Ask;
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.

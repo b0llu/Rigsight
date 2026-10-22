@@ -327,8 +327,8 @@
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,-9,0" DataContext="{Binding Case.Group}">
                         <!-- The AI helper on this case: a filled button, because it starts something (hidden while the helper is off). -->
                         <Button Style="{StaticResource AccentButton}" Margin="0,0,12,0" AutomationProperties.Name="Explain this crash"
-                                Command="{Binding DataContext.Ask.ExplainCaseCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ExplainSubject}"
-                                Visibility="{Binding DataContext.Ask.IsEnabled, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
+                                Command="{Binding DataContext.Ask.ExplainCaseCommand, ElementName=Page}" CommandParameter="{Binding ExplainSubject}"
+                                Visibility="{Binding DataContext.Ask.IsEnabled, ElementName=Page, Converter={StaticResource Vis}}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE99A;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
                                 <TextBlock Text="{ctl:T 'Explain this crash'}" />
