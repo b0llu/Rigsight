@@ -287,7 +287,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     }
 
     /// <summary>Where a licence is moved to a new PC (by hand, on request).</summary>
-    public const string SupportEmail = "samantdhruv@gmail.com";
+    public const string SupportEmail = "support@rigsight.app";
 
     /// <summary>Opens a new email to support in the person's mail app, its subject saying what it's about.</summary>
     [RelayCommand]

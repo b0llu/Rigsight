@@ -28,7 +28,20 @@ public partial class SettingsView : UserControl
         // the box takes the mouse on the press and lets it go on the release, after the list opened, and from then on
         // a click outside never reached the popup.
         PreviewMouseDown += (_, e) => ClosePickers(e.OriginalSource as DependencyObject);
-        Loaded += (_, _) => { if (Window.GetWindow(this) is { } w) { w.Deactivated -= OnWindowDeactivated; w.Deactivated += OnWindowDeactivated; } };
+        // Signed up while the page is in a window, and off again as it leaves: the window outlives the page (a theme change
+        // builds a new one), and a handler left on it kept every old Settings page in memory (MemoryLeakTests).
+        Window? watched = null;
+        Loaded += (_, _) =>
+        {
+            if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
+            watched = Window.GetWindow(this);
+            if (watched is not null) watched.Deactivated += OnWindowDeactivated;
+        };
+        Unloaded += (_, _) =>
+        {
+            if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
+            watched = null;
+        };
         DataContextChanged += (_, e) =>
         {
             if (e.OldValue is INotifyPropertyChanged old) old.PropertyChanged -= OnViewModelChanged;
