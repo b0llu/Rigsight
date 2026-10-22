@@ -110,6 +110,9 @@ public static class Changelog
     [
         // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
         // until it launches.
+        V("0.32.2", 10, 22,
+            better: [Lang.T("Opening the Crashes page is quicker: its list keeps the crashes it already showed instead of building them all again each time.")],
+            fixedBugs: [Lang.T("RigSight no longer waits on a network drive or a drive that's unplugged while it looks for games.")]),
         V("0.32.1", 10, 22,
             added: [Lang.T("Contact support in the Settings menu opens an email to RigSight's support, with your version already in it.")],
             fixedBugs: [Lang.T("Games no launcher lists, like one in a folder of its own, are now found and show on the Games page, installed while they're still on your PC.")]),

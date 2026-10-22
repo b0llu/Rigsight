@@ -276,6 +276,8 @@
     "Couldn't change the AI preview: {0}": "No se ha podido cambiar la vista previa de IA: {0}",
     "Contact support in the Settings menu opens an email to RigSight's support, with your version already in it.": "Contactar con soporte, en el menú de Ajustes, abre un correo al soporte de RigSight con tu versión ya escrita.",
     "Games no launcher lists, like one in a folder of its own, are now found and show on the Games page, installed while they're still on your PC.": "Los juegos que ningún launcher muestra, como uno en su propia carpeta, ahora se detectan y aparecen en la página Juegos, instalados mientras sigan en tu PC.",
+    "Opening the Crashes page is quicker: its list keeps the crashes it already showed instead of building them all again each time.": "La página Fallos se abre más rápido: su lista conserva los fallos que ya mostraba en vez de crearlos todos de nuevo cada vez.",
+    "RigSight no longer waits on a network drive or a drive that's unplugged while it looks for games.": "RigSight ya no espera a una unidad de red o una unidad desconectada mientras busca juegos.",
     "The answer stopped before it finished. Ask again in a minute.": "La respuesta se cortó antes de terminar. Vuelve a preguntar en un minuto.",
     "This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time.": "Esta respuesta necesitaba demasiados pasos, así que RigSight AI la detuvo. Prueba a preguntar por una sola cosa cada vez.",
     "Games": "Juegos",
