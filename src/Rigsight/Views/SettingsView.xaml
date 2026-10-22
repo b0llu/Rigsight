@@ -989,9 +989,9 @@
                                         </ctl:SmoothBorder.Style>
                                         <StackPanel>
                                             <DockPanel>
-                                                <Border DockPanel.Dock="Right" CornerRadius="9" Background="{DynamicResource AccentSoftBrush}" Padding="8,2" VerticalAlignment="Center"
+                                                <Border DockPanel.Dock="Right" CornerRadius="9" Background="{DynamicResource GoodSoftBrush}" Padding="8,2" VerticalAlignment="Center"
                                                         Visibility="{Binding IsBestValue, Converter={StaticResource Vis}}">
-                                                    <TextBlock Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                                                    <TextBlock Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
                                                 </Border>
                                                 <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
                                             </DockPanel>
