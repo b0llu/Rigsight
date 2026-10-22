@@ -564,11 +564,12 @@ public sealed class CrashesPageTests
             vm.ShowFirstPage();
             Assert.Same(list, vm.GroupsShown);
             Assert.Equal(40, vm.GroupsShown.Count);
-            // Scrolled far down: trimmed back to the first three pages, in place, the newest kept.
+            // Scrolled further down: back to the newest two pages, as one new list (taken off one row at a time, closing the
+            // window after scrolling to the end took two seconds).
             while (vm.HasMore) vm.ShowMoreCommand.Execute(null);
             var newest = vm.GroupsShown.Take(CrashesViewModel.KeepWhenLeaving).ToList();
             vm.ShowFirstPage();
-            Assert.Same(list, vm.GroupsShown);
+            Assert.NotSame(list, vm.GroupsShown);
             Assert.Equal(newest, vm.GroupsShown);
             Assert.True(vm.HasMore);
             vm.ShowMoreCommand.Execute(null);

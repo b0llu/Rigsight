@@ -244,20 +244,21 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         OnPropertyChanged(nameof(HasMore));
     }
 
-    /// <summary>Rows kept when the page is left: what a visit loads by itself (the box asks for a second page at once) and more.</summary>
-    internal const int KeepWhenLeaving = PageSize * 3;
+    /// <summary>Rows a visit loads by itself (the box asks for a second page at once): kept when the page is left.</summary>
+    internal const int KeepWhenLeaving = PageSize * 2;
 
     /// <summary>
-    /// Leaving the page: rows past the first few pages go, so a list scrolled far down doesn't lay out a hundred rows and
-    /// more on the next visit. The rows kept stay as they are, built: a new list here (as before 0.32.2) built every row
-    /// again on each visit, and every switch to Crashes froze the window for 100 ms and more (2026-10-22).
+    /// Leaving the page. As a visit left it (its first pages), the list stays as it is, its rows built: a new list on every
+    /// leave (as before 0.32.2) built every row again on each visit, and every switch to Crashes froze the window for
+    /// 100 ms and more (2026-10-22). Scrolled further down, it starts again from the newest, as one new list: taking the
+    /// extra rows off one at a time made WPF update the list for each, and closing the window after scrolling to the end
+    /// took two seconds.
     /// </summary>
     public void ShowFirstPage()
     {
         if (GroupsShown.Count <= KeepWhenLeaving) return;
-        for (int i = GroupsShown.Count - 1; i >= KeepWhenLeaving; i--) GroupsShown.RemoveAt(i);
         _limit = KeepWhenLeaving;
-        OnPropertyChanged(nameof(HasMore));
+        ShowPage();
     }
 
     /// <summary>The first <c>_limit</c> rows of what matches, as a new list (a new filter, search or period).</summary>
