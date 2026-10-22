@@ -38,6 +38,8 @@ internal static class TestEnvironment
             }
         };
         Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", DataDir);
+        // RigSight AI never reaches the real relay from a test: a closed port on this PC refuses at once.
+        Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", "http://127.0.0.1:9");
     }
 
     /// <summary>A new empty folder inside this run's data folder.</summary>

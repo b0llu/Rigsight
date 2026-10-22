@@ -171,13 +171,10 @@ public static class OwnKey
     /// answer, as <see cref="Ollama.AskAsync"/> does. The answer streams in: <paramref name="writing"/> gets the text so far as
     /// it grows with the look-ups made (so RigSight's numbers can be drawn as their markers come), and null when the words
     /// turn out to be a lead-in to more look-ups. A problem comes back in
-    /// <see cref="AiReply.Problem"/> in words for the person. <paramref name="asRigSightAi"/>: a test copy's stand-in for
-    /// RigSight AI until the relay is built (RigSight AI's instructions, and web search when the copy has a search key);
-    /// otherwise always own key's own instructions, with no web search.
+    /// <see cref="AiReply.Problem"/> in words for the person. Always own key's own instructions, with no web search.
     /// </summary>
     public static async Task<AiReply> AskAsync(string service, string root, string key, string model, IReadOnlyList<AiTurn> earlier,
-        string question, AiTools tools, Action<AiStep>? step = null, Action<string?, IReadOnlyList<AiLookUp>>? writing = null, CancellationToken ct = default,
-        bool asRigSightAi = false)
+        string question, AiTools tools, Action<AiStep>? step = null, Action<string?, IReadOnlyList<AiLookUp>>? writing = null, CancellationToken ct = default)
     {
         var started = DateTime.Now;
         // Offline: said at once, rather than after waiting for the service to time out.
@@ -186,16 +183,14 @@ public static class OwnKey
             Log.Write("own-key", "Not asked: Windows has no network connection");
             return new AiReply(null, Internet.NoInternet(), []);
         }
-        string? searchKey = asRigSightAi ? WebSearch.TestKey : null;
-        string system = asRigSightAi ? AiPrompt.RigSightAi(withSearch: searchKey is not null, started) : AiPrompt.OwnKey(started, AiInstructions.Custom(AiMode.OwnKey));
+        string system = AiPrompt.OwnKey(started, AiInstructions.Custom(AiMode.OwnKey));
         var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = system } };
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
         var definitions = tools.Definitions();
-        if (searchKey is not null) definitions.Add(WebSearch.Definition());
         long tokensIn = 0, tokensOut = 0;
-        Log.Write("own-key", $"Asking {model} on {service}{(asRigSightAi ? " as RigSight AI" : "")} ({definitions.Count} look-ups allowed, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
+        Log.Write("own-key", $"Asking {model} on {service} ({definitions.Count} look-ups allowed, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         step?.Invoke(new AiStep(Lang.T("Connecting the dots…")));
         for (int round = 0; round < MaxRounds; round++)
         {
@@ -257,9 +252,7 @@ public static class OwnKey
                     JsonObject args;
                     try { args = JsonNode.Parse(argsJson.Length == 0 ? "{}" : argsJson) as JsonObject ?? []; } catch (JsonException) { args = []; }
                     step?.Invoke(new AiStep(Ollama.Reviewing(name, args)));
-                    string result = name == "search_web" && searchKey is not null
-                        ? await WebSearch.SearchAsync(searchKey, (string?)args["query"] ?? "", ct)
-                        : await Task.Run(() => tools.Run(name, args.ToJsonString()), ct);
+                    string result = await Task.Run(() => tools.Run(name, args.ToJsonString()), ct);
                     lookUps.Add(new AiLookUp(name, args, result.Length));
                     Log.Write("own-key", $"{model} looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = (string?)call?["id"] ?? "", ["content"] = result });
@@ -281,13 +274,13 @@ public static class OwnKey
     }
 
     /// <summary>One round's reply put back together from the stream: its words, its look-ups, why it stopped.</summary>
-    private sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords);
+    internal sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords);
 
     /// <summary>
     /// Reads a streamed reply (server-sent events, "data: {...}" lines ending with "data: [DONE]"), handing on the words so
     /// far as they come and putting each look-up back together from its pieces (they arrive by index, the arguments in parts).
     /// </summary>
-    private static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct)
+    internal static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct)
     {
         var text = new StringBuilder();
         var calls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();

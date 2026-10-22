@@ -29,6 +29,8 @@ public sealed class AskConversationsTests
         first.Draft = "why did my PC turn off?";
         first.SendCommand.Execute(null);
         var talk = first.Conversations.Single(c => c.Title.Length > 0);
+        // The relay can't be reached in a test: its problem line comes a moment later.
+        await Until(() => talk.Messages.OfType<AskProblem>().Any());
         first.TogglePinCommand.Execute(talk);
         first.StartRenameCommand.Execute(talk);
         talk.RenameText = "The shut-offs";
@@ -44,7 +46,7 @@ public sealed class AskConversationsTests
         Assert.True(again.IsEmpty);
         Assert.Equal("PINNED", again.Groups[0].Heading);
         again.PickCommand.Execute(back);
-        // RigSight AI (the default) can't answer before the relay, and says so: that's kept with the question.
+        // RigSight AI (the default) can't reach the relay in a test, and says so: that's kept with the question.
         await Until(() => back.Messages.Count == 2);
         Assert.Equal("why did my PC turn off?", Assert.IsType<AskQuestion>(back.Messages[0]).Text);
         Assert.IsType<AskProblem>(back.Messages[1]);

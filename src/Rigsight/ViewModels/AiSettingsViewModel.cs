@@ -47,7 +47,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         Editor.Saved += InstructionsChanged;
         _ask.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence)) OnPropertyChanged(string.Empty);
+            if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence) or nameof(AskViewModel.Standing)) ShowStanding();
             // A switch turned in the Ask window's first-question window shows here too.
             else if (e.PropertyName?.StartsWith("Share", StringComparison.Ordinal) == true) OnPropertyChanged(e.PropertyName);
         };
@@ -76,6 +76,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             ClosePickers();
             _settings.Update(s => s.Ai.Mode = mode);
             OnPropertyChanged(string.Empty);
+            if (mode == AiMode.RigSight) _ = _ask.RefreshQuestionsAsync();
             if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
         }
     }
@@ -116,6 +117,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public string PartsLine => Lang.T($"The temperatures your {Parts.Cpu} and {Parts.Gpu} are built to run at.");
 
     // ── RigSight AI ──────────────────────────────────────────────────────
+    /// <summary>The relay's word on this PC: its licence (in use here, or none) and the key to show; "another PC" comes from Activate.</summary>
+    private void ShowStanding()
+    {
+        var s = _ask.Standing;
+        if (s?.HasLicence == true && s.LicenceStatus == "active") Licence = AiLicenceState.Active;
+        else if (Licence == AiLicenceState.Active) Licence = AiLicenceState.None;
+        LicenceShown = s?.Key is { Length: >= 9 } key ? $"{key[..7]}-••••-{key[^4..]}" : "";
+        OnPropertyChanged(string.Empty);
+    }
+
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(NoLicence), nameof(LicenceActive), nameof(LicenceElsewhere))] private AiLicenceState _licence;
     public bool NoLicence => Licence == AiLicenceState.None;
     public bool LicenceActive => Licence == AiLicenceState.Active;
@@ -127,16 +138,59 @@ public sealed partial class AiSettingsViewModel : ObservableObject
 
     public int QuestionsLeft => _ask.QuestionsLeft;
     public bool IsOutOfQuestions => QuestionsLeft <= 0;
-    public string FreeLeft => QuestionsLeft == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{QuestionsLeft} free questions left to try RigSight AI.");
+    private int Free => _ask.Standing?.FreeLeft ?? QuestionsLeft;
+    public string FreeLeft => Free == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{Free} free questions left to try RigSight AI.");
+
+    /// <summary>Why the key typed in can't be used, or why buying can't open; under the key.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasLicenceProblem))] private string? _licenceProblem;
+    public bool HasLicenceProblem => LicenceProblem is not null;
 
     /// <summary>One-time packs that never run out (the user's pick, 2026-10-21): a bigger pack is cheaper a question.</summary>
     public IReadOnlyList<AiPack> Packs { get; } = [new(100, "$2.99", "3¢"), new(300, "$6.99", "2.3¢"), new(1000, "$17.99", "1.8¢")];
 
-    /// <summary>Activating checks the key with RigSight AI and locks it to this PC; wired with the relay.</summary>
-    [RelayCommand] private void Activate() { }
-    /// <summary>Buying opens the pack's page on rigsight.app; wired with the shop.</summary>
-    [RelayCommand] private void Buy(AiPack? pack) { }
-    [RelayCommand] private void CopyLicence() { }
+    /// <summary>Activating checks the key with the relay and puts it on this PC; one in use on another PC is refused.</summary>
+    [RelayCommand]
+    private async Task Activate()
+    {
+        LicenceProblem = null;
+        if (LicenceKey.Trim().Length == 0) { LicenceProblem = Lang.T("Type or paste your licence key first."); return; }
+        var (status, problem, reason) = await Relay.ActivateAsync(LicenceKey);
+        if (status is not null)
+        {
+            LicenceKey = "";
+            _ask.Show(status);
+            return;
+        }
+        if (reason == "other_pc") Licence = AiLicenceState.OtherPc;
+        LicenceProblem = reason == "other_pc" ? null : problem;
+    }
+
+    /// <summary>Buying opens the pack's checkout, which carries this PC's id, so the questions land here with no key to type.</summary>
+    [RelayCommand]
+    private async Task Buy(AiPack? pack)
+    {
+        LicenceProblem = null;
+        if (pack is null) return;
+        if (_ask.Standing is null) await _ask.RefreshQuestionsAsync();
+        var url = _ask.Standing?.Packs.FirstOrDefault(p => p.Questions == pack.Questions)?.Url;
+        if (string.IsNullOrEmpty(url))
+        {
+            Log.Write("ai-settings", $"Buy {pack.Questions}: the relay has no checkout for it yet");
+            LicenceProblem = Lang.T("Buying isn't open yet. Try again later.");
+            return;
+        }
+        Log.Write("ai-settings", $"Opening the checkout for {pack.Questions} questions");
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
+    }
+
+    [RelayCommand]
+    private void CopyLicence()
+    {
+        if (_ask.Standing?.Key is not { } key) return;
+        try { System.Windows.Clipboard.SetText(key); }
+        catch (System.Runtime.InteropServices.ExternalException ex) { Log.Error("ai-settings", ex); }
+    }
 
     /// <summary>Where a licence is moved to a new PC (by hand, on request).</summary>
     public const string SupportEmail = "samantdhruv@gmail.com";

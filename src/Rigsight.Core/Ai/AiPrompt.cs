@@ -4,8 +4,7 @@ namespace Rigsight.Core.Ai;
 
 /// <summary>
 /// What the AI helper is told before every question. Each way of answering has its own copy: Ollama
-/// (<see cref="Ollama"/>), your own key (<see cref="OwnKey"/>) and RigSight AI (<see cref="RigSightAi"/>, moving to the
-/// relay). For Ollama and own key the prompt has two parts: the instructions on how to answer, which people can change
+/// (<see cref="Ollama"/>), your own key (<see cref="OwnKey"/>) and RigSight AI (in the relay, its own private repo). For Ollama and own key the prompt has two parts: the instructions on how to answer, which people can change
 /// in Settings, and RigSight's rules, added after them every time. The rules hold what RigSight fills in (today, whether
 /// look-ups work) and what it relies on (the Next step line, the [show:] markers, records being data), so a changed
 /// prompt can't break the answer cards or drop the guard against instructions hidden in records.

@@ -635,24 +635,9 @@ public sealed partial class AskViewModel : ObservableObject
     private IReadOnlyList<OllamaModel>? _ollamaModels;
     private string _ollamaModelsFrom = "";
 
-    /// <summary>
-    /// Gets the answer and puts it in place of the "Thinking…" line. Ollama on my PC and my own key answer now; RigSight
-    /// AI is wired with the relay.
-    /// </summary>
+    /// <summary>Gets the answer (RigSight AI through the relay, my own key, or Ollama on my PC) and puts it in place of the "Thinking…" line.</summary>
     private async void Answer(AskConversation talk, string question)
     {
-        // A test copy with a search key stands in for RigSight AI until the relay is built: the saved key and model,
-        // with RigSight AI's instructions and web search.
-        bool standIn = Ai.Mode == AiMode.RigSight && WebSearch.TestKey is not null;
-        if (Ai.Mode is not (AiMode.Ollama or AiMode.OwnKey) && !standIn)
-        {
-            // RigSight AI answers once the relay is built; until then it says so rather than leaving "Thinking…" up.
-            Log.Write("ask", $"Not asked: {Ai.Mode} can't answer in this build");
-            Unwait(talk);
-            talk.Messages.Add(new AskProblem(Lang.T("RigSight AI can't answer yet. Pick your own key or Ollama in Settings › Ask RigSight.")));
-            _ = Save();
-            return;
-        }
         IsAnswering = true;
         using var stop = new CancellationTokenSource();
         _answering = stop;
@@ -669,7 +654,12 @@ public sealed partial class AskViewModel : ObservableObject
         longWait.Start();
         try
         {
-            var reply = Ai.Mode == AiMode.Ollama ? await AskOllama(talk, question, stop.Token) : await AskOwnKey(talk, question, stop.Token, asRigSightAi: standIn);
+            var reply = Ai.Mode switch
+            {
+                AiMode.Ollama => await AskOllama(talk, question, stop.Token),
+                AiMode.OwnKey => await AskOwnKey(talk, question, stop.Token),
+                _ => await AskRelay(talk, question, stop.Token),
+            };
             if (reply.Text is { } text)
             {
                 talk.Sent.Add(new AiTurn(true, question));
@@ -683,6 +673,8 @@ public sealed partial class AskViewModel : ObservableObject
                 if (at >= 0) talk.Messages[at] = answer;
                 Unwait(talk);
                 if (at < 0) talk.Messages.Add(answer);
+                // A quiet line under it when something was missing (web search wasn't working).
+                if (reply.Note is { } note) talk.Messages.Add(new AskStopped(note));
             }
             else
             {
@@ -785,7 +777,39 @@ public sealed partial class AskViewModel : ObservableObject
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct);
     }
 
-    private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct, bool asRigSightAi = false)
+    /// <summary>RigSight AI: the relay counts the question; afterwards the pill shows what's left.</summary>
+    private async Task<AiReply> AskRelay(AskConversation talk, string question, CancellationToken ct)
+    {
+        _tools ??= new AiTools(_settings.Current);
+        try
+        {
+            return await Relay.AskAsync([.. talk.Sent], question, _tools,
+                step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct);
+        }
+        finally { _ = RefreshQuestionsAsync(); }
+    }
+
+    /// <summary>Questions left and the licence, from the relay: at start with RigSight AI picked, after each question, and after Activate.</summary>
+    public async Task RefreshQuestionsAsync()
+    {
+        if (Ai.Mode != AiMode.RigSight) return;
+        var (status, problem) = await Relay.StatusAsync();
+        if (status is null) { Log.Write("ask", $"Questions left not refreshed: {problem}"); return; }
+        Show(status);
+    }
+
+    /// <summary>What the relay said about this PC, shown in the pill and Settings.</summary>
+    public void Show(RelayStatus status)
+    {
+        Standing = status;
+        HasLicence = status.HasLicence && status.LicenceStatus == "active";
+        QuestionsLeft = status.QuestionsLeft;
+    }
+
+    /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
+    [ObservableProperty] private RelayStatus? _standing;
+
+    private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct)
     {
         if (KeyStore.Load() is not { Length: > 0 } key)
             return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Test."), []);
@@ -793,7 +817,7 @@ public sealed partial class AskViewModel : ObservableObject
             return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
         _tools ??= new AiTools(_settings.Current);
         return await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
-            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct, asRigSightAi);
+            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct);
     }
 
     /// <summary>Past this many characters a first line is a paragraph, not an opening sentence.</summary>

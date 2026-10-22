@@ -906,6 +906,7 @@
                             <DockPanel Style="{StaticResource Row}">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBox Width="260" Style="{StaticResource FieldBox}" FontFamily="Consolas" Text="{Binding LicenceKey, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Licence key'}" />
+                                    <ctl:Spinner Width="14" Height="14" Margin="10,0,0,0" Visibility="{Binding ActivateCommand.IsRunning, Converter={StaticResource Vis}}" />
                                     <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Activate'}" Command="{Binding ActivateCommand}" Margin="8,0,0,0" />
                                 </StackPanel>
                                 <TextBlock Text="{ctl:T 'Licence key'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -942,6 +943,9 @@
                             </DockPanel>
                         </StackPanel>
                         <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4,0,0" />
+                        <!-- Why the key can't be used here, or why buying can't open yet. -->
+                        <TextBlock Text="{Binding LicenceProblem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" TextAlignment="Right" Margin="0,-4,0,6"
+                                   Visibility="{Binding HasLicenceProblem, Converter={StaticResource Vis}}" />
                         <TextBlock Text="{ctl:T 'Buy questions'}" Style="{StaticResource Title}" Margin="0,14,0,10" />
                         <ItemsControl ItemsSource="{Binding Packs}" Margin="0,0,-10,0">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>

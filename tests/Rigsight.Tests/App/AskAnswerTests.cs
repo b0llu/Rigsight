@@ -76,7 +76,7 @@ public sealed class AskAnswerTests
     }
 
     [Fact]
-    public void Only_RigSight_AI_is_told_it_can_search_the_web()
+    public void Ollama_and_own_key_are_told_they_cant_search_the_web()
     {
         var now = new DateTime(2026, 10, 20, 15, 0, 0);
         foreach (var prompt in new[] { AiPrompt.Ollama(true, now), AiPrompt.OwnKey(now) })
@@ -84,15 +84,15 @@ public sealed class AskAnswerTests
             Assert.Contains("You can't search the web", prompt);
             Assert.DoesNotContain("You can search the web", prompt);
         }
-        Assert.Contains("You can search the web", AiPrompt.RigSightAi(withSearch: true, now));
+        // RigSight AI's own prompt, with web search, lives in the relay (and its tests).
         // The same rules for how sure to be, whichever way it answers.
         foreach (var prompt in EveryPrompt(now))
             Assert.Contains("not proof that a part is failing", prompt);
     }
 
-    /// <summary>Every copy of the prompt: Ollama with and without look-ups, own key, RigSight AI with and without search.</summary>
+    /// <summary>Every copy of the prompt in the app: Ollama with and without look-ups, and own key (RigSight AI's is in the relay).</summary>
     internal static IEnumerable<string> EveryPrompt(DateTime now) =>
-        [AiPrompt.Ollama(true, now), AiPrompt.Ollama(false, now), AiPrompt.OwnKey(now), AiPrompt.RigSightAi(true, now), AiPrompt.RigSightAi(false, now)];
+        [AiPrompt.Ollama(true, now), AiPrompt.Ollama(false, now), AiPrompt.OwnKey(now)];
 
     [Fact]
     public void A_long_conversation_sends_its_first_exchange_and_the_latest()
