@@ -313,7 +313,7 @@ public sealed partial class AskViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText))] private bool _hasLicence;
     /// <summary>RigSight AI: the pill in the window's top bar says how many questions are left (free ones until a pack is bought).</summary>
     public bool ShowQuestionsLeft => Ai.Mode == AiMode.RigSight;
-    public string QuestionsLeftText => (HasLicence, QuestionsLeft) switch
+    public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : (HasLicence, QuestionsLeft) switch
     {
         (true, 1) => Lang.T("1 question left"),
         (true, _) => Lang.T($"{QuestionsLeft} questions left"),
@@ -322,6 +322,20 @@ public sealed partial class AskViewModel : ObservableObject
     };
     public bool IsLow => QuestionsLeft <= 5;
     public bool IsOutOfQuestions => ShowQuestionsLeft && QuestionsLeft <= 0;
+
+    /// <summary>The PC's licence turned off by support: nothing can be asked, free questions included.</summary>
+    public bool LicenceOff => Standing is { HasLicence: true, LicenceStatus: "disabled" };
+
+    /// <summary>Why nothing can be asked, in the box over the question field: turned off, refunded, or all used.</summary>
+    public string OutTitle => Standing?.LicenceStatus switch
+    {
+        _ when LicenceOff => Lang.T("Your licence is turned off."),
+        "refunded" when Standing.HasLicence => Lang.T("Your licence was refunded."),
+        _ => Lang.T("You've used all your questions."),
+    };
+    public string OutText => LicenceOff
+        ? Lang.T("Contact support from Settings › Ask RigSight.")
+        : Lang.T("Buy more in Settings › Ask RigSight, or switch to your own key there.");
 
     // ── Before the first question (each way of answering once) ───────────
     /// <summary>
@@ -821,7 +835,7 @@ public sealed partial class AskViewModel : ObservableObject
     }
 
     /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
-    [ObservableProperty] private RelayStatus? _standing;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText))] private RelayStatus? _standing;
 
     private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct)
     {

@@ -136,6 +136,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         if (s?.HasLicence == true && s.LicenceStatus == "active") Licence = AiLicenceState.Active;
         else if (Licence == AiLicenceState.Active) Licence = AiLicenceState.None;
         LicenceShown = s?.Key is { Length: >= 9 } key ? $"{key[..7]}-••••-{key[^4..]}" : "";
+        // A licence turned off (by support) or refunded: said on the card, not left looking like no licence at all.
+        string? was = LicenceStopped;
+        LicenceStopped = s?.HasLicence == true ? s.LicenceStatus switch
+        {
+            "disabled" => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
+            "refunded" => Lang.T("Your licence was refunded, so its questions are gone. Buy a pack to keep using RigSight AI."),
+            _ => null,
+        } : null;
+        if (LicenceStopped is not null) { LicenceProblem = LicenceStopped; LicenceProblemNeedsSupport = s?.LicenceStatus == "disabled"; }
+        else if (was is not null && LicenceProblem == was) { LicenceProblem = null; LicenceProblemNeedsSupport = false; }
         OnPropertyChanged(string.Empty);
     }
 
@@ -155,7 +165,10 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool IsOutOfQuestions => QuestionsLeft <= 0;
     private int Free => _ask.Standing?.FreeLeft ?? QuestionsLeft;
     /// <summary>The free questions line: hidden while the relay can't be asked, since the number would only be a guess.</summary>
-    public bool ShowFreeLeft => NoLicence && (_ask.Standing is not null || !HasLicenceProblem);
+    public bool ShowFreeLeft => NoLicence && (_ask.Standing is not null || !HasLicenceProblem) && _ask.Standing?.LicenceStatus != "disabled";
+
+    /// <summary>Why the PC's own licence stopped (turned off, refunded), from the relay; null while it works or there's none.</summary>
+    private string? LicenceStopped { get; set; }
     public string FreeLeft => Free == 1 ? Lang.T("1 free question left to try RigSight AI.") : Lang.T($"{Free} free questions left to try RigSight AI.");
 
     /// <summary>Why the key typed in can't be used, or why buying can't open; under the key.</summary>
@@ -277,9 +290,15 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [RelayCommand]
     private void EmailSupport()
     {
-        var subject = Uri.EscapeDataString(Lang.T("RigSight AI: move my licence to this PC"));
-        // The key typed in (a key locked to another PC) or, once in use here, the key on this PC.
-        var key = LicenceKey.Trim().Length > 0 ? LicenceKey.Trim() : LicenceShown;
+        // What it's about: a key in use elsewhere, a licence turned off or refunded, a key that wasn't found.
+        var subject = Uri.EscapeDataString(_ask.Standing?.LicenceStatus switch
+        {
+            "disabled" => Lang.T("RigSight AI: my licence is turned off"),
+            _ when LicenceElsewhere || LicenceActive => Lang.T("RigSight AI: move my licence to this PC"),
+            _ => Lang.T("RigSight AI: my licence key isn't working"),
+        });
+        // The key typed in (one locked to another PC, or not found) or the PC's own, whole: support looks it up.
+        var key = LicenceKey.Trim().Length > 0 ? LicenceKey.Trim() : _ask.Standing?.Key ?? LicenceShown;
         var body = Uri.EscapeDataString(Lang.T($"My licence key: {key}"));
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"mailto:{SupportEmail}?subject={subject}&body={body}") { UseShellExecute = true }); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }

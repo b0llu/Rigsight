@@ -820,6 +820,7 @@
                                 <Button Tag="&#xE7C3;" Content="{ctl:T 'What\'s new'}" Command="{Binding WhatsNew.SeeAllCommand}" />
                                 <Border Style="{StaticResource MenuRule}" />
                                 <Button Tag="&#xEBE8;" Content="{ctl:T 'Report a bug'}" Command="{Binding SettingsPage.ReportBugCommand}" />
+                                <Button Tag="&#xE715;" Content="{ctl:T 'Contact support'}" Command="{Binding SettingsPage.ContactSupportCommand}" />
                                 <Button Tag="&#xE8C8;" Content="{ctl:T 'Copy logs'}" Command="{Binding SettingsPage.CopyProblemReportCommand}" />
                                 <!-- In Buy Me a Coffee's yellow until it has been pressed, or the support card answered for good -->
                                 <Button Tag="&#xEB51;" Content="{ctl:T 'Support RigSight'}" Command="{Binding SettingsPage.SupportCommand}">

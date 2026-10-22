@@ -566,6 +566,20 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         }
     }
 
+    /// <summary>Contact support: a new email in the person's mail app, with the version (support asks for it first).</summary>
+    [RelayCommand]
+    private void ContactSupport()
+    {
+        var subject = Uri.EscapeDataString(Lang.T("RigSight: I need help"));
+        var body = Uri.EscapeDataString(Lang.T($"RigSight {Rigsight.Core.Ai.Relay.Version}") + "\n\n");
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"mailto:{AiSettingsViewModel.SupportEmail}?subject={subject}&body={body}") { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Log.Error("settings", ex);
+            SayOnButtons(Lang.T("Couldn't open"), null);
+        }
+    }
+
     public ObservableCollection<string> ExcludedApps { get; } = [];
     public ObservableCollection<string> KnownApps { get; } = [];
     [ObservableProperty] private string? _appToExclude;
