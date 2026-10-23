@@ -42,7 +42,23 @@ public sealed class AiSettings
     public string OllamaAddress { get; set; } = "http://localhost:11434";
     public string OllamaModel { get; set; } = "";
 
-    // What it may send: everything by default, for the best answers.
+    /// <summary>
+    /// The pages (AiPages ids) answers may not use, switched off in Settings › AI; null until it was first set, when the old
+    /// switches by kind of record below still say what's off (AiPages.FromOldSwitches).
+    /// </summary>
+    public List<string>? PagesOff { get; set; }
+
+    /// <summary>Whether answers may use this page's records (every page is on by default, for the best answers).</summary>
+    public bool Sends(string page) => !(PagesOff ?? [.. Ai.AiPages.FromOldSwitches(this)]).Contains(page);
+
+    public void SetSends(string page, bool on)
+    {
+        var off = new HashSet<string>(PagesOff ?? [.. Ai.AiPages.FromOldSwitches(this)]);
+        if (on) off.Remove(page); else off.Add(page);
+        PagesOff = [.. Ai.AiPages.All.Select(p => p.Id).Where(off.Contains)];
+    }
+
+    // What it sent before pages (until 2026-10-23), by kind of record: read once into PagesOff, then no longer used.
     public bool ShareCrashes { get; set; } = true;
     public bool ShareHeat { get; set; } = true;
     public bool ShareApps { get; set; } = true;

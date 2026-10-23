@@ -83,6 +83,23 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     public IReadOnlyDictionary<string, IReadOnlyList<AiBlock>> Drawn { get; init; } = new Dictionary<string, IReadOnlyList<AiBlock>>();
     /// <summary>Questions they might ask next, from the model's "Ask next:" line: shown under the latest answer only.</summary>
     public IReadOnlyList<string> Suggestions { get; init; } = [];
+    /// <summary>A page the person's plan doesn't open that would have helped (the model's "[locked: games]" line), or null.</summary>
+    public AiPage? Locked { get; init; }
+    public bool HasLocked => Locked is not null;
+    public string LockedTitle => Locked is { } p ? Lang.T($"Couldn't read {p.Label}.") : "";
+    public string LockedText => Locked is { } p ? Lang.T($"It would add: {p.Description}.") : "";
+}
+
+/// <summary>
+/// The moment a limit or a page gets in the way (the plans mock-up): said in the chat, not as a pop-up, with the one step
+/// that fixes it. <paramref name="Plan"/> is the plan that does; null when none would (Complete's day used up).
+/// </summary>
+public sealed record AskWall(string Title, string Text, string? Plan, string? PlanName, string? Question) : AskMessage
+{
+    public bool HasPlan => Plan is not null;
+    /// <summary>Switching (already paying) rather than buying (on Free).</summary>
+    public bool Switch { get; init; }
+    public string MainText => Switch ? Lang.T($"Switch to {PlanName} and ask") : Lang.T($"Get {PlanName} and ask");
 }
 
 /// <summary>
@@ -206,6 +223,7 @@ public sealed partial class AskViewModel : ObservableObject
     {
         _settings = settings;
         _file = file;
+        Pages = new PageSwitchesViewModel(settings, PlanPagesNow) { OpenPlans = () => Plans?.Open() };
         _settings.Changed += OnSettingsChanged;
         if (file is not null)
             foreach (var saved in AiConversations.Load(file).OrderByDescending(c => c.When))
@@ -251,8 +269,9 @@ public sealed partial class AskViewModel : ObservableObject
         OnPropertyChanged(nameof(InSidebar));
         OnPropertyChanged(nameof(ShowQuestionsLeft));
         OnPropertyChanged(nameof(IsOutOfQuestions));
-        foreach (var name in new[] { nameof(ShareCrashes), nameof(ShareHeat), nameof(ShareApps), nameof(ShareChanges), nameof(ShareMemory), nameof(ShareNetwork), nameof(ShareUsage), nameof(ShareParts) })
-            OnPropertyChanged(name);
+        Pages.Refresh();
+        PagesChanged++;
+        OnPropertyChanged(nameof(PagesChanged));
         FirstQuestionChanged();
         Regroup();
     }
@@ -355,14 +374,16 @@ public sealed partial class AskViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText))] private bool _hasLicence;
     /// <summary>RigSight AI: the pill in the window's top bar says how many questions are left (free ones until a pack is bought).</summary>
     public bool ShowQuestionsLeft => Ai.Mode == AiMode.RigSight;
-    public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : (HasLicence, QuestionsLeft) switch
+    public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : Standing?.Plan is { } plan
+        ? plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week") : Lang.T($"{plan.Left} of {plan.Cap} left today")
+        : (HasLicence, QuestionsLeft) switch
     {
         (true, 1) => Lang.T("1 question left"),
         (true, _) => Lang.T($"{QuestionsLeft} questions left"),
         (false, 1) => Lang.T("1 free question left"),
         (false, _) => Lang.T($"{QuestionsLeft} free questions left"),
     };
-    public bool IsLow => QuestionsLeft <= 5;
+    public bool IsLow => Standing?.Plan is { } plan ? plan.Left <= Math.Max(2, plan.Cap / 10) : QuestionsLeft <= 5;
     public bool IsOutOfQuestions => ShowQuestionsLeft && QuestionsLeft <= 0;
 
     /// <summary>The PC's licence turned off by support: nothing can be asked, free questions included.</summary>
@@ -373,10 +394,14 @@ public sealed partial class AskViewModel : ObservableObject
     {
         _ when LicenceOff => Lang.T("Your licence is turned off."),
         "refunded" when Standing.HasLicence => Lang.T("Your licence was refunded."),
+        _ when Standing?.Plan is { Weekly: true } => Lang.T("That was your last free question this week."),
+        _ when Standing?.Plan is not null => Lang.T("That's all your questions for today."),
         _ => Lang.T("You've used all your questions."),
     };
     public string OutText => LicenceOff
         ? Lang.T("Contact support from Settings › Ask RigSight.")
+        : Standing?.Plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"They're back on {TimeText.At(at, "dddd")}. A plan gives up to 500 questions a day.")
+        : Standing?.Plan is not null ? Lang.T("More at midnight.")
         : Lang.T("Buy more in Settings › Ask RigSight, or switch to your own key there.");
 
     // ── Before the first question (each way of answering once) ───────────
@@ -481,15 +506,32 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>Ollama's address is this PC: then, and only then, nothing leaves it.</summary>
     private bool OllamaHere => Ollama.IsOnThisPc(Ai.OllamaAddress);
 
-    // The same switches as Settings › Ask RigSight › What RigSight sends.
-    public bool ShareCrashes { get => Ai.ShareCrashes; set => _settings.Update(s => s.Ai.ShareCrashes = value); }
-    public bool ShareHeat { get => Ai.ShareHeat; set => _settings.Update(s => s.Ai.ShareHeat = value); }
-    public bool ShareApps { get => Ai.ShareApps; set => _settings.Update(s => s.Ai.ShareApps = value); }
-    public bool ShareChanges { get => Ai.ShareChanges; set => _settings.Update(s => s.Ai.ShareChanges = value); }
-    public bool ShareMemory { get => Ai.ShareMemory; set => _settings.Update(s => s.Ai.ShareMemory = value); }
-    public bool ShareNetwork { get => Ai.ShareNetwork; set => _settings.Update(s => s.Ai.ShareNetwork = value); }
-    public bool ShareUsage { get => Ai.ShareUsage; set => _settings.Update(s => s.Ai.ShareUsage = value); }
-    public bool ShareParts { get => Ai.ShareParts; set => _settings.Update(s => s.Ai.ShareParts = value); }
+    // The same page tiles as Settings › AI › What answers can read, for the first-question window.
+    public PageSwitchesViewModel Pages { get; }
+
+    /// <summary>Changes whenever a page is switched (here or in Settings), so the other place shows it too.</summary>
+    public int PagesChanged { get; private set; }
+
+    /// <summary>RigSight AI's plans (set by the shell): the cards at a limit open them, and buy or switch from here.</summary>
+    public PlansViewModel? Plans { get; set; }
+
+    /// <summary>Sets the look-ups' hooks into the app (readings now, drives); set by the shell.</summary>
+    public Action<AiTools>? ConfigureTools { get; set; }
+
+    /// <summary>The pages answers may use now: the plan's with RigSight AI (Free's until the relay has said), every page otherwise.</summary>
+    public IReadOnlyCollection<string>? PlanPagesNow() => Ai.Mode != AiMode.RigSight ? null : Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
+
+    /// <summary>The look-ups, made once, told the plan's pages before every question.</summary>
+    private AiTools Tools()
+    {
+        if (_tools is null)
+        {
+            _tools = new AiTools(_settings.Current);
+            ConfigureTools?.Invoke(_tools);
+        }
+        _tools.PlanPages = PlanPagesNow();
+        return _tools;
+    }
 
     /// <summary>Opens Settings › Ask RigSight (the questions-left pill, "Buy more"); set by the shell.</summary>
     public Action? OpenSettings { get; set; }
@@ -670,10 +712,16 @@ public sealed partial class AskViewModel : ObservableObject
         IsOpen = true;
         Changed();
         // What it explains is a crash or shut-off: with those not shared, it isn't sent, and the window says where to turn them on.
-        if (!Ai.ShareCrashes)
+        if (Ai.Mode == AiMode.RigSight && PlanPagesNow() is { } open && !open.Contains(AiPages.Crashes))
         {
             talk.Messages.Clear();
-            talk.Messages.Add(new AskProblem(Lang.T("Explain needs “Crashes and shut-offs” turned on in Settings › Ask RigSight.")));
+            talk.Messages.Add(LockedWall(AiPages.Get(AiPages.Crashes)!, $"Explain this from my PC's records: {what}"));
+            return;
+        }
+        if (!Ai.Sends(AiPages.Crashes))
+        {
+            talk.Messages.Clear();
+            talk.Messages.Add(new AskProblem(Lang.T("Explain needs the Crashes page switched on in Settings › AI.")));
             return;
         }
         Answer(talk, $"Explain this from my PC's records: {what}");
@@ -745,7 +793,7 @@ public sealed partial class AskViewModel : ObservableObject
             else
             {
                 Unwait(talk);
-                talk.Messages.Add(new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
+                talk.Messages.Add(reply.Limit is { } limit ? LimitWall(limit, question) : new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
             }
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
@@ -753,7 +801,10 @@ public sealed partial class AskViewModel : ObservableObject
             // The question stays where it was; it isn't sent again with the next one, since it got no answer.
             Log.Write("ask", "Stopped before the answer came");
             Unwait(talk);
-            talk.Messages.Add(new AskStopped(Lang.T("Stopped. Ask again whenever you like.")));
+            var said = new AskStopped(Lang.T("Stopped. Ask again whenever you like."));
+            talk.Messages.Add(said);
+            // RigSight AI: the question goes back (the relay decides, and says when it did); what was written stays hidden.
+            if (Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(talk, said, id);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -761,8 +812,69 @@ public sealed partial class AskViewModel : ObservableObject
             Unwait(talk);
             talk.Messages.Add(new AskProblem(Lang.T("Something went wrong while answering. Ask again.")));
         }
-        finally { IsAnswering = false; _answering = null; longWait.Stop(); Save(); }
+        finally { IsAnswering = false; _answering = null; _questionId = null; longWait.Stop(); Save(); }
     }
+
+    /// <summary>The relay's id for the question being answered (RigSight AI), for Stop to give it back.</summary>
+    private string? _questionId;
+
+    private async Task GiveBackAsync(AskConversation talk, AskStopped said, string id)
+    {
+        if (!await Relay.StopAsync(id)) return;
+        int at = talk.Messages.IndexOf(said);
+        if (at >= 0) talk.Messages[at] = new AskStopped(Lang.T("Stopped. This question wasn't counted."));
+        await RefreshQuestionsAsync();
+    }
+
+    /// <summary>The card at the moment the free week's or the plan's day runs out, offering the plan that fixes it.</summary>
+    private AskWall LimitWall(AiLimit limit, string question)
+    {
+        var offers = Standing?.Plans ?? [];
+        var paid = offers.Where(o => !o.IsFree).ToList();
+        if (limit.Kind == "week")
+        {
+            string day = limit.ResetsAt is { } at ? TimeText.At(at, "dddd") : Lang.T("Monday");
+            var first = paid.FirstOrDefault();
+            return new AskWall(Lang.T("That was your last free question this week."),
+                first is null ? Lang.T($"They're back on {day}.")
+                    : Lang.T($"They're back on {day}. {first.Name} gives up to {first.Cap} a day for {first.Price} a month, and sends this question the moment it's on."),
+                first?.Id, first?.Name, question);
+        }
+        var current = Standing?.Plan;
+        int mine = current is null ? int.MaxValue : offers.FirstOrDefault(o => o.Id == current.Id)?.PriceCents ?? int.MaxValue;
+        var bigger = paid.FirstOrDefault(o => o.PriceCents > mine);
+        return new AskWall(Lang.T($"That's all {current?.Cap ?? 0} questions for today."),
+            bigger is null ? Lang.T("More at midnight. Your question stays in the box.")
+                : Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day and answers use more pages; switching sends this question straight away."),
+            bigger?.Id, bigger?.Name, question) { Switch = current is { IsFree: false, CanManage: true } };
+    }
+
+    /// <summary>The card for something only a bigger plan reads (Explain on Free needs Crashes).</summary>
+    private AskWall LockedWall(AiPage page, string question)
+    {
+        var offer = (Standing?.Plans ?? []).FirstOrDefault(o => !o.IsFree && o.Pages.Contains(page.Id));
+        string name = offer?.Name ?? Lang.T("a plan");
+        return new AskWall(Lang.T($"This needs the {page.Label} page."), Lang.T($"{page.Description}. It comes with {name}."), offer?.Id, offer?.Name, question)
+            { Switch = Standing?.Plan is { IsFree: false, CanManage: true } };
+    }
+
+    /// <summary>A card's main button: buy (or switch to) its plan, then send the question that hit the limit.</summary>
+    [RelayCommand]
+    private async Task UseWall(AskWall? wall)
+    {
+        if (wall?.Plan is not { } plan || Plans is null) return;
+        bool on = wall.Switch ? await Plans.SwitchNowAsync(plan) : await Plans.BuyAsync(plan);
+        if (!on || Current is not { } talk) return;
+        talk.Messages.Remove(wall);
+        if (wall.Question is { Length: > 0 } q)
+        {
+            // The question as typed, sent again now the plan is on (it got no answer before).
+            if (talk.Messages.LastOrDefault() is AskQuestion last && last.Text == q) talk.Messages.Remove(last);
+            Ask(q);
+        }
+    }
+
+    [RelayCommand] private void SeePlans() => Plans?.Open();
 
     /// <summary>Takes the "Thinking…" line and any half-written answer away, for the finished answer or a problem.</summary>
     private static void Unwait(AskConversation talk)
@@ -844,7 +956,7 @@ public sealed partial class AskViewModel : ObservableObject
             return new AiReply(null, Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running, then ask again."), []);
         var model = _ollamaModels.FirstOrDefault(m => m.Name == Ai.OllamaModel) ?? _ollamaModels.FirstOrDefault(m => m.CanLookUp) ?? _ollamaModels.FirstOrDefault();
         if (model is null) return new AiReply(null, Lang.T("Ollama has no models yet. Download one in Ollama, then pick it in Settings › Ask RigSight."), []);
-        _tools ??= new AiTools(_settings.Current);
+        Tools();
         return await Ollama.AskAsync(Ai.OllamaAddress, model.Name, model.CanLookUp, [.. talk.Sent], question, _tools,
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct);
     }
@@ -852,11 +964,11 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>RigSight AI: the relay counts the question; afterwards the pill shows what's left.</summary>
     private async Task<AiReply> AskRelay(AskConversation talk, string question, CancellationToken ct)
     {
-        _tools ??= new AiTools(_settings.Current);
+        Tools();
         try
         {
-            return await Relay.AskAsync([.. talk.Sent], question, _tools,
-                step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct);
+            return await Relay.AskAsync([.. talk.Sent], question, _tools!,
+                step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct, asking: id => _questionId = id);
         }
         finally { _ = RefreshQuestionsAsync(); }
     }
@@ -883,7 +995,10 @@ public sealed partial class AskViewModel : ObservableObject
     {
         Standing = status;
         HasLicence = status.HasLicence && status.LicenceStatus == "active";
-        QuestionsLeft = status.QuestionsLeft;
+        // A relay with plans counts this week's free ones or today's; an older one, what's left in all.
+        QuestionsLeft = status.Plan?.Left ?? status.QuestionsLeft;
+        OnPropertyChanged(nameof(QuestionsLeftText));
+        OnPropertyChanged(nameof(IsLow));
     }
 
     /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
@@ -895,7 +1010,7 @@ public sealed partial class AskViewModel : ObservableObject
             return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Test."), []);
         if (Ai.Model.Length == 0)
             return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
-        _tools ??= new AiTools(_settings.Current);
+        Tools();
         return await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct);
     }
@@ -910,6 +1025,7 @@ public sealed partial class AskViewModel : ObservableObject
     // "Next step: …", also as small models write it at times: in brackets, or as a point ("[next step: …]", "- Next step: …").
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     private static readonly Regex TableRule = new(@"^\|?\s*:?-{2,}");
+    private static readonly Regex LockedLine = new(@"^\[\s*locked\s*:\s*(?<page>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
     // "Ask next: Was it the same on Monday? | Which game heats the GPU most?": questions to offer under the answer.
     private static readonly Regex AskNextLine = new(@"^(?:[-*•]\s*)?\[?\s*(ask next|preguntas? siguientes?|siguientes preguntas)(?:\s*\([^)]*\))?\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     /// <summary>At most this many questions under an answer, each at most this long (a longer one is a sentence, not a question to tap).</summary>
@@ -963,9 +1079,16 @@ public sealed partial class AskViewModel : ObservableObject
         var drawnBy = new Dictionary<string, IReadOnlyList<AiBlock>>();
         var suggestions = new List<string>();
         var markers = new List<string>();
+        AiPage? locked = null;
         for (int i = 0; i < lines.Count; i++)
         {
             string l = lines[i];
+            // "[locked: games]": a page the plan doesn't open would have helped; said once, under the answer.
+            if (LockedLine.Match(l) is { Success: true } lockedLine)
+            {
+                locked ??= AiPages.Get(lockedLine.Groups["page"].Value.ToLowerInvariant());
+                continue;
+            }
             if (AiActions.Marker(l) is { } marker)
             {
                 markers.Add(marker);
@@ -1066,7 +1189,7 @@ public sealed partial class AskViewModel : ObservableObject
             })] };
             if (at >= 0) parts[at] = next; else parts.Add(next);
         }
-        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy, Suggestions = suggestions, VerdictRefs = verdictRefs };
+        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy, Suggestions = suggestions, VerdictRefs = verdictRefs, Locked = writing ? null : locked };
     }
 
     /// <summary>The page the next step points to: where the records the answer leaned on are shown.</summary>
@@ -1155,7 +1278,7 @@ public sealed partial class AskViewModel : ObservableObject
         foreach (var pair in saved.Zip(saved.Skip(1)))
             if (pair.First.Kind == SavedMessage.Question && pair.Second.Kind == SavedMessage.Answer)
                 talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text, pair.Second.LookUps?.Select(l => l.ToLookUp()).ToList())]);
-        _tools ??= new AiTools(_settings.Current);
+        Tools();
         var tools = _tools;
         List<AskMessage> messages;
         try

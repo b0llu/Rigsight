@@ -55,7 +55,7 @@ public static class AiTurns
 public sealed record AiStep(string Text, string? Note = null, bool Loading = false);
 
 /// <summary>What came back for a question: the answer's text, or why there is none, what it looked at, and a quiet note for under the answer (web search failed).</summary>
-public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null);
+public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null, AiLimit? Limit = null);
 
 /// <summary>
 /// Ollama on this PC (Settings › Ask RigSight → Ollama on my PC): lists its models and answers questions, looking at RigSight's

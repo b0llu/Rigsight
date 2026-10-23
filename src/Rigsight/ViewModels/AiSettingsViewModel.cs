@@ -44,12 +44,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     {
         _settings = settings;
         _ask = ask;
+        Pages = new PageSwitchesViewModel(settings, PlanPages);
         Editor.Saved += InstructionsChanged;
         _ask.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence) or nameof(AskViewModel.Standing)) ShowStanding();
-            // A switch turned in the Ask window's first-question window shows here too.
-            else if (e.PropertyName?.StartsWith("Share", StringComparison.Ordinal) == true) OnPropertyChanged(e.PropertyName);
+            if (e.PropertyName is nameof(AskViewModel.QuestionsLeft) or nameof(AskViewModel.HasLicence) or nameof(AskViewModel.Standing)) { ShowStanding(); Pages.Refresh(); }
+            // A page switched in the Ask window's first-question window shows here too.
+            else if (e.PropertyName == nameof(AskViewModel.PagesChanged)) Pages.Refresh();
         };
         // Hidden until the AI preview is on: nothing reaches Ollama or a service at start-up either.
         if (!AiPreview.IsOn) return;
@@ -77,6 +78,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             Log.Write("settings", $"Ask RigSight now answers with: {mode} (was {Ai.Mode})");
             ClosePickers();
             _settings.Update(s => s.Ai.Mode = mode);
+            Pages.Refresh();
             OnPropertyChanged(string.Empty);
             if (mode == AiMode.RigSight) _ = _ask.RefreshQuestionsAsync();
             if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
@@ -524,15 +526,20 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             OnPropertyChanged(name);
     }
 
-    // ── What RigSight sends ──────────────────────────────────────────────
-    public bool ShareCrashes { get => Ai.ShareCrashes; set => Set(a => a.ShareCrashes = value); }
-    public bool ShareHeat { get => Ai.ShareHeat; set => Set(a => a.ShareHeat = value); }
-    public bool ShareApps { get => Ai.ShareApps; set => Set(a => a.ShareApps = value); }
-    public bool ShareChanges { get => Ai.ShareChanges; set => Set(a => a.ShareChanges = value); }
-    public bool ShareMemory { get => Ai.ShareMemory; set => Set(a => a.ShareMemory = value); }
-    public bool ShareNetwork { get => Ai.ShareNetwork; set => Set(a => a.ShareNetwork = value); }
-    public bool ShareUsage { get => Ai.ShareUsage; set => Set(a => a.ShareUsage = value); }
-    public bool ShareParts { get => Ai.ShareParts; set => Set(a => a.ShareParts = value); }
+    // ── What answers can read ────────────────────────────────────────────
+    /// <summary>A tile for each page answers may use (the plan's, with RigSight AI; every page with own key or Ollama).</summary>
+    public PageSwitchesViewModel Pages { get; }
+
+    /// <summary>RigSight AI's plans (set by the shell): your plan here, the Plans screen, the dialogs.</summary>
+    public PlansViewModel? Plans
+    {
+        get => _plans;
+        set { _plans = value; Pages.OpenPlans = () => _plans?.Open(); OnPropertyChanged(); }
+    }
+    private PlansViewModel? _plans;
+
+    /// <summary>The pages the plan opens: the relay's word, Free's until it has said; null (every page) off RigSight AI.</summary>
+    private IReadOnlyCollection<string>? PlanPages() => Ai.Mode != AiMode.RigSight ? null : _ask.Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
 
     // ── The Ask button and conversations ─────────────────────────────────
     public string Place { get => Ai.Place == AskPlace.Sidebar ? "sidebar" : "top"; set => Set(a => a.Place = value == "sidebar" ? AskPlace.Sidebar : AskPlace.TopBar); }

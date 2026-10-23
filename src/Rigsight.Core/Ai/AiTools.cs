@@ -25,8 +25,16 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     private List<InstalledGame>? _installed;
     private readonly object _gamesLock = new();
 
-    /// <summary>A look-up answers when any switch it needs is on (see Needs); otherwise it says it isn't shared.</summary>
-    private bool Allowed(string name) => Needs(name).Any(On);
+    /// <summary>
+    /// The pages the person's RigSight AI plan opens, as the relay said (null: every page, for their own key and Ollama,
+    /// which no plan limits). The relay cuts the look-ups to them too; this is so the app never offers or runs the others.
+    /// </summary>
+    public IReadOnlyCollection<string>? PlanPages { get; set; }
+
+    private bool InPlan(string name) => PlanPages is null || AiPages.Of(name) is not { } page || PlanPages.Contains(page.Id);
+
+    /// <summary>A look-up answers when its page is switched on in Settings › AI; otherwise it says it isn't shared.</summary>
+    private bool Allowed(string name) => AiPages.Of(name) is { } page && settings.Ai.Sends(page.Id);
 
     public JsonArray Definitions()
     {
@@ -53,9 +61,10 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             }),
         };
         foreach (var def in MoreDefinitions()) all.Add(def!.DeepClone());
-        // Every look-up is offered, whatever Settings › Ask RigSight sends: one it turns off answers that it isn't shared, so
-        // the model can say so and where to turn it on, instead of never knowing the records exist.
-        return all;
+        foreach (var def in PageDefinitions()) all.Add(def);
+        // Every look-up the plan opens is offered, whatever Settings › AI sends: one switched off answers that it isn't
+        // shared, so the model can say so and where to switch it on, instead of never knowing the records exist.
+        return [.. all.Where(d => InPlan((string?)d?["function"]?["name"] ?? "")).Select(d => d!.DeepClone())];
     }
 
     private static JsonObject Dates() => new()
@@ -87,10 +96,12 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         try { args = JsonNode.Parse(string.IsNullOrWhiteSpace(argsJson) ? "{}" : argsJson) as JsonObject ?? []; }
         catch (JsonException) { return "Error: the arguments weren't valid JSON."; }
         if (!Known(name)) return $"Error: there is no tool called {name}.";
+        if (!InPlan(name)) return NotInPlan(name);
         if (!Allowed(name)) return NotShared(name);
         string key = name + " " + args.ToJsonString();
-        // What is running is a moment: looked at again every time, never answered from an earlier look.
-        if (name != "get_running_now" && _cache.TryGetValue(key, out var hit)) return hit;
+        // What is running and the readings now are a moment: looked at again every time, never answered from an earlier look.
+        bool moment = name is "get_running_now" or "get_sensors_now";
+        if (!moment && _cache.TryGetValue(key, out var hit)) return hit;
         string result;
         try
         {
@@ -104,11 +115,11 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                     WithDb(db => GamesIn(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
                 "list_games" => WithDb(ListGames),
                 "get_game" => WithDb(db => Game(db, (string?)args["name"] ?? "")),
-                _ => RunMore(name, args) ?? $"Error: there is no tool called {name}.",
+                _ => RunMore(name, args) ?? RunPages(name, args) ?? $"Error: there is no tool called {name}.",
             };
         }
         catch (FormatException ex) { result = "Error: " + ex.Message; }
-        _cache[key] = result;
+        if (!moment) _cache[key] = result;
         return result;
     }
 
@@ -131,7 +142,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.ShareUsage)) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports))) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
 
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
@@ -163,9 +174,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var c = s.Context;
         if (c is not null)
         {
-            if (!a.ShareHeat) c = c with { CpuBefore = null, GpuBefore = null, CpuLoad = null, GpuLoad = null, GpuPower = null };
-            if (!a.ShareApps) c = c with { FrontApp = null, SessionSec = null };
-            if (!a.ShareMemory) c = c with { RamUsed = null };
+            if (!a.Sends(AiPages.Temperatures)) c = c with { CpuBefore = null, GpuBefore = null, CpuLoad = null, GpuLoad = null, GpuPower = null };
+            if (!a.Sends(AiPages.Apps)) c = c with { FrontApp = null, SessionSec = null };
+            if (!a.Sends(AiPages.Memory)) c = c with { RamUsed = null };
         }
         // RigSight's own finding keeps its sentence; the lines under it that rest on a reading not shared go.
         var finding = s.Finding is { } f ? f with { Points = Keep(f.Points), RuledOut = Keep(f.RuledOut), NotChecked = Keep(f.NotChecked) } : null;
@@ -173,10 +184,10 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         {
             Finding = finding,
             Context = c,
-            AppInFront = a.ShareApps ? s.AppInFront : null,
-            ChangesBefore = a.ShareChanges ? s.ChangesBefore : [],
+            AppInFront = a.Sends(AiPages.Apps) ? s.AppInFront : null,
+            ChangesBefore = a.Sends(AiPages.Timeline) ? s.ChangesBefore : [],
             // The close-up's lines are readings and apps every two seconds.
-            InLastMinutes = a.ShareHeat && a.ShareApps ? s.InLastMinutes : [],
+            InLastMinutes = a.Sends(AiPages.Temperatures) && a.Sends(AiPages.Apps) ? s.InLastMinutes : [],
         };
     }
 
@@ -234,9 +245,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     {
         var a = settings.Ai;
         return [.. lines.Where(e =>
-            !(!a.ShareHeat && HeatLines.Any(t => Lang.T(t) == e.Title))
-            && !(!a.ShareMemory && MemoryLines.Any(t => Lang.T(t) == e.Title))
-            && !(!a.ShareUsage && Lang.T("Nobody was using it") == e.Title))];
+            !(!a.Sends(AiPages.Temperatures) && HeatLines.Any(t => Lang.T(t) == e.Title))
+            && !(!a.Sends(AiPages.Memory) && MemoryLines.Any(t => Lang.T(t) == e.Title))
+            && !(!a.Sends(AiPages.Reports) && Lang.T("Nobody was using it") == e.Title))];
     }
 
     private static string Kind(CrashKind kind) => kind switch
@@ -341,19 +352,19 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var story = GameHistory.Story(db, entry, settings, DateTime.Now);
         var sb = new StringBuilder();
         sb.AppendLine($"{entry.Name}: {Units.Duration(entry.ActiveSec)} in {story.Plays.Count} plays."
-            + (settings.Ai.ShareCrashes ? $" Crashes {story.Crashes}, hangs {story.Hangs}, driver resets {story.DriverResets}, shut-offs {story.ShutOffs}, power cuts {story.PowerCuts.Count}." : ""));
-        if (settings.Ai.ShareHeat && story.Usual is { } u) sb.AppendLine($"Its usual (from {u.Plays} plays at like graphics card power): GPU {u.Gpu:0} °C, CPU {u.Cpu:0} °C, power {u.Power:0} W.");
+            + (settings.Ai.Sends(AiPages.Crashes) ? $" Crashes {story.Crashes}, hangs {story.Hangs}, driver resets {story.DriverResets}, shut-offs {story.ShutOffs}, power cuts {story.PowerCuts.Count}." : ""));
+        if (settings.Ai.Sends(AiPages.Temperatures) && story.Usual is { } u) sb.AppendLine($"Its usual (from {u.Plays} plays at like graphics card power): GPU {u.Gpu:0} °C, CPU {u.Cpu:0} °C, power {u.Power:0} W.");
         if (story.SinceUpdate is { } since) sb.AppendLine($"Frame rate since its last update ({story.LastUpdate:d MMM}): {since}.");
         sb.AppendLine("All plays together: " + Stats(story.All));
-        if (settings.Ai.ShareMemory) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
+        if (settings.Ai.Sends(AiPages.Memory)) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
         sb.AppendLine("Plays, newest first (at most 15):");
         // Video memory is the whole card's (every app together), so each play says what else had the card at the time.
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var own = entry.AppIds.ToHashSet();
         foreach (var p in story.Plays.OrderByDescending(p => p.Start).Take(15))
-            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.ShareCrashes ? $", ended: {p.Ending}" : "")}. {Stats(p.Stats)}"
+            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}. {Stats(p.Stats)}"
                 + Alongside(db, p, own, apps));
-        if (settings.Ai.ShareChanges)
+        if (settings.Ai.Sends(AiPages.Timeline))
             foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
         return sb.ToString() + LeftOut(Switch.Heat, Switch.Memory, Switch.Changes, Switch.Crashes);
     }
@@ -366,7 +377,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     {
         var parts = new List<string>();
         var minutes = db.GetMinutes(p.Start, p.End);
-        if (settings.Ai.ShareMemory && minutes.Where(m => m.VramUsed is not null).ToList() is { Count: > 0 } vram)
+        if (settings.Ai.Sends(AiPages.Memory) && minutes.Where(m => m.VramUsed is not null).ToList() is { Count: > 0 } vram)
             parts.Add($"graphics card memory in use (all apps) {vram[0].VramUsed / 1024:0.0} GB at the start, highest {vram.Max(m => m.VramUsed) / 1024:0.0} GB");
         int n = Math.Max(1, (int)((p.End - p.Start) / 60));
         var others = db.GetAppMinutes(p.Start, p.End).Where(a => !own.Contains(a.App)).GroupBy(a => a.App)
@@ -382,7 +393,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     private string Stats(PlayStats s)
     {
         var parts = new List<string>();
-        bool heat = settings.Ai.ShareHeat, memory = settings.Ai.ShareMemory;
+        bool heat = settings.Ai.Sends(AiPages.Temperatures), memory = settings.Ai.Sends(AiPages.Memory);
         void Add(string label, double? v, string unit) { if (heat && v is double x) parts.Add($"{label} {x:0}{unit}"); }
         Add("GPU temp average", s.Gpu, " °C"); Add("GPU temp max", s.GpuMax, " °C"); Add("hot spot max", s.HotMax, " °C");
         Add("CPU temp average", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");

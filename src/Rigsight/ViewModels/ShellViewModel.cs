@@ -108,6 +108,12 @@ public sealed partial class ShellViewModel : ObservableObject
         Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
         Ask.AgentRunning = () => IsConnected;
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
+        // RigSight AI's plans: Settings › AI shows yours, the Plans screen covers the window, the Ask window offers one at a limit.
+        Plans = new PlansViewModel(Ask);
+        SettingsPage.Ai.Plans = Plans;
+        Ask.Plans = Plans;
+        // The look-ups that read what is on screen now: every reading, and the drives' health.
+        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); };
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
@@ -259,6 +265,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public LanguageViewModel Language { get; }
     /// <summary>The Ask window over every page, and its button in the top bar or the sidebar.</summary>
     public AskViewModel Ask { get; }
+
+    public PlansViewModel Plans { get; }
     public UpdateViewModel Update { get; }
     public SidebarViewModel Sidebar { get; }
 

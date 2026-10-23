@@ -36,69 +36,55 @@ public sealed partial class AiTools
         Def("get_running_now", "The apps running right now with their memory, CPU and graphics card use (over one second), which one is in front, which have no window, and which may be closed from an answer. For \"what's slowing it now\", loud fans or heat right now, and before offering to close an app.", new JsonObject()),
     ];
 
-    /// <summary>The switches in Settings › Ask RigSight, as the person sees them there.</summary>
+    /// <summary>
+    /// Kinds of record a look-up may carry from other pages (a crash's readings, a report's apps), each left out when the
+    /// page that shows it is switched off in Settings › AI.
+    /// </summary>
     private enum Switch { Crashes, Heat, Apps, Changes, Memory, Network, Parts, Usage }
 
-    private bool On(Switch s) => s switch
+    private static string PageOf(Switch s) => s switch
     {
-        Switch.Crashes => settings.Ai.ShareCrashes,
-        Switch.Heat => settings.Ai.ShareHeat,
-        Switch.Apps => settings.Ai.ShareApps,
-        Switch.Changes => settings.Ai.ShareChanges,
-        Switch.Memory => settings.Ai.ShareMemory,
-        Switch.Network => settings.Ai.ShareNetwork,
-        Switch.Usage => settings.Ai.ShareUsage,
-        _ => settings.Ai.ShareParts,
+        Switch.Crashes => AiPages.Crashes,
+        Switch.Heat => AiPages.Temperatures,
+        Switch.Apps => AiPages.Apps,
+        Switch.Changes => AiPages.Timeline,
+        Switch.Memory => AiPages.Memory,
+        Switch.Network => AiPages.Network,
+        Switch.Usage => AiPages.Reports,
+        _ => AiPages.Parts,
     };
 
-    private static string Label(Switch s) => s switch
-    {
-        Switch.Crashes => "Crashes and shut-offs",
-        Switch.Heat => "Temperatures and fans",
-        Switch.Apps => "Apps and games you use",
-        Switch.Changes => "Changes: drivers, updates, BIOS, settings",
-        Switch.Memory => "Memory and storage",
-        Switch.Network => "Internet use",
-        Switch.Usage => "When your PC was on and in use",
-        _ => "Your PC's parts",
-    };
+    private bool On(Switch s) => settings.Ai.Sends(PageOf(s));
 
-    /// <summary>The switches a look-up needs (any one of them is enough for it to answer).</summary>
-    private static Switch[] Needs(string name) => name switch
-    {
-        "get_pc_info" => [Switch.Parts],
-        "get_report" => [Switch.Heat, Switch.Apps],
-        "get_crashes" => [Switch.Crashes],
-        "get_changes" => [Switch.Changes],
-        "list_games" or "get_game" or "get_apps" or "get_running_now" => [Switch.Apps],
-        "get_moment" => [Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Crashes, Switch.Usage],
-        "get_temperatures" or "get_fans" => [Switch.Heat],
-        "get_memory" or "get_storage" => [Switch.Memory],
-        "get_network" => [Switch.Network],
-        "get_on_times" => [Switch.Usage],
-        _ => [],
-    };
+    private static string Label(Switch s) => AiPages.Get(PageOf(s))!.Name;
 
-    private static bool Known(string name) => Needs(name).Length > 0;
+    private static bool Known(string name) => AiPages.Of(name) is not null;
 
     /// <summary>
-    /// What a turned-off look-up answers: that the person chose not to share it, and where to turn it on, so the model
-    /// tells them that rather than guessing or saying nothing was recorded.
+    /// What a switched-off look-up answers: that the person chose not to share that page, and where to switch it on, so
+    /// the model tells them that rather than guessing or saying nothing was recorded.
     /// </summary>
     private static string NotShared(string name)
     {
-        var off = Needs(name);
-        string which = string.Join(" or ", off.Select(s => $"\"{Label(s)}\""));
-        Log.Write("ask", $"{name} asked for, not shared ({which} off)");
-        return $"Not shared: the user turned off {which} in Settings › Ask RigSight, so none of these records are sent. "
-            + $"Tell them you couldn't look at this because it's turned off, and that they can turn on {which} there and ask again. Don't guess what it would show.";
+        string page = AiPages.Of(name)!.Name;
+        Log.Write("ask", $"{name} asked for, not shared (the {page} page is switched off)");
+        return $"Not shared: the user switched off the \"{page}\" page in Settings › AI, so none of its records are sent. "
+            + $"Tell them you couldn't look at this because it's switched off, and that they can switch \"{page}\" on there and ask again. Don't guess what it would show.";
     }
 
-    /// <summary>A line at the foot of a look-up naming what it left out because a switch is off ("" when nothing was).</summary>
+    /// <summary>A look-up from a page the person's RigSight AI plan doesn't open (the relay leaves it out too).</summary>
+    private static string NotInPlan(string name)
+    {
+        string page = AiPages.Of(name)!.Name;
+        Log.Write("ask", $"{name} asked for, not in this plan (the {page} page)");
+        return $"Not in this plan: the person's RigSight AI plan doesn't include the \"{page}\" page. Answer from what you have, and don't guess what it would show.";
+    }
+
+    /// <summary>A line at the foot of a look-up naming what it left out because a page is switched off ("" when nothing was).</summary>
     private string LeftOut(params Switch[] relevant)
     {
         var off = relevant.Where(s => !On(s)).ToList();
-        return off.Count == 0 ? "" : Environment.NewLine + $"Left out because the user turned off sharing in Settings › Ask RigSight: {string.Join(", ", off.Select(Label))}. If the question needs it, tell them it's turned off and where to turn it on.";
+        return off.Count == 0 ? "" : Environment.NewLine + $"Left out because the user switched these pages off in Settings › AI: {string.Join(", ", off.Select(Label))}. If the question needs it, tell them it's switched off and where to switch it on.";
     }
 
     private string? RunMore(string name, JsonObject args) => name switch
@@ -176,18 +162,18 @@ public sealed partial class AiTools
             foreach (var m in minutes)
             {
                 var parts = new List<string>();
-                if (a.ShareHeat)
+                if (a.Sends(AiPages.Temperatures))
                 {
                     parts.Add($"CPU {T(m.CpuTempMax)} {Pct(m.CpuLoad)} busy");
                     parts.Add($"GPU {T(m.GpuTempMax)} {Pct(m.GpuLoad)} busy" + (m.GpuHotMax is double h ? $", hot spot {h:0} °C" : ""));
                     if (m.CpuPower is double cp || m.GpuPower is double) parts.Add($"power CPU {m.CpuPower:0} W, GPU {m.GpuPower:0} W");
                 }
-                if (a.ShareMemory && m.RamUsed is double ram) parts.Add($"memory {ram:0.0} GB" + (m.CommitPct is double c && c >= 80 ? $" (Windows {c:0}% of what it can promise)" : ""));
-                if (a.ShareApps && m.FgApp is long fg) parts.Add($"in front: {name(fg)}" + (m.Fps is double fps ? $" at {fps:0} fps" : ""));
-                if (a.ShareUsage && m.ActiveSec == 0) parts.Add("nobody at the PC");
+                if (a.Sends(AiPages.Memory) && m.RamUsed is double ram) parts.Add($"memory {ram:0.0} GB" + (m.CommitPct is double c && c >= 80 ? $" (Windows {c:0}% of what it can promise)" : ""));
+                if (a.Sends(AiPages.Apps) && m.FgApp is long fg) parts.Add($"in front: {name(fg)}" + (m.Fps is double fps ? $" at {fps:0} fps" : ""));
+                if (a.Sends(AiPages.Reports) && m.ActiveSec == 0) parts.Add("nobody at the PC");
                 sb.AppendLine($"  {TimeUtil.FromUnix(m.Ts):h:mm tt}: {string.Join("; ", parts)}");
             }
-            if (a.ShareHeat)
+            if (a.Sends(AiPages.Temperatures))
             {
                 var fans = db.GetFans().ToDictionary(f => f.Id);
                 var speeds = db.GetFanMinutes(t - 300, t + 360).GroupBy(f => f.Fan)
@@ -195,19 +181,19 @@ public sealed partial class AiTools
                     .OfType<string>().ToList();
                 if (speeds.Count > 0) sb.AppendLine("Fans in the 5 minutes either side: " + string.Join(", ", speeds) + ".");
             }
-            if (a.ShareApps)
+            if (a.Sends(AiPages.Apps))
             {
                 var busiest = db.GetAppMinutes(t - 300, t + 360).GroupBy(x => x.App)
                     .Select(g => (App: g.Key, Cpu: g.Average(x => x.Cpu), Gpu: g.Average(x => x.Gpu), Mem: g.Max(x => x.MemMb)))
                     .OrderByDescending(x => x.Cpu + x.Gpu).Take(6).ToList();
                 if (busiest.Count > 0)
                     sb.AppendLine("Busiest apps in the 5 minutes either side: " + string.Join(", ", busiest.Select(b =>
-                        $"{name(b.App)} (CPU {b.Cpu:0}%, GPU {b.Gpu:0}%" + (a.ShareMemory ? $", memory {Units.Megabytes(b.Mem)})" : ")"))) + ".");
+                        $"{name(b.App)} (CPU {b.Cpu:0}%, GPU {b.Gpu:0}%" + (a.Sends(AiPages.Memory) ? $", memory {Units.Megabytes(b.Mem)})" : ")"))) + ".");
             }
-            if (a.ShareNetwork && db.GetNetMinutes(t - 300, t + 360) is { Count: > 0 } net)
+            if (a.Sends(AiPages.Network) && db.GetNetMinutes(t - 300, t + 360) is { Count: > 0 } net)
                 sb.AppendLine($"Internet in the 5 minutes either side: {Units.Data(net.Sum(n => n.Down))} down, {Units.Data(net.Sum(n => n.Up))} up.");
         }
-        if (settings.Ai.ShareCrashes)
+        if (settings.Ai.Sends(AiPages.Crashes))
         {
             var near = db.GetCrashes(t - 1800, t + 1800);
             if (near.Count > 0)
@@ -234,7 +220,7 @@ public sealed partial class AiTools
         void Peak(string part, string column, string appColumn, double? value)
         {
             if (value is not double v) return;
-            string when = db.FindMinute(column, v, f, t, settings.Ai.ShareApps ? appColumn : null) is { } m
+            string when = db.FindMinute(column, v, f, t, settings.Ai.Sends(AiPages.Apps) ? appColumn : null) is { } m
                 ? $" at {TimeUtil.FromUnix(m.Ts):ddd d MMM h:mm tt}" + (m.App is long app ? $", with {name(app)} working it hardest" : "") : "";
             sb.AppendLine($"{part} peak: {v:0} °C{when}.");
         }
@@ -281,7 +267,7 @@ public sealed partial class AiTools
         var name = Namer(db);
         var totals = db.GetAppTotals(f, t).Where(a => a.FgSec + a.BgSec + a.IdleSec >= 60).OrderByDescending(a => a.FgSec).ThenByDescending(a => a.BgSec).ToList();
         if (totals.Count == 0) return $"No apps recorded on {said}.";
-        var net = settings.Ai.ShareNetwork ? db.GetNetAppTotals(f, t).ToDictionary(n => n.App) : [];
+        var net = settings.Ai.Sends(AiPages.Network) ? db.GetNetAppTotals(f, t).ToDictionary(n => n.App) : [];
         var sb = new StringBuilder();
         sb.AppendLine($"Apps on {said}, most time in front first (at most 25):");
         foreach (var a in totals.Take(25))
@@ -289,9 +275,9 @@ public sealed partial class AiTools
             var parts = new List<string> { $"{Units.Duration(a.FgSec)} in front", $"{Units.Duration(a.BgSec + a.MinSec)} open behind" };
             if (a.CpuN > 0) parts.Add($"CPU {a.CpuSum / a.CpuN:0}% on average (up to {a.CpuMax:0}%)");
             if (a.GpuLoadN > 0) parts.Add($"GPU {a.GpuLoadSum / a.GpuLoadN:0}% busy while in front");
-            if (settings.Ai.ShareMemory && a.MemN > 0) parts.Add($"memory {Units.Megabytes(a.MemSum / a.MemN)} on average (up to {Units.Megabytes(a.MemMax ?? 0)})");
-            if (settings.Ai.ShareHeat && a.GpuTempN > 0) parts.Add($"GPU {a.GpuTempSum / a.GpuTempN:0} °C while in use (up to {a.GpuTempMax:0} °C)");
-            if (settings.Ai.ShareHeat && a.CpuTempN > 0) parts.Add($"CPU {a.CpuTempSum / a.CpuTempN:0} °C while in use");
+            if (settings.Ai.Sends(AiPages.Memory) && a.MemN > 0) parts.Add($"memory {Units.Megabytes(a.MemSum / a.MemN)} on average (up to {Units.Megabytes(a.MemMax ?? 0)})");
+            if (settings.Ai.Sends(AiPages.Temperatures) && a.GpuTempN > 0) parts.Add($"GPU {a.GpuTempSum / a.GpuTempN:0} °C while in use (up to {a.GpuTempMax:0} °C)");
+            if (settings.Ai.Sends(AiPages.Temperatures) && a.CpuTempN > 0) parts.Add($"CPU {a.CpuTempSum / a.CpuTempN:0} °C while in use");
             if (net.TryGetValue(a.AppId, out var n) && n.Down + n.Up > 0) parts.Add($"internet {Units.Data(n.Down)} down, {Units.Data(n.Up)} up");
             sb.AppendLine($"  {name(a.AppId)}: {string.Join(", ", parts)}");
         }
@@ -315,7 +301,7 @@ public sealed partial class AiTools
         var full = minutes.MaxBy(m => m.RamUsed!.Value)!;
         sb.Append($"Fullest minute: {full.RamUsed:0.0} GB at {TimeUtil.FromUnix(full.Ts):ddd d MMM h:mm tt}");
         var name = Namer(db);
-        if (settings.Ai.ShareApps)
+        if (settings.Ai.Sends(AiPages.Apps))
         {
             var holding = db.GetAppMinutes(full.Ts, full.Ts + 60).OrderByDescending(a => a.MemMb).Take(5).ToList();
             if (holding.Count > 0) sb.Append("; holding the most then: " + string.Join(", ", holding.Select(h => $"{name(h.App)} {Units.Megabytes(h.MemMb)}")));
@@ -323,7 +309,7 @@ public sealed partial class AiTools
         sb.AppendLine(".");
         if (minutes.Where(m => m.CommitPct is not null).MaxBy(m => m.CommitPct) is { CommitPct: double c } tight)
             sb.AppendLine($"Closest Windows came to running out: {c:0}% of what it can promise (RAM and page file together) at {TimeUtil.FromUnix(tight.Ts):ddd d MMM h:mm tt}. Near 100% is about to run out.");
-        if (settings.Ai.ShareApps)
+        if (settings.Ai.Sends(AiPages.Apps))
         {
             var most = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).OrderByDescending(x => x.MemSum / x.MemN).Take(8).ToList();
             if (most.Count > 0) sb.AppendLine("Apps using the most memory on average while open: " + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}")) + ".");
@@ -364,7 +350,7 @@ public sealed partial class AiTools
         foreach (var d in days.TakeLast(31))
             sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: {Units.Data(d.Down)} down, {Units.Data(d.Up)} up, {Units.Data(d.Background)} of it by apps not in front"
                 + (d.Best is long best ? $", fastest steady download {Units.Speed(best)}" : ""));
-        if (settings.Ai.ShareApps)
+        if (settings.Ai.Sends(AiPages.Apps))
         {
             var apps = db.GetNetAppTotals(f, t).OrderByDescending(a => a.Down + a.Up).Take(10).ToList();
             if (apps.Count > 0) sb.AppendLine("Apps that used the most: " + string.Join(", ", apps.Select(a => $"{name(a.App)} {Units.Data(a.Down)} down, {Units.Data(a.Up)} up")) + ".");
@@ -402,7 +388,7 @@ public sealed partial class AiTools
         sb.AppendLine($"The PC on {said}. Between these stretches it was off or asleep (the records can't tell which):");
         foreach (var r in runs.TakeLast(40))
             sb.AppendLine($"  {TimeUtil.FromUnix(r.Start):ddd d MMM h:mm tt} to {TimeUtil.FromUnix(r.End):h:mm tt}: on {Units.Duration(r.End - r.Start)}, in use {Units.Duration(r.Active)}");
-        if (settings.Ai.ShareCrashes && db.GetCrashes(f, t).Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).ToList() is { Count: > 0 } downs)
+        if (settings.Ai.Sends(AiPages.Crashes) && db.GetCrashes(f, t).Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).ToList() is { Count: > 0 } downs)
             sb.AppendLine("Stretches that ended in a crash or sudden shut-off: " + string.Join("; ", downs.Select(c => $"{TimeUtil.FromUnix(c.Ts):d MMM h:mm tt} {CrashExplainer.Explain(c).Title}")) + ".");
         return sb.ToString();
     }
@@ -423,31 +409,31 @@ public sealed partial class AiTools
     private void Trim(Report r)
     {
         var a = settings.Ai;
-        if (!a.ShareNetwork)
+        if (!a.Sends(AiPages.Network))
         {
             r.Net = null;
             r.Insights.RemoveAll(i => i.Key.StartsWith("net-", StringComparison.Ordinal));
             foreach (var app in r.Apps) app.NetBytes = null;
         }
-        if (!a.ShareMemory)
+        if (!a.Sends(AiPages.Memory))
         {
             r.Insights.RemoveAll(i => i.Key == "memory");
             foreach (var app in r.Apps) { app.MemAvg = null; app.MemMax = null; }
         }
-        if (!a.ShareUsage) r.Insights.RemoveAll(i => UsageKeys.Contains(i.Key));
-        if (!a.ShareCrashes)
+        if (!a.Sends(AiPages.Reports)) r.Insights.RemoveAll(i => UsageKeys.Contains(i.Key));
+        if (!a.Sends(AiPages.Crashes))
         {
             r.Crashes.Clear();
             r.Insights.RemoveAll(i => CrashKeys.Contains(i.Key));
         }
-        if (!a.ShareHeat)
+        if (!a.Sends(AiPages.Temperatures))
         {
             r.CpuTempPeak = r.GpuTempPeak = null;
             r.Usual = null;
             r.Insights.RemoveAll(i => !HeatFree.Contains(i.Key) && !i.Key.StartsWith("net-", StringComparison.Ordinal));
             foreach (var app in r.Apps) { app.CpuTempMax = app.GpuTempMax = app.CpuTempAvg = app.GpuTempAvg = app.GpuHotMax = null; }
         }
-        if (!a.ShareApps)
+        if (!a.Sends(AiPages.Apps))
         {
             r.Apps.Clear();
             r.Insights.RemoveAll(i => !AppFree.Contains(i.Key));

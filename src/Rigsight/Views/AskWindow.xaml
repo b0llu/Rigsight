@@ -825,6 +825,24 @@
             </DockPanel>
         </DataTemplate>
 
+        <!-- A limit or a page in the way (the plans mock-up): a card in the chat with the one step that fixes it. -->
+        <DataTemplate DataType="{x:Type vm:AskWall}">
+            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                              Padding="14,12" Margin="0,0,0,14" AutomationProperties.Name="{Binding Title}">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    <WrapPanel Margin="0,12,0,0">
+                        <Button Style="{StaticResource AccentButton}" Content="{Binding MainText}" Margin="0,0,8,0"
+                                Command="{Binding DataContext.UseWallCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                Visibility="{Binding HasPlan, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'See all plans'}"
+                                Command="{Binding DataContext.SeePlansCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </WrapPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:AskStopped}">
             <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14" />
         </DataTemplate>
@@ -849,6 +867,18 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,8,0" VerticalAlignment="Top" />
                     <TextBlock Text="{Binding FromWeb}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                 </DockPanel>
+                <!-- A page the plan doesn't open would have helped: one quiet line, never a pop-up. -->
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,4,0,0"
+                        Visibility="{Binding HasLocked, Converter={StaticResource Vis}}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                Command="{Binding DataContext.SeePlansCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE72E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
+                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center">
+                            <Run Text="{Binding LockedTitle, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding LockedText, Mode=OneWay}" />
+                        </TextBlock>
+                    </DockPanel>
+                </Border>
             </StackPanel>
         </DataTemplate>
 
@@ -1107,26 +1137,45 @@
                                 </DockPanel>
                             </ctl:SmoothBorder>
                             <!-- The heading right above the switches, bigger than their names, so it reads as one. -->
-                            <TextBlock Text="{ctl:T 'Pick what it may look at'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,2">
-                                <StackPanel>
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareCrashes}" Margin="0,7"><TextBlock Text="{ctl:T 'Crashes and shut-offs'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareHeat}" Margin="0,7"><TextBlock Text="{ctl:T 'Temperatures and fans'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareApps}" Margin="0,7"><TextBlock Text="{ctl:T 'Apps and games you use'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareChanges}" Margin="0,7"><TextBlock Text="{ctl:T 'Changes: drivers, updates, BIOS, settings'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareMemory}" Margin="0,7"><TextBlock Text="{ctl:T 'Memory and storage'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareNetwork}" Margin="0,7"><TextBlock Text="{ctl:T 'Internet use'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareUsage}" Margin="0,7"><TextBlock Text="{ctl:T 'When your PC was on and in use'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShareParts}" Margin="0,7"><TextBlock Text="{ctl:T 'Your PC\'s parts (CPU, graphics card, motherboard)'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></CheckBox>
-                                </StackPanel>
-                            </ctl:SmoothBorder>
+                            <TextBlock Text="{ctl:T 'Pick the pages it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
+                            <!-- The same pages as Settings › AI › What answers can read: pressed to stop sending one. -->
+                            <ItemsControl ItemsSource="{Binding Pages.Tiles}" Margin="0,0,-6,0" Focusable="False">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Margin="0,0,6,6" Padding="10,7" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}"
+                                                Command="{Binding DataContext.Pages.ToggleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <ctl:SmoothBorder x:Name="Box" CornerRadius="8" BorderThickness="1" Padding="{TemplateBinding Padding}"
+                                                                      Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}">
+                                                        <DockPanel>
+                                                            <Border x:Name="Tick" DockPanel.Dock="Right" Width="16" Height="16" CornerRadius="8" Background="{DynamicResource TextBrush}" VerticalAlignment="Center">
+                                                                <TextBlock x:Name="TickMark" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource BgBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <TextBlock x:Name="Label" Text="{Binding Name}" FontSize="12.5" Margin="0,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                        </DockPanel>
+                                                    </ctl:SmoothBorder>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                        <DataTrigger Binding="{Binding On}" Value="False">
+                                                            <Setter TargetName="Box" Property="Background" Value="Transparent" />
+                                                            <Setter TargetName="Tick" Property="Background" Value="Transparent" />
+                                                            <Setter TargetName="Tick" Property="BorderBrush" Value="{DynamicResource FaintBrush}" />
+                                                            <Setter TargetName="Tick" Property="BorderThickness" Value="1.5" />
+                                                            <Setter TargetName="TickMark" Property="Visibility" Value="Collapsed" />
+                                                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}">
+                                <Run Text="{Binding Pages.OutsideTitle, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Pages.OutsideList, Mode=OneWay}" />
+                            </TextBlock>
                             <TextBlock Text="{Binding FirstNever}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
                                        Visibility="{Binding FirstNever, Converter={StaticResource Vis}}" />
                             <TextBlock Text="{Binding FirstExtra}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
@@ -1168,9 +1217,9 @@
                     </Button>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0">
-                        <!-- Questions left on RigSight AI: amber from 5; opens Settings › Ask RigSight to buy more. -->
-                        <Button Command="{Binding SettingsCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Height="30" Cursor="Hand"
-                                ToolTip="{ctl:T 'Buy more in Settings › Ask RigSight'}" Visibility="{Binding ShowQuestionsLeft, Converter={StaticResource Vis}}">
+                        <!-- Questions left on RigSight AI (this week's free ones, or today's): amber when few are left; opens the plans. -->
+                        <Button Command="{Binding SeePlansCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Height="30" Cursor="Hand"
+                                ToolTip="{ctl:T 'See plans'}" Visibility="{Binding ShowQuestionsLeft, Converter={StaticResource Vis}}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="10,0">
@@ -1208,6 +1257,8 @@
                     <StackPanel>
                         <TextBlock Text="{Binding OutTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
                         <TextBlock Text="{Binding OutText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" Command="{Binding SeePlansCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                Visibility="{Binding LicenceOff, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
