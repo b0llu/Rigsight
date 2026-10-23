@@ -563,12 +563,12 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <!-- A page's Export button, the last in its title row: the page's own Export box (ShellViewModel.ExportPage). -->
+    <!-- A page's Export button, the last in its title row: the page's own Export box (routed to the window, which opens it). -->
     <Style x:Key="PageExportButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="DockPanel.Dock" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="Margin" Value="8,0,0,0" />
-        <Setter Property="Command" Value="{Binding DataContext.ExportPageCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+        <Setter Property="Command" Value="{x:Static ctl:PageCommands.Export}" />
         <Setter Property="AutomationProperties.Name" Value="{ctl:T 'Export this page'}" />
         <Setter Property="ContentTemplate">
             <Setter.Value>

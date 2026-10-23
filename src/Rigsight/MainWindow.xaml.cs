@@ -17,6 +17,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _vm = vm;
+        // A page's Export button: that page's own box.
+        CommandBindings.Add(new System.Windows.Input.CommandBinding(Controls.PageCommands.Export, (_, _) => vm.ExportPageCommand.Execute(null), (_, e) => e.CanExecute = true));
         vm.PropertyChanged += OnViewModelChanged;
         vm.ActivateRequested += BringToFront;
         vm.CustomPageDeleted += key =>

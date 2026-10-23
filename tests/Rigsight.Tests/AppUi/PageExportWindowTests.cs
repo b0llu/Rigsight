@@ -30,7 +30,8 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
         host.Show(page, 900);
         var button = ExportButton();
         Assert.NotNull(button);
-        Ui.Run(() => button!.Command.Execute(null));
+        // As a click does: routed from the button up to the window.
+        Ui.Run(() => ((System.Windows.Input.RoutedCommand)button!.Command).Execute(null, button));
         Assert.True(Ui.WaitFor(() => host.Shell.PageExport.IsOpen && host.Shell.PageExport.Summary.Length > 0));
         Ui.Pump(300);
         Ui.Run(() =>
