@@ -35,7 +35,7 @@
         <Grid x:Name="RevealPanel" Visibility="{Binding IsRevealing, Converter={StaticResource Vis}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Canvas x:Name="Fan" Width="420" Height="320" Margin="0,0,0,26" />
-                <TextBlock Text="{Binding RevealTitle}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="30" FontWeight="SemiBold"
+                <TextBlock Text="{Binding RevealTitle}" FontFamily="Segoe UI" FontSize="30" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding RevealSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
@@ -107,7 +107,7 @@
                             <ctl:SmoothBorder Width="760" Height="644" CornerRadius="20" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                                               Visibility="{Binding AtEnd, Converter={StaticResource Vis}}">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding EndTitle}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="30" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding EndTitle}" FontFamily="Segoe UI" FontSize="30" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                                 <TextBlock Text="{Binding EndSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                                 <WrapPanel x:Name="Thumbs" HorizontalAlignment="Center" MaxWidth="700" Margin="0,24,0,26" />

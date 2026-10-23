@@ -113,14 +113,19 @@
         <Border x:Name="EditorScrim" Background="#000000" Opacity="0" Visibility="Collapsed" MouseLeftButtonDown="EditorScrim_MouseLeftButtonDown" />
 
         <!-- The editor: a sheet over the page that slides in from the right (see the code-behind). -->
+        <!-- The editor's shadow on an empty box of its own behind it, sliding with it (the same transform): an effect on the
+             editor itself drew all its text without ClearType, softer than the rest of the app. -->
+        <Border Width="430" HorizontalAlignment="Right" Background="{DynamicResource SidebarBrush}" IsHitTestVisible="False"
+                Visibility="{Binding Visibility, ElementName=EditorPanel}" RenderTransform="{Binding RenderTransform, ElementName=EditorPanel}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
+            </Border.Effect>
+        </Border>
         <Border x:Name="EditorPanel" Width="430" HorizontalAlignment="Right" Visibility="Collapsed"
                 BorderThickness="1,0,0,0" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource SidebarBrush}">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="EditorSlide" X="430" />
             </Border.RenderTransform>
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
-            </Border.Effect>
             <ScrollViewer x:Name="EditorContent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           DataContext="{Binding Editing}">
                 <StackPanel Margin="22,22,22,26">

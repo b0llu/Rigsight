@@ -80,4 +80,22 @@ public class ProblemReportTests
             Assert.Equal("Couldn't open", vm.ReportBugText);
         });
     }
+
+    // "Contact support is not working at all" (2026-10-23): an email link did nothing with no mail app set up. It opens
+    // Gmail in the browser, the email already addressed, with the version in it.
+    [Fact]
+    public void Contact_support_opens_a_new_email_in_Gmail()
+    {
+        var settings = Kit.OfflineSettings();
+        Ui.Run(() =>
+        {
+            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
+            string? opened = null;
+            vm.OpenInBrowser = url => opened = url;
+            vm.ContactSupportCommand.Execute(null);
+            Assert.StartsWith("https://mail.google.com/mail/?view=cm", opened);
+            Assert.Contains("to=support%40rigsight.app", opened);
+            Assert.Contains("RigSight%20" + Rigsight.Core.Ai.Relay.Version, opened);
+        });
+    }
 }

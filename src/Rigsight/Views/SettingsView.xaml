@@ -1805,6 +1805,17 @@
                                        Text="{ctl:T 'Opens a form in your browser. RigSight itself sends nothing.'}" />
                         </StackPanel>
                     </DockPanel>
+                    <!-- Contact support: Gmail in the browser, the email already written; the address shown, to copy by hand. -->
+                    <DockPanel Style="{StaticResource Row}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Email support'}" Command="{Binding ContactSupportCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Email support" />
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Contact support'}" Style="{StaticResource Title}" />
+                            <!-- The address as text that can be selected and copied by hand too. -->
+                            <TextBox Text="{Binding SupportAddressText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0"
+                                     Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,2,0,0" AutomationProperties.Name="Support address" />
+                        </StackPanel>
+                    </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <!-- The button itself says "Copied" for a moment: no line of text appears under the row. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding CopyLogsText}" Command="{Binding CopyProblemReportCommand}"
@@ -1850,15 +1861,20 @@
 
         <!-- The sidebar editor: a sheet over the page that slides in from the right, as a widget's editor does (see the
              code-behind). Every change shows in the sidebar at once; the x, Esc or a click on the page closes it. -->
+        <!-- The editor's shadow on an empty box of its own behind it, sliding with it (the same transform): an effect on the
+             editor itself drew all its text without ClearType, softer than the rest of the app. -->
+        <Border Width="430" HorizontalAlignment="Right" Background="{DynamicResource SidebarBrush}" IsHitTestVisible="False"
+                Visibility="{Binding Visibility, ElementName=EditorPanel}" RenderTransform="{Binding RenderTransform, ElementName=EditorPanel}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
+            </Border.Effect>
+        </Border>
         <Border x:Name="EditorPanel" Width="430" HorizontalAlignment="Right" Visibility="Collapsed" DataContext="{Binding Sidebar}"
                 Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle"
                 BorderThickness="1,0,0,0" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource SidebarBrush}">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="EditorSlide" X="430" />
             </Border.RenderTransform>
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
-            </Border.Effect>
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="22,22,22,12">
                     <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"

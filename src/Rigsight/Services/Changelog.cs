@@ -110,6 +110,9 @@ public static class Changelog
     [
         // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
         // until it launches.
+        V("0.32.3", 10, 23,
+            better: [Lang.T("Text across RigSight now uses Segoe UI, the font Windows itself uses, and the Dark theme's text is a softer white.")],
+            fixedBugs: [Lang.T("Contact support now opens a new email to support in Gmail, in your browser, instead of needing a mail app.")]),
         V("0.32.2", 10, 22,
             better: [Lang.T("Opening the Crashes page is quicker: its list keeps the crashes it already showed instead of building them all again each time.")],
             fixedBugs: [Lang.T("RigSight no longer waits on a network drive or a drive that's unplugged while it looks for games.")]),

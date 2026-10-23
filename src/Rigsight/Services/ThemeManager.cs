@@ -129,9 +129,32 @@ public static class ThemeManager
         return Categories[category] = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
     }
 
-    /// <summary>The window's title bar in the page background and text colors.</summary>
-    public static void ApplyTitleBar(Window window) =>
+    /// <summary>The window's title bar in the page background and text colors, and its text smoothing for the theme.</summary>
+    public static void ApplyTitleBar(Window window)
+    {
         WindowTheme.ApplyTitleBar(window, !IsLight, ChartPaint.Res("BgColor", 0), ChartPaint.Res("TextColor", 0xFF));
+        ApplyText(window);
+    }
+
+    /// <summary>
+    /// How text is smoothed, being worked out ("in dark theme the white text is very stringy to the eyes", 2026-10-23).
+    /// Measured: the window's frame lets Windows' glass through, so WPF draws all text in greyscale today, light and dark
+    /// alike, and light strokes on dark lose weight in greyscale. A test copy tries the ways out side by side with
+    /// RIGSIGHT_TEXT: "cleartype" (the page is opaque, so ClearType may be used), "display" (snapped to whole pixels),
+    /// "both". Nothing changes for anyone else until one is chosen.
+    /// </summary>
+    private static void ApplyText(Window window)
+    {
+        if (!Rigsight.Core.RigsightPaths.IsTestInstance || Environment.GetEnvironmentVariable("RIGSIGHT_TEXT") is not { } way) return;
+        bool clear = way is "cleartype" or "both", display = way is "display" or "both";
+        if (clear)
+        {
+            RenderOptions.SetClearTypeHint(window, ClearTypeHint.Enabled);
+            if (window.Content is UIElement root) RenderOptions.SetClearTypeHint(root, ClearTypeHint.Enabled);
+            TextOptions.SetTextRenderingMode(window, TextRenderingMode.ClearType);
+        }
+        if (display) TextOptions.SetTextFormattingMode(window, TextFormattingMode.Display);
+    }
 
     private static void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
     {
