@@ -361,10 +361,13 @@ public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
     }
 
     /// <summary>The report for [from, to) into a file: a day's own report, or a custom period's.</summary>
-    internal static async Task WriteReportAsync(ReportService reports, DateTime from, DateTime to, string path, bool asText)
+    /// <param name="page">A page's own period (a week, a month…): its report is built as that page builds it, against the
+    /// period before it, rather than as a custom stretch of days.</param>
+    internal static async Task WriteReportAsync(ReportService reports, DateTime from, DateTime to, string path, bool asText, (ReportRange Range, DateTime Anchor)? page = null)
     {
         bool day = (to - from).TotalDays == 1 && from.TimeOfDay == TimeSpan.Zero;
-        var report = day ? await reports.BuildAsync(ReportRange.Day, from) : await reports.BuildCustomAsync(from, to);
+        var report = page is { } p ? await reports.BuildAsync(p.Range, p.Anchor)
+            : day ? await reports.BuildAsync(ReportRange.Day, from) : await reports.BuildCustomAsync(from, to);
         report ??= new Report { From = from, To = to };
         string title = day ? from.ToString("dddd, d MMMM yyyy")
             : from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero ? Lang.T($"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}") : Report.CustomTitle(from, to);
@@ -412,7 +415,8 @@ public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
         string Name(AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name;
         var context = db.GetCrashContext(f, t);
         var changes = db.GetChanges(f - 7 * 86400, t).Where(c => Telling.Contains(c.Kind)).ToList();
-        var crashes = db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe) && (only is null || only(e))).ToList();
+        // What the page shows decides (its own muting included); the full box leaves muted apps out.
+        var crashes = db.GetCrashes(f, t).Where(e => only is null ? !s.IsCrashMuted(e.AppExe) : only(e)).ToList();
         var findings = CrashCases.Of(db, crashes, s);
         Dictionary<DateTime, Core.Reports.ChangeResult> results = changes.Any(Core.Reports.ChangeEffects.IsMajor) ? Core.Reports.ChangeEffects.Read(db, s) : [];
         return [.. crashes.Select(e =>

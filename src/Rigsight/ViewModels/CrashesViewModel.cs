@@ -208,9 +208,6 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     private DateTime From => Bounds.From;
 
-    /// <summary>The period the list is for, as the page's Export box starts on it.</summary>
-    internal (DateTime From, DateTime To) Shown => Bounds;
-
     /// <summary>Whether a filter ("All", "Apps", "Pc") lists a group.</summary>
     private static bool FilterHas(string filter, CrashGroup g) => filter switch
     {
@@ -220,13 +217,18 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     };
 
     /// <summary>
-    /// The crashes the list shows for the period on the page with <paramref name="filter"/>, and with the search when
-    /// asked (the page's Export box, which saves exactly what the page lists).
+    /// The crashes the list would show for a period with <paramref name="filter"/> and <paramref name="words"/> searched:
+    /// read and grouped as the page reads and groups them (the page's Export box saves exactly what the page lists, for
+    /// whichever period is picked in it).
     /// </summary>
-    internal IReadOnlySet<long> ShownIds(string filter, bool withSearch)
+    internal static async Task<IReadOnlySet<long>> ShownIdsAsync(ReportService reports, Core.Settings.RigsightSettings s, DateTime from, DateTime to,
+        string filter, string[] words, bool grouped, bool showMuted)
     {
-        var words = withSearch ? Core.TextMatch.Words(SearchText) : [];
-        return _groups.Where(g => (ShowMuted || !g.IsMuted) && FilterHas(filter, g) && (words.Length == 0 || g.Rows.Any(r => Says(r, words))))
+        if (to > DateTime.Now) to = DateTime.Now.AddMinutes(1);
+        var rows = await reports.CrashesAsync(from, to, includeMuted: true) ?? [];
+        var groups = CrashGroup.Build(rows, groupRepeats: grouped);
+        foreach (var g in groups) g.IsMuted = g.AppExe is { } exe && s.IsCrashMuted(exe);
+        return groups.Where(g => (showMuted || !g.IsMuted) && FilterHas(filter, g) && (words.Length == 0 || g.Rows.Any(r => Says(r, words))))
             .SelectMany(g => g.Rows).Select(r => r.Event.Id).ToHashSet();
     }
 

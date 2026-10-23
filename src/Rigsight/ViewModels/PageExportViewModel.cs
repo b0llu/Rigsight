@@ -16,7 +16,7 @@ namespace Rigsight.ViewModels;
 public enum PageItemKind { Table, Report, Stories, Snapshot, Sheet }
 
 /// <summary>The period, filter and moment an export is made for.</summary>
-public sealed record PageExportRun(DateTime From, DateTime To, ExportFilter Filter, DateTime Now);
+public sealed record PageExportRun(DateTime From, DateTime To, ExportFilter Filter, DateTime Now, PeriodChoice? Choice = null);
 
 /// <summary>One thing a page's Export box can save, in the page's own words, with a line on what the file holds.</summary>
 public sealed partial class PageExportItem(string name, string about, PageItemKind kind, bool on) : ObservableObject
@@ -31,6 +31,8 @@ public sealed partial class PageExportItem(string name, string about, PageItemKi
     /// gives what makes the file from the history, run off it.
     /// </summary>
     public Func<PageExportRun, Func<RigsightDb, RigsightSettings, ExportSheet>>? Sheet { get; init; }
+    /// <summary>The same, for a file whose page has to be read for the period first (the Fans summary).</summary>
+    public Func<PageExportRun, Task<Func<RigsightDb, RigsightSettings, ExportSheet>>>? SheetAsync { get; init; }
     /// <summary>What's on the page now (a list, the readings): the period doesn't change it.</summary>
     public bool IsNow { get; init; }
     /// <summary>About how big, in bytes per day of the period (a sheet's own guess).</summary>
@@ -47,6 +49,9 @@ public sealed partial class PeriodChoice(string label, Func<(DateTime From, Date
     public string Label { get; } = label;
     public Func<(DateTime From, DateTime To)>? Bounds { get; } = bounds;
     public bool IsCustom => Bounds is null;
+    /// <summary>The page's own unit and day for this period, where it is one (a report is then built as the page builds it).</summary>
+    public ReportRange? Unit { get; init; }
+    public DateTime Anchor { get; init; }
     [ObservableProperty] private bool _isOn;
 }
 
@@ -69,9 +74,16 @@ public sealed partial class ExportScope : ObservableObject
 {
     private readonly Func<ExportScope, string> _words;
 
-    public ExportScope(string name, bool isMulti, IReadOnlyList<ScopeOption> options, Func<ExportScope, string> words)
+    private readonly Func<ExportScope, bool> _narrows;
+
+    /// <param name="narrows">Whether what's picked narrows the files; by default, a one-of whose pick has a value, or
+    /// any-of with something left out.</param>
+    /// <param name="allowsNone">Any-of where nothing picked still makes sense (a search: off).</param>
+    public ExportScope(string name, bool isMulti, IReadOnlyList<ScopeOption> options, Func<ExportScope, string> words,
+        Func<ExportScope, bool>? narrows = null, bool allowsNone = false)
     {
-        (Name, IsMulti, Options, _words) = (name, isMulti, options, words);
+        (Name, IsMulti, Options, _words, AllowsNone) = (name, isMulti, options, words, allowsNone);
+        _narrows = narrows ?? (s => s.IsMulti ? !s.AllPicked : s.Picked.FirstOrDefault() is not null);
         GroupName = "Scope" + Guid.NewGuid().ToString("N")[..8];
         foreach (var o in options) o.PropertyChanged += (_, e) =>
         {
@@ -97,6 +109,10 @@ public sealed partial class ExportScope : ObservableObject
 
     public IEnumerable<object?> Picked => Options.Where(o => o.IsOn).Select(o => o.Value);
     public bool AllPicked => Options.All(o => o.IsOn);
+    public bool Narrows => _narrows(this);
+    public bool AllowsNone { get; }
+    /// <summary>Something to export with: a one-of always is; any-of needs one picked unless it allows none.</summary>
+    public bool IsComplete => !IsMulti || AllowsNone || Options.Any(o => o.IsOn);
 
     /// <summary>Said when anything in it is picked or left out (the box reads the new filter).</summary>
     public event Action? Picks;
@@ -123,8 +139,11 @@ public sealed partial class ExportScope : ObservableObject
 /// <param name="Custom">The page's own custom period, when it has one (to the hour; the end not in it).</param>
 /// <param name="FromInstall">The page's history starts when RigSight did (its periods are said from that day); off for crashes and
 /// changes, which Windows kept from before.</param>
+/// <param name="Filter">What narrows the files, for the period and picks at export (it may read the history).</param>
+/// <param name="FirstDay">The first day the page has (the calendar offers none before it); null: the first day RigSight recorded.</param>
 public sealed record PageExportSpec(string Title, string Sub, IReadOnlyList<PageExportItem> Items, IReadOnlyList<PeriodChoice> Periods, int Picked,
-    (DateTime From, DateTime To)? Custom, IReadOnlyList<ExportScope> Scopes, Func<(DateTime From, DateTime To), ExportFilter> Filter, bool FromInstall = true);
+    (DateTime From, DateTime To)? Custom, IReadOnlyList<ExportScope> Scopes, Func<PageExportRun, Task<ExportFilter>> Filter, bool FromInstall = true,
+    DateTime? FirstDay = null);
 
 /// <summary>
 /// A page's own Export box: only what that page shows, in its words, for the period it shows and narrowed the way it
@@ -147,7 +166,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
 
     public bool ManyItems => Items.Count > ListMax;
 
-    private Func<(DateTime From, DateTime To), ExportFilter> _filter = _ => ExportFilter.None;
+    private Func<PageExportRun, Task<ExportFilter>> _filter = _ => Task.FromResult(ExportFilter.None);
     private bool _fromInstall = true;
 
     /// <summary>Writing the files: the button turns, and nothing can be changed meanwhile.</summary>
@@ -162,7 +181,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
 
     [ObservableProperty] private string _summary = "";
 
-    public bool CanExport => !IsBusy && Items.Any(i => i.IsOn);
+    public bool CanExport => !IsBusy && Items.Any(i => i.IsOn) && Scopes.All(s => s.IsComplete);
 
     // ── Opening ──
 
@@ -192,7 +211,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
         OnPropertyChanged(nameof(CanExport));
         Counted();
         PeriodChanged();
-        FirstDay = await reports.FirstDayAsync() ?? FirstDay;
+        FirstDay = spec.FirstDay ?? await reports.FirstDayAsync() ?? FirstDay;
     }
 
     [RelayCommand]
@@ -355,16 +374,18 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
         var (from, to) = Bounds;
         bool asText = AsText;
         var items = Items.ToList();
+        bool narrowed = Scopes.Any(s => s.Narrows);
+        int sensors = live.AllSensors.Count; // read here: the history is read off the window's thread
         foreach (var item in items.Where(i => i.IsNow)) item.SizeText = Lang.T("right now");
-        var sizes = await reports.QueryAsync((db, _) => items.Select(item => SizeOf(db, item, from, to, asText)).ToList());
+        var sizes = await reports.QueryAsync((db, _) => items.Select(item => SizeOf(db, item, from, to, asText, sensors)).ToList());
         if (id != _estimate || sizes is null) return;
         for (int i = 0; i < items.Count; i++)
-            if (!items[i].IsNow) items[i].SizeText = AboutSize(sizes[i]);
+            if (!items[i].IsNow) items[i].SizeText = narrowed && items[i].Kind is PageItemKind.Table or PageItemKind.Stories ? UpTo(sizes[i]) : AboutSize(sizes[i]);
         var on = items.Select((item, i) => (item, i)).Where(x => x.item.IsOn).ToList();
         string files = on.Count == 1 ? Lang.T("1 file") : Lang.T($"{on.Count} files");
         long total = on.Sum(x => sizes[x.i]);
         string size = Units.Data(Math.Max(total, 1024));
-        Summary = on.Count == 0 ? Lang.T("Nothing picked yet.") : Lang.T($"{files}, about {size}");
+        Summary = on.Count == 0 ? Lang.T("Nothing picked yet.") : narrowed ? Lang.T($"{files}, up to {size}") : Lang.T($"{files}, about {size}");
     }
 
     private static string AboutSize(long bytes)
@@ -373,7 +394,13 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
         return Lang.T($"about {size}");
     }
 
-    private long SizeOf(RigsightDb db, PageExportItem item, DateTime from, DateTime to, bool asText)
+    private static string UpTo(long bytes)
+    {
+        string size = Units.Data(Math.Max(bytes, 1024));
+        return Lang.T($"up to {size}");
+    }
+
+    private long SizeOf(RigsightDb db, PageExportItem item, DateTime from, DateTime to, bool asText, int sensors)
     {
         // As far back as there is history, up to now.
         var start = FirstDay is { } first && first > from ? first : from;
@@ -383,7 +410,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
             PageItemKind.Table => DataExport.EstimateBytes(db, item.Table!.Value, from, to) * (asText ? 3 : 2) / 2,
             PageItemKind.Report => asText ? 3_500 : 9_000 + db.CountRows("system_minute", "ts", TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)) / 4 + 2_000,
             PageItemKind.Stories => (asText ? 300 : 4_500) + db.CountRows("crashes", "ts", TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)) * (asText ? 600 : 900),
-            PageItemKind.Snapshot => 600 + live.AllSensors.Count * 72L,
+            PageItemKind.Snapshot => 600 + sensors * 72L,
             _ => item.IsNow ? item.BytesPerDay : (long)(item.BytesPerDay * days),
         };
     }
@@ -396,20 +423,25 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
         if (!CanExport) return;
         var on = Items.Where(i => i.IsOn).ToList();
         var (from, to) = Bounds;
-        var run = new PageExportRun(from, to, _filter((from, to)), DateTime.Now);
+        var choice = Period;
         string folder = Folder, period = PeriodText;
         bool asText = AsText;
         IsBusy = true;
         Error = null;
         try
         {
+            // What narrows the files, and what only the window knows (what a page lists, the readings now), are read
+            // here; the history off the window's thread.
+            var basis = new PageExportRun(from, to, ExportFilter.None, DateTime.Now, choice);
+            var run = basis with { Filter = await _filter(basis) };
+            var sheets = new List<Func<RigsightDb, RigsightSettings, ExportSheet>>();
+            foreach (var item in on.Where(i => i.Kind == PageItemKind.Sheet)) sheets.Add(item.SheetAsync is { } read ? await read(run) : item.Sheet!(run));
             Directory.CreateDirectory(folder);
-            // What only the window knows (the readings now, what a page lists) is read here; the rest off its thread.
-            var sheets = on.Where(i => i.Kind == PageItemKind.Sheet).Select(i => i.Sheet!(run)).ToList();
             if (on.Any(i => i.Kind == PageItemKind.Snapshot))
                 await File.WriteAllTextAsync(Path.Combine(folder, ReadableExport.SnapshotFile), ExportViewModel.SnapshotOf(live), new UTF8Encoding(true));
             if (on.Any(i => i.Kind == PageItemKind.Report))
-                await ExportViewModel.WriteReportAsync(reports, from, to, Path.Combine(folder, asText ? ReadableExport.ReportTextFile : ReadableExport.ReportFile), asText);
+                await ExportViewModel.WriteReportAsync(reports, from, to, Path.Combine(folder, asText ? ReadableExport.ReportTextFile : ReadableExport.ReportFile), asText,
+                    choice?.Unit is { } unit and not (ReportRange.All or ReportRange.Custom) ? (unit, choice.Anchor) : null);
             string? failed = await reports.QueryAsync((db, s) =>
             {
                 try
@@ -449,6 +481,13 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
             Log.Error("export", ex);
             string why = ex.Message;
             Error = Lang.T($"Couldn't save there: {why}");
+        }
+        catch (Exception ex)
+        {
+            // Anything else (a page read for the period, the history) is said in the box, never left to take the app down.
+            Log.Error("export", ex);
+            string why = ex.Message;
+            Error = Lang.T($"Couldn't finish: {why}");
         }
         finally
         {

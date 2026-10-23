@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
+using Rigsight.Core.Export;
 using Rigsight.Core.Reports;
 using Rigsight.Models;
 using Rigsight.Services;
@@ -254,8 +255,8 @@ public sealed partial class FansViewModel : ObservableObject
     /// <summary>The days in the period, for the week's and month's speed chart.</summary>
     public int Days => (int)Math.Round((Period.To - Period.From).TotalDays);
 
-    partial void OnUnitChanged(ReportRange value) => _ = RefreshAsync();
-    partial void OnAnchorChanged(DateTime value) => _ = RefreshAsync();
+    partial void OnUnitChanged(ReportRange value) { if (!_quiet) _ = RefreshAsync(); }
+    partial void OnAnchorChanged(DateTime value) { if (!_quiet) _ = RefreshAsync(); }
 
     /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
     public void NewDay(DateTime was)
@@ -275,14 +276,52 @@ public sealed partial class FansViewModel : ObservableObject
     private readonly SettingsModel _settings;
     private int _load;
 
-    public FansViewModel(ReportService reports, LiveData live, SettingsModel settings)
+    /// <param name="listen">Off for a page that's never shown (see <see cref="SummaryAsync"/>): it doesn't follow the live readings.</param>
+    public FansViewModel(ReportService reports, LiveData live, SettingsModel settings, bool listen = true)
     {
         _reports = reports;
         _settings = settings;
         Live = live;
+        _listen = listen;
+        if (!listen) return;
         live.PropertyChanged += OnLiveChanged;
         // New hardware (the agent reconnected): the rows again, once the page has been opened.
         live.SensorsRebuilt += () => { if (Loaded) _ = RefreshAsync(); };
+    }
+
+    /// <summary>
+    /// The page's summary for a period, worked out the way the page works it out (a page of its own, never shown): what
+    /// the Export box saves for a period other than the one on screen.
+    /// </summary>
+    internal static async Task<List<FactRow>> SummaryAsync(ReportService reports, LiveData live, SettingsModel settings, ReportRange unit, DateTime anchor)
+    {
+        var page = new FansViewModel(reports, live, settings, listen: false);
+        // Its period set without a read for each step (setting Unit and Anchor one by one reads twice, once for a period nobody wants).
+        page._quiet = true;
+        (page.Unit, page.Anchor) = (unit, anchor);
+        page._quiet = false;
+        await page.RefreshAsync();
+        return page.SummaryFacts();
+    }
+
+    private readonly bool _listen;
+
+    // Set while a page that's never shown is given its period (see SummaryAsync).
+    private bool _quiet;
+
+    /// <summary>The summary as the page shows it now: quiet time (a year: average speed), hardest, fastest, and the period's card.</summary>
+    internal List<FactRow> SummaryFacts()
+    {
+        var facts = new List<FactRow>
+        {
+            new(IsYear ? Lang.T("Average speed") : Lang.T("Quiet time"), QuietText, QuietNote),
+            new(Lang.T("Made them work hardest"), HardestApp, HardestNote),
+            new(Lang.T("Fastest"), FastestText, FastestNote),
+        };
+        if (LoudestHour is { } loud) facts.Add(new(LoudestLabel, loud, LoudestNote));
+        if (StartsText is { } starts) facts.Add(new(Lang.T("Started up"), starts, StartsNote));
+        if (SilentText is { } silent) facts.Add(new(Lang.T("Longest silence"), silent, SilentNote));
+        return facts;
     }
 
     public LiveData Live { get; }
@@ -435,7 +474,7 @@ public sealed partial class FansViewModel : ObservableObject
         var shown = new List<FanCard>();
         foreach (var fans in rows)
         {
-            var card = Fans.FirstOrDefault(c => c.Sensors.SequenceEqual(fans)) ?? NewCard(fans);
+            var card = Fans.FirstOrDefault(c => c.Sensors.SequenceEqual(fans)) ?? NewCard(fans, _listen);
             var ids = fans.Select(x => bySensor.TryGetValue(x.Id, out var f) ? f : -1).Where(f => f >= 0).ToHashSet();
             var fanDays = history.Days.Where(d => ids.Contains(d.Fan)).ToList();
             // A fan given another speed or curve during the period: what it did since (the two together are an average it
@@ -872,9 +911,11 @@ public sealed partial class FansViewModel : ObservableObject
 
 
 
-    private static FanCard NewCard(IReadOnlyList<SensorItem> fans)
+    /// <param name="listen">Off for a page that's never shown: a card that followed its fans' names would live as long as they do.</param>
+    private static FanCard NewCard(IReadOnlyList<SensorItem> fans, bool listen)
     {
         var card = new FanCard(fans);
+        if (!listen) return card;
         foreach (var x in fans)
             x.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SensorItem.DisplayName)) card.Renamed(); };
         return card;

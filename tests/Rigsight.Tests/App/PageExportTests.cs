@@ -99,16 +99,26 @@ public sealed class PageExportTests
     }
 
     [Fact]
-    public void The_Crashes_filter_and_search_read_each_crash_the_way_the_page_does()
+    public void The_Apps_pages_category_and_search_narrow_the_files_by_app()
     {
-        var app = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "Dota2.exe", Module = "client.dll" };
-        var reset = new CrashEvent { Kind = CrashKind.GpuDriverReset };
-        Assert.True(PageExports.CrashHas(app, "Apps", []));
-        Assert.False(PageExports.CrashHas(reset, "Apps", []));
-        Assert.True(PageExports.CrashHas(reset, "Pc", []));
-        Assert.True(PageExports.CrashHas(app, "All", ["dota"]));
-        Assert.True(PageExports.CrashHas(app, "All", ["client.dll"]));
-        Assert.False(PageExports.CrashHas(app, "All", ["chrome"]));
+        SharedData.EnsureSeeded();
+        using var db = RigsightDb.OpenReader()!;
+        var usage = Rows(db, ExportTable.AppUsage);
+        // A category the history has (its column says it), and only its apps.
+        string label = usage.Skip(1).GroupBy(r => r[3]).OrderByDescending(g => g.Count()).First().Key;
+        var category = Enum.GetValues<Rigsight.Core.Settings.AppCategory>().First(c => Rigsight.Core.Apps.AppCatalog.Label(c) == label);
+        var one = Rows(db, ExportTable.AppUsage, new ExportFilter { Category = category });
+        Assert.True(one.Count > 1);
+        Assert.All(one.Skip(1), r => Assert.Equal(label, r[3]));
+        Assert.True(one.Count < usage.Count || usage.Skip(1).All(r => r[3] == label));
+        // The search: each word in the name or the program.
+        string name = usage[1][1];
+        var found = Rows(db, ExportTable.Sessions, new ExportFilter { AppWords = [name.Split(' ')[0]] });
+        Assert.True(found.Count > 1);
+        Assert.All(found.Skip(1), r => Assert.True(r[2].Contains(name.Split(' ')[0], StringComparison.OrdinalIgnoreCase) || r[3].Contains(name.Split(' ')[0], StringComparison.OrdinalIgnoreCase)));
+        Assert.Single(Rows(db, ExportTable.Sessions, new ExportFilter { AppWords = ["no-such-app-anywhere"] }));
+        Assert.True(new ExportFilter { AppWords = ["x"] }.Narrows);
+        Assert.False(ExportFilter.None.Narrows);
     }
 
     [Fact]
@@ -124,6 +134,12 @@ public sealed class PageExportTests
         Assert.Equal(["D:"], drives.Picked);
         drives.PickAllCommand.Execute(null);
         Assert.True(drives.AllPicked);
+        // Something to export with: an any-of choice needs one picked (a search may be off).
+        Assert.True(drives.IsComplete);
+        drives.PickAllCommand.Execute(null);
+        Assert.False(drives.IsComplete);
+        Assert.True(drives.Narrows);
+        Assert.True(show.Narrows); // a pick with a value (PC problems) narrows; All wouldn't
     }
 
     [Fact]

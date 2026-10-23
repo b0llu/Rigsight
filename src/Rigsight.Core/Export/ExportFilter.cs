@@ -28,6 +28,12 @@ public sealed record ExportFilter
     /// <summary>Only these programs (their file names, "chrome.exe"); null: every app.</summary>
     public IReadOnlySet<string>? Apps { get; init; }
 
+    /// <summary>Only apps of this category (the user's own category for an app first, as the Apps page sorts them); null: every one.</summary>
+    public Settings.AppCategory? Category { get; init; }
+
+    /// <summary>Only apps whose name or program has each of these words (the Apps page's search); null or none: every one.</summary>
+    public IReadOnlyList<string>? AppWords { get; init; }
+
     /// <summary>Only sessions of games.</summary>
     public bool GamesOnly { get; init; }
 
@@ -51,7 +57,15 @@ public sealed record ExportFilter
     /// <summary>The readings a temperatures file has columns for.</summary>
     public ExportReadings Readings { get; init; } = ExportReadings.All;
 
-    public bool HasApp(string? exe) => Apps is null || exe is not null && Apps.Contains(exe);
+    /// <summary>Whether an app is kept: its program, category and name against what's picked.</summary>
+    public bool HasApp(string? exe, Settings.AppCategory? category = null, string? name = null) =>
+        (Apps is null || exe is not null && Apps.Contains(exe))
+        && (Category is null || category == Category)
+        && (AppWords is not { Count: > 0 } words || words.All(w => (name?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) || (exe?.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+    /// <summary>Whether anything narrows the files (their sizes are then "up to").</summary>
+    public bool Narrows => Apps is not null || Category is not null || AppWords is { Count: > 0 } || GamesOnly || Crashes is not null
+        || ChangeKinds is not null || ChangeWords is { Count: > 0 } || ResultsOnly || Drives is not null;
 
     public bool HasChange(SystemChange c) =>
         (ChangeKinds is null || ChangeKinds.Contains(c.Kind))

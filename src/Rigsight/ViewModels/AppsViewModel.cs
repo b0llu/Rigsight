@@ -125,8 +125,18 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     partial void OnSelectedRowChanged(AppListRow? value)
     {
+        // Another app than the one shown, not by the page itself: picked (the same app found again in a rebuilt list isn't a pick).
+        if (_autoPicking) PickedByUser = false;
+        else if (value is not null && !string.Equals(value.Stat.Exe, Selected?.Exe, StringComparison.OrdinalIgnoreCase)) PickedByUser = true;
         if (value is not null) Selected = value.Stat;
     }
+
+    // Set while the page picks the top app by itself (nobody picked one).
+    private bool _autoPicking;
+
+    /// <summary>The app shown was picked (a click, or a link from another page), not the top one the page shows first:
+    /// the Export box then starts on that app alone.</summary>
+    internal bool PickedByUser { get; private set; }
 
     /// <summary>The selected app's active time across the period: per hour, per day or per month (see ChartTitle).</summary>
     [ObservableProperty] private List<DayBucket>? _selectedChart;
@@ -380,7 +390,12 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             SelectedRow = null;
             Selected = null;
         }
-        if (Selected is null && Apps.Count > 0) SelectedRow = Apps[0];
+        if (Selected is null && Apps.Count > 0)
+        {
+            _autoPicking = true;
+            SelectedRow = Apps[0];
+            _autoPicking = false;
+        }
         Ready = true;
         OnPropertyChanged(nameof(Summary));
         foreach (var name in (string[])[nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground)])

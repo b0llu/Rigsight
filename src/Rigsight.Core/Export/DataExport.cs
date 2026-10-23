@@ -48,6 +48,14 @@ public static class DataExport
         public string? Exe(long? id) => id is long i && _apps.TryGetValue(i, out var a) ? a.Exe : null;
         public string? Category(long? id) => id is long i && _apps.TryGetValue(i, out var a)
             ? AppCatalog.Label(s.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) : null;
+        /// <summary>Whether a filter keeps an app (by its id): its program, its category (the user's own first) and its name.</summary>
+        public bool Has(ExportFilter f, long? id)
+        {
+            if (f.Apps is null && f.Category is null && f.AppWords is not { Count: > 0 }) return true;
+            if (id is not long i || !_apps.TryGetValue(i, out var a)) return false;
+            return f.HasApp(a.Exe, s.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category, Name(a));
+        }
+
         public string? OfExe(string exe) => exe.Length == 0 ? null : _byExe.TryGetValue(exe, out var a) ? Name(a) : AppCatalog.KnownName(exe) ?? AppCatalog.FallbackName(exe);
         private string Name(AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
@@ -107,7 +115,7 @@ public static class DataExport
              C(Lang.Key("Memory peak (MB)"), Lang.Key("The most memory it held")), C(Lang.Key("CPU peak (°C)"), Lang.Key("The CPU's highest while it was in front")),
              C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest while it was in front"))],
             "app_hour", "ts", 78,
-            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => f.HasApp(n.Exe(h.AppId)))
+            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => n.Has(f, h.AppId))
                 .GroupBy(h => (Day: TimeUtil.FromUnix(h.Ts).Date, h.AppId))
                 .OrderBy(g => g.Key.Day).ThenByDescending(g => g.Sum(h => h.FgSec))
                 .Select(g => new object?[]
@@ -122,7 +130,7 @@ public static class DataExport
              C(Lang.Key("In use (min)"), Lang.Key("Time in front and being used")), C(Lang.Key("Game"), Lang.Key("Yes for a game")), C(Lang.Key("CPU peak (°C)"), Lang.Key("The CPU's highest in it")),
              C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest in it"))],
             "sessions", "start", 92,
-            (db, from, to, n, f) => db.GetSessions(from, to).Where(x => f.HasApp(n.Exe(x.AppId)) && (!f.GamesOnly || x.IsGame)).Select(x => new object?[]
+            (db, from, to, n, f) => db.GetSessions(from, to).Where(x => n.Has(f, x.AppId) && (!f.GamesOnly || x.IsGame)).Select(x => new object?[]
             {
                 Time(x.Start), Time(x.End), n.Of(x.AppId), n.Exe(x.AppId), Min(x.ActiveSec), YesNo(x.IsGame), R(x.CpuTempMax), R(x.GpuTempMax),
             })),
@@ -132,14 +140,14 @@ public static class DataExport
              C(Lang.Key("GPU (°C)"), Lang.Key("Its average over the minute")), C(Lang.Key("GPU highest (°C)"), Lang.Key("Its highest reading")), C(Lang.Key("GPU lowest (°C)"), Lang.Key("Its lowest reading")),
              C(Lang.Key("GPU hot spot highest (°C)"), Lang.Key("The card's hottest point")), C(Lang.Key("GPU memory highest (°C)"), Lang.Key("The card's memory chips")),
              C(Lang.Key("CPU load (%)"), Lang.Key("Average")), C(Lang.Key("GPU load (%)"), Lang.Key("Average")), C(Lang.Key("CPU power (W)"), Lang.Key("Average")), C(Lang.Key("GPU power (W)"), Lang.Key("Average")),
-             C(Lang.Key("CPU speed (MHz)"), Lang.Key("Average")), C(Lang.Key("GPU speed (MHz)"), Lang.Key("Average")), C(Lang.Key("Memory in use (GB)"), Lang.Key("At the end of the minute")),
+             C(Lang.Key("CPU speed (MHz)"), Lang.Key("Average")), C(Lang.Key("GPU speed (MHz)"), Lang.Key("Average")), C(Lang.Key("Memory in use (GB)"), Lang.Key("At the end of the minute")), C(Lang.Key("Video memory in use (GB)"), Lang.Key("The graphics card's, every app together, its average over the minute")),
              C(Lang.Key("In use (s)"), Lang.Key("Seconds somebody was at the PC")), C(Lang.Key("Away (s)"), Lang.Key("Seconds nobody was")), C(Lang.Key("App in front"), Lang.Key("The app in front most of the minute")),
              C(Lang.Key("Working the CPU"), Lang.Key("The app doing clearly the most of its work, if one was")), C(Lang.Key("Working the GPU"), Lang.Key("The same for the GPU"))],
             "system_minute", "ts", 118,
             (db, from, to, n, f) => db.GetMinutes(from, to).Select(m => new object?[]
             {
                 Time(m.Ts), R(m.CpuTemp), R(m.CpuTempMax), R(m.CpuTempMin), R(m.GpuTemp), R(m.GpuTempMax), R(m.GpuTempMin), R(m.GpuHotMax), R(m.GpuMemMax),
-                R(m.CpuLoad), R(m.GpuLoad), R(m.CpuPower), R(m.GpuPower), R(m.CpuClock, 0), R(m.GpuClock, 0), R(m.RamUsed, 2),
+                R(m.CpuLoad), R(m.GpuLoad), R(m.CpuPower), R(m.GpuPower), R(m.CpuClock, 0), R(m.GpuClock, 0), R(m.RamUsed, 2), m.VramUsed is double vram ? Math.Round(vram / 1024, 2) : null,
                 m.ActiveSec, m.IdleSec, n.Of(m.FgApp), n.Of(m.CpuApp), n.Of(m.GpuApp),
             }))
         {
@@ -147,7 +155,7 @@ public static class DataExport
             [
                 ExportReadings.None, ExportReadings.CpuTemp, ExportReadings.CpuTemp, ExportReadings.CpuTemp, ExportReadings.GpuTemp, ExportReadings.GpuTemp, ExportReadings.GpuTemp,
                 ExportReadings.GpuHotSpot, ExportReadings.GpuMemory, ExportReadings.Load, ExportReadings.Load, ExportReadings.Power, ExportReadings.Power,
-                ExportReadings.Load, ExportReadings.Load, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None,
+                ExportReadings.Load, ExportReadings.Load, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None,
             ],
         },
 
@@ -170,7 +178,7 @@ public static class DataExport
              C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC")),
              C(Lang.Key("Local network (MB)"), Lang.Key("To and from other devices at home, not counted above"))],
             "net_app_day", "day", 70,
-            (db, from, to, n, f) => db.GetNetAppDays(from, to).Where(u => f.HasApp(n.Exe(u.App))).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            (db, from, to, n, f) => db.GetNetAppDays(from, to).Where(u => n.Has(f, u.App)).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
             {
                 Day(TimeUtil.FromUnix(u.Ts)), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown), Mb(u.Lan),
             })),
@@ -180,7 +188,7 @@ public static class DataExport
              C(Lang.Key("Uploaded (MB)"), Lang.Key("To the internet")), C(Lang.Key("Downloaded in the background (MB)"), Lang.Key("While another app was in front")),
              C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC"))],
             "net_app_hour", "ts", 64,
-            (db, from, to, n, f) => db.GetNetAppHours(from, to).Where(u => f.HasApp(n.Exe(u.App))).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            (db, from, to, n, f) => db.GetNetAppHours(from, to).Where(u => n.Has(f, u.App)).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
             {
                 Time(u.Ts), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown),
             })),
@@ -189,7 +197,7 @@ public static class DataExport
             [C(Lang.Key("Hour"), Lang.Key("The start of the hour")), C(Lang.Key("App"), Lang.Key("The app's name")), C(Lang.Key("Program"), Lang.Key("Its program file")), C(Lang.Key("Memory (MB)"), Lang.Key("Its average over the hour")),
              C(Lang.Key("Memory peak (MB)"), Lang.Key("The most it held"))],
             "app_hour", "ts", 62,
-            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => h.MemN > 0 && f.HasApp(n.Exe(h.AppId))).OrderBy(h => h.Ts).ThenByDescending(h => h.MemSum / h.MemN).Select(h => new object?[]
+            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => h.MemN > 0 && n.Has(f, h.AppId)).OrderBy(h => h.Ts).ThenByDescending(h => h.MemSum / h.MemN).Select(h => new object?[]
             {
                 Time(h.Ts), n.Of(h.AppId), n.Exe(h.AppId), Math.Round(h.MemSum / h.MemN), R(h.MemMax, 0),
             })),
@@ -231,7 +239,7 @@ public static class DataExport
                 var results = ChangeEffects.Read(db, n.Settings);
                 return db.GetChanges(from, to)
                     .Concat(StorageChanges.From(db.GetDriveDays(0)).Where(c => TimeUtil.ToUnix(c.Time) >= from && TimeUtil.ToUnix(c.Time) < to))
-                    .Where(c => f.HasChange(c) && (!f.ResultsOnly || results.TryGetValue(c.Time.Date, out var hit) && hit.Main == c))
+                    .Where(c => f.HasChange(c) && (!f.ResultsOnly || results.TryGetValue(c.Time.Date, out var hit) && hit.Changes.Contains(c)))
                     .OrderBy(c => c.Time).Select(c => results.TryGetValue(c.Time.Date, out var r) && r.Main == c
                         ? new object?[] { Time(c.Time), Kind(c.Kind), SavedText.Show(c.Title), c.Was, c.Now, r.Headline, r.HowSure,
                             Lang.T($"{r.From:d MMM yyyy} to {r.Day.AddDays(-1):d MMM yyyy} against {r.Day.AddDays(1):d MMM yyyy} to {r.To.AddDays(-1):d MMM yyyy}") }

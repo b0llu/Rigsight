@@ -2,15 +2,16 @@ using Rigsight.Core;
 using Rigsight.Core.Export;
 using Rigsight.Core.Games;
 using Rigsight.Core.Reports;
-using Rigsight.Core.Stability;
 using Rigsight.Controls;
+using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
 /// <summary>
 /// What each page's Export box offers: only what that page shows, in its words, for the periods the page itself has,
-/// starting on the one it shows, and narrowed the way the page is (the app or game picked, the crash filter and search,
-/// the kind of change, the drives, the readings). Processes and All sensors have none: they're live, with no history.
+/// starting on the one it shows, and narrowed the way the page is (the app or game picked, the category, the crash
+/// filter, the searches, the kind of change, the drives, the readings). Every file follows the period picked in the box,
+/// or is what the page shows now (said beside it). Processes and All sensors have none: they're live, with no history.
 /// </summary>
 public static class PageExports
 {
@@ -21,14 +22,14 @@ public static class PageExports
         "reports" => Reports(shell.ReportsPage),
         "apps" => Apps(shell.Apps),
         "games" => Games(shell.Games),
-        "crashes" => Crashes(shell.Crashes, shell.Settings.Current),
+        "crashes" => Crashes(shell.Crashes, shell.Reports, shell.Settings),
         "timeline" => Timeline(shell.Timeline),
         "temperatures" => Temperatures(shell.Live),
-        "fans" => Fans(shell.Fans),
+        "fans" => Fans(shell.Fans, shell.Reports, shell.Live, shell.Settings),
         "memory" => Memory(shell.Live),
         "storage" => Storage(shell.Storage),
         "network" => Network(shell.Network),
-        _ => shell.FindCustomPage(page) is { } custom ? Dashboard(custom) : null,
+        _ => shell.FindCustomPage(page) is { } custom ? Dashboard(custom, shell.Settings) : null,
     };
 
     /// <summary>Whether a page has an Export button.</summary>
@@ -37,50 +38,42 @@ public static class PageExports
 
     private static string From(string page) => Lang.T($"From the {page} page. Nothing leaves this PC.");
 
-    private static readonly Func<(DateTime From, DateTime To), ExportFilter> NoFilter = _ => ExportFilter.None;
+    private static readonly Func<PageExportRun, Task<ExportFilter>> NoFilter = _ => Task.FromResult(ExportFilter.None);
+
+    private static Func<PageExportRun, Task<ExportFilter>> Now(Func<PageExportRun, ExportFilter> filter) => run => Task.FromResult(filter(run));
 
     private static PageExportItem Table(ExportTable table, string name, string about, bool on = true) =>
         new(name, about, PageItemKind.Table, on) { Table = table };
 
     // ── Periods ──
 
+    private static PeriodChoice Unit(string label, ReportRange unit, DateTime anchor) =>
+        new(label, () => ReportBuilder.Bounds(unit, anchor)) { Unit = unit, Anchor = anchor };
+
+    private static PeriodChoice Custom() => new(Lang.T("Custom"), null) { Unit = ReportRange.Custom };
+
     /// <summary>The period units a page with the shared period picker offers, around its own day.</summary>
     private static List<PeriodChoice> Units(DateTime anchor, bool all, bool custom)
     {
         var list = new List<PeriodChoice>
         {
-            new(Lang.T("Day"), () => ReportBuilder.Bounds(ReportRange.Day, anchor)),
-            new(Lang.T("Week"), () => ReportBuilder.Bounds(ReportRange.Week, anchor)),
-            new(Lang.T("Month"), () => ReportBuilder.Bounds(ReportRange.Month, anchor)),
-            new(Lang.T("Year"), () => ReportBuilder.Bounds(ReportRange.Year, anchor)),
+            Unit(Lang.T("Day"), ReportRange.Day, anchor),
+            Unit(Lang.T("Week"), ReportRange.Week, anchor),
+            Unit(Lang.T("Month"), ReportRange.Month, anchor),
+            Unit(Lang.T("Year"), ReportRange.Year, anchor),
         };
-        if (all) list.Add(new(Lang.T("All time"), () => ReportBuilder.Bounds(ReportRange.All, anchor)));
-        if (custom) list.Add(new(Lang.T("Custom"), null));
+        if (all) list.Add(Unit(Lang.T("All time"), ReportRange.All, anchor));
+        if (custom) list.Add(Custom());
         return list;
     }
 
-    /// <summary>Which of <see cref="Units"/> a page's unit is.</summary>
-    private static int UnitIndex(ReportRange unit, IReadOnlyList<PeriodChoice> list) =>
-        unit switch
-        {
-            ReportRange.Day => 0,
-            ReportRange.Week => 1,
-            ReportRange.Month => 2,
-            ReportRange.Year => 3,
-            ReportRange.All => list.ToList().FindIndex(p => p.Label == Lang.T("All time")),
-            _ => list.Count - 1,
-        };
+    /// <summary>Which of the choices is a page's unit (the first when it has none of them).</summary>
+    private static int IndexOf(IReadOnlyList<PeriodChoice> list, ReportRange unit) => Math.Max(0, list.ToList().FindIndex(p => p.Unit == unit));
 
-    private static List<PeriodChoice> Days(bool week = true)
+    private static PeriodChoice Days(string label, int back, int days)
     {
         var today = DateTime.Today;
-        var list = new List<PeriodChoice>
-        {
-            new(Lang.T("Today"), () => (today, today.AddDays(1))),
-            new(Lang.T("Yesterday"), () => (today.AddDays(-1), today)),
-        };
-        if (week) list.Add(new(Lang.T("Last 7 days"), () => (today.AddDays(-6), today.AddDays(1))));
-        return list;
+        return new(label, () => (today.AddDays(-back), today.AddDays(days - back))) { Unit = days == 1 ? ReportRange.Day : null, Anchor = today.AddDays(-back) };
     }
 
     private static List<PeriodChoice> Rolling()
@@ -88,10 +81,10 @@ public static class PageExports
         var today = DateTime.Today;
         return
         [
-            new(Lang.T("Last 7 days"), () => (today.AddDays(-6), today.AddDays(1))),
-            new(Lang.T("Last 30 days"), () => (today.AddDays(-29), today.AddDays(1))),
+            Days(Lang.T("Last 7 days"), 6, 7),
+            Days(Lang.T("Last 30 days"), 29, 30),
             new(Lang.T("Last 12 months"), () => (today.AddYears(-1).AddDays(1), today.AddDays(1))),
-            new(Lang.T("All time"), () => ReportBuilder.Bounds(ReportRange.All, today)),
+            Unit(Lang.T("All time"), ReportRange.All, today),
         ];
     }
 
@@ -99,27 +92,45 @@ public static class PageExports
     private static (DateTime, DateTime)? CustomOf(ReportRange unit, DateTime from, DateTime to) =>
         unit == ReportRange.Custom && to > from ? (from, to) : null;
 
-    // ── One of a few: "All apps" or the one picked ──
+    // ── What a page narrows to ──
 
-    private static ExportScope OneOf(string name, IReadOnlyList<ScopeOption> options, Func<ExportScope, string> words) => new(name, false, options, words);
+    private static ExportScope OneOf(string name, IReadOnlyList<ScopeOption> options, Func<ExportScope, string> words, Func<ExportScope, bool>? narrows = null) =>
+        new(name, false, options, words, narrows);
 
-    /// <summary>A search typed on the page: the file holds only what matches it, as the page does, unless it's unticked.</summary>
+    /// <summary>A search typed on the page: the files hold only what matches it, as the page does, unless it's unticked.</summary>
     private static ExportScope Search(string typed) =>
         new(Lang.T("Search"), true, [new ScopeOption(Lang.T($"Only the ones matching “{typed}”"), true, true)],
-            s => s.Picked.Any() ? Lang.T("as on the page") : Lang.T("everything in the period"));
+            s => s.Picked.Any() ? Lang.T("as on the page") : Lang.T("everything in the period"), s => s.Picked.Any(), allowsNone: true);
+
+    private static ExportScope? SearchOf(string? typed) => TextMatch.Words(typed).Length > 0 ? Search(typed!.Trim()) : null;
 
     private static bool On(ExportScope? scope) => scope is not null && scope.Picked.Any();
 
     // ── The pages ──
 
-    private static PageExportSpec Home() => new(
-        Lang.T("Export today"), Lang.T("What Home shows, as files. Nothing leaves this PC."),
-        [
-            new(Lang.T("Today's report"), Lang.T("What stood out, your peaks, the apps you used and what changed, as one page."), PageItemKind.Report, true),
-            Table(ExportTable.AppUsage, Lang.T("App usage"), Lang.T("Each app's active, background and minimized time.")),
-            new(Lang.T("PC snapshot"), Lang.T("Every reading right now, with its lowest and highest."), PageItemKind.Snapshot, false) { IsNow = true },
-        ],
-        Days(week: false), 0, null, [], NoFilter);
+    /// <summary>Home: today, or the periods its recap card offers.</summary>
+    private static PageExportSpec Home()
+    {
+        var today = DateTime.Today;
+        PeriodChoice Recap(string label, RecapPeriod period)
+        {
+            var (unit, anchor) = HomeViewModel.Bounds(period, today);
+            return Unit(label, unit, anchor);
+        }
+        return new(Lang.T("Export from Home"), Lang.T("What Home shows, as files. Nothing leaves this PC."),
+            [
+                new(Lang.T("The report"), Lang.T("What stood out, your peaks, the apps you used and what changed, as one page."), PageItemKind.Report, true),
+                Table(ExportTable.AppUsage, Lang.T("App usage"), Lang.T("Each app's active, background and minimized time.")),
+                new(Lang.T("PC snapshot"), Lang.T("Every reading right now, with its lowest and highest."), PageItemKind.Snapshot, false) { IsNow = true },
+            ],
+            [
+                Unit(Lang.T("Today"), ReportRange.Day, today),
+                Recap(Lang.T("Yesterday"), RecapPeriod.Yesterday),
+                Recap(Lang.T("Last week"), RecapPeriod.LastWeek),
+                Recap(Lang.T("Last month"), RecapPeriod.LastMonth),
+                Recap(Lang.T("Last year"), RecapPeriod.LastYear),
+            ], 0, null, [], NoFilter);
+    }
 
     private static PageExportSpec Reports(ReportsViewModel vm)
     {
@@ -130,37 +141,62 @@ public static class PageExports
                 Table(ExportTable.Temperatures, Lang.T("Your day, minute by minute"), Lang.T("The app in front, temperatures, load and power, every minute."), on: false),
                 Table(ExportTable.AppUsage, Lang.T("Where the time went"), Lang.T("Each app's time each day, with its category."), on: false),
             ],
-            periods, UnitIndex(vm.Range, periods), CustomOf(vm.Range, vm.CustomFrom, vm.CustomTo), [], NoFilter);
+            periods, IndexOf(periods, vm.Range), CustomOf(vm.Range, vm.CustomFrom, vm.CustomTo), [], NoFilter, FirstDay: vm.FirstDay);
     }
 
+    /// <summary>Apps: all of them, the category the list is filtered to, or the app picked; and the list's search.</summary>
     private static PageExportSpec Apps(AppsViewModel vm)
     {
         var periods = Units(vm.Anchor, all: true, custom: true);
-        ExportScope? apps = null;
-        if (vm.Selected is { } picked)
+        var category = vm.Filter?.Category;
+        string categoryName = vm.Filter?.Label ?? "";
+        var picked = vm.Selected;
+        string appName = picked is null ? "" : vm.SelectedAlias;
+        var options = new List<ScopeOption> { new(Lang.T("All apps"), null, false) };
+        if (category is { } c) options.Add(new(categoryName, c, false));
+        if (picked is not null) options.Add(new(appName, picked.Exe, false));
+        // The app when one was picked; else the category the list shows; else every app.
+        (picked is not null && vm.PickedByUser ? options[^1] : category is not null ? options[1] : options[0]).IsOn = true;
+        var apps = OneOf(Lang.T("Apps"), options, s => s.Picked.FirstOrDefault() switch
         {
-            string name = vm.SelectedAlias;
-            apps = OneOf(Lang.T("Apps"), [new(Lang.T("All apps"), null, false), new(name, picked.Exe, true)],
-                s => s.Picked.FirstOrDefault() is null ? Lang.T("every app used in the period") : Lang.T($"only {name}, the app picked on the page"));
-        }
+            string => Lang.T($"only {appName}, the app picked on the page"),
+            Core.Settings.AppCategory => Lang.T($"only the {categoryName} category, as the list is filtered"),
+            _ => Lang.T("every app used in the period"),
+        });
+        var search = SearchOf(vm.Search);
+        var scopes = new List<ExportScope> { apps };
+        if (search is not null) scopes.Add(search);
         return new(Lang.T("Export app usage"), From(Lang.T("Apps")),
             [
                 Table(ExportTable.AppUsage, Lang.T("Time in each app"), Lang.T("Active, background and minimized time, each day.")),
                 Table(ExportTable.Sessions, Lang.T("Sessions"), Lang.T("Each stretch an app was in front, with its CPU and GPU temperature.")),
                 Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, each day."), on: false),
             ],
-            periods, UnitIndex(vm.Unit, periods), CustomOf(vm.Unit, vm.CustomFrom, vm.CustomTo), apps is null ? [] : [apps],
-            _ => apps?.Picked.FirstOrDefault() is string exe ? new ExportFilter { Apps = new HashSet<string>([exe], StringComparer.OrdinalIgnoreCase) } : ExportFilter.None);
+            periods, IndexOf(periods, vm.Unit), CustomOf(vm.Unit, vm.CustomFrom, vm.CustomTo), scopes,
+            Now(_ => new ExportFilter
+            {
+                Apps = apps.Picked.FirstOrDefault() is string exe ? new HashSet<string>([exe], StringComparer.OrdinalIgnoreCase) : null,
+                Category = apps.Picked.FirstOrDefault() as Core.Settings.AppCategory?,
+                AppWords = On(search) ? TextMatch.Words(vm.Search) : null,
+            }), FirstDay: vm.FirstDay);
     }
 
+    /// <summary>Games: the games the library shows (its filter and search), or the one picked.</summary>
     private static PageExportSpec Games(GamesViewModel vm)
     {
         var library = vm.Library;
+        var shown = vm.Cards.Select(c => c.Entry).ToList();
+        bool narrowed = shown.Count != library.Count;
+        IReadOnlyList<GameEntry> all = narrowed ? shown : library;
         var one = vm.Opened?.Entry ?? vm.HeroGame;
         ExportScope? games = one is null ? null
-            : OneOf(Lang.T("Games"), [new(Lang.T("All games"), null, vm.Opened is null), new(one.Name, one, vm.Opened is not null)],
-                s => s.Picked.FirstOrDefault() is GameEntry g ? Lang.T($"only {g.Name}") : library.Count == 1 ? Lang.T("the 1 game in the library") : Lang.T($"all {library.Count} games in the library"));
-        IReadOnlyList<GameEntry> Picked() => games?.Picked.FirstOrDefault() is GameEntry g ? [g] : library;
+            : OneOf(Lang.T("Games"), [new(narrowed ? Lang.T("Games shown") : Lang.T("All games"), null, vm.Opened is null), new(one.Name, one, vm.Opened is not null)],
+                s => s.Picked.FirstOrDefault() is GameEntry g ? Lang.T($"only {g.Name}")
+                    : narrowed ? (all.Count == 1 ? Lang.T("the 1 game the library shows") : Lang.T($"the {all.Count} games the library shows"))
+                    : library.Count == 1 ? Lang.T("the 1 game in the library") : Lang.T($"all {library.Count} games in the library"),
+                // The library as filtered on the page narrows the files too.
+                s => narrowed || s.Picked.FirstOrDefault() is not null);
+        IReadOnlyList<GameEntry> Picked() => games?.Picked.FirstOrDefault() is GameEntry g ? [g] : all;
         return new(Lang.T("Export your games"), From(Lang.T("Games")),
             [
                 new(Lang.T("Your library"), Lang.T("Each game, its launcher, play time, last played and size on disk."), PageItemKind.Sheet, true)
@@ -177,53 +213,35 @@ public static class PageExports
             Rolling(), 3, null, games is null ? [] : [games], NoFilter);
     }
 
-    private static PageExportSpec Crashes(CrashesViewModel vm, Core.Settings.RigsightSettings settings)
+    /// <summary>Crashes: the list as the page builds it (grouped, its filter, search and muting), for whichever period is picked.</summary>
+    private static PageExportSpec Crashes(CrashesViewModel vm, ReportService reports, SettingsModel settings)
     {
         var periods = Units(vm.Anchor, all: true, custom: true);
         var show = OneOf(Lang.T("Show"),
-            [new(Lang.T("All"), "All", vm.Filter == "All"), new(Lang.T("Apps & games"), "Apps", vm.Filter == "Apps"), new(Lang.T("PC problems"), "Pc", vm.Filter == "Pc")],
+            [new(Lang.T("All"), null, vm.Filter is not ("Apps" or "Pc")), new(Lang.T("Apps & games"), "Apps", vm.Filter == "Apps"), new(Lang.T("PC problems"), "Pc", vm.Filter == "Pc")],
             s => (s.Picked.FirstOrDefault() as string) switch
             {
                 "Apps" => Lang.T("app and game crashes and freezes"),
-                "Pc" => Lang.T("blue screens, sudden shut-offs and graphics driver resets"),
+                "Pc" => Lang.T("blue screens, sudden shut-offs, graphics driver resets and times several things failed at once"),
                 _ => Lang.T("every problem in the period"),
             });
-        var search = vm.SearchText is { Length: > 0 } typed && TextMatch.Words(typed).Length > 0 ? Search(typed.Trim()) : null;
-        var page = vm.Shown;
+        var search = SearchOf(vm.SearchText);
         var scopes = new List<ExportScope> { show };
         if (search is not null) scopes.Add(search);
+        bool grouped = vm.Grouped, showMuted = vm.ShowMuted;
         return new(Lang.T("Export crashes"), From(Lang.T("Crashes")),
             [
                 Table(ExportTable.Crashes, Lang.T("Crash list"), Lang.T("Each crash, freeze, blue screen, shut-off and driver reset, one per line.")),
                 new(Lang.T("Crashes with their context"), Lang.T("Each one with what was running, the readings before it and what changed that week."), PageItemKind.Stories, true),
             ],
-            periods, vm.Unit == ReportRange.All ? periods.FindIndex(p => p.Label == Lang.T("All time")) : UnitIndex(vm.Unit, periods),
-            CustomOf(vm.Unit, vm.CustomFrom, vm.CustomTo), scopes,
-            period =>
+            periods, IndexOf(periods, vm.Unit), CustomOf(vm.Unit, vm.CustomFrom, vm.CustomTo), scopes,
+            async run =>
             {
                 string filter = show.Picked.FirstOrDefault() as string ?? "All";
-                bool searching = On(search);
-                // The period on the page: exactly the crashes its list shows (muted apps left out, as there). Another
-                // one: the same filter, search and muting, crash by crash.
-                if (period == page)
-                {
-                    var ids = vm.ShownIds(filter, searching);
-                    return new ExportFilter { Crashes = e => ids.Contains(e.Id) };
-                }
-                var words = searching ? TextMatch.Words(vm.SearchText) : [];
-                bool showMuted = vm.ShowMuted;
-                return new ExportFilter { Crashes = e => (showMuted || !settings.IsCrashMuted(e.AppExe)) && CrashHas(e, filter, words) };
-            }, FromInstall: false);
-    }
-
-    /// <summary>A crash on its own against the Crashes page's filter and search (for a period other than the page's).</summary>
-    internal static bool CrashHas(CrashEvent e, string filter, string[] words)
-    {
-        bool system = e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset;
-        if (filter == "Apps" && system || filter == "Pc" && !system) return false;
-        if (words.Length == 0) return true;
-        string? app = e.AppExe.Length > 0 ? Core.Apps.AppCatalog.KnownName(e.AppExe) ?? Core.Apps.AppCatalog.FallbackName(e.AppExe) : null;
-        return TextMatch.Has(words, CrashExplainer.Explain(e, app).Title, app, e.AppExe, e.Module, e.Code, e.Detail is { } d ? SavedText.Show(d) : null);
+                var words = On(search) ? TextMatch.Words(vm.SearchText) : [];
+                var ids = await CrashesViewModel.ShownIdsAsync(reports, settings.Current, run.From, run.To, filter, words, grouped, showMuted);
+                return new ExportFilter { Crashes = e => ids.Contains(e.Id) };
+            }, FromInstall: false, FirstDay: vm.Since);
     }
 
     private static PageExportSpec Timeline(TimelineViewModel vm)
@@ -236,7 +254,7 @@ public static class PageExports
                 s => s.Picked.FirstOrDefault() is null ? Lang.T("every kind of change") : Lang.T("the kind picked on the page"));
             scopes.Add(kinds);
         }
-        var search = TextMatch.Words(vm.Search).Length > 0 ? Search(vm.Search.Trim()) : null;
+        var search = SearchOf(vm.Search);
         if (search is not null) scopes.Add(search);
         var now = vm.Now;
         return new(Lang.T("Export the timeline"), From(Lang.T("Timeline")),
@@ -249,7 +267,7 @@ public static class PageExports
                 },
             ],
             Rolling(), 3, null, scopes,
-            _ =>
+            Now(_ =>
             {
                 string? key = kinds?.Picked.FirstOrDefault() as string;
                 return new ExportFilter
@@ -258,7 +276,7 @@ public static class PageExports
                     ResultsOnly = key == TimelineViewModel.ResultsKey,
                     ChangeWords = On(search) ? TextMatch.Words(vm.Search) : null,
                 };
-            }, FromInstall: false);
+            }), FromInstall: false);
     }
 
     private static PageExportSpec Temperatures(LiveData live)
@@ -271,11 +289,11 @@ public static class PageExports
         var periods = new List<PeriodChoice>
         {
             new(recentLabel, () => { var now = DateTime.Now; return (new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0).AddSeconds(-recent), now); }),
-            new(Lang.T("Day"), () => ReportBuilder.Bounds(ReportRange.Day, day)),
+            Unit(Lang.T("Day"), ReportRange.Day, day),
             new(Lang.T("Week"), () => ChartRange.Rolling(ChartRange.Week, day)),
             new(Lang.T("Month"), () => ChartRange.Rolling(ChartRange.Month, day)),
             new(Lang.T("Year"), () => ChartRange.Rolling(ChartRange.Year, day)),
-            new(Lang.T("Custom"), null),
+            Custom(),
         };
         int picked = window switch
         {
@@ -286,20 +304,24 @@ public static class PageExports
             ChartRange.Custom => 5,
             _ => 0,
         };
-        // The readings in the chart's legend start ticked, in its colours; load and power are there to add.
+        // The readings in the chart's legend (the ones this PC has) start ticked, in its colours; load and power are there to add.
+        bool[] inChart = [live.CpuTemp is not null, live.GpuTemp is not null, live.GpuHotSpot is not null, live.GpuMemJunction is not null, false, false];
+        // No readings now (the agent isn't running): the history still has them, so the four temperatures start ticked.
+        if (!inChart.Any(on => on)) inChart = [true, true, true, true, false, false];
         var readings = new ExportScope(Lang.T("Readings"), true,
             [
-                new(Lang.T("CPU temperature"), ExportReadings.CpuTemp, live.CpuTemp is not null, "CpuBrush"),
-                new(Lang.T("GPU temperature"), ExportReadings.GpuTemp, live.GpuTemp is not null, "GpuBrush"),
-                new(Lang.T("GPU hot spot"), ExportReadings.GpuHotSpot, live.GpuHotSpot is not null, "PurpleBrush"),
-                new(Lang.T("GPU memory"), ExportReadings.GpuMemory, live.GpuMemJunction is not null, "PinkBrush"),
+                new(Lang.T("CPU temperature"), ExportReadings.CpuTemp, inChart[0], "CpuBrush"),
+                new(Lang.T("GPU temperature"), ExportReadings.GpuTemp, inChart[1], "GpuBrush"),
+                new(Lang.T("GPU hot spot"), ExportReadings.GpuHotSpot, inChart[2], "PurpleBrush"),
+                new(Lang.T("GPU memory"), ExportReadings.GpuMemory, inChart[3], "PinkBrush"),
                 new(Lang.T("CPU and GPU load"), ExportReadings.Load, false),
                 new(Lang.T("CPU and GPU power"), ExportReadings.Power, false),
             ],
             s =>
             {
-                int on = s.Options.Count(o => o.IsOn);
-                return on == 0 ? Lang.T("none picked") : s.AllPicked ? Lang.T("all of them") : s.Options.Take(4).All(o => o.IsOn) && on == 4 ? Lang.T("the ones in the chart, as on the page") : Lang.T($"{on} of 6");
+                int on = s.Options.Count(o => o.IsOn), all = s.Options.Count;
+                return on == 0 ? Lang.T("none picked") : s.AllPicked ? Lang.T("all of them")
+                    : s.Options.Select((o, i) => o.IsOn == inChart[i]).All(same => same) ? Lang.T("the ones in the chart, as on the page") : Lang.T($"{on} of {all}");
             });
         return new(Lang.T("Export temperatures"), From(Lang.T("Temperatures")),
             [
@@ -307,53 +329,50 @@ public static class PageExports
                 new(Lang.T("Readings now"), Lang.T("Every reading right now, with its lowest and highest."), PageItemKind.Snapshot, false) { IsNow = true },
             ],
             periods, picked, live.IsChartCustom ? live.ChartPeriod : null, [readings],
-            _ => new ExportFilter { Readings = readings.Picked.OfType<ExportReadings>().Aggregate(ExportReadings.None, (a, b) => a | b) });
+            Now(_ => new ExportFilter { Readings = readings.Picked.OfType<ExportReadings>().Aggregate(ExportReadings.None, (a, b) => a | b) }),
+            FirstDay: live.ChartHistoryStart);
     }
 
-    private static PageExportSpec Fans(FansViewModel vm)
+    private static PageExportSpec Fans(FansViewModel vm, ReportService reports, LiveData live, SettingsModel settings)
     {
         var periods = Units(vm.Anchor, all: false, custom: false);
+        var (unitShown, anchorShown) = (vm.Unit, vm.Anchor);
         return new(Lang.T("Export fans"), From(Lang.T("Fans")),
             [
                 Table(ExportTable.Fans, Lang.T("Fan speeds"), Lang.T("Every fan, every minute the PC was on.")),
                 new(Lang.T("Summary"), Lang.T("Quiet time, fastest, what made them work hardest, how often they started."), PageItemKind.Sheet, false)
                 {
                     BytesPerDay = 300,
-                    Sheet = run =>
+                    // The figures for the period picked: the page's own when it's the one on screen (and read), else worked
+                    // out the way the page works them out.
+                    SheetAsync = async run =>
                     {
-                        // The figures as the page shows them now (for its own period).
-                        var facts = new List<FactRow>
-                        {
-                            new(vm.Unit == ReportRange.Year ? Lang.T("Average speed") : Lang.T("Quiet time"), vm.QuietText, vm.QuietNote),
-                            new(Lang.T("Made them work hardest"), vm.HardestApp, vm.HardestNote),
-                            new(Lang.T("Fastest"), vm.FastestText, vm.FastestNote),
-                        };
-                        if (vm.LoudestHour is { } loud) facts.Add(new(vm.LoudestLabel, loud, vm.LoudestNote));
-                        if (vm.StartsText is { } starts) facts.Add(new(Lang.T("Started up"), starts, vm.StartsNote));
-                        if (vm.SilentText is { } silent) facts.Add(new(Lang.T("Longest silence"), silent, vm.SilentNote));
-                        var (from, to) = ReportBuilder.Bounds(vm.Unit, vm.Anchor);
-                        return (_, _) => ExportSheets.Summary(Lang.T("Fans summary"), Lang.T("What the Fans page says about the period."), facts, from, to);
+                        var (unit, anchor) = (run.Choice?.Unit ?? unitShown, run.Choice?.Anchor ?? anchorShown);
+                        bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
+                        var facts = onScreen ? vm.SummaryFacts() : await FansViewModel.SummaryAsync(reports, live, settings, unit, anchor);
+                        return (_, _) => ExportSheets.Summary(Lang.T("Fans summary"), Lang.T("What the Fans page says about the period."), facts, run.From, run.To);
                     },
                 },
             ],
-            periods, UnitIndex(vm.Unit, periods), null, [], NoFilter);
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
     }
 
+    /// <summary>Memory: its hour-by-hour history, and the list of apps using memory now as the page lists it (its search and switch).</summary>
     private static PageExportSpec Memory(LiveData live) => new(
         Lang.T("Export memory"), From(Lang.T("Memory")),
         [
             Table(ExportTable.Memory, Lang.T("Biggest memory users"), Lang.T("What each app held, hour by hour: average and peak.")),
-            new(Lang.T("Using memory right now"), Lang.T("Each app and its processes, now and what it usually holds."), PageItemKind.Sheet, false)
+            new(Lang.T("Using memory right now"), Lang.T("Each app and its processes, now and what it usually holds, as the page lists them."), PageItemKind.Sheet, false)
             {
                 IsNow = true, BytesPerDay = 8_000,
                 Sheet = run =>
                 {
-                    var rows = live.Procs.Select(p => new MemoryNowRow(p.Name, p.Exe, p.Count, p.MemMB, p.UsualMB)).ToList();
+                    var rows = live.ProcsView.Cast<Models.ProcRow>().Select(p => new MemoryNowRow(p.Name, p.Exe, p.Count, p.MemMB, p.UsualMB)).ToList();
                     return (_, _) => ExportSheets.MemoryNow(rows, run.Now);
                 },
             },
         ],
-        Days(), 0, null, [], NoFilter);
+        [Days(Lang.T("Today"), 0, 1), Days(Lang.T("Yesterday"), 1, 1), Days(Lang.T("Last 7 days"), 6, 7)], 0, null, [], NoFilter);
 
     private static PageExportSpec Storage(StorageViewModel vm)
     {
@@ -364,7 +383,6 @@ public static class PageExports
                 int on = s.Options.Count(o => o.IsOn), all = s.Options.Count;
                 return on == 0 ? Lang.T("none picked") : on == all ? Lang.T("all of them, as on the page") : Lang.T($"{on} of {all}");
             });
-        var today = DateTime.Today;
         return new(Lang.T("Export drive space"), From(Lang.T("Storage")),
             [
                 Table(ExportTable.DriveSpace, Lang.T("Drive space"), Lang.T("How full each drive was on each day.")),
@@ -378,12 +396,9 @@ public static class PageExports
                     },
                 },
             ],
-            [
-                new(Lang.T("Last 7 days"), () => (today.AddDays(-6), today.AddDays(1))),
-                new(Lang.T("Last 30 days"), () => (today.AddDays(-29), today.AddDays(1))),
-                new(Lang.T("All time"), () => ReportBuilder.Bounds(ReportRange.All, today)),
-            ], 1, null, drives.Options.Count > 1 ? [drives] : [],
-            _ => drives.AllPicked ? ExportFilter.None : new ExportFilter { Drives = drives.Picked.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase) });
+            [Days(Lang.T("Last 7 days"), 6, 7), Days(Lang.T("Last 30 days"), 29, 30), Unit(Lang.T("All time"), ReportRange.All, DateTime.Today)], 1, null,
+            drives.Options.Count > 1 ? [drives] : [],
+            Now(_ => drives.AllPicked ? ExportFilter.None : new ExportFilter { Drives = drives.Picked.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase) }));
     }
 
     private static PageExportSpec Network(NetworkViewModel vm)
@@ -394,33 +409,29 @@ public static class PageExports
                 Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, and how much in the background, each day.")),
                 Table(ExportTable.InternetHours, Lang.T("Usage each hour"), Lang.T("What each app downloaded and uploaded in each hour."), on: false),
             ],
-            periods, UnitIndex(vm.Unit, periods), null, [], NoFilter);
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
     }
 
     /// <summary>
     /// A dashboard: one line per kind of data its tiles show, never one per tile (eight at most), each saying which
     /// tiles it comes from.
     /// </summary>
-    private static PageExportSpec Dashboard(CustomPageViewModel page)
+    private static PageExportSpec Dashboard(CustomPageViewModel page, SettingsModel settings)
     {
         var groups = new List<(string Key, List<string> Tiles)>();
         foreach (var tile in page.Tiles)
         {
             string? key = tile.Kind switch
             {
-                "cpu-gauge" or "gpu-gauge" or "temp-chart" => "temps",
+                // Every reading kept by the minute is in the one file: temperatures, load, power, RAM and video memory in use.
+                "cpu-gauge" or "gpu-gauge" or "temp-chart" => "minutes",
                 "fans" => "fans",
                 "drives" => "drives",
                 "top-memory" => "memory",
                 "today" or "most-used" or "yesterday" => "day",
                 "insights" or "peaks" => "report",
                 "crashes" => "crashes",
-                "sensor" => tile.SensorRef switch
-                {
-                    "key:" + KeySensors.GpuFan => "fans",
-                    "key:" + KeySensors.RamLoad or "key:" + KeySensors.GpuVramLoad => "memory",
-                    _ => "temps",
-                },
+                "sensor" => tile.SensorRef == "key:" + KeySensors.GpuFan || tile.Sensor?.Kind == SensorKind.Fan ? "fans" : "minutes",
                 _ when tile.Kind.StartsWith("net-", StringComparison.Ordinal) => "internet",
                 _ => null,
             };
@@ -428,16 +439,16 @@ public static class PageExports
             if (groups.FirstOrDefault(g => g.Key == key) is { Key: not null } found) found.Tiles.Add(tile.Title);
             else groups.Add((key, [tile.Title]));
         }
-        var order = new[] { "temps", "fans", "memory", "drives", "internet", "day", "report", "crashes" };
+        var order = new[] { "minutes", "fans", "memory", "drives", "internet", "day", "report", "crashes" };
         var items = groups.OrderBy(g => Array.IndexOf(order, g.Key)).Select(g =>
         {
             string tiles = string.Join(", ", g.Tiles.Distinct());
             string from = g.Tiles.Distinct().Count() == 1 ? Lang.T($"From the {tiles} tile.") : Lang.T($"From the {tiles} tiles.");
             return g.Key switch
             {
-                "temps" => Table(ExportTable.Temperatures, Lang.T("CPU and GPU"), $"{Lang.T("Temperature, load and power each minute.")} {from}"),
+                "minutes" => Table(ExportTable.Temperatures, Lang.T("Readings each minute"), $"{Lang.T("Temperature, load, power and memory in use, each minute.")} {from}"),
                 "fans" => Table(ExportTable.Fans, Lang.T("Fans"), $"{Lang.T("Every fan, every minute.")} {from}"),
-                "memory" => Table(ExportTable.Memory, Lang.T("Memory"), $"{Lang.T("What each app held, hour by hour.")} {from}"),
+                "memory" => Table(ExportTable.Memory, Lang.T("Memory by app"), $"{Lang.T("What each app held, hour by hour.")} {from}"),
                 "drives" => Table(ExportTable.DriveSpace, Lang.T("Drives"), $"{Lang.T("How full each drive was on each day.")} {from}"),
                 "internet" => Table(ExportTable.InternetHours, Lang.T("Internet"), $"{Lang.T("What each app downloaded and uploaded, by hour.")} {from}"),
                 "day" => Table(ExportTable.AppUsage, Lang.T("Your day"), $"{Lang.T("Each app's active time.")} {from}"),
@@ -446,6 +457,11 @@ public static class PageExports
             };
         }).ToList();
         string name = page.Name;
-        return new(Lang.T($"Export {name}"), Lang.T("The readings on this dashboard's tiles. Nothing leaves this PC."), items, Days(), 0, null, [], NoFilter);
+        var today = DateTime.Today;
+        return new(Lang.T($"Export {name}"), Lang.T("The readings on this dashboard's tiles. Nothing leaves this PC."), items,
+            [Unit(Lang.T("Today"), ReportRange.Day, today), Unit(Lang.T("Yesterday"), ReportRange.Day, today.AddDays(-1)), Days(Lang.T("Last 7 days"), 6, 7), Days(Lang.T("Last 30 days"), 29, 30)],
+            0, null, [],
+            // Crashes as the Crashes tile counts them: muted apps left out.
+            Now(_ => new ExportFilter { Crashes = e => !settings.Current.IsCrashMuted(e.AppExe) }));
     }
 }

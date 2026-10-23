@@ -69,7 +69,7 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() =>
         {
             var box = host.Shell.PageExport;
-            Assert.Equal(["CPU and GPU", "Fans", "Memory", "Drives", "Internet", "Your day", "What stood out", "Crashes"], box.Items.Select(i => i.Name));
+            Assert.Equal(["Readings each minute", "Fans", "Memory by app", "Drives", "Internet", "Your day", "What stood out", "Crashes"], box.Items.Select(i => i.Name));
             Assert.True(box.ManyItems);
             Assert.Equal("8 of 8 picked", box.PickedText);
             box.PickAllCommand.Execute(null);
@@ -85,6 +85,79 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
             box.CloseCommand.Execute(null);
         });
         Ui.AssertNoProblems("the dashboard's Export box");
+    }
+
+    [Fact]
+    public void Nothing_can_be_exported_with_no_reading_picked()
+    {
+        host.Show("temperatures", 900);
+        Ui.Run(() =>
+        {
+            host.Shell.ExportPageCommand.Execute(null);
+            var box = host.Shell.PageExport;
+            var readings = box.Scopes.Single();
+            foreach (var o in readings.Options) o.IsOn = false;
+            Assert.False(box.CanExport);
+            readings.Options[0].IsOn = true;
+            Assert.True(box.CanExport);
+            box.CloseCommand.Execute(null);
+        });
+    }
+
+    [Fact]
+    public void The_crashes_exported_for_the_pages_period_are_the_ones_its_list_shows()
+    {
+        host.Show("crashes", 1500);
+        Assert.True(Ui.WaitFor(() => host.Shell.Crashes.Loaded));
+        foreach (var filter in new[] { "All", "Apps", "Pc" })
+        {
+            Ui.Run(() => host.Shell.Crashes.Filter = filter);
+            Ui.Pump(300);
+            var (listed, from, to) = Ui.Run(() =>
+            {
+                var vm = host.Shell.Crashes;
+                var bounds = vm.Unit == Rigsight.Core.Reports.ReportRange.All ? (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1))
+                    : Controls.PeriodPicker.Bounds(vm.Unit, vm.Anchor, vm.CustomFrom, vm.CustomTo);
+                return (vm.Crashes.Select(r => r.Event.Id).ToHashSet(), bounds.Item1, bounds.Item2);
+            });
+            var ids = Ui.Run(() => CrashesViewModel.ShownIdsAsync(host.Shell.Reports, host.Shell.Settings.Current, from, to, filter == "All" ? "All" : filter, [], host.Shell.Crashes.Grouped, false));
+            Assert.True(Ui.WaitFor(() => ids.IsCompleted, 20_000));
+            Assert.Equal(listed.Order(), ids.Result.Order());
+        }
+        Ui.Run(() => host.Shell.Crashes.Filter = "All");
+    }
+
+    [Fact]
+    public void The_fans_summary_is_for_the_period_picked_in_the_box()
+    {
+        string parent = TestEnvironment.NewFolder("fans-export");
+        var shown = new List<string>();
+        Ui.Run(() =>
+        {
+            host.Shell.Settings.Update(s => { s.ExportFolder = parent; s.ExportAsCsv = false; });
+            host.Shell.PageExport.ShowFolder = shown.Add;
+        });
+        try
+        {
+            host.Show("fans", 1500);
+            Ui.Run(() =>
+            {
+                host.Shell.ExportPageCommand.Execute(null);
+                var box = host.Shell.PageExport;
+                foreach (var i in box.Items) i.IsOn = i.Name == "Summary";
+                box.PickPeriod(box.Periods.Single(p => p.Unit == Rigsight.Core.Reports.ReportRange.Week));
+            });
+            Ui.Run(() => host.Shell.PageExport.ExportCommand.ExecuteAsync(null));
+            Assert.True(Ui.WaitFor(() => !host.Shell.PageExport.IsOpen, 30_000), host.Shell.PageExport.Error);
+            var text = File.ReadAllLines(Path.Combine(Assert.Single(shown), "Fans summary.txt"));
+            var (from, to) = Rigsight.Core.Reports.ReportBuilder.Bounds(Rigsight.Core.Reports.ReportRange.Week, DateTime.Today);
+            Assert.StartsWith($"{from:yyyy-MM-dd} to {to.AddDays(-1):yyyy-MM-dd}", text[2]);
+            Assert.Contains(text, l => l.StartsWith("Quiet time", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Ui.Run(() => host.Shell.Settings.Update(s => s.ExportFolder = null));
+        }
     }
 
     [Fact]
@@ -109,7 +182,9 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
                 var box = host.Shell.PageExport;
                 box.AsCsv = true;
                 // All time, so the period surely has the app in it.
-                box.PickPeriod(box.Periods.First(p => p.Label == "All time"));
+                box.PickPeriod(box.Periods.First(p => p.Unit == Rigsight.Core.Reports.ReportRange.All));
+                // The app the test picked, not the one the page shows first by itself.
+                box.Scopes.Single().Options.Single(o => o.Value as string == exe).IsOn = true;
                 Assert.Equal(exe, box.Scopes.Single().Picked.Single());
             });
             Ui.Run(() => host.Shell.PageExport.ExportCommand.ExecuteAsync(null));
