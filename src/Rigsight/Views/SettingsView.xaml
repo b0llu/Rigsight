@@ -1172,7 +1172,8 @@
                 <!-- What answers can read: a tile for each page the plan opens (pressed to stop sending it), and one line for the
                      pages outside the plan, never a lock on each (the user, 2026-10-23). -->
                 <TextBlock Text="{ctl:T 'What answers can read'}" Style="{StaticResource SubHead}" Visibility="{Binding IsOn, Converter={StaticResource Vis}}" />
-                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,16" Visibility="{Binding IsOn, Converter={StaticResource Vis}}" DataContext="{Binding Pages}">
+                <Border Visibility="{Binding IsOn, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,16" DataContext="{Binding Pages}">
                     <StackPanel>
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -1186,7 +1187,7 @@
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Margin="0,0,8,8" Padding="12,10" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}"
+                                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,8,8" Padding="12,10" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}"
                                             Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
@@ -1233,6 +1234,7 @@
                         <TextBlock Text="{ctl:T 'Never sent: your Windows user name, file and folder paths, your licence key.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
+                </Border>
 
                 <!-- The Ask button, its shortcut, and how long conversations stay. -->
                 <TextBlock Text="{ctl:T 'Ask button and conversations'}" Style="{StaticResource SubHead}" Visibility="{Binding IsOn, Converter={StaticResource Vis}}" />

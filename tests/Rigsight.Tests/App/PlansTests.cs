@@ -26,9 +26,9 @@ public sealed class PlansTests
     private static readonly string[] Essentials = [.. Free, "crashes", "memory", "storage", "processes", "reports"];
 
     /// <summary>A status as the relay sends it, on <paramref name="plan"/>.</summary>
-    internal static string Status(string plan = "free", string source = "free", string state = "active", int used = 3, string? endsAt = null, string? card = "\"card\":{\"brand\":\"visa\",\"last4\":\"4242\"},")
+    internal static string Status(string plan = "free", string source = "free", string state = "active", int used = 3, string? endsAt = null, string? card = "\"card\":{\"brand\":\"visa\",\"last4\":\"4242\"},", int? capIs = null)
     {
-        int cap = plan switch { "free" => 10, "essentials" => 100, _ => 500 };
+        int cap = capIs ?? plan switch { "free" => 10, "essentials" => 100, _ => 500 };
         string period = plan == "free" ? "week" : "day";
         string pages = plan switch { "free" => Json(Free), "essentials" => Json(Essentials), _ => Json([.. AiPages.All.Select(p => p.Id)]) };
         string name = plan switch { "free" => "Free", "essentials" => "Essentials", _ => "Complete" };
@@ -240,7 +240,7 @@ public sealed class PlansTests
         Assert.False(plans.IsSubscription);
         Assert.False(plans.CanManage);
         Assert.Contains("Nothing to pay", plans.GiftText);
-        Assert.Equal("answers use all 16 pages · web search", plans.Summary);
+        Assert.Equal("Answers use all 16 pages · web search", plans.Summary);
     }
 
     [Fact]
@@ -272,6 +272,43 @@ public sealed class PlansTests
     }
 
     // ── The Ask window ──────────────────────────────────────────────────
+    [Fact]
+    public void The_free_weeks_card_offers_the_first_plan_and_keeps_the_question()
+    {
+        var (ask, _) = Shown(Status(used: 10));
+        var wall = Ui.Run(() => ask.LimitWall(new AiLimit("week", "free", new DateTime(2026, 10, 26)), "Why did it restart?"));
+        Assert.Equal("That was your last free question this week.", wall.Title);
+        Assert.Contains("Essentials gives up to 100 a day for $5 a month", wall.Text);
+        Assert.Equal("essentials", wall.Plan);
+        Assert.False(wall.Switch);
+        Assert.Equal("Get Essentials and ask", wall.MainText);
+        Assert.Equal("Why did it restart?", wall.Question);
+    }
+
+    [Fact]
+    public void A_days_card_on_a_paid_plan_switches_to_the_bigger_one_and_the_biggest_offers_none()
+    {
+        var (ask, _) = Shown(Status("essentials", "subscription", used: 100));
+        var wall = Ui.Run(() => ask.LimitWall(new AiLimit("day", "essentials", null), "q"));
+        Assert.Equal("complete", wall.Plan);
+        Assert.True(wall.Switch);
+        Assert.Equal("Switch to Complete and ask", wall.MainText);
+        Assert.True(ask.IsOutOfQuestions);
+        Assert.Equal("complete", ask.OutOffer!.Plan);
+        Assert.Contains("Complete gives up to 500 a day", ask.OutText);
+        var (top, _) = Shown(Status("complete", "subscription", used: 500));
+        Assert.False(Ui.Run(() => top.LimitWall(new AiLimit("day", "complete", null), "q")).HasPlan);
+        Assert.Null(top.OutOffer);
+    }
+
+    [Fact]
+    public void Free_questions_paused_are_never_shown_as_none_left_of_none()
+    {
+        var (ask, plans) = Shown(Status(used: 0, capIs: 0));
+        Assert.Equal("Paused for now", plans.StateText);
+        Assert.Equal("Free questions paused", ask.QuestionsLeftText);
+    }
+
     [Fact]
     public void An_answer_that_needed_a_locked_page_says_which_once_and_hides_the_line()
     {

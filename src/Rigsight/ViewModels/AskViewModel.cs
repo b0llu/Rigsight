@@ -375,7 +375,8 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>RigSight AI: the pill in the window's top bar says how many questions are left (free ones until a pack is bought).</summary>
     public bool ShowQuestionsLeft => Ai.Mode == AiMode.RigSight;
     public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : Standing?.Plan is { } plan
-        ? plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week") : Lang.T($"{plan.Left} of {plan.Cap} left today")
+        ? plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
+        : plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week") : Lang.T($"{plan.Left} of {plan.Cap} left today")
         : (HasLicence, QuestionsLeft) switch
     {
         (true, 1) => Lang.T("1 question left"),
@@ -398,9 +399,14 @@ public sealed partial class AskViewModel : ObservableObject
         _ when Standing?.Plan is not null => Lang.T("That's all your questions for today."),
         _ => Lang.T("You've used all your questions."),
     };
+    /// <summary>The out box's main button: the plan that fixes it (its card, with the question typed so far), or null.</summary>
+    public AskWall? OutOffer => !IsOutOfQuestions || LicenceOff || Standing?.Plan is not { } p ? null
+        : LimitWall(new AiLimit(p.Weekly ? "week" : "day", p.Id, p.ResetsAt), Draft) is { HasPlan: true } wall ? wall : null;
+
     public string OutText => LicenceOff
         ? Lang.T("Contact support from Settings › Ask RigSight.")
         : Standing?.Plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"They're back on {TimeText.At(at, "dddd")}. A plan gives up to 500 questions a day.")
+        : Standing?.Plan is { } now && Bigger(now) is { } bigger ? Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day.")
         : Standing?.Plan is not null ? Lang.T("More at midnight.")
         : Lang.T("Buy more in Settings › Ask RigSight, or switch to your own key there.");
 
@@ -826,8 +832,16 @@ public sealed partial class AskViewModel : ObservableObject
         await RefreshQuestionsAsync();
     }
 
+    /// <summary>The next plan up from this one (more questions a day), or null on the biggest.</summary>
+    private RelayPlanOffer? Bigger(RelayPlan now)
+    {
+        var offers = Standing?.Plans ?? [];
+        int mine = offers.FirstOrDefault(o => o.Id == now.Id)?.PriceCents ?? int.MaxValue;
+        return offers.Where(o => !o.IsFree && o.PriceCents > mine).OrderBy(o => o.PriceCents).FirstOrDefault();
+    }
+
     /// <summary>The card at the moment the free week's or the plan's day runs out, offering the plan that fixes it.</summary>
-    private AskWall LimitWall(AiLimit limit, string question)
+    internal AskWall LimitWall(AiLimit limit, string question)
     {
         var offers = Standing?.Plans ?? [];
         var paid = offers.Where(o => !o.IsFree).ToList();
@@ -865,9 +879,13 @@ public sealed partial class AskViewModel : ObservableObject
         if (wall?.Plan is not { } plan || Plans is null) return;
         bool on = wall.Switch ? await Plans.SwitchNowAsync(plan) : await Plans.BuyAsync(plan);
         if (!on || Current is not { } talk) return;
+        bool inChat = talk.Messages.Contains(wall);
+        // The out box's card was made before the question was typed: what's in the box now is the question.
         talk.Messages.Remove(wall);
-        if (wall.Question is { Length: > 0 } q)
+        string q = wall.Question is { Length: > 0 } asked && inChat ? asked : Draft.Trim();
+        if (q.Length > 0 && !IsOutOfQuestions)
         {
+            if (Draft.Trim() == q) Draft = "";
             // The question as typed, sent again now the plan is on (it got no answer before).
             if (talk.Messages.LastOrDefault() is AskQuestion last && last.Text == q) talk.Messages.Remove(last);
             Ask(q);
@@ -994,6 +1012,7 @@ public sealed partial class AskViewModel : ObservableObject
     public void Show(RelayStatus status)
     {
         Standing = status;
+        OnPropertyChanged(nameof(OutOffer));
         HasLicence = status.HasLicence && status.LicenceStatus == "active";
         // A relay with plans counts this week's free ones or today's; an older one, what's left in all.
         QuestionsLeft = status.Plan?.Left ?? status.QuestionsLeft;

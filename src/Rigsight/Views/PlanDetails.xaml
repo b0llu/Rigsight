@@ -2,114 +2,152 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
-    <!-- A paid plan (or one given by support) with everything about it up front: today's questions, the next payment and
-         Cancel, the card, receipts and Switch. Shown in Settings › AI and at the top of the Plans screen; DataContext is
-         the PlansViewModel. -->
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1.15*" />
-            <ColumnDefinition Width="28" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <StackPanel>
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top" HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding LeftToday}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding LeftLabel}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" />
-                </StackPanel>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding PlanName}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <Border CornerRadius="9" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
+    <UserControl.Resources>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        </Style>
+        <Style x:Key="Value" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <!-- One billing fact with its button, in a box of its own: four of them sit two by two under today's questions. -->
+        <Style x:Key="Fact" TargetType="ctl:SmoothBorder">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+        </Style>
+    </UserControl.Resources>
+
+    <!-- A paid plan (or one given by support) with everything about it up front: the plan and today's questions, then the
+         next payment and Cancel, the card, receipts and Switch, two by two. Shown in Settings › AI and at the top of the
+         Plans screen; DataContext is the PlansViewModel. -->
+    <StackPanel>
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="16,0,0,0">
+                <TextBlock Text="{Binding LeftToday}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding LeftLabel}" Style="{StaticResource Label}" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding PlanName}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Border CornerRadius="9" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StateIsWarning}" Value="True"><Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" /></DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding StateText}" FontSize="11.5" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding StateIsWarning}" Value="True"><Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding StateIsWarning}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding StateText}" FontSize="11.5" FontWeight="SemiBold">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding StateIsWarning}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-                    </StackPanel>
-                    <TextBlock Text="{Binding Summary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
                 </StackPanel>
-            </DockPanel>
-            <!-- Today's questions: the bar fills as they're used -->
-            <Grid Height="6" Margin="0,14,0,6" ClipToBounds="True">
-                <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
-                <Border CornerRadius="3" Background="{DynamicResource TextBrush}" RenderTransformOrigin="0,0.5">
-                    <Border.RenderTransform><ScaleTransform ScaleX="{Binding UsedPart}" /></Border.RenderTransform>
-                </Border>
-            </Grid>
-            <TextBlock Text="{Binding UsedText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-        </StackPanel>
+                <TextBlock Text="{Binding Summary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+            </StackPanel>
+        </DockPanel>
+        <!-- Today's questions: the bar fills as they're used -->
+        <Grid Height="6" Margin="0,14,0,6" ClipToBounds="True">
+            <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+            <Border CornerRadius="3" Background="{DynamicResource TextBrush}" RenderTransformOrigin="0,0.5">
+                <Border.RenderTransform><ScaleTransform ScaleX="{Binding UsedPart}" /></Border.RenderTransform>
+            </Border>
+        </Grid>
+        <TextBlock Text="{Binding UsedText}" Style="{StaticResource Label}" />
 
-        <StackPanel Grid.Column="2">
-            <!-- Paid: next payment and cancel, card, receipts, switch -->
-            <StackPanel Visibility="{Binding IsSubscription, Converter={StaticResource Vis}}">
-                <DockPanel Margin="0,0,0,8" Visibility="{Binding HasNextPayment, Converter={StaticResource Vis}}">
+        <!-- Cancelled (works until the end) or a failed payment: said in full, above the facts -->
+        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
+                          Visibility="{Binding IsEnding, Converter={StaticResource Vis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{Binding KeepText}" Command="{Binding KeepCommand}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                <TextBlock Text="{Binding EndingText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+        </ctl:SmoothBorder>
+        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
+                          Visibility="{Binding IsPastDue, Converter={StaticResource Vis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding ChangeCardCommand}" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{ctl:T 'Change card'}" />
+                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="{Binding PastDueText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+        </ctl:SmoothBorder>
+
+        <!-- Paid: next payment and Cancel, the card, receipts, the other plan -->
+        <UniformGrid Columns="2" Margin="0,14,-10,-10" Visibility="{Binding IsSubscription, Converter={StaticResource Vis}}">
+            <ctl:SmoothBorder Style="{StaticResource Fact}" Visibility="{Binding HasNextPayment, Converter={StaticResource Vis}}">
+                <DockPanel>
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel plan'}" Command="{Binding AskCancelCommand}"
-                            VerticalAlignment="Center" Visibility="{Binding CanManage, Converter={StaticResource Vis}}" />
+                            VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding CanManage, Converter={StaticResource Vis}}" />
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{ctl:T 'Next payment'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                        <TextBlock Text="{Binding NextPayment}" FontSize="13.5" FontWeight="SemiBold" />
+                        <TextBlock Text="{ctl:T 'Next payment'}" Style="{StaticResource Label}" />
+                        <TextBlock Text="{Binding NextPayment}" Style="{StaticResource Value}" FontWeight="SemiBold" />
                     </StackPanel>
                 </DockPanel>
-                <DockPanel Margin="0,0,0,8" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{Binding KeepText}" Command="{Binding KeepCommand}"
-                            VerticalAlignment="Center" Margin="12,0,0,0" />
-                    <TextBlock Text="{Binding EndingText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                </DockPanel>
-                <DockPanel Margin="0,0,0,8" Visibility="{Binding IsPastDue, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{Binding PastDueText}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
-                </DockPanel>
-                <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                <DockPanel Margin="0,8">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ChangeCardCommand}" VerticalAlignment="Center">
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Style="{StaticResource Fact}">
+                <DockPanel>
+                    <!-- With a failed payment, the box above has the button: one Change card is enough. -->
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ChangeCardCommand}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Visibility="{Binding IsPastDue, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T 'Change card'}" />
                             <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
                         </StackPanel>
                     </Button>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{ctl:T 'Paid with'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                        <TextBlock Text="{Binding CardText}" FontSize="13.5" />
+                        <TextBlock Text="{ctl:T 'Paid with'}" Style="{StaticResource Label}" />
+                        <TextBlock Text="{Binding CardText}" Style="{StaticResource Value}" />
                     </StackPanel>
                 </DockPanel>
-                <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                <DockPanel Margin="0,8">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ReceiptsCommand}" VerticalAlignment="Center">
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Style="{StaticResource Fact}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ReceiptsCommand}" VerticalAlignment="Center" Margin="12,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T 'See receipts'}" />
                             <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="{ctl:T 'Receipts'}" FontSize="13.5" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{ctl:T 'Receipts'}" Style="{StaticResource Label}" />
+                        <TextBlock Text="{ctl:T 'Every payment, from Lemon Squeezy'}" Style="{StaticResource Value}" />
+                    </StackPanel>
                 </DockPanel>
-                <Border Height="1" Background="{DynamicResource StrokeBrush}" Visibility="{Binding CanSwitchPlan, Converter={StaticResource Vis}}" />
-                <DockPanel Margin="0,8,0,0" Visibility="{Binding CanSwitchPlan, Converter={StaticResource Vis}}">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Compare plans'}" Command="{Binding ShowCommand}" Margin="0,0,8,0" />
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Style="{StaticResource Fact}" Visibility="{Binding CanSwitchPlan, Converter={StaticResource Vis}}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Compare'}" Command="{Binding ShowCommand}" Margin="0,0,8,0"
+                                Visibility="{Binding IsOpen, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <Button Style="{StaticResource AccentButton}" Content="{Binding SwitchText}" Command="{Binding AskSwitchCommand}" />
                     </StackPanel>
-                    <TextBlock Text="{ctl:T 'Plan'}" FontSize="13.5" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{ctl:T 'Other plan'}" Style="{StaticResource Label}" />
+                        <TextBlock Text="{Binding OtherText}" Style="{StaticResource Value}" />
+                    </StackPanel>
                 </DockPanel>
-            </StackPanel>
-            <!-- Given by support: no payments, nothing to manage -->
-            <StackPanel Visibility="{Binding IsGift, Converter={StaticResource Vis}}">
-                <TextBlock Text="{Binding GiftText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" Command="{Binding ShowCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
-            </StackPanel>
-        </StackPanel>
-    </Grid>
+            </ctl:SmoothBorder>
+        </UniformGrid>
+
+        <!-- Given by support: no payments, nothing to manage -->
+        <DockPanel Margin="0,14,0,0" Visibility="{Binding IsGift, Converter={StaticResource Vis}}">
+            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" Command="{Binding ShowCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+            <TextBlock Text="{Binding GiftText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </DockPanel>
+    </StackPanel>
 </UserControl>

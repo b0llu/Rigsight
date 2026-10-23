@@ -35,8 +35,10 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     };
     public string Price => Offer.IsFree ? "$0" : Offer.Price;
     public bool Monthly => !Offer.IsFree;
-    public string Questions => Offer.Weekly ? Lang.T($"{Offer.Cap} questions a week") : Lang.T($"Up to {Offer.Cap} questions a day");
-    public string QuestionsWhen => Offer.Weekly ? Lang.T($"Back to {Offer.Cap} every Monday") : Lang.T("Starts again every midnight");
+    public string Questions => Offer is { IsFree: true, Cap: 0 } ? Lang.T("Free questions are paused for now")
+        : Offer.Weekly ? Lang.T($"{Offer.Cap} questions a week") : Lang.T($"Up to {Offer.Cap} questions a day");
+    public string QuestionsWhen => Offer is { IsFree: true, Cap: 0 } ? Lang.T("A plan keeps answering")
+        : Offer.Weekly ? Lang.T($"Back to {Offer.Cap} every Monday") : Lang.T("Starts again every midnight");
     public string Everything => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}, and:");
     public bool HasEverything => rank > 0;
 
@@ -54,6 +56,8 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     public string MineText => Offer.IsFree ? owner.FreeLine : Lang.T("Your plan");
     public bool ShowMine => IsMine;
     public bool ShowNothing => !IsMine && !CanBuy && !CanSwitch;
+    /// <summary>Free's column while on a plan: what RigSight goes back to, so its button's place isn't left empty.</summary>
+    public string NothingText => Offer.IsFree ? Lang.T("What you're back on if a plan ends") : "";
 
     /// <summary>A page's line as a plan sells it: what an answer can now do, short.</summary>
     public static string Gives(string page) => page switch
@@ -138,6 +142,7 @@ public sealed partial class PlansViewModel : ObservableObject
     public string PlanName => Plan?.Name ?? Lang.T("Free");
     public string StateText => Plan switch
     {
+        { IsFree: true, Cap: 0 } => Lang.T("Paused for now"),
         { IsFree: true } p => p.Left == 1 ? Lang.T("1 of 10 left this week") : Lang.T($"{p.Left} of {p.Cap} left this week"),
         { Gift: true } => Lang.T("Given by RigSight"),
         { Ending: true, EndsAt: { } end } => Lang.T($"Ends {TimeText.At(end, "d MMMM")}"),
@@ -148,14 +153,18 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool StateIsWarning => IsEnding || IsPastDue;
 
     /// <summary>"7 of 10 left this week" on Free; the free column's own line on the Plans screen.</summary>
-    public string FreeLine => Plan is { IsFree: true } p ? (p.Left == 0 ? Lang.T("All 10 used this week") : StateText) : Lang.T("10 questions a week");
+    public string FreeLine => Plan is { IsFree: true } p ? (FreePaused ? StateText : p.Left == 0 ? Lang.T("All 10 used this week") : StateText) : Lang.T("10 questions a week");
 
-    public string FreeWhen => Plan?.ResetsAt is { } at
+    /// <summary>Free questions paused on the relay (none this week for anyone): said so, never "0 of 0".</summary>
+    public bool FreePaused => Plan is { IsFree: true, Cap: 0 };
+
+    public string FreeWhen => FreePaused ? Lang.T("Free questions are paused for now. Plans give up to 500 questions a day, and answers that use more of your PC's records.")
+        : Plan?.ResetsAt is { } at
         ? Lang.T($"Back to {Plan.Cap} on {TimeText.At(at, "dddd")}. Plans give up to 500 questions a day, and answers that use more of your PC's records.")
         : Lang.T("Plans give up to 500 questions a day, and answers that use more of your PC's records.");
 
     public string Summary => Plan is not { IsFree: false } p ? ""
-        : p.Gift ? Lang.T($"answers use {PagesText(p.Pages.Count)} · web search")
+        : p.Gift ? Lang.T($"Answers use {PagesText(p.Pages.Count)} · web search")
         : Lang.T($"{p.Price} a month · answers use {PagesText(p.Pages.Count)} · web search");
 
     private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count} pages") : Lang.T($"{n} of {AiPages.All.Count} pages");
@@ -182,6 +191,7 @@ public sealed partial class PlansViewModel : ObservableObject
     public PlanColumn? Other => Columns.Where(c => !c.Offer.IsFree && Plan is { } p && c.Offer.Id != p.Id).LastOrDefault();
     public bool CanSwitchPlan => CanManage && !IsEnding && Other is not null;
     public string SwitchText => Other is { } o ? Lang.T($"Switch to {o.Name}") : "";
+    public string OtherText => Other is { } o ? Lang.T($"{o.Name} · {PagesText(o.Offer.Pages.Count)}") : "";
     public bool SwitchGoesUp => Other is { } o && Plan is { } p && Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is { } mine && o.Offer.PriceCents > mine.Offer.PriceCents;
 
     // ── The Plans screen ────────────────────────────────────────────────
@@ -355,7 +365,8 @@ public sealed partial class PlansViewModel : ObservableObject
         if (Plan is not { RenewsAt: { } renews } p || Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is not { } mine) return to.Offer.Price;
         double daysLeft = Math.Clamp((renews - DateTime.Now).TotalDays, 0, 31);
         double dollars = (to.Offer.PriceCents - mine.Offer.PriceCents) / 100.0 * daysLeft / 30.0;
-        return "$" + Math.Max(0, dollars).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        // To the 10 cents: Lemon Squeezy works out the exact figure, so a precise-looking one would mislead.
+        return "$" + (Math.Round(Math.Max(0, dollars) * 10) / 10).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     [RelayCommand]

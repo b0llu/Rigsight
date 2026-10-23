@@ -73,6 +73,8 @@
                                             <Button x:Name="Switch" Style="{StaticResource GhostButton}" Content="{Binding SwitchText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
                                                     Command="{Binding DataContext.AskSwitchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                                                     Visibility="{Binding CanSwitch, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="{Binding NothingText}" Style="{StaticResource Small}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                       Visibility="{Binding ShowNothing, Converter={StaticResource Vis}}" />
                                             <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="14,10" Visibility="{Binding ShowMine, Converter={StaticResource Vis}}">
                                                 <TextBlock Text="{Binding MineText}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
                                             </ctl:SmoothBorder>

@@ -1091,7 +1091,41 @@
             </ContentControl>
         </Grid>
 
-        <!-- RigSight AI's plans over the whole window: opened from Settings › AI or an Ask card; Back or Esc closes it. -->
+        <!-- "End … ?": asked before a part of Windows is ended from the Processes page. Esc or a click outside cancels. -->
+        <Grid x:Name="EndQuestionLayer" Grid.ColumnSpan="2" DataContext="{Binding Processes.Question}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
+              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
+            <Border Background="#99000000" MouseLeftButtonDown="EndQuestionBackdrop_MouseDown" />
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate" Value="{StaticResource EndQuestionCard}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+        <!-- The Ask window: over the pages, but not in their way (only the window itself takes clicks). Built only while
+             open, like the cards above; what it shows stays in Ask between openings. -->
+        <ContentControl Grid.ColumnSpan="2" Content="{Binding Ask}" Focusable="False" Visibility="{Binding Ask.IsOpen, Converter={StaticResource Vis}}">
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Setter Property="ContentTemplate" Value="{x:Null}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Ask.IsOpen}" Value="True">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value><DataTemplate><views:AskWindow /></DataTemplate></Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+        <!-- RigSight AI's plans over the whole window: opened from Settings › AI or an Ask card; Back or Esc closes it.
+             After the Ask window, so a card's See plans covers it, and Back returns to the chat. -->
         <Grid x:Name="PlansLayer" Grid.ColumnSpan="2" DataContext="{Binding Plans}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
               Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle">
             <ContentControl Content="{Binding}" Focusable="False">
@@ -1177,39 +1211,6 @@
             </ctl:SmoothBorder>
         </Grid>
 
-        <!-- "End … ?": asked before a part of Windows is ended from the Processes page. Esc or a click outside cancels. -->
-        <Grid x:Name="EndQuestionLayer" Grid.ColumnSpan="2" DataContext="{Binding Processes.Question}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
-              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
-            <Border Background="#99000000" MouseLeftButtonDown="EndQuestionBackdrop_MouseDown" />
-            <ContentControl Content="{Binding}" Focusable="False">
-                <ContentControl.Style>
-                    <Style TargetType="ContentControl">
-                        <Setter Property="ContentTemplate" Value="{x:Null}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                <Setter Property="ContentTemplate" Value="{StaticResource EndQuestionCard}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ContentControl.Style>
-            </ContentControl>
-        </Grid>
-        <!-- The Ask window: over the pages, but not in their way (only the window itself takes clicks). Built only while
-             open, like the cards above; what it shows stays in Ask between openings. -->
-        <ContentControl Grid.ColumnSpan="2" Content="{Binding Ask}" Focusable="False" Visibility="{Binding Ask.IsOpen, Converter={StaticResource Vis}}">
-            <ContentControl.Style>
-                <Style TargetType="ContentControl">
-                    <Setter Property="ContentTemplate" Value="{x:Null}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding Ask.IsOpen}" Value="True">
-                            <Setter Property="ContentTemplate">
-                                <Setter.Value><DataTemplate><views:AskWindow /></DataTemplate></Setter.Value>
-                            </Setter>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ContentControl.Style>
-        </ContentControl>
         <!-- Rewind: the full screen when one is ready (like the update screen), then the cards and Share. -->
         <rw:RewindLayer Grid.ColumnSpan="2" DataContext="{Binding Rewind}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}" />
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see
