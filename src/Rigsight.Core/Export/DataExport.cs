@@ -283,6 +283,11 @@ public static class DataExport
     {
         bool days = from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero;
         string first = days ? Day(from) : Time(from), last = days ? Day(to.AddDays(-1)) : Time(to);
+        // All time: from whenever the history starts.
+        if (from.Year <= 2000)
+            return count == 1
+                ? Lang.T($"Everything up to {last}  ·  1 row  ·  times are this PC's local time, temperatures in °C")
+                : Lang.T($"Everything up to {last}  ·  {count:N0} rows  ·  times are this PC's local time, temperatures in °C");
         return count == 1
             ? Lang.T($"{first} to {last}  ·  1 row  ·  times are this PC's local time, temperatures in °C")
             : Lang.T($"{first} to {last}  ·  {count:N0} rows  ·  times are this PC's local time, temperatures in °C");

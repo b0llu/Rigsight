@@ -427,6 +427,8 @@
     "Compared": "Comparación",
     "The days compared before and after": "Los días comparados antes y después",
     "{0:d MMM yyyy} to {1:d MMM yyyy} against {2:d MMM yyyy} to {3:d MMM yyyy}": "del {0:d MMM yyyy} al {1:d MMM yyyy} frente al {2:d MMM yyyy} al {3:d MMM yyyy}",
+    "Everything up to {0}  ·  1 row  ·  times are this PC's local time, temperatures in °C": "Todo hasta el {0}  ·  1 fila  ·  horas en la hora local de este PC, temperaturas en °C",
+    "Everything up to {0}  ·  {1:N0} rows  ·  times are this PC's local time, temperatures in °C": "Todo hasta el {0}  ·  {1:N0} filas  ·  horas en la hora local de este PC, temperaturas en °C",
     "{0} to {1}  ·  1 row  ·  times are this PC's local time, temperatures in °C": "{0} a {1}  ·  1 fila  ·  horas en la hora local de este PC, temperaturas en °C",
     "{0} to {1}  ·  {2:N0} rows  ·  times are this PC's local time, temperatures in °C": "{0} a {1}  ·  {2:N0} filas  ·  horas en la hora local de este PC, temperaturas en °C",
     "{0}  ·  1 row": "{0}  ·  1 fila",
@@ -437,13 +439,14 @@
     "The other files are the same history as tables (CSV: comma-separated, UTF-8), which Excel and most other\nprograms open. Times are this PC's local time. Temperatures are in °C. An empty cell means nothing was recorded.": "Los demás archivos son el mismo historial en tablas (CSV: separado por comas, UTF-8), que Excel y la mayoría de los\nprogramas abren. Las horas son la hora local de este PC. Las temperaturas están en °C. Una celda vacía significa que no se registró nada.",
     "Read me.txt": "Léeme.txt",
     "Made {0}": "Creado {0}",
+    "Everything up to {0}": "Todo hasta el {0}",
     "{0} to {1}": "{0} a {1}",
     "Games library": "Biblioteca de juegos",
     "Each game, its launcher, play time, last played and size on disk.": "Cada juego, su lanzador, el tiempo jugado, la última partida y lo que ocupa en el disco.",
     "Launcher": "Lanzador",
     "Installed": "Instalados",
     "Played (h)": "Jugado (h)",
-    "Plays": "Partidas",
+    "Sessions": "Sesiones",
     "First played": "Primera partida",
     "Last played": "Última partida",
     "Size on disk (GB)": "Tamaño en disco (GB)",
@@ -2701,7 +2704,6 @@
     "Report for the period": "Informe del periodo",
     "Crashes with their context": "Fallos con su contexto",
     "App usage": "Uso de aplicaciones",
-    "Sessions": "Sesiones",
     "Temperatures, load and power": "Temperaturas, carga y potencia",
     "Timeline changes": "Cambios de la cronología",
     "Internet each hour": "Internet por hora",
@@ -4345,6 +4347,7 @@
     "Closing…": "Cerrando…",
     "NEXT STEP": "SIGUIENTE PASO",
     "Ask what this means": "Preguntar qué significa",
-    "Ask this": "Preguntar esto"
+    "Ask this": "Preguntar esto",
+    "Plays": "Partidas"
   }
 }

@@ -112,6 +112,21 @@ public sealed class PageExportTests
     }
 
     [Fact]
+    public void A_one_of_choice_keeps_one_and_says_what_is_picked()
+    {
+        var show = new ExportScope("Show", false, [new("All", "All", true), new("Apps & games", "Apps", false), new("PC problems", "Pc", false)],
+            s => (string)s.Picked.Single()!);
+        show.Options[2].IsOn = true;
+        Assert.Equal(["Pc"], show.Picked);
+        Assert.Equal("Pc", show.WordsText);
+        var drives = new ExportScope("Drives", true, [new("the C drive", "C:", true), new("the D drive", "D:", true)], s => $"{s.Picked.Count()}");
+        drives.Options[0].IsOn = false;
+        Assert.Equal(["D:"], drives.Picked);
+        drives.PickAllCommand.Execute(null);
+        Assert.True(drives.AllPicked);
+    }
+
+    [Fact]
     public void A_file_made_from_a_page_reads_like_a_table_as_text_and_as_csv()
     {
         var at = new DateTime(2026, 10, 23, 11, 20, 0);
@@ -134,7 +149,7 @@ public sealed class PageExportTests
         Assert.Equal(["Games library", "Each game, its launcher, play time, last played and size on disk.", "Made 2026-10-23 11:20  ·  2 rows", ""], text.Take(4));
         Assert.StartsWith("Game", text[4]);
         var csv = File.ReadAllLines(Path.Combine(folder, "lib.csv"));
-        Assert.Equal("Game,Launcher,Installed,Played (h),Plays,First played,Last played,Size on disk (GB),Folder", csv[0]);
+        Assert.Equal("Game,Launcher,Installed,Played (h),Sessions,First played,Last played,Size on disk (GB),Folder", csv[0]);
         Assert.Equal(@"Risk of Rain 2,Steam,Yes,11.1,9,2026-10-03 11:20,2026-10-21 11:20,4,D:\Steam\Risk of Rain 2", csv[1]);
         Assert.Equal(3, csv.Length);
 
@@ -160,6 +175,8 @@ public sealed class PageExportTests
         var one = ExportSheets.Plays(db, [library[0]], settings, All.From, All.To, DateTime.Now);
         Assert.All(one.Rows, r => Assert.Equal(library[0].Name, r[2]));
         Assert.True(one.Rows.Count <= sheet.Rows.Count);
+        // All time is said as everything, not from the year 2000.
+        Assert.StartsWith("Everything up to ", ExportSheets.Plays(db, [library[0]], settings, new DateTime(2000, 1, 1), All.To, DateTime.Now).When);
         // A period with none: none.
         Assert.Empty(ExportSheets.Plays(db, library, settings, new DateTime(2001, 1, 1), new DateTime(2001, 1, 2), DateTime.Now).Rows);
     }

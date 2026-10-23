@@ -73,7 +73,13 @@ public sealed partial class ExportScope : ObservableObject
     {
         (Name, IsMulti, Options, _words) = (name, isMulti, options, words);
         GroupName = "Scope" + Guid.NewGuid().ToString("N")[..8];
-        foreach (var o in options) o.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ScopeOption.IsOn)) Changed(); };
+        foreach (var o in options) o.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ScopeOption.IsOn)) return;
+            // One of a few: picking one leaves the rest (the radio group does the same on screen).
+            if (!isMulti && o.IsOn) foreach (var other in options.Where(x => x != o)) other.IsOn = false;
+            Changed();
+        };
         _wordsText = words(this);
     }
 

@@ -21,7 +21,7 @@ public static class PageExports
         "reports" => Reports(shell.ReportsPage),
         "apps" => Apps(shell.Apps),
         "games" => Games(shell.Games),
-        "crashes" => Crashes(shell.Crashes),
+        "crashes" => Crashes(shell.Crashes, shell.Settings.Current),
         "timeline" => Timeline(shell.Timeline),
         "temperatures" => Temperatures(shell.Live),
         "fans" => Fans(shell.Fans),
@@ -177,7 +177,7 @@ public static class PageExports
             Rolling(), 3, null, games is null ? [] : [games], NoFilter);
     }
 
-    private static PageExportSpec Crashes(CrashesViewModel vm)
+    private static PageExportSpec Crashes(CrashesViewModel vm, Core.Settings.RigsightSettings settings)
     {
         var periods = Units(vm.Anchor, all: true, custom: true);
         var show = OneOf(Lang.T("Show"),
@@ -203,15 +203,16 @@ public static class PageExports
             {
                 string filter = show.Picked.FirstOrDefault() as string ?? "All";
                 bool searching = On(search);
-                if (filter == "All" && !searching) return ExportFilter.None;
-                // The period on the page: exactly the crashes its list shows. Another one: the same filter and search, crash by crash.
+                // The period on the page: exactly the crashes its list shows (muted apps left out, as there). Another
+                // one: the same filter, search and muting, crash by crash.
                 if (period == page)
                 {
                     var ids = vm.ShownIds(filter, searching);
                     return new ExportFilter { Crashes = e => ids.Contains(e.Id) };
                 }
                 var words = searching ? TextMatch.Words(vm.SearchText) : [];
-                return new ExportFilter { Crashes = e => CrashHas(e, filter, words) };
+                bool showMuted = vm.ShowMuted;
+                return new ExportFilter { Crashes = e => (showMuted || !settings.IsCrashMuted(e.AppExe)) && CrashHas(e, filter, words) };
             }, FromInstall: false);
     }
 

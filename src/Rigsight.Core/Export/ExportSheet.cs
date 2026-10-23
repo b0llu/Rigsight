@@ -42,7 +42,8 @@ public static class ExportSheets
     {
         bool days = from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero;
         string first = days ? from.ToString("yyyy-MM-dd", Inv) : Time(from), last = days ? to.AddDays(-1).ToString("yyyy-MM-dd", Inv) : Time(to);
-        return Lang.T($"{first} to {last}");
+        // All time: from whenever the history starts.
+        return from.Year <= 2000 ? Lang.T($"Everything up to {last}") : Lang.T($"{first} to {last}");
     }
 
     /// <summary>A launcher's name as people know it; none for a game no launcher lists.</summary>
@@ -63,7 +64,7 @@ public static class ExportSheets
     /// <summary>The Games library: each game, where it's from, how long it was played and how big it is.</summary>
     public static ExportSheet Library(IEnumerable<GameEntry> games, DateTime now) => new(
         Lang.T("Games library"), Lang.T("Games library"), Lang.T("Each game, its launcher, play time, last played and size on disk."), MadeAt(now),
-        [Lang.T("Game"), Lang.T("Launcher"), Lang.T("Installed"), Lang.T("Played (h)"), Lang.T("Plays"), Lang.T("First played"), Lang.T("Last played"), Lang.T("Size on disk (GB)"), Lang.T("Folder")],
+        [Lang.T("Game"), Lang.T("Launcher"), Lang.T("Installed"), Lang.T("Played (h)"), Lang.T("Sessions"), Lang.T("First played"), Lang.T("Last played"), Lang.T("Size on disk (GB)"), Lang.T("Folder")],
         [.. games.OrderByDescending(g => g.LastPlayed ?? g.Installed?.LastPlayed ?? DateTime.MinValue).Select(g => new object?[]
         {
             g.Name, LauncherName(g.Launcher), YesNo(g.IsInstalled), g.HasHistory ? Math.Round(g.ActiveSec / 3600, 1) : null, g.HasHistory ? g.Sessions : null,
