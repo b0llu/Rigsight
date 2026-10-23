@@ -805,12 +805,11 @@ public sealed partial class AskViewModel : ObservableObject
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
             // The question stays where it was; it isn't sent again with the next one, since it got no answer.
-            Log.Write("ask", "Stopped before the answer came");
+            // Stopped: whatever was written goes, and only the question stays (the person's word, 2026-10-23). It isn't sent
+            // again with the next one, since it got no answer. RigSight AI gives the question back, whenever Stop was pressed.
+            Log.Write("ask", "Stopped before the answer finished: the answer is hidden, the question stays");
             Unwait(talk);
-            var said = new AskStopped(Lang.T("Stopped. Ask again whenever you like."));
-            talk.Messages.Add(said);
-            // RigSight AI: the question goes back (the relay decides, and says when it did); what was written stays hidden.
-            if (Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(talk, said, id);
+            if (Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -824,12 +823,9 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>The relay's id for the question being answered (RigSight AI), for Stop to give it back.</summary>
     private string? _questionId;
 
-    private async Task GiveBackAsync(AskConversation talk, AskStopped said, string id)
+    private async Task GiveBackAsync(string id)
     {
-        if (!await Relay.StopAsync(id)) return;
-        int at = talk.Messages.IndexOf(said);
-        if (at >= 0) talk.Messages[at] = new AskStopped(Lang.T("Stopped. This question wasn't counted."));
-        await RefreshQuestionsAsync();
+        if (await Relay.StopAsync(id)) await RefreshQuestionsAsync();
     }
 
     /// <summary>The next plan up from this one (more questions a day), or null on the biggest.</summary>
@@ -1344,14 +1340,30 @@ public sealed partial class AskViewModel : ObservableObject
         if (talk == Current) ToEnd();
     }
 
-    /// <summary>Writes every conversation with something in it to the file, off the window's thread.</summary>
+    /// <summary>
+    /// Writes every conversation with something in it to the file, off the window's thread. Saves can overlap (an answer
+    /// ending while a rename is saved): each is numbered as it's taken, and one taken before the last written is skipped,
+    /// so an older picture never lands over a newer one (a rename was lost that way).
+    /// </summary>
     internal Task Save()
     {
         if (_file is null) return Task.CompletedTask;
         var snapshot = Conversations.Where(c => c.Title.Length > 0).Select(ToSaved).ToList();
         string file = _file;
-        return Task.Run(() => AiConversations.Save(snapshot, file));
+        long taken = Interlocked.Increment(ref _saveTaken);
+        return Task.Run(() =>
+        {
+            lock (_saveGate)
+            {
+                if (taken < _saveWritten) return;
+                AiConversations.Save(snapshot, file);
+                _saveWritten = taken;
+            }
+        });
     }
+
+    private long _saveTaken, _saveWritten;
+    private readonly object _saveGate = new();
 
     private static SavedConversation ToSaved(AskConversation c) => new(c.Id, c.Title, c.When, c.LookingAt, c.IsPinned, c.IsArchived,
         c.Unopened ?? [.. c.Messages.Select(m => m switch

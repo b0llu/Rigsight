@@ -310,6 +310,41 @@ public sealed class PlansTests
     }
 
     [Fact]
+    public async Task Stop_hides_what_was_written_keeps_only_the_question_and_gives_it_back()
+    {
+        string? stopped = null;
+        await using var relay = new FakeRelay(async (r, s) =>
+        {
+            if (r.Path == "/v1/stop") { stopped = (string?)JsonNode.Parse(r.Body)?["question_id"]; await FakeRelay.Reply(s, 200, "application/json", "{\"ok\":true,\"refunded\":true}"); return; }
+            if (r.Path != "/v1/ask") { await FakeRelay.Reply(s, 200, "application/json", Status("essentials", "subscription")); return; }
+            await FakeRelay.SseStart(s);
+            var chunk = new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["index"] = 0, ["delta"] = new JsonObject { ["content"] = "Your PC shut off because the power" } }) };
+            await FakeRelay.Write(s, $"data: {chunk.ToJsonString()}\n\n");
+            await Task.Delay(20_000); // still writing when Stop is pressed
+        });
+        var settings = new RigsightSettings();
+        settings.Ai.Mode = AiMode.RigSight;
+        settings.Ai.FirstQuestionSeen.Add(AiMode.RigSight);
+        var ask = Ui.Run(() => new AskViewModel(Kit.OfflineSettings(settings)));
+        Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url;
+            ask.Draft = "Why did my PC turn off?";
+            ask.SendCommand.Execute(null);
+        });
+        Assert.True(Ui.WaitFor(() => ask.Current!.Messages.OfType<AskWriting>().Any(w => w.Verdict.Length > 0 || w.Parts.Count > 0), 15_000), "the answer never started");
+        Ui.Run(() => ask.StopCommand.Execute(null));
+        Assert.True(Ui.WaitFor(() => !ask.IsAnswering && stopped is not null, 15_000), "Stop didn't reach the relay");
+        Ui.Run(() =>
+        {
+            var left = ask.Current!.Messages.ToList();
+            Assert.Single(left);
+            Assert.Equal("Why did my PC turn off?", Assert.IsType<AskQuestion>(left[0]).Text);
+            Relay.TestRoot.Value = null;
+        });
+    }
+
+    [Fact]
     public void An_answer_that_needed_a_locked_page_says_which_once_and_hides_the_line()
     {
         var answer = AskViewModel.ToAnswer("Your GPU stayed cool.\nThe frame rates are on a page your plan doesn't open.\n[locked: games]\n[locked: network]", []);
