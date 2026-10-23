@@ -1148,6 +1148,93 @@
                 </Style>
             </ContentControl.Style>
         </ContentControl>
+        <!-- RigSight AI's plans over the whole window: opened from Settings › AI or an Ask card; Back or Esc closes it.
+             After the Ask window, so a card's See plans covers it, and Back returns to the chat. -->
+        <Grid x:Name="PlansLayer" Grid.ColumnSpan="2" DataContext="{Binding Plans}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
+              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle">
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate">
+                                    <Setter.Value>
+                                        <DataTemplate>
+                                            <views:PlansScreen />
+                                        </DataTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+
+        <!-- "Cancel Essentials?" and "Switch to Complete?": asked before anything about money changes. Esc or a click outside closes. -->
+        <Grid x:Name="PlanDialogLayer" Grid.ColumnSpan="2" DataContext="{Binding Plans}" Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding CancelOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                        <DataTrigger Binding="{Binding SwitchOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Border Background="#99000000" MouseLeftButtonDown="PlanDialogBackdrop_MouseDown" />
+            <ctl:SmoothBorder Width="460" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,22,24,18"
+                              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16">
+                <StackPanel>
+                    <!-- Cancel -->
+                    <StackPanel Visibility="{Binding CancelOpen, Converter={StaticResource Vis}}" AutomationProperties.Name="{Binding CancelTitle}">
+                        <TextBlock Text="{Binding CancelTitle}" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding CancelText}" FontSize="13.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,14" />
+                        <TextBlock Text="{ctl:T 'What made you cancel? (optional)'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" />
+                        <ItemsControl ItemsSource="{Binding Reasons}" Margin="0,8,0,4" Focusable="False">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Text}" Margin="0,0,6,6" Padding="11,4" FontSize="12.5" AutomationProperties.Name="{Binding Text}"
+                                            Command="{Binding DataContext.PickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Chip" CornerRadius="13" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter TextElement.Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chip" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                    <DataTrigger Binding="{Binding Picked}" Value="True"><Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource TextBrush}" /></DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                            <ctl:Spinner Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="{Binding ConfirmCancelCommand.IsRunning, Converter={StaticResource Vis}}" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Keep my plan'}" Command="{Binding CloseDialogsCommand}" Margin="0,0,8,0" />
+                            <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Cancel plan'}" Command="{Binding ConfirmCancelCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <!-- Switch -->
+                    <StackPanel Visibility="{Binding SwitchOpen, Converter={StaticResource Vis}}" AutomationProperties.Name="{Binding SwitchTitle}">
+                        <TextBlock Text="{Binding SwitchTitle}" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SwitchText2}" FontSize="13.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                            <ctl:Spinner Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="{Binding ConfirmSwitchCommand.IsRunning, Converter={StaticResource Vis}}" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Not now'}" Command="{Binding CloseDialogsCommand}" Margin="0,0,8,0" />
+                            <Button Style="{StaticResource AccentButton}" Content="{Binding SwitchConfirm}" Command="{Binding ConfirmSwitchCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Problem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Visibility="{Binding HasProblem, Converter={StaticResource Vis}}" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </Grid>
+
         <!-- Rewind: the full screen when one is ready (like the update screen), then the cards and Share. -->
         <rw:RewindLayer Grid.ColumnSpan="2" DataContext="{Binding Rewind}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}" />
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see

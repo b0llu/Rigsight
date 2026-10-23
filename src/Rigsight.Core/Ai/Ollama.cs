@@ -9,7 +9,8 @@ namespace Rigsight.Core.Ai;
 public sealed record OllamaModel(string Name, long Bytes, bool CanLookUp);
 
 /// <summary>One record the helper looked at for an answer: the tool, what it asked for, and how much came back.</summary>
-public sealed record AiLookUp(string Tool, JsonObject Args, int Chars);
+/// <param name="Web">A web search's numbered results (the relay's search only), for the paragraphs' sources.</param>
+public sealed record AiLookUp(string Tool, JsonObject Args, int Chars, IReadOnlyList<WebSource>? Web = null);
 
 /// <summary>A message earlier in the conversation, sent again so a follow-up question has its context.</summary>
 /// <summary>One message of a conversation as sent again; an answer keeps the records it was written from.</summary>
@@ -54,7 +55,7 @@ public static class AiTurns
 public sealed record AiStep(string Text, string? Note = null, bool Loading = false);
 
 /// <summary>What came back for a question: the answer's text, or why there is none, what it looked at, and a quiet note for under the answer (web search failed).</summary>
-public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null);
+public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null, AiLimit? Limit = null);
 
 /// <summary>
 /// Ollama on this PC (Settings › Ask RigSight → Ollama on my PC): lists its models and answers questions, looking at RigSight's

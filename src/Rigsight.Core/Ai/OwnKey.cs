@@ -53,8 +53,8 @@ public static class KeyStore
 
     private const int NoPrompt = 0x1;
 
-    private static byte[] Protect(byte[] data) => Run(data, (ref Blob i, ref Blob o) => CryptProtectData(ref i, "RigSight AI key", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, NoPrompt, ref o));
-    private static byte[] Unprotect(byte[] data) => Run(data, (ref Blob i, ref Blob o) => CryptUnprotectData(ref i, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, NoPrompt, ref o));
+    internal static byte[] Protect(byte[] data) => Run(data, (ref Blob i, ref Blob o) => CryptProtectData(ref i, "RigSight AI key", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, NoPrompt, ref o));
+    internal static byte[] Unprotect(byte[] data) => Run(data, (ref Blob i, ref Blob o) => CryptUnprotectData(ref i, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, NoPrompt, ref o));
 
     private delegate bool Crypt(ref Blob input, ref Blob output);
 

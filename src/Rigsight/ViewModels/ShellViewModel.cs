@@ -101,7 +101,19 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Language = Language;
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
         Crashes.Ask = Ask;
+        // An answer's buttons: a page at the right spot, the agent started, the problem report copied, a closed app on the Timeline.
+        Ask.OpenPageAt = OpenPageFromAnswer;
+        Ask.StartAgent = () => StartAgentCommand.Execute(null);
+        Ask.CopyReport = () => SettingsPage.CopyProblemReportCommand.Execute(null);
+        Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
+        Ask.AgentRunning = () => IsConnected;
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
+        // RigSight AI's plans: Settings › AI shows yours, the Plans screen covers the window, the Ask window offers one at a limit.
+        Plans = new PlansViewModel(Ask);
+        SettingsPage.Ai.Plans = Plans;
+        Ask.Plans = Plans;
+        // The look-ups that read what is on screen now: every reading, and the drives' health.
+        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); };
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
@@ -254,6 +266,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public LanguageViewModel Language { get; }
     /// <summary>The Ask window over every page, and its button in the top bar or the sidebar.</summary>
     public AskViewModel Ask { get; }
+
+    public PlansViewModel Plans { get; }
     public UpdateViewModel Update { get; }
     public SidebarViewModel Sidebar { get; }
 
@@ -784,6 +798,24 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         SettingsPage.Tab = "about";
         CurrentPage = "settings";
+    }
+
+    /// <summary>A button under an answer: the page, and on it the drive (Storage scans it), the game, or the order (Processes).</summary>
+    private void OpenPageFromAnswer(string page, string? focus)
+    {
+        CurrentPage = page;
+        switch (page)
+        {
+            case "storage" when focus is { Length: 1 }:
+                _ = Storage.ScanCommand.ExecuteAsync(focus + @":\");
+                break;
+            case "games" when focus is { Length: > 0 }:
+                _ = Games.OpenKeyAsync(focus);
+                break;
+            case "processes":
+                Processes.SortByTotalCommand.Execute(focus == "cpu" ? ProcessesViewModel.ByCpu : ProcessesViewModel.ByMemory);
+                break;
+        }
     }
 
     [RelayCommand]

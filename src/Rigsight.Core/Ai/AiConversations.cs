@@ -11,12 +11,14 @@ public sealed record SavedMessage(string Kind, string Text, string? Model = null
     IReadOnlyDictionary<string, IReadOnlyList<AiBlock>>? Drawn = null)
 {
     public const string Question = "question", Answer = "answer", Problem = "problem", Stopped = "stopped";
+    /// <summary>What a button under an answer did ("Closed Python at 10:42 PM"), and a Check again ("1729615200 10 Fans").</summary>
+    public const string Done = "done", Check = "check";
 }
 
-public sealed record SavedLookUp(string Tool, string Args, int Chars)
+public sealed record SavedLookUp(string Tool, string Args, int Chars, IReadOnlyList<WebSource>? Web = null)
 {
-    public AiLookUp ToLookUp() => new(Tool, JsonNode.Parse(Args) as JsonObject ?? [], Chars);
-    public static SavedLookUp From(AiLookUp l) => new(l.Tool, l.Args.ToJsonString(), l.Chars);
+    public AiLookUp ToLookUp() => new(Tool, JsonNode.Parse(Args) as JsonObject ?? [], Chars, Web);
+    public static SavedLookUp From(AiLookUp l) => new(l.Tool, l.Args.ToJsonString(), l.Chars, l.Web);
 }
 
 /// <summary>A conversation as kept between runs: its title, when it started, what it was opened from, pinned or archived.</summary>

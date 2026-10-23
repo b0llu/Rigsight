@@ -352,7 +352,11 @@ public sealed class RelayFailureTests
     private static string Call(string name, string args) =>
         $"data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{{\"name\":{Esc(name)},\"arguments\":{Esc(args)}}}}}]}}}}]}}\n\n";
 
-    internal sealed record FakeRequest(string Method, string Path, string Body);
+    internal sealed record FakeRequest(string Method, string Path, string Body)
+    {
+        /// <summary>The request's headers by name (any case).</summary>
+        public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>();
+    }
 
     /// <summary>A relay on a local port that answers each request as the test says, at the level of the connection.</summary>
     internal sealed class FakeRelay : IAsyncDisposable
@@ -406,7 +410,9 @@ public sealed class RelayFailureTests
             var body = new byte[length];
             int got = 0;
             while (got < length) { int n = await s.ReadAsync(body.AsMemory(got)); if (n == 0) break; got += n; }
-            return new FakeRequest(first[0], first.Length > 1 ? first[1] : "", Encoding.UTF8.GetString(body, 0, got));
+            var headers = lines.Skip(1).Select(l => l.Split(':', 2)).Where(p => p.Length == 2)
+                .GroupBy(p => p[0].Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First()[1].Trim(), StringComparer.OrdinalIgnoreCase);
+            return new FakeRequest(first[0], first.Length > 1 ? first[1] : "", Encoding.UTF8.GetString(body, 0, got)) { Headers = headers };
         }
 
         public static Task Write(NetworkStream s, string text) => s.WriteAsync(Encoding.UTF8.GetBytes(text)).AsTask().ContinueWith(_ => s.FlushAsync()).Unwrap();

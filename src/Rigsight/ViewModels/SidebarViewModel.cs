@@ -159,7 +159,10 @@ public sealed partial class SidebarViewModel : ObservableObject
 
     /// <summary>What a dashboard is called while its name is empty (as it is saved then: see CustomPageViewModel.Save).</summary>
     private static string DashboardTitle => Lang.T("Dashboard");
-    private const string DashboardIcon = "\uF0E2";
+    internal const string DashboardIcon = "\uF0E2";
+
+    /// <summary>A built-in page's sidebar icon (a character, or "fan"/"network" for the drawn ones), or null for one not in the sidebar.</summary>
+    public static string? IconOf(string key) => BuiltIn.FirstOrDefault(p => p.Key == key).Icon;
 
     private readonly SettingsModel _settings;
     private readonly Action<string> _go;

@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Rigsight.Core.Ai;
 using Rigsight.Core.Settings;
+using Rigsight.Tests.Support;
 using Rigsight.ViewModels;
 
 namespace Rigsight.Tests.App;
@@ -204,6 +205,54 @@ public sealed class AskAnswerTests
     public void A_line_still_being_typed_that_could_become_a_chart_waits(string text, string shown)
     {
         Assert.Equal(shown, AskViewModel.Settled(text));
+    }
+
+    [Fact]
+    public void The_ask_next_line_becomes_questions_under_the_answer_not_words()
+    {
+        var answer = AskViewModel.ToAnswer("A power cut, most likely.\nThe PC was idle.\nNext step: open Crashes and note the time.\n"
+            + "Ask next: Was it the same last week? | \"Which game heats the GPU most?\" | Was it the same last week? | Is my PSU ok?", [Crashes]);
+        // At most three, duplicates and quotes dropped, and the line itself never shows as text.
+        Assert.Equal(["Was it the same last week?", "Which game heats the GPU most?", "Is my PSU ok?"], answer.Suggestions);
+        Assert.DoesNotContain(answer.Parts, p => p is AskLine l && l.Text.Contains("Ask next", StringComparison.OrdinalIgnoreCase));
+        Assert.IsType<AskNext>(answer.Parts[^1]);
+    }
+
+    [Theory]
+    [InlineData("- Ask next: Is it normal? | What changed?")]
+    [InlineData("**Ask next:** Is it normal? | What changed?")]
+    [InlineData("Preguntas siguientes: Is it normal? | What changed?")]
+    public void The_ask_next_line_as_models_write_it(string line)
+    {
+        var answer = AskViewModel.ToAnswer("All normal.\nIt peaked at 71 Â°C.\n" + line, []);
+        Assert.Equal(["Is it normal?", "What changed?"], answer.Suggestions);
+        Assert.Single(answer.Parts);
+    }
+
+    [Fact]
+    public void Only_the_latest_finished_answer_offers_questions()
+    {
+        Ui.Run(() =>
+        {
+            var window = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var talk = new AskConversation { Title = "t" };
+            window.Conversations.Add(talk);
+            window.Current = talk;
+            var first = AskViewModel.ToAnswer("Fine.\nAll normal.\nAsk next: What changed?", []);
+            talk.Messages.Add(new AskQuestion("q"));
+            talk.Messages.Add(first);
+            Assert.Equal(["What changed?"], window.NextQuestions);
+            // A note under it keeps them; a new question takes them away until its answer comes.
+            talk.Messages.Add(new AskStopped("Web search wasn't working."));
+            Assert.True(window.HasNextQuestions);
+            talk.Messages.Add(new AskQuestion("What changed?"));
+            Assert.False(window.HasNextQuestions);
+            window.IsAnswering = true;
+            talk.Messages.Add(AskViewModel.ToAnswer("Nothing.\nNo changes.\nAsk next: Is it hot?", []));
+            Assert.Empty(window.NextQuestions);
+            window.IsAnswering = false;
+            Assert.Equal(["Is it hot?"], window.NextQuestions);
+        });
     }
 
     // Nothing but the one sentence: no box, no drawn numbers, and (alone) not a bold headline.

@@ -15,6 +15,12 @@ public sealed record RelayPack(int Questions, string Price, string Url);
 public sealed record RelayStatus(int QuestionsLeft, int FreeLeft, string? Key, int LicenceQuestions, string? LicenceStatus, IReadOnlyList<RelayPack> Packs)
 {
     public bool HasLicence => Key is not null;
+
+    /// <summary>The plan this PC is on now (Free when it has none); null from a relay from before plans.</summary>
+    public RelayPlan? Plan { get; init; }
+
+    /// <summary>The plans to choose from, Free first, each with the pages it opens and its checkout link.</summary>
+    public IReadOnlyList<RelayPlanOffer> Plans { get; init; } = [];
 }
 
 /// <summary>
@@ -24,7 +30,7 @@ public sealed record RelayStatus(int QuestionsLeft, int FreeLeft, string? Key, i
 /// to the relay (/v1/search), which has the search key. Questions are counted there, once per question, and given
 /// back when something fails on its side; the relay's errors come in four kinds and are put in words here.
 /// </summary>
-public static class Relay
+public static partial class Relay
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(3) };
 
@@ -94,7 +100,7 @@ public static class Relay
         {
             using var res = await Http.SendAsync(Request(HttpMethod.Get, "/v1/status"), ct);
             string text = await res.Content.ReadAsStringAsync(ct);
-            if (!res.IsSuccessStatusCode) return (null, Problem(text, (int)res.StatusCode));
+            if (!res.IsSuccessStatusCode) return (null, Problem(text, (int)res.StatusCode, inSettings: true));
             if (ReadStatus(text) is { } status) return (status, null);
             Log.Write("relay", $"Expected this PC's questions from {Root}, got HTTP {(int)res.StatusCode} {Short(text)}");
             return (null, Lang.T("Couldn't check your questions right now. Try again in a minute."));
@@ -118,7 +124,7 @@ public static class Relay
             if (!res.IsSuccessStatusCode)
             {
                 Log.Write("relay", $"Activating a key: expected it to work here, got HTTP {(int)res.StatusCode} {text}");
-                return (null, Problem(text, (int)res.StatusCode, activating: true), Reason(text));
+                return (null, Problem(text, (int)res.StatusCode, activating: true, inSettings: true), Reason(text));
             }
             if (ReadStatus(text) is not { } status)
             {
@@ -142,7 +148,7 @@ public static class Relay
         try { node = JsonNode.Parse(text); } catch (JsonException) { return null; }
         if (node is not JsonObject s || OwnKey.Num(s["questions_left"]) is not { } left) return null;
         var licence = s["licence"] as JsonObject;
-        return new(
+        return new RelayStatus(
             (int)Math.Clamp(left, 0, int.MaxValue),
             (int)Math.Clamp(OwnKey.Num(s["free_left"]) ?? 0, 0, int.MaxValue),
             Text(licence?["key"]),
@@ -150,7 +156,11 @@ public static class Relay
             Text(licence?["status"]),
             [.. (s["packs"] as JsonArray ?? []).OfType<JsonObject>()
                 .Select(p => new RelayPack((int)Math.Clamp(OwnKey.Num(p["questions"]) ?? 0, 0, int.MaxValue), Text(p["price"]) ?? "", Text(p["url"]) ?? ""))
-                .Where(p => p.Questions > 0)]);
+                .Where(p => p.Questions > 0)])
+        {
+            Plan = s["plan"] is JsonObject plan ? ReadPlan(plan) : null,
+            Plans = [.. (s["plans"] as JsonArray ?? []).OfType<JsonObject>().Select(ReadOffer).OfType<RelayPlanOffer>()],
+        };
     }
 
     private static string? Text(JsonNode? node) => node is JsonValue v && v.TryGetValue(out string? s) ? s : null;
@@ -164,7 +174,7 @@ public static class Relay
     /// the answer streaming in through <paramref name="writing"/>. One question id for all its rounds, so it's counted once.
     /// </summary>
     public static async Task<AiReply> AskAsync(IReadOnlyList<AiTurn> earlier, string question, AiTools tools, Action<AiStep>? step = null,
-        Action<string?, IReadOnlyList<AiLookUp>>? writing = null, CancellationToken ct = default)
+        Action<string?, IReadOnlyList<AiLookUp>>? writing = null, CancellationToken ct = default, Action<string>? asking = null)
     {
         var started = DateTime.Now;
         if (Internet.IsOff())
@@ -173,6 +183,7 @@ public static class Relay
             return new AiReply(null, Internet.NoInternet(), []);
         }
         string id = Guid.NewGuid().ToString("N");
+        asking?.Invoke(id);
         var messages = new JsonArray();
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
@@ -201,7 +212,7 @@ public static class Relay
                 {
                     string text = await res.Content.ReadAsStringAsync(ct);
                     Log.Write("relay", $"Round {round}: expected an answer, got HTTP {(int)res.StatusCode} {text}");
-                    return new AiReply(null, Problem(text, (int)res.StatusCode), lookUps);
+                    return new AiReply(null, Problem(text, (int)res.StatusCode), lookUps, Limit: ReadLimit(text));
                 }
                 got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct, QuietLimit);
             }
@@ -242,7 +253,7 @@ public static class Relay
                         searchFailed |= failed;
                     }
                     else result = await Task.Run(() => tools.Run(name, args.ToJsonString()), ct);
-                    lookUps.Add(new AiLookUp(name, args, result.Length));
+                    lookUps.Add(new AiLookUp(name, args, result.Length, name == "search_web" ? AiSources.ParseWeb(result) : null));
                     Log.Write("relay", $"Looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = (string?)call?["id"] ?? "", ["content"] = result });
                 }
@@ -282,6 +293,10 @@ public static class Relay
         var req = new HttpRequestMessage(method, Root + path);
         req.Headers.Add("X-RigSight-Device", DeviceId);
         req.Headers.Add("X-RigSight-Version", Version);
+        // The PC's own clock, so the day's questions start again at its midnight; and its secret, so knowing this PC's id
+        // isn't enough to ask, read its licence or change its plan (see Secret).
+        req.Headers.Add("X-RigSight-Now", (Clock?.Invoke() ?? DateTime.Now).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture));
+        req.Headers.Add("X-RigSight-Secret", Secret);
         req.Headers.UserAgent.Add(new ProductInfoHeaderValue("RigSight", Version));
         return req;
     }
@@ -293,12 +308,21 @@ public static class Relay
     }
 
     /// <summary>What a refusal from the relay means for the person (the mock-up of 2026-10-21).</summary>
-    public static string Problem(string text, int status, bool activating = false)
+    /// <param name="inSettings">Shown in Settings › Ask RigSight, beside Email support (questions left, Activate): no
+    /// "from Settings › Ask RigSight" there, it's the page they're on.</param>
+    public static string Problem(string text, int status, bool activating = false, bool inSettings = false)
     {
         string? kind = null, reason = null;
         try { var e = JsonNode.Parse(text); kind = (string?)e?["error"]; reason = (string?)e?["reason"]; } catch (JsonException) { }
         return (kind, reason) switch
         {
+            ("out_of_questions", "week") => Lang.T("That was your last free question this week. They're back on Monday."),
+            ("out_of_questions", "day") => Lang.T("That's all your questions for today. More at midnight."),
+            ("out_of_questions", "paused") => Lang.T("Free questions are paused for now. A plan keeps answering."),
+            ("licence", "has_plan") => Lang.T("This PC already has a plan, so another key can't be used here. Cancel the plan first, or contact support."),
+            ("licence", "wrong_secret") => Lang.T("This PC's RigSight AI sign-in changed (often after a reinstall). Contact support with your key."),
+            ("unavailable", "too_fast") => Lang.T("That's a lot of questions at once. Wait a minute, then ask again. Your question wasn't counted."),
+            ("unavailable", "billing") => Lang.T("Your plan couldn't be changed right now. Nothing was charged. Try again in a minute."),
             ("out_of_questions", "free") => Lang.T("This PC has used its free questions. Buy a pack to keep asking, or use your own key or Ollama."),
             ("out_of_questions", _) => Lang.T("You're out of questions, so this one wasn't sent. Buy more in Settings › Ask RigSight."),
             ("licence", "not_found") => Lang.T("That licence key wasn't found. Check it against your receipt email."),
@@ -306,6 +330,7 @@ public static class Relay
                 ? Lang.T("This key is in use on another PC. A licence works on one PC.")
                 : Lang.T("Your licence is now in use on another PC, so this PC can't ask with it."),
             ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. Buy a pack to keep using RigSight AI."),
+            ("licence", _) when inSettings => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
             ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
             // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".

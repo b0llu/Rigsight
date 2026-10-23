@@ -73,6 +73,18 @@ public partial class MainWindow : Window
                     return;
                 }
             }
+            if (e.Key == System.Windows.Input.Key.Escape && (_vm.Plans.CancelOpen || _vm.Plans.SwitchOpen))
+            {
+                _vm.Plans.CloseDialogsCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Plans.IsOpen)
+            {
+                _vm.Plans.BackCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Processes.Question.IsOpen)
             {
                 _vm.Processes.Question.Cancel();
@@ -125,6 +137,12 @@ public partial class MainWindow : Window
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };
         ThemeManager.Changed += RebuildPages;
+        // The Plans screen or a plan dialog opened from the Ask window: the main window comes in front, restored if minimized.
+        _vm.Plans.WantsFront += () =>
+        {
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Activate();
+        };
         // Closing ends the app, except where another window takes over (the tests host several in turn).
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;
         Closing += (_, _) => _vm.WindowClosing();
@@ -198,7 +216,7 @@ public partial class MainWindow : Window
     }
 
     private bool CalmOnHome() => IsVisible && WindowState != WindowState.Minimized && _vm.CurrentPage == "home"
-        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.PageExport.IsOpen && !_vm.Presets.IsOpen
+        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.PageExport.IsOpen && !_vm.Presets.IsOpen && !_vm.Plans.IsOpen
         && !_vm.Processes.Question.IsOpen && !_vm.Update.ShowOverlay;
 
     /// <summary>The support card fades in over the window, as What's new does.</summary>
@@ -290,6 +308,7 @@ public partial class MainWindow : Window
     private void InstructionsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.SettingsPage.Ai?.Editor.Dismiss();
 
     private void ExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Export.CloseCommand.Execute(null);
+    private void PlanDialogBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Plans.CloseDialogsCommand.Execute(null);
 
     private void PageExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.PageExport.CloseCommand.Execute(null);
 
