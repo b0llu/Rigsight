@@ -422,7 +422,7 @@ public sealed class ExportTests
         var files = Directory.GetFiles(vm.Folder).Select(Path.GetFileName).Order().ToList();
         Assert.Equal(new[]
         {
-            "App usage.csv", "Crashes.csv", "Crashes.html", "Drive space.csv", "Fans.csv", "Internet.csv", "Memory.csv", "PC snapshot.txt", "Report.html",
+            "App usage.csv", "Crashes.csv", "Crashes.html", "Drive space.csv", "Fans.csv", "Internet.csv", "Internet each hour.csv", "Memory.csv", "PC snapshot.txt", "Report.html",
             "RigSight full copy.zip", "Sessions.csv", "Temperatures, load and power.csv", "Timeline changes.csv",
         }.Order(), files);
         Assert.StartsWith("RigSight PC snapshot", File.ReadAllText(Path.Combine(vm.Folder, "PC snapshot.txt")));
@@ -445,7 +445,7 @@ public sealed class ExportTests
         var texts = Directory.GetFiles(vm.Folder).Select(Path.GetFileName).Order().ToList();
         Assert.Equal(new[]
         {
-            "App usage.txt", "Crashes.txt", "Crashes with their context.txt", "Drive space.txt", "Fans.txt", "Internet.txt", "Memory.txt", "PC snapshot.txt", "Report.txt",
+            "App usage.txt", "Crashes.txt", "Crashes with their context.txt", "Drive space.txt", "Fans.txt", "Internet.txt", "Internet each hour.txt", "Memory.txt", "PC snapshot.txt", "Report.txt",
             "Sessions.txt", "Temperatures, load and power.txt", "Timeline changes.txt",
         }.Order(), texts);
         var usage = File.ReadAllLines(Path.Combine(vm.Folder, "App usage.txt"));

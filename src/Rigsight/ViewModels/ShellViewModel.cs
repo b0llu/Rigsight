@@ -118,6 +118,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
         Export = new ExportViewModel(Reports, Settings, Live);
+        PageExport = new PageExportViewModel(Reports, Settings, Live);
         SettingsPage.OpenExport = Export.Open;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
@@ -260,6 +261,16 @@ public sealed partial class ShellViewModel : ObservableObject
     public PresetPickerViewModel Presets { get; }
     /// <summary>The Export box over the window, opened from Settings.</summary>
     public ExportViewModel Export { get; }
+
+    /// <summary>A page's own Export box, opened from its Export button (see <see cref="PageExports"/>).</summary>
+    public PageExportViewModel PageExport { get; }
+
+    /// <summary>The page's Export button: its own box, set to what the page shows.</summary>
+    [RelayCommand]
+    private void ExportPage()
+    {
+        if (PageExports.For(this, CurrentPage) is { } spec) PageExport.Open(spec);
+    }
 
     /// <summary>Pages the user built ("Dashboards" in the sidebar).</summary>
     public ObservableCollection<CustomPageViewModel> CustomPages { get; } = [];

@@ -47,6 +47,7 @@
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <!-- Header -->
             <DockPanel>
+                <Button Style="{StaticResource PageExportButton}" VerticalAlignment="Center" />
                 <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False" BusyOnLeft="True"
                                   IsBusy="{Binding IsLoading}" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />

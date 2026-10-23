@@ -100,8 +100,13 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" />
-            <TextBlock Text="{Binding DateText}" Style="{StaticResource Muted}" Margin="0,4,0,20" />
+            <DockPanel Margin="0,0,0,20">
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{Binding DateText}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
 
             <Grid>
                 <Grid.ColumnDefinitions>

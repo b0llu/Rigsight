@@ -10,7 +10,7 @@ using Rigsight.Core.Stability;
 namespace Rigsight.Core.Export;
 
 /// <summary>The tables of history that can be saved as a file each.</summary>
-public enum ExportTable { AppUsage, Sessions, Temperatures, Fans, Internet, Memory, DriveSpace, Crashes, Timeline }
+public enum ExportTable { AppUsage, Sessions, Temperatures, Fans, Internet, Memory, DriveSpace, Crashes, Timeline, InternetHours }
 
 /// <summary>A column of an exported table: its heading, and what it holds (for the read-me).</summary>
 public sealed record ExportColumn(string Name, string What);
@@ -27,7 +27,14 @@ public static class DataExport
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     private sealed record Table(string File, string About, ExportColumn[] Columns, string CountTable, string CountColumn, int BytesPerRow,
-        Func<RigsightDb, long, long, Names, IEnumerable<object?[]>> Rows);
+        Func<RigsightDb, long, long, Names, ExportFilter, IEnumerable<object?[]>> Rows)
+    {
+        /// <summary>For a table whose columns are readings: the reading each column is (None: always there).</summary>
+        public ExportReadings[]? Readings { get; init; }
+
+        /// <summary>Which columns the filter keeps.</summary>
+        public bool[] Keep(ExportFilter f) => [.. Columns.Select((_, i) => Readings is null || Readings[i] == ExportReadings.None || (f.Readings & Readings[i]) != 0)];
+    }
 
     /// <summary>Apps by their id, named as the app names them (the user's own names first).</summary>
     private sealed class Names(RigsightDb db, RigsightSettings s)
@@ -100,7 +107,7 @@ public static class DataExport
              C(Lang.Key("Memory peak (MB)"), Lang.Key("The most memory it held")), C(Lang.Key("CPU peak (°C)"), Lang.Key("The CPU's highest while it was in front")),
              C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest while it was in front"))],
             "app_hour", "ts", 78,
-            (db, from, to, n) => db.GetAppHours(from, to)
+            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => f.HasApp(n.Exe(h.AppId)))
                 .GroupBy(h => (Day: TimeUtil.FromUnix(h.Ts).Date, h.AppId))
                 .OrderBy(g => g.Key.Day).ThenByDescending(g => g.Sum(h => h.FgSec))
                 .Select(g => new object?[]
@@ -115,7 +122,7 @@ public static class DataExport
              C(Lang.Key("In use (min)"), Lang.Key("Time in front and being used")), C(Lang.Key("Game"), Lang.Key("Yes for a game")), C(Lang.Key("CPU peak (°C)"), Lang.Key("The CPU's highest in it")),
              C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest in it"))],
             "sessions", "start", 92,
-            (db, from, to, n) => db.GetSessions(from, to).Select(x => new object?[]
+            (db, from, to, n, f) => db.GetSessions(from, to).Where(x => f.HasApp(n.Exe(x.AppId)) && (!f.GamesOnly || x.IsGame)).Select(x => new object?[]
             {
                 Time(x.Start), Time(x.End), n.Of(x.AppId), n.Exe(x.AppId), Min(x.ActiveSec), YesNo(x.IsGame), R(x.CpuTempMax), R(x.GpuTempMax),
             })),
@@ -129,18 +136,26 @@ public static class DataExport
              C(Lang.Key("In use (s)"), Lang.Key("Seconds somebody was at the PC")), C(Lang.Key("Away (s)"), Lang.Key("Seconds nobody was")), C(Lang.Key("App in front"), Lang.Key("The app in front most of the minute")),
              C(Lang.Key("Working the CPU"), Lang.Key("The app doing clearly the most of its work, if one was")), C(Lang.Key("Working the GPU"), Lang.Key("The same for the GPU"))],
             "system_minute", "ts", 118,
-            (db, from, to, n) => db.GetMinutes(from, to).Select(m => new object?[]
+            (db, from, to, n, f) => db.GetMinutes(from, to).Select(m => new object?[]
             {
                 Time(m.Ts), R(m.CpuTemp), R(m.CpuTempMax), R(m.CpuTempMin), R(m.GpuTemp), R(m.GpuTempMax), R(m.GpuTempMin), R(m.GpuHotMax), R(m.GpuMemMax),
                 R(m.CpuLoad), R(m.GpuLoad), R(m.CpuPower), R(m.GpuPower), R(m.CpuClock, 0), R(m.GpuClock, 0), R(m.RamUsed, 2),
                 m.ActiveSec, m.IdleSec, n.Of(m.FgApp), n.Of(m.CpuApp), n.Of(m.GpuApp),
-            })),
+            }))
+        {
+            Readings =
+            [
+                ExportReadings.None, ExportReadings.CpuTemp, ExportReadings.CpuTemp, ExportReadings.CpuTemp, ExportReadings.GpuTemp, ExportReadings.GpuTemp, ExportReadings.GpuTemp,
+                ExportReadings.GpuHotSpot, ExportReadings.GpuMemory, ExportReadings.Load, ExportReadings.Load, ExportReadings.Power, ExportReadings.Power,
+                ExportReadings.Load, ExportReadings.Load, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None, ExportReadings.None,
+            ],
+        },
 
         [ExportTable.Fans] = new(Lang.Key("Fans.csv"), Lang.Key("Every fan, every minute the PC was on."),
             [C(Lang.Key("Time"), Lang.Key("The minute")), C(Lang.Key("Fan"), Lang.Key("The fan's name")), C(Lang.Key("On"), Lang.Key("The part it is read from")), C(Lang.Key("Speed (rpm)"), Lang.Key("Its average over the minute")),
              C(Lang.Key("Fastest (rpm)"), Lang.Key("Its highest reading"))],
             "fan_minute", "ts", 56,
-            (db, from, to, n) =>
+            (db, from, to, n, f) =>
             {
                 var fans = db.GetFans().ToDictionary(f => f.Id);
                 return db.GetFanMinutes(from, to).Select(m => new object?[]
@@ -155,16 +170,26 @@ public static class DataExport
              C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC")),
              C(Lang.Key("Local network (MB)"), Lang.Key("To and from other devices at home, not counted above"))],
             "net_app_day", "day", 70,
-            (db, from, to, n) => db.GetNetAppDays(from, to).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            (db, from, to, n, f) => db.GetNetAppDays(from, to).Where(u => f.HasApp(n.Exe(u.App))).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
             {
                 Day(TimeUtil.FromUnix(u.Ts)), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown), Mb(u.Lan),
+            })),
+
+        [ExportTable.InternetHours] = new(Lang.Key("Internet each hour.csv"), Lang.Key("What each app downloaded and uploaded in each hour."),
+            [C(Lang.Key("Hour"), Lang.Key("The start of the hour")), C(Lang.Key("App"), Lang.Key("The app's name")), C(Lang.Key("Program"), Lang.Key("Its program file")), C(Lang.Key("Downloaded (MB)"), Lang.Key("From the internet")),
+             C(Lang.Key("Uploaded (MB)"), Lang.Key("To the internet")), C(Lang.Key("Downloaded in the background (MB)"), Lang.Key("While another app was in front")),
+             C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC"))],
+            "net_app_hour", "ts", 64,
+            (db, from, to, n, f) => db.GetNetAppHours(from, to).Where(u => f.HasApp(n.Exe(u.App))).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            {
+                Time(u.Ts), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown),
             })),
 
         [ExportTable.Memory] = new(Lang.Key("Memory.csv"), Lang.Key("The memory each app held, hour by hour."),
             [C(Lang.Key("Hour"), Lang.Key("The start of the hour")), C(Lang.Key("App"), Lang.Key("The app's name")), C(Lang.Key("Program"), Lang.Key("Its program file")), C(Lang.Key("Memory (MB)"), Lang.Key("Its average over the hour")),
              C(Lang.Key("Memory peak (MB)"), Lang.Key("The most it held"))],
             "app_hour", "ts", 62,
-            (db, from, to, n) => db.GetAppHours(from, to).Where(h => h.MemN > 0).OrderBy(h => h.Ts).ThenByDescending(h => h.MemSum / h.MemN).Select(h => new object?[]
+            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => h.MemN > 0 && f.HasApp(n.Exe(h.AppId))).OrderBy(h => h.Ts).ThenByDescending(h => h.MemSum / h.MemN).Select(h => new object?[]
             {
                 Time(h.Ts), n.Of(h.AppId), n.Exe(h.AppId), Math.Round(h.MemSum / h.MemN), R(h.MemMax, 0),
             })),
@@ -172,7 +197,7 @@ public static class DataExport
         [ExportTable.DriveSpace] = new(Lang.Key("Drive space.csv"), Lang.Key("How full each drive was on each day."),
             [C(Lang.Key("Day"), Lang.Key("The day")), C(Lang.Key("Drive"), Lang.Key("Its letter")), C(Lang.Key("Used (GB)"), Lang.Key("Space in use")), C(Lang.Key("Size (GB)"), Lang.Key("The drive's size"))],
             "drive_day", "day", 34,
-            (db, from, to, n) => db.GetDriveDays(from).Where(d => d.Day < to).Select(d => new object?[]
+            (db, from, to, n, f) => db.GetDriveDays(from).Where(d => d.Day < to && f.HasDrive(d.Drive)).Select(d => new object?[]
             {
                 Day(TimeUtil.FromUnix(d.Day)), d.Drive.TrimEnd('\\'), Math.Round(d.UsedGb, 1), Math.Round(d.TotalGb, 1),
             })),
@@ -183,9 +208,9 @@ public static class DataExport
              C(Lang.Key("Most likely"), Lang.Key("What most likely happened")), C(Lang.Key("How sure"), Lang.Key("How sure the cause is: confirmed (by Windows' own record), likely, possibly, or not enough to say")),
              C(Lang.Key("App version"), Lang.Key("The program's version")), C(Lang.Key("Driver"), Lang.Key("The driver a blue screen names"))],
             "crashes", "ts", 260,
-            (db, from, to, n) =>
+            (db, from, to, n, f) =>
             {
-                var crashes = db.GetCrashes(from, to).OrderBy(e => e.Ts).ToList();
+                var crashes = db.GetCrashes(from, to).Where(f.HasCrash).OrderBy(e => e.Ts).ToList();
                 var found = CrashCases.Of(db, crashes, n.Settings);
                 return crashes.Select(e => new object?[]
                 {
@@ -201,11 +226,12 @@ public static class DataExport
              C(Lang.Key("Result"), Lang.Key("What a big change made better or worse, measured on this PC; empty where it changed nothing measurable")),
              C(Lang.Key("How sure"), Lang.Key("How sure it was the change: likely or possibly")), C(Lang.Key("Compared"), Lang.Key("The days compared before and after"))],
             "changes", "ts", 120,
-            (db, from, to, n) =>
+            (db, from, to, n, f) =>
             {
                 var results = ChangeEffects.Read(db, n.Settings);
                 return db.GetChanges(from, to)
                     .Concat(StorageChanges.From(db.GetDriveDays(0)).Where(c => TimeUtil.ToUnix(c.Time) >= from && TimeUtil.ToUnix(c.Time) < to))
+                    .Where(c => f.HasChange(c) && (!f.ResultsOnly || results.TryGetValue(c.Time.Date, out var hit) && hit.Main == c))
                     .OrderBy(c => c.Time).Select(c => results.TryGetValue(c.Time.Date, out var r) && r.Main == c
                         ? new object?[] { Time(c.Time), Kind(c.Kind), SavedText.Show(c.Title), c.Was, c.Now, r.Headline, r.HowSure,
                             Lang.T($"{r.From:d MMM yyyy} to {r.Day.AddDays(-1):d MMM yyyy} against {r.Day.AddDays(1):d MMM yyyy} to {r.To.AddDays(-1):d MMM yyyy}") }
@@ -217,36 +243,69 @@ public static class DataExport
     public static IReadOnlyList<ExportColumn> Columns(ExportTable table) => [.. Tables[table].Columns.Select(Shown)];
 
     /// <summary>Writes one table for [from, to) as CSV; returns how many rows it had.</summary>
-    public static int Write(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer)
+    public static int Write(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer, ExportFilter? filter = null)
     {
         var t = Tables[table];
-        writer.WriteLine(string.Join(",", t.Columns.Select(c => Cell(Lang.T(c.Name)))));
+        var f = filter ?? ExportFilter.None;
+        var keep = t.Keep(f);
+        writer.WriteLine(string.Join(",", Kept(t.Columns, keep).Select(c => Cell(Lang.T(c.Name)))));
         int rows = 0;
-        foreach (var row in t.Rows(db, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), new Names(db, settings)))
+        foreach (var row in t.Rows(db, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), new Names(db, settings), f))
         {
-            writer.WriteLine(string.Join(",", row.Select(Cell)));
+            writer.WriteLine(string.Join(",", Kept(row, keep).Select(Cell)));
             rows++;
         }
         return rows;
     }
 
+    private static IEnumerable<T> Kept<T>(IEnumerable<T> cells, bool[] keep) => cells.Where((_, i) => i >= keep.Length || keep[i]);
+
     /// <summary>
     /// Writes one table for [from, to) as text laid out to be read as it is (Notepad, a forum post): what it is and the
     /// period on top, then the columns lined up under their headings, numbers to the right. Returns how many rows it had.
     /// </summary>
-    public static int WriteText(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer)
+    public static int WriteText(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, TextWriter writer, ExportFilter? filter = null)
     {
         var t = Tables[table];
-        var rows = t.Rows(db, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), new Names(db, settings)).ToList();
+        var f = filter ?? ExportFilter.None;
+        var keep = t.Keep(f);
+        var rows = t.Rows(db, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), new Names(db, settings), f).Select(r => Kept(r, keep).ToArray()).ToList();
         writer.WriteLine(Path.GetFileNameWithoutExtension(Lang.T(t.File)));
         writer.WriteLine(Lang.T(t.About));
-        string first = Day(from), last = Day(to.AddDays(-1));
-        writer.WriteLine(rows.Count == 1
-            ? Lang.T($"{first} to {last}  ·  1 row  ·  times are this PC's local time, temperatures in °C")
-            : Lang.T($"{first} to {last}  ·  {rows.Count:N0} rows  ·  times are this PC's local time, temperatures in °C"));
+        writer.WriteLine(Heading(from, to, rows.Count));
         writer.WriteLine();
-        foreach (var line in TextTable([.. t.Columns.Select(c => Lang.T(c.Name))], rows)) writer.WriteLine(line);
+        foreach (var line in TextTable([.. Kept(t.Columns, keep).Select(c => Lang.T(c.Name))], rows)) writer.WriteLine(line);
         return rows.Count;
+    }
+
+    /// <summary>The line under a text file's title: its period (to the minute when it doesn't start and end at midnight) and how many rows.</summary>
+    private static string Heading(DateTime from, DateTime to, int count)
+    {
+        bool days = from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero;
+        string first = days ? Day(from) : Time(from), last = days ? Day(to.AddDays(-1)) : Time(to);
+        return count == 1
+            ? Lang.T($"{first} to {last}  ·  1 row  ·  times are this PC's local time, temperatures in °C")
+            : Lang.T($"{first} to {last}  ·  {count:N0} rows  ·  times are this PC's local time, temperatures in °C");
+    }
+
+    /// <summary>A file made from what a page shows (a list, a summary), as CSV or as laid-out text, like a table of history.</summary>
+    public static int WriteSheet(ExportSheet sheet, string path, bool asText)
+    {
+        using var writer = new StreamWriter(path, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        if (asText)
+        {
+            writer.WriteLine(sheet.Title);
+            writer.WriteLine(sheet.About);
+            writer.WriteLine(sheet.Rows.Count == 1 ? Lang.T($"{sheet.When}  ·  1 row") : Lang.T($"{sheet.When}  ·  {sheet.Rows.Count:N0} rows"));
+            writer.WriteLine();
+            foreach (var line in TextTable(sheet.Columns, sheet.Rows)) writer.WriteLine(line);
+        }
+        else
+        {
+            writer.WriteLine(string.Join(",", sheet.Columns.Select(Cell)));
+            foreach (var row in sheet.Rows) writer.WriteLine(string.Join(",", row.Select(Cell)));
+        }
+        return sheet.Rows.Count;
     }
 
     /// <summary>
@@ -278,11 +337,14 @@ public static class DataExport
 
     /// <summary>A table into a file, as CSV or as laid-out text (both UTF-8 with its mark, which is what makes Excel and
     /// Notepad read the degree sign and names right).</summary>
-    public static int WriteFile(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, string path, bool asText)
+    public static int WriteFile(RigsightDb db, ExportTable table, DateTime from, DateTime to, RigsightSettings settings, string path, bool asText, ExportFilter? filter = null)
     {
         using var writer = new StreamWriter(path, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-        return asText ? WriteText(db, table, from, to, settings, writer) : Write(db, table, from, to, settings, writer);
+        return asText ? WriteText(db, table, from, to, settings, writer, filter) : Write(db, table, from, to, settings, writer, filter);
     }
+
+    /// <summary>What a table holds, in a line (the language in use): said under its name in a page's Export box.</summary>
+    public static string About(ExportTable table) => Lang.T(Tables[table].About);
 
     /// <summary>About how big a table's file will be (bytes), from how many rows it has in the period: said before exporting.</summary>
     public static long EstimateBytes(RigsightDb db, ExportTable table, DateTime from, DateTime to)

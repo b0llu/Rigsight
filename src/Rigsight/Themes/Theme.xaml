@@ -563,6 +563,24 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- A page's Export button, the last in its title row: the page's own Export box (ShellViewModel.ExportPage). -->
+    <Style x:Key="PageExportButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Setter Property="DockPanel.Dock" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="Command" Value="{Binding DataContext.ExportPageCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+        <Setter Property="AutomationProperties.Name" Value="{ctl:T 'Export this page'}" />
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                        <TextBlock Text="{ctl:T Export}" />
+                    </StackPanel>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <!-- A button on a Surface2 tile (Buy on a pack): it rests at the hover shade, so its own hover is a lift of the text colour. -->
     <Style x:Key="TileButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
         <Setter Property="Background" Value="{DynamicResource HoverBrush}" />

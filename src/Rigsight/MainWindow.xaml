@@ -1067,6 +1067,30 @@
             </ContentControl>
         </Grid>
 
+        <!-- A page's own Export box: opened from the Export button in its header. Closed like the Export box. -->
+        <Grid x:Name="PageExportLayer" Grid.ColumnSpan="2" DataContext="{Binding PageExport}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
+              Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
+            <Border Background="#99000000" MouseLeftButtonDown="PageExportBackdrop_MouseDown" />
+            <ContentControl Content="{Binding}" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter Property="ContentTemplate">
+                                    <Setter.Value>
+                                        <DataTemplate>
+                                            <views:PageExportBox />
+                                        </DataTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+
         <!-- Instructions for Ollama or my own key: opened from Settings › Ask RigSight. Closed with the x, Cancel, Esc or a click outside. -->
         <Grid x:Name="InstructionsLayer" Grid.ColumnSpan="2" DataContext="{Binding SettingsPage.Ai.Editor}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
               Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">

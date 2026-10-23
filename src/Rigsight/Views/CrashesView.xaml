@@ -118,6 +118,7 @@
             <StackPanel x:Name="Layout" Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
                 <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
                 <DockPanel>
+                    <Button Style="{StaticResource PageExportButton}" />
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding OpenEventViewerCommand}" VerticalAlignment="Top"
                             ToolTip="{ctl:T 'Windows\' own (much more technical) log'}">
                         <StackPanel Orientation="Horizontal">

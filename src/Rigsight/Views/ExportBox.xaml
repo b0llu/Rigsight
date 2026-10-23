@@ -72,7 +72,7 @@
                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                     </Border.Effect>
                     <StackPanel>
-                        <Calendar x:Name="Cal" SelectionMode="SingleRange" FirstDayOfWeek="Monday" SelectedDatesChanged="Cal_SelectedDatesChanged" PreviewMouseLeftButtonDown="Cal_Down" PreviewMouseLeftButtonUp="Cal_Up"
+                        <Calendar x:Name="Cal" SelectionMode="SingleRange" FirstDayOfWeek="Monday"
                                   AutomationProperties.Name="Days to export" />
                         <TextBlock x:Name="RangeHint" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="8,2,8,4" />
                     </StackPanel>

@@ -89,6 +89,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.PageExport.IsOpen)
+            {
+                _vm.PageExport.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
             {
                 _vm.Presets.CloseCommand.Execute(null);
@@ -190,7 +196,7 @@ public partial class MainWindow : Window
     }
 
     private bool CalmOnHome() => IsVisible && WindowState != WindowState.Minimized && _vm.CurrentPage == "home"
-        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.Presets.IsOpen
+        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.PageExport.IsOpen && !_vm.Presets.IsOpen
         && !_vm.Processes.Question.IsOpen && !_vm.Update.ShowOverlay;
 
     /// <summary>The support card fades in over the window, as What's new does.</summary>
@@ -282,6 +288,8 @@ public partial class MainWindow : Window
     private void InstructionsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.SettingsPage.Ai?.Editor.Dismiss();
 
     private void ExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Export.CloseCommand.Execute(null);
+
+    private void PageExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.PageExport.CloseCommand.Execute(null);
 
     private void PresetsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Presets.CloseCommand.Execute(null);
 

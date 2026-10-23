@@ -65,10 +65,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="{ctl:T Memory}" Style="{StaticResource H1}" />
-            <TextBlock Text="{ctl:T 'What\'s using your RAM right now, and which apps used the most today.'}" Style="{StaticResource Muted}" Margin="0,4,0,18" />
-        </StackPanel>
+        <DockPanel Margin="0,0,0,18">
+            <Button Style="{StaticResource PageExportButton}" />
+            <StackPanel>
+                <TextBlock Text="{ctl:T Memory}" Style="{StaticResource H1}" />
+                <TextBlock Text="{ctl:T 'What\'s using your RAM right now, and which apps used the most today.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
 
         <!-- Overview -->
         <Grid Grid.Row="1">

@@ -102,8 +102,13 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <TextBlock Text="{ctl:T 'Network'}" Style="{StaticResource H1}" />
-            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,14" TextTrimming="CharacterEllipsis" />
+            <DockPanel Margin="0,0,0,14">
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'Network'}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />

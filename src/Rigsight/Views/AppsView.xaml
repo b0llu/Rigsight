@@ -51,9 +51,14 @@
 
         <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
         <StackPanel Grid.ColumnSpan="3" Margin="0,0,0,16">
-            <TextBlock Text="{ctl:T 'Apps'}" Style="{StaticResource H1}" />
-            <TextBlock Text="{ctl:T 'How long you use each app, how long it sits in the background, and how hard it pushes your hardware.'}"
-                       Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+            <DockPanel>
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'Apps'}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'How long you use each app, how long it sits in the background, and how hard it pushes your hardware.'}"
+                               Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />

@@ -506,6 +506,7 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
+                <Button Style="{StaticResource PageExportButton}" Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </StackPanel>
             <StackPanel>
                 <Grid>

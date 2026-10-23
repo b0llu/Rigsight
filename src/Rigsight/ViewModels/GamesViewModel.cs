@@ -112,6 +112,9 @@ public sealed partial class GamesViewModel : ObservableObject
     private List<InstalledGame> _installed = [];
     private DateTime _installedRead = DateTime.MinValue;
     private List<GameEntry> _all = [];
+
+    /// <summary>Every game in the library, as last read (for the page's Export box).</summary>
+    internal IReadOnlyList<GameEntry> Library => _all;
     private string? _pendingOpen;
 
     public GamesViewModel(ReportService reports, SettingsModel settings, LiveData live, OverlayViewModel overlay)

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -32,7 +32,7 @@ public sealed partial class ExportItem(string key, string name, string file, Exp
 /// The Export box over the window (Settings → History → Export…): what to export, each its own file, for which period,
 /// and into which folder. Nothing leaves the PC: the files are written and their folder is opened.
 /// </summary>
-public sealed partial class ExportViewModel : ObservableObject
+public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
 {
     public const string SnapshotKey = "snapshot", ReportKey = "report", CrashesKey = "crash-stories", FullKey = "full";
     public const string FullFile = "RigSight full copy.zip";
@@ -61,6 +61,7 @@ public sealed partial class ExportViewModel : ObservableObject
             new("drives", Lang.T("Drive space"), DataExport.FileName(ExportTable.DriveSpace), ExportTable.DriveSpace),
             new("crashes", Lang.T("Crashes"), DataExport.FileName(ExportTable.Crashes), ExportTable.Crashes),
             new("timeline", Lang.T("Timeline changes"), DataExport.FileName(ExportTable.Timeline), ExportTable.Timeline),
+            new("internet-hours", Lang.T("Internet each hour"), DataExport.FileName(ExportTable.InternetHours), ExportTable.InternetHours),
         ];
         Everything = [new(FullKey, Lang.T("Full copy with the database"), FullFile)];
         foreach (var item in All) item.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ExportItem.IsOn)) Picked(); };
@@ -298,7 +299,7 @@ public sealed partial class ExportViewModel : ObservableObject
         if (!IsBusy) IsOpen = false;
     }
 
-    private static readonly string Version = typeof(ExportViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+    internal static readonly string Version = typeof(ExportViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
 
     [RelayCommand]
     private async Task Export()
@@ -315,14 +316,7 @@ public sealed partial class ExportViewModel : ObservableObject
             Directory.CreateDirectory(folder);
             // What only the window knows (the readings now) is put together here; the rest is read off its thread.
             if (on.Any(i => i.Key == SnapshotKey)) await File.WriteAllTextAsync(Path.Combine(folder, ReadableExport.SnapshotFile), SnapshotNow(), new UTF8Encoding(true));
-            if (on.FirstOrDefault(i => i.Key == ReportKey) is { } reportItem)
-            {
-                var report = (to - from).TotalDays <= 1 ? await _reports.BuildAsync(ReportRange.Day, from) : await _reports.BuildCustomAsync(from, to);
-                report ??= new Report { From = from, To = to };
-                string title = (to - from).TotalDays <= 1 ? from.ToString("dddd, d MMMM yyyy") : Lang.T($"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}");
-                await File.WriteAllTextAsync(Path.Combine(folder, FileOf(reportItem, asText)),
-                    asText ? ReadableExport.ReportText(report, title, Version) : ReadableExport.Report(report, title, Version), new UTF8Encoding(true));
-            }
+            if (on.FirstOrDefault(i => i.Key == ReportKey) is { } reportItem) await WriteReportAsync(_reports, from, to, Path.Combine(folder, FileOf(reportItem, asText)), asText);
             string? failed = await _reports.QueryAsync((db, s) =>
             {
                 try
@@ -333,8 +327,7 @@ public sealed partial class ExportViewModel : ObservableObject
                         if (item.Table is { } table) DataExport.WriteFile(db, table, from, to, s, path, asText);
                         else if (item.Key == CrashesKey)
                         {
-                            var stories = Stories(db, s, from, to);
-                            File.WriteAllText(path, asText ? ReadableExport.CrashesText(stories, period, DateTime.Now, Version) : ReadableExport.Crashes(stories, period, DateTime.Now, Version), new UTF8Encoding(true));
+                            WriteStories(Stories(db, s, from, to), period, path, asText);
                         }
                         else if (item.Key == FullKey) DataExport.WriteFullCopy(db, s, Path.Combine(folder, item.File), RigsightPaths.SettingsFile, Version);
                     }
@@ -367,11 +360,28 @@ public sealed partial class ExportViewModel : ObservableObject
         }
     }
 
-    /// <summary>This PC as it is now: every reading with its lowest and highest since the agent started.</summary>
-    internal string SnapshotNow()
+    /// <summary>The report for [from, to) into a file: a day's own report, or a custom period's.</summary>
+    internal static async Task WriteReportAsync(ReportService reports, DateTime from, DateTime to, string path, bool asText)
     {
-        var readings = _live.AllSensors.Select(x => new SnapshotReading(x.HardwareName, KindName(x.Kind), x.DisplayName, x.FormattedValue, x.FormattedMin, x.FormattedMax));
-        var drives = _live.Drives.Select(d => string.Join("  ·  ", new[] { d.Name, d.Temperature?.FormattedValue, d.HealthText }.Where(t => !string.IsNullOrWhiteSpace(t))));
+        bool day = (to - from).TotalDays == 1 && from.TimeOfDay == TimeSpan.Zero;
+        var report = day ? await reports.BuildAsync(ReportRange.Day, from) : await reports.BuildCustomAsync(from, to);
+        report ??= new Report { From = from, To = to };
+        string title = day ? from.ToString("dddd, d MMMM yyyy")
+            : from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero ? Lang.T($"{from:d MMM yyyy} to {to.AddDays(-1):d MMM yyyy}") : Report.CustomTitle(from, to);
+        await File.WriteAllTextAsync(path, asText ? ReadableExport.ReportText(report, title, Version) : ReadableExport.Report(report, title, Version), new UTF8Encoding(true));
+    }
+
+    /// <summary>The crashes with their context into a file.</summary>
+    internal static void WriteStories(List<CrashStory> stories, string period, string path, bool asText) =>
+        File.WriteAllText(path, asText ? ReadableExport.CrashesText(stories, period, DateTime.Now, Version) : ReadableExport.Crashes(stories, period, DateTime.Now, Version), new UTF8Encoding(true));
+
+    /// <summary>This PC as it is now: every reading with its lowest and highest since the agent started.</summary>
+    internal string SnapshotNow() => SnapshotOf(_live);
+
+    internal static string SnapshotOf(LiveData live)
+    {
+        var readings = live.AllSensors.Select(x => new SnapshotReading(x.HardwareName, KindName(x.Kind), x.DisplayName, x.FormattedValue, x.FormattedMin, x.FormattedMax));
+        var drives = live.Drives.Select(d => string.Join("  ·  ", new[] { d.Name, d.Temperature?.FormattedValue, d.HealthText }.Where(t => !string.IsNullOrWhiteSpace(t))));
         return ReadableExport.Snapshot(DateTime.Now, Version, PcInfo.Text, readings, drives);
     }
 
@@ -393,7 +403,7 @@ public sealed partial class ExportViewModel : ObservableObject
     /// <summary>The changes that could have to do with a crash: the PC's own, not an app updating itself.</summary>
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
 
-    private static List<CrashStory> Stories(RigsightDb db, Core.Settings.RigsightSettings s, DateTime from, DateTime to)
+    internal static List<CrashStory> Stories(RigsightDb db, Core.Settings.RigsightSettings s, DateTime from, DateTime to, Func<CrashEvent, bool>? only = null)
     {
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
         var apps = db.LoadApps();
@@ -402,7 +412,7 @@ public sealed partial class ExportViewModel : ObservableObject
         string Name(AppRow a) => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name;
         var context = db.GetCrashContext(f, t);
         var changes = db.GetChanges(f - 7 * 86400, t).Where(c => Telling.Contains(c.Kind)).ToList();
-        var crashes = db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe)).ToList();
+        var crashes = db.GetCrashes(f, t).Where(e => !s.IsCrashMuted(e.AppExe) && (only is null || only(e))).ToList();
         var findings = CrashCases.Of(db, crashes, s);
         Dictionary<DateTime, Core.Reports.ChangeResult> results = changes.Any(Core.Reports.ChangeEffects.IsMajor) ? Core.Reports.ChangeEffects.Read(db, s) : [];
         return [.. crashes.Select(e =>

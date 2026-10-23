@@ -208,6 +208,28 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     private DateTime From => Bounds.From;
 
+    /// <summary>The period the list is for, as the page's Export box starts on it.</summary>
+    internal (DateTime From, DateTime To) Shown => Bounds;
+
+    /// <summary>Whether a filter ("All", "Apps", "Pc") lists a group.</summary>
+    private static bool FilterHas(string filter, CrashGroup g) => filter switch
+    {
+        "Apps" => !g.IsIncident && !g.Latest.IsSystem,
+        "Pc" => g.IsIncident || g.Latest.IsSystem,
+        _ => true,
+    };
+
+    /// <summary>
+    /// The crashes the list shows for the period on the page with <paramref name="filter"/>, and with the search when
+    /// asked (the page's Export box, which saves exactly what the page lists).
+    /// </summary>
+    internal IReadOnlySet<long> ShownIds(string filter, bool withSearch)
+    {
+        var words = withSearch ? Core.TextMatch.Words(SearchText) : [];
+        return _groups.Where(g => (ShowMuted || !g.IsMuted) && FilterHas(filter, g) && (words.Length == 0 || g.Rows.Any(r => Says(r, words))))
+            .SelectMany(g => g.Rows).Select(r => r.Event.Id).ToHashSet();
+    }
+
     /// <summary>"All", "Apps" (app and game crashes, freezes) or "Pc" (blue screens, sudden shutdowns, driver resets, freezes).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EmptyText))]
@@ -620,12 +642,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         UnfinishedCount = rows.Count(c => c.Event is { Kind: CrashKind.UnexpectedShutdown, Moment: PowerMoment.ShuttingDown });
         DriverResetCount = rows.Count(c => c.Event.Kind == CrashKind.GpuDriverReset);
 
-        bool Matches(CrashGroup g) => Filter switch
-        {
-            "Apps" => !g.IsIncident && !g.Latest.IsSystem,
-            "Pc" => g.IsIncident || g.Latest.IsSystem,
-            _ => true,
-        };
+        bool Matches(CrashGroup g) => FilterHas(Filter, g);
         var words = Core.TextMatch.Words(SearchText);
         _matching = [.. _groups.Where(g => (ShowMuted || !g.IsMuted) && Matches(g) && (words.Length == 0 || g.Rows.Any(r => Says(r, words))))];
         ShowPage();

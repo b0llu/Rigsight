@@ -110,7 +110,9 @@ public static class Changelog
     [
         // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
         // until it launches.
-        V("0.32.3", 10, 23,
+        V("0.33.0", 10, 23,
+            added: [Lang.T("Every page with history now has an Export button that saves just what it shows, for the period it's on and narrowed the way it is, your dashboards too."),
+                Lang.T("Export can now save your games library, every play with its frame rate, what's using memory right now and where space could be freed.")],
             better: [Lang.T("Text across RigSight now uses Segoe UI, the font Windows itself uses, and the Dark theme's text is a softer white.")],
             fixedBugs: [Lang.T("Contact support now opens a new email to support in Gmail, in your browser, instead of needing a mail app.")]),
         V("0.32.2", 10, 22,

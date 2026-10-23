@@ -130,6 +130,7 @@
                                     </LinearGradientBrush>
                                 </Rectangle.OpacityMask>
                             </Rectangle>
+                            <Button Style="{StaticResource PageExportButton}" HorizontalAlignment="Right" Margin="0,16,22,0" Height="30" Padding="12,0" />
                             <Grid Margin="28,0,28,22" VerticalAlignment="Bottom">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -391,6 +392,7 @@
                                 Command="{Binding BackCommand}" AutomationProperties.Name="{Binding BackText}">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" /><TextBlock Text="{Binding BackText}" /></StackPanel>
                         </Button>
+                        <Button Style="{StaticResource PageExportButton}" HorizontalAlignment="Right" Margin="0,16,22,0" Height="30" Padding="12,0" />
                         <Grid Margin="28,0,28,22" VerticalAlignment="Bottom">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

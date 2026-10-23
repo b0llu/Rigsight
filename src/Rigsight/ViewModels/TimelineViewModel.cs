@@ -285,6 +285,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("ended", Lang.Key("Ended from Processes"), [ChangeKind.TaskEnded]),
     ];
 
+    /// <summary>The kinds of change a filter lists; null for one that isn't by kind ("all", "results").</summary>
+    internal static IReadOnlyList<ChangeKind>? KindsOf(string key) => Kinds.FirstOrDefault(k => k.Key == key).Kinds;
+
     /// <summary>Works everything out again for the data, the filter and the grouping.</summary>
     private void Rebuild(bool keepPlace)
     {

@@ -5,6 +5,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel Margin="0,0,0,18">
+                <Button Style="{StaticResource PageExportButton}" />
                 <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
                 <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
                         AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
