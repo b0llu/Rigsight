@@ -304,6 +304,19 @@ public sealed partial class NetworkViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     private int _selectedBin = -1;
     public bool HasSelection => SelectedBin >= 0;
+
+    /// <summary>The hour, day or month of the bar picked (the apps list shows its apps): for the page's Export box.</summary>
+    internal (DateTime From, DateTime To)? PickedBar
+    {
+        get
+        {
+            if (SelectedBin < 0 || SelectedBin >= Bins.Count) return null;
+            var from = Bins[SelectedBin].Start;
+            var to = SelectedBin + 1 < Bins.Count ? Bins[SelectedBin + 1].Start
+                : Unit == ReportRange.Day ? from.AddHours(1) : Unit == ReportRange.Year ? from.AddMonths(1) : from.AddDays(1);
+            return (from, to);
+        }
+    }
     partial void OnSelectedBinChanged(int value) => FillApps();
 
     [RelayCommand]

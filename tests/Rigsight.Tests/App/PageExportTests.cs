@@ -72,6 +72,29 @@ public sealed class PageExportTests
     }
 
     [Fact]
+    public void The_fans_listed_and_the_background_list_narrow_their_files()
+    {
+        SharedData.EnsureSeeded();
+        using var db = RigsightDb.OpenReader()!;
+        // One fan of the ones recorded: only its rows.
+        var fan = db.GetFans().First();
+        var all = Rows(db, ExportTable.Fans);
+        var one = Rows(db, ExportTable.Fans, new ExportFilter { FanSensors = new HashSet<string>([fan.Sensor]) });
+        Assert.True(one.Count > 1);
+        Assert.True(one.Count < all.Count || db.GetFans().Count == 1);
+        Assert.All(one.Skip(1), r => Assert.Equal(fan.Name, r[1]));
+        Assert.Single(Rows(db, ExportTable.Fans, new ExportFilter { FanSensors = new HashSet<string>() }));
+        // Background only: rows of the whole list (none made up), the ones that moved something in the background.
+        foreach (var table in new[] { ExportTable.Internet, ExportTable.InternetHours })
+        {
+            var whole = Rows(db, table).Skip(1).Select(r => string.Join(",", r)).ToHashSet();
+            var bg = Rows(db, table, new ExportFilter { BackgroundOnly = true });
+            Assert.True(bg.Count > 1, $"{table}: nothing in the background");
+            Assert.All(bg.Skip(1), r => Assert.Contains(string.Join(",", r), whole));
+        }
+    }
+
+    [Fact]
     public void Drives_kinds_of_change_and_crashes_narrow_their_files()
     {
         SharedData.EnsureSeeded();

@@ -114,7 +114,16 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     public async Task RefreshAsync()
     {
         await LoadVolumesAsync();
-        if (Cleanup.Count == 0 && !CleanupLoading) _ = LoadCleanupAsync();
+        if (Cleanup.Count == 0 && !CleanupLoading) _cleanupLoad = LoadCleanupAsync();
+    }
+
+    private Task? _cleanupLoad;
+
+    /// <summary>The space-to-free list, looked for if it hasn't been yet (the page's Export box waits for it rather than save an empty list).</summary>
+    internal async Task CleanupReadyAsync()
+    {
+        if (Cleanup.Count == 0 && !CleanupLoading) _cleanupLoad = LoadCleanupAsync();
+        while (CleanupLoading) await Task.Delay(200);
     }
 
     private async Task LoadVolumesAsync()

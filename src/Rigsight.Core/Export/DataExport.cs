@@ -165,10 +165,10 @@ public static class DataExport
             "fan_minute", "ts", 56,
             (db, from, to, n, f) =>
             {
-                var fans = db.GetFans().ToDictionary(f => f.Id);
-                return db.GetFanMinutes(from, to).Select(m => new object?[]
+                var fans = db.GetFans().Where(fan => f.FanSensors is null || f.FanSensors.Contains(fan.Sensor)).ToDictionary(fan => fan.Id);
+                return db.GetFanMinutes(from, to).Where(m => f.FanSensors is null || fans.ContainsKey(m.Fan)).Select(m => new object?[]
                 {
-                    Time(m.Ts), fans.TryGetValue(m.Fan, out var f) ? f.Name : null, f?.Hardware, m.RpmAvg, m.RpmMax,
+                    Time(m.Ts), fans.TryGetValue(m.Fan, out var fan) ? fan.Name : null, fan?.Hardware, m.RpmAvg, m.RpmMax,
                 });
             }),
 
@@ -178,7 +178,8 @@ public static class DataExport
              C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC")),
              C(Lang.Key("Local network (MB)"), Lang.Key("To and from other devices at home, not counted above"))],
             "net_app_day", "day", 70,
-            (db, from, to, n, f) => db.GetNetAppDays(from, to).Where(u => n.Has(f, u.App)).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            (db, from, to, n, f) => db.GetNetAppDays(from, to).Where(u => n.Has(f, u.App) && (!f.BackgroundOnly || u.BgDown + u.BgUp + u.AwayDown + u.AwayUp > 0)).OrderBy(u => u.Ts)
+                .ThenByDescending(u => f.BackgroundOnly ? u.BgDown + u.BgUp + u.AwayDown + u.AwayUp : u.Down + u.Up).Select(u => new object?[]
             {
                 Day(TimeUtil.FromUnix(u.Ts)), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown), Mb(u.Lan),
             })),
@@ -188,7 +189,8 @@ public static class DataExport
              C(Lang.Key("Uploaded (MB)"), Lang.Key("To the internet")), C(Lang.Key("Downloaded in the background (MB)"), Lang.Key("While another app was in front")),
              C(Lang.Key("Uploaded in the background (MB)"), Lang.Key("While another app was in front")), C(Lang.Key("Downloaded while away (MB)"), Lang.Key("While nobody was at the PC"))],
             "net_app_hour", "ts", 64,
-            (db, from, to, n, f) => db.GetNetAppHours(from, to).Where(u => n.Has(f, u.App)).OrderBy(u => u.Ts).ThenByDescending(u => u.Down + u.Up).Select(u => new object?[]
+            (db, from, to, n, f) => db.GetNetAppHours(from, to).Where(u => n.Has(f, u.App) && (!f.BackgroundOnly || u.BgDown + u.BgUp + u.AwayDown + u.AwayUp > 0)).OrderBy(u => u.Ts)
+                .ThenByDescending(u => f.BackgroundOnly ? u.BgDown + u.BgUp + u.AwayDown + u.AwayUp : u.Down + u.Up).Select(u => new object?[]
             {
                 Time(u.Ts), n.Of(u.App), n.Exe(u.App), Mb(u.Down), Mb(u.Up), Mb(u.BgDown), Mb(u.BgUp), Mb(u.AwayDown),
             })),

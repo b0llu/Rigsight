@@ -54,6 +54,12 @@ public sealed record ExportFilter
     /// <summary>Only these drives, by letter ("C:"); null: every drive.</summary>
     public IReadOnlySet<string>? Drives { get; init; }
 
+    /// <summary>Only these fans (their sensors, as the Fans page lists them); null: every fan recorded.</summary>
+    public IReadOnlySet<string>? FanSensors { get; init; }
+
+    /// <summary>Only what moved in the background, the biggest first (the Network page's Background list).</summary>
+    public bool BackgroundOnly { get; init; }
+
     /// <summary>The readings a temperatures file has columns for.</summary>
     public ExportReadings Readings { get; init; } = ExportReadings.All;
 
@@ -65,7 +71,7 @@ public sealed record ExportFilter
 
     /// <summary>Whether anything narrows the files (their sizes are then "up to").</summary>
     public bool Narrows => Apps is not null || Category is not null || AppWords is { Count: > 0 } || GamesOnly || Crashes is not null
-        || ChangeKinds is not null || ChangeWords is { Count: > 0 } || ResultsOnly || Drives is not null;
+        || ChangeKinds is not null || ChangeWords is { Count: > 0 } || ResultsOnly || Drives is not null || FanSensors is not null || BackgroundOnly;
 
     public bool HasChange(SystemChange c) =>
         (ChangeKinds is null || ChangeKinds.Contains(c.Kind))

@@ -88,6 +88,31 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void A_bar_picked_on_the_Network_chart_is_the_boxs_period_and_the_background_list_follows()
+    {
+        host.Show("network", 1500);
+        Assert.True(Ui.WaitFor(() => host.Shell.Network.Bins.Count > 0));
+        Ui.Run(() =>
+        {
+            var vm = host.Shell.Network;
+            vm.SelectedBin = vm.Bins.Count - 1;
+            vm.BackgroundOnly = true;
+            host.Shell.ExportPageCommand.Execute(null);
+            var box = host.Shell.PageExport;
+            Assert.Equal("The bar picked", box.Periods.Single(p => p.IsOn).Label);
+            Assert.Equal(vm.PickedBar, box.Bounds);
+            Assert.Equal([true], box.Scopes.Single().Picked);
+            box.CloseCommand.Execute(null);
+            vm.SelectedBin = -1;
+            vm.BackgroundOnly = false;
+            host.Shell.ExportPageCommand.Execute(null);
+            Assert.Equal(Rigsight.Core.Reports.ReportRange.Day, box.Periods.Single(p => p.IsOn).Unit);
+            Assert.Equal([null], box.Scopes.Single().Picked);
+            box.CloseCommand.Execute(null);
+        });
+    }
+
+    [Fact]
     public void Nothing_can_be_exported_with_no_reading_picked()
     {
         host.Show("temperatures", 900);

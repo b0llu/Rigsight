@@ -186,28 +186,34 @@ public static class PageExports
     {
         var library = vm.Library;
         var shown = vm.Cards.Select(c => c.Entry).ToList();
-        bool narrowed = shown.Count != library.Count;
-        IReadOnlyList<GameEntry> all = narrowed ? shown : library;
+        bool narrowed = vm.Ready && shown.Count != library.Count;
+        // What "all" is, read at export: the library the page has then (read first if it hasn't been yet).
+        IReadOnlyList<GameEntry> All() => narrowed ? [.. vm.Cards.Select(c => c.Entry)] : vm.Library;
+        int count = (narrowed ? shown : library).Count;
         var one = vm.Opened?.Entry ?? vm.HeroGame;
         ExportScope? games = one is null ? null
             : OneOf(Lang.T("Games"), [new(narrowed ? Lang.T("Games shown") : Lang.T("All games"), null, vm.Opened is null), new(one.Name, one, vm.Opened is not null)],
                 s => s.Picked.FirstOrDefault() is GameEntry g ? Lang.T($"only {g.Name}")
-                    : narrowed ? (all.Count == 1 ? Lang.T("the 1 game the library shows") : Lang.T($"the {all.Count} games the library shows"))
-                    : library.Count == 1 ? Lang.T("the 1 game in the library") : Lang.T($"all {library.Count} games in the library"),
+                    : narrowed ? (count == 1 ? Lang.T("the 1 game the library shows") : Lang.T($"the {count} games the library shows"))
+                    : count == 1 ? Lang.T("the 1 game in the library") : Lang.T($"all {count} games in the library"),
                 // The library as filtered on the page narrows the files too.
                 s => narrowed || s.Picked.FirstOrDefault() is not null);
-        IReadOnlyList<GameEntry> Picked() => games?.Picked.FirstOrDefault() is GameEntry g ? [g] : all;
+        async Task<IReadOnlyList<GameEntry>> PickedAsync()
+        {
+            if (!vm.Ready) await vm.LoadAsync();
+            return games?.Picked.FirstOrDefault() is GameEntry g ? [g] : All();
+        }
         return new(Lang.T("Export your games"), From(Lang.T("Games")),
             [
                 new(Lang.T("Your library"), Lang.T("Each game, its launcher, play time, last played and size on disk."), PageItemKind.Sheet, true)
                 {
                     IsNow = true, BytesPerDay = 6_000,
-                    Sheet = run => { var list = Picked(); return (_, _) => ExportSheets.Library(list, run.Now); },
+                    SheetAsync = async run => { var list = await PickedAsync(); return (_, _) => ExportSheets.Library(list, run.Now); },
                 },
                 new(Lang.T("Play sessions"), Lang.T("Each time you played: how long, how it ended, fps and 1% low, graphics card heat and power."), PageItemKind.Sheet, true)
                 {
                     BytesPerDay = 600,
-                    Sheet = run => { var list = Picked(); return (db, s) => ExportSheets.Plays(db, list, s, run.From, run.To, run.Now); },
+                    SheetAsync = async run => { var list = await PickedAsync(); return (db, s) => ExportSheets.Plays(db, list, s, run.From, run.To, run.Now); },
                 },
             ],
             Rolling(), 3, null, games is null ? [] : [games], NoFilter);
@@ -354,7 +360,11 @@ public static class PageExports
                     },
                 },
             ],
-            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
+            periods, IndexOf(periods, vm.Unit), null, [],
+            // The fans the page lists (a header that never spun isn't there); none read yet: every fan recorded.
+            Now(_ => vm.Fans.Count == 0 ? ExportFilter.None
+                : new ExportFilter { FanSensors = vm.Fans.SelectMany(c => c.Sensors).Select(x => x.Id).ToHashSet(StringComparer.Ordinal) }),
+            FirstDay: vm.FirstDay);
     }
 
     /// <summary>Memory: its hour-by-hour history, and the list of apps using memory now as the page lists it (its search and switch).</summary>
@@ -389,8 +399,9 @@ public static class PageExports
                 new(Lang.T("Space you could free"), Lang.T("The list on this page, with sizes. Nothing is deleted."), PageItemKind.Sheet, false)
                 {
                     IsNow = true, BytesPerDay = 1_000,
-                    Sheet = run =>
+                    SheetAsync = async run =>
                     {
+                        await vm.CleanupReadyAsync();
                         var rows = vm.Cleanup.Select(c => new SpaceRow(c.Title, c.Description, c.Size, c.Path)).ToList();
                         return (_, _) => ExportSheets.SpaceToFree(rows, run.Now);
                     },
@@ -401,15 +412,25 @@ public static class PageExports
             Now(_ => drives.AllPicked ? ExportFilter.None : new ExportFilter { Drives = drives.Picked.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase) }));
     }
 
+    /// <summary>Network: its period, or the bar picked on its chart (the apps list then shows that bar's apps); all use or the Background list.</summary>
     private static PageExportSpec Network(NetworkViewModel vm)
     {
         var periods = Units(vm.Anchor, all: false, custom: false);
+        int picked = IndexOf(periods, vm.Unit);
+        if (vm.PickedBar is { } bar)
+        {
+            periods.Insert(0, new(Lang.T("The bar picked"), () => bar));
+            picked = 0;
+        }
+        var count = OneOf(Lang.T("Internet use"), [new(Lang.T("All of it"), null, !vm.BackgroundOnly), new(Lang.T("Background only"), true, vm.BackgroundOnly)],
+            s => s.Picked.FirstOrDefault() is true ? Lang.T("only what moved in the background, as the list shows it") : Lang.T("everything each app moved"));
         return new(Lang.T("Export internet use"), From(Lang.T("Network")),
             [
-                Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, and how much in the background, each day.")),
-                Table(ExportTable.InternetHours, Lang.T("Usage each hour"), Lang.T("What each app downloaded and uploaded in each hour."), on: false),
+                // The bar picked is an hour on a day's chart: then the hours first.
+                Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, and how much in the background, each day."), on: vm.PickedBar is null || vm.Unit != ReportRange.Day),
+                Table(ExportTable.InternetHours, Lang.T("Usage each hour"), Lang.T("What each app downloaded and uploaded in each hour."), on: vm.PickedBar is not null && vm.Unit == ReportRange.Day),
             ],
-            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
+            periods, picked, null, [count], Now(_ => new ExportFilter { BackgroundOnly = count.Picked.FirstOrDefault() is true }), FirstDay: vm.FirstDay);
     }
 
     /// <summary>
