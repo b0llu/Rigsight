@@ -303,7 +303,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         // The key typed in (one locked to another PC, or not found) or the PC's own, whole: support looks it up.
         var key = LicenceKey.Trim().Length > 0 ? LicenceKey.Trim() : _ask.Standing?.Key ?? LicenceShown;
         var body = Uri.EscapeDataString(Lang.T($"My licence key: {key}"));
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"mailto:{SupportEmail}?subject={subject}&body={body}") { UseShellExecute = true }); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportEmail)}&su={subject}&body={body}") { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
     }
 

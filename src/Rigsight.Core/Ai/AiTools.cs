@@ -89,7 +89,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (!Known(name)) return $"Error: there is no tool called {name}.";
         if (!Allowed(name)) return NotShared(name);
         string key = name + " " + args.ToJsonString();
-        if (_cache.TryGetValue(key, out var hit)) return hit;
+        // What is running is a moment: looked at again every time, never answered from an earlier look.
+        if (name != "get_running_now" && _cache.TryGetValue(key, out var hit)) return hit;
         string result;
         try
         {
@@ -275,6 +276,12 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (list.Count > 120) { sb.AppendLine($"(The newest 120 of {list.Count}.)"); list = list[^120..]; }
         foreach (var c in list) sb.AppendLine($"{c.Time:ddd d MMM yyyy h:mm tt}  [{c.Kind}]  {c.Shown}");
         return sb.ToString();
+    }
+
+    /// <summary>The games installed on this PC (scanned once): what a "Verify files" or "Open the game" button is checked against.</summary>
+    public IReadOnlyList<InstalledGame> Installed()
+    {
+        lock (_gamesLock) return _installed ??= GameLibrary.Scan(GameSources.ThisPc());
     }
 
     private List<GameEntry> Library(RigsightDb db)

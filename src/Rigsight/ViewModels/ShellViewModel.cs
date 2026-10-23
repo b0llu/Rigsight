@@ -101,6 +101,12 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Language = Language;
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
         Crashes.Ask = Ask;
+        // An answer's buttons: a page at the right spot, the agent started, the problem report copied, a closed app on the Timeline.
+        Ask.OpenPageAt = OpenPageFromAnswer;
+        Ask.StartAgent = () => StartAgentCommand.Execute(null);
+        Ask.CopyReport = () => SettingsPage.CopyProblemReportCommand.Execute(null);
+        Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
+        Ask.AgentRunning = () => IsConnected;
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
@@ -773,6 +779,24 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         SettingsPage.Tab = "about";
         CurrentPage = "settings";
+    }
+
+    /// <summary>A button under an answer: the page, and on it the drive (Storage scans it), the game, or the order (Processes).</summary>
+    private void OpenPageFromAnswer(string page, string? focus)
+    {
+        CurrentPage = page;
+        switch (page)
+        {
+            case "storage" when focus is { Length: 1 }:
+                _ = Storage.ScanCommand.ExecuteAsync(focus + @":\");
+                break;
+            case "games" when focus is { Length: > 0 }:
+                _ = Games.OpenKeyAsync(focus);
+                break;
+            case "processes":
+                Processes.SortByTotalCommand.Execute(focus == "cpu" ? ProcessesViewModel.ByCpu : ProcessesViewModel.ByMemory);
+                break;
+        }
     }
 
     [RelayCommand]

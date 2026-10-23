@@ -9,7 +9,8 @@ namespace Rigsight.Core.Ai;
 public sealed record OllamaModel(string Name, long Bytes, bool CanLookUp);
 
 /// <summary>One record the helper looked at for an answer: the tool, what it asked for, and how much came back.</summary>
-public sealed record AiLookUp(string Tool, JsonObject Args, int Chars);
+/// <param name="Web">A web search's numbered results (the relay's search only), for the paragraphs' sources.</param>
+public sealed record AiLookUp(string Tool, JsonObject Args, int Chars, IReadOnlyList<WebSource>? Web = null);
 
 /// <summary>A message earlier in the conversation, sent again so a follow-up question has its context.</summary>
 /// <summary>One message of a conversation as sent again; an answer keeps the records it was written from.</summary>

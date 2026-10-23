@@ -33,6 +33,7 @@ public sealed partial class AiTools
         Def("get_storage", "Each drive: how full it is now, how much it grew over the last week and month, and the days it grew the most.", new JsonObject()),
         Def("get_network", "Internet use over a period: downloaded and uploaded day by day, the apps that used the most, big downloads, and times the connection dropped.", Dates()),
         Def("get_on_times", "When the PC was on over a period, and when it was off or asleep: each stretch it was on (day by day for longer periods), with how much of it someone was using it.", Dates()),
+        Def("get_running_now", "The apps running right now with their memory, CPU and graphics card use (over one second), which one is in front, which have no window, and which may be closed from an answer. For \"what's slowing it now\", loud fans or heat right now, and before offering to close an app.", new JsonObject()),
     ];
 
     /// <summary>The switches in Settings › Ask RigSight, as the person sees them there.</summary>
@@ -69,7 +70,7 @@ public sealed partial class AiTools
         "get_report" => [Switch.Heat, Switch.Apps],
         "get_crashes" => [Switch.Crashes],
         "get_changes" => [Switch.Changes],
-        "list_games" or "get_game" or "get_apps" => [Switch.Apps],
+        "list_games" or "get_game" or "get_apps" or "get_running_now" => [Switch.Apps],
         "get_moment" => [Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Crashes, Switch.Usage],
         "get_temperatures" or "get_fans" => [Switch.Heat],
         "get_memory" or "get_storage" => [Switch.Memory],
@@ -110,8 +111,22 @@ public sealed partial class AiTools
         "get_storage" => WithDb(Storage),
         "get_network" => WithDb(db => Network(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
         "get_on_times" => WithDb(db => OnTimes(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Crashes),
+        "get_running_now" => RunningText(),
         _ => null,
     };
+
+    /// <summary>What was running when this answer last looked: what a "Close" button is checked against.</summary>
+    public RunningSnapshot? LastRunning { get; private set; }
+
+    /// <summary>Tests give their own (a PC's processes can't be made up); otherwise Windows' own, sampled over a second.</summary>
+    public Func<RunningSnapshot> SampleRunning { get; set; } = () => RunningNow.Sample();
+
+    private string RunningText()
+    {
+        var snapshot = SampleRunning();
+        LastRunning = snapshot;
+        return snapshot.Text();
+    }
 
     private static DateTime At(JsonObject args)
     {

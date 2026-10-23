@@ -16,8 +16,11 @@ public sealed record AskLook(string Icon, string Text, string Detail, string? Op
     public bool CanOpen => Opens is not null;
 }
 
-/// <summary>A line of an answer: a paragraph, or one point of a list (shown with a bullet).</summary>
-public sealed record AskLine(string Text, bool IsPoint, string? Lead = null);
+/// <summary>A line of an answer: a paragraph, or one point of a list (shown with a bullet), with the pill of what it used.</summary>
+public sealed record AskLine(string Text, bool IsPoint, string? Lead = null)
+{
+    public AskRefs? Refs { get; init; }
+}
 
 /// <summary>A table the model wrote (parts, games or web facts side by side): its headings and rows, each as many cells.</summary>
 public sealed record AskTable(IReadOnlyList<string> Headings, IReadOnlyList<IReadOnlyList<string>> Rows)
@@ -25,10 +28,34 @@ public sealed record AskTable(IReadOnlyList<string> Headings, IReadOnlyList<IRea
     public int Columns => Headings.Count;
 }
 
-/// <summary>The one thing to do next, in a box of its own, with the page that shows more.</summary>
+/// <summary>
+/// The one thing to do next, in a box of its own, with its buttons in it (the approved look of 2026-10-23: the main one
+/// solid, the next quieter, a third as a link). With buttons but no step, the box holds only the buttons.
+/// </summary>
 public sealed record AskNext(string Text, string? Opens, string? OpensLabel)
 {
-    public bool CanOpen => Opens is not null;
+    public IReadOnlyList<AskAction> Actions { get; init; } = [];
+    public bool HasText => Text.Length > 0;
+    public bool HasActions => Actions.Count > 0;
+    // The approved look C of 2026-10-23: a card for a step that changes something on the PC (Close), its title the action
+    // and the step under it; a step that only opens something is one line a button each; a step with no button, words.
+    public bool IsCard => Actions.Any(a => a.Action.Kind == AiActionKind.CloseApp);
+    public bool IsLines => HasActions && !IsCard;
+    public bool IsWords => !HasActions;
+    public string CardTitle => Main?.Label ?? "";
+    /// <summary>
+    /// One short line under the title, from what RigSight measured ("Holds 3.0 GB with no window open"): the model's step
+    /// ran to three lines and said the action again ("OMG THIS IS EVEN MORE BAD", 2026-10-23).
+    /// </summary>
+    public string CardText => Main?.Action is { } a
+        ? a.Windowless ? Lang.T($"Holds {Units.Megabytes(a.MemMb)} with no window open") : Lang.T($"Holds {Units.Megabytes(a.MemMb)} right now")
+        : "";
+    /// <summary>The card's own button (Close), on the title's row; the others go in the row under it.</summary>
+    public AskAction? Main => Actions.FirstOrDefault(a => a.Action.Kind == AiActionKind.CloseApp);
+    public IReadOnlyList<AskAction> Rest => [.. Actions.Where(a => a != Main)];
+    public IReadOnlyList<AskAction> MainOnly => Main is { } m ? [m] : [];
+    /// <summary>The page button of before the buttons: with buttons, the page is one of them.</summary>
+    public bool CanOpen => Opens is not null && !HasActions;
 }
 
 /// <summary>Something in a conversation: the person's question, or the helper's answer.</summary>
@@ -43,6 +70,8 @@ public sealed record AskQuestion(string Text) : AskMessage;
 /// </summary>
 public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, string? FromWeb, IReadOnlyList<AskLook> Looked) : AskMessage
 {
+    /// <summary>What the opening sentence used, as a pill at its end.</summary>
+    public AskRefs? VerdictRefs { get; init; }
     public bool HasWeb => FromWeb is not null;
     public bool HasLooked => Looked.Count > 0;
     /// <summary>The model that wrote it, kept with the saved answer.</summary>
@@ -52,6 +81,8 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     public IReadOnlyList<AiLookUp> LookUps { get; init; } = [];
     /// <summary>RigSight's numbers as drawn for each marker: saved with the answer, so it shows the same when opened again.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<AiBlock>> Drawn { get; init; } = new Dictionary<string, IReadOnlyList<AiBlock>>();
+    /// <summary>Questions they might ask next, from the model's "Ask next:" line: shown under the latest answer only.</summary>
+    public IReadOnlyList<string> Suggestions { get; init; } = [];
 }
 
 /// <summary>
@@ -280,7 +311,17 @@ public sealed partial class AskViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(ShowChat));
         OnPropertyChanged(nameof(ShowStarters));
+        OnPropertyChanged(nameof(NextQuestions));
+        OnPropertyChanged(nameof(HasNextQuestions));
     }
+
+    /// <summary>
+    /// What they might ask next, under the conversation's latest answer once it has finished: none while one is on its
+    /// way, under an older answer, or after a problem. A quiet note under the answer (web search not working) doesn't hide them.
+    /// </summary>
+    public IReadOnlyList<string> NextQuestions =>
+        !IsAnswering && Current?.Messages.LastOrDefault(m => m is AskAnswer or AskQuestion or AskProblem) is AskAnswer last ? last.Suggestions : [];
+    public bool HasNextQuestions => NextQuestions.Count > 0;
 
     public bool IsEmpty => Current is null || Current.Messages.Count == 0;
 
@@ -584,11 +625,14 @@ public sealed partial class AskViewModel : ObservableObject
 
     [RelayCommand] private void Starter(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion) Ask(text); }
 
+    /// <summary>One of the questions under the latest answer, asked as if typed.</summary>
+    [RelayCommand] private void AskSuggested(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion && !IsAnswering && !IsOutOfQuestions) Ask(text); }
+
     // Nothing goes before the first-question window is read: Start asking is the way past it.
     private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !IsOutOfQuestions && !IsAnswering && !ShowFirstQuestion;
 
     /// <summary>An answer is on its way: another question waits for it.</summary>
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private bool _isAnswering;
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] [NotifyPropertyChangedFor(nameof(NextQuestions), nameof(HasNextQuestions))] private bool _isAnswering;
 
     /// <summary>Stops the answer on its way (Stop, in the Send button's place while it works).</summary>
     private CancellationTokenSource? _answering;
@@ -689,7 +733,8 @@ public sealed partial class AskViewModel : ObservableObject
                 // stays up meanwhile, and the finished one takes its place in one step: taking it away first left the chat
                 // empty for a moment ("it flashes").
                 var tools = _tools!;
-                var answer = await Task.Run(() => ToAnswer(text, reply.LookUps, marker => tools.Blocks(marker, reply.LookUps))) with { Model = reply.Model };
+                var buttons = Resolver(tools, reply.LookUps);
+                var answer = await Task.Run(() => ToAnswer(text, reply.LookUps, marker => tools.Blocks(marker, reply.LookUps), actions: buttons)) with { Model = reply.Model };
                 int at = talk.Messages.IndexOf(talk.Messages.FirstOrDefault(m => m is AskWriting)!);
                 if (at >= 0) talk.Messages[at] = answer;
                 Unwait(talk);
@@ -773,8 +818,14 @@ public sealed partial class AskViewModel : ObservableObject
         int cut = text.LastIndexOf('\n');
         string tail = text[(cut + 1)..].TrimStart();
         if (tail.Length == 0) return text;
+        // "…normal for that load. [src: w2 cra": a source still being typed waits, so it never flashes up as words.
+        text = AiSources.Unfinished().Replace(text, "");
+        cut = text.LastIndexOf('\n');
+        tail = text[(cut + 1)..].TrimStart();
+        if (tail.Length == 0) return text;
+        string start = tail.TrimStart('-', '*', ' ').ToLowerInvariant();
         bool becoming = tail.StartsWith('[') || tail.StartsWith('|')
-            || (tail.Length < 12 && "next step:".StartsWith(tail.TrimStart('-', '*', ' ').ToLowerInvariant(), StringComparison.Ordinal));
+            || (tail.Length < 12 && ("next step:".StartsWith(start, StringComparison.Ordinal) || "ask next:".StartsWith(start, StringComparison.Ordinal)));
         return becoming ? (cut < 0 ? "" : text[..cut]) : text;
     }
 
@@ -859,6 +910,10 @@ public sealed partial class AskViewModel : ObservableObject
     // "Next step: …", also as small models write it at times: in brackets, or as a point ("[next step: …]", "- Next step: …").
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     private static readonly Regex TableRule = new(@"^\|?\s*:?-{2,}");
+    // "Ask next: Was it the same on Monday? | Which game heats the GPU most?": questions to offer under the answer.
+    private static readonly Regex AskNextLine = new(@"^(?:[-*•]\s*)?\[?\s*(ask next|preguntas? siguientes?|siguientes preguntas)(?:\s*\([^)]*\))?\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
+    /// <summary>At most this many questions under an answer, each at most this long (a longer one is a sentence, not a question to tap).</summary>
+    private const int MostSuggestions = 3, LongestSuggestion = 90;
     // *Risk of Rain 2*: the stars go, the words stay (a "* " point keeps its star).
     // "Tell me the app's name and I'll look": the model asking back, not a step to take.
     // ...or "Next step: none." where it has none to give.
@@ -870,22 +925,59 @@ public sealed partial class AskViewModel : ObservableObject
     /// numbers where a marker asks for them (<paramref name="blocks"/> reads them; a marker for a record it didn't look at
     /// shows nothing), its tables, the next step in a box, and the chips.
     /// </summary>
-    public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null, bool writing = false)
+    /// <param name="actions">Works out the buttons from the answer's "[do: …]" lines; null (an answer opened again, or still
+    /// being written) shows none: a button is for the moment the answer was given, not days later.</param>
+    public static AskAnswer ToAnswer(string text, IReadOnlyList<AiLookUp> lookUps, Func<string, IReadOnlyList<AiBlock>>? blocks = null, bool writing = false,
+        Func<IReadOnlyList<string>, IReadOnlyList<AiAction>>? actions = null)
     {
+        text = AiActions.Inline.Replace(text, m => $"\n[do: {m.Groups["what"].Value}]\n");
         // A marker written inside a sentence ("…the power supply. [show: crashes]", Haiku, 2026-10-22) gets a line of its
         // own, so its card is drawn instead of the code showing as words.
         text = InlineMarker.Replace(text, m => $"\n[show: {m.Groups["what"].Value.ToLowerInvariant()}]\n");
         var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim())
             // The note RigSight adds to earlier answers when it sends them again, copied by a model into its own answer.
             .Where(l => l.Length > 0 && !l.StartsWith("(Records you looked at", StringComparison.OrdinalIgnoreCase)).ToList();
+        // "[src: w2 crashes]" off each line, kept as that line's sources; one alone on a line belongs to the line above.
+        var refsOf = new List<string?>();
+        for (int k = 0; k < lines.Count; k++)
+        {
+            var words = AiSources.Marker().Matches(lines[k]).Select(m => m.Groups["what"].Value).ToList();
+            if (words.Count == 0) { refsOf.Add(null); continue; }
+            lines[k] = AiSources.Marker().Replace(lines[k], "").Trim();
+            string joined = string.Join(" ", words);
+            if (lines[k].Length == 0)
+            {
+                lines.RemoveAt(k);
+                if (refsOf.Count > 0) refsOf[^1] = ((refsOf[^1] ?? "") + " " + joined).Trim();
+                k--;
+                continue;
+            }
+            refsOf.Add(joined);
+        }
+        AskRefs? RefsFor(string? words) => words is null ? null : AiSources.Resolve(words, lookUps, log: !writing) is { Count: > 0 } found ? new AskRefs(found) : null;
         string verdict = lines.Count > 0 && !Marker.IsMatch(lines[0]) && !lines[0].StartsWith('|') ? Point.Replace(lines[0], "") : "";
-        if (verdict.Length > 0) lines.RemoveAt(0);
+        AskRefs? verdictRefs = null;
+        if (verdict.Length > 0) { verdictRefs = RefsFor(refsOf[0]); lines.RemoveAt(0); refsOf.RemoveAt(0); }
         var parts = new List<object>();
         var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var drawnBy = new Dictionary<string, IReadOnlyList<AiBlock>>();
+        var suggestions = new List<string>();
+        var markers = new List<string>();
         for (int i = 0; i < lines.Count; i++)
         {
             string l = lines[i];
+            if (AiActions.Marker(l) is { } marker)
+            {
+                markers.Add(marker);
+                continue;
+            }
+            if (AskNextLine.Match(l) is { Success: true } ask)
+            {
+                foreach (var q in ask.Groups["rest"].Value.Split('|').Select(q => q.Trim().Trim('"', '“', '”', '\'').Trim()))
+                    if (q.Length is > 3 and <= LongestSuggestion && suggestions.Count < MostSuggestions && !suggestions.Contains(q, StringComparer.OrdinalIgnoreCase))
+                        suggestions.Add(q);
+                continue;
+            }
             if (Marker.Match(l) is { Success: true } m)
             {
                 string what = m.Groups["what"].Value.ToLowerInvariant();
@@ -924,16 +1016,57 @@ public sealed partial class AskViewModel : ObservableObject
             }
             bool isPoint = Point.IsMatch(l);
             string body = Point.Replace(l, "");
-            parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) : new AskLine(body, isPoint));
+            var refs = RefsFor(refsOf[i]);
+            parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) { Refs = refs } : new AskLine(body, isPoint) { Refs = refs });
         }
         // The first line stands out only as an opening sentence with more after it: a short reply alone, or a whole
         // paragraph first, read as all bold ("text feels so bold", 2026-10-21).
         if (verdict.Length > 0 && ((parts.Count == 0 && !writing) || verdict.Length > LongestVerdict))
         {
-            parts.Insert(0, new AskLine(verdict, false));
+            parts.Insert(0, new AskLine(verdict, false) { Refs = verdictRefs });
             verdict = "";
+            verdictRefs = null;
         }
-        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy };
+        // The model named no sources: everything this answer looked at and found, on its last paragraph (never a line of
+        // its own under the answer: the approved look, 2026-10-23).
+        if (!writing && verdictRefs is null && !parts.OfType<AskLine>().Any(p => p.Refs is not null) && AiSources.All(lookUps) is { Count: > 0 } all)
+        {
+            int last = parts.FindLastIndex(p => p is AskLine);
+            if (last >= 0) parts[last] = ((AskLine)parts[last]) with { Refs = new AskRefs(all) };
+            else if (verdict.Length > 0) verdictRefs = new AskRefs(all);
+        }
+        // The next step closes the answer, whatever order the model wrote it in: its numbers and charts came after it
+        // ("why is UI of graph and numbers coming after next steps?", 2026-10-23).
+        if (parts.FindIndex(p => p is AskNext) is >= 0 and var stepAt && stepAt < parts.Count - 1)
+        {
+            var step = parts[stepAt];
+            parts.RemoveAt(stepAt);
+            parts.Add(step);
+        }
+        var buttons = actions is not null && markers.Count > 0 ? actions(markers) : [];
+        int stepIndex = parts.FindIndex(p => p is AskNext);
+        var stepOpens = stepIndex >= 0 ? OpensAt(((AskNext)parts[stepIndex]).Text) : null;
+        if (!writing && (buttons.Count > 0 || stepOpens is not null))
+        {
+            // In the Next step box: the step, then its buttons; the page the step names is one of them, "[do: …]" or not.
+            int at = stepIndex;
+            var next = at >= 0 ? (AskNext)parts[at] : new AskNext("", null, null);
+            var list = buttons.ToList();
+            if (stepOpens is { } o && list.Count < AiActions.Most && !list.Any(b => b.Kind == AiActionKind.OpenPage && b.Target == o.Page))
+                list.Add(new AiAction(AiActionKind.OpenPage, o.Label, o.Page == "processes" ? "\uE9D9" : "\uE8A7", o.Page, o.Focus));
+            // Close first: it's the card's own button ("Close it"); the rest after it.
+            list = [.. list.OrderBy(b => b.Kind == AiActionKind.CloseApp ? 0 : 1)];
+            bool card = list.Any(b => b.Kind == AiActionKind.CloseApp);
+            next = next with { Actions = [.. list.Select((b, k) => new AskAction(b)
+            {
+                Role = k == 0 ? AskActionRole.Main : k == 1 ? AskActionRole.Second : AskActionRole.Link,
+                // As a line, the first one says what it's for (the step), so the step isn't said twice.
+                Why = !card && k == 0 && next.Text.Length > 0 ? next.Text : null,
+                InCard = card,
+            })] };
+            if (at >= 0) parts[at] = next; else parts.Add(next);
+        }
+        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy, Suggestions = suggestions, VerdictRefs = verdictRefs };
     }
 
     /// <summary>The page the next step points to: where the records the answer leaned on are shown.</summary>
@@ -941,14 +1074,36 @@ public sealed partial class AskViewModel : ObservableObject
     /// The page the next step sends them to, when it names one ("open Crashes and…"): a button for a page the step
     /// doesn't mention read as unrelated ("Open Reports" under "check AMD's spec page", 2026-10-21).
     /// </summary>
-    private static (string? Page, string? Label) Opens(string step)
+    private static (string? Page, string? Label) Opens(string step) => OpensAt(step) is { } at ? (at.Page, at.Label) : (null, null);
+
+    private static readonly (string Page, string Name)[] StepPages =
+    [
+        ("crashes", "Crashes"), ("timeline", "Timeline"), ("games", "Games"), ("reports", "Reports"), ("processes", "Processes"),
+        ("memory", "Memory"), ("storage", "Storage"), ("temperatures", "Temperatures"), ("fans", "Fans"), ("network", "Network"), ("apps", "Apps"),
+    ];
+
+    /// <summary>
+    /// The page a step names, said as a page ("open Crashes", "the processes page", "Processes sorted by memory"), with what
+    /// to show there; a common word alone ("memory is full") isn't a page. A step that named one got no button when only four
+    /// pages were known ("open the processes page sorted by memory", 2026-10-23).
+    /// </summary>
+    private static (string Page, string Label, string? Focus)? OpensAt(string step)
     {
-        bool Names(params string[] words) => words.Any(w => Regex.IsMatch(step, $@"\b{Regex.Escape(w)}\b", RegexOptions.IgnoreCase));
-        if (Names("Crashes", Lang.T("Crashes"))) return ("crashes", Lang.T("Open Crashes"));
-        if (Names("Timeline", Lang.T("Timeline"))) return ("timeline", Lang.T("Open Timeline"));
-        if (Names("Games page", "Games", Lang.T("Games"))) return ("games", Lang.T("Open Games"));
-        if (Names("Reports", Lang.T("Reports"))) return ("reports", Lang.T("Open Reports"));
-        return (null, null);
+        foreach (var (page, english) in StepPages)
+        {
+            string name = Lang.T(english);
+            bool named = new[] { english, name }.Distinct().Any(n =>
+                Regex.IsMatch(step, $@"\b(open|opens|opening)\s+(the\s+)?(RigSight's\s+)?{Regex.Escape(n)}\b|\b{Regex.Escape(n)}\s+page\b", RegexOptions.IgnoreCase)
+                || (english is "Crashes" or "Timeline" or "Reports" && Regex.IsMatch(step, $@"\b{Regex.Escape(n)}\b")));
+            if (!named) continue;
+            if (page == "processes" && Regex.IsMatch(step, @"\b(by|sorted by)\s+(memory|cpu)\b", RegexOptions.IgnoreCase))
+            {
+                bool cpu = Regex.IsMatch(step, @"\bby\s+cpu\b", RegexOptions.IgnoreCase);
+                return (page, cpu ? Lang.T("Open Processes by CPU") : Lang.T("Open Processes by memory"), cpu ? "cpu" : "memory");
+            }
+            return (page, Lang.T($"Open {name}"), null);
+        }
+        return null;
     }
 
     [RelayCommand] private void OpenNext(AskNext? next) { if (next?.Opens is { } page) OpenPage?.Invoke(page); }
@@ -1015,13 +1170,16 @@ public sealed partial class AskViewModel : ObservableObject
                         case SavedMessage.Question: list.Add(new AskQuestion(m.Text)); break;
                         case SavedMessage.Problem: list.Add(new AskProblem(m.Text)); break;
                         case SavedMessage.Stopped: list.Add(new AskStopped(m.Text)); break;
+                        case SavedMessage.Done: list.Add(new AskDone(m.Text)); break;
+                        case SavedMessage.Check when AskCheck.FromSaved(m.Text) is { } check: list.Add(check); break;
                         case SavedMessage.Answer:
                             var looks = (m.LookUps ?? []).Select(l => l.ToLookUp()).ToList();
                             // The numbers as they were shown then; an answer saved before they were kept is drawn again.
                             Func<string, IReadOnlyList<AiBlock>> draw = m.Drawn is { } kept
                                 ? marker => kept.TryGetValue(marker, out var b) ? b : []
                                 : marker => tools.Blocks(marker, looks);
-                            list.Add(ToAnswer(m.Text, looks, draw) with { Model = m.Model });
+                            list.Add(ToAnswer(m.Text, looks, draw, actions: markers => AiActions.Resolve(markers, new AiActionContext(looks, null, tools.Installed, true))
+                                .Where(a => a.Kind is not (AiActionKind.CloseApp or AiActionKind.CheckAgain or AiActionKind.StartAgent)).ToList()) with { Model = m.Model });
                             break;
                     }
                 }
@@ -1034,6 +1192,13 @@ public sealed partial class AskViewModel : ObservableObject
             messages = [new AskProblem(Lang.T("This conversation couldn't be opened."))];
         }
         foreach (var m in messages) talk.Messages.Add(m);
+        // A check from before: compared now if its time has passed, counted down otherwise.
+        var checks = messages.OfType<AskCheck>().ToList();
+        if (checks.Count > 0)
+        {
+            foreach (var check in checks.Where(c => DateTime.Now >= c.Due)) _ = CompareAsync(check);
+            if (checks.Any(c => DateTime.Now < c.Due)) Watch();
+        }
         if (talk == Current) ToEnd();
     }
 
@@ -1053,6 +1218,8 @@ public sealed partial class AskViewModel : ObservableObject
             AskAnswer a => new SavedMessage(SavedMessage.Answer, a.Raw, a.Model, [.. a.LookUps.Select(SavedLookUp.From)], a.Drawn),
             AskProblem p => new SavedMessage(SavedMessage.Problem, p.Text),
             AskStopped x => new SavedMessage(SavedMessage.Stopped, x.Text),
+            AskDone d => new SavedMessage(SavedMessage.Done, d.Text),
+            AskCheck k => new SavedMessage(SavedMessage.Check, k.Saved),
             _ => null,
         }).OfType<SavedMessage>()]);
 

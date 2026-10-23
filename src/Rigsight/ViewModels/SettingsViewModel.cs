@@ -574,13 +574,22 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         }
     }
 
-    /// <summary>Contact support: a new email in the person's mail app, with the version (support asks for it first).</summary>
+    // ── Contact support ──────────────────────────────────────────────────
+    // "Contact support is not working at all" (2026-10-23): it opened an email link, and with no mail app set up Windows
+    // did nothing. It opens Gmail in the browser now, the email already addressed with the version in it (the user's
+    // choice: "keep as gmail option", one way, from the menu and from Settings, About).
+    public static string SupportAddress => AiSettingsViewModel.SupportEmail;
+    public string SupportAddressText => SupportAddress;
+
+    /// <summary>A new email to support in Gmail, in the browser: addressed, with a subject and the version.</summary>
+    public static string SupportMailUrl =>
+        $"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportAddress)}&su={Uri.EscapeDataString(Lang.T("RigSight: I need help"))}"
+        + $"&body={Uri.EscapeDataString(Lang.T($"RigSight {Rigsight.Core.Ai.Relay.Version}") + "\n\n")}";
+
     [RelayCommand]
     private void ContactSupport()
     {
-        var subject = Uri.EscapeDataString(Lang.T("RigSight: I need help"));
-        var body = Uri.EscapeDataString(Lang.T($"RigSight {Rigsight.Core.Ai.Relay.Version}") + "\n\n");
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"mailto:{AiSettingsViewModel.SupportEmail}?subject={subject}&body={body}") { UseShellExecute = true }); }
+        try { OpenInBrowser(SupportMailUrl); Log.Write("settings", "Contact support: opened Gmail in the browser"); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             Log.Error("settings", ex);

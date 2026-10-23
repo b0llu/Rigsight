@@ -94,7 +94,7 @@ public static class Relay
         {
             using var res = await Http.SendAsync(Request(HttpMethod.Get, "/v1/status"), ct);
             string text = await res.Content.ReadAsStringAsync(ct);
-            if (!res.IsSuccessStatusCode) return (null, Problem(text, (int)res.StatusCode));
+            if (!res.IsSuccessStatusCode) return (null, Problem(text, (int)res.StatusCode, inSettings: true));
             if (ReadStatus(text) is { } status) return (status, null);
             Log.Write("relay", $"Expected this PC's questions from {Root}, got HTTP {(int)res.StatusCode} {Short(text)}");
             return (null, Lang.T("Couldn't check your questions right now. Try again in a minute."));
@@ -118,7 +118,7 @@ public static class Relay
             if (!res.IsSuccessStatusCode)
             {
                 Log.Write("relay", $"Activating a key: expected it to work here, got HTTP {(int)res.StatusCode} {text}");
-                return (null, Problem(text, (int)res.StatusCode, activating: true), Reason(text));
+                return (null, Problem(text, (int)res.StatusCode, activating: true, inSettings: true), Reason(text));
             }
             if (ReadStatus(text) is not { } status)
             {
@@ -242,7 +242,7 @@ public static class Relay
                         searchFailed |= failed;
                     }
                     else result = await Task.Run(() => tools.Run(name, args.ToJsonString()), ct);
-                    lookUps.Add(new AiLookUp(name, args, result.Length));
+                    lookUps.Add(new AiLookUp(name, args, result.Length, name == "search_web" ? AiSources.ParseWeb(result) : null));
                     Log.Write("relay", $"Looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = (string?)call?["id"] ?? "", ["content"] = result });
                 }
@@ -293,7 +293,9 @@ public static class Relay
     }
 
     /// <summary>What a refusal from the relay means for the person (the mock-up of 2026-10-21).</summary>
-    public static string Problem(string text, int status, bool activating = false)
+    /// <param name="inSettings">Shown in Settings › Ask RigSight, beside Email support (questions left, Activate): no
+    /// "from Settings › Ask RigSight" there, it's the page they're on.</param>
+    public static string Problem(string text, int status, bool activating = false, bool inSettings = false)
     {
         string? kind = null, reason = null;
         try { var e = JsonNode.Parse(text); kind = (string?)e?["error"]; reason = (string?)e?["reason"]; } catch (JsonException) { }
@@ -306,6 +308,7 @@ public static class Relay
                 ? Lang.T("This key is in use on another PC. A licence works on one PC.")
                 : Lang.T("Your licence is now in use on another PC, so this PC can't ask with it."),
             ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. Buy a pack to keep using RigSight AI."),
+            ("licence", _) when inSettings => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
             ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
             // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".

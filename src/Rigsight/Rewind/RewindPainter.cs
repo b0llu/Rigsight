@@ -44,8 +44,8 @@ public static class RewindPainter
         ["story"] = (1080, 1920), ["post"] = (1080, 1350), ["wide"] = (1600, 900),
     };
 
-    private static readonly FontFamily Display = new("Segoe UI Variable Display, Segoe UI");
-    private static readonly FontFamily Ui = new("Segoe UI Variable Text, Segoe UI");
+    private static readonly FontFamily Display = new("Segoe UI");
+    private static readonly FontFamily Ui = new("Segoe UI");
     private static readonly FontFamily Icons = new("Segoe Fluent Icons, Segoe MDL2 Assets");
     private static ImageSource? _logo;
     private static ImageSource? Logo => _logo ??= Load("pack://application:,,,/Assets/Rigsight.png");

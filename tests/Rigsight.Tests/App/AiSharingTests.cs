@@ -25,9 +25,9 @@ public sealed class AiSharingTests
     {
         var all = Names(new AiTools(new RigsightSettings(), NoHistory));
         Assert.Equal(Names(Tools(a => { a.ShareNetwork = false; a.ShareMemory = false; a.ShareCrashes = false; })), all);
-        foreach (var name in new[] { "get_moment", "get_temperatures", "get_fans", "get_apps", "get_memory", "get_storage", "get_network", "get_on_times" })
+        foreach (var name in new[] { "get_moment", "get_temperatures", "get_fans", "get_apps", "get_memory", "get_storage", "get_network", "get_on_times", "get_running_now" })
             Assert.Contains(name, all);
-        Assert.Equal(14, all.Count);
+        Assert.Equal(15, all.Count);
     }
 
     [Theory]
@@ -43,6 +43,19 @@ public sealed class AiSharingTests
         Assert.StartsWith("Not shared", said);
         Assert.Contains(label, said);
         Assert.Contains("Settings › Ask RigSight", said);
+    }
+
+    // What is running now is apps: with "Apps and games you use" off, nothing is looked at (so no Close button either).
+    [Fact]
+    public void Running_now_needs_apps_turned_on()
+    {
+        bool looked = false;
+        var tools = Tools(a => a.ShareApps = false);
+        tools.SampleRunning = () => { looked = true; return new RunningSnapshot(DateTime.Now, []); };
+        string said = tools.Run("get_running_now", "{}");
+        Assert.StartsWith("Not shared", said);
+        Assert.Contains("\"Apps and games you use\"", said);
+        Assert.False(looked);
     }
 
     [Fact]

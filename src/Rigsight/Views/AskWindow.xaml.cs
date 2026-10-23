@@ -95,8 +95,16 @@ public partial class AskWindow : UserControl
 
     private static void AutomationProperties_Name(DependencyObject element, string name) => System.Windows.Automation.AutomationProperties.SetName(element, name);
 
-    private static Size Fit(Size want, Size room) =>
-        new(Math.Clamp(want.Width, MinWidth_, Math.Max(MinWidth_, room.Width - 2 * Gap)), Math.Clamp(want.Height, MinHeight_, Math.Max(MinHeight_, room.Height - 2 * Gap)));
+    private static Size Fit(Size want, Size room) => Fit(want.Width, want.Height, room);
+
+    /// <summary>
+    /// Clamped as plain numbers, before any Size is made: an edge pulled past the other side, or a popped-out window
+    /// partly off the page, gives a negative width, and a Size of one throws ("Width and Height must be non-negative",
+    /// a tester's crash dialog, 2026-10-22).
+    /// </summary>
+    private static Size Fit(double width, double height, Size room) =>
+        new(Math.Clamp(double.IsNaN(width) ? MinWidth_ : width, MinWidth_, Math.Max(MinWidth_, room.Width - 2 * Gap)),
+            Math.Clamp(double.IsNaN(height) ? MinHeight_ : height, MinHeight_, Math.Max(MinHeight_, room.Height - 2 * Gap)));
 
     // ── Resizing from the edges ──────────────────────────────────────────
     private void Edge_Drag(object sender, DragDeltaEventArgs e)
@@ -107,14 +115,14 @@ public partial class AskWindow : UserControl
         {
             // The bottom-right corner stays put: pulling up or left grows it.
             double w = Panel.Width - (sender == TopEdge ? 0 : e.HorizontalChange), h = Panel.Height - (sender == LeftEdge ? 0 : e.VerticalChange);
-            var size = Fit(new Size(w, h), room);
+            var size = Fit(w, h, room);
             if (_vm.IsBig) _vm.StuckBig = size; else _vm.StuckSmall = size;
         }
         else
         {
             var r = _vm.Floating;
             double w = r.Width + (sender == BottomEdge ? 0 : e.HorizontalChange), h = r.Height + (sender == RightEdge ? 0 : e.VerticalChange);
-            var size = Fit(new Size(Math.Min(w, room.Width - r.X), Math.Min(h, room.Height - r.Y)), room);
+            var size = Fit(Math.Min(w, room.Width - r.X), Math.Min(h, room.Height - r.Y), room);
             _vm.Floating = new Rect(r.TopLeft, size);
         }
         Place();
@@ -235,6 +243,45 @@ public partial class AskWindow : UserControl
     {
         if (_vm is not null && (sender as FrameworkElement)?.DataContext is AskConversation talk) _vm.FinishRename(talk, keep: true);
     }
+
+    // ── A paragraph's sources: the list on hover ─────────────────────────
+    // It opens as the pointer reaches the pill and stays while the pointer moves into it; a moment after it leaves both,
+    // it closes. A tap opens it where there is no pointer. One list at a time; scrolling the chat closes it.
+    private AskRefs? _openRefs;
+    private System.Windows.Threading.DispatcherTimer? _refsClose;
+
+    private void ShowRefs(AskRefs refs)
+    {
+        _refsClose?.Stop();
+        if (_openRefs is { } other && other != refs) other.IsOpen = false;
+        _openRefs = refs;
+        refs.IsOpen = true;
+        if (_refsClose is null)
+        {
+            _refsClose = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _refsClose.Tick += (_, _) => { _refsClose.Stop(); CloseRefs(); };
+            Chat.ScrollChanged += (_, e) => { if (e.VerticalChange != 0) CloseRefs(); };
+        }
+    }
+
+    private void CloseRefs()
+    {
+        if (_openRefs is { } open) open.IsOpen = false;
+        _openRefs = null;
+    }
+
+    private void LeaveRefs() { _refsClose?.Stop(); _refsClose?.Start(); }
+
+    private void RefPill_Enter(object sender, MouseEventArgs e) { if ((sender as FrameworkElement)?.Tag is AskRefs refs) ShowRefs(refs); }
+    private void RefPill_Leave(object sender, MouseEventArgs e) => LeaveRefs();
+    private void RefPill_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not AskRefs refs) return;
+        // A second press (keyboard, a tap) closes what the first opened.
+        if (refs.IsOpen && !((UIElement)sender).IsMouseOver) CloseRefs(); else ShowRefs(refs);
+    }
+    private void RefList_Enter(object sender, MouseEventArgs e) => _refsClose?.Stop();
+    private void RefList_Leave(object sender, MouseEventArgs e) => LeaveRefs();
 
     /// <summary>Enter sends the question; Shift+Enter starts a new line.</summary>
     private void Question_KeyDown(object sender, KeyEventArgs e)

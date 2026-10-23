@@ -34,4 +34,15 @@ public sealed class RelayTests
         Assert.Contains("not_found", """{"error":"licence","reason":"not_found"}""");
         Assert.Contains("wasn't found", Relay.Problem("""{"error":"licence","reason":"not_found"}""", 403, activating: true));
     }
+
+    // Shown in Settings › Ask RigSight beside Email support: "Contact support from Settings › Ask RigSight" pointed at the
+    // page they were on (2026-10-22). The chat keeps the way there.
+    [Fact]
+    public void A_turned_off_licence_in_Settings_doesnt_send_them_to_Settings()
+    {
+        string body = """{"error":"licence","reason":"disabled"}""";
+        Assert.DoesNotContain("Settings", Relay.Problem(body, 403, activating: true, inSettings: true));
+        Assert.DoesNotContain("Settings", Relay.Problem(body, 403, inSettings: true));
+        Assert.Contains("Settings › Ask RigSight", Relay.Problem(body, 403));
+    }
 }
