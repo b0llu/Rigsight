@@ -8,11 +8,20 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>One line under a plan: what its answers can now use, with the page it comes from in small grey.</summary>
-public sealed record PlanUse(string Text, string From);
+/// <summary>
+/// One line under a plan: what its answers can now use, the page it comes from (its hover), and the page's icon, in a square
+/// of the plan's colour (approved mock-up, 2026-10-24).
+/// </summary>
+public sealed record PlanUse(string Text, string From, string Icon);
 
-/// <summary>A row of "Compare plans page by page": the page, what it holds, and which plans open it.</summary>
-public sealed record PlanCompareRow(string Page, string What, bool Free, bool Middle, bool Top);
+/// <summary>A row of the page by page list: the page, what it holds, its icon, which plans open it, and the plan that adds it.</summary>
+public sealed record PlanCompareRow(string Page, string What, bool Free, bool Middle, bool Top, string Icon = "", int Tier = 0);
+
+/// <summary>
+/// The page by page list in groups: the pages every plan opens, then what each plan adds, each headed in that plan's colour
+/// (<paramref name="Tier"/>: 0 Free, 1 the middle plan, 2 the top one).
+/// </summary>
+public sealed record PlanCompareGroup(string Title, int Tier, IReadOnlyList<PlanCompareRow> Rows);
 
 /// <summary>A reason picked when cancelling (one tap, optional): its word for the relay and its words on screen.</summary>
 public sealed partial class CancelReason(string id, string text) : ObservableObject
@@ -42,10 +51,27 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     public string Everything => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}, and:");
     public bool HasEverything => rank > 0;
 
+    /// <summary>"Everything in Free" in bold, then ", plus:": one line of words, the part that names the plan bold.</summary>
+    public string EverythingIn => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}");
+
+    /// <summary>The plan's place, for its colour: 0 Free (sky), 1 the middle plan (blue), 2 the top one (violet).</summary>
+    public int Tier => rank;
+
+    /// <summary>
+    /// Two questions only this plan can answer, at the foot of its card where the shorter lists left empty space (approved
+    /// mock-up, 2026-10-24), in this PC's parts' names where they're known.
+    /// </summary>
+    public IReadOnlyList<string> Tries => rank switch
+    {
+        0 => [Lang.T($"Are my temperatures normal for a {Parts.Cpu}?"), Lang.T($"Is the driver for my {Parts.Gpu} up to date?")],
+        1 => [Lang.T("Why did my PC shut off last night?"), Lang.T("What's filling my drives?")],
+        _ => [Lang.T("Why does my game stutter since the last driver?"), Lang.T("Why did my internet drop yesterday?")],
+    };
+
     /// <summary>The pages this plan adds to the one before it, each as what an answer can now use.</summary>
     public IReadOnlyList<PlanUse> Uses => [.. AiPages.All
         .Where(p => Offer.Pages.Contains(p.Id) && (rank == 0 || !owner.Columns[rank - 1].Offer.Pages.Contains(p.Id)))
-        .Select(p => new PlanUse(Lang.T(Gives(p.Id)), p.Label))];
+        .Select(p => new PlanUse(Lang.T(Gives(p.Id)), p.Label, PageSwitchesViewModel.Glyph(p.Id)))];
 
     public bool IsMine => owner.Plan is { } mine && mine.Id == Offer.Id && (Offer.IsFree || !mine.IsFree);
     public bool IsBest => rank == owner.Columns.Count - 1 && !IsMine;
@@ -236,16 +262,38 @@ public sealed partial class PlansViewModel : ObservableObject
 
     // ── The Plans screen ────────────────────────────────────────────────
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowChangePlan))] private bool _isOpen;
-    [ObservableProperty] private bool _comparing;
-    public string CompareText => Comparing ? Lang.T("Hide the page by page list") : Lang.T("Compare plans page by page");
-    partial void OnComparingChanged(bool value) => OnPropertyChanged(nameof(CompareText));
+
 
     public string Heading => IsFree ? Lang.T("Ask RigSight about anything on your PC") : Lang.T("Your RigSight AI plan");
     public string Subheading => IsFree ? Lang.T("Answers come from what RigSight recorded on this PC, and from the web.")
         : Lang.T("Switch, cancel or change your card here. Changes take effect straight away.");
 
     public IReadOnlyList<PlanCompareRow> CompareRows => Columns.Count < 3 ? []
-        : [.. AiPages.All.Select(p => new PlanCompareRow(p.Label, p.Description, Columns[0].Offer.Pages.Contains(p.Id), Columns[1].Offer.Pages.Contains(p.Id), Columns[2].Offer.Pages.Contains(p.Id)))];
+        : [.. AiPages.All.Select(p =>
+            {
+                bool free = Columns[0].Offer.Pages.Contains(p.Id), middle = Columns[1].Offer.Pages.Contains(p.Id), top = Columns[2].Offer.Pages.Contains(p.Id);
+                return new PlanCompareRow(p.Label, p.Description, free, middle, top, PageSwitchesViewModel.Glyph(p.Id), free ? 0 : middle ? 1 : 2);
+            })];
+
+    /// <summary>
+    /// The page by page list, always shown (the person's call, 2026-10-24: no Compare button), grouped: what every plan opens,
+    /// then what each plan adds, so what a plan is for reads at a glance. A group with no pages is left out.
+    /// </summary>
+    public IReadOnlyList<PlanCompareGroup> CompareGroups
+    {
+        get
+        {
+            if (Columns.Count < 3) return [];
+            var rows = CompareRows;
+            var culture = System.Globalization.CultureInfo.CurrentCulture;
+            return [.. new[]
+            {
+                new PlanCompareGroup(Lang.T("In every plan").ToUpper(culture), 0, [.. rows.Where(r => r.Tier == 0)]),
+                new PlanCompareGroup(Lang.T($"{Columns[1].Name} adds").ToUpper(culture), 1, [.. rows.Where(r => r.Tier == 1)]),
+                new PlanCompareGroup(Lang.T($"{Columns[2].Name} adds").ToUpper(culture), 2, [.. rows.Where(r => r.Tier == 2)]),
+            }.Where(g => g.Rows.Count > 0)];
+        }
+    }
 
     public string WebExampleHeat => Lang.T($"Finds the safe range for your {Parts.Gpu} and compares it with yours.");
 
@@ -260,7 +308,6 @@ public sealed partial class PlansViewModel : ObservableObject
 
     [RelayCommand] private void Show() => Open();
     [RelayCommand] private void Back() => IsOpen = false;
-    [RelayCommand] private void Compare() => Comparing = !Comparing;
 
     /// <summary>Why the last action didn't work (shown where it was pressed), or null.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasProblem))] private string? _problem;

@@ -172,6 +172,32 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void The_plans_screen_draws_each_plan_in_its_colour_and_the_page_by_page_list_without_error()
+    {
+        Ui.TakeProblems();
+        host.Show("home", 600);
+        Ui.Run(() => host.Shell.Plans.Open());
+        Ui.Pump(900);
+        Ui.Run(() =>
+        {
+            Assert.True(host.Shell.Plans.IsOpen);
+            // The list is always there now, grouped: every plan's pages, then what each plan adds.
+            Assert.Equal([0, 1, 2], host.Shell.Plans.CompareGroups.Select(g => g.Tier));
+            Assert.All(host.Shell.Plans.Columns, c => Assert.Equal(2, c.Tries.Count));
+            Ui.SavePng(host.Window, Path.Combine(Shots, "plans-top.png"));
+            var scroll = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(host.Window).First(s => s.IsVisible && Visuals.Descendants<Views.PlansScreen>(host.Window).Any(p => p.IsAncestorOf(s)));
+            scroll.ScrollToVerticalOffset(900);
+        });
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Ui.SavePng(host.Window, Path.Combine(Shots, "plans-list.png"));
+            host.Shell.Plans.BackCommand.Execute(null);
+        });
+        Ui.AssertNoProblems("the plans screen");
+    }
+
+    [Fact]
     public void Whats_new_for_rewind_opens_its_settings_tab()
     {
         host.Show("home", 900);

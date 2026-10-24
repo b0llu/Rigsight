@@ -9,11 +9,100 @@
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+
+        <!-- The plan to pick: blue to violet, dark words on it (white read 3.2:1 on the blue and 2.6:1 on the violet; dark reads
+             6:1 and 7.5:1), and a band of light sweeping across every few seconds (see Shimmer). -->
+        <SolidColorBrush x:Key="PickInk" Color="#0B0E14" />
+        <Style x:Key="PickButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource PickInk}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="Root">
+                            <Border x:Name="Bd" CornerRadius="9" ClipToBounds="True">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
+                                        <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Canvas ClipToBounds="True">
+                                    <Rectangle Width="70" Height="{Binding ActualHeight, ElementName=Bd}" ctl:Shimmer.Sweep="True" IsHitTestVisible="False">
+                                        <Rectangle.Fill>
+                                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                                <GradientStop Color="#00FFFFFF" Offset="0" />
+                                                <GradientStop Color="#70FFFFFF" Offset="0.5" />
+                                                <GradientStop Color="#00FFFFFF" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </Rectangle.Fill>
+                                    </Rectangle>
+                                </Canvas>
+                            </Border>
+                            <Border x:Name="Hover" CornerRadius="9" Background="#22FFFFFF" Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.85" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A plan's button, on its card and at the foot of the page by page list: Get or Switch, the plan you're on, or what
+             Free is while you're on a plan. The plan to pick has the blue-to-violet one. DataContext: PlanColumn. -->
+        <DataTemplate x:Key="PlanAction">
+            <Grid MinHeight="38">
+                <Button x:Name="Get" Style="{StaticResource GhostButton}" Content="{Binding BuyText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
+                        Command="{Binding DataContext.BuyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                        Visibility="{Binding CanBuy, Converter={StaticResource Vis}}" />
+                <Button x:Name="Switch" Style="{StaticResource GhostButton}" Content="{Binding SwitchText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
+                        Command="{Binding DataContext.AskSwitchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                        Visibility="{Binding CanSwitch, Converter={StaticResource Vis}}" />
+                <TextBlock Text="{Binding NothingText}" Style="{StaticResource Small}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"
+                           Visibility="{Binding ShowNothing, Converter={StaticResource Vis}}" />
+                <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="14,10" Visibility="{Binding ShowMine, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{Binding MineText}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                </ctl:SmoothBorder>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsBest}" Value="True">
+                    <Setter TargetName="Get" Property="Style" Value="{StaticResource PickButton}" />
+                    <Setter TargetName="Switch" Property="Style" Value="{StaticResource PickButton}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- What an example reads, as a source pill under a real answer. -->
+        <Style x:Key="WebPill" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="8,1" />
+            <Setter Property="Margin" Value="0,0,6,4" />
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+            <Setter Property="TextElement.FontSize" Value="11" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MutedBrush}" />
+        </Style>
+
+        <!-- A page's icon in a square of its plan's colour: the colour from the nearest element tagged with it. -->
+        <DataTemplate x:Key="PageSquare">
+            <Grid Width="26" Height="26">
+                <Border CornerRadius="7" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" Opacity="0.16" />
+                <Viewbox Width="13" Height="13">
+                    <ContentControl Content="{Binding Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                                    Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" />
+                </Viewbox>
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
-    <!-- RigSight AI's plans over the whole window (the mock-up approved 2026-10-23): your plan first when you have one, the
-         three plans side by side with the same lines in each, every plan's web search, the page by page list on request,
-         and how paying works. Back (or Esc) returns to where it was opened. DataContext: PlansViewModel. -->
+    <!-- RigSight AI's plans over the whole window (mock-ups approved 2026-10-23 and 2026-10-24): your plan first when you have
+         one, the three plans side by side each in its own colour, every plan's web search, the page by page list, and how
+         paying works. Back (or Esc) returns to where it was opened. DataContext: PlansViewModel. -->
     <Grid Background="{DynamicResource BgBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
             <StackPanel MaxWidth="1060" Margin="32,18,32,40">
@@ -50,81 +139,130 @@
                     </DockPanel>
                 </ctl:SmoothBorder>
 
-                <!-- The plans, the same lines in each -->
+                <!-- The plans, the same lines in each, each in its own colour (Free sky, the middle plan blue, the top one violet) -->
                 <ItemsControl ItemsSource="{Binding Columns}" Focusable="False" Margin="0,0,-14,0">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,10,14,0">
                                 <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                                  CornerRadius="14" Padding="22,22,22,20" AutomationProperties.Name="{Binding Name}">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding For}" Style="{StaticResource Small}" Margin="0,2,0,14" MinHeight="36" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Price}" FontSize="32" FontWeight="SemiBold" />
-                                            <TextBlock Text="{ctl:T 'a month'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="6,0,0,6"
-                                                       Visibility="{Binding Monthly, Converter={StaticResource Vis}}" />
-                                        </StackPanel>
-                                        <Grid Margin="0,16,0,18" MinHeight="38">
-                                            <Button x:Name="Get" Style="{StaticResource GhostButton}" Content="{Binding BuyText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
-                                                    Command="{Binding DataContext.BuyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanBuy, Converter={StaticResource Vis}}" />
-                                            <Button x:Name="Switch" Style="{StaticResource GhostButton}" Content="{Binding SwitchText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
-                                                    Command="{Binding DataContext.AskSwitchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanSwitch, Converter={StaticResource Vis}}" />
-                                            <TextBlock Text="{Binding NothingText}" Style="{StaticResource Small}" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                       Visibility="{Binding ShowNothing, Converter={StaticResource Vis}}" />
-                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="14,10" Visibility="{Binding ShowMine, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="{Binding MineText}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
-                                            </ctl:SmoothBorder>
-                                        </Grid>
-                                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,0,16" />
-                                        <DockPanel Margin="0,0,0,14">
-                                            <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" />
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Questions}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding QuestionsWhen}" Style="{StaticResource Small}" />
+                                                  CornerRadius="14" AutomationProperties.Name="{Binding Name}" Tag="{DynamicResource SkyBrush}">
+                                    <Grid>
+                                        <!-- The plan to pick glows faintly from its top corner. -->
+                                        <Border x:Name="Glow" CornerRadius="14" Visibility="Collapsed">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1">
+                                                    <GradientStop Color="#295B8CFF" Offset="0" />
+                                                    <GradientStop Color="#14B18CFF" Offset="0.45" />
+                                                    <GradientStop Color="#00000000" Offset="0.8" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                        <DockPanel Margin="22,22,22,20">
+                                            <!-- Two questions only this plan answers, at the card's foot, every box two lines tall so the cards line up. -->
+                                            <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                                                <TextBlock Text="{ctl:T 'TRY ASKING'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,2" />
+                                                <ItemsControl ItemsSource="{Binding Tries}" Focusable="False">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,8" Margin="0,6,0,0" MinHeight="52">
+                                                                <DockPanel VerticalAlignment="Center">
+                                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="11" Width="18" VerticalAlignment="Center"
+                                                                               Foreground="{Binding Tag, ElementName=Card}" />
+                                                                    <TextBlock Text="{Binding}" FontSize="12.5" LineHeight="18" TextWrapping="Wrap" />
+                                                                </DockPanel>
+                                                            </ctl:SmoothBorder>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                             </StackPanel>
-                                        </DockPanel>
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{DynamicResource AccentBrush}" />
                                             <StackPanel>
-                                                <TextBlock Text="{ctl:T 'Checks the web'}" FontSize="13.5" FontWeight="SemiBold" />
-                                                <TextBlock Text="{ctl:T 'Looks up your exact parts, drivers and games: known problems, fixes, safe temperatures'}" Style="{StaticResource Small}" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
-                                        <TextBlock Text="{ctl:T 'ANSWERS BACK UP WHAT THEY SAY WITH'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,10" />
-                                        <TextBlock Text="{Binding Everything}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" Visibility="{Binding HasEverything, Converter={StaticResource Vis}}" />
-                                        <ItemsControl ItemsSource="{Binding Uses}" Focusable="False">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <DockPanel Margin="0,0,0,10">
-                                                        <TextBlock DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Width="20" Margin="0,3,0,0" VerticalAlignment="Top" Foreground="{DynamicResource MutedBrush}" />
-                                                        <StackPanel>
-                                                            <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" />
-                                                            <TextBlock Text="{Binding From}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
-                                                        </StackPanel>
+                                                <!-- The name, its colour under the whole word. -->
+                                                <StackPanel HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                                    <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0" Background="{Binding Tag, ElementName=Card}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding For}" Style="{StaticResource Small}" Margin="0,8,0,14" MinHeight="36" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Price}" FontSize="32" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{ctl:T 'a month'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="6,0,0,6"
+                                                               Visibility="{Binding Monthly, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="0,16,0,18" />
+                                                <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,0,16" />
+                                                <DockPanel Margin="0,0,0,14">
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Questions}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding QuestionsWhen}" Style="{StaticResource Small}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{ctl:T 'Checks the web'}" FontSize="13.5" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{ctl:T 'Looks up your exact parts, drivers and games: known problems, fixes, safe temperatures'}" Style="{StaticResource Small}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
+                                                <TextBlock Text="{ctl:T 'ANSWERS BACK UP WHAT THEY SAY WITH'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,10" />
+                                                <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,7" Margin="0,0,0,10" Visibility="{Binding HasEverything, Converter={StaticResource Vis}}">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Left" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Tag, ElementName=Card}" />
+                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="{Binding EverythingIn, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', plus:'}" /></TextBlock>
                                                     </DockPanel>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                                </ctl:SmoothBorder>
+                                                <!-- Each page with its own icon in the plan's colour; the page's name on hover. -->
+                                                <ItemsControl ItemsSource="{Binding Uses}" Focusable="False" Tag="{Binding Tag, ElementName=Card}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <DockPanel Margin="0,0,0,8" ToolTip="{Binding From}" Background="Transparent">
+                                                                <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                                    <Border CornerRadius="7" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                    <Viewbox Width="13" Height="13">
+                                                                        <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                                                                                        Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                    </Viewbox>
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                            </DockPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Grid>
                                 </ctl:SmoothBorder>
                                 <!-- The badge sits on the card's top edge: the plan to pick, or the one you're on -->
-                                <Border x:Name="Badge" CornerRadius="6" Padding="9,2" Margin="22,-10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
-                                        Background="{DynamicResource AccentBrush}" Visibility="Collapsed">
-                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource OnAccentBrush}" />
+                                <Border x:Name="Badge" CornerRadius="6" Padding="9,2" Margin="22,-10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
+                                            <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PickInk}" />
                                 </Border>
                             </Grid>
                             <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Tier}" Value="1">
+                                    <Setter TargetName="Card" Property="Tag" Value="{DynamicResource CpuBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Tier}" Value="2">
+                                    <Setter TargetName="Card" Property="Tag" Value="{DynamicResource PurpleBrush}" />
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding IsBest}" Value="True">
-                                    <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                     <Setter TargetName="Card" Property="BorderThickness" Value="1.5" />
+                                    <Setter TargetName="Card" Property="BorderBrush">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
+                                                <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter TargetName="Glow" Property="Visibility" Value="Visible" />
                                     <Setter TargetName="Badge" Property="Visibility" Value="Visible" />
-                                    <Setter TargetName="Get" Property="Style" Value="{StaticResource AccentButton}" />
-                                    <Setter TargetName="Switch" Property="Style" Value="{StaticResource AccentButton}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsMine}" Value="True">
                                     <Setter TargetName="Badge" Property="Visibility" Value="Visible" />
@@ -137,85 +275,190 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Every plan checks the web -->
+                <!-- Every plan checks the web: the heading across the top, then three examples alike, each with what it reads -->
                 <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="14" Padding="22,18" Margin="0,22,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="230" />
-                            <ColumnDefinition Width="22" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <TextBlock Text="{ctl:T 'Every plan checks the web'}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <StackPanel>
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Left" Width="30" Height="30" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <Border CornerRadius="8" Background="{DynamicResource CpuBrush}" Opacity="0.16" />
+                                <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Every plan checks the web'}" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Text="{ctl:T 'Your records say what happened. The web says what it means for your exact parts. Answers show the pages they used.'}" Style="{StaticResource Small}" />
                             </StackPanel>
-                            <TextBlock Text="{ctl:T 'Your records say what happened. The web says what it means for your exact parts. Answers show the pages they used.'}" Style="{StaticResource Small}" Margin="0,6,0,0" />
-                        </StackPanel>
-                        <UniformGrid Grid.Column="2" Rows="1">
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12" Margin="0,0,10,0">
-                                <StackPanel>
-                                    <TextBlock Text="{ctl:T '“Is 88°C OK for my GPU?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding WebExampleHeat}" Style="{StaticResource Small}" Margin="0,4,0,0" />
-                                </StackPanel>
+                        </DockPanel>
+                        <UniformGrid Rows="1" Margin="0,14,-10,0">
+                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource SkyBrush}">
+                                <DockPanel>
+                                    <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Temperatures'}" /></Border>
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Web'}" /></Border>
+                                    </WrapPanel>
+                                    <DockPanel VerticalAlignment="Top">
+                                        <ContentControl DockPanel.Dock="Left" Content="&#xE9CA;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                        <StackPanel>
+                                            <TextBlock Text="{ctl:T '“Is 88°C OK for my GPU?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding WebExampleHeat}" Style="{StaticResource Small}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DockPanel>
                             </ctl:SmoothBorder>
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12" Margin="0,0,10,0">
-                                <StackPanel>
-                                    <TextBlock Text="{ctl:T '“Why does my game crash?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{ctl:T 'Checks whether others hit the same crash with your driver, and what fixed it.'}" Style="{StaticResource Small}" Margin="0,4,0,0" />
-                                </StackPanel>
+                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource CpuBrush}">
+                                <DockPanel>
+                                    <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Crashes'}" /></Border>
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Your PC\'s parts'}" /></Border>
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Web'}" /></Border>
+                                    </WrapPanel>
+                                    <DockPanel VerticalAlignment="Top">
+                                        <ContentControl DockPanel.Dock="Left" Content="&#xE7BA;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                        <StackPanel>
+                                            <TextBlock Text="{ctl:T '“Why does my game crash?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T 'Checks whether others hit the same crash with your driver, and what fixed it.'}" Style="{StaticResource Small}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DockPanel>
                             </ctl:SmoothBorder>
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12">
-                                <StackPanel>
-                                    <TextBlock Text="{ctl:T '“Should I update my BIOS?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{ctl:T 'Reads what the newer BIOS for your board fixes.'}" Style="{StaticResource Small}" Margin="0,4,0,0" />
-                                </StackPanel>
+                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource PurpleBrush}">
+                                <DockPanel>
+                                    <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Your PC\'s parts'}" /></Border>
+                                        <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Web'}" /></Border>
+                                    </WrapPanel>
+                                    <DockPanel VerticalAlignment="Top">
+                                        <ContentControl DockPanel.Dock="Left" Content="&#xE950;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                        <StackPanel>
+                                            <TextBlock Text="{ctl:T '“Should I update my BIOS?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T 'Reads what the newer BIOS for your board fixes.'}" Style="{StaticResource Small}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DockPanel>
                             </ctl:SmoothBorder>
                         </UniformGrid>
-                    </Grid>
+                    </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- Page by page, on request -->
-                <Button Style="{StaticResource GhostButton}" Content="{Binding CompareText}" Command="{Binding CompareCommand}" HorizontalAlignment="Center" Margin="0,18,0,0" />
-                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Margin="0,14,0,0"
-                                  Visibility="{Binding Comparing, Converter={StaticResource Vis}}">
-                    <StackPanel>
-                        <Grid Margin="16,12,16,8">
+                <!-- Page by page, always shown, in groups: what every plan opens, then what each plan adds -->
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Margin="0,22,0,0" ClipToBounds="True">
+                    <Grid>
+                        <!-- The top plan's column shaded as one strip, header to buttons. -->
+                        <Grid Margin="16,0" IsHitTestVisible="False">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="130" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{ctl:T 'What answers can use, page by page'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Columns[0].Name}" FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="{Binding Columns[1].Name}" FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Grid.Column="3" Text="{Binding Columns[2].Name}" FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                            <Border Grid.Column="3" Background="{DynamicResource PurpleBrush}" Opacity="0.06" />
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding CompareRows}" Focusable="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="16,9">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="110" />
-                                                <ColumnDefinition Width="110" />
-                                                <ColumnDefinition Width="110" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Page}" FontSize="13.5" />
-                                                <TextBlock Text="{Binding What}" Style="{StaticResource Small}" FontSize="12" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding Free, Converter={StaticResource Vis}}" />
-                                            <TextBlock Grid.Column="2" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding Middle, Converter={StaticResource Vis}}" />
-                                            <TextBlock Grid.Column="3" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding Top, Converter={StaticResource Vis}}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                        <StackPanel>
+                            <Grid Margin="16,14,16,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="130" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{ctl:T 'What answers can use, page by page'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding Columns[0].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Columns[0].Price}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding Columns[1].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[1].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding Columns[2].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource PurpleBrush}" />
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[2].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
+                                </StackPanel>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding CompareGroups}" Focusable="False" AlternationCount="100">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel x:Name="Group" Tag="{DynamicResource SkyBrush}">
+                                            <!-- The group's heading in its plan's colour, room above it so it stands apart. -->
+                                            <Border x:Name="Head" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="16,28,16,10">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding Tag, ElementName=Group}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="Bold" Foreground="{Binding Tag, ElementName=Group}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" Tag="{Binding Tag, ElementName=Group}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="16,9">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="130" />
+                                                                    <ColumnDefinition Width="130" />
+                                                                    <ColumnDefinition Width="130" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <DockPanel>
+                                                                    <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                                        <Border CornerRadius="7" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                        <Viewbox Width="13" Height="13">
+                                                                            <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                                                                                            Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                        </Viewbox>
+                                                                    </Grid>
+                                                                    <StackPanel VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Page}" FontSize="13.5" />
+                                                                        <TextBlock Text="{Binding What}" Style="{StaticResource Small}" FontSize="12" />
+                                                                    </StackPanel>
+                                                                </DockPanel>
+                                                                <Grid Grid.Column="1"><TextBlock x:Name="F" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="FNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                                <Grid Grid.Column="2"><TextBlock x:Name="M" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="MNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                                <Grid Grid.Column="3"><TextBlock x:Name="T" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="TNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                            </Grid>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Free}" Value="False">
+                                                                <Setter TargetName="F" Property="Visibility" Value="Collapsed" /><Setter TargetName="FNo" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Middle}" Value="False">
+                                                                <Setter TargetName="M" Property="Visibility" Value="Collapsed" /><Setter TargetName="MNo" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Top}" Value="False">
+                                                                <Setter TargetName="T" Property="Visibility" Value="Collapsed" /><Setter TargetName="TNo" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Tier}" Value="1">
+                                                <Setter TargetName="Group" Property="Tag" Value="{DynamicResource CpuBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Tier}" Value="2">
+                                                <Setter TargetName="Group" Property="Tag" Value="{DynamicResource PurpleBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                                <Setter TargetName="Head" Property="Padding" Value="16,16,16,10" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- Each plan's button at the foot of its column. -->
+                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="16,12,16,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="130" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentControl Grid.Column="1" Content="{Binding Columns[0]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" FontSize="12.5" />
+                                    <ContentControl Grid.Column="2" Content="{Binding Columns[1]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" />
+                                    <ContentControl Grid.Column="3" Content="{Binding Columns[2]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </ctl:SmoothBorder>
 
                 <!-- How paying works -->
