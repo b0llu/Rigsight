@@ -25,6 +25,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        Controls.Select.Start();
         // In another language, the pages' bindings write dates with that language's day and month names (WPF's
         // bindings use US English otherwise); see LanguageStore.BindingLanguage. In English they stay exactly as they were.
         if (Lang.Pack is { } pack)

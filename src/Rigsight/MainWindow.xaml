@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         UseLayoutRounding="True"
+        ctl:Select.Text="True"
         FontFamily="Segoe UI">
     <!-- The window draws its own title bar: Windows' own one was made shorter when maximized, squeezing its buttons
          (see TitleBar below and MainWindow.TitleBar.cs). The frame, shadow, rounded corners and resizing stay Windows'. -->
