@@ -28,15 +28,22 @@ public static class OllamaPicks
         new("gemma4:26b", "Gemma 4, 26B", 18, Lang.Key("The best answers here, for the biggest cards.")),
     ];
 
-    /// <summary>The pick for a card with <paramref name="vramGb"/> GB (none or unknown: the smallest).</summary>
-    public static int BestFor(double? vramGb) => vramGb switch
+    /// <summary>
+    /// What a model of <paramref name="gb"/> GB (its download) takes on the card while it answers: the model, plus the room
+    /// for RigSight's long conversations (Ollama's context, <see cref="Ollama.ContextTokens"/> tokens) and Ollama's own
+    /// working space. About 2 GB plus 15% of the model, a rough rule from Ollama's own reports (the 2026-10-24 review:
+    /// the download alone said "Fits" for models that then ran partly on the processor).
+    /// </summary>
+    public static double NeedGb(double gb) => gb + 2 + gb * 0.15;
+
+    /// <summary>The pick for a card with <paramref name="vramGb"/> GB: the biggest that fits on it whole (none or unknown: the smallest).</summary>
+    public static int BestFor(double? vramGb)
     {
-        >= 20 => 4,
-        >= 14 => 3,
-        >= 10 => 2,
-        >= 6 => 1,
-        _ => 0,
-    };
+        if (vramGb is not { } v) return 0;
+        for (int i = All.Count - 1; i > 0; i--)
+            if (NeedGb(All[i].Gb) <= v) return i;
+        return 0;
+    }
 
     /// <summary>The best pick, then one smaller and one bigger when there is one.</summary>
     public static (OllamaPick Best, OllamaPick? Smaller, OllamaPick? Bigger) For(double? vramGb)
@@ -52,8 +59,8 @@ public static class OllamaPicks
     public static OllamaFit Fit(double gb, double? vramGb) => vramGb switch
     {
         null or <= 0 => OllamaFit.Unknown,
-        { } v when gb <= v => OllamaFit.Fits,
-        { } v when gb <= v * 1.5 => OllamaFit.PartFits,
+        { } v when NeedGb(gb) <= v => OllamaFit.Fits,
+        { } v when NeedGb(gb) <= v * 1.6 => OllamaFit.PartFits,
         _ => OllamaFit.TooBig,
     };
 

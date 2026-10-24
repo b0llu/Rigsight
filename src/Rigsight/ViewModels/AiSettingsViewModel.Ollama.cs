@@ -14,9 +14,16 @@ public sealed partial class OllamaRow(string name, string size, bool canLookUp, 
     public string Name { get; } = name;
     public string Size { get; } = size;
     public bool CanLookUp { get; } = canLookUp;
-    public string Fit { get; } = fit;
+
+    /// <summary>How much of it Ollama really has on the card, when it's loaded (0 to 1); null before.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Fit), nameof(HasFit), nameof(FitIsGood), nameof(FitWhy), nameof(HasFitWhy))] private double? _loaded;
+    private bool PartlyOff => Loaded is < 0.95;
+
+    public string Fit => PartlyOff ? Lang.T("Partly on your card") : fit;
     public bool HasFit => Fit.Length > 0;
-    public bool FitIsGood => fitKind == OllamaFit.Fits;
+    public bool FitIsGood => Loaded is { } l ? l >= 0.95 : fitKind == OllamaFit.Fits;
+    public string FitWhy => PartlyOff ? Lang.T($"Ollama has {Loaded:P0} of it on your graphics card and the rest on the processor, so answers take longer.") : "";
+    public bool HasFitWhy => FitWhy.Length > 0;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse))] private bool _inUse;
     public bool CanUse => CanLookUp && !InUse;
 }
@@ -326,6 +333,8 @@ public sealed partial class AiSettingsViewModel
         if (OllamaConnected && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
             Set(a => a.OllamaModel = "", nameof(OllamaModel));
         MarkInUse();
+        if (found is not null) await MarkLoaded(address);
+        if (check != _check) return;
         OllamaState = found is not null ? OllamaLink.Connected
             : OllamaMissing ? OllamaLink.Missing
             : OllamaHere && OllamaPicks.Installed() ? OllamaLink.Stopped
@@ -335,6 +344,17 @@ public sealed partial class AiSettingsViewModel
         foreach (var name in new[] { nameof(OllamaLine), nameof(HasOllamaBox), nameof(OllamaBoxTitle), nameof(OllamaBoxText), nameof(OllamaBoxCalm), nameof(OllamaBoxOpensWeb), nameof(DownloadOffText) })
             OnPropertyChanged(name);
         Log.Write("ai-settings", $"Ollama at {Ollama.Normalise(address)}: {OllamaState}{(v is null ? "" : $", version {v}")}, {OllamaRows.Count} models");
+    }
+
+    /// <summary>
+    /// The models Ollama has loaded right now: how much of each really sits on the card, which is better than the estimate.
+    /// Part of it off the card shows "Partly on your card" with why on hover.
+    /// </summary>
+    private async Task MarkLoaded(string address)
+    {
+        foreach (var row in OllamaRows.Where(r => r.CanLookUp))
+            if (await Ollama.OnCardAsync(address, row.Name) is { } onCard)
+                row.Loaded = onCard;
     }
 
     /// <summary>Starts Ollama, then waits for it to answer (up to 20 seconds) and connects.</summary>

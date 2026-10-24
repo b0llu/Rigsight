@@ -277,15 +277,39 @@ public static class Ollama
             }
             string answer = ((string?)msg?["content"] ?? "").Trim();
             Log.Write("ollama", $"{model} answered in {(DateTime.Now - started).TotalSeconds:0} s after {lookUps.Count} look-ups, {(long?)json?["prompt_eval_count"]} tokens in, {(long?)json?["eval_count"]} out, {answer.Length} chars");
-            return answer.Length == 0
-                ? new AiReply(null, Lang.T($"{model} gave an empty answer. Ask again, or pick another model in Settings › Ask RigSight."), lookUps)
-                : new AiReply(answer, null, lookUps, model);
+            if (answer.Length == 0) return new AiReply(null, Lang.T($"{model} gave an empty answer. Ask again, or pick another model in Settings › Ask RigSight."), lookUps);
+            // Part of it off the card (the rest on the processor): said once a run, under the answer, so slow answers make sense.
+            string? note = null;
+            if (await OnCardAsync(root, model, ct) is { } onCard && onCard < 0.95 && Warned.Add(model))
+            {
+                Log.Write("ollama", $"{model} is {onCard:P0} on the graphics card; the rest runs on the processor");
+                note = Lang.T($"Only part of {model} fits on your graphics card, so answers take longer. A smaller model in Settings › Ask RigSight would be quicker.");
+            }
+            return new AiReply(answer, null, lookUps, model, note);
         }
         Log.Write("ollama", $"{model} was still asking for records after {MaxRounds} rounds");
         return new AiReply(null, Lang.T($"{model} kept asking for records without answering. Try a bigger model in Settings › Ask RigSight."), lookUps);
     }
 
     /// <summary>Whether Ollama has the model in memory already (/api/ps); unknown counts as not.</summary>
+    /// <summary>The models already said to be partly off the card this run.</summary>
+    private static readonly HashSet<string> Warned = [];
+
+    /// <summary>
+    /// How much of <paramref name="model"/> Ollama has on the graphics card (0 to 1) from its /api/ps (size and size_vram);
+    /// null when it isn't loaded or Ollama doesn't say.
+    /// </summary>
+    public static async Task<double?> OnCardAsync(string address, string model, CancellationToken ct = default)
+    {
+        try
+        {
+            var ps = JsonNode.Parse(await Http.GetStringAsync(Normalise(address) + "/api/ps", ct));
+            var m = (ps?["models"] as JsonArray)?.FirstOrDefault(x => (string?)x?["name"] == model || (string?)x?["model"] == model);
+            return (long?)m?["size"] is long size and > 0 && (long?)m?["size_vram"] is long vram ? Math.Clamp((double)vram / size, 0, 1) : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException or TaskCanceledException && !ct.IsCancellationRequested) { return null; }
+    }
+
     private static async Task<bool> IsLoadedAsync(string root, string model, CancellationToken ct)
     {
         try

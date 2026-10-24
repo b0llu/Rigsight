@@ -1222,7 +1222,9 @@
                                                             <TextBlock FontSize="13" VerticalAlignment="Center">
                                                                 <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Size, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                                             </TextBlock>
-                                                            <Border Style="{StaticResource FitPill}" Margin="10,0,0,0" Visibility="{Binding HasFit, Converter={StaticResource Vis}}">
+                                                            <Border Style="{StaticResource FitPill}" Margin="10,0,0,0" Visibility="{Binding HasFit, Converter={StaticResource Vis}}"
+                                                                    ToolTipService.InitialShowDelay="150" ToolTipService.IsEnabled="{Binding HasFitWhy}">
+                                                                <Border.ToolTip><TextBlock Text="{Binding FitWhy}" MaxWidth="280" TextWrapping="Wrap" /></Border.ToolTip>
                                                                 <TextBlock Text="{Binding Fit}" Style="{StaticResource FitText}" />
                                                             </Border>
                                                         </StackPanel>

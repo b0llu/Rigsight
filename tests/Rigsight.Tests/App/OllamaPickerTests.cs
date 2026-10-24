@@ -12,9 +12,11 @@ public sealed class OllamaPickerTests
 {
     [Theory]
     [InlineData(24.0, "gemma4:26b", "gpt-oss:20b", null)]
-    [InlineData(16.0, "gpt-oss:20b", "gemma4:12b", "gemma4:26b")]
+    [InlineData(20.0, "gpt-oss:20b", "gemma4:12b", "gemma4:26b")]
+    [InlineData(16.0, "gemma4:12b", "qwen3.5:9b", "gpt-oss:20b")]
     [InlineData(12.0, "gemma4:12b", "qwen3.5:9b", "gpt-oss:20b")]
-    [InlineData(8.0, "qwen3.5:9b", "qwen3.5:4b", "gemma4:12b")]
+    [InlineData(10.0, "qwen3.5:9b", "qwen3.5:4b", "gemma4:12b")]
+    [InlineData(8.0, "qwen3.5:4b", null, "qwen3.5:9b")]
     [InlineData(4.0, "qwen3.5:4b", null, "qwen3.5:9b")]
     [InlineData(null, "qwen3.5:4b", null, "qwen3.5:9b")]
     public void The_picks_follow_the_cards_memory(double? vram, string best, string? smaller, string? bigger)
@@ -36,7 +38,10 @@ public sealed class OllamaPickerTests
     [Fact]
     public void A_model_fits_partly_fits_or_is_too_big_and_unknown_without_the_card()
     {
+        // What it takes while answering, not the download: 8 GB needs 11.2 GB, 10 GB needs 13.5.
+        Assert.Equal(11.2, OllamaPicks.NeedGb(8), 1);
         Assert.Equal(OllamaFit.Fits, OllamaPicks.Fit(8, 12));
+        Assert.Equal(OllamaFit.PartFits, OllamaPicks.Fit(10, 12));
         Assert.Equal(OllamaFit.PartFits, OllamaPicks.Fit(14, 12));
         Assert.Equal(OllamaFit.TooBig, OllamaPicks.Fit(18, 8));
         Assert.Equal(OllamaFit.Unknown, OllamaPicks.Fit(8, null));
@@ -88,6 +93,16 @@ public sealed class OllamaPickerTests
         Assert.Contains("\"model\":\"gemma4:12b\"", asked);
         Assert.Equal((600L, 1200L), (seen[2].Done, seen[2].Total));
         Assert.Equal((1200L, 1200L), (seen[^1].Done, seen[^1].Total));
+    }
+
+    [Fact]
+    public async Task How_much_of_a_loaded_model_sits_on_the_card_is_read_from_ollama()
+    {
+        await using var ollama = new FakeRelay((_, s) => FakeRelay.Reply(s, 200, "application/json",
+            "{\"models\":[{\"name\":\"gpt-oss:20b\",\"model\":\"gpt-oss:20b\",\"size\":16000000000,\"size_vram\":12000000000}]}"));
+        Assert.Equal(0.75, (await Ollama.OnCardAsync(ollama.Url, "gpt-oss:20b"))!.Value, 2);
+        // Not loaded: nothing to say yet.
+        Assert.Null(await Ollama.OnCardAsync(ollama.Url, "gemma4:12b"));
     }
 
     [Fact]
