@@ -983,7 +983,8 @@
                     <TextBlock Text="{Binding FromWeb}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                 </DockPanel>
                 <!-- A page the plan doesn't open would have helped: one quiet line, never a pop-up. -->
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,4,0,0"
+                <!-- Room under it: the actions below sit 6 px up to hug an answer's words, and touched this line (2026-10-24). -->
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,4,0,14"
                         Visibility="{Binding HasLocked, Converter={StaticResource Vis}}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" VerticalAlignment="Center" Margin="12,0,0,0"
