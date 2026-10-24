@@ -1301,7 +1301,7 @@
                             <TextBlock Text="{ctl:T 'Ask about this PC'}" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding PcLine}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
                                        Visibility="{Binding HasPcLine, Converter={StaticResource Vis}}" />
-                            <ItemsControl ItemsSource="{Binding Starters}" Margin="0,14,-8,0" Focusable="False">
+                            <ItemsControl ItemsSource="{Binding Starters}" Margin="0,14,0,0" Focusable="False">
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><ctl:TileWrap MinTileWidth="300" Gap="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
