@@ -146,11 +146,13 @@ public sealed class AskAnswerTests
     }
 
     [Fact]
-    public void Stars_around_a_name_go_and_points_keep_theirs()
+    public void Stars_around_a_name_are_italic_and_points_keep_theirs()
     {
         var answer = AskViewModel.ToAnswer("Busy day.\n* mostly *Risk of Rain 2*, then 2*3 checks", []);
         var line = Assert.IsType<AskLine>(Assert.Single(answer.Parts));
-        Assert.Equal("mostly Risk of Rain 2, then 2*3 checks", line.Text);
+        // The marks stay for the view to draw (italic), and read as words they're gone; "2*3" is maths, not a mark.
+        Assert.Equal("mostly *Risk of Rain 2*, then 2*3 checks", line.Text);
+        Assert.Equal("mostly Risk of Rain 2, then 2*3 checks", Rigsight.Controls.Md.Plain(line.Text));
         Assert.True(line.IsPoint);
     }
 
@@ -163,10 +165,10 @@ public sealed class AskAnswerTests
     }
 
     [Fact]
-    public void A_next_step_that_asks_them_to_tell_it_something_is_dropped_and_code_marks_go()
+    public void A_next_step_that_asks_them_to_tell_it_something_is_dropped_and_code_is_drawn_as_code()
     {
         var answer = AskViewModel.ToAnswer("Most were Rigsight starting up.\nRigsight.Agent had a `.NET` error.\nNext step: Tell me the name of the app, and I'll look up the details.", []);
-        Assert.Equal("Rigsight.Agent had a .NET error.", Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text);
+        Assert.Equal("Rigsight.Agent had a .NET error.", Rigsight.Controls.Md.Plain(Assert.IsType<AskLine>(Assert.Single(answer.Parts)).Text));
     }
 
     [Theory]

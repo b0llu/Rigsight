@@ -146,6 +146,8 @@ public sealed partial class AskFeedback(string? questionId) : ObservableObject
     /// <summary>"Thanks, sent." / "Couldn't send it. Try again in a minute.", in place of the box.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSaid))] private string _said = "";
     public bool HasSaid => Said.Length > 0;
+    /// <summary>Copy was just pressed: its icon is a tick for a moment.</summary>
+    [ObservableProperty] private bool _copied;
 
     public static readonly IReadOnlyList<(string Id, string Label)> Reasons =
         [("wrong_numbers", Lang.T("Wrong numbers")), ("didnt_answer", Lang.T("Didn't answer")), ("too_long", Lang.T("Too long")), ("other", Lang.T("Other"))];
@@ -223,6 +225,10 @@ public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPrope
         for (int i = 0; i < now.Parts.Count; i++)
         {
             if (i >= Parts.Count) Parts.Add(now.Parts[i]);
+            // A part of another kind in this place (the Next step moved after a card as the answer finished) is taken out
+            // and put in, not swapped: swapped, its view kept the old template a moment with the new part as its data, and
+            // the Next step's button asked its command about a card, which threw ("Something went wrong", 2026-10-24).
+            else if (Parts[i].GetType() != now.Parts[i].GetType()) { Parts.RemoveAt(i); Parts.Insert(i, now.Parts[i]); }
             else if (!Equals(Parts[i], now.Parts[i])) Parts[i] = now.Parts[i];
         }
         while (Parts.Count > now.Parts.Count) Parts.RemoveAt(Parts.Count - 1);
@@ -984,19 +990,27 @@ public sealed partial class AskViewModel : ObservableObject
     private void CopyAnswer(AskAnswer? answer)
     {
         if (answer is null) return;
-        var text = new System.Text.StringBuilder(answer.Verdict);
+        var text = new System.Text.StringBuilder(Controls.Md.Plain(answer.Verdict));
         foreach (var part in answer.Parts)
         {
             string? line = part switch
             {
-                AskLine l => (l.IsPoint ? "• " : "") + l.Text,
+                AskLine l => (l.IsPoint ? "• " : "") + (l.Lead ?? "") + Controls.Md.Plain(l.Text),
                 AskNext n when n.HasText => Lang.T($"Next step: {n.Text}"),
-                AskTable t => string.Join("\n", new[] { string.Join(" | ", t.Headings) }.Concat(t.Rows.Select(r => string.Join(" | ", r)))),
+                AskTable t => string.Join("\n", new[] { string.Join(" | ", t.Headings.Select(Controls.Md.Plain)) }.Concat(t.Rows.Select(r => string.Join(" | ", r.Select(Controls.Md.Plain))))),
                 _ => null,
             };
             if (line is { Length: > 0 }) text.Append("\n\n").Append(line);
         }
-        try { Clipboard.SetText(text.ToString().Trim()); Log.Write("ask", "Answer copied"); }
+        try
+        {
+            Clipboard.SetText(text.ToString().Trim());
+            Log.Write("ask", "Answer copied");
+            answer.Feedback.Copied = true;
+            var back = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            back.Tick += (_, _) => { back.Stop(); answer.Feedback.Copied = false; };
+            back.Start();
+        }
         catch (System.Runtime.InteropServices.COMException ex) { Log.Write("ask", $"Couldn't copy the answer: {ex.Message}"); }
     }
 
@@ -1233,7 +1247,11 @@ public sealed partial class AskViewModel : ObservableObject
     private static readonly Regex InlineMarker = new(@"[ \t]*\[\s*show\s*:\s*(?<what>[a-z]+)\s*\][ \t]*", RegexOptions.IgnoreCase);
     private static readonly Regex Marker = new(@"^\[\s*show\s*:\s*(?<what>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
     // "Next step: …", also as small models write it at times: in brackets, or as a point ("[next step: …]", "- Next step: …").
-    private static readonly Regex InlineNextStep = new(@"(?<end>[.!?])[ \t]+(?<word>Next step|Siguiente paso|Pr[oó]ximo paso)\s*:", RegexOptions.IgnoreCase);
+    private static readonly Regex InlineNextStep = new(@"(?<end>[.!?])[ \t]+(?:\*\*)?(?<word>Next step|Siguiente paso|Pr[oó]ximo paso)\s*:(?:\*\*)?", RegexOptions.IgnoreCase);
+
+    /// <summary>A line RigSight acts on rather than shows as words (never the opening paragraph).</summary>
+    private static bool IsControl(string words) => NextStep.IsMatch(words) || AskNextLine.IsMatch(words) || TitleLine.IsMatch(words)
+        || LockedLine.IsMatch(words) || AiActions.Marker(words) is not null;
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     private static readonly Regex TableRule = new(@"^\|?\s*:?-{2,}");
     private static readonly Regex LockedLine = new(@"^\[\s*locked\s*:\s*(?<page>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
@@ -1266,7 +1284,9 @@ public sealed partial class AskViewModel : ObservableObject
         // "…as a reset. Next step: check whether…": the step written inside a paragraph gets a line of its own, so it's the
         // Next step card, not words in the paragraph (a shut-off answer, 2026-10-23).
         text = InlineNextStep.Replace(text, m => $"{m.Groups["end"].Value}\n{m.Groups["word"].Value}:");
-        var lines = text.Replace("\r", "").Split('\n').Select(l => Italic.Replace(l.Replace("**", "").Replace("__", "").Replace("`", ""), "$1").TrimStart('#').Trim())
+        // Each line keeps its Markdown marks (**bold**, *italic*, `code`, links), drawn by Controls.Md; the parts RigSight
+        // checks (tags, Next step, Ask next, Title) are recognised on the words alone, so "**Next step:**" is still the card.
+        var lines = text.Replace("\r", "").Split('\n').Select(l => l.TrimStart('#').Trim())
             // The note RigSight adds to earlier answers when it sends them again, copied by a model into its own answer.
             .Where(l => l.Length > 0 && !l.StartsWith("(Records you looked at", StringComparison.OrdinalIgnoreCase)).ToList();
         // "[src: w2 crashes]" off each line, kept as that line's sources; one alone on a line belongs to the line above.
@@ -1287,7 +1307,8 @@ public sealed partial class AskViewModel : ObservableObject
             refsOf.Add(joined);
         }
         AskRefs? RefsFor(string? words) => words is null ? null : AiSources.Resolve(words, lookUps, log: !writing) is { Count: > 0 } found ? new AskRefs(found) : null;
-        string verdict = lines.Count > 0 && !Marker.IsMatch(lines[0]) && !lines[0].StartsWith('|') ? Point.Replace(lines[0], "") : "";
+        static string W(string line) => Controls.Md.Plain(line).Trim();
+        string verdict = lines.Count > 0 && !Marker.IsMatch(W(lines[0])) && !IsControl(W(lines[0])) && !lines[0].StartsWith('|') ? Point.Replace(lines[0], "") : "";
         AskRefs? verdictRefs = null;
         if (verdict.Length > 0) { verdictRefs = RefsFor(refsOf[0]); lines.RemoveAt(0); refsOf.RemoveAt(0); }
         var parts = new List<object>();
@@ -1299,7 +1320,7 @@ public sealed partial class AskViewModel : ObservableObject
         AiPage? locked = null;
         for (int i = 0; i < lines.Count; i++)
         {
-            string l = lines[i];
+            string raw = lines[i], l = W(raw);
             // "[locked: games]": a page the plan doesn't open would have helped; said once, under the answer.
             if (LockedLine.Match(l) is { Success: true } lockedLine)
             {
@@ -1336,7 +1357,7 @@ public sealed partial class AskViewModel : ObservableObject
                 }
                 continue;
             }
-            if (l.StartsWith('|'))
+            if (raw.StartsWith('|'))
             {
                 var rows = new List<string[]>();
                 for (; i < lines.Count && lines[i].StartsWith('|'); i++)
@@ -1360,8 +1381,8 @@ public sealed partial class AskViewModel : ObservableObject
                 parts.Add(new AskNext(char.ToUpper(step[0], System.Globalization.CultureInfo.CurrentCulture) + step[1..], opens, label));
                 continue;
             }
-            bool isPoint = Point.IsMatch(l);
-            string body = Point.Replace(l, "");
+            bool isPoint = Point.IsMatch(raw);
+            string body = Point.Replace(raw, "");
             var refs = RefsFor(refsOf[i]);
             parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) { Refs = refs } : new AskLine(body, isPoint) { Refs = refs });
         }

@@ -327,7 +327,7 @@
                 <Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="5,9,11,0" VerticalAlignment="Top"
                          Visibility="{Binding IsPoint, Converter={StaticResource Vis}}" />
                 <TextBlock FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" LineHeight="21">
-                    <Run Text="{Binding Lead, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Text, Mode=OneWay}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding Refs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding Refs, Converter={StaticResource Vis}}" /></InlineUIContainer>
+                    <Run Text="{Binding Lead, Mode=OneWay}" FontWeight="SemiBold" /><Span ctl:Md.Text="{Binding Text}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding Refs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding Refs, Converter={StaticResource Vis}}" /></InlineUIContainer>
                 </TextBlock>
             </DockPanel>
         </DataTemplate>
@@ -489,7 +489,7 @@
                     <ItemsControl ItemsSource="{Binding Headings}" Focusable="False" Margin="0,0,0,6">
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,10,0" /></DataTemplate>
+                            <DataTemplate><TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,10,0"><Span ctl:Md.Text="{Binding}" /></TextBlock></DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
@@ -499,7 +499,7 @@
                                     <ItemsControl ItemsSource="{Binding}" Focusable="False">
                                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate><TextBlock Text="{Binding}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0" /></DataTemplate>
+                                            <DataTemplate><TextBlock FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0"><Span ctl:Md.Text="{Binding}" /></TextBlock></DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </Border>
@@ -517,6 +517,29 @@
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
             <Setter Property="Padding" Value="11,6" />
         </Style>
+        <!-- Copy, Ask again, Helpful, Not helpful under an answer: a 28 px icon, faint until hovered. -->
+        <Style x:Key="IconAction" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Width="28" Height="28" CornerRadius="6" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="13" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Copy, Ask again, Helpful under an answer: small words, faint until hovered. -->
         <Style x:Key="QuietAction" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
@@ -942,8 +965,8 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <TextBlock FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
-                           Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Run Text="{Binding Verdict, Mode=OneWay}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding VerdictRefs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding VerdictRefs, Converter={StaticResource Vis}}" /></InlineUIContainer></TextBlock>
+                <TextBlock x:Name="Verdict" FontSize="13.5" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
+                           Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Span ctl:Md.Text="{Binding Verdict}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding VerdictRefs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding VerdictRefs, Converter={StaticResource Vis}}" /></InlineUIContainer></TextBlock>
                 <!-- Its parts in order: paragraphs and points, RigSight's own numbers, tables, the next step. -->
                 <ItemsControl ItemsSource="{Binding Parts}" Focusable="False" />
 
@@ -963,19 +986,28 @@
                         </TextBlock>
                     </DockPanel>
                 </Border>
-                <!-- Under every answer, small and always there: Copy, Ask again, and (RigSight AI) Helpful / Not helpful. -->
-                <WrapPanel Margin="-7,10,0,0">
-                    <Button Style="{StaticResource QuietAction}" Content="{ctl:T 'Copy'}" AutomationProperties.Name="{ctl:T 'Copy'}"
-                            Command="{Binding DataContext.CopyAnswerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                    <Button Style="{StaticResource QuietAction}" Content="{ctl:T 'Ask again'}" AutomationProperties.Name="{ctl:T 'Ask again'}"
+                <!-- Under every answer, tight under it like other chat apps' action bars: icons with their word as a tooltip,
+                     quiet until hovered. No offset to line the icons up with the words: the hover was cut by the chat's edge. -->
+                <StackPanel Orientation="Horizontal" Margin="0,-6,0,0">
+                    <Button x:Name="CopyButton" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Copy'}" AutomationProperties.Name="{ctl:T 'Copy'}"
+                            Command="{Binding DataContext.CopyAnswerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                        <TextBlock x:Name="CopyIcon" Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" />
+                    </Button>
+                    <Button Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Ask again'}" AutomationProperties.Name="{ctl:T 'Ask again'}"
                             Visibility="{Binding Asked, Converter={StaticResource Vis}}"
-                            Command="{Binding DataContext.AskAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            Command="{Binding DataContext.AskAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" />
+                    </Button>
                     <StackPanel Orientation="Horizontal" DataContext="{Binding Feedback}" Visibility="{Binding CanRate, Converter={StaticResource Vis}}">
-                        <Button x:Name="Good" Style="{StaticResource QuietAction}" Content="{ctl:T 'Helpful'}" AutomationProperties.Name="{ctl:T 'Helpful'}" Command="{Binding HelpfulCommand}" />
-                        <Button x:Name="Bad" Style="{StaticResource QuietAction}" Content="{ctl:T 'Not helpful'}" AutomationProperties.Name="{ctl:T 'Not helpful'}" Command="{Binding NotHelpfulCommand}" />
-                        <TextBlock Text="{Binding Said}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="4,0,0,0" Visibility="{Binding HasSaid, Converter={StaticResource Vis}}" />
+                        <Button x:Name="Good" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Helpful'}" AutomationProperties.Name="{ctl:T 'Helpful'}" Command="{Binding HelpfulCommand}">
+                            <TextBlock x:Name="GoodIcon" Text="&#xE8E1;" Style="{StaticResource Icon}" FontSize="13" />
+                        </Button>
+                        <Button x:Name="Bad" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Not helpful'}" AutomationProperties.Name="{ctl:T 'Not helpful'}" Command="{Binding NotHelpfulCommand}">
+                            <TextBlock x:Name="BadIcon" Text="&#xE8E0;" Style="{StaticResource Icon}" FontSize="13" />
+                        </Button>
+                        <TextBlock Text="{Binding Said}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding HasSaid, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </WrapPanel>
+                </StackPanel>
                 <!-- Not helpful: why, in four plain words and their own (both optional), then Send. -->
                 <ctl:SmoothBorder DataContext="{Binding Feedback}" CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
                                   Visibility="{Binding Asking, Converter={StaticResource Vis}}">
@@ -1009,11 +1041,18 @@
                     <Setter TargetName="LookedList" Property="Visibility" Value="Visible" />
                     <Setter TargetName="LookedArrow" Property="Text" Value="&#xE70D;" />
                 </DataTrigger>
+                <!-- Pressed: in the text colour, so what was said stays plain. -->
                 <DataTrigger Binding="{Binding Feedback.IsHelpful}" Value="True">
                     <Setter TargetName="Good" Property="Foreground" Value="{DynamicResource TextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Feedback.IsNotHelpful}" Value="True">
                     <Setter TargetName="Bad" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                </DataTrigger>
+                <!-- Copied: a tick for a moment, where the copy icon was. -->
+                <DataTrigger Binding="{Binding Feedback.Copied}" Value="True">
+                    <Setter TargetName="CopyIcon" Property="Text" Value="&#xE73E;" />
+                    <Setter TargetName="CopyButton" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter TargetName="CopyButton" Property="ToolTip" Value="{ctl:T 'Copied'}" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
