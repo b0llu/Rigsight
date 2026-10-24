@@ -110,6 +110,11 @@ public static class Changelog
     [
         // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
         // until it launches.
+        V("0.34.0", 10, 24,
+            added: [Lang.T("You can now select and copy text anywhere in RigSight: drag over it, double-click a word, then press Ctrl+C."),
+                Lang.T("Storage lists every drive fullest first, USB and network drives included, each with its health in plain words.")],
+            better: [Lang.T("A Storage scan shows its folder list and map side by side, colored by kind of file, with the space you could free on that drive."),
+                Lang.T("Each drive keeps its last Storage scan, even after a restart, so switching drives or reopening the page needs no new scan.")]),
         V("0.33.0", 10, 23,
             added: [Lang.T("Every page with history now has an Export button that saves just what it shows, for the period it's on and narrowed the way it is, your dashboards too."),
                 Lang.T("Export can now save your games library, every play with its frame rate, what's using memory right now and where space could be freed.")],

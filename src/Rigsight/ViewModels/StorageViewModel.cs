@@ -199,24 +199,16 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     public bool CanGoUp => Current?.Parent is not null;
 
     /// <summary>
-    /// The page opened: the saved scans read (off the window's thread), then the drives; the fullest drive scanned by
-    /// itself when it was never scanned (the person's call, 2026-10-24), so the page opens on a scan, not a Scan button.
+    /// The page opened: the saved scans read (off the window's thread), then the drives, so the fullest drive opens on
+    /// its last scan. Never scanned: its Scan button (a scan by itself cost the page's first visit a second and a half of
+    /// CPU, the person's call 2026-10-24: dropped).
     /// </summary>
     public async Task ShownAsync()
     {
         await Task.Run(DriveScans.LoadSaved);
         await RefreshAsync();
         ShowPicked();
-        if (PickedRoot is { } root && Result is null && !IsScanning && DriveScans.Letter(root) is { } letter && !DriveScans.Has(letter))
-        {
-            Log.Write("storage", $"{letter}: never scanned and the fullest drive: scanning it as the page opens");
-            _auto = true;
-            _ = Scan(root);
-            _auto = false;
-        }
     }
-
-    private bool _auto;
 
     public async Task RefreshAsync()
     {
@@ -412,7 +404,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     {
         if (string.IsNullOrEmpty(root)) return;
         _scanCts?.Cancel();
-        bool asked = !_refreshing && !_auto;
+        bool asked = !_refreshing;
         // A scan started while another runs takes over: the one it replaced ends without touching what's on screen
         // (it used to say "Scan cancelled." and hide the progress and Cancel button of the scan still going).
         var scan = _scanCts = new CancellationTokenSource();
@@ -428,7 +420,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         IsScanning = true;
         ScanStatus = Lang.T($"Scanning {root}…");
         // Logged both ends (a scan from this page wasn't, so a log couldn't say what started one, 2026-10-24).
-        Log.Write("storage", $"Scanning {root} ({(asked ? "asked on the page" : _auto ? "the page opened on a drive never scanned" : "Refresh")})");
+        Log.Write("storage", $"Scanning {root} ({(asked ? "asked on the page" : "Refresh")})");
         // A drive's own card says so too (the drives may be read again meanwhile: the card is found by its drive each time).
         VolumeRow? Card() => Volumes.FirstOrDefault(v => string.Equals(v.Root, root, StringComparison.OrdinalIgnoreCase));
         foreach (var v in Volumes) v.ScanText = null;
