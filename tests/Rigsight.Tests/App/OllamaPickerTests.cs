@@ -106,6 +106,23 @@ public sealed class OllamaPickerTests
     }
 
     [Fact]
+    public async Task Removing_a_model_asks_ollama_to_delete_it()
+    {
+        string? asked = null;
+        await using var ollama = new FakeRelay(async (req, s) => { asked = req.Method + " " + req.Path + " " + req.Body; await FakeRelay.Reply(s, 200, "application/json", "{}"); });
+        Assert.Null(await Ollama.RemoveAsync(ollama.Url, "gemma3:1b"));
+        Assert.Equal("DELETE /api/delete {\"model\":\"gemma3:1b\"}", asked);
+    }
+
+    [Fact]
+    public async Task Removing_a_model_ollama_hasnt_got_says_so()
+    {
+        await using var ollama = new FakeRelay((_, s) => FakeRelay.Reply(s, 404, "application/json", "{\"error\":\"model 'x' not found\"}"));
+        Assert.Equal("Ollama no longer has x:1b.", await Ollama.RemoveAsync(ollama.Url, "x:1b"));
+        Assert.Contains("stopped answering", await Ollama.RemoveAsync("http://127.0.0.1:9", "x:1b"));
+    }
+
+    [Fact]
     public async Task A_model_ollama_doesnt_have_says_so()
     {
         await using var ollama = new FakeRelay((_, s) => FakeRelay.Reply(s, 200, "application/x-ndjson",

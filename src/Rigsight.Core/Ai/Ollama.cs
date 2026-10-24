@@ -292,6 +292,29 @@ public static class Ollama
     }
 
     /// <summary>Whether Ollama has the model in memory already (/api/ps); unknown counts as not.</summary>
+    /// <summary>
+    /// Removes <paramref name="model"/> from Ollama (its /api/delete, as "ollama rm" does): Ollama deletes it from its own
+    /// models folder. Null when done, else the problem in words.
+    /// </summary>
+    public static async Task<string?> RemoveAsync(string address, string model, CancellationToken ct = default)
+    {
+        var root = Normalise(address);
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Delete, root + "/api/delete") { Content = Json(new JsonObject { ["model"] = model }) };
+            using var res = await Http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) { Log.Write("ollama", $"Removed {model} from {root}"); return null; }
+            string body = await res.Content.ReadAsStringAsync(ct);
+            Log.Write("ollama", $"Removing {model} refused: expected 200, got {(int)res.StatusCode} {body}");
+            return (int)res.StatusCode == 404 ? Lang.T($"Ollama no longer has {model}.") : Lang.T($"Ollama couldn't remove {model}.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UriFormatException or InvalidOperationException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            Log.Write("ollama", $"Removing {model} failed: {ex.GetType().Name}: {ex.Message}");
+            return Lang.T("Ollama stopped answering. Check that it's running, then try again.");
+        }
+    }
+
     /// <summary>The models already said to be partly off the card this run.</summary>
     private static readonly HashSet<string> Warned = [];
 

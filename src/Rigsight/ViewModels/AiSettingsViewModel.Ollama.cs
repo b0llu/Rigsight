@@ -26,6 +26,12 @@ public sealed partial class OllamaRow(string name, string size, bool canLookUp, 
     public bool HasFitWhy => FitWhy.Length > 0;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse))] private bool _inUse;
     public bool CanUse => CanLookUp && !InUse;
+
+    /// <summary>Remove pressed: the row asks "Remove … ? Frees …" with Remove and Cancel in place of its buttons.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(NotAsking))] private bool _askingRemove;
+    public bool NotAsking => !AskingRemove;
+    [ObservableProperty] private bool _removing;
+    public string RemoveQuestion => Lang.T($"Remove {Name}? Frees {Size}.");
 }
 
 public enum PickState { Idle, Asking, Downloading }
@@ -372,6 +378,34 @@ public sealed partial class AiSettingsViewModel
             }
         }
         finally { StartingOllama = false; }
+        await ConnectOllama();
+    }
+
+    /// <summary>A problem removing a model, under the list.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasRemoveProblem))] private string? _removeProblem;
+    public bool HasRemoveProblem => RemoveProblem is not null;
+
+    [RelayCommand]
+    private void AskRemove(OllamaRow? row)
+    {
+        if (row is null) return;
+        foreach (var other in OllamaRows) other.AskingRemove = false;
+        RemoveProblem = null;
+        row.AskingRemove = true;
+    }
+
+    [RelayCommand] private static void CancelRemove(OllamaRow? row) { if (row is not null) row.AskingRemove = false; }
+
+    /// <summary>Removes it through Ollama, then reads the list again (the one in use gone: the next that can look things up).</summary>
+    [RelayCommand]
+    private async Task Remove(OllamaRow? row)
+    {
+        if (row is not { AskingRemove: true, Removing: false }) return;
+        row.Removing = true;
+        Log.Write("ai-settings", $"Removing {row.Name} from Ollama at {Ollama.Normalise(Ai.OllamaAddress)}");
+        RemoveProblem = await Ollama.RemoveAsync(Ai.OllamaAddress, row.Name);
+        row.Removing = false;
+        row.AskingRemove = false;
         await ConnectOllama();
     }
 
