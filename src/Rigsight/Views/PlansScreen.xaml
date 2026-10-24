@@ -14,7 +14,7 @@
              6:1 and 7.5:1), and a band of light sweeping across every few seconds (see Shimmer). -->
         <SolidColorBrush x:Key="PickInk" Color="#0B0E14" />
         <Style x:Key="PickButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource PickInk}" />
+            <Setter Property="Foreground" Value="{DynamicResource PickInk}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -241,7 +241,7 @@
                                             <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
                                         </LinearGradientBrush>
                                     </Border.Background>
-                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PickInk}" />
+                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource PickInk}" />
                                 </Border>
                             </Grid>
                             <DataTemplate.Triggers>

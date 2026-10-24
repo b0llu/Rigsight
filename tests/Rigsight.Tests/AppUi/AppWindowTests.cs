@@ -189,9 +189,29 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
             scroll.ScrollToVerticalOffset(900);
         });
         Ui.Pump(300);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "plans-list.png")));
+
+        // The words on the plan to pick follow the theme: dark on Dark's bright blue and violet, white on Light's deep ones.
+        System.Windows.Media.Color PickInk() => ((System.Windows.Media.SolidColorBrush)Visuals.Descendants<Views.PlansScreen>(host.Window).First().Resources["PickInk"]).Color;
+        Ui.Run(() => Assert.Equal(System.Windows.Media.Color.FromRgb(0x0B, 0x0E, 0x14), PickInk()));
+        try
+        {
+            Ui.Run(() => ThemeManager.Apply(ThemeManager.Light));
+            Ui.Pump(400);
+            Ui.Run(() =>
+            {
+                Assert.Equal(System.Windows.Media.Colors.White, PickInk());
+                Ui.SavePng(host.Window, Path.Combine(Shots, "plans-light.png"));
+            });
+        }
+        finally
+        {
+            Ui.Run(() => ThemeManager.Apply(ThemeManager.Dark));
+            Ui.Pump(300);
+        }
         Ui.Run(() =>
         {
-            Ui.SavePng(host.Window, Path.Combine(Shots, "plans-list.png"));
+            Assert.Equal(System.Windows.Media.Color.FromRgb(0x0B, 0x0E, 0x14), PickInk());
             host.Shell.Plans.BackCommand.Execute(null);
         });
         Ui.AssertNoProblems("the plans screen");

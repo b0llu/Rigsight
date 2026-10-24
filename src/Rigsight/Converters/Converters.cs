@@ -504,9 +504,27 @@ public sealed class InkOnConverter : IValueConverter
     /// </summary>
     public static bool ReadsDark(Color c)
     {
-        static double Lin(byte v) { double s = v / 255.0; return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4); }
-        double l = 0.2126 * Lin(c.R) + 0.7152 * Lin(c.G) + 0.0722 * Lin(c.B);
+        double l = Luminance(c);
         return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05);
+    }
+
+    private static double Luminance(Color c)
+    {
+        static double Lin(byte v) { double s = v / 255.0; return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4); }
+        return 0.2126 * Lin(c.R) + 0.7152 * Lin(c.G) + 0.0722 * Lin(c.B);
+    }
+
+    /// <summary>
+    /// Dark or white text for a fill that runs through <paramref name="behind"/> (a gradient's stops): whichever reads
+    /// better at its worst point. The Plans screen's blue-to-violet read dark in Dark (6:1, 7.5:1) but white in Light, whose
+    /// blue and violet are deeper (dark 3.8:1 and 3.4:1, white 5.2:1 and 5.7:1), and a picked accent changes both.
+    /// </summary>
+    public static Color InkFor(params Color[] behind)
+    {
+        double dark = Luminance(Color.FromRgb(0x0B, 0x0E, 0x14));
+        double worstDark = behind.Min(c => (Luminance(c) + 0.05) / (dark + 0.05));
+        double worstWhite = behind.Min(c => 1.05 / (Luminance(c) + 0.05));
+        return worstDark >= worstWhite ? Color.FromRgb(0x0B, 0x0E, 0x14) : Colors.White;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;

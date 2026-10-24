@@ -158,6 +158,19 @@ public sealed class ConverterTests
 
     // ── Numbers ──────────────────────────────────────────────────────────
 
+    [Theory]
+    // The Plans screen's blue-to-violet button: dark words on Dark's bright blue and violet, white on Light's deep ones
+    // (a fixed dark read 3.8:1 and 3.4:1 there).
+    [InlineData("#5B8CFF", "#B18CFF", true)]  // Dark, Midnight, Ember, Forest
+    [InlineData("#6B98FF", "#B18CFF", true)]  // Grey
+    [InlineData("#2563EB", "#7C3AED", false)] // Light
+    public void Words_on_a_gradient_read_against_both_its_ends(string from, string to, bool dark)
+    {
+        var c1 = (Color)ColorConverter.ConvertFromString(from);
+        var c2 = (Color)ColorConverter.ConvertFromString(to);
+        Assert.Equal(dark ? Color.FromRgb(0x0B, 0x0E, 0x14) : Colors.White, InkOnConverter.InkFor(c1, c2));
+    }
+
     [Fact]
     public void Ink_on_a_circle_is_light_on_deep_colours_and_dark_on_bright_ones()
     {
