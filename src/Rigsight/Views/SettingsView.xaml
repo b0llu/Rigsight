@@ -1308,8 +1308,14 @@
                                                     <Button Style="{StaticResource BoxButton}" HorizontalAlignment="Stretch" Content="{ctl:T 'Use'}"
                                                             Command="{Binding DataContext.UseOllamaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Tag}"
                                                             Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
-                                                    <Border Style="{StaticResource InUse}" HorizontalAlignment="Left" Visibility="{Binding InUse, Converter={StaticResource Vis}}">
-                                                        <TextBlock Text="{ctl:T 'Active'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
+                                                    <!-- In use: the size and place of the Download button beside it (a tick and Active, in green), so the
+                                                         three cards end level. -->
+                                                    <Border CornerRadius="9" Background="{DynamicResource GoodSoftBrush}" Padding="14,8" HorizontalAlignment="Stretch"
+                                                            Visibility="{Binding InUse, Converter={StaticResource Vis}}">
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{ctl:T 'Active'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" />
+                                                        </StackPanel>
                                                     </Border>
                                                 </Grid>
                                                 <!-- Asked: the size, where it goes (the drive in bold) and how long, then Download N GB or Cancel -->
