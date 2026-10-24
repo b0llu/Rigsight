@@ -238,6 +238,13 @@ public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPrope
 /// <summary>No answer came: Ollama not running, the model gone, and so on, said plainly.</summary>
 public sealed record AskProblem(string Text) : AskMessage;
 
+/// <summary>A question to start a new chat with, and the page it reads (its icon and name show above the words).</summary>
+public sealed record AskStarter(string Text, string Page)
+{
+    public string Glyph => PageSwitchesViewModel.Glyph(Page);
+    public string PageName => AiPages.Get(Page) is { } page ? Lang.T(page.Name) : "";
+}
+
 /// <summary>The person stopped the answer: said quietly, since nothing went wrong.</summary>
 public sealed record AskStopped(string Text) : AskMessage;
 
@@ -434,6 +441,7 @@ public sealed partial class AskViewModel : ObservableObject
     {
         if (oldValue is not null) { oldValue.IsCurrent = false; oldValue.Messages.CollectionChanged -= OnMessagesChanged; oldValue.Draft = Draft; }
         if (newValue is not null) { newValue.IsCurrent = true; newValue.Messages.CollectionChanged += OnMessagesChanged; }
+        if (newValue is { Messages.Count: 0 }) RefreshStarters();
         // Each conversation keeps its own unsent words: what was typed in one never carries into another.
         Draft = newValue?.Draft ?? "";
     }
@@ -468,14 +476,38 @@ public sealed partial class AskViewModel : ObservableObject
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private string _draft = "";
 
-    /// <summary>Questions to start from on an empty conversation (ones the helper can answer from RigSight's records).</summary>
-    public IReadOnlyList<string> Starters { get; } =
+    /// <summary>
+    /// Questions to start a new chat from (approved mock-up 2026-10-24): this PC's own (today's shut-off, this week's
+    /// driver resets, the game played most, the fullest drive), each with the page it reads. The general four show
+    /// until those are read, in the same cards, so nothing moves.
+    /// </summary>
+    [ObservableProperty] private IReadOnlyList<AskStarter> _starters =
     [
-        Lang.T("Why did my PC turn off by itself?"),
-        Lang.T("Are my temperatures normal for my parts?"),
-        Lang.T("Which game is hardest on my PC?"),
-        Lang.T("Did anything change before my crashes started?"),
+        new(Lang.T("Why did my PC turn off by itself?"), AiPages.Crashes),
+        new(Lang.T("Are my temperatures normal for my parts?"), AiPages.Temperatures),
+        new(Lang.T("Which game is hardest on my PC?"), AiPages.Games),
+        new(Lang.T("Did anything change before my crashes started?"), AiPages.Timeline),
     ];
+
+    /// <summary>"Ryzen 7 5700X3D · RTX 3080 Ti · 16 GB" under "Ask about this PC".</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasPcLine))] private string _pcLine = "";
+    public bool HasPcLine => PcLine.Length > 0;
+
+    /// <summary>Reads the starters and the parts line off the window's thread, for a new chat about to show.</summary>
+    private void RefreshStarters()
+    {
+        if (SynchronizationContext.Current is null || ShowFirstQuestion) return;
+        var tools = Tools();
+        var open = PlanPagesNow();
+        var now = DateTime.Now;
+        Task.Run(() => (tools.Starters(now, open is null ? null : open.Contains), tools.PcLine()))
+            .ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                Starters = [.. t.Result.Item1.Select(s => new AskStarter(s.Text, s.Page))];
+                PcLine = t.Result.Item2;
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
 
     // ── Questions left (RigSight AI only) ────────────────────────────────
     /// <summary>Every PC gets this many free questions to try RigSight AI before buying any.</summary>

@@ -1253,48 +1253,72 @@
                             <TextBlock Text="{Binding LookingAt}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        Margin="0,0,0,10" Visibility="{Binding HasLookingAt, Converter={StaticResource Vis}}" />
                             <ItemsControl ItemsSource="{Binding Current.Messages}" />
-                            <!-- What they might ask next, under the latest answer: small outlined chips that wrap (the approved look,
-                                 2026-10-23); a tap asks it. -->
-                            <ItemsControl ItemsSource="{Binding NextQuestions}" Focusable="False" Margin="0,0,0,10" Visibility="{Binding HasNextQuestions, Converter={StaticResource Vis}}">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <!-- What they might ask next, under the latest answer (approved mock-up 2026-10-24): a short list under a small
+                                 heading, full-width rows with an arrow that wrap long questions; quiet until the pointer is on one. -->
+                            <StackPanel Margin="0,4,0,12" Visibility="{Binding HasNextQuestions, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{ctl:T 'Ask next'}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4" />
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1">
+                                    <ItemsControl ItemsSource="{Binding NextQuestions}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding}"
+                                                        Command="{Binding DataContext.AskSuggestedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="Bd" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Background="Transparent" Padding="6,9">
+                                                                <DockPanel>
+                                                                    <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                                                                               VerticalAlignment="Center" Margin="12,0,2,0" />
+                                                                    <TextBlock Text="{Binding}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                                </DockPanel>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                                    <Setter TargetName="Go" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <!-- A new chat (approved mock-up 2026-10-24): in the middle of the space, the PC named, and four questions from its
+                         own records, each with the page it reads; two by two when wide, one column when narrow. The box to type
+                         in stays at the bottom, so nothing moves when the first question goes. -->
+                    <ScrollViewer Style="{StaticResource GutterScroll}" Margin="0,46,0,0" Padding="18,0,18,8" Visibility="{Binding ShowStarters, Converter={StaticResource Vis}}">
+                        <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+                        <StackPanel VerticalAlignment="Center" MaxWidth="720">
+                            <TextBlock Text="{ctl:T 'Ask about this PC'}" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding PcLine}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                       Visibility="{Binding HasPcLine, Converter={StaticResource Vis}}" />
+                            <ItemsControl ItemsSource="{Binding Starters}" Margin="0,14,-8,0" Focusable="False">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><ctl:TileWrap MinTileWidth="300" Gap="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Cursor="Hand" Focusable="False" Margin="0,0,6,6" AutomationProperties.Name="{Binding}" ToolTip="{ctl:T 'Ask this'}"
-                                                Command="{Binding DataContext.AskSuggestedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                            <Button.Template>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border x:Name="Bd" CornerRadius="14" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" Background="Transparent" Padding="11,5">
-                                                        <TextBlock x:Name="Words" Text="{Binding}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FaintBrush}" />
-                                                            <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Button.Template>
+                                        <Button Style="{StaticResource PickRow}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,0,0,8" MinHeight="74"
+                                                VerticalContentAlignment="Top" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Text}"
+                                                Command="{Binding DataContext.StarterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Text}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding PageName}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" LineHeight="18" />
+                                            </StackPanel>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="{ctl:T 'or type your own below'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
                         </StackPanel>
+                        </Grid>
                     </ScrollViewer>
-                    <StackPanel Margin="16,64,16,0" Visibility="{Binding ShowStarters, Converter={StaticResource Vis}}">
-                        <TextBlock Text="{ctl:T 'Ask anything about this PC'}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                        <TextBlock Text="{ctl:T 'Answers come from what RigSight has recorded on it.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}"
-                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,16" />
-                        <ItemsControl ItemsSource="{Binding Starters}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Style="{StaticResource PickRow}" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,0,0,6" AutomationProperties.Name="{Binding}"
-                                            Command="{Binding DataContext.StarterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                        <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
                     <!-- The first question with this way of answering: what is sent and where, before anything goes, with the
                          same switches as Settings › Ask RigSight (approved mock-up 2026-10-21). One version each for RigSight AI, my own
                          key and Ollama. Start asking closes it for good for that way. -->
