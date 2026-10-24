@@ -460,7 +460,7 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0"
+                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0" Foreground="{DynamicResource HotBrush}"
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />

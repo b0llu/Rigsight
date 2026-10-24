@@ -509,7 +509,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "crashes": await Crashes.LoadAsync(onlyIfChanged: Crashes.Loaded); break;
             case "timeline": await Timeline.LoadAsync(); break;
             case "memory": await Memory.RefreshAsync(); break;
-            case "storage": await Storage.RefreshAsync(); break;
+            case "storage": await Storage.ShownAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "fans": await Fans.RefreshAsync(); break;
             case "network": await Network.RefreshAsync(); break;

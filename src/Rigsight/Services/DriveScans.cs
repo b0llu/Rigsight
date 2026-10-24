@@ -5,7 +5,7 @@ using Rigsight.Core;
 namespace Rigsight.Services;
 
 /// <summary>
-/// The last scan of each drive this run (from a Scan button under an answer, or the Storage page's own scan), said for
+/// The last scan of each drive (from a Scan button under an answer, or the Storage page's own scan), said for
 /// the AI's get_drive_scan: the biggest folders two levels deep, the biggest files by kind and folder, and what could be
 /// freed on that drive. The person's Windows user name never goes: their own folder is "your user folder", and a file is
 /// said by its kind and folder, never its name.
@@ -14,23 +14,113 @@ public static class DriveScans
 {
     private static readonly Dictionary<string, (ScanResult Result, DateTime At)> Last = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object Gate = new();
+    private static bool _loaded;
 
-    /// <summary>Keeps a whole drive's scan ("E:\"); a folder's scan isn't a drive's.</summary>
-    public static void Keep(string root, ScanResult result)
+    /// <summary>
+    /// Where each drive's last scan is saved (the person's call, 2026-10-24: kept across restarts, so the Storage page
+    /// and the AI have it without scanning again). On this PC only, beside the history; a file per drive, compressed.
+    /// </summary>
+    internal static string Folder { get; set; } = Path.Combine(RigsightPaths.DataDir, "drive-scans");
+
+    /// <summary>Keeps a whole drive's scan ("E:\"), and saves it off the caller's thread; a folder's scan isn't a drive's.</summary>
+    public static void Keep(string root, ScanResult result) => _ = Keep(root, result, DateTime.Now);
+
+    internal static Task Keep(string root, ScanResult result, DateTime at)
     {
-        if (Letter(root) is not { } letter) return;
-        lock (Gate) Last[letter] = (result, DateTime.Now);
+        if (Letter(root) is not { } letter) return Task.CompletedTask;
+        lock (Gate) Last[letter] = (result, at);
+        return Task.Run(() => Save(letter, result, at));
     }
 
     public static bool Has(string letter)
     {
-        lock (Gate) return Last.ContainsKey(letter);
+        lock (Gate) if (Last.ContainsKey(letter)) return true;
+        return File.Exists(FileOf(letter));
     }
 
-    /// <summary>A drive's kept scan and when it was made, for the Storage page's drive tabs; null when none this run.</summary>
+    /// <summary>A drive's kept scan and when it was made, for the Storage page's drive tabs; null when it was never scanned.</summary>
     public static (ScanResult Result, DateTime At)? Get(string letter)
     {
+        LoadSaved();
         lock (Gate) return Last.TryGetValue(letter, out var scan) ? scan : null;
+    }
+
+    /// <summary>
+    /// Reads the saved scans once (the Storage page does it off the window's thread before it shows): one made this
+    /// run stays over the one saved.
+    /// </summary>
+    public static void LoadSaved()
+    {
+        lock (Gate) { if (_loaded) return; _loaded = true; }
+        if (!Directory.Exists(Folder)) return;
+        foreach (var file in Directory.GetFiles(Folder, "*.json.gz"))
+        {
+            string letter = Path.GetFileName(file)[..1].ToUpperInvariant();
+            try
+            {
+                SavedScan? saved;
+                using (var zip = new System.IO.Compression.GZipStream(File.OpenRead(file), System.IO.Compression.CompressionMode.Decompress))
+                    saved = System.Text.Json.JsonSerializer.Deserialize<SavedScan>(zip);
+                if (saved is not { V: 1 }) continue;
+                var result = new ScanResult
+                {
+                    Root = saved.Root.ToNode(null), FileCount = saved.Files, Elapsed = TimeSpan.FromSeconds(saved.Seconds),
+                    LargestFiles = [.. saved.Largest.Select(f => new LargeFile(f.P, f.S) { LastWrite = f.W })],
+                };
+                lock (Gate) Last.TryAdd(letter, (result, saved.At));
+                Log.Write("storage", $"Saved scan of {letter}: read ({saved.Files} files, from {saved.At:d MMM HH:mm})");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            {
+                Log.Write("storage", $"Saved scan of {letter}: couldn't be read ({ex.Message}); a new scan replaces it");
+            }
+        }
+    }
+
+    /// <summary>Forgets every scan this run, so the saved ones are read again (the tests).</summary>
+    internal static void Clear()
+    {
+        lock (Gate) { Last.Clear(); _loaded = false; }
+    }
+
+    private static string FileOf(string letter) => Path.Combine(Folder, $"{letter}.json.gz");
+
+    private static void Save(string letter, ScanResult r, DateTime at)
+    {
+        try
+        {
+            Directory.CreateDirectory(Folder);
+            string file = FileOf(letter), temp = file + ".tmp";
+            using (var zip = new System.IO.Compression.GZipStream(File.Create(temp), System.IO.Compression.CompressionLevel.Fastest))
+                System.Text.Json.JsonSerializer.Serialize(zip, new SavedScan(1, at, r.FileCount, r.Elapsed.TotalSeconds, SavedNode.Of(r.Root),
+                    [.. r.LargestFiles.Select(f => new SavedFile(f.Path, f.Size, f.LastWrite))]));
+            File.Move(temp, file, overwrite: true);
+            Log.Write("storage", $"Scan of {letter}: saved ({new FileInfo(file).Length / 1024} KB)");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Log.Write("storage", $"Scan of {letter}: couldn't be saved ({ex.Message})"); }
+    }
+
+    private sealed record SavedScan(int V, DateTime At, long Files, double Seconds, SavedNode Root, List<SavedFile> Largest);
+    private sealed record SavedFile(string P, long S, DateTime W);
+
+    /// <summary>A folder as saved: short names, since a drive's tree is thousands of them.</summary>
+    private sealed record SavedNode(string N, string P, long S, long F, int T, long[] K, List<SavedNode>? C)
+    {
+        public static SavedNode Of(FolderNode n) => new(n.Name, n.Path, n.Size, n.Files,
+            (n.IsBucket ? 1 : 0) | (n.IsLooseFiles ? 2 : 0) | (n.NeedsScan ? 4 : 0) | (n.IsFile ? 8 : 0),
+            n.Kinds, n.Children.Count == 0 ? null : [.. n.Children.Select(Of)]);
+
+        public FolderNode ToNode(FolderNode? parent)
+        {
+            var node = new FolderNode
+            {
+                Name = N, Path = P, Size = S, Files = F, Parent = parent,
+                IsBucket = (T & 1) != 0, IsLooseFiles = (T & 2) != 0, NeedsScan = (T & 4) != 0, IsFile = (T & 8) != 0,
+            };
+            for (int k = 0; k < Math.Min(K.Length, FolderNode.KindCount); k++) node.Kinds[k] = K[k];
+            if (C is not null) node.Children = [.. C.Select(c => c.ToNode(node))];
+            return node;
+        }
     }
 
     /// <summary>"E" from "E:\" or "E:"; null for a folder.</summary>
@@ -40,9 +130,10 @@ public static class DriveScans
         return r.Length == 2 && r[1] == ':' && char.IsLetter(r[0]) ? char.ToUpperInvariant(r[0]).ToString() : null;
     }
 
-    /// <summary>The text for the AI, or null when the drive hasn't been scanned this run.</summary>
+    /// <summary>The text for the AI, or null when the drive was never scanned.</summary>
     public static string? Text(string letter)
     {
+        LoadSaved();
         (ScanResult Result, DateTime At) scan;
         lock (Gate) { if (!Last.TryGetValue(letter, out scan)) return null; }
         return Describe(letter, scan.Result, scan.At, DateTime.Now, CleanupOn(letter));

@@ -1659,7 +1659,8 @@
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Open folder'}" Margin="0,0,8,0"
                                                         Command="{Binding DataContext.OpenDataFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Delete'}" AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}"
-                                                        Command="{Binding DataContext.DeleteDamagedCopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                                        Command="{Binding DataContext.DeleteDamagedCopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                                        Foreground="{DynamicResource HotBrush}" />
                                             </StackPanel>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{ctl:T 'Damaged copy kept'}" FontWeight="SemiBold" />
