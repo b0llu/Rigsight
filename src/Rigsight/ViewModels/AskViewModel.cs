@@ -1021,12 +1021,28 @@ public sealed partial class AskViewModel : ObservableObject
         if (look?.Opens is { } page) OpenPageAt?.Invoke(page, look.Focus);
     }
 
-    /// <summary>Ask again: the same question once more, as a new question (it counts as one).</summary>
+    /// <summary>
+    /// Ask again: the same question once more (it counts as one). The latest answer is written again in its own place,
+    /// the old one gone, as chat apps do (the person's call, 2026-10-24); an older one is asked at the end, since what
+    /// came after it was built on it.
+    /// </summary>
     [RelayCommand]
     private void AskAgain(AskAnswer? answer)
     {
         if (answer?.Asked is not { Length: > 0 } q || IsAnswering || IsOutOfQuestions || ShowFirstQuestion) return;
-        Ask(q);
+        var talk = Current;
+        int at = talk?.Messages.IndexOf(answer) ?? -1;
+        bool latest = talk is not null && at >= 0 && !talk.Messages.Skip(at + 1).Any(m => m is AskQuestion or AskAnswer);
+        if (!latest) { Ask(q); return; }
+        // The old answer and anything under it (a note, a problem) go; the question above stays.
+        while (talk!.Messages.Count > at) talk.Messages.RemoveAt(at);
+        // The earlier turn isn't sent with the new one: the answer it got is the one being replaced.
+        if (talk.Sent.Count >= 2 && talk.Sent[^2].FromUser && talk.Sent[^2].Text == q) talk.Sent.RemoveRange(talk.Sent.Count - 2, 2);
+        Log.Write("ask", "Asked again: the latest answer is written again in its place");
+        talk.When = DateTime.Now;
+        talk.Messages.Add(new AskThinking());
+        Changed();
+        Answer(talk, q);
     }
 
     /// <summary>The relay's id for the question being answered (RigSight AI), for Stop to give it back.</summary>

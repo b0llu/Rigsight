@@ -357,6 +357,52 @@ public sealed class PlansTests
         });
     }
 
+    /// <summary>An answer's words, wherever they landed (its opening or its lines).</summary>
+    private static string Words(AskAnswer a) => a.Verdict + " " + string.Join(" ", a.Parts.OfType<AskLine>().Select(l => l.Text));
+
+    [Fact]
+    public async Task Ask_again_writes_the_latest_answer_again_in_its_place()
+    {
+        int asks = 0;
+        await using var relay = new FakeRelay(async (r, s) =>
+        {
+            if (r.Path != "/v1/ask") { await FakeRelay.Reply(s, 200, "application/json", Status("essentials", "subscription")); return; }
+            int n = Interlocked.Increment(ref asks);
+            await FakeRelay.SseStart(s);
+            var chunk = new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["index"] = 0, ["delta"] = new JsonObject { ["content"] = n == 1 ? "First answer." : "Second answer." } }) };
+            await FakeRelay.Write(s, $"data: {chunk.ToJsonString()}\n\ndata: [DONE]\n\n");
+            s.Close(); // one answer a connection, so the next ask opens its own
+        });
+        var settings = new RigsightSettings();
+        settings.Ai.Mode = AiMode.RigSight;
+        settings.Ai.FirstQuestionSeen.Add(AiMode.RigSight);
+        var ask = Ui.Run(() => new AskViewModel(Kit.OfflineSettings(settings)));
+        Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url;
+            ask.Draft = "Why did my PC turn off?";
+            ask.SendCommand.Execute(null);
+        });
+        Assert.True(Ui.WaitFor(() => !ask.IsAnswering && ask.Current!.Messages.OfType<AskAnswer>().Any(), 15_000), "the first answer never came");
+        Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url; // held per call, so set again for this one
+            ask.AskAgainCommand.Execute(ask.Current!.Messages.OfType<AskAnswer>().Single());
+        });
+        bool second = Ui.WaitFor(() => !ask.IsAnswering && ask.Current!.Messages.OfType<AskAnswer>().Any(a => Words(a).Contains("Second")), 15_000);
+        Assert.True(second, "the second answer never came: asks " + asks + ", " + Ui.Run(() => string.Join(" | ", ask.Current!.Messages.Select(m => m.GetType().Name + (m is AskAnswer a ? ":" + a.Verdict + "/" + string.Join(",", a.Parts.Select(x => x.GetType().Name + (x is AskLine l ? "=" + l.Text : ""))) : m is AskProblem p ? ":" + p.Text : "")))));
+        Ui.Run(() =>
+        {
+            var left = ask.Current!.Messages.ToList();
+            // One question, one answer: the new one, where the old one was.
+            Assert.Equal(2, left.Count);
+            Assert.Equal("Why did my PC turn off?", Assert.IsType<AskQuestion>(left[0]).Text);
+            Assert.Contains("Second answer", Words(Assert.IsType<AskAnswer>(left[1])));
+            Assert.Equal(2, ask.Current.Sent.Count);
+            Relay.TestRoot.Value = null;
+        });
+    }
+
     [Fact]
     public void An_answer_that_needed_a_locked_page_says_which_once_and_hides_the_line()
     {
