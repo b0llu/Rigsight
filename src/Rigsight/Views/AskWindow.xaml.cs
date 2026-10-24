@@ -312,10 +312,16 @@ public partial class AskWindow : UserControl
     }
 
     // ── A paragraph's sources: the list on hover ─────────────────────────
-    // It opens as the pointer reaches the pill and stays while the pointer moves into it; a moment after it leaves both,
-    // it closes. A tap opens it where there is no pointer. One list at a time; scrolling the chat closes it.
+    // It opens once the pointer rests on the pill a moment (a pointer only passing over it opened it, 2026-10-24), and
+    // stays while the pointer moves into it; a moment after it leaves both, it closes. With one list open, the next pill's
+    // opens at once, as tooltips do. A press opens it straight away. One list at a time; scrolling the chat closes it.
     private AskRefs? _openRefs;
     private System.Windows.Threading.DispatcherTimer? _refsClose;
+    private System.Windows.Threading.DispatcherTimer? _refsOpen;
+    private AskRefs? _refsDue;
+
+    /// <summary>How long the pointer rests on a pill before its list opens (about a tooltip's wait).</summary>
+    private static readonly TimeSpan RefsOpenAfter = TimeSpan.FromMilliseconds(400);
 
     private void ShowRefs(AskRefs refs)
     {
@@ -339,11 +345,32 @@ public partial class AskWindow : UserControl
 
     private void LeaveRefs() { _refsClose?.Stop(); _refsClose?.Start(); }
 
-    private void RefPill_Enter(object sender, MouseEventArgs e) { if ((sender as FrameworkElement)?.Tag is AskRefs refs) ShowRefs(refs); }
-    private void RefPill_Leave(object sender, MouseEventArgs e) => LeaveRefs();
+    private void RefPill_Enter(object sender, MouseEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not AskRefs refs) return;
+        if (_openRefs is not null) { ShowRefs(refs); return; }
+        _refsDue = refs;
+        if (_refsOpen is null)
+        {
+            _refsOpen = new System.Windows.Threading.DispatcherTimer { Interval = RefsOpenAfter };
+            _refsOpen.Tick += (_, _) => { _refsOpen.Stop(); if (_refsDue is { } due) ShowRefs(due); _refsDue = null; };
+        }
+        _refsOpen.Stop();
+        _refsOpen.Start();
+    }
+
+    private void RefPill_Leave(object sender, MouseEventArgs e)
+    {
+        // Only passing over: it never opens.
+        _refsOpen?.Stop();
+        _refsDue = null;
+        LeaveRefs();
+    }
     private void RefPill_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.Tag is not AskRefs refs) return;
+        _refsOpen?.Stop();
+        _refsDue = null;
         // A second press (keyboard, a tap) closes what the first opened.
         if (refs.IsOpen && !((UIElement)sender).IsMouseOver) CloseRefs(); else ShowRefs(refs);
     }
