@@ -34,7 +34,19 @@ public sealed class AskIdeasTests
         Assert.Equal("Reading your crashes for 16 Oct – 22 Oct…", Ollama.Reviewing("get_crashes", new JsonObject { ["from"] = "2026-10-16", ["to"] = "2026-10-22" }));
         Assert.Equal("Reading your drives…", Ollama.Reviewing("get_storage", []));
         Assert.Equal("Searching the web for \"rtx 3080 ti driver\"…", Ollama.Reviewing("search_web", new JsonObject { ["query"] = "rtx 3080 ti driver" }));
+        // A long search in full, one "…" at the end: the line wraps if the window is narrow (it was cut with room to spare).
+        const string longQuery = "RTX 3080 Ti hot spot temperature normal limit site:nvidia.com";
+        Assert.Equal($"Searching the web for \"{longQuery}\"…", Ollama.Reviewing("search_web", new JsonObject { ["query"] = longQuery }));
     }
+
+    [Theory]
+    // Lines of an answer, or a paragraph of one: kept, even when the model also asks to look something up again.
+    [InlineData("Your CPU peaked at 78° this week, well under AMD's 89° limit.\nYour GPU's hot spot reached 90°, which NVIDIA allows.", true)]
+    [InlineData("Your temperatures this week are normal for your parts: the Ryzen 7 5700X3D peaked at 78°, well under its 89° limit, and the RTX 3080 Ti stayed in its usual range.", true)]
+    // A lead-in before the look-ups: comes off the screen, as before.
+    [InlineData("Let me check your temperatures.", false)]
+    [InlineData("", false)]
+    public void Words_written_before_a_look_up_are_kept_when_they_are_an_answer(string text, bool answer) => Assert.Equal(answer, OwnKey.IsAnswer(text));
 
     [Fact]
     public void A_source_carries_its_days_for_the_page_to_open_at()

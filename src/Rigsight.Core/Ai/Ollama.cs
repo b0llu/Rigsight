@@ -351,7 +351,8 @@ public static class Ollama
     {
         string what = tool switch
         {
-            "search_web" when (string?)args["query"] is { Length: > 0 } q => Lang.T($"Searching the web for \"{(q.Length > 48 ? q[..47].TrimEnd() + "…" : q)}\""),
+            // The search in full: the line wraps where the window is narrow (cut at 47 letters it read `limit s…"…` with room to spare).
+            "search_web" when (string?)args["query"] is { Length: > 0 } q => Lang.T($"Searching the web for \"{q.Trim()}\""),
             "search_web" => Lang.T("Searching the web"),
             "get_report" => Lang.T("Reading your report"),
             "get_crashes" => Lang.T("Reading your crashes"),

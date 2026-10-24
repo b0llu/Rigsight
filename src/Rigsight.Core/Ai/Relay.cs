@@ -190,7 +190,7 @@ public static partial class Relay
         var lookUps = new List<AiLookUp>();
         var definitions = tools.Definitions();
         bool searchFailed = false;
-        Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} look-ups allowed, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
+        Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} kinds of look-up open on the plan, at most {OwnKey.MaxRounds} rounds, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         step?.Invoke(new AiStep(""));
         for (int round = 0; round < OwnKey.MaxRounds; round++)
         {
@@ -235,7 +235,10 @@ public static partial class Relay
                 return new AiReply(null, Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."), lookUps);
             }
             Log.Write("relay", $"Round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
-            if (got.Calls.Count > 0)
+            // An answer already written stays the answer, even when the model also asked to look something up again.
+            if (got.Calls.Count > 0 && OwnKey.IsAnswer(got.Text))
+                Log.Write("relay", $"Round {round}: wrote an answer ({got.Text.Trim().Length} chars) and asked for {string.Join(", ", got.Calls.Select(c => (string?)c["function"]?["name"]))} too: kept the answer, the look-ups not run");
+            else if (got.Calls.Count > 0)
             {
                 if (got.Text.Length > 0) writing?.Invoke(null, lookUps);
                 var calls = new JsonArray([.. got.Calls.Select(c => (JsonNode)c)]);

@@ -237,7 +237,9 @@ public static class OwnKey
                 return new AiReply(null, Lang.T($"{service} couldn't answer: {error}"), lookUps);
             }
             Log.Write("own-key", $"{model} round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
-            if (got.Calls.Count > 0)
+            if (got.Calls.Count > 0 && IsAnswer(got.Text))
+                Log.Write("own-key", $"{model} round {round}: wrote an answer ({got.Text.Trim().Length} chars) and asked for {string.Join(", ", got.Calls.Select(c => (string?)c["function"]?["name"]))} too: kept the answer, the look-ups not run");
+            else if (got.Calls.Count > 0)
             {
                 // Words before look-ups are a lead-in ("Let me check…"), not the answer: they come off the screen.
                 if (got.Text.Length > 0) writing?.Invoke(null, lookUps);
@@ -290,6 +292,18 @@ public static class OwnKey
     /// <summary>One round's reply put back together from the stream: its words, its look-ups, why it stopped.</summary>
     /// <remarks><paramref name="CutOff"/>: the app stopped it (silence, a dropped connection), not the service: whether
     /// the service counted it isn't known.</remarks>
+    /// <summary>
+    /// Words already written in a round that also asks for look-ups: an answer (lines of it, or a paragraph), not a
+    /// lead-in ("Let me check your temperatures."). Shown as they came, an answer stays the answer: dropping it for the
+    /// look-ups showed one answer, took it away, waited and wrote another (the person's report, 2026-10-24; the model had
+    /// written its answer, then asked again for temperatures it already had).
+    /// </summary>
+    internal static bool IsAnswer(string text)
+    {
+        string t = text.Trim();
+        return t.Length >= 160 || t.Contains('\n');
+    }
+
     internal sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords, bool CutOff = false);
 
     /// <summary>
