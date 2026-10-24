@@ -250,9 +250,36 @@ public sealed partial class AskViewModel
             a.State = AskActionState.Failed;
             return;
         }
-        // Asked in the conversation the button is in, if it's still the one open and something can be asked.
-        if (talk is not null && Current == talk && !IsAnswering && !IsOutOfQuestions && !ShowFirstQuestion)
-            Ask(Lang.T($"I scanned {letter}:. What's using the space, and what could I free?"));
+        // The question that offered the scan, answered again from it (the person's call, 2026-10-24: "after reading the
+        // drive…", not a new question of RigSight's own): in that answer's place when it's the latest, else at the end.
+        if (talk is null || Current != talk || IsAnswering || IsOutOfQuestions || ShowFirstQuestion) return;
+        var offered = talk.Messages.OfType<AskAnswer>().FirstOrDefault(m => m.Parts.OfType<AskNext>().Any(n => n.Actions.Contains(a)));
+        string question = offered?.Asked is { Length: > 0 } asked ? asked : Lang.T($"What's using the space on {letter}:, and what could I free?");
+        string note = $"(RigSight has just scanned the {letter}: drive for this question. Read the scan with get_drive_scan, answer the question from it, "
+            + $"and begin the answer with \"After reading the {letter} drive,\" in the language of the question.)";
+        AnswerAgain(talk, offered, question, note);
+    }
+
+    /// <summary>
+    /// <paramref name="question"/> answered again with <paramref name="note"/> for the AI: in <paramref name="old"/>'s place
+    /// when it's the latest answer (the old one and anything under it go, as Ask again), else as a new question at the end.
+    /// </summary>
+    private void AnswerAgain(AskConversation talk, AskAnswer? old, string question, string? note)
+    {
+        int at = old is null ? -1 : talk.Messages.IndexOf(old);
+        bool latest = at >= 0 && !talk.Messages.Skip(at + 1).Any(m => m is AskQuestion or AskAnswer);
+        if (latest)
+        {
+            while (talk.Messages.Count > at) talk.Messages.RemoveAt(at);
+            if (talk.Sent.Count >= 2 && talk.Sent[^2].FromUser && talk.Sent[^2].Text == question) talk.Sent.RemoveRange(talk.Sent.Count - 2, 2);
+        }
+        else talk.Messages.Add(new AskQuestion(question));
+        talk.When = DateTime.Now;
+        talk.Messages.Add(new AskThinking());
+        Changed();
+        ToEnd();
+        Log.Write("ask", latest ? "Answered again after a scan, in the old answer's place" : "Answered again after a scan, at the end");
+        Answer(talk, question, note);
     }
 
     [RelayCommand]

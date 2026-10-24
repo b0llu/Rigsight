@@ -940,8 +940,10 @@ public sealed partial class AskViewModel : ObservableObject
     private string _ollamaModelsFrom = "";
 
     /// <summary>Gets the answer (RigSight AI through the relay, my own key, or Ollama on my PC) and puts it in place of the "Thinking…" line.</summary>
-    private async void Answer(AskConversation talk, string question)
+    /// <param name="aside">Said to the AI with the question but never shown or kept as its words (a drive just scanned for it).</param>
+    private async void Answer(AskConversation talk, string question, string? aside = null)
     {
+        string sent = aside is null ? question : question + "\n\n" + aside;
         IsAnswering = true;
         var took = System.Diagnostics.Stopwatch.StartNew();
         using var stop = new CancellationTokenSource();
@@ -961,9 +963,9 @@ public sealed partial class AskViewModel : ObservableObject
         {
             var reply = Ai.Mode switch
             {
-                AiMode.Ollama => await AskOllama(talk, question, stop.Token),
-                AiMode.OwnKey => await AskOwnKey(talk, question, stop.Token),
-                _ => await AskRelay(talk, question, stop.Token),
+                AiMode.Ollama => await AskOllama(talk, sent, stop.Token),
+                AiMode.OwnKey => await AskOwnKey(talk, sent, stop.Token),
+                _ => await AskRelay(talk, sent, stop.Token),
             };
             if (reply.Text is { } text)
             {

@@ -354,8 +354,9 @@ public sealed partial class AiSettingsViewModel
         OllamaMissing = found is null && OllamaHere && !OllamaPicks.Installed();
         ShowRows(found);
         OllamaConnected = OllamaRows.Count > 0;
-        // A model picked earlier that Ollama no longer has: the first one that can look things up instead.
-        if (OllamaConnected && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
+        // A model picked earlier that Ollama no longer has (removed, even the last one): forgotten, so nothing names it
+        // ("while Ollama loads gemma4:12b" with no models left, 2026-10-24); the first that can look things up is used instead.
+        if (found is not null && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
             Set(a => a.OllamaModel = "", nameof(OllamaModel));
         MarkInUse();
         if (found is not null) await MarkLoaded(address);
