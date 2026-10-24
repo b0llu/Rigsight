@@ -1327,6 +1327,18 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText), nameof(ShowQuestionsPill), nameof(IsLastQuestion), nameof(LastQuestionTitle), nameof(LastQuestionText), nameof(FirstExtra))] private RelayStatus? _standing;
 
+    /// <summary>
+    /// The plan known (or changed): a new chat's starters are read again for its pages. Until the relay answers, Free's
+    /// are assumed, which left one starter of four on a Complete plan (2026-10-24).
+    /// </summary>
+    partial void OnStandingChanged(RelayStatus? oldValue, RelayStatus? newValue)
+    {
+        if (ShowStarters && !SamePages(oldValue?.Plan?.Pages, newValue?.Plan?.Pages)) RefreshStarters();
+    }
+
+    private static bool SamePages(IReadOnlyList<string>? a, IReadOnlyList<string>? b) =>
+        a is null ? b is null : b is not null && a.Order().SequenceEqual(b.Order());
+
     private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct)
     {
         if (KeyStore.Load() is not { Length: > 0 } key)
