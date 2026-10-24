@@ -70,14 +70,15 @@ public static class UsualLines
                 (false, false) => Lang.T($"{app} ran {lastDiff} cooler than usual{cpu}"),
             };
         return new Insight(IconCompare, text, hotter ? InsightTone.Warn : InsightTone.Good, "usual-heat", hotter ? 74 : 41,
-            Lang.T($"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days")) { Short = line, Game = part.App };
+            Lang.T($"{part.NowMinutes} minutes of steady play now; usual from {part.UsualMinutes} minutes over {part.UsualDays} days"))
+            { Short = line, Game = part.App, Ask = hotter ? Lang.T($"Why does {app} run {lastDiff} hotter than usual{cpu}?") : null, AskPage = Ai.AiPages.Games };
     }
 
     /// <summary>The PC's own problems when they were more or fewer than usual; null when as usual.</summary>
     public static Insight? Problems(UsualProblems pr, string span) => pr.Tone switch
     {
         EffectTone.Worse => new Insight(IconWarn, Lang.T($"{Wording.Capital(pr.Words)} {span}; {pr.UsualWords} on this PC. Each one is on the Crashes page."), InsightTone.Warn, "usual-problems", 92,
-            Detail(pr)) { Short = $"{Wording.Capital(pr.Words)} {span}" },
+            Detail(pr)) { Short = $"{Wording.Capital(pr.Words)} {span}", Ask = Lang.T("Why has my PC had more problems than usual?"), AskPage = Ai.AiPages.Crashes },
         EffectTone.Better => new Insight(IconGood,
             pr.Now.Count == 0 ? Lang.T($"Fewer PC problems than usual: none {span}, {pr.UsualWords}.") : Lang.T($"Fewer PC problems than usual: {pr.Now.Count.ToString()} {span}, {pr.UsualWords}."),
             InsightTone.Good, "usual-problems", 45, Detail(pr)) { Short = Lang.T("Fewer PC problems than usual") },
@@ -88,7 +89,7 @@ public static class UsualLines
     public static Insight? Power(UsualProblems pr, string span) => pr.PowerTone != EffectTone.Worse ? null
         : new Insight(IconWarn, Lang.T($"More sudden shut-offs than usual: {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply."),
             InsightTone.Warn, "usual-power", 88, Lang.T($"{pr.PowerNow} in {pr.NowHours:0} h of use; {pr.PowerUsual} in {pr.UsualHours:0} h in the weeks before"))
-            { Short = Lang.T($"More sudden shut-offs than usual {span}") };
+            { Short = Lang.T($"More sudden shut-offs than usual {span}"), Ask = Lang.T("Why does my PC keep shutting off suddenly?"), AskPage = Ai.AiPages.Crashes };
 
     private static string Detail(UsualProblems pr) => Lang.T($"{pr.Now.Count} in {pr.NowHours:0} h of use; {pr.UsualCount} in {pr.UsualHours:0} h in the weeks before");
 

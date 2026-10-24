@@ -79,17 +79,19 @@ public static class InsightEngine
         if (r.CpuOverLimitMin > 0)
             list.Add(new Insight(IconWarn,
                 Lang.T($"Your CPU reached your {Units.TempShort(alerts.CpuLimit)} alert limit for {Wording.Minutes(r.CpuOverLimitMin)}."), InsightTone.Hot, "over-limit", 90)
-                { Short = Lang.T($"CPU at your {Units.TempShort(alerts.CpuLimit)} limit for {Wording.Minutes(r.CpuOverLimitMin)}") });
+                { Short = Lang.T($"CPU at your {Units.TempShort(alerts.CpuLimit)} limit for {Wording.Minutes(r.CpuOverLimitMin)}"),
+                  Ask = Lang.T($"Why did my CPU reach my {Units.TempShort(alerts.CpuLimit)} alert limit?"), AskPage = Ai.AiPages.Temperatures });
         if (r.GpuOverLimitMin > 0)
             list.Add(new Insight(IconWarn,
                 Lang.T($"Your GPU reached your {Units.TempShort(alerts.GpuLimit)} alert limit for {Wording.Minutes(r.GpuOverLimitMin)}."), InsightTone.Hot, "over-limit", 90)
-                { Short = Lang.T($"GPU at your {Units.TempShort(alerts.GpuLimit)} limit for {Wording.Minutes(r.GpuOverLimitMin)}") });
+                { Short = Lang.T($"GPU at your {Units.TempShort(alerts.GpuLimit)} limit for {Wording.Minutes(r.GpuOverLimitMin)}"),
+                  Ask = Lang.T($"Why did my GPU reach my {Units.TempShort(alerts.GpuLimit)} alert limit?"), AskPage = Ai.AiPages.Temperatures });
 
         // The GPU slowing itself down to stay cool, within one game session: the clearest sign cooling isn't keeping up.
         if (r.GpuThrottle is { } gt)
             list.Add(new Insight(IconGpu, Lang.T($"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool: clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}."),
                 InsightTone.Hot, "throttle", 80, Lang.T($"Clocks {gt.DropPercent:0}% under where they were earlier in the same session, while cooler, at no more power"))
-                { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool") });
+                { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool"), Ask = Lang.T("Why did my GPU slow itself down to stay cool?"), AskPage = Ai.AiPages.Temperatures });
 
         // Peaks are shown elsewhere (tiles, hot moments); they're only news when a chip held the heat (a moment's spike on
         // a light load isn't that), and aren't already a limit warning. A record peak says so here, rather than twice.
@@ -100,7 +102,8 @@ public static class InsightEngine
             string best = r.Records.FirstOrDefault(x => x.Kind == record) is { } rec ? Lang.T($", the hottest in {Span(rec.Days)}") : "";
             if (best.Length > 0) peakRecords.Add(record);
             list.Add(new Insight(IconTemp, Lang.T($"{part} peaked at {Units.TempShort(peak.Value)} {When(r, peak.Time)}{best}{PeakWords.With(peak.App)}."),
-                ToneFor(h, warm, hot), "peak", 85) { Short = Lang.T($"{part} peaked at {Units.TempShort(peak.Value)}{best}") });
+                ToneFor(h, warm, hot), "peak", 85) { Short = Lang.T($"{part} peaked at {Units.TempShort(peak.Value)}{best}"),
+                    Ask = Lang.T($"Is a {Units.TempShort(peak.Value)} {part} peak safe for my PC?"), AskPage = Ai.AiPages.Temperatures });
         }
         PeakLine("CPU", r.CpuTempPeak, r.CpuTempHeld, r.CpuOverLimitMin, CpuWarm, CpuHot, RecordKind.HottestCpu);
         PeakLine("GPU", r.GpuTempPeak, r.GpuTempHeld, r.GpuOverLimitMin, GpuWarm, GpuHot, RecordKind.HottestGpu);
@@ -109,7 +112,8 @@ public static class InsightEngine
         if (r.HotSpotGap is { Gpu: double gap, Minutes: >= HotSpotMinutes } && gap >= HotSpotGapWarn)
             list.Add(new Insight(IconTemp,
                 Lang.T($"In games, your GPU hot spot runs {Units.Degrees(gap)} above the core. A gap past {Units.Degrees(HotSpotGapWarn)} can mean the thermal paste or cooler contact has worn."),
-                InsightTone.Warn, "hotspot", 70, Lang.T($"Over {r.HotSpotGap.Minutes} minutes of steady heavy load")) { Short = Lang.T($"GPU hot spot {Units.Degrees(gap)} above the core in games") });
+                InsightTone.Warn, "hotspot", 70, Lang.T($"Over {r.HotSpotGap.Minutes} minutes of steady heavy load")) { Short = Lang.T($"GPU hot spot {Units.Degrees(gap)} above the core in games"),
+                  Ask = Lang.T($"Is my GPU hot spot running {Units.Degrees(gap)} above the core a problem?"), AskPage = Ai.AiPages.Temperatures });
 
         // Against the usual: the same game at steady load, now against the settled weeks before (see PcUsual), at the same
         // power, with the room taken out. It needs weeks, not months, of history, so a PC set up last month has one.
@@ -165,7 +169,7 @@ public static class InsightEngine
                         head + " " + (hotter ? Lang.T($"{rest}, so dust or old thermal paste are the likely causes.") : $"{rest}."),
                         hotter ? InsightTone.Warn : InsightTone.Good, "drift", hotter ? 72 : 40,
                         Lang.T($"{now.Minutes} minutes of steady play now, {before.Minutes} {when}; at rest {restTemp} now, {Units.TempShort(rt)} then"))
-                        { Short = shortLine });
+                        { Short = shortLine, Ask = hotter ? Lang.T($"Why does {app} run {by} hotter than {when}?") : null, AskPage = Ai.AiPages.Temperatures });
                 }
                 Drift("GPU", now.Gpu, before.Gpu, nowRest.Gpu, then.Rest.Gpu);
                 Drift("CPU", now.Cpu, before.Cpu, nowRest.Cpu, then.Rest.Cpu);
@@ -191,11 +195,11 @@ public static class InsightEngine
                     ? new Insight(IconWarn, oneDay
                         ? Lang.T($"Your GPU fan stopped for {mins} from {from:h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged.")
                         : Lang.T($"Your GPU fan stopped for {mins} from {from:ddd d MMM, h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged."),
-                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}") }
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
                     : new Insight(IconWarn, oneDay
                         ? Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:h:mm tt}, when it always turns. Check it isn't blocked or unplugged.")
                         : Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:ddd d MMM, h:mm tt}, when it always turns. Check it isn't blocked or unplugged."),
-                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}") });
+                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did {fan.Name} stop for {mins}?"), AskPage = Ai.AiPages.Fans });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
             }
@@ -236,7 +240,8 @@ public static class InsightEngine
                         + " " + Check(true, fan.Gpu),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"))
-                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual") });
+                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual"),
+                          Ask = fan.Gpu ? Lang.T("Why are my GPU fans spinning slower than usual?") : Lang.T($"Why is {name} spinning slower than usual?"), AskPage = Ai.AiPages.Fans });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -248,7 +253,7 @@ public static class InsightEngine
                 {
                     list.Add(new Insight(IconWarn,
                         Lang.T($"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on.") + " " + Check(false, false),
-                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on") });
+                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on"), Ask = Lang.T($"Why did {fan.Name} slow down while my PC was on?"), AskPage = Ai.AiPages.Fans });
                     fanSaid.Add((fan.Name, fan.Hardware));
                 }
             }
@@ -281,7 +286,8 @@ public static class InsightEngine
                               + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely.")),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"))
-                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}") });
+                        { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}"),
+                          Ask = fan.Gpu ? Lang.T($"Why do my GPU fans spin slower than {when}?") : Lang.T($"Why does {name} spin slower than {when}?"), AskPage = Ai.AiPages.Fans });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -322,7 +328,7 @@ public static class InsightEngine
                     1 => Lang.T($"Once in the {us.UsualDays:0} days before"),
                     var n => Lang.T($"{n} times in the {us.UsualDays:0} days before"),
                 };
-                list.Add(new Insight(IconWarn, line, InsightTone.Warn, "app-crashes", 76, detail) { Short = Lang.T($"{name} crashed {count} times {during}") });
+                list.Add(new Insight(IconWarn, line, InsightTone.Warn, "app-crashes", 76, detail) { Short = Lang.T($"{name} crashed {count} times {during}"), Ask = Lang.T($"Why does {name} keep crashing?"), AskPage = Ai.AiPages.Crashes });
             }
         }
 
@@ -363,7 +369,14 @@ public static class InsightEngine
                 RecordKind.HottestCpu => (IconTemp, Lang.T($"Highest CPU peak in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 62),
                 _ => (IconScreen, Lang.T($"Most screen time in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 61),
             };
-            list.Add(new Insight(icon, text, tone, "record", priority, Lang.T($"Beats every day of the {record.Days} before")) { Short = text.TrimEnd('.') });
+            var (ask, askPage) = record.Kind switch
+            {
+                RecordKind.LongestGameSession => (Lang.T($"Was my {record.Value} of {record.App} hard on my PC?"), Ai.AiPages.Games),
+                RecordKind.HottestGpu => (Lang.T($"Why did my GPU reach its highest peak in {Span(record.Days)}?"), Ai.AiPages.Temperatures),
+                RecordKind.HottestCpu => (Lang.T($"Why did my CPU reach its highest peak in {Span(record.Days)}?"), Ai.AiPages.Temperatures),
+                _ => ((string?)null, ""),
+            };
+            list.Add(new Insight(icon, text, tone, "record", priority, Lang.T($"Beats every day of the {record.Days} before")) { Short = text.TrimEnd('.'), Ask = ask, AskPage = askPage });
         }
         // Not next to "less than your usual Saturday": the two would say opposite things.
         if (r.StreakDays >= 3 && compare is not { Less: true })
@@ -461,7 +474,7 @@ public static class InsightEngine
                     ? Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {bg.Start:h:mm tt} while you were in {bg.FrontApp}.")
                     : Lang.T($"{bg.App} ran your {chip} hard for {Wording.Minutes(bg.Minutes)} from {bg.Start:ddd d MMM, h:mm tt} while you were in {bg.FrontApp}."),
                 InsightTone.Neutral, "background-work", 60,
-                $"{When(r, bg.Start, at: false)} – {When(r, bg.Start.AddMinutes(bg.Minutes), at: false)}") { Short = Lang.T($"{bg.App} worked your {chip} hard in the background") });
+                $"{When(r, bg.Start, at: false)} – {When(r, bg.Start.AddMinutes(bg.Minutes), at: false)}") { Short = Lang.T($"{bg.App} worked your {chip} hard in the background"), Ask = Lang.T($"What was {bg.App} doing with my {chip}?"), AskPage = Ai.AiPages.Processes });
         }
 
         // The game that works the GPU hardest, from steady play only (a warm-up or a menu makes any game look cooler).
@@ -474,7 +487,7 @@ public static class InsightEngine
             double othersGpu = others.Sum(g => g.Gpu * g.Minutes) / others.Sum(g => g.Minutes);
             if (hottest.Gpu - othersGpu >= MinGameHeatDiff)
                 list.Add(new Insight(IconGame, Lang.T($"{hottest.App} works your GPU hardest: {Units.TempShort(hottest.Gpu)} in steady play, against {Units.TempShort(othersGpu)} in your other games."),
-                    InsightTone.Neutral, "game-heat", 52, Wording.JoinAnd(steadyGames.Select(g => $"{g.App} {Units.TempShort(g.Gpu)}"))) { Short = Lang.T($"{hottest.App} works your GPU hardest") });
+                    InsightTone.Neutral, "game-heat", 52, Wording.JoinAnd(steadyGames.Select(g => $"{g.App} {Units.TempShort(g.Gpu)}"))) { Short = Lang.T($"{hottest.App} works your GPU hardest"), Ask = Lang.T($"Why does {hottest.App} work my GPU harder than my other games?"), AskPage = Ai.AiPages.Games });
         }
 
         // Open-but-unused apps (not the same one as the period before: that's nagging).
@@ -493,7 +506,7 @@ public static class InsightEngine
         // Memory: only when one app took a big share, and it isn't the same one as the period before.
         var memHog = MemHog(r);
         if (memHog?.MemMax is double mem && mem >= 4096 && MemHog(previous)?.Name != memHog.Name)
-            list.Add(new Insight(IconMemory, Lang.T($"{memHog.Name} used the most memory, peaking at {Units.Megabytes(mem)}."), InsightTone.Neutral, "memory", 35) { Short = Lang.T($"{memHog.Name} peaked at {Units.Megabytes(mem)} of memory") });
+            list.Add(new Insight(IconMemory, Lang.T($"{memHog.Name} used the most memory, peaking at {Units.Megabytes(mem)}."), InsightTone.Neutral, "memory", 35) { Short = Lang.T($"{memHog.Name} peaked at {Units.Megabytes(mem)} of memory"), Ask = Lang.T($"Why does {memHog.Name} use so much memory?"), AskPage = Ai.AiPages.Memory });
 
         // Left on with nobody there: only long stretches with nothing working (a short break, a render, a download aren't).
         if (r.LongAwaySec >= 3600 && isDay)

@@ -366,11 +366,18 @@ public sealed partial class AskViewModel : ObservableObject
 
     private readonly string? _file;
 
+    /// <summary>Which starters were shown and picked (beside the chats); none in the tests that keep no chats.</summary>
+    private readonly AiStarterLog? _starterLog;
+
+    /// <summary>Home's lines for today and the day before, which the starters are drawn from (set by the shell).</summary>
+    public Func<StarterLines?>? Lines { get; init; }
+
     /// <param name="file">Where conversations are kept; null keeps them only while the app is open (the tests).</param>
     public AskViewModel(SettingsModel settings, string? file = null)
     {
         _settings = settings;
         _file = file;
+        if (file is not null) _starterLog = new AiStarterLog(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(file) ?? "", "ask-starters.json"));
         Pages = new PageSwitchesViewModel(settings, PlanPagesNow) { OpenPlans = () => Plans?.Open() };
         _settings.Changed += OnSettingsChanged;
         if (file is not null)
@@ -530,14 +537,27 @@ public sealed partial class AskViewModel : ObservableObject
         var tools = Tools();
         var open = PlanPagesNow();
         var now = DateTime.Now;
-        Task.Run(() => (tools.Starters(now, open is null ? null : open.Contains), tools.PcLine()))
+        var lines = Lines?.Invoke();
+        var asked = Conversations.SelectMany(c => c.Messages.OfType<AskQuestion>()).Select(q => q.Text).ToList();
+        var log = _starterLog;
+        // Counted as shown only with the window open: read while it's closed (Home reloading), nobody saw them.
+        bool seen = IsOpen;
+        Task.Run(() =>
+            {
+                var starters = tools.Starters(now, open is null ? null : open.Contains, lines, asked, log);
+                if (seen) log?.Shown(starters.Select(s => s.Topic), now);
+                return (starters, tools.PcLine());
+            })
             .ContinueWith(t =>
             {
                 if (!t.IsCompletedSuccessfully) return;
-                Starters = [.. t.Result.Item1.Select(s => new AskStarter(s.Text, s.Page))];
+                Starters = [.. t.Result.starters.Select(s => new AskStarter(s.Text, s.Page))];
                 PcLine = t.Result.Item2;
             }, TaskScheduler.FromCurrentSynchronizationContext());
     }
+
+    /// <summary>Home's lines changed (today's report read again): a new chat on screen shows starters from them.</summary>
+    public void LinesChanged() { if (ShowStarters) RefreshStarters(); }
 
     // ── Questions left (RigSight AI only) ────────────────────────────────
     /// <summary>Every PC gets this many free questions to try RigSight AI before buying any.</summary>
@@ -628,7 +648,10 @@ public sealed partial class AskViewModel : ObservableObject
 
     partial void OnIsOpenChanged(bool value)
     {
-        if (value) _ = RefreshQuestionsAsync();
+        if (!value) return;
+        _ = RefreshQuestionsAsync();
+        // Read again as the window opens: what Home said since, and only now are they counted as seen.
+        if (ShowStarters) RefreshStarters();
     }
 
     private void FirstQuestionChanged()
@@ -886,7 +909,13 @@ public sealed partial class AskViewModel : ObservableObject
         IsHistoryOpen = false;
     }
 
-    [RelayCommand] private void Starter(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion) Ask(text); }
+    [RelayCommand]
+    private void Starter(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || ShowFirstQuestion) return;
+        if (_starterLog is { } log) { var (topic, now) = (AiStarterLog.TopicOf(text), DateTime.Now); Task.Run(() => log.Picked(topic, now)); }
+        Ask(text);
+    }
 
     /// <summary>One of the questions under the latest answer, asked as if typed.</summary>
     [RelayCommand] private void AskSuggested(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion && !IsAnswering && !IsOutOfQuestions) Ask(text); }

@@ -142,7 +142,7 @@ public static class NetInsights
             list.Add(new Insight(IconDrop,
                 Lang.T($"Your internet dropped {drops} times {period}, the longest for {Units.Duration(longest.Seconds)} at {TimeUtil.FromUnix(longest.Start):h:mm tt}.") + why,
                 InsightTone.Warn, "net-drops", 74,
-                string.Join(" · ", r.Drops.Select(d => $"{TimeText.At(TimeUtil.FromUnix(d.Start), "h:mm tt")} {Units.Duration(d.Seconds)}"))) { Short = Lang.T($"Your internet dropped {drops} times") });
+                string.Join(" · ", r.Drops.Select(d => $"{TimeText.At(TimeUtil.FromUnix(d.Start), "h:mm tt")} {Units.Duration(d.Seconds)}"))) { Short = Lang.T($"Your internet dropped {drops} times"), Ask = Lang.T($"Why did my internet drop {drops} times {period}?"), AskPage = Ai.AiPages.Network });
         }
 
         return list;
@@ -167,7 +167,8 @@ public static class NetInsights
                     : Lang.T($"{name} uploaded {up} {period}. It usually uploads next to nothing."),
                 usual >= MB ? InsightTone.Neutral : InsightTone.Warn, "net-upload", 68,
                 Lang.T($"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"))
-                { Short = usual >= MB ? Lang.T($"{name} uploaded {times:0}× its usual") : Lang.T($"{name} uploaded {up}, usually next to nothing") });
+                { Short = usual >= MB ? Lang.T($"{name} uploaded {times:0}× its usual") : Lang.T($"{name} uploaded {up}, usually next to nothing"),
+                  Ask = Lang.T($"Why did {name} upload {up} {period}?"), AskPage = Ai.AiPages.Network });
             return;
         }
     }

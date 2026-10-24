@@ -99,7 +99,14 @@ public sealed partial class ShellViewModel : ObservableObject
         };
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
-        Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File) { OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page };
+        Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File)
+        {
+            OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page,
+            // Today's lines, and yesterday's while the recap shows a day: what the new chat's starters are drawn from.
+            Lines = () => Home.Today is null && Home.Recap is null ? null
+                : new Core.Ai.StarterLines(Home.Today?.Insights ?? [], Home.Recap is { Range: Core.Reports.ReportRange.Day } recap ? recap.Insights : []),
+        };
+        Home.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(HomeViewModel.Today) or nameof(HomeViewModel.Recap)) Ask.LinesChanged(); };
         Crashes.Ask = Ask;
         // An answer's buttons: a page at the right spot, the agent started, the problem report copied, a closed app on the Timeline.
         Ask.OpenPageAt = OpenPageFromAnswer;

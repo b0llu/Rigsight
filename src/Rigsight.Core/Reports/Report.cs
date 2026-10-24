@@ -34,6 +34,15 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
     public InsightOpens Opens { get; init; }
     public bool CanOpen => Opens != InsightOpens.None;
 
+    /// <summary>
+    /// The question this line raises, for a new chat's starters ("Why does Discord keep crashing?"), written where the
+    /// line's figures are at hand; none for a line that's a complete fact (time in games, a break).
+    /// </summary>
+    public string? Ask { get; init; }
+
+    /// <summary>The page whose records answer <see cref="Ask"/> (an <see cref="Ai.AiPages"/> name).</summary>
+    public string AskPage { get; init; } = "";
+
     /// <summary>The game a line is about (its name as shown), which the line opens on the Games page.</summary>
     public string? Game { get; init; }
 
