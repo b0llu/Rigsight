@@ -24,6 +24,8 @@ public sealed partial class DriveSummary : ObservableObject
                 OnPropertyChanged(nameof(HealthText));
                 OnPropertyChanged(nameof(HealthBrush));
                 OnPropertyChanged(nameof(HealthReason));
+                OnPropertyChanged(nameof(StateWord));
+                OnPropertyChanged(nameof(Details));
             };
         if (usedSpace is not null)
             usedSpace.PropertyChanged += (_, e) =>
@@ -42,7 +44,7 @@ public sealed partial class DriveSummary : ObservableObject
     public SensorItem? PowerOnHours { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasHealth), nameof(HealthText), nameof(HealthBrush), nameof(SectorsText), nameof(HealthToolTip), nameof(HealthReason), nameof(SectorsBrush))]
+    [NotifyPropertyChangedFor(nameof(HasHealth), nameof(HealthText), nameof(HealthBrush), nameof(SectorsText), nameof(HealthToolTip), nameof(HealthReason), nameof(SectorsBrush), nameof(StateWord), nameof(Details))]
     private DriveHealthInfo? _health;
 
     private string Status => Health?.Status ?? "Unknown";
@@ -69,6 +71,26 @@ public sealed partial class DriveSummary : ObservableObject
     /// SMART reporting a failure is.
     /// </summary>
     private int Level => Math.Max(Status switch { "Bad" => 2, "Caution" => 1, _ => 0 }, Life?.Value is double left && left <= WornOut ? 1 : 0);
+
+    /// <summary>
+    /// What the drive's state means, on the right of its row (approved mock-up 2026-10-24: "Fine" said too little):
+    /// Healthy, Early warning (bad sectors, SMART warnings, little life left: keep a backup) or Failing (SMART reports a
+    /// failure: back up now). Empty while nothing is known.
+    /// </summary>
+    public string StateWord => !HasHealth ? "" : Level switch { 2 => Lang.T("Failing"), 1 => Lang.T("Early warning"), _ => Lang.T("Healthy") };
+
+    /// <summary>"87% life left · 9,410 hours on" (what the drive reports), under its name.</summary>
+    public string Details
+    {
+        get
+        {
+            var bits = new List<string>();
+            if (Life is not null) bits.Add(Lang.T($"{Life.ShortValue} life left"));
+            if (PowerOnHours?.Value is double h) bits.Add(Lang.T($"{h:N0} hours on"));
+            if (SectorsText is { } sectors) bits.Add(sectors);
+            return string.Join(" · ", bits);
+        }
+    }
 
     public Brush HealthBrush => (Brush)Application.Current.FindResource(Level switch
     {

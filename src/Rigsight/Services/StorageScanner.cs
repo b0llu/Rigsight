@@ -5,8 +5,11 @@ using Rigsight.Core;
 
 namespace Rigsight.Services;
 
-/// <summary>A folder (or a grouped bucket) and its total size.</summary>
-public sealed class FolderNode
+/// <summary>What kind of files take a folder's space, by their extension: the map's colours and its key.</summary>
+public enum FileKind { GameData, Video, PhotosAndMusic, Programs, Archives, Other }
+
+/// <summary>A folder (or a grouped bucket, or one file once a folder's files are listed) and its total size.</summary>
+public sealed class FolderNode : System.ComponentModel.INotifyPropertyChanged
 {
     public required string Name { get; init; }
     public required string Path { get; init; }
@@ -16,16 +19,77 @@ public sealed class FolderNode
     public List<FolderNode> Children { get; set; } = [];
     /// <summary>True for "files in this folder" and "smaller items" buckets (not real folders).</summary>
     public bool IsBucket { get; init; }
-    /// <summary>There is something inside to show: a folder with folders or files of its own. Not the two buckets.</summary>
-    public bool CanOpen => Children.Count > 0;
-    public string FilesText => Files == 1 ? Lang.T("1 file") : Lang.T($"{Files:N0} files");
+    /// <summary>One file (listed when its folder is opened): nothing inside; pressed, it's shown in Explorer.</summary>
+    public bool IsFile { get; init; }
+    /// <summary>"Files in this folder": its files are listed when it's opened, not kept by the scan.</summary>
+    public bool IsLooseFiles { get; init; }
+    /// <summary>
+    /// One of a folder's smaller folders, kept as its total only (what's under it would cost memory on a big drive for
+    /// something rarely opened): opening it scans just that folder, which takes moments.
+    /// </summary>
+    public bool NeedsScan { get; set; }
+    /// <summary>The space each <see cref="FileKind"/> takes in it, everything below added in.</summary>
+    public long[] Kinds { get; } = new long[KindCount];
+    public const int KindCount = 6;
+    /// <summary>Its kind's colour, for the list's swatch (the map's own).</summary>
+    public System.Windows.Media.Brush KindBrush => Controls.Treemap.KindBrush(Kind);
+    /// <summary>The kind taking most of its space, for its colour.</summary>
+    public FileKind Kind => IsFile ? FileKinds.Of(Name) : Kinds.All(k => k == 0) ? FileKind.Other : (FileKind)Array.IndexOf(Kinds, Kinds.Max());
+    /// <summary>
+    /// There is something inside to show: folders, or files to list. Every folder opens down to its files, and the
+    /// buckets open too (their folders, or the loose files), so nothing on a drive is out of reach.
+    /// </summary>
+    public bool CanOpen => !IsFile && (Children.Count > 0 || Files > 0 || NeedsScan);
+    public string FilesText => IsFile ? "" : Files == 1 ? Lang.T("1 file") : Lang.T($"{Files:N0} files");
     public double Share => Parent is { Size: > 0 } p ? 100.0 * Size / p.Size : 100;
+
+    private bool _isHot;
+    /// <summary>Pointed at in the list or the map: the other one lights it too.</summary>
+    public bool IsHot
+    {
+        get => _isHot;
+        set { if (_isHot == value) return; _isHot = value; PropertyChanged?.Invoke(this, new(nameof(IsHot))); }
+    }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>Which <see cref="FileKind"/> a file is, by its extension.</summary>
+public static class FileKinds
+{
+    private static readonly Dictionary<string, FileKind> ByExtension = Build();
+
+    private static Dictionary<string, FileKind> Build()
+    {
+        var d = new Dictionary<string, FileKind>(StringComparer.OrdinalIgnoreCase);
+        void Add(FileKind kind, string list) { foreach (var e in list.Split(' ')) d["." + e] = kind; }
+        Add(FileKind.GameData, "pak pck bundle assets resource resources big vpk arc forge rpf bnk wem ucas utoc bdt bhd sb cas toc gpk upk uasset umap xnb wad pk3 pk4 cpk dat bin cache");
+        Add(FileKind.Video, "mp4 mkv mov avi webm m4v wmv ts mts m2ts flv mpg mpeg bik bk2 usm");
+        Add(FileKind.PhotosAndMusic, "jpg jpeg png gif bmp webp heic heif raw cr2 nef arw dng tif tiff psd mp3 flac wav ogg m4a aac opus wma aiff");
+        Add(FileKind.Programs, "exe dll sys msi msix appx cab cat mui pdb lib obj py js ts jar class so node pyc");
+        Add(FileKind.Archives, "zip rar 7z tar gz bz2 xz zst iso img vhd vhdx vmdk qcow2 wim esd");
+        return d;
+    }
+
+    public static FileKind Of(string name) => ByExtension.TryGetValue(System.IO.Path.GetExtension(name), out var kind) ? kind : FileKind.Other;
+
+    /// <summary>The key's words for each kind.</summary>
+    public static string Name(FileKind kind) => kind switch
+    {
+        FileKind.GameData => Lang.T("Game data"),
+        FileKind.Video => Lang.T("Video"),
+        FileKind.PhotosAndMusic => Lang.T("Photos and music"),
+        FileKind.Programs => Lang.T("Programs and code"),
+        FileKind.Archives => Lang.T("Archives and disk images"),
+        _ => Lang.T("Other files"),
+    };
 }
 
 public sealed record LargeFile(string Path, long Size)
 {
     public string Name => System.IO.Path.GetFileName(Path);
     public string Folder => System.IO.Path.GetDirectoryName(Path) ?? "";
+    /// <summary>When it was last changed, for "big files untouched for a year".</summary>
+    public DateTime LastWrite { get; init; }
 }
 
 public sealed class ScanResult
@@ -59,7 +123,9 @@ public static class StorageScanner
 
     /// <param name="hold">While reset, the scan waits (between folders): the drive is left to something the user is
     /// waiting on, such as the Recycle Bin being emptied.</param>
-    public static Task<ScanResult> ScanAsync(string root, IProgress<(long Files, long Bytes)> progress, CancellationToken ct, ManualResetEventSlim? hold = null) =>
+    /// <param name="folder">The folder being read now, for the page's progress line (about every 150 ms).</param>
+    public static Task<ScanResult> ScanAsync(string root, IProgress<(long Files, long Bytes)> progress, CancellationToken ct, ManualResetEventSlim? hold = null,
+        IProgress<string>? folder = null) =>
         Task.Run(() =>
         {
             var started = DateTime.Now;
@@ -76,6 +142,7 @@ public static class StorageScanner
                 hold?.Wait(ct);
                 var node = new FolderNode { Name = name, Path = path, Parent = parent };
                 long directSize = 0, directFiles = 0;
+                var directKinds = new long[FolderNode.KindCount];
                 var subdirs = new List<string>();
                 foreach (var entry in Entries(path))
                 {
@@ -90,7 +157,8 @@ public static class StorageScanner
                     lock (seen)
                         if (!seen.Add(entry.Id)) continue;
                     directSize += entry.OnDisk;
-                    if (entry.OnDisk > Interlocked.Read(ref largestFloor)) OfferLargest(System.IO.Path.Combine(path, entry.Name), entry.OnDisk);
+                    directKinds[(int)FileKinds.Of(entry.Name)] += entry.OnDisk;
+                    if (entry.OnDisk > Interlocked.Read(ref largestFloor)) OfferLargest(System.IO.Path.Combine(path, entry.Name), entry.OnDisk, entry.LastWrite);
                 }
 
                 Interlocked.Add(ref files, directFiles);
@@ -99,6 +167,7 @@ public static class StorageScanner
                 {
                     Interlocked.Exchange(ref lastReport, Environment.TickCount64);
                     progress.Report((Interlocked.Read(ref files), Interlocked.Read(ref bytes)));
+                    folder?.Report(path);
                 }
 
                 // Parallelize the top levels; deeper levels are walked sequentially.
@@ -125,6 +194,7 @@ public static class StorageScanner
                             lock (seen)
                                 if (!seen.Add(entry.Id)) continue;
                             deepSize += entry.OnDisk;
+                            directKinds[(int)FileKinds.Of(entry.Name)] += entry.OnDisk;
                         }
                     }
                     Interlocked.Add(ref files, deepFiles);
@@ -146,33 +216,45 @@ public static class StorageScanner
 
                 node.Size = directSize + children.Sum(c => c.Size);
                 node.Files = directFiles + children.Sum(c => c.Files);
+                for (int k = 0; k < FolderNode.KindCount; k++) node.Kinds[k] = directKinds[k] + children.Sum(c => c.Kinds[k]);
 
                 var list = children.Where(c => c.Size > 0).OrderByDescending(c => c.Size).ToList();
                 if (list.Count > KeepChildren)
                 {
                     var rest = list.Skip(KeepChildren).ToList();
                     list = list.Take(KeepChildren).ToList();
-                    list.Add(new FolderNode
+                    // Kept, not dropped: the bucket opens to them (they were out of reach before).
+                    var smaller = new FolderNode
                     {
                         Name = Lang.T($"{rest.Count} smaller folders"), Path = path, Parent = node, IsBucket = true,
-                        Size = rest.Sum(r => r.Size), Files = rest.Sum(r => r.Files),
-                    });
+                        Size = rest.Sum(r => r.Size), Files = rest.Sum(r => r.Files), Children = rest,
+                    };
+                    // Each kept as its total only: what's under it goes, as before, and opening it scans it then.
+                    foreach (var r in rest)
+                    {
+                        r.Parent = smaller;
+                        if (r.Children.Count > 0) { r.Children = []; r.NeedsScan = true; }
+                    }
+                    for (int k = 0; k < FolderNode.KindCount; k++) smaller.Kinds[k] = rest.Sum(r => r.Kinds[k]);
+                    list.Add(smaller);
                 }
                 if (directSize > 0 && list.Count > 0)
                 {
-                    list.Add(new FolderNode
+                    var loose = new FolderNode
                     {
-                        Name = Lang.T("Files in this folder"), Path = path, Parent = node, IsBucket = true,
+                        Name = Lang.T("Files in this folder"), Path = path, Parent = node, IsBucket = true, IsLooseFiles = true,
                         Size = directSize, Files = directFiles,
-                    });
+                    };
+                    Array.Copy(directKinds, loose.Kinds, FolderNode.KindCount);
+                    list.Add(loose);
                 }
                 node.Children = [.. list.OrderByDescending(c => c.Size)];
                 return node;
             }
 
-            void OfferLargest(string path, long size)
+            void OfferLargest(string path, long size, DateTime lastWrite)
             {
-                largest.Add(new LargeFile(path, size));
+                largest.Add(new LargeFile(path, size) { LastWrite = lastWrite });
                 if (largest.Count > KeepLargestFiles * 4)
                 {
                     lock (largest)
@@ -191,7 +273,11 @@ public static class StorageScanner
             var rootInfo = new DirectoryInfo(root);
             var result = Walk(root, rootInfo.Name, null, 0);
             if (string.IsNullOrEmpty(result.Name) || result.Name == rootInfo.Root.Name)
-                result = new FolderNode { Name = root, Path = root, Size = result.Size, Files = result.Files, Children = result.Children };
+            {
+                var renamed = new FolderNode { Name = root, Path = root, Size = result.Size, Files = result.Files, Children = result.Children };
+                Array.Copy(result.Kinds, renamed.Kinds, FolderNode.KindCount);
+                result = renamed;
+            }
             foreach (var c in result.Children) c.Parent = result;
 
             progress.Report((files, bytes));
@@ -203,6 +289,22 @@ public static class StorageScanner
                 Elapsed = DateTime.Now - started,
             };
         }, ct);
+
+    /// <summary>
+    /// The files right in <paramref name="node"/>'s folder, biggest first, as nodes under it (the scan keeps folders and
+    /// their totals, not every file): read when a folder or "Files in this folder" is opened. Space on the drive, as the
+    /// scan counts it.
+    /// </summary>
+    public static List<FolderNode> FilesIn(FolderNode node)
+    {
+        var list = new List<FolderNode>();
+        foreach (var e in Entries(node.Path))
+        {
+            if (e.IsFolder || e.OnDisk <= 0) continue;
+            list.Add(new FolderNode { Name = e.Name, Path = System.IO.Path.Combine(node.Path, e.Name), Parent = node, Size = e.OnDisk, Files = 1, IsFile = true });
+        }
+        return [.. list.OrderByDescending(f => f.Size)];
+    }
 
     /// <summary>
     /// The space the files under a folder take on the drive (for cleanup suggestions), those <paramref name="filter"/>
@@ -355,12 +457,14 @@ public static class StorageScanner
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SHEmptyRecycleBin(IntPtr hwnd, string? rootPath, uint flags);
 
-    public static (long Size, long Items) RecycleBin()
+    /// <summary>The Recycle Bin: every drive's, or one drive's (<paramref name="root"/>, "E:\").</summary>
+    public static (long Size, long Items) RecycleBin(string? root = null)
     {
         var info = new SHQUERYRBINFO { cbSize = Marshal.SizeOf<SHQUERYRBINFO>() };
-        return SHQueryRecycleBin(null, ref info) == 0 ? (info.i64Size, info.i64NumItems) : (0, 0);
+        return SHQueryRecycleBin(root, ref info) == 0 ? (info.i64Size, info.i64NumItems) : (0, 0);
     }
 
-    /// <summary>Empties the Recycle Bin (Windows shows its own confirmation and progress).</summary>
+    /// <summary>Empties the Recycle Bin, every drive's or one drive's (Windows shows its own confirmation and progress).</summary>
     public static bool EmptyRecycleBin(IntPtr owner) => SHEmptyRecycleBin(owner, null, 0) == 0;
+    public static bool EmptyRecycleBin(IntPtr owner, string? root) => SHEmptyRecycleBin(owner, root, 0) == 0;
 }

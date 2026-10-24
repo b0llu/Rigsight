@@ -27,6 +27,12 @@ public static class DriveScans
         lock (Gate) return Last.ContainsKey(letter);
     }
 
+    /// <summary>A drive's kept scan and when it was made, for the Storage page's drive tabs; null when none this run.</summary>
+    public static (ScanResult Result, DateTime At)? Get(string letter)
+    {
+        lock (Gate) return Last.TryGetValue(letter, out var scan) ? scan : null;
+    }
+
     /// <summary>"E" from "E:\" or "E:"; null for a folder.</summary>
     public static string? Letter(string root)
     {

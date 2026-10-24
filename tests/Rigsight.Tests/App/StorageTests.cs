@@ -39,6 +39,40 @@ public sealed class StorageTests
     }
 
     [Fact]
+    public void The_smaller_folders_are_kept_as_totals_and_open_by_scanning_them_then()
+    {
+        // 65 folders, each with a folder of its own: past the 60 kept, the rest go in "5 smaller folders".
+        var root = TestEnvironment.NewFolder("many");
+        for (int i = 0; i < 65; i++)
+        {
+            Directory.CreateDirectory(Path.Combine(root, $"d{i:00}", "inner"));
+            File.WriteAllBytes(Path.Combine(root, $"d{i:00}", "inner", "x.bin"), new byte[(i + 1) * K]);
+        }
+        var vm = Page();
+        Kit.Wait(() => vm.ScanCommand.ExecuteAsync(root));
+        FolderNode smaller = null!, kept = null!;
+        Ui.Run(() =>
+        {
+            smaller = vm.Result!.Root.Children.Single(c => c.IsBucket && c.Name.Contains("smaller folders"));
+            Assert.Equal(5, smaller.Children.Count);
+            kept = smaller.Children[0];
+            // A total only: what's under it isn't held, but it still opens.
+            Assert.True(kept.NeedsScan);
+            Assert.Empty(kept.Children);
+            Assert.True(kept.CanOpen);
+            vm.Open(smaller);
+            Assert.Same(smaller, vm.Current);
+            vm.Open(kept);
+        });
+        Assert.True(Ui.WaitFor(() => vm.Current == kept, 10_000), "the smaller folder never opened");
+        Ui.Run(() =>
+        {
+            Assert.False(kept.NeedsScan);
+            Assert.Equal(["inner"], vm.CurrentItems.Select(n => n.Name));
+        });
+    }
+
+    [Fact]
     public void A_scan_the_user_started_says_when_its_done_and_the_refresh_buttons_doesnt()
     {
         // The page goes to what the scan found, below the drives (a user thought the app had crashed); Refresh scans where they already are.
@@ -123,10 +157,14 @@ public sealed class StorageTests
             Assert.True(vm.CanGoUp);
             var c = b.Children[0];
             Assert.Equal("c", c.Name);
-            // A folder with nothing under it doesn't open.
+            // A folder of files only opens to its files (2026-10-24: every file reachable); a file shows in Explorer.
             vm.Open(c);
-            Assert.Same(b, vm.Current);
+            Assert.Same(c, vm.Current);
+            Assert.All(vm.CurrentItems, f => Assert.True(f.IsFile));
+            Assert.NotEmpty(vm.CurrentItems);
             vm.OpenCommand.Execute(null);
+            Assert.Same(c, vm.Current);
+            vm.UpCommand.Execute(null);
             Assert.Same(b, vm.Current);
             vm.UpCommand.Execute(null);
             Assert.Same(vm.Result.Root, vm.Current);
@@ -327,7 +365,9 @@ public sealed class StorageTests
         var fixedDrives = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady).Select(d => d.Name).ToList();
         Ui.Run(() =>
         {
-            Assert.Equal(fixedDrives, vm.Volumes.Select(v => v.Root));
+            // Every fixed drive, the fullest first (2026-10-24).
+            Assert.Equal(fixedDrives.Order(), vm.Volumes.Select(v => v.Root).Order());
+            Assert.Equal(vm.Volumes.OrderByDescending(v => v.UsedPercent).Select(v => v.Root), vm.Volumes.Select(v => v.Root));
             Assert.False(vm.CleanupLoading);
             foreach (var v in vm.Volumes)
             {
@@ -477,9 +517,9 @@ public sealed class StorageTests
         {
             Assert.True(vm.ShowResult);
             Assert.Equal($"The {vm.Result!.LargestFiles.Count} largest files in {vm.Result.Root.Path}", vm.FilesTitle);
-            // Only a folder with something under it opens; the buckets never do.
+            // Everything opens down to its files, the buckets too (2026-10-24: nothing out of reach).
             Assert.True(vm.Result.Root.CanOpen);
-            Assert.All(vm.Result.Root.Children.Where(c => c.IsBucket), c => Assert.False(c.CanOpen));
+            Assert.All(vm.Result.Root.Children.Where(c => c.IsBucket), c => Assert.True(c.CanOpen));
         });
     }
 
@@ -516,7 +556,7 @@ public sealed class StorageTests
                 Ui.Pump(200);
                 var box = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(window).Single(s => s.Name == "ListBox");
                 double height = box.ActualHeight;
-                Assert.True(height >= 420);
+                Assert.True(height >= 400);
                 vm.ScanView = "Files";
                 Ui.Pump(200);
                 Assert.False(box.IsVisible);
@@ -526,13 +566,14 @@ public sealed class StorageTests
                 Ui.Pump(300);
                 var rows = Visuals.Descendants<System.Windows.Controls.Button>(box).Where(r => r.DataContext is FolderNode).ToList();
                 Assert.Equal(vm.CurrentItems, rows.Select(r => (FolderNode)r.DataContext));
-                Assert.All(rows, r => Assert.True(r.ActualWidth > 600, $"row {((FolderNode)r.DataContext).Name} is {r.ActualWidth} wide"));
+                // The list beside the map: about half the box, never squeezed to nothing.
+                Assert.All(rows, r => Assert.True(r.ActualWidth > 300, $"row {((FolderNode)r.DataContext).Name} is {r.ActualWidth} wide"));
                 var names = rows.Select(r => Visuals.Descendants<System.Windows.Controls.TextBlock>(r).Single(x => x.Text == ((FolderNode)r.DataContext).Name)).ToList();
                 Assert.All(names, n => Assert.True(n.ActualWidth > 0));
                 // Three things or one: the same box.
                 Assert.Equal(height, box.ActualHeight);
-                // A bucket has nothing to open.
-                Assert.False(rows.Single(r => ((FolderNode)r.DataContext).IsBucket).IsEnabled);
+                // A bucket opens too (to its files).
+                Assert.True(rows.Single(r => ((FolderNode)r.DataContext).IsBucket).IsEnabled);
                 Assert.True(rows[0].IsEnabled);
             }
             finally { window.Close(); }

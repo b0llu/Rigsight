@@ -1364,12 +1364,8 @@
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressLeft}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
                                                         <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}"><Span ctl:Md.Text="{Binding ProgressDone}" /></TextBlock>
                                                     </DockPanel>
-                                                    <Grid Height="6" ClipToBounds="True">
-                                                        <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
-                                                        <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
-                                                            <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
-                                                        </Border>
-                                                    </Grid>
+                                                    <!-- The app's own bar (a bound transform in a template warned "no governing element"). -->
+                                                    <ProgressBar Style="{StaticResource Bar}" Value="{Binding Progress, Converter={StaticResource Scale}, ConverterParameter=100}" />
                                                     <DockPanel Margin="0,6,0,0">
                                                         <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop the download'}"
                                                                 Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />

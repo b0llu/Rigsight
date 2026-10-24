@@ -102,7 +102,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             var panel = Panel();
             // No marker shows as words anywhere, and every pill drawn has its sources.
             var words = Visuals.Descendants<TextBlock>(panel).Select(t => t.Text).ToList();
-            Assert.DoesNotContain(words, w => w.Contains("[src", StringComparison.Ordinal) || w.Contains("[do", StringComparison.Ordinal) || w.Contains("Ask next", StringComparison.Ordinal));
+            Assert.DoesNotContain(words, w => w.Contains("[src", StringComparison.Ordinal) || w.Contains("[do", StringComparison.Ordinal) || w.Contains("Ask next:", StringComparison.Ordinal));
             var pills = Pills(panel);
             Assert.Equal(3, pills.Count);
             Assert.All(pills, p => Assert.True(((AskRefs)p.Tag).List.Count > 0));

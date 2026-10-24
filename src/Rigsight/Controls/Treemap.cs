@@ -6,7 +6,11 @@ using Rigsight.Services;
 
 namespace Rigsight.Controls;
 
-/// <summary>Squarified treemap of a folder's contents: area is proportional to size. Click a folder to open it.</summary>
+/// <summary>
+/// Squarified treemap of a folder's contents: area is proportional to size, each block coloured by the kind of files
+/// taking most of it (the key under the map), and a big folder's own biggest items drawn inside it, a level deeper
+/// (approved mock-up 2026-10-24). Click a block to open it; <see cref="Hot"/> lights the one pointed at in the list.
+/// </summary>
 public sealed class Treemap : FrameworkElement
 {
     public static readonly DependencyProperty ItemsProperty = DependencyProperty.Register(
@@ -14,39 +18,32 @@ public sealed class Treemap : FrameworkElement
 
     public IReadOnlyList<FolderNode>? Items { get => (IReadOnlyList<FolderNode>?)GetValue(ItemsProperty); set => SetValue(ItemsProperty, value); }
 
-    public event Action<FolderNode>? ItemActivated;
+    /// <summary>The item pointed at in the list beside the map: its block is outlined.</summary>
+    public static readonly DependencyProperty HotProperty = DependencyProperty.Register(
+        nameof(Hot), typeof(FolderNode), typeof(Treemap), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    private static readonly Brush[] Own =
-    [
-        ChartPaint.Frozen(0x5B, 0x8C, 0xFF), ChartPaint.Frozen(0x3D, 0xDC, 0x97), ChartPaint.Frozen(0xB1, 0x8C, 0xFF),
-        ChartPaint.Frozen(0xFB, 0xBF, 0x24), ChartPaint.Frozen(0xF4, 0x72, 0xB6), ChartPaint.Frozen(0x22, 0xD3, 0xEE),
-        ChartPaint.Frozen(0xF8, 0x71, 0x71), ChartPaint.Frozen(0x7C, 0x83, 0xFD),
-    ];
-    private static Brush[] _shades = Own;
-    private static int _shadesTheme = -1;
+    public FolderNode? Hot { get => (FolderNode?)GetValue(HotProperty); set => SetValue(HotProperty, value); }
+
+    public event Action<FolderNode>? ItemActivated;
+    /// <summary>The block under the pointer changed (null when off the map), for the list to light the same row.</summary>
+    public event Action<FolderNode?>? HoverChanged;
 
     /// <summary>
-    /// The boxes' colours: the map's own eight, or, once an accent is picked, eight shades of it (none so deep that
-    /// the dark names on the boxes stop reading).
+    /// A kind's colour, from the app's palette (never green, amber or red, which mean good and bad elsewhere): game data
+    /// the CPU blue, video the GPU cyan, photos and music pink, programs violet, archives sky, other files faint.
     /// </summary>
-    private static Brush[] Palette
+    internal static Brush KindBrush(FileKind kind) => (Brush)(Application.Current?.TryFindResource(kind switch
     {
-        get
-        {
-            if (_shadesTheme == Services.ThemeManager.Version) return _shades;
-            _shadesTheme = Services.ThemeManager.Version;
-            if (!Services.ThemeManager.AccentTakesOver) return _shades = Own;
-            Color accent = ChartPaint.Res("AccentColor", 0xFF), text = ChartPaint.Res("TextColor", 0xFF), bg = ChartPaint.Res("BgColor", 0);
-            return _shades =
-            [
-                ChartPaint.Brush(accent), ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.72)), ChartPaint.Brush(Services.Accents.Mix(accent, bg, 0.80)),
-                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.50)), ChartPaint.Brush(Services.Accents.Mix(accent, bg, 0.66)),
-                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.86)), ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.36)),
-                ChartPaint.Brush(Services.Accents.Mix(accent, text, 0.62)),
-            ];
-        }
-    }
+        FileKind.GameData => "CpuBrush",
+        FileKind.Video => "GpuBrush",
+        FileKind.PhotosAndMusic => "PinkBrush",
+        FileKind.Programs => "PurpleBrush",
+        FileKind.Archives => "SkyBrush",
+        _ => "FaintBrush",
+    }) ?? Brushes.SlateGray);
     private static Brush Dim => ChartPaint.Brush(ChartPaint.Res("BgColor", 0), 0.44);
+    private static Brush Inner => ChartPaint.Brush(ChartPaint.Res("BgColor", 0), 0.22);
+    private static Pen HotPen => new(ChartPaint.TextBrush, 2);
     private static readonly Brush Highlight = ChartPaint.Frozen(0xFF, 0xFF, 0xFF, 0x30);
     private static readonly Brush Ink = ChartPaint.Frozen(0x0B, 0x0E, 0x14);
 
@@ -57,14 +54,15 @@ public sealed class Treemap : FrameworkElement
     {
         var p = e.GetPosition(this);
         int i = _layout.FindIndex(l => l.Rect.Contains(p));
-        if (i != _hover) { _hover = i; InvalidateVisual(); }
-        Cursor = i >= 0 && _layout[i].Node.Children.Count > 0 ? Cursors.Hand : Cursors.Arrow;
+        if (i != _hover) { _hover = i; InvalidateVisual(); HoverChanged?.Invoke(i >= 0 ? _layout[i].Node : null); }
+        Cursor = i >= 0 && _layout[i].Node.CanOpen ? Cursors.Hand : Cursors.Arrow;
     }
 
     protected override void OnMouseLeave(MouseEventArgs e)
     {
         _hover = -1;
         InvalidateVisual();
+        HoverChanged?.Invoke(null);
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
@@ -85,7 +83,7 @@ public sealed class Treemap : FrameworkElement
 
         double total = items.Sum(i => (double)i.Size);
         double scale = bounds.Width * bounds.Height / total;
-        var scaled = items.Select((n, idx) => (Area: n.Size * scale, Node: n, Color: idx % Palette.Length)).ToList();
+        var scaled = items.Select(n => (Area: n.Size * scale, Node: n, Color: (int)n.Kind)).ToList();
         _layout = [];
         Squarify(scaled, bounds, _layout);
 
@@ -93,9 +91,12 @@ public sealed class Treemap : FrameworkElement
         {
             var (rect, node, color) = _layout[i];
             var r = new Rect(rect.X + 1.5, rect.Y + 1.5, Math.Max(0, rect.Width - 3), Math.Max(0, rect.Height - 3));
-            dc.DrawRoundedRectangle(Palette[color], null, r, 6, 6);
+            dc.DrawRoundedRectangle(KindBrush((FileKind)color), null, r, 6, 6);
             if (node.IsBucket) dc.DrawRoundedRectangle(Dim, null, r, 6, 6);
+            // A level deeper inside a big folder: its own biggest items, under its name.
+            if (!node.IsBucket && node.Children.Count > 1 && r.Width >= 120 && r.Height >= 90) Nested(dc, r, node);
             if (i == _hover) dc.DrawRoundedRectangle(Highlight, null, r, 6, 6);
+            if (ReferenceEquals(node, Hot)) dc.DrawRoundedRectangle(null, HotPen, r, 6, 6);
 
             Label(dc, r, node);
         }
@@ -112,6 +113,31 @@ public sealed class Treemap : FrameworkElement
             else if (node.Files > 0) lines.Add((Lang.T($"{node.Files:N0} files"), ChartPaint.Muted, false));
             if (node.Children.Count > 0) lines.Add((Lang.T("Click to open"), ChartPaint.Muted, false));
             ChartPaint.InfoBox(dc, this, lines, Mouse.GetPosition(this), bounds);
+        }
+    }
+
+    /// <summary>A folder's own biggest items inside its block, below its name, each in its kind's colour.</summary>
+    private void Nested(DrawingContext dc, Rect r, FolderNode node)
+    {
+        var inside = new Rect(r.X + 5, r.Y + 40, Math.Max(0, r.Width - 10), Math.Max(0, r.Height - 45));
+        if (inside.Width < 40 || inside.Height < 30) return;
+        var kids = Grouped(node.Children, inside.Width * inside.Height * 4);
+        double total = kids.Sum(k => (double)k.Size);
+        if (total <= 0) return;
+        double scale = inside.Width * inside.Height / total;
+        var laid = new List<(Rect, FolderNode, int)>();
+        Squarify([.. kids.Select(k => (k.Size * scale, k, (int)k.Kind))], inside, laid);
+        foreach (var (rect, kid, color) in laid)
+        {
+            var kr = new Rect(rect.X + 1, rect.Y + 1, Math.Max(0, rect.Width - 2), Math.Max(0, rect.Height - 2));
+            dc.DrawRoundedRectangle(KindBrush((FileKind)color), null, kr, 4, 4);
+            dc.DrawRoundedRectangle(Inner, null, kr, 4, 4);
+            if (kr.Width >= 50 && kr.Height >= 18)
+            {
+                dc.PushClip(new RectangleGeometry(kr));
+                dc.DrawText(Fitted(kid.Name, 10.5, kr.Width - 10), new Point(kr.X + 5, kr.Y + 3));
+                dc.Pop();
+            }
         }
     }
 
