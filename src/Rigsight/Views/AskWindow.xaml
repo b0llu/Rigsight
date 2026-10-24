@@ -945,8 +945,10 @@
         <!-- An answer still being written: drawn as the finished one will be, so nothing moves when it's done. -->
         <DataTemplate DataType="{x:Type vm:AskWriting}">
             <StackPanel Margin="0,0,0,18">
-                <TextBlock Text="{Binding Verdict}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
-                           Visibility="{Binding Verdict, Converter={StaticResource Vis}}" />
+                <!-- Drawn exactly as the finished answer's opening (its size, weight and Markdown): it was the old bold 15 pt
+                     headline here, which jumped to the plain paragraph once the answer finished (2026-10-24). -->
+                <TextBlock FontSize="13.5" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
+                           Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Span ctl:Md.Text="{Binding Verdict}" /></TextBlock>
                 <ItemsControl ItemsSource="{Binding Parts}" Focusable="False" />
             </StackPanel>
         </DataTemplate>
@@ -1162,7 +1164,7 @@
                                                                             </Style>
                                                                         </Button.Style>
                                                                     </Button>
-                                                                    <Button Style="{StaticResource MenuLine}" Tag="&#xE74D;" Content="{ctl:T 'Delete'}" Foreground="{DynamicResource WarmBrush}"
+                                                                    <Button Style="{StaticResource MenuLine}" Tag="&#xE74D;" Content="{ctl:T 'Delete'}" Foreground="{DynamicResource HotBrush}"
                                                                             Command="{Binding Tag.DeleteCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}" />
                                                                 </StackPanel>
                                                             </ctl:SmoothBorder>
