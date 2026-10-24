@@ -108,15 +108,45 @@ public static class OllamaPicks
     }
 
     /// <summary>True when Ollama is installed on this PC (its own installer's folder, or ollama.exe on the PATH), running or not.</summary>
-    public static bool Installed()
+    public static bool Installed() => OllamaExe() is not null;
+
+    private static string InstallFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama");
+
+    private static string? OllamaExe()
     {
-        var local = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama", "ollama.exe");
-        if (File.Exists(local)) return true;
+        var local = Path.Combine(InstallFolder, "ollama.exe");
+        if (File.Exists(local)) return local;
         foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
-            try { if (File.Exists(Path.Combine(dir.Trim('"'), "ollama.exe"))) return true; }
+            try { if (Path.Combine(dir.Trim('"'), "ollama.exe") is var exe && File.Exists(exe)) return exe; }
             catch (ArgumentException) { }
         }
+        return null;
+    }
+
+    /// <summary>
+    /// Starts Ollama as opening it from the Start menu does: its own app (the tray icon, which runs the server), or else
+    /// "ollama serve" with no window. False when it isn't installed or Windows wouldn't start it.
+    /// </summary>
+    public static bool Start()
+    {
+        try
+        {
+            var app = Path.Combine(InstallFolder, "ollama app.exe");
+            if (File.Exists(app))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(app) { UseShellExecute = true, WorkingDirectory = InstallFolder })?.Dispose();
+                Log.Write("ollama", $"Started Ollama ({app})");
+                return true;
+            }
+            if (OllamaExe() is { } exe)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, "serve") { UseShellExecute = false, CreateNoWindow = true })?.Dispose();
+                Log.Write("ollama", $"Started Ollama ({exe} serve)");
+                return true;
+            }
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Write("ollama", $"Couldn't start Ollama: {ex.Message}"); }
         return false;
     }
 

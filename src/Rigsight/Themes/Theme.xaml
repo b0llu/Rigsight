@@ -916,6 +916,37 @@
         </Setter>
     </Style>
 
+    <!-- A box for a few lines of text (Settings › Ask RigSight › About you and your PC): the field's look, but the text
+         starts at the top and wraps, the box scrolls when it's full, and Tag shows as an example while it's empty. -->
+    <Style x:Key="FieldArea" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="AcceptsReturn" Value="True" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="10" Padding="12,10">
+                        <Grid>
+                            <TextBlock x:Name="Example" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="2,0,0,0"
+                                       IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Stretch" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value=""><Setter TargetName="Example" Property="Visibility" Value="Visible" /></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="FieldPassword" TargetType="PasswordBox">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />

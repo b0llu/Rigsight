@@ -33,8 +33,8 @@
             <!-- What changes when they write their own: said once, before the box. -->
             <ctl:SmoothBorder DockPanel.Dock="Top" CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0">
                 <StackPanel>
-                    <TextBlock Text="{ctl:T 'Your text replaces RigSight\'s own instructions'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{ctl:T 'Answers may get less accurate, and RigSight\'s later improvements to them won\'t reach you. For tone, length or language, use How it answers instead.'}"
+                    <TextBlock Text="{ctl:T 'This replaces RigSight\'s instructions'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{ctl:T 'Answers may be less accurate, and you won\'t get RigSight\'s future improvements. To change only the tone, length or language, use the How it answers settings.'}"
                                FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -51,10 +51,8 @@
 
             <!-- What can't be written away: the rules RigSight adds after any text. -->
             <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,10" Margin="0,12,0,0">
-                <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap">
-                    <Run Text="{ctl:T 'Always kept, whatever you write here.'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                    <Run Text="{ctl:T 'RigSight still checks your PC\'s records before it answers, only says what they show, never sends what you\'ve turned off, and keeps its sources, number cards and buttons.'}" />
-                </TextBlock>
+                <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
+                           Text="{ctl:T 'Whatever you write, RigSight still reads your PC\'s records first, sticks to what they show, skips pages you\'ve turned off, and keeps its sources, number cards and buttons.'}" />
             </ctl:SmoothBorder>
 
             <DockPanel DockPanel.Dock="Top" Margin="0,14,0,8">

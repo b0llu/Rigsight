@@ -104,8 +104,16 @@ public sealed partial class AiSettingsViewModel
     public bool HasOllamaRows => OllamaRows.Count > 0;
     /// <summary>Models on it, but none can look things up: say so above the picks.</summary>
     public bool NoneCanLookUp => OllamaRows.Count > 0 && !OllamaRows.Any(r => r.CanLookUp);
-    /// <summary>Over five, the list scrolls in its own box.</summary>
-    public bool ManyOllamaRows => OllamaRows.Count > 5;
+    /// <summary>
+    /// Over three, the list scrolls in its own box with the fourth row cut in half (so it shows there's more), and a
+    /// search box finds a model by name (the person's call, 2026-10-24).
+    /// </summary>
+    public bool ManyOllamaRows => OllamaRows.Count > 3;
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaShownRows), nameof(NoOllamaMatch))] private string _ollamaSearch = "";
+    public IReadOnlyList<OllamaRow> OllamaShownRows => OllamaSearch.Trim().Length == 0 ? OllamaRows
+        : [.. OllamaRows.Where(r => TextMatch.Has(TextMatch.Words(OllamaSearch), r.Name))];
+    public bool NoOllamaMatch => OllamaRows.Count > 0 && OllamaShownRows.Count == 0;
 
     public IReadOnlyList<OllamaPickCard> Picks { get; private set; } = [];
 
@@ -122,9 +130,9 @@ public sealed partial class AiSettingsViewModel
         }
     }
 
-    /// <summary>Where downloads go: Ollama's own folder, never RigSight's.</summary>
+    /// <summary>Where downloads go: Ollama's own models folder (said as the folder alone, the person's call 2026-10-24).</summary>
     public string DownloadsGo => OllamaHere
-        ? Lang.T($"Downloads go into Ollama's own models folder ({OllamaPicks.ModelsFolder()}), as \"ollama pull\" does, not into RigSight.")
+        ? Lang.T($"Downloads go to {OllamaPicks.ModelsFolder()}")
         : Lang.T($"Downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}. How a model fits there can't be checked from here.");
 
     /// <summary>The three cards for this PC (or, for another computer, by size alone), with what's on Ollama marked.</summary>
@@ -178,6 +186,8 @@ public sealed partial class AiSettingsViewModel
                 return new OllamaRow(m.Name, Units.Bytes(m.Bytes), m.CanLookUp, m.CanLookUp ? OllamaPicks.FitText(fit, OllamaHere ? _card : null) : "", fit);
             })];
         OnPropertyChanged(nameof(OllamaRows));
+        OnPropertyChanged(nameof(OllamaShownRows));
+        OnPropertyChanged(nameof(NoOllamaMatch));
         OnPropertyChanged(nameof(HasOllamaRows));
         OnPropertyChanged(nameof(NoneCanLookUp));
         OnPropertyChanged(nameof(ManyOllamaRows));
@@ -191,6 +201,153 @@ public sealed partial class AiSettingsViewModel
         Log.Write("settings", $"Ask RigSight model picked (Ollama): {row.Name}");
         Set(a => a.OllamaModel = row.Name, nameof(OllamaModel));
         MarkInUse();
+    }
+
+    // ── The line under the address, and the box for a problem (approved mock-up 2026-10-24) ──────────────────
+    // Under the field, an icon as well as a colour, only the dot green when it works, the cause and its fix with one
+    // button when it doesn't, and the line always in its place so nothing below moves.
+
+    public enum OllamaLink { Checking, Connected, BadAddress, Stopped, Missing, NotAnswering, Offline }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LineChecking), nameof(LineOk), nameof(LineWarn), nameof(OllamaLine), nameof(OllamaAddressBad),
+        nameof(HasOllamaBox), nameof(OllamaBoxTitle), nameof(OllamaBoxText), nameof(OllamaBoxCalm), nameof(OllamaBoxAction), nameof(HasOllamaBoxAction))]
+    private OllamaLink _ollamaState = OllamaLink.Checking;
+
+    private string? _ollamaVersion;
+    private int _check;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaLine))] private bool _startingOllama;
+
+    public bool LineChecking => OllamaState == OllamaLink.Checking;
+    public bool LineOk => OllamaState == OllamaLink.Connected;
+    public bool LineWarn => !LineChecking && !LineOk;
+    public bool OllamaAddressBad => OllamaState == OllamaLink.BadAddress;
+
+    public string OllamaLine => OllamaState switch
+    {
+        OllamaLink.Checking => StartingOllama ? Lang.T("Starting Ollama…") : Lang.T($"Checking {Ollama.Where(Ai.OllamaAddress)}…"),
+        OllamaLink.Connected => Connected(),
+        OllamaLink.BadAddress => Lang.T("That isn't an address. It looks like http://localhost:11434"),
+        OllamaLink.Missing => Lang.T("Ollama isn't on this PC"),
+        OllamaLink.NotAnswering when !OllamaHere => Lang.T($"Nothing answers at {Ollama.Host(Ai.OllamaAddress)}"),
+        _ => Lang.T("Not answering"),
+    };
+
+    private string Connected()
+    {
+        string who = _ollamaVersion is { Length: > 0 } v ? Lang.T($"Ollama {v}") : "Ollama";
+        string where = OllamaHere ? Lang.T($"Connected to {who} on this PC") : Lang.T($"Connected to {who} on {Ollama.Host(Ai.OllamaAddress)}");
+        string models = OllamaRows.Count switch { 0 => Lang.T("no models yet"), 1 => Lang.T("1 model"), int n => Lang.T($"{n} models") };
+        return $"{where} · {models}";
+    }
+
+    /// <summary>A problem, or a step left (no models yet): what it is and how to fix it, under the line.</summary>
+    public bool HasOllamaBox => OllamaState is OllamaLink.Stopped or OllamaLink.Missing or OllamaLink.NotAnswering or OllamaLink.Offline
+        || (OllamaState == OllamaLink.Connected && OllamaRows.Count == 0);
+    /// <summary>No models yet isn't a problem: the box is grey, not amber.</summary>
+    public bool OllamaBoxCalm => OllamaState == OllamaLink.Connected;
+
+    public string OllamaBoxTitle => OllamaState switch
+    {
+        OllamaLink.Connected => Lang.T("Pick a model to download below"),
+        OllamaLink.Stopped => Lang.T("Ollama is installed but not running"),
+        OllamaLink.Missing => Lang.T("Get Ollama to answer on this PC"),
+        OllamaLink.Offline => Lang.T("This PC has no network connection"),
+        OllamaLink.NotAnswering when !OllamaHere => Lang.T($"Ollama on {Ollama.Host(Ai.OllamaAddress)} isn't answering"),
+        OllamaLink.NotAnswering => Lang.T($"Ollama isn't answering at {Ollama.Where(Ai.OllamaAddress)}"),
+        _ => "",
+    };
+
+    public string OllamaBoxText => OllamaState switch
+    {
+        OllamaLink.Connected => Lang.T("Ollama is running but has none yet. The first one under Picked for this PC is the one to start with."),
+        OllamaLink.Stopped => Lang.T("Start it and RigSight connects by itself."),
+        OllamaLink.Missing => Lang.T("It's free, and runs the models on your own graphics card. Install it, then press Check again."),
+        OllamaLink.Offline => Lang.T("Ollama on another computer needs the network. Connect, then press Try again."),
+        OllamaLink.NotAnswering when !OllamaHere => Lang.T("On that computer, Ollama has to be running and set to let other computers in (OLLAMA_HOST=0.0.0.0), then restarted."),
+        OllamaLink.NotAnswering => Lang.T("Check that the address is the one Ollama uses. Its own is http://localhost:11434."),
+        _ => "",
+    };
+
+    public string OllamaBoxAction => OllamaState switch
+    {
+        OllamaLink.Stopped => Lang.T("Start Ollama"),
+        OllamaLink.Missing => Lang.T("Get Ollama"),
+        OllamaLink.NotAnswering or OllamaLink.Offline => Lang.T("Try again"),
+        _ => "",
+    };
+    public bool HasOllamaBoxAction => OllamaBoxAction.Length > 0;
+    public bool OllamaBoxOpensWeb => OllamaState == OllamaLink.Missing;
+
+    [RelayCommand]
+    private Task OllamaBoxDo() => OllamaState switch
+    {
+        OllamaLink.Stopped => StartOllama(),
+        OllamaLink.Missing => Task.Run(GetOllama),
+        _ => ConnectOllama(),
+    };
+
+    /// <summary>
+    /// Asks Ollama at the address for its version and models. The newest check wins: typing a new address while one
+    /// runs drops the old one's answer.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConnectOllama()
+    {
+        int check = ++_check;
+        string address = Ai.OllamaAddress;
+        if (!Ollama.IsAddress(address))
+        {
+            Log.Write("ai-settings", $"Ollama address \"{address}\" isn't an address; not checked");
+            OllamaAnswering = false;
+            OllamaConnected = false;
+            OllamaMissing = false;
+            ShowRows(null);
+            OllamaState = OllamaLink.BadAddress;
+            return;
+        }
+        OllamaState = OllamaLink.Checking;
+        var models = Ollama.ModelsAsync(address);
+        var version = Ollama.VersionAsync(address);
+        var found = await models;
+        string? v = await version;
+        if (check != _check) return;
+        _ollamaVersion = v;
+        OllamaAnswering = found is not null;
+        OllamaMissing = found is null && OllamaHere && !OllamaPicks.Installed();
+        ShowRows(found);
+        OllamaConnected = OllamaRows.Count > 0;
+        // A model picked earlier that Ollama no longer has: the first one that can look things up instead.
+        if (OllamaConnected && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
+            Set(a => a.OllamaModel = "", nameof(OllamaModel));
+        MarkInUse();
+        OllamaState = found is not null ? OllamaLink.Connected
+            : OllamaMissing ? OllamaLink.Missing
+            : OllamaHere && OllamaPicks.Installed() ? OllamaLink.Stopped
+            : !OllamaHere && Internet.IsOff() ? OllamaLink.Offline
+            : OllamaLink.NotAnswering;
+        // The line and box words depend on the rows and version as well as the state.
+        foreach (var name in new[] { nameof(OllamaLine), nameof(HasOllamaBox), nameof(OllamaBoxTitle), nameof(OllamaBoxText), nameof(OllamaBoxCalm), nameof(OllamaBoxOpensWeb), nameof(DownloadOffText) })
+            OnPropertyChanged(name);
+        Log.Write("ai-settings", $"Ollama at {Ollama.Normalise(address)}: {OllamaState}{(v is null ? "" : $", version {v}")}, {OllamaRows.Count} models");
+    }
+
+    /// <summary>Starts Ollama, then waits for it to answer (up to 20 seconds) and connects.</summary>
+    private async Task StartOllama()
+    {
+        if (!OllamaPicks.Start()) { await ConnectOllama(); return; }
+        StartingOllama = true;
+        OllamaState = OllamaLink.Checking;
+        try
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                await Task.Delay(1000);
+                if (await Ollama.VersionAsync(Ai.OllamaAddress) is not null) break;
+            }
+        }
+        finally { StartingOllama = false; }
+        await ConnectOllama();
     }
 
     [RelayCommand]

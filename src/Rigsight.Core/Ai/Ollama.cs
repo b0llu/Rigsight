@@ -92,6 +92,24 @@ public static class Ollama
         return uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>True when the text can be an address at all ("localhost 11434" can't), checked before anything is sent.</summary>
+    public static bool IsAddress(string address) =>
+        !address.Trim().Contains(' ') && Uri.TryCreate(Normalise(address), UriKind.Absolute, out var uri)
+        && uri.Scheme is "http" or "https" && uri.Host.Length > 0;
+
+    /// <summary>"localhost:11434" or "192.168.1.20:11434": the computer and port, for "Checking …".</summary>
+    public static string Where(string address) =>
+        Uri.TryCreate(Normalise(address), UriKind.Absolute, out var uri) ? (uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}") : address.Trim();
+
+    /// <summary>Ollama's version ("0.12.6") from its /api/version; null when it doesn't say.</summary>
+    public static async Task<string?> VersionAsync(string address, CancellationToken ct = default)
+    {
+        using var quick = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        quick.CancelAfter(TimeSpan.FromSeconds(4));
+        try { return (string?)JsonNode.Parse(await Http.GetStringAsync(Normalise(address) + "/api/version", quick.Token))?["version"]; }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or UriFormatException or InvalidOperationException) { return null; }
+    }
+
     /// <summary>The address's computer for people to read: "192.168.1.20" or "gpu-box", without http:// and the port.</summary>
     public static string Host(string address) => Uri.TryCreate(Normalise(address), UriKind.Absolute, out var uri) ? uri.Host : address.Trim();
 

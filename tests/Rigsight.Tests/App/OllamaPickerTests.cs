@@ -113,6 +113,19 @@ public sealed class OllamaPickerTests
         Assert.Contains("Ollama stopped answering", problem);
     }
 
+    [Theory]
+    [InlineData("http://localhost:11434", true, "localhost:11434")]
+    [InlineData("localhost:11434", true, "localhost:11434")]
+    [InlineData("192.168.1.20:11434/", true, "192.168.1.20:11434")]
+    [InlineData("localhost 11434", false, "localhost 11434")]
+    [InlineData("", false, "")]
+    [InlineData("ftp://box:11434", false, "box:11434")]
+    public void An_address_is_checked_before_anything_is_sent(string address, bool ok, string where)
+    {
+        Assert.Equal(ok, Ollama.IsAddress(address));
+        Assert.Equal(where, Ollama.Where(address));
+    }
+
     /// <summary>Progress reported straight away (Progress&lt;T&gt; posts to a context the test hasn't got).</summary>
     private sealed class Sync<T>(Action<T> report) : IProgress<T> { public void Report(T value) => report(value); }
 }

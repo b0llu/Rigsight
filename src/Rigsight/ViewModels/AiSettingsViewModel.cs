@@ -52,7 +52,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         // Hidden until the AI preview is on: nothing reaches Ollama or a service at start-up either.
         if (!AiPreview.IsOn) return;
         // Ollama chosen before: its models are listed straight away, as if Connect had been pressed.
-        if (Ai.Mode == AiMode.Ollama) _ = ConnectOllamaCommand.ExecuteAsync(null);
+        if (Ai.Mode == AiMode.Ollama) _ = ConnectOllama();
         // A key saved before: its models are listed straight away, as if Test had been pressed.
         if (Ai.Mode == AiMode.OwnKey && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
     }
@@ -80,7 +80,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             if (mode == AiMode.RigSight) _ = _ask.RefreshQuestionsAsync();
             if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
             // Ollama picked: its models and the picks for this PC straight away, as if Connect had been pressed.
-            if (mode == AiMode.Ollama && !ConnectOllamaCommand.IsRunning) _ = ConnectOllamaCommand.ExecuteAsync(null);
+            if (mode == AiMode.Ollama) _ = ConnectOllama();
         }
     }
 
@@ -439,41 +439,15 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             if ((value ?? "") == Ai.OllamaAddress) return;
             Set(a => a.OllamaAddress = value ?? "");
             OnPropertyChanged(nameof(SendingWhere));
-            // Another address: Connect again before its models show.
+            // Another address: checked by itself (the box already waits for typing to stop).
             OllamaConnected = false;
             OllamaAnswering = false;
             OllamaMissing = false;
-            OllamaProblem = null;
             ShowRows(null);
+            _ = ConnectOllama();
         }
     }
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaStatus), nameof(OllamaModel))] private bool _ollamaConnected;
-    public string OllamaStatus => OllamaRows.Count == 1 ? Lang.T("Connected · 1 model on it") : Lang.T($"Connected · {OllamaRows.Count} models on it");
-    /// <summary>Why Connect found no models: Ollama not answering at the address, or nothing downloaded yet.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasOllamaProblem))] private string? _ollamaProblem;
-    public bool HasOllamaProblem => OllamaProblem is not null;
-
-    /// <summary>Asks Ollama at the address for its models and what each can do.</summary>
-    [RelayCommand]
-    private async Task ConnectOllama()
-    {
-        var found = await Ollama.ModelsAsync(Ai.OllamaAddress);
-        OllamaAnswering = found is not null;
-        // Not answering on this PC and not installed either: the card says "Ollama isn't on this PC" with Get Ollama.
-        OllamaMissing = found is null && OllamaHere && !OllamaPicks.Installed();
-        OllamaProblem = OllamaMissing ? null
-            : found is null && !OllamaHere && Internet.IsOff() ? Internet.NoInternet(inSettings: true)
-            : found is null ? Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running and the address is right.")
-            : null;
-        ShowRows(found);
-        OllamaConnected = OllamaRows.Count > 0;
-        // A model picked earlier that Ollama no longer has: the first one that can look things up instead.
-        if (OllamaConnected && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
-            Set(a => a.OllamaModel = "", nameof(OllamaModel));
-        MarkInUse();
-        OnPropertyChanged(nameof(OllamaStatus));
-        OnPropertyChanged(nameof(DownloadOffText));
-    }
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaModel))] private bool _ollamaConnected;
 
     /// <summary>The model in use, for the Ask window's wait text and the log.</summary>
     public string OllamaModel => ChosenOllama;
