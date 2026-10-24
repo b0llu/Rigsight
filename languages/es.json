@@ -3747,6 +3747,8 @@
     "just now": "ahora mismo",
     "{0:0} min ago": "hace {0:0} min",
     "at {0}": "a las {0}",
+    "yesterday at {0}": "ayer a las {0}",
+    "on {0} at {1}": "el {0} a las {1}",
     "Choose a folder to scan": "Elige una carpeta para analizar",
     "Space you could free on {0}": "Espacio que podrías liberar en {0}",
     "Scan {0} to also see the big files on it you haven't changed in a year.": "Analiza {0} para ver también los archivos grandes que no has cambiado en un año.",

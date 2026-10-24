@@ -515,7 +515,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             ScanningElsewhere = false;
             Breadcrumbs.Clear();
             Open(kept.Result.Root);
-            ScanStatus = Lang.T($"Scanned {Ago(kept.At)} · {kept.Result.FileCount:N0} files");
+            ScanStatus = Lang.T($"Scanned {Ago(kept.At, DateTime.Now)} · {kept.Result.FileCount:N0} files");
         }
         else
         {
@@ -527,10 +527,14 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         OnPropertyChanged(nameof(ShowNotScanned));
     }
 
-    private static string Ago(DateTime at)
+    internal static string Ago(DateTime at, DateTime now)
     {
-        var gone = DateTime.Now - at;
-        return gone.TotalMinutes < 1 ? Lang.T("just now") : gone.TotalMinutes < 60 ? Lang.T($"{gone.TotalMinutes:0} min ago") : Lang.T($"at {TimeText.Time(at)}");
+        var gone = now - at;
+        // A scan is kept across restarts: one from another day says its day, so it isn't read as today's.
+        return gone.TotalMinutes < 1 ? Lang.T("just now") : gone.TotalMinutes < 60 ? Lang.T($"{gone.TotalMinutes:0} min ago")
+            : at.Date == now.Date ? Lang.T($"at {TimeText.Time(at)}")
+            : at.Date == now.Date.AddDays(-1) ? Lang.T($"yesterday at {TimeText.Time(at)}")
+            : Lang.T($"on {TimeText.At(at, "ddd d MMM")} at {TimeText.Time(at)}");
     }
 
     /// <summary>"Scan again" for what's shown: the picked drive, or the folder scanned.</summary>

@@ -9,6 +9,13 @@ namespace Rigsight.Tests.App;
 [Collection("UI")]
 public sealed class DriveScansTests
 {
+    [Theory]
+    [InlineData(24, "at 2:35 PM")]
+    [InlineData(23, "yesterday at 2:35 PM")]
+    [InlineData(21, "on Wed 21 Oct at 2:35 PM")]
+    public void An_older_scan_says_its_day_not_only_its_time(int day, string said) =>
+        Assert.Equal(said, Rigsight.ViewModels.StorageViewModel.Ago(new DateTime(2026, 10, day, 14, 35, 0), new DateTime(2026, 10, 24, 18, 0, 0)));
+
     [Fact]
     public async Task A_saved_scan_reads_back_the_same_after_a_restart()
     {
