@@ -163,14 +163,15 @@ public sealed partial class AiSettingsViewModel
         var (best, smaller, bigger) = OllamaPicks.For(OllamaHere ? _vramGb : 12);
         string? card = OllamaHere ? _card : null;
         // A download running keeps its card (and its progress) when the list is read again.
-        OllamaPickCard Card(OllamaPick p, string label) => Picks.FirstOrDefault(c => c.Tag == p.Tag && !c.IsIdle)
+        OllamaPickCard Card(OllamaPick p, string label) => Picks.FirstOrDefault(c => c.Tag == p.Tag && (c.Label == label || !c.IsIdle))
             ?? new OllamaPickCard(p, label, OllamaPicks.Fit(p.Gb, vram), card);
         var cards = new List<OllamaPickCard> { Card(best, OllamaHere ? Lang.T("Best for this PC") : Lang.T("A good start")) };
         if (smaller is not null) cards.Add(Card(smaller, Lang.T("Smaller and quicker")));
         if (bigger is not null) cards.Add(Card(bigger, Lang.T("Bigger")));
+        bool same = cards.Count == Picks.Count && cards.Zip(Picks).All(x => ReferenceEquals(x.First, x.Second));
         Picks = cards;
         MarkInUse();
-        OnPropertyChanged(nameof(Picks));
+        if (!same) OnPropertyChanged(nameof(Picks));
         OnPropertyChanged(nameof(PicksHeading));
         OnPropertyChanged(nameof(PicksLine));
     }
@@ -198,8 +199,12 @@ public sealed partial class AiSettingsViewModel
     {
         if (OllamaHere) ReadPc();
         double? vram = OllamaHere ? _vramGb : null;
-        OllamaRows = found is null ? [] : [.. found
-            .OrderByDescending(m => m.CanLookUp).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+        var ordered = (found ?? []).OrderByDescending(m => m.CanLookUp).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        // Nothing changed (Check again, the same models): the rows and cards stay as they are, so nothing flashes.
+        if (Picks.Count > 0 && OllamaRows.Count == ordered.Count
+            && OllamaRows.Zip(ordered).All(x => x.First.Name == x.Second.Name && x.First.Size == Units.Bytes(x.Second.Bytes) && x.First.CanLookUp == x.Second.CanLookUp))
+            return;
+        OllamaRows = [.. ordered
             .Select(m =>
             {
                 var fit = OllamaPicks.Fit(m.Bytes / (double)(1L << 30), vram);
@@ -238,12 +243,19 @@ public sealed partial class AiSettingsViewModel
     private int _check;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaLine))] private bool _startingOllama;
 
-    public bool LineChecking => OllamaState == OllamaLink.Checking;
-    public bool LineOk => OllamaState == OllamaLink.Connected;
+    /// <summary>
+    /// A check that takes over 0.3 s shows "Checking…"; a quick one goes straight to its answer, and the line, the box and
+    /// the lists keep what they showed meanwhile (Check again flashed the whole card, 2026-10-24).
+    /// </summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LineChecking), nameof(LineOk), nameof(LineWarn), nameof(OllamaLine))] private bool _checkingShown;
+    private static readonly TimeSpan ShowCheckingAfter = TimeSpan.FromMilliseconds(300);
+
+    public bool LineChecking => CheckingShown || OllamaState == OllamaLink.Checking;
+    public bool LineOk => !LineChecking && OllamaState == OllamaLink.Connected;
     public bool LineWarn => !LineChecking && !LineOk;
     public bool OllamaAddressBad => OllamaState == OllamaLink.BadAddress;
 
-    public string OllamaLine => OllamaState switch
+    public string OllamaLine => LineChecking ? (StartingOllama ? Lang.T("Starting Ollama…") : Lang.T($"Checking {Ollama.Where(Ai.OllamaAddress)}…")) : OllamaState switch
     {
         OllamaLink.Checking => StartingOllama ? Lang.T("Starting Ollama…") : Lang.T($"Checking {Ollama.Where(Ai.OllamaAddress)}…"),
         OllamaLink.Connected => Connected(),
@@ -326,12 +338,17 @@ public sealed partial class AiSettingsViewModel
             OllamaState = OllamaLink.BadAddress;
             return;
         }
-        OllamaState = OllamaLink.Checking;
+        // A wrong address fixed: its red line goes at once; otherwise what shows stays until the answer.
+        if (OllamaState == OllamaLink.BadAddress) OllamaState = OllamaLink.Checking;
         var models = Ollama.ModelsAsync(address);
         var version = Ollama.VersionAsync(address);
-        var found = await models;
-        string? v = await version;
+        var both = Task.WhenAll(models, version);
+        if (await Task.WhenAny(both, Task.Delay(ShowCheckingAfter)) != both && check == _check) CheckingShown = true;
+        await both;
+        var found = models.Result;
+        string? v = version.Result;
         if (check != _check) return;
+        CheckingShown = false;
         _ollamaVersion = v;
         OllamaAnswering = found is not null;
         OllamaMissing = found is null && OllamaHere && !OllamaPicks.Installed();
@@ -370,7 +387,7 @@ public sealed partial class AiSettingsViewModel
     {
         if (!OllamaPicks.Start()) { await ConnectOllama(); return; }
         StartingOllama = true;
-        OllamaState = OllamaLink.Checking;
+        CheckingShown = true;
         try
         {
             for (int i = 0; i < 20; i++)
