@@ -45,7 +45,8 @@ public sealed class OllamaPickerTests
         Assert.Equal(OllamaFit.PartFits, OllamaPicks.Fit(14, 12));
         Assert.Equal(OllamaFit.TooBig, OllamaPicks.Fit(18, 8));
         Assert.Equal(OllamaFit.Unknown, OllamaPicks.Fit(8, null));
-        Assert.Equal("Fits your RTX 3080 Ti", OllamaPicks.FitText(OllamaFit.Fits, "RTX 3080 Ti"));
+        // Fitting gets no pill: the section is already picked for this PC; only a catch is said.
+        Assert.Equal("", OllamaPicks.FitText(OllamaFit.Fits, "RTX 3080 Ti"));
         Assert.Equal("May be slow", OllamaPicks.FitText(OllamaFit.PartFits, "RTX 3080 Ti"));
         Assert.Equal("", OllamaPicks.FitText(OllamaFit.Unknown, "RTX 3080 Ti"));
         Assert.Contains("Only part of it fits", OllamaPicks.FitWhy(OllamaFit.PartFits));

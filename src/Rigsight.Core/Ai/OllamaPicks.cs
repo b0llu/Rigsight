@@ -65,9 +65,12 @@ public static class OllamaPicks
     };
 
     /// <summary>"Fits your RTX 3080 Ti", "May be slow", "Too big for this PC", or nothing when it can't be told.</summary>
+    /// <remarks>
+    /// Fitting says nothing: the section is already picked for this PC, so only a catch gets a pill (the person's call,
+    /// 2026-10-24: "Fits your RTX 3080 Ti" on every card was noise). <paramref name="card"/> is kept for the hover words.
+    /// </remarks>
     public static string FitText(OllamaFit fit, string? card) => fit switch
     {
-        OllamaFit.Fits => card is { Length: > 0 } ? Lang.T($"Fits your {card}") : Lang.T("Fits"),
         OllamaFit.PartFits => Lang.T("May be slow"),
         OllamaFit.TooBig => Lang.T("Too big for this PC"),
         _ => "",

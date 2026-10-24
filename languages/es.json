@@ -336,8 +336,6 @@
     "Good answers, and leaves room on your card for a game.": "Buenas respuestas, y deja sitio en tu tarjeta para un juego.",
     "Better answers, for a card with lots of memory.": "Mejores respuestas, para una tarjeta con mucha memoria.",
     "The best answers here, for the biggest cards.": "Las mejores respuestas de esta lista, para las tarjetas más grandes.",
-    "Fits your {0}": "Cabe en tu {0}",
-    "Fits": "Cabe",
     "May be slow": "Puede ir lento",
     "Too big for this PC": "Demasiado grande para este PC",
     "Only part of it fits on your graphics card, so answers take longer.": "Solo una parte cabe en tu tarjeta gráfica, así que las respuestas tardan más.",
@@ -4760,6 +4758,8 @@
     "Compare plans": "Comparar planes",
     "Ask this": "Preguntar esto",
     "Ask anything about this PC": "Pregunta lo que quieras sobre este PC",
-    "Answers come from what RigSight has recorded on it.": "Las respuestas salen de lo que RigSight ha registrado en él."
+    "Answers come from what RigSight has recorded on it.": "Las respuestas salen de lo que RigSight ha registrado en él.",
+    "Fits your {0}": "Cabe en tu {0}",
+    "Fits": "Cabe"
   }
 }
