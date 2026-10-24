@@ -1495,8 +1495,8 @@
                                                 <ctl:SmoothBorder x:Name="Box" CornerRadius="8" BorderThickness="1" Padding="{TemplateBinding Padding}"
                                                                   Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}">
                                                     <DockPanel>
-                                                        <Border x:Name="Tick" DockPanel.Dock="Right" Width="18" Height="18" CornerRadius="9" Background="{DynamicResource TextBrush}" VerticalAlignment="Center">
-                                                            <TextBlock x:Name="TickMark" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource BgBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        <Border x:Name="Tick" DockPanel.Dock="Right" Width="18" Height="18" CornerRadius="9" Background="{DynamicResource AccentBrush}" VerticalAlignment="Center">
+                                                            <TextBlock x:Name="TickMark" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource OnAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         </Border>
                                                         <ContentControl x:Name="Glyph" Content="{Binding Glyph, Converter={StaticResource NavIcon}}" FontFamily="{StaticResource IconFont}" FontSize="15" Width="18"
                                                                         VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" Focusable="False" IsTabStop="False" />

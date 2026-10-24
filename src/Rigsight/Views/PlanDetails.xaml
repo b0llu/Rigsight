@@ -59,7 +59,7 @@
         <!-- Today's questions: the bar fills as they're used -->
         <Grid Height="6" Margin="0,14,0,6" ClipToBounds="True">
             <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
-            <Border CornerRadius="3" Background="{DynamicResource TextBrush}" RenderTransformOrigin="0,0.5">
+            <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
                 <Border.RenderTransform><ScaleTransform ScaleX="{Binding UsedPart}" /></Border.RenderTransform>
             </Border>
         </Grid>
