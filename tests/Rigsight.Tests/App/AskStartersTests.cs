@@ -22,6 +22,17 @@ public sealed class AskStartersTests
     }
 
     [Fact]
+    public void The_free_plans_three_pages_each_get_a_starter()
+    {
+        // Free opens Home, the parts and Temperatures: one starter each, not Temperatures alone (it showed one, 2026-10-24).
+        string[] free = [AiPages.Home, AiPages.Parts, AiPages.Temperatures];
+        var starters = new AiTools(new RigsightSettings(), NoHistory).Starters(DateTime.Now, free.Contains);
+        Assert.Equal(free.Order(), starters.Select(s => s.Page).Order());
+        Assert.Contains(starters, s => s.Text == "How is my PC doing today?");
+        Assert.Contains(starters, s => s.Text == "Is my graphics driver up to date?");
+    }
+
+    [Fact]
     public void A_page_switched_off_or_outside_the_plan_gets_no_starter()
     {
         var settings = new RigsightSettings();

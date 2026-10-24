@@ -104,6 +104,9 @@ public sealed partial class AiTools
             (ram is null ? Lang.T("Is my PC's memory enough for what I run?") : Lang.T($"Is {ram} of memory enough for what I run?"), AiPages.Memory),
             (Lang.T("Are my fans keeping my PC cool enough?"), AiPages.Fans),
             (Lang.T("Is my internet connection stable?"), AiPages.Network),
+            // Home and the parts too: the Free plan opens only those and Temperatures, and showed one starter (2026-10-24).
+            (Lang.T("How is my PC doing today?"), AiPages.Home),
+            (gpu is null ? Lang.T("Is my graphics driver up to date?") : Lang.T($"Is the driver for my {gpu} up to date?"), AiPages.Parts),
         })
         {
             if (list.Count >= 4) break;
