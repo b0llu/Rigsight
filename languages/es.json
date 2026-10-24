@@ -2727,6 +2727,7 @@
     "Download {0} GB?": "¿Descargar {0} GB?",
     "about a minute": "un minuto",
     "{0:0} minutes": "{0:0} minutos",
+    "Checking the download…": "Comprobando la descarga…",
     "{0} of {1} GB": "{0} de {1} GB",
     "less than a minute left": "falta menos de un minuto",
     "about {0:0} min left": "faltan unos {0:0} min",
@@ -2762,7 +2763,7 @@
     "Scanning {0}: · {1:N0} files · {2}": "Analizando {0}: · {1:N0} archivos · {2}",
     "Scanned {0}: · {1} in {2:N0} files": "Analizada {0}: · {1} en {2:N0} archivos",
     "Couldn't scan {0}: on this PC.": "No se pudo analizar {0}: en este PC.",
-    "I scanned {0}:. What's using the space, and what could I free?": "Analicé {0}:. ¿Qué ocupa el espacio y qué podría liberar?",
+    "What's using the space on {0}:, and what could I free?": "¿Qué ocupa el espacio en {0}: y qué podría liberar?",
     "Closed {0} at {1} · {2} freed": "{0} cerrado a las {1} · {2} liberados",
     "Closed {0} at {1}": "{0} cerrado a las {1}",
     "{0} had already closed.": "{0} ya se había cerrado.",
@@ -4768,6 +4769,7 @@
     "Your own key answers from your PC's records. To do that, RigSight sends your question and the records it needs to the service you picked.": "Tu propia clave responde a partir de los registros de tu PC. Para ello, RigSight envía tu pregunta y los registros que necesita al servicio que elegiste.",
     "Ollama on my PC": "Ollama en mi PC",
     "My own key": "Mi propia clave",
-    "On your Ollama · in use": "En tu Ollama · en uso"
+    "On your Ollama · in use": "En tu Ollama · en uso",
+    "I scanned {0}:. What's using the space, and what could I free?": "Analicé {0}:. ¿Qué ocupa el espacio y qué podría liberar?"
   }
 }

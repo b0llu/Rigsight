@@ -483,6 +483,15 @@ public sealed partial class AiSettingsViewModel
         var samples = new Queue<(DateTime At, long Done)>();
         var progress = new Progress<OllamaPull>(p =>
         {
+            // Ollama fetches a model in parts and says each part's size only as it starts: measured against the whole
+            // model from the start, so the bar only goes forward ("0.9 GB" then "6.1 GB" read as two downloads, 2026-10-24).
+            long whole = Math.Max(p.Total, (long)(card.Pick.Gb * 1e9));
+            if (p.Status.StartsWith("verifying", StringComparison.OrdinalIgnoreCase) || p.Status.StartsWith("writing", StringComparison.OrdinalIgnoreCase))
+            {
+                card.Progress = 1;
+                card.ProgressText = Lang.T("Checking the download…");
+                return;
+            }
             if (p.Total <= 0) { card.ProgressText = Lang.T("Starting…"); return; }
             var now = DateTime.UtcNow;
             samples.Enqueue((now, p.Done));
@@ -491,8 +500,8 @@ public sealed partial class AiSettingsViewModel
             double seconds = (now - first.At).TotalSeconds;
             double speed = seconds >= 1 ? (p.Done - first.Done) / seconds : 0;
             if (speed > 0 && seconds >= 3) _lastSpeed = speed;
-            card.Progress = Math.Clamp((double)p.Done / p.Total, 0, 1);
-            card.ProgressText = DownloadText(p.Done, p.Total, speed);
+            card.Progress = Math.Clamp((double)p.Done / whole, 0, 1);
+            card.ProgressText = DownloadText(p.Done, whole, speed);
         });
         string? problem;
         try { problem = await Ollama.PullAsync(Ai.OllamaAddress, card.Tag, progress, stop.Token); }
@@ -515,12 +524,15 @@ public sealed partial class AiSettingsViewModel
 
     [RelayCommand] private static void StopDownload(OllamaPickCard? card) => card?.Stop?.Cancel();
 
-    /// <summary>"3.1 of 8 GB · 18.4 MB/s · about 4 min left"; the speed and time once there are a few seconds to go on.</summary>
+    /// <summary>
+    /// "3.1 of 6.6 GB · 18 MB/s · about 4 min left"; the speed and time once there are a few seconds to go on. In the
+    /// same GB as the card's "6.6 GB download" (Ollama's own, 1,000,000,000 bytes), so the two sizes match.
+    /// </summary>
     internal static string DownloadText(long done, long total, double bytesPerSecond)
     {
-        string of = Lang.T($"{(done / (double)(1L << 30)).ToString("0.0", CultureInfo.CurrentCulture)} of {(total / (double)(1L << 30)).ToString("0.#", CultureInfo.CurrentCulture)} GB");
+        string of = Lang.T($"{(done / 1e9).ToString("0.0", CultureInfo.CurrentCulture)} of {(total / 1e9).ToString("0.#", CultureInfo.CurrentCulture)} GB");
         if (bytesPerSecond < 1) return of;
-        string speed = Units.Bytes(bytesPerSecond) + "/s";
+        string speed = (bytesPerSecond / 1e6).ToString("0", CultureInfo.CurrentCulture) + " MB/s";
         double left = (total - done) / bytesPerSecond;
         string time = left < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Math.Ceiling(left / 60):0} min left");
         return $"{of} · {speed} · {time}";

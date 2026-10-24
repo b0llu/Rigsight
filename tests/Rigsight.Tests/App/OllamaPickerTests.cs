@@ -66,10 +66,10 @@ public sealed class OllamaPickerTests
     [Fact]
     public void The_progress_line_says_how_much_how_fast_and_how_long()
     {
-        long gb = 1L << 30;
+        long gb = 1_000_000_000;
         Assert.Equal("3.1 of 8 GB", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 0));
-        Assert.Equal("3.1 of 8 GB · 18 MB/s · about 5 min left", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 18 * (1 << 20)));
-        Assert.EndsWith("less than a minute left", AiSettingsViewModel.DownloadText(8 * gb - (1 << 20), 8 * gb, 18 * (1 << 20)));
+        Assert.Equal("3.1 of 8 GB · 18 MB/s · about 5 min left", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 18_000_000));
+        Assert.EndsWith("less than a minute left", AiSettingsViewModel.DownloadText(8 * gb - 1_000_000, 8 * gb, 18_000_000));
     }
 
     [Fact]
