@@ -841,13 +841,12 @@
                                   Visibility="{Binding ShowSendingNote, Converter={StaticResource Vis}}">
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="{ctl:T 'The AI helper sends some of your PC\'s records to an AI model'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="{ctl:T 'What the AI helper sends'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                            <!-- Two sentences, no more (the wording audit of 2026-10-24: settings text only where it's needed, short). -->
                             <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0">
-                                <Run Text="{ctl:T 'When you ask a question, RigSight sends it with the records it needs to answer: crashes, temperatures, the apps and games you used, recent changes and your PC\'s parts.'}" />
+                                <Run Text="{ctl:T 'Your question and the records it needs, from the pages switched on below.'}" />
                                 <Run Text="{Binding SendingWhere, Mode=OneWay}" />
                             </TextBlock>
-                            <TextBlock Text="{ctl:T 'For the best answers everything is shared. Under What answers can read you can switch off any page you\'d rather keep to yourself. Your Windows user name, the names and contents of your files and your licence key are never sent; folder names go only for a drive you press Scan for.'}"
-                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                         <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="0,-6,-34,0" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Command="{Binding CloseSendingNoteCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
@@ -871,8 +870,6 @@
                         </Border>
                         <TextBlock Text="{ctl:T 'AI helper'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
-                    <TextBlock Text="{ctl:T 'Ask and Explain buttons are hidden while this is off.'}" Style="{StaticResource Hint}" Margin="0,0,0,12"
-                               Visibility="{Binding IsOff, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -882,13 +879,8 @@
                                   Visibility="{Binding ShowWebNote, Converter={StaticResource Vis}}">
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="{ctl:T 'You\'re missing web search'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
-                            <TextBlock Text="{ctl:T 'Your records say what happened on this PC. With RigSight AI, the answer can also check the web for what they mean, for example:'}"
-                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,4" />
-                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{Binding PartsLine}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
-                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{ctl:T 'Known problems with your graphics driver, a Windows update or a game you play, and how other people fixed them.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
-                            <DockPanel Margin="6,2,0,0"><Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="0,8,10,0" VerticalAlignment="Top" /><TextBlock Text="{ctl:T 'Whether a newer driver or BIOS fixes the crash you\'re seeing.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" /></DockPanel>
-                            <TextBlock Text="{ctl:T 'There\'s also nothing to set up: no key to make, and the model is already tested with RigSight.'}"
+                            <TextBlock Text="{ctl:T 'Web search comes with RigSight AI'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                            <TextBlock Text="{ctl:T 'Answers can also check the web for known problems and fixes for your parts, drivers and games.'}"
                                        FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Switch to RigSight AI'}" Command="{Binding UseRigSightCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
                         </StackPanel>
@@ -918,7 +910,7 @@
                                         <TextBlock Text="{Binding Plans.StateText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" />
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="{Binding Plans.FreeWhen}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding Plans.FreeWhen}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Plans.FreeWhen, Converter={StaticResource Vis}}" />
                             </StackPanel>
                         </DockPanel>
 
@@ -936,7 +928,7 @@
                                 <ctl:Spinner DockPanel.Dock="Left" Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" />
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{ctl:T 'Waiting for your plan…'}" FontSize="13" />
-                                    <TextBlock Text="{ctl:T 'Finish paying in your browser. Your plan turns on here by itself.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{ctl:T 'Finish paying in your browser; it turns on here by itself.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
@@ -1106,7 +1098,7 @@
                                                                                ToolTipService.InitialShowDelay="150">
                                                                         <TextBlock.ToolTip>
                                                                             <TextBlock MaxWidth="300" TextWrapping="Wrap"
-                                                                                       Text="{ctl:T 'This model can\'t ask RigSight for your records, so it can\'t see your crashes, temperatures, games or changes. Its answers would be guesses, so RigSight doesn\'t let you pick it.'}" />
+                                                                                       Text="{ctl:T 'This model can\'t read your PC\'s records, so its answers would be guesses.'}" />
                                                                         </TextBlock.ToolTip>
                                                                     </TextBlock>
                                                                 </StackPanel>
@@ -1181,7 +1173,7 @@
                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Turn all on'}" Command="{Binding AllOnCommand}" Margin="10,0,0,0"
                                         Visibility="{Binding SomeOff, Converter={StaticResource Vis}}" />
                             </StackPanel>
-                            <TextBlock Text="{ctl:T 'Press a page to stop RigSight sending it.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Text="{ctl:T 'Press a page to stop sending it.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,12,-8,0" Focusable="False">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -1231,7 +1223,7 @@
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
-                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, the names or contents of your files, your licence key. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" />
+                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, the names or contents of your files, your licence key. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 </Border>

@@ -158,10 +158,11 @@ public sealed partial class PlansViewModel : ObservableObject
     /// <summary>Free questions paused on the relay (none this week for anyone): said so, never "0 of 0".</summary>
     public bool FreePaused => Plan is { IsFree: true, Cap: 0 };
 
-    public string FreeWhen => FreePaused ? Lang.T("Free questions are paused for now. Plans give up to 500 questions a day, and answers that use more of your PC's records.")
-        : Plan?.ResetsAt is { } at
-        ? Lang.T($"Back to {Plan.Cap} on {TimeText.At(at, "dddd")}. Plans give up to 500 questions a day, and answers that use more of your PC's records.")
-        : Lang.T("Plans give up to 500 questions a day, and answers that use more of your PC's records.");
+    // When they come back, and no more: the sales line on every Free card went (the wording audit, 2026-10-24); the
+    // plans themselves are one press away.
+    public string FreeWhen => FreePaused ? Lang.T("Free questions are paused for now.")
+        : Plan?.ResetsAt is { } at ? Lang.T($"Back to {Plan.Cap} on {TimeText.At(at, "dddd")}.")
+        : "";
 
     public string Summary => Plan is not { IsFree: false } p ? ""
         : p.Gift ? Lang.T($"Answers use {PagesText(p.Pages.Count)} · web search")
@@ -178,6 +179,10 @@ public sealed partial class PlansViewModel : ObservableObject
 
     public string NextPayment => Plan is { RenewsAt: { } on } p && !p.Ending ? Lang.T($"{p.Price} on {TimeText.At(on, "d MMMM")}") : "";
     public bool HasNextPayment => IsSubscription && !IsEnding && NextPayment.Length > 0;
+    // In place of the old "Receipts: every payment" line (the person's call, 2026-10-24: say something worth knowing).
+    public string LastPayment => Plan?.LastPayment is { } last ? Lang.T($"{last.Amount} on {TimeText.At(last.At, "d MMMM")}") : "";
+    public bool HasLastPayment => IsSubscription && LastPayment.Length > 0;
+    public bool CanCancel => CanManage && HasNextPayment;
     public string EndingText => Plan is { EndsAt: { } end } p
         ? Lang.T($"Cancelled. {p.Name} works until {TimeText.At(end, "d MMMM")}, and you won't be charged again. Then RigSight goes back to Free.") : "";
     public string KeepText => Lang.T($"Keep {PlanName}");

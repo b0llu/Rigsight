@@ -11,6 +11,14 @@ public sealed record RelayCard(string Brand, string Last4)
     public string Text => $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(Brand)} " + Lang.T($"ending {Last4}");
 }
 
+/// <summary>The newest paid payment for the plan (a refunded one never counts), for the plan box's "Last payment".</summary>
+public sealed record RelayPayment(int AmountCents, string Currency, DateTime At)
+{
+    // "$5" like the plan's own price beside it, "$4.17" when there are cents (a switch's part-month payment).
+    public string Amount => Currency.Equals("USD", StringComparison.OrdinalIgnoreCase) ? "$" + Number : Number + " " + Currency.ToUpperInvariant();
+    private string Number => (AmountCents / 100m).ToString(AmountCents % 100 == 0 ? "0" : "0.00", CultureInfo.InvariantCulture);
+}
+
 /// <summary>
 /// The plan this PC is on, as the relay counts it. <paramref name="Source"/>: free, subscription (bought, managed in the
 /// app) or gift (given by support, no payments). <paramref name="State"/>: active, cancelled (works until EndsAt), past_due
@@ -25,6 +33,7 @@ public sealed record RelayPlan(string Id, string Name, string Source, string Sta
     public bool Ending => State == "cancelled";
     public bool PastDue => State == "past_due";
     public bool Gift => Source == "gift";
+    public RelayPayment? LastPayment { get; init; }
 }
 
 /// <summary>A plan to choose from: its price, questions, the pages it opens and the checkout link (carrying this PC's id).</summary>
@@ -85,7 +94,11 @@ public static partial class Relay
             (int)Math.Clamp(OwnKey.Num(p["used"]) ?? 0, 0, int.MaxValue), (int)Math.Clamp(OwnKey.Num(p["cap"]) ?? 0, 0, int.MaxValue),
             Text(p["period"]) ?? "day", LocalTime(p["resets_at"]), Moment(p["renews_at"]), Moment(p["ends_at"]), Text(p["price_label"]) ?? "",
             card is not null && Text(card["last4"]) is { Length: > 0 } last4 ? new RelayCard(Text(card["brand"]) ?? "card", last4) : null,
-            Pages(p["pages"]), (bool?)(p["can_manage"] as JsonValue) ?? false);
+            Pages(p["pages"]), (bool?)(p["can_manage"] as JsonValue) ?? false)
+        {
+            LastPayment = p["last_payment"] is JsonObject last && OwnKey.Num(last["amount_cents"]) is { } cents && Moment(last["at"]) is { } at
+                ? new RelayPayment((int)Math.Clamp(cents, 0, int.MaxValue), Text(last["currency"]) ?? "USD", at) : null,
+        };
     }
 
     private static RelayPlanOffer? ReadOffer(JsonObject p) =>

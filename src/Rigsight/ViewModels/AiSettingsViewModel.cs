@@ -109,7 +109,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         ? Ollama.IsOnThisPc(Ai.OllamaAddress)
             ? Lang.T("With Ollama on your PC, all of it stays on this PC.")
             : Lang.T($"With Ollama at {Ollama.Host(Ai.OllamaAddress)}, it goes to that computer, not to RigSight.")
-        : Lang.T("They go to the AI model that writes the answer, and RigSight AI keeps none of them.");
+        // True since OpenRouter's logging went on (2026-10-23): "keeps none of them" no longer was.
+        : Lang.T("They go through RigSight's server to OpenRouter, the AI service, which keeps them for at least 3 months.");
     [RelayCommand] private void CloseSendingNote() { _settings.Update(s => s.Ai.SendingNoteClosed = true); OnPropertyChanged(nameof(ShowSendingNote)); }
 
     /// <summary>My own key or Ollama: what they miss without RigSight AI, until closed.</summary>

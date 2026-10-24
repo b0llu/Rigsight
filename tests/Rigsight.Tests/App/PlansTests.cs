@@ -206,10 +206,22 @@ public sealed class PlansTests
         Assert.StartsWith("$5 on ", plans.NextPayment);
         Assert.Equal("46 of 100 questions used today · starts again at midnight", plans.UsedText);
         Assert.Equal("Visa ending 4242", plans.CardText);
+        Assert.False(plans.HasLastPayment); // the relay sent none
         Assert.True(plans.CanSwitchPlan);
         Assert.Equal("Switch to Complete", plans.SwitchText);
         Assert.True(plans.Columns[2].CanSwitch);
         Assert.False(plans.Columns[2].CanBuy);
+    }
+
+    [Fact]
+    public void The_last_payment_takes_the_old_receipts_line()
+    {
+        var (_, plans) = Shown(Status("essentials", "subscription").Replace("\"price_label\":\"$5\",\"card\"",
+            "\"price_label\":\"$5\",\"last_payment\":{\"amount_cents\":500,\"currency\":\"USD\",\"at\":\"2026-10-24T12:00:00Z\"},\"card\""));
+        Assert.True(plans.HasLastPayment);
+        Assert.StartsWith("$5 on ", plans.LastPayment);
+        Assert.Equal("$4.17", new RelayPayment(417, "USD", DateTime.Now).Amount);
+        Assert.Equal("12.50 EUR", new RelayPayment(1250, "eur", DateTime.Now).Amount);
     }
 
     [Fact]
