@@ -178,6 +178,32 @@ public sealed class PlansTests
     });
 
     [Fact]
+    public async Task The_plan_card_waits_for_the_relay_instead_of_showing_free()
+    {
+        var answer = new TaskCompletionSource();
+        await using var relay = new FakeRelay(async (_, s) => { await answer.Task; await FakeRelay.Reply(s, 200, "application/json", Status("complete", "subscription")); });
+        var settings = new RigsightSettings();
+        settings.Ai.Mode = AiMode.RigSight;
+        settings.Ai.FirstQuestionSeen.Add(AiMode.RigSight);
+        var (ask, plans) = Ui.Run(() =>
+        {
+            var a = new AskViewModel(Kit.OfflineSettings(settings));
+            var p = new PlansViewModel(a);
+            a.Plans = p;
+            Relay.TestRoot.Value = relay.Url;
+            _ = a.RefreshQuestionsAsync();
+            return (a, p);
+        });
+        // Asked and not answered yet: waiting, not Free.
+        Assert.True(Ui.WaitFor(() => plans.Loading, 5_000), "the card never showed it was checking");
+        Assert.False(plans.ShowPlan);
+        answer.SetResult();
+        Assert.True(Ui.WaitFor(() => plans.ShowPlan && plans.IsPaid, 15_000), "the plan never showed");
+        Assert.False(plans.Loading);
+        Ui.Run(() => Relay.TestRoot.Value = null);
+    }
+
+    [Fact]
     public void Free_shows_the_weeks_count_and_three_plans_to_choose_from()
     {
         var (ask, plans) = Shown(Status(used: 3));

@@ -898,6 +898,21 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,16" Margin="0,14,0,0" Visibility="{Binding IsRigSight, Converter={StaticResource Vis}}"
                                   AutomationProperties.Name="Your RigSight AI plan">
                     <StackPanel>
+                        <!-- Asking the relay where this PC stands: the shared spinner, never Free as a guess. -->
+                        <StackPanel Orientation="Horizontal" MinHeight="44" Visibility="{Binding Plans.Loading, Converter={StaticResource Vis}}">
+                            <ctl:Spinner Width="14" Height="14" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Checking your plan…'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <!-- Couldn't ask: why, and Try again. -->
+                        <DockPanel MinHeight="44" Visibility="{Binding Plans.CantTell, Converter={StaticResource Vis}}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Try again'}" Command="{Binding Plans.CheckPlanAgainCommand}"
+                                    VerticalAlignment="Center" Margin="16,0,0,0" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Couldn\'t check your plan'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                                <TextBlock Text="{Binding Plans.CantTellText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Visibility="{Binding Plans.ShowPlan, Converter={StaticResource Vis}}">
                         <!-- Free -->
                         <DockPanel Visibility="{Binding Plans.IsFree, Converter={StaticResource Vis}}">
                             <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'See plans'}" Command="{Binding Plans.ShowCommand}"
@@ -981,6 +996,7 @@
                             </Button>
                             <TextBlock Text="{Binding LicenceProblem}" FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
+                    </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
 

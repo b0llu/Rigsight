@@ -105,6 +105,8 @@ public sealed partial class PlansViewModel : ObservableObject
     private void Changed(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AskViewModel.Standing) or "") Rebuild();
+        else if (e.PropertyName is nameof(AskViewModel.CheckingPlan) or nameof(AskViewModel.PlanUnknown))
+            foreach (var name in new[] { nameof(Loading), nameof(CantTell), nameof(CantTellText), nameof(ShowPlan) }) OnPropertyChanged(name);
     }
 
     private void Rebuild()
@@ -129,6 +131,17 @@ public sealed partial class PlansViewModel : ObservableObject
 
     // ── The plan now ─────────────────────────────────────────────────────
     public RelayPlan? Plan => _ask.Standing?.Plan;
+
+    /// <summary>
+    /// Nothing known and the relay asked: the whole card (plan and licence) waits with a spinner, so Free never shows
+    /// before the real plan. Couldn't ask: says so with Try again, in place of a guess.
+    /// </summary>
+    public bool Loading => _ask.CheckingPlan && _ask.Standing is null;
+    public bool CantTell => !Loading && _ask.Standing is null && _ask.PlanUnknown is not null;
+    public string CantTellText => _ask.PlanUnknown ?? "";
+    public bool ShowPlan => !Loading && !CantTell;
+
+    [RelayCommand] private Task CheckPlanAgain() => _ask.RefreshQuestionsAsync(theyAsked: true);
     /// <summary>Known: the relay has said where this PC stands (it says nothing until RigSight AI is picked and used).</summary>
     public bool Known => Plan is not null;
     public bool IsFree => Plan?.IsFree ?? true;

@@ -1255,11 +1255,30 @@ public sealed partial class AskViewModel : ObservableObject
     {
         if (Ai.Mode != AiMode.RigSight) return null;
         if (!theyAsked && !Ai.FirstQuestionSeen.Contains(AiMode.RigSight)) return null;
-        var (status, problem) = await Relay.StatusAsync();
-        if (status is null) { Log.Write("ask", $"Questions left not refreshed: {problem}"); return problem; }
-        Show(status);
-        return null;
+        // Nothing known yet: the plan card waits with a spinner instead of showing Free until the relay answers
+        // (it showed Free, then the real plan a few seconds later, 2026-10-24).
+        bool first = Standing is null;
+        if (first) { CheckingPlan = true; PlanUnknown = null; }
+        try
+        {
+            var (status, problem) = await Relay.StatusAsync();
+            if (status is null)
+            {
+                Log.Write("ask", $"Questions left not refreshed: {problem}");
+                if (Standing is null) PlanUnknown = problem ?? Lang.T("RigSight AI isn't answering right now.");
+                return problem;
+            }
+            PlanUnknown = null;
+            Show(status);
+            return null;
+        }
+        finally { if (first) CheckingPlan = false; }
     }
+
+    /// <summary>Asking the relay where this PC stands while nothing is known yet.</summary>
+    [ObservableProperty] private bool _checkingPlan;
+    /// <summary>Why the plan couldn't be checked, while nothing is known yet; null otherwise.</summary>
+    [ObservableProperty] private string? _planUnknown;
 
     /// <summary>What the relay said about this PC, shown in the pill and Settings.</summary>
     public void Show(RelayStatus status)
