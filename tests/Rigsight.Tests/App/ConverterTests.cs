@@ -158,6 +158,18 @@ public sealed class ConverterTests
 
     // ── Numbers ──────────────────────────────────────────────────────────
 
+    [Fact]
+    public void Ink_on_a_circle_is_light_on_deep_colours_and_dark_on_bright_ones()
+    {
+        var conv = new InkOnConverter();
+        var onDeep = (System.Windows.Media.SolidColorBrush)Convert(conv, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x5A, 0x1E, 0x3C)).GetAsFrozen(), null)!;
+        var onBright = (System.Windows.Media.SolidColorBrush)Convert(conv, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x72, 0xB6)).GetAsFrozen(), null)!;
+        Assert.Equal(System.Windows.Media.Colors.White, onDeep.Color);
+        Assert.True(onBright.Color.R < 40);
+        // Nothing to go on: dark, as before.
+        Assert.True(((System.Windows.Media.SolidColorBrush)Convert(conv, null, null)!).Color.R < 40);
+    }
+
     [Theory]
     [InlineData(50.0, "0.4", 20.0)]
     [InlineData(50.0, null, 50.0)]
@@ -595,6 +607,7 @@ public sealed class ConverterTests
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
             typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter), typeof(ShareStarConverter),
+            typeof(InkOnConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

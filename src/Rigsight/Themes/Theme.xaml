@@ -58,6 +58,7 @@
     <conv:EqualsToVisibilityConverter x:Key="EqualsVis" />
     <conv:VisibilityConverter x:Key="Vis" />
     <conv:ScaleConverter x:Key="Scale" />
+    <conv:InkOnConverter x:Key="InkOn" />
     <conv:DurationConverter x:Key="Duration" />
     <conv:TempShortConverter x:Key="TempShort" />
     <conv:MegabytesConverter x:Key="Megabytes" />

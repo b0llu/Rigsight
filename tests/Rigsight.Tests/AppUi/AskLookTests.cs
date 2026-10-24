@@ -205,7 +205,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         {
             var template = (DataTemplate)Visuals.Descendants<AskWindow>(host.Window).Single().FindResource("RefPill");
             var sheet = new WrapPanel { Width = 520, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Background = (System.Windows.Media.Brush)Application.Current.FindResource("SurfaceBrush") };
-            var marks = new List<(string Start, FrameworkElement Mark)>();
+            var marks = new List<(string Start, FrameworkElement Mark, System.Windows.Media.Color Circle)>();
             foreach (var start in starts)
             {
                 var refs = new AskRefs([new AiSource(false, start.ToLowerInvariant() + "site.com", "A page", null, null, "https://example.com")]);
@@ -226,9 +226,10 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             {
                 var dot = Visuals.Descendants<System.Windows.Shapes.Ellipse>(pill).First(e => e.Name == "Dot");
                 var r = (AskRefs)pill.Content;
-                marks.Add((r.IsApp ? r.First.Site : r.Mark, (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetParent(dot)));
+                marks.Add((r.IsApp ? r.First.Site : r.Mark, (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetParent(dot),
+                    ((System.Windows.Media.SolidColorBrush)dot.Fill).Color));
             }
-            foreach (var (start, mark) in marks)
+            foreach (var (start, mark, circle) in marks)
             {
                 const int k = 8;
                 int w = (int)Math.Ceiling(mark.ActualWidth) * k, h = (int)Math.Ceiling(mark.ActualHeight) * k;
@@ -236,7 +237,9 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
                 bitmap.Render(mark);
                 var px = new byte[w * h * 4];
                 bitmap.CopyPixels(px, w * 4, 0);
-                // The circle: every pixel drawn at all. The letter: the dark ink inside it.
+                // The circle: every pixel drawn at all. The letter: the ink inside it, dark or light, whichever its circle
+                // takes (a picked accent makes some circles deeper, and their letters white).
+                bool darkInk = Rigsight.Converters.InkOnConverter.ReadsDark(circle);
                 int cx0 = w, cx1 = -1, cy0 = h, cy1 = -1, lx0 = w, lx1 = -1, ly0 = h, ly1 = -1;
                 for (int y = 0; y < h; y++)
                     for (int x = 0; x < w; x++)
@@ -245,9 +248,9 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
                         byte b = px[i], gg = px[i + 1], r = px[i + 2], a = px[i + 3];
                         if (a < 128) continue;
                         (cx0, cx1, cy0, cy1) = (Math.Min(cx0, x), Math.Max(cx1, x), Math.Min(cy0, y), Math.Max(cy1, y));
-                        if (r + gg + b < 150) (lx0, lx1, ly0, ly1) = (Math.Min(lx0, x), Math.Max(lx1, x), Math.Min(ly0, y), Math.Max(ly1, y));
+                        if (darkInk ? r + gg + b < 150 : r + gg + b > 690) (lx0, lx1, ly0, ly1) = (Math.Min(lx0, x), Math.Max(lx1, x), Math.Min(ly0, y), Math.Max(ly1, y));
                     }
-                if (lx1 < 0) { problems.Add($"{start}: no ink drawn"); continue; }
+                if (lx1 < 0) { problems.Add($"{start}: no ink drawn on {circle} (ink {((System.Windows.Media.SolidColorBrush?)Visuals.Descendants<Rigsight.Controls.InkCentered>(mark).FirstOrDefault()?.Fill)?.Color})"); continue; }
                 double dx = ((lx0 + lx1) - (cx0 + cx1)) / 2.0 / k, dy = ((ly0 + ly1) - (cy0 + cy1)) / 2.0 / k;
                 // Within half a pixel either way: closer than a screen can show.
                 if (Math.Abs(dx) > 0.5 || Math.Abs(dy) > 0.5) problems.Add($"{start}: {dx:+0.00;-0.00} px across, {dy:+0.00;-0.00} px down");

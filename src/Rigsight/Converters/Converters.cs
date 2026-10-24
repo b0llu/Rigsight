@@ -484,3 +484,30 @@ public sealed class ShareStarConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
+
+/// <summary>
+/// Black or white, whichever reads on the brush given (a source pill's circle): its tones turn into lighter and deeper
+/// shades of a picked accent, so a fixed black (or the accent's own text colour) didn't read on all of them.
+/// </summary>
+public sealed class InkOnConverter : IValueConverter
+{
+    private static readonly SolidColorBrush Dark = Freeze(Color.FromRgb(0x0B, 0x0E, 0x14)), Light = Freeze(Colors.White);
+
+    private static SolidColorBrush Freeze(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is SolidColorBrush { Color: var c } && !ReadsDark(c) ? Light : Dark;
+
+    /// <summary>
+    /// Dark text reads better than white on <paramref name="c"/>: whichever has the higher contrast (WCAG's ratio). On
+    /// the CPU blue that's dark (6.7 against 3.1), where the accent buttons' own rule would have picked white.
+    /// </summary>
+    public static bool ReadsDark(Color c)
+    {
+        static double Lin(byte v) { double s = v / 255.0; return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4); }
+        double l = 0.2126 * Lin(c.R) + 0.7152 * Lin(c.G) + 0.0722 * Lin(c.B);
+        return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}

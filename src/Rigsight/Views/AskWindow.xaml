@@ -238,7 +238,7 @@
                              letter's box put E and the digits a pixel right and accents over a pixel high ("the N is not at center"). -->
                         <Grid Width="16" Height="16" UseLayoutRounding="True">
                             <Ellipse x:Name="Dot" Fill="{DynamicResource CpuBrush}" />
-                            <ctl:InkCentered x:Name="Letter" Text="{Binding Mark}" FontSize="9" Fill="#000000" />
+                            <ctl:InkCentered x:Name="Letter" Text="{Binding Mark}" FontSize="9" Fill="{Binding Fill, ElementName=Dot, Converter={StaticResource InkOn}}" />
                             <Viewbox x:Name="AppMark" Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
                                 <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" IsTabStop="False"
                                                 FontFamily="{StaticResource IconFont}" FontSize="16" Foreground="{DynamicResource OnAccentBrush}" />

@@ -30,7 +30,9 @@ public sealed class Treemap : FrameworkElement
 
     /// <summary>
     /// A kind's colour, from the app's palette (never green, amber or red, which mean good and bad elsewhere): game data
-    /// the CPU blue, video the GPU cyan, photos and music pink, programs violet, archives sky, other files faint.
+    /// the CPU blue, video the GPU cyan, photos and music pink, programs violet, archives a muted grey, other files faint.
+    /// With an accent picked, the first four turn into its shades (Accents.TakeOver) and stay four different ones; archives
+    /// were sky, which the accent turns into the same colour as game data.
     /// </summary>
     internal static Brush KindBrush(FileKind kind) => (Brush)(Application.Current?.TryFindResource(kind switch
     {
@@ -38,7 +40,7 @@ public sealed class Treemap : FrameworkElement
         FileKind.Video => "GpuBrush",
         FileKind.PhotosAndMusic => "PinkBrush",
         FileKind.Programs => "PurpleBrush",
-        FileKind.Archives => "SkyBrush",
+        FileKind.Archives => "MutedBrush",
         _ => "FaintBrush",
     }) ?? Brushes.SlateGray);
     private static Brush Dim => ChartPaint.Brush(ChartPaint.Res("BgColor", 0), 0.44);
@@ -46,6 +48,18 @@ public sealed class Treemap : FrameworkElement
     private static Pen HotPen => new(ChartPaint.TextBrush, 2);
     private static readonly Brush Highlight = ChartPaint.Frozen(0xFF, 0xFF, 0xFF, 0x30);
     private static readonly Brush Ink = ChartPaint.Frozen(0x0B, 0x0E, 0x14);
+    private static readonly Brush LightInk = ChartPaint.Frozen(0xFF, 0xFF, 0xFF);
+
+    /// <summary>
+    /// Dark or light text, whichever reads on a block of <paramref name="kind"/>'s colour (dimmed for a bucket or an inner
+    /// block): a picked accent makes some kinds deeper shades, where the dark names didn't read.
+    /// </summary>
+    private static Brush InkOn(FileKind kind, bool dimmed)
+    {
+        if (KindBrush(kind) is not SolidColorBrush { Color: var c }) return Ink;
+        if (dimmed) c = Services.Accents.Mix(c, ChartPaint.Res("BgColor", 0), 0.35);
+        return Converters.InkOnConverter.ReadsDark(c) ? Ink : LightInk;
+    }
 
     private List<(Rect Rect, FolderNode Node, int Color)> _layout = [];
     private int _hover = -1;
@@ -98,7 +112,7 @@ public sealed class Treemap : FrameworkElement
             if (i == _hover) dc.DrawRoundedRectangle(Highlight, null, r, 6, 6);
             if (ReferenceEquals(node, Hot)) dc.DrawRoundedRectangle(null, HotPen, r, 6, 6);
 
-            Label(dc, r, node);
+            Label(dc, r, node, InkOn((FileKind)color, node.IsBucket));
         }
 
         if (_hover >= 0 && _hover < _layout.Count)
@@ -135,7 +149,7 @@ public sealed class Treemap : FrameworkElement
             if (kr.Width >= 50 && kr.Height >= 18)
             {
                 dc.PushClip(new RectangleGeometry(kr));
-                dc.DrawText(Fitted(kid.Name, 10.5, kr.Width - 10), new Point(kr.X + 5, kr.Y + 3));
+                dc.DrawText(Fitted(kid.Name, 10.5, kr.Width - 10, ink: InkOn((FileKind)color, true)), new Point(kr.X + 5, kr.Y + 3));
                 dc.Pop();
             }
         }
@@ -151,17 +165,17 @@ public sealed class Treemap : FrameworkElement
     /// A block's name and size, as much as fits: both across when it's wide enough, the name cut short ("Progr…") when
     /// it's narrow, and the name up its side when it's tall but thin. Nothing only on a block too small for a word.
     /// </summary>
-    private void Label(DrawingContext dc, Rect r, FolderNode node)
+    private void Label(DrawingContext dc, Rect r, FolderNode node, Brush ink)
     {
         dc.PushClip(new RectangleGeometry(r));
         if (r.Width >= 36 && r.Height >= 22)
         {
-            dc.DrawText(Fitted(node.Name, 12, r.Width - 16, bold: true), new Point(r.X + 8, r.Y + 6));
-            if (r.Height >= 38) dc.DrawText(Fitted(Units.Bytes(node.Size), 11, r.Width - 16), new Point(r.X + 8, r.Y + 22));
+            dc.DrawText(Fitted(node.Name, 12, r.Width - 16, bold: true, ink: ink), new Point(r.X + 8, r.Y + 6));
+            if (r.Height >= 38) dc.DrawText(Fitted(Units.Bytes(node.Size), 11, r.Width - 16, ink: ink), new Point(r.X + 8, r.Y + 22));
         }
         else if (r.Height >= 56 && r.Width >= 16)
         {
-            var name = Fitted(node.Name, 12, r.Height - 16, bold: true);
+            var name = Fitted(node.Name, 12, r.Height - 16, bold: true, ink: ink);
             dc.PushTransform(new RotateTransform(-90, r.X, r.Bottom));
             dc.DrawText(name, new Point(r.X + 8, r.Bottom + (r.Width - name.Height) / 2));
             dc.Pop();
@@ -170,9 +184,9 @@ public sealed class Treemap : FrameworkElement
     }
 
     /// <summary>One line of text, cut short with "…" past <paramref name="width"/>.</summary>
-    private FormattedText Fitted(string text, double size, double width, bool bold = false)
+    private FormattedText Fitted(string text, double size, double width, bool bold = false, Brush? ink = null)
     {
-        var ft = ChartPaint.Format(this, text, size, Ink, bold);
+        var ft = ChartPaint.Format(this, text, size, ink ?? Ink, bold);
         ft.MaxTextWidth = Math.Max(1, width);
         ft.MaxLineCount = 1;
         ft.Trimming = TextTrimming.CharacterEllipsis;
