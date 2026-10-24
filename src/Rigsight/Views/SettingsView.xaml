@@ -1114,6 +1114,21 @@
                                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
                             </Style.Triggers>
                         </Style>
+                        <Style x:Key="LinkButton" TargetType="Button">
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <TextBlock x:Name="T" Text="{TemplateBinding Content}" TextDecorations="Underline" Background="Transparent" Foreground="{TemplateBinding Foreground}" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="T" Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
                         <Style x:Key="CancelBox" TargetType="Button" BasedOn="{StaticResource GhostButton}">
                             <Setter Property="Background" Value="{DynamicResource HotSoftBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />
@@ -1124,14 +1139,6 @@
                             <Setter Property="Padding" Value="10,3" />
                             <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
                             <Setter Property="VerticalAlignment" Value="Center" />
-                        </Style>
-                        <!-- The panel a pick's question and download sit in: set into the pick's box, so it reads as a step of its own. -->
-                        <Style x:Key="PickStep" TargetType="ctl:SmoothBorder">
-                            <Setter Property="CornerRadius" Value="10" />
-                            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
-                            <Setter Property="BorderThickness" Value="1" />
-                            <Setter Property="Padding" Value="12,10" />
                         </Style>
                     </StackPanel.Resources>
                     <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8,20,16" Margin="0,14,0,0">
@@ -1305,13 +1312,27 @@
                                         <!-- The buttons docked at the bottom, so they line up across the three cards. -->
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                                                <TextBlock Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,8"
-                                                           Visibility="{Binding ShowSize, Converter={StaticResource Vis}}" />
-                                                <!-- Idle: Download (or Use, or In use when it's on Ollama already) -->
+                                                <!-- Ready: the facts on one line above the button (size and drive, the time once a download has
+                                                     shown this connection's speed); pressing Download starts it, no question step. Not enough room:
+                                                     said in the warning colour, and the button is Free up space (the Storage page). -->
+                                                <DockPanel Margin="0,0,0,8" Visibility="{Binding ShowSize, Converter={StaticResource Vis}}">
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
+                                                    <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasRoom}" Value="False"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                        <Span ctl:Md.Text="{Binding Facts}" />
+                                                    </TextBlock>
+                                                </DockPanel>
                                                 <Grid Visibility="{Binding IsIdle, Converter={StaticResource Vis}}">
                                                     <Button Style="{StaticResource PickButton}" HorizontalAlignment="Stretch"
-                                                            Command="{Binding DataContext.AskDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                            Visibility="{Binding NotOnOllama, Converter={StaticResource Vis}}">
+                                                            Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                            Visibility="{Binding CanDownloadHere, Converter={StaticResource Vis}}">
                                                         <Grid>
                                                             <StackPanel Orientation="Horizontal" Visibility="{Binding DataContext.DownloadOff, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                                                 <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" />
@@ -1321,6 +1342,9 @@
                                                                        Visibility="{Binding DataContext.DownloadOff, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource Vis}}" />
                                                         </Grid>
                                                     </Button>
+                                                    <Button Style="{StaticResource BoxButton}" HorizontalAlignment="Stretch" Content="{ctl:T 'Free up space'}"
+                                                            Command="{Binding DataContext.FreeUpSpaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            Visibility="{Binding NoRoom, Converter={StaticResource Vis}}" />
                                                     <Button Style="{StaticResource BoxButton}" HorizontalAlignment="Stretch" Content="{ctl:T 'Use'}"
                                                             Command="{Binding DataContext.UseOllamaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Tag}"
                                                             Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
@@ -1334,36 +1358,24 @@
                                                         </StackPanel>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Asked: the size, where it goes (the drive in bold) and how long, then Download N GB or Cancel -->
-                                                <ctl:SmoothBorder Style="{StaticResource PickStep}" Visibility="{Binding IsAsking, Converter={StaticResource Vis}}">
-                                                    <StackPanel>
-                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,10"><Span ctl:Md.Text="{Binding AskText}" /></TextBlock>
-                                                        <WrapPanel>
-                                                            <Button Style="{StaticResource AccentButton}" Content="{Binding ConfirmText}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Start the download'}"
-                                                                    Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                                    Visibility="{Binding HasRoom, Converter={StaticResource Vis}}" />
-                                                            <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Don\'t download'}"
-                                                                    Command="{Binding DataContext.CancelAskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                        </WrapPanel>
-                                                    </StackPanel>
-                                                </ctl:SmoothBorder>
-                                                <!-- Downloading: the bar and how much, how fast, how long, with Cancel beside them -->
-                                                <ctl:SmoothBorder Style="{StaticResource PickStep}" Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
-                                                    <DockPanel>
-                                                        <Button DockPanel.Dock="Right" Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" Padding="11,5" VerticalAlignment="Center" Margin="12,0,0,0"
-                                                                AutomationProperties.Name="{ctl:T 'Stop the download'}"
-                                                                Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <Grid Height="6" ClipToBounds="True">
-                                                                <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
-                                                                <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
-                                                                    <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
-                                                                </Border>
-                                                            </Grid>
-                                                            <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                                        </StackPanel>
+                                                <!-- Downloading: done of the whole and time left over the bar, speed and Cancel under it. -->
+                                                <StackPanel Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
+                                                    <DockPanel Margin="0,0,0,6">
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressLeft}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
+                                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}"><Span ctl:Md.Text="{Binding ProgressDone}" /></TextBlock>
                                                     </DockPanel>
-                                                </ctl:SmoothBorder>
+                                                    <Grid Height="6" ClipToBounds="True">
+                                                        <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
+                                                        <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
+                                                            <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
+                                                        </Border>
+                                                    </Grid>
+                                                    <DockPanel Margin="0,6,0,0">
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop the download'}"
+                                                                Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                        <TextBlock Text="{Binding ProgressSpeed}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
                                                            Visibility="{Binding HasProblem, Converter={StaticResource Vis}}" />
                                             </StackPanel>

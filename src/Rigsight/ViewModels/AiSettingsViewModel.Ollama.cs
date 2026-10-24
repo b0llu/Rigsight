@@ -34,7 +34,7 @@ public sealed partial class OllamaRow(string name, string size, bool canLookUp, 
     public string RemoveQuestion => Lang.T($"Remove {Name}? Frees {Size}.");
 }
 
-public enum PickState { Idle, Asking, Downloading }
+public enum PickState { Idle, Downloading }
 
 /// <summary>One model picked for this PC (best, smaller, bigger): download it after agreeing to its size, then use it.</summary>
 public sealed partial class OllamaPickCard(OllamaPick pick, string label, OllamaFit fit, string? card) : ObservableObject
@@ -51,27 +51,32 @@ public sealed partial class OllamaPickCard(OllamaPick pick, string label, Ollama
     public bool HasFitWhy => FitWhy.Length > 0;
     public bool FitIsGood { get; } = fit == OllamaFit.Fits;
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsAsking), nameof(IsDownloading), nameof(ShowSize))] private PickState _state;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsDownloading), nameof(ShowSize))] private PickState _state;
     public bool IsIdle => State == PickState.Idle;
-    public bool IsAsking => State == PickState.Asking;
     public bool IsDownloading => State == PickState.Downloading;
 
     /// <summary>Already on Ollama: Use (or In use) in place of Download.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse), nameof(NotOnOllama), nameof(ShowSize))] private bool _onOllama;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse), nameof(NotOnOllama), nameof(ShowSize), nameof(CanDownloadHere), nameof(NoRoom))] private bool _onOllama;
     /// <summary>The download size, only while there is something to download.</summary>
     public bool ShowSize => IsIdle && !OnOllama;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse))] private bool _inUse;
     public bool NotOnOllama => !OnOllama;
     public bool CanUse => OnOllama && !InUse;
 
-    /// <summary>"Download 8 GB? It goes to C: (412 GB free)."</summary>
-    [ObservableProperty] private string _askText = "";
-    /// <summary>"Download 8 GB": the button says what it does.</summary>
-    [ObservableProperty] private string _confirmText = "";
-    [ObservableProperty] private bool _hasRoom = true;
+    /// <summary>"**6.6 GB** to C: · 205 GB free", or "**14 GB** won't fit on C: · 9 GB free" (Markdown: the size in bold).</summary>
+    [ObservableProperty] private string _facts = "";
+    /// <summary>"about 4 min", once a download here has shown this connection's speed; empty before.</summary>
+    [ObservableProperty] private string _timeText = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanDownloadHere), nameof(NoRoom))] private bool _hasRoom = true;
+    public bool CanDownloadHere => NotOnOllama && HasRoom;
+    public bool NoRoom => NotOnOllama && !HasRoom;
     [ObservableProperty] private double _progress;
-    /// <summary>"3.1 of 8 GB · 18.4 MB/s · about 4 min left"</summary>
+    /// <summary>For the log: "3.1 of 6.6 GB · 18 MB/s · about 4 min left".</summary>
     [ObservableProperty] private string _progressText = "";
+    /// <summary>"**3.1** of 6.6 GB", over the bar's left; time left on its right; speed under it.</summary>
+    [ObservableProperty] private string _progressDone = "";
+    [ObservableProperty] private string _progressLeft = "";
+    [ObservableProperty] private string _progressSpeed = "";
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasProblem))] private string? _problem;
     public bool HasProblem => Problem is not null;
 
@@ -110,7 +115,7 @@ public sealed partial class AiSettingsViewModel
     }
 
     /// <summary>Ollama answered at the address (models or none).</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(DownloadOff))] [NotifyCanExecuteChangedFor(nameof(AskDownloadCommand))] private bool _ollamaAnswering;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(DownloadOff))] [NotifyCanExecuteChangedFor(nameof(DownloadCommand))] private bool _ollamaAnswering;
     /// <summary>The address is this PC, Ollama doesn't answer, and it isn't installed: "Ollama isn't on this PC."</summary>
     [ObservableProperty] private bool _ollamaMissing;
     public bool OllamaHere => Ollama.IsOnThisPc(Ai.OllamaAddress);
@@ -169,6 +174,7 @@ public sealed partial class AiSettingsViewModel
         if (smaller is not null) cards.Add(Card(smaller, Lang.T("Smaller and quicker")));
         if (bigger is not null) cards.Add(Card(bigger, Lang.T("Bigger")));
         bool same = cards.Count == Picks.Count && cards.Zip(Picks).All(x => ReferenceEquals(x.First, x.Second));
+        foreach (var c in cards) SetFacts(c);
         Picks = cards;
         MarkInUse();
         if (!same) OnPropertyChanged(nameof(Picks));
@@ -437,47 +443,42 @@ public sealed partial class AiSettingsViewModel
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
     }
 
-    /// <summary>Download: first the size and where it goes, to agree to. One download at a time.</summary>
-    [RelayCommand(CanExecute = nameof(CanAskDownload))]
-    private void AskDownload(OllamaPickCard? card)
+    /// <summary>A pick's line over its button: its size, where it goes and the room there, and how long when known.</summary>
+    private void SetFacts(OllamaPickCard card)
     {
-        if (card is null || !CanAskDownload(card)) return;
-        foreach (var other in Picks.Where(c => c.IsAsking)) other.State = PickState.Idle;
         string size = card.Pick.Gb.ToString("0.#", CultureInfo.CurrentCulture);
-        card.Problem = null;
         card.HasRoom = true;
-        card.ConfirmText = Lang.T($"Download {size} GB");
-        if (!OllamaHere) card.AskText = Lang.T($"Download {size} GB? It goes to Ollama on **{Ollama.Host(Ai.OllamaAddress)}**.");
-        else if (OllamaPicks.FreeSpace() is { } space)
-        {
-            card.HasRoom = space.Free > card.Pick.Gb * (1L << 30) * 1.1;
-            card.AskText = !card.HasRoom
-                ? Lang.T($"There isn't room: it needs {size} GB and **{space.Drive}** has {Units.Bytes(space.Free)} free.")
-                : _lastSpeed is { } speed
-                    ? Lang.T($"Download {size} GB? It goes to **{space.Drive}** ({Units.Bytes(space.Free)} free) and takes about {Minutes(card.Pick.Gb * (1L << 30) / speed)} on your connection.")
-                    : Lang.T($"Download {size} GB? It goes to **{space.Drive}** ({Units.Bytes(space.Free)} free).");
-        }
-        else card.AskText = Lang.T($"Download {size} GB?");
-        card.State = PickState.Asking;
+        card.TimeText = _lastSpeed is { } speed ? Lang.T($"about {Minutes(card.Pick.Gb * 1e9 / speed)}") : "";
+        if (!OllamaHere) { card.Facts = Lang.T($"**{size} GB** to Ollama on {Ollama.Host(Ai.OllamaAddress)}"); return; }
+        if (OllamaPicks.FreeSpace() is not { } space) { card.Facts = Lang.T($"**{size} GB**"); return; }
+        string free = Units.Bytes(space.Free);
+        card.HasRoom = space.Free > card.Pick.Gb * 1e9 * 1.1;
+        card.Facts = card.HasRoom ? Lang.T($"**{size} GB** to {space.Drive} · {free} free") : Lang.T($"**{size} GB** won't fit on {space.Drive} · {free} free");
+        if (!card.HasRoom) card.TimeText = "";
     }
 
+    /// <summary>Not enough room for a model: the Storage page, to see what fills the drive.</summary>
+    [RelayCommand] private void FreeUpSpace() => _ask.OpenPageAt?.Invoke(AiPages.Storage, null);
+
+    /// <summary>One download at a time, and only with Ollama answering.</summary>
     private bool CanAskDownload(OllamaPickCard? card) => OllamaAnswering && !Picks.Any(c => c.IsDownloading);
 
     /// <summary>The speed the last download here ran at, for how long the next one takes; null until one has run.</summary>
     private static double? _lastSpeed;
 
-    private static string Minutes(double seconds) => seconds < 90 ? Lang.T("about a minute") : Lang.T($"{Math.Ceiling(seconds / 60):0} minutes");
+    private static string Minutes(double seconds) => seconds < 90 ? Lang.T("a minute") : Lang.T($"{Math.Ceiling(seconds / 60):0} min");
 
-    [RelayCommand] private static void CancelAsk(OllamaPickCard? card) { if (card is { IsAsking: true }) card.State = PickState.Idle; }
-
-    [RelayCommand]
+    /// <summary>Download pressed: it starts at once (its size and room were on the card already).</summary>
+    [RelayCommand(CanExecute = nameof(CanAskDownload))]
     private async Task Download(OllamaPickCard? card)
     {
-        if (card is not { IsAsking: true, HasRoom: true }) return;
+        if (card is not { IsIdle: true, HasRoom: true, OnOllama: false } || !CanAskDownload(card)) return;
+        card.Problem = null;
         card.State = PickState.Downloading;
-        AskDownloadCommand.NotifyCanExecuteChanged();
+        DownloadCommand.NotifyCanExecuteChanged();
         card.Progress = 0;
-        card.ProgressText = Lang.T("Starting…");
+        card.ProgressText = card.ProgressDone = Lang.T("Starting…");
+        card.ProgressLeft = card.ProgressSpeed = "";
         using var stop = new CancellationTokenSource();
         card.Stop = stop;
         var samples = new Queue<(DateTime At, long Done)>();
@@ -489,10 +490,11 @@ public sealed partial class AiSettingsViewModel
             if (p.Status.StartsWith("verifying", StringComparison.OrdinalIgnoreCase) || p.Status.StartsWith("writing", StringComparison.OrdinalIgnoreCase))
             {
                 card.Progress = 1;
-                card.ProgressText = Lang.T("Checking the download…");
+                card.ProgressText = card.ProgressDone = Lang.T("Checking the download…");
+                card.ProgressLeft = card.ProgressSpeed = "";
                 return;
             }
-            if (p.Total <= 0) { card.ProgressText = Lang.T("Starting…"); return; }
+            if (p.Total <= 0) { card.ProgressText = card.ProgressDone = Lang.T("Starting…"); return; }
             var now = DateTime.UtcNow;
             samples.Enqueue((now, p.Done));
             while (samples.Count > 2 && (now - samples.Peek().At).TotalSeconds > 6) samples.Dequeue();
@@ -502,6 +504,9 @@ public sealed partial class AiSettingsViewModel
             if (speed > 0 && seconds >= 3) _lastSpeed = speed;
             card.Progress = Math.Clamp((double)p.Done / whole, 0, 1);
             card.ProgressText = DownloadText(p.Done, whole, speed);
+            card.ProgressDone = Lang.T($"**{(p.Done / 1e9).ToString("0.0", CultureInfo.CurrentCulture)}** of {(whole / 1e9).ToString("0.#", CultureInfo.CurrentCulture)} GB");
+            card.ProgressSpeed = speed >= 1 ? (speed / 1e6).ToString("0", CultureInfo.CurrentCulture) + " MB/s" : "";
+            card.ProgressLeft = speed >= 1 ? ((whole - p.Done) / speed < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Math.Ceiling((whole - p.Done) / speed / 60):0} min left")) : "";
         });
         string? problem;
         try { problem = await Ollama.PullAsync(Ai.OllamaAddress, card.Tag, progress, stop.Token); }
@@ -510,12 +515,12 @@ public sealed partial class AiSettingsViewModel
             Log.Write("ai-settings", $"Download of {card.Tag} cancelled at {card.ProgressText}");
             card.Stop = null;
             card.State = PickState.Idle;
-            AskDownloadCommand.NotifyCanExecuteChanged();
+            DownloadCommand.NotifyCanExecuteChanged();
             return;
         }
         card.Stop = null;
         card.State = PickState.Idle;
-        AskDownloadCommand.NotifyCanExecuteChanged();
+        DownloadCommand.NotifyCanExecuteChanged();
         if (problem is not null) { card.Problem = problem; return; }
         // Done: read the list again, and use it.
         await ConnectOllama();
