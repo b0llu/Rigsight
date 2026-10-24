@@ -40,13 +40,19 @@ public sealed class AskIdeasTests
     }
 
     [Theory]
-    // Lines of an answer, or a paragraph of one: kept, even when the model also asks to look something up again.
-    [InlineData("Your CPU peaked at 78° this week, well under AMD's 89° limit.\nYour GPU's hot spot reached 90°, which NVIDIA allows.", true)]
-    [InlineData("Your temperatures this week are normal for your parts: the Ryzen 7 5700X3D peaked at 78°, well under its 89° limit, and the RTX 3080 Ti stayed in its usual range.", true)]
-    // A lead-in before the look-ups: comes off the screen, as before.
-    [InlineData("Let me check your temperatures.", false)]
-    [InlineData("", false)]
-    public void Words_written_before_a_look_up_are_kept_when_they_are_an_answer(string text, bool answer) => Assert.Equal(answer, OwnKey.IsAnswer(text));
+    // Lines of an answer, or a paragraph of one, after something was looked up: kept, even when the model also asks to look
+    // something up again (the answer that showed, vanished and came again, 2026-10-24).
+    [InlineData("Your CPU peaked at 78° this week, well under AMD's 89° limit.\nYour GPU's hot spot reached 90°, which NVIDIA allows.", 3, true)]
+    [InlineData("Your temperatures this week are normal for your parts: the Ryzen 7 5700X3D peaked at 78°, well under its 89° limit, and the RTX 3080 Ti stayed in its usual range.", 2, true)]
+    // A lead-in before the look-ups: comes off the screen, as before, even on two lines or ending as a lead-in does.
+    [InlineData("Let me check your temperatures.", 2, false)]
+    [InlineData("Let me check your temperatures and crashes.\nOne moment.", 2, false)]
+    [InlineData("I'll look at a few things first: your temperatures, your crashes this week and what changed before them, then the web for your exact parts:", 2, false)]
+    [InlineData("Checking your drives and what filled them this week, then what Windows says about the space it keeps for itself on each one…", 1, false)]
+    [InlineData("", 3, false)]
+    // A first reply's words, before anything was looked up, are a lead-in however long.
+    [InlineData("Your temperatures this week are normal for your parts: the Ryzen 7 5700X3D peaked at 78°, well under its 89° limit, and the RTX 3080 Ti stayed in its usual range.", 0, false)]
+    public void Words_written_before_a_look_up_are_kept_when_they_are_an_answer(string text, int lookedUp, bool answer) => Assert.Equal(answer, OwnKey.IsAnswer(text, lookedUp));
 
     [Fact]
     public void A_source_carries_its_days_for_the_page_to_open_at()

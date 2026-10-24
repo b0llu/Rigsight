@@ -237,7 +237,7 @@ public static class OwnKey
                 return new AiReply(null, Lang.T($"{service} couldn't answer: {error}"), lookUps);
             }
             Log.Write("own-key", $"{model} round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
-            if (got.Calls.Count > 0 && IsAnswer(got.Text))
+            if (got.Calls.Count > 0 && IsAnswer(got.Text, lookUps.Count))
                 Log.Write("own-key", $"{model} round {round}: wrote an answer ({got.Text.Trim().Length} chars) and asked for {string.Join(", ", got.Calls.Select(c => (string?)c["function"]?["name"]))} too: kept the answer, the look-ups not run");
             else if (got.Calls.Count > 0)
             {
@@ -297,11 +297,17 @@ public static class OwnKey
     /// lead-in ("Let me check your temperatures."). Shown as they came, an answer stays the answer: dropping it for the
     /// look-ups showed one answer, took it away, waited and wrote another (the person's report, 2026-10-24; the model had
     /// written its answer, then asked again for temperatures it already had).
+    /// <para>
+    /// Only once something was looked up in this question (a first reply's words are a lead-in), only a real paragraph (160
+    /// letters, or lines adding up to 80), and never words that end as a lead-in does (":" or "…"): a two-line "Let me check
+    /// your temperatures and crashes." must not become the whole answer.
+    /// </para>
     /// </summary>
-    internal static bool IsAnswer(string text)
+    internal static bool IsAnswer(string text, int lookedUp)
     {
         string t = text.Trim();
-        return t.Length >= 160 || t.Contains('\n');
+        if (lookedUp == 0 || t.EndsWith(':') || t.EndsWith('…') || t.EndsWith("...", StringComparison.Ordinal)) return false;
+        return t.Length >= 160 || (t.Contains('\n') && t.Length >= 80);
     }
 
     internal sealed record Streamed(string Text, List<JsonObject> Calls, string Finish, long TokensIn, long TokensOut, string? Error, DateTime? FirstWords, bool CutOff = false);

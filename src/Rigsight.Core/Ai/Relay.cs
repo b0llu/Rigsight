@@ -236,7 +236,7 @@ public static partial class Relay
             }
             Log.Write("relay", $"Round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
             // An answer already written stays the answer, even when the model also asked to look something up again.
-            if (got.Calls.Count > 0 && OwnKey.IsAnswer(got.Text))
+            if (got.Calls.Count > 0 && OwnKey.IsAnswer(got.Text, lookUps.Count))
                 Log.Write("relay", $"Round {round}: wrote an answer ({got.Text.Trim().Length} chars) and asked for {string.Join(", ", got.Calls.Select(c => (string?)c["function"]?["name"]))} too: kept the answer, the look-ups not run");
             else if (got.Calls.Count > 0)
             {
