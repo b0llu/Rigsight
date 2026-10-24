@@ -10,7 +10,7 @@ public sealed record WebSource(int N, string Title, string Url, string? Date);
 /// Where a paragraph's facts came from, as its pill lists them: one of RigSight's records (opening its page) or a web
 /// page (opening the site).
 /// </summary>
-public sealed record AiSource(bool IsApp, string Site, string Title, string? Date, string? Page, string? Url)
+public sealed record AiSource(bool IsApp, string Site, string Title, string? Date, string? Page, string? Url, string? Focus = null)
 {
     /// <summary>The letter on a web page's round mark ("t" for tomshardware.com).</summary>
     public string Mark => IsApp ? "" : Site.Length > 0 ? char.ToUpperInvariant(Site[0]).ToString() : "?";
@@ -49,7 +49,7 @@ public static partial class AiSources
         "apps" => ["get_apps"],
         "games" or "game" => ["list_games", "get_game"],
         "memory" => ["get_memory"],
-        "storage" or "drives" => ["get_storage"],
+        "storage" or "drives" or "scan" => ["get_storage", "get_drive_scan"],
         "internet" or "network" => ["get_network"],
         "changes" => ["get_changes"],
         "report" => ["get_report"],
@@ -57,6 +57,10 @@ public static partial class AiSources
         "running" or "running-now" => ["get_running_now"],
         "parts" or "pc" => ["get_pc_info"],
         "on-times" or "on" => ["get_on_times"],
+        "today" or "home" => ["get_today"],
+        "sensors" => ["get_sensors_now"],
+        "rewind" => ["get_rewind"],
+        "dashboards" or "dashboard" => ["get_dashboard"],
         _ => [],
     };
 
@@ -120,16 +124,22 @@ public static partial class AiSources
             "get_apps" => ("apps", Lang.T("Apps"), Lang.T($"Apps, {range}")),
             "get_memory" => ("memory", Lang.T("Memory"), Lang.T($"Memory, {range}")),
             "get_storage" => ("storage", Lang.T("Storage"), Lang.T("Your drives")),
+            "get_drive_scan" => ("storage", Lang.T("Storage"), (string?)l.Args["drive"] is { Length: > 0 } d ? Lang.T($"Scan of {d.Trim().TrimEnd(':').ToUpperInvariant()}:") : Lang.T("A drive's scan")),
             "get_network" => ("network", Lang.T("Network"), Lang.T($"Internet, {range}")),
             "get_on_times" => ("reports", Lang.T("Reports"), Lang.T($"When it was on, {range}")),
             "get_running_now" => ("processes", Lang.T("Processes"), Lang.T("Running now")),
             "get_moment" => ("timeline", Lang.T("Timeline"), Moment(l)),
             "get_pc_info" => ("", Lang.T("Your PC's parts"), Lang.T("CPU, graphics card, motherboard, RAM")),
+            "get_today" => ("home", Lang.T("Home"), Lang.T("Today so far")),
+            "get_sensors_now" => ("sensors", Lang.T("All sensors"), Lang.T("Every reading now")),
+            // Rewind and dashboards have no page of their own to open at (a rewind plays; a dashboard is found by its id).
+            "get_rewind" => ("", Lang.T("Rewind"), Lang.T("Your rewind")),
+            "get_dashboard" => ("", Lang.T("Your dashboards"), (string?)l.Args["name"] ?? Lang.T("Your dashboards")),
             _ => null,
         };
         // A look-up without dates ("Report, ") says just its name.
         // Where it opens, said in the list under what it was ("Open Temperatures").
-        return r is { } x ? new AiSource(true, x.Name, x.Title.TrimEnd(' ', ','), x.Page.Length > 0 ? Lang.T($"Open {x.Name}") : null, x.Page.Length > 0 ? x.Page : null, null) : null;
+        return r is { } x ? new AiSource(true, x.Name, x.Title.TrimEnd(' ', ','), x.Page.Length > 0 ? Lang.T($"Open {x.Name}") : null, x.Page.Length > 0 ? x.Page : null, null, Days(l)) : null;
     }
 
     /// <summary>"Around 8:57 AM, 23 Oct" for a look at one moment (the model writes it "2026-10-23 08:57").</summary>
@@ -143,6 +153,28 @@ public static partial class AiSources
     }
 
     /// <summary>"15 Oct – 22 Oct", or one day.</summary>
+    /// <summary>
+    /// The days a look-up read, "2026-10-16..2026-10-22", for its page to open at them (Temperatures, Reports, Crashes);
+    /// null when it read no days. <see cref="ParseDays"/> reads it back.
+    /// </summary>
+    public static string? Days(AiLookUp l)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        if (!DateTime.TryParseExact((string?)l.Args["from"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
+            || !DateTime.TryParseExact((string?)l.Args["to"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return null;
+        if (to < from) (from, to) = (to, from);
+        return $"{from:yyyy-MM-dd}..{to:yyyy-MM-dd}";
+    }
+
+    public static (DateTime From, DateTime To)? ParseDays(string? days)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        if (days?.Split("..") is not [var a, var b]
+            || !DateTime.TryParseExact(a, "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
+            || !DateTime.TryParseExact(b, "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return null;
+        return (from, to);
+    }
+
     public static string Range(AiLookUp l)
     {
         var inv = CultureInfo.InvariantCulture;

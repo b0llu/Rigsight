@@ -200,6 +200,8 @@ public static partial class Relay
                 ["now"] = started.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
                 ["messages"] = JsonNode.Parse(messages.ToJsonString()),
                 ["tools"] = JsonNode.Parse(definitions.ToJsonString()),
+                // What this app reads in an answer beyond the words: a "Title:" line names the conversation.
+                ["features"] = new JsonArray("title"),
             };
             OwnKey.Streamed got;
             var asked = DateTime.Now;

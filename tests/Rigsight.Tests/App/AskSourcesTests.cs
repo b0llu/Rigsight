@@ -48,6 +48,20 @@ public sealed class AskSourcesTests
     }
 
     [Fact]
+    public void The_page_look_ups_get_their_pill_too()
+    {
+        // Found live 2026-10-23: an answer from Home's records had no pill (get_today had no word), and the model's
+        // stand-in words ("report crashes") were dropped as never looked at.
+        var today = new AiLookUp("get_today", [], 2263);
+        var sensors = new AiLookUp("get_sensors_now", [], 1200);
+        var line = AskViewModel.ToAnswer("Fine.\nThree shut-offs this week. [src: today sensors]", [today, sensors]).Parts.OfType<AskLine>().Single();
+        Assert.Equal([("Home", "home"), ("All sensors", "sensors")], line.Refs!.List.Select(r => (r.Site, r.Page)));
+        // Rewind and dashboards have no page to open at: named, nothing to open.
+        var rewind = Assert.Single(AiSources.Resolve("rewind", [new AiLookUp("get_rewind", [], 500)]));
+        Assert.Equal(("Rewind", null), (rewind.Site, rewind.Page));
+    }
+
+    [Fact]
     public void A_source_this_answer_didnt_look_at_or_find_never_shows()
     {
         var answer = AskViewModel.ToAnswer("Fine.\nAll normal here. [src: w9 fans crashes]", [Crashes]);

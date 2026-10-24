@@ -385,7 +385,12 @@ public static class ReportBuilder
         report.RamPeak = PeakOf(m => m.RamUsed, m => m.FgApp);
         // A minute's average watts for sixty seconds is a sixtieth of that many watt-hours.
         if (minutes.Any(m => m.CpuPower is not null || m.GpuPower is not null))
+        {
             report.EnergyWh = minutes.Sum(m => (m.CpuPower ?? 0) + (m.GpuPower ?? 0)) / 60;
+            report.CpuEnergyWh = minutes.Sum(m => m.CpuPower ?? 0) / 60;
+            report.GpuEnergyWh = minutes.Sum(m => m.GpuPower ?? 0) / 60;
+            report.PoweredMinutes = minutes.Count(m => m.CpuPower is not null || m.GpuPower is not null);
+        }
 
         // All history is now kept for the same time, but versions before 0.4.13 deleted minute detail after 90 days
         // while keeping the hourly per-app rows for two years. Those rows hold the time in front, time away, and

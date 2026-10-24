@@ -261,7 +261,7 @@ public sealed partial class PlansViewModel : ObservableObject
                 var (status, problem) = await Relay.StatusAsync(cts.Token);
                 if (status is null) { Log.Write("plans", $"Waiting for {planId}: {problem}"); continue; }
                 if (status.Plan?.Id != planId) continue;
-                Log.Write("plans", $"Bought: this PC is on {planId} now");
+                Log.Write("plans", $"This PC is on {planId} now (bought, or given from the admin site)");
                 _ask.Show(status);
                 Done = Lang.T($"You're on {status.Plan.Name} now.");
                 IsOpen = false;
@@ -363,8 +363,11 @@ public sealed partial class PlansViewModel : ObservableObject
     private string Estimate(PlanColumn to)
     {
         if (Plan is not { RenewsAt: { } renews } p || Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is not { } mine) return to.Offer.Price;
-        double daysLeft = Math.Clamp((renews - DateTime.Now).TotalDays, 0, 31);
-        double dollars = (to.Offer.PriceCents - mine.Offer.PriceCents) / 100.0 * daysLeft / 30.0;
+        // The share of this billing month still to come, from its own length: over 30 days it said "about $5.20" for a $5
+        // difference on the day the plan was bought (31 days left of a 31-day month, divided by 30; 2026-10-24).
+        double month = (renews - renews.AddMonths(-1)).TotalDays;
+        double left = Math.Clamp((renews - DateTime.Now).TotalDays / month, 0, 1);
+        double dollars = (to.Offer.PriceCents - mine.Offer.PriceCents) / 100.0 * left;
         // To the 10 cents: Lemon Squeezy works out the exact figure, so a precise-looking one would mislead.
         return "$" + (Math.Round(Math.Max(0, dollars) * 10) / 10).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     }

@@ -27,7 +27,7 @@ public static class AiPages
         new(Temperatures, Lang.Key("Temperatures"), Lang.Key("Heat now and over time, and when parts slowed down to cool off"), 0, ["get_temperatures"]),
         new(Crashes, Lang.Key("Crashes"), Lang.Key("Every crash, sudden shut-off and driver reset, and what was running"), 1, ["get_crashes"]),
         new(Memory, Lang.Key("Memory"), Lang.Key("Memory use now and over time, and apps that keep growing"), 1, ["get_memory"]),
-        new(Storage, Lang.Key("Storage"), Lang.Key("Space on each drive, drive health, and what you could free"), 1, ["get_storage"]),
+        new(Storage, Lang.Key("Storage"), Lang.Key("Space on each drive, drive health, and what you could free"), 1, ["get_storage", "get_drive_scan"]),
         new(Processes, Lang.Key("Processes"), Lang.Key("What's running right now and what it's using"), 1, ["get_running_now"]),
         new(Reports, Lang.Key("Reports"), Lang.Key("Summaries of any day, week or month, energy used included"), 1, ["get_report", "get_on_times", "get_moment"]),
         new(Games, Lang.Key("Games"), Lang.Key("Your games, every play, frame rates and what held them back"), 2, ["list_games", "get_game"]),

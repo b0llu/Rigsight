@@ -600,6 +600,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         Anchor = day.Date;
     }
 
+    /// <summary>The report over <paramref name="first"/> to <paramref name="last"/> (both whole days), as a custom range.</summary>
+    public void ShowDays(DateTime first, DateTime last)
+    {
+        // The days first, then the range: one load.
+        CustomFrom = first.Date;
+        CustomTo = last.Date.AddDays(1);
+        Range = ReportRange.Custom;
+    }
+
     /// <summary>The report for the period of <paramref name="anchor"/>: a week, a month, a year.</summary>
     public void ShowPeriod(ReportRange range, DateTime anchor)
     {

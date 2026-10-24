@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:vm="clr-namespace:Rigsight.ViewModels"
+             xmlns:v="clr-namespace:Rigsight.Views"
              xmlns:ai="clr-namespace:Rigsight.Core.Ai;assembly=Rigsight.Core">
     <!-- The Ask window over the page: it starts stuck to the bottom-right corner, growing up and to the left, and pops
          out to float anywhere (History then a column beside the chat). The layer itself lets every click through to the
@@ -232,18 +233,16 @@
                         </ControlTemplate>
                     </Button.Template>
                     <StackPanel Orientation="Horizontal">
-                        <!-- The mark: a solid circle with a dark letter (a web page) or RigSight's chart sign (its own records). The
-                             sign's line box is its own size, so it sits in the circle's middle (an icon's taller line put it high). -->
+                        <!-- The mark: a solid circle with the site's first letter (a web page), or the icon of the RigSight page the
+                             record came from, as in the sidebar. The letter is centred on its drawn shape, not its line box: a
+                             letter's box put E and the digits a pixel right and accents over a pixel high ("the N is not at center"). -->
                         <Grid Width="16" Height="16" UseLayoutRounding="True">
                             <Ellipse x:Name="Dot" Fill="{DynamicResource CpuBrush}" />
-                            <TextBlock x:Name="Letter" Text="{Binding Mark}" FontSize="9" FontWeight="Bold" Foreground="#000000"
-                                       LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" TextAlignment="Center" Width="16" />
-                            <TextBlock x:Name="AppMark" Text="&#xE9D2;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource OnAccentBrush}"
-                                       LineStackingStrategy="BlockLineHeight" LineHeight="10" Height="10" Width="16" TextAlignment="Center"
-                                       VerticalAlignment="Center" Visibility="Collapsed">
-                                <!-- The chart sign is heavier at its foot: measured 1 px low in the middle, so up by one. -->
-                                <TextBlock.RenderTransform><TranslateTransform Y="-1" /></TextBlock.RenderTransform>
-                            </TextBlock>
+                            <ctl:InkCentered x:Name="Letter" Text="{Binding Mark}" FontSize="9" Fill="#000000" />
+                            <Viewbox x:Name="AppMark" Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                                <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" IsTabStop="False"
+                                                FontFamily="{StaticResource IconFont}" FontSize="16" Foreground="{DynamicResource OnAccentBrush}" />
+                            </Viewbox>
                         </Grid>
                         <!-- The words on the circle's own 16 px line, so they sit in the pill's middle as the mark does. -->
                         <TextBlock x:Name="Words" Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0"
@@ -253,25 +252,36 @@
                                    Visibility="{Binding HasMore, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </Button>
-                <Popup IsOpen="{Binding IsOpen}" PlacementTarget="{Binding ElementName=Pill}" Placement="Bottom" VerticalOffset="6" HorizontalOffset="-12"
-                       AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade">
+                <!-- Below the pill, or above it flush with its top when there's no room below (see RefsPlacement): the stock flip
+                     of Placement="Bottom" laid the shadow's room over the pill, the pointer fell into the shadow, the pill lost it,
+                     the list closed and opened again under it: the pill flashed. The room round the card is a near-clear fill, so
+                     it counts as the list (a fully clear pixel of a see-through popup lets the pointer through to what's under). -->
+                <Popup IsOpen="{Binding IsOpen}" PlacementTarget="{Binding ElementName=Pill}" Placement="Custom" CustomPopupPlacementCallback="{x:Static v:AskWindow.RefsPlacement}"
+                       VerticalOffset="6" HorizontalOffset="-12" AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade">
+                    <Grid Background="#01000000" MouseEnter="RefList_Enter" MouseLeave="RefList_Leave">
                     <Border Width="300" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12"
-                            Padding="0,4" Margin="0,0,10,12" Tag="{Binding}" MouseEnter="RefList_Enter" MouseLeave="RefList_Leave">
+                            Padding="4" Margin="0,0,10,12" Tag="{Binding}">
                         <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.5" Color="Black" /></Border.Effect>
                         <ItemsControl ItemsSource="{Binding List}" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
+                                    <!-- A click closes the list first: it stays on top of everything, the browser too. -->
                                     <Button Cursor="Hand" Focusable="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Title}"
+                                            Click="RefItem_Click"
                                             Command="{Binding DataContext.OpenSourceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
-                                                <Border x:Name="Bd" Background="Transparent" Padding="14,10">
+                                                <!-- Inset 4 from the card with the card's radius less that, so the first and last lines' hover
+                                                     follows its round corners (square ones stuck out of them); the words stay 14 in. -->
+                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,10">
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock x:Name="Kind" Text="&#xE9D2;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource AccentBrush}" Margin="0,0,7,0"
                                                                        LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Visibility="Collapsed" />
                                                             <TextBlock x:Name="Ours" Text="{ctl:T 'RigSight · '}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Visibility="Collapsed" />
                                                             <TextBlock Text="{Binding Site}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                            <!-- A web page opens in the browser, out of RigSight: said with the arrow. -->
+                                                            <TextBlock x:Name="Out" Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                                         <TextBlock x:Name="Date" Text="{Binding Date}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
@@ -282,6 +292,7 @@
                                                     <DataTrigger Binding="{Binding IsApp}" Value="True">
                                                         <Setter TargetName="Kind" Property="Visibility" Value="Visible" />
                                                         <Setter TargetName="Ours" Property="Visibility" Value="Visible" />
+                                                        <Setter TargetName="Out" Property="Visibility" Value="Collapsed" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Date}" Value="{x:Null}"><Setter TargetName="Date" Property="Visibility" Value="Collapsed" /></DataTrigger>
                                                 </ControlTemplate.Triggers>
@@ -292,6 +303,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Border>
+                    </Grid>
                 </Popup>
             </Grid>
             <DataTemplate.Triggers>
@@ -504,6 +516,44 @@
         <Style x:Key="SecondAction" TargetType="Button" BasedOn="{StaticResource GhostButton}">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
             <Setter Property="Padding" Value="11,6" />
+        </Style>
+        <!-- Copy, Ask again, Helpful under an answer: small words, faint until hovered. -->
+        <Style x:Key="QuietAction" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="6" Background="Transparent" Padding="7,3" Margin="0,0,2,0">
+                            <ContentPresenter TextElement.FontSize="12" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- "Show all" under a long question: words only, brighter on hover. -->
+        <Style x:Key="LinkToggle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <ContentPresenter Margin="0,0,4,0" TextElement.FontSize="12.5" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="LinkAction" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
@@ -753,8 +803,24 @@
 
         <DataTemplate DataType="{x:Type vm:AskQuestion}">
             <ctl:SmoothBorder HorizontalAlignment="Right" MaxWidth="340" CornerRadius="12,12,4,12" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="40,0,0,10">
-                <TextBlock Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                <!-- A long one shows its first ten lines or so, so the answer isn't pushed out of sight. -->
+                <StackPanel>
+                    <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                    <ToggleButton x:Name="All" Style="{StaticResource LinkToggle}" Content="{ctl:T 'Show all'}" AutomationProperties.Name="{ctl:T 'Show all'}"
+                                  HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="Collapsed" />
+                </StackPanel>
             </ctl:SmoothBorder>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsLong}" Value="True">
+                    <Setter TargetName="Words" Property="MaxHeight" Value="190" />
+                    <Setter TargetName="All" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsChecked, ElementName=All}" Value="True">
+                    <Setter TargetName="Words" Property="MaxHeight" Value="Infinity" />
+                    <Setter TargetName="All" Property="Content" Value="{ctl:T 'Show less'}" />
+                    <Setter TargetName="All" Property="AutomationProperties.Name" Value="{ctl:T 'Show less'}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- Waiting for the answer: three dots bouncing in turn at first; when it takes a while, what it's doing instead
@@ -858,6 +924,24 @@
 
         <DataTemplate DataType="{x:Type vm:AskAnswer}">
             <StackPanel Margin="0,0,0,18">
+                <!-- What it read, folded to one line over the answer ("Looked at Crashes and Temperatures · 17 s"); opened, each
+                     record and its days, a click on one opens its page. -->
+                <StackPanel Margin="0,0,0,8" Visibility="{Binding HasLooked, Converter={StaticResource Vis}}">
+                    <ToggleButton x:Name="LookedToggle" Style="{StaticResource LinkToggle}" HorizontalAlignment="Left" AutomationProperties.Name="{Binding LookedLine}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="LookedArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Margin="0,1,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LookedLine}" FontSize="12" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <ItemsControl x:Name="LookedList" ItemsSource="{Binding Looked}" Margin="15,4,0,0" Visibility="Collapsed" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LinkAction}" Content="{Binding Text}" AutomationProperties.Name="{Binding Text}" HorizontalAlignment="Left" IsEnabled="{Binding CanOpen}"
+                                        Command="{Binding DataContext.OpenLookedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
                 <TextBlock FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
                            Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Run Text="{Binding Verdict, Mode=OneWay}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding VerdictRefs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding VerdictRefs, Converter={StaticResource Vis}}" /></InlineUIContainer></TextBlock>
                 <!-- Its parts in order: paragraphs and points, RigSight's own numbers, tables, the next step. -->
@@ -879,7 +963,59 @@
                         </TextBlock>
                     </DockPanel>
                 </Border>
+                <!-- Under every answer, small and always there: Copy, Ask again, and (RigSight AI) Helpful / Not helpful. -->
+                <WrapPanel Margin="-7,10,0,0">
+                    <Button Style="{StaticResource QuietAction}" Content="{ctl:T 'Copy'}" AutomationProperties.Name="{ctl:T 'Copy'}"
+                            Command="{Binding DataContext.CopyAnswerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                    <Button Style="{StaticResource QuietAction}" Content="{ctl:T 'Ask again'}" AutomationProperties.Name="{ctl:T 'Ask again'}"
+                            Visibility="{Binding Asked, Converter={StaticResource Vis}}"
+                            Command="{Binding DataContext.AskAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                    <StackPanel Orientation="Horizontal" DataContext="{Binding Feedback}" Visibility="{Binding CanRate, Converter={StaticResource Vis}}">
+                        <Button x:Name="Good" Style="{StaticResource QuietAction}" Content="{ctl:T 'Helpful'}" AutomationProperties.Name="{ctl:T 'Helpful'}" Command="{Binding HelpfulCommand}" />
+                        <Button x:Name="Bad" Style="{StaticResource QuietAction}" Content="{ctl:T 'Not helpful'}" AutomationProperties.Name="{ctl:T 'Not helpful'}" Command="{Binding NotHelpfulCommand}" />
+                        <TextBlock Text="{Binding Said}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="4,0,0,0" Visibility="{Binding HasSaid, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </WrapPanel>
+                <!-- Not helpful: why, in four plain words and their own (both optional), then Send. -->
+                <ctl:SmoothBorder DataContext="{Binding Feedback}" CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
+                                  Visibility="{Binding Asking, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <TextBlock Text="{ctl:T 'What was wrong?'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                        <ItemsControl ItemsSource="{Binding ReasonButtons}" Margin="0,8,0,0" Focusable="False">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button x:Name="Reason" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Padding="10,5" Margin="0,0,6,6" FontSize="12"
+                                            Content="{Binding Label}" AutomationProperties.Name="{Binding Label}"
+                                            Command="{Binding Owner.PickCommand}" CommandParameter="{Binding Id}" />
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsPicked}" Value="True">
+                                            <Setter TargetName="Reason" Property="Background" Value="{DynamicResource TextBrush}" />
+                                            <Setter TargetName="Reason" Property="Foreground" Value="{DynamicResource BgBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBox Style="{StaticResource ComposeBox}" Tag="{ctl:T 'Anything else? Kept with this question on the RigSight server. (optional)'}" AutomationProperties.Name="{ctl:T 'Anything else?'}"
+                                 Text="{Binding Words, UpdateSourceTrigger=PropertyChanged}" MaxLength="500" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send why'}" Padding="14,6" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                Command="{Binding SendWhyCommand}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
             </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsChecked, ElementName=LookedToggle}" Value="True">
+                    <Setter TargetName="LookedList" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="LookedArrow" Property="Text" Value="&#xE70D;" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Feedback.IsHelpful}" Value="True">
+                    <Setter TargetName="Good" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Feedback.IsNotHelpful}" Value="True">
+                    <Setter TargetName="Bad" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- The conversations: a new one, a search, then Pinned, Today, Yesterday and Earlier, each with its ⋯ menu (Pin,
@@ -1116,74 +1252,103 @@
                     <!-- The first question with this way of answering: what is sent and where, before anything goes, with the
                          same switches as Settings › Ask RigSight (approved mock-up 2026-10-21). One version each for RigSight AI, my own
                          key and Ollama. Start asking closes it for good for that way. -->
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="18,52,18,12" Visibility="{Binding ShowFirstQuestion, Converter={StaticResource Vis}}">
-                        <StackPanel>
-                            <TextBlock Text="{ctl:T 'Before your first question'}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding FirstIntro}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,12,0,0">
-                                <DockPanel>
-                                    <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
-                                    <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
-                                        <Run Text="{Binding FirstWhere, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstWhereText, Mode=OneWay}" />
-                                    </TextBlock>
-                                </DockPanel>
-                            </ctl:SmoothBorder>
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0">
-                                <DockPanel>
-                                    <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
-                                    <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
-                                        <Run Text="{Binding FirstMore, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstMoreText, Mode=OneWay}" />
-                                    </TextBlock>
-                                </DockPanel>
-                            </ctl:SmoothBorder>
-                            <!-- The heading right above the switches, bigger than their names, so it reads as one. -->
-                            <TextBlock Text="{ctl:T 'Pick the pages it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
-                            <!-- The same pages as Settings › AI › What answers can read: pressed to stop sending one. -->
-                            <ItemsControl ItemsSource="{Binding Pages.Tiles}" Margin="0,0,-6,0" Focusable="False">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,6,6" Padding="10,7" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}"
-                                                Command="{Binding DataContext.Pages.ToggleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                            <Button.Template>
-                                                <ControlTemplate TargetType="Button">
-                                                    <ctl:SmoothBorder x:Name="Box" CornerRadius="8" BorderThickness="1" Padding="{TemplateBinding Padding}"
-                                                                      Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}">
-                                                        <DockPanel>
-                                                            <Border x:Name="Tick" DockPanel.Dock="Right" Width="16" Height="16" CornerRadius="8" Background="{DynamicResource TextBrush}" VerticalAlignment="Center">
-                                                                <TextBlock x:Name="TickMark" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource BgBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            </Border>
-                                                            <TextBlock x:Name="Label" Text="{Binding Name}" FontSize="12.5" Margin="0,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                        </DockPanel>
-                                                    </ctl:SmoothBorder>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
-                                                        <DataTrigger Binding="{Binding On}" Value="False">
-                                                            <Setter TargetName="Box" Property="Background" Value="Transparent" />
-                                                            <Setter TargetName="Tick" Property="Background" Value="Transparent" />
-                                                            <Setter TargetName="Tick" Property="BorderBrush" Value="{DynamicResource FaintBrush}" />
-                                                            <Setter TargetName="Tick" Property="BorderThickness" Value="1.5" />
-                                                            <Setter TargetName="TickMark" Property="Visibility" Value="Collapsed" />
-                                                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource MutedBrush}" />
-                                                        </DataTrigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Button.Template>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}">
-                                <Run Text="{Binding Pages.OutsideTitle, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Pages.OutsideList, Mode=OneWay}" />
-                            </TextBlock>
-                            <TextBlock Text="{Binding FirstNever}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
-                                       Visibility="{Binding FirstNever, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="{Binding FirstExtra}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
-                                       Visibility="{Binding FirstExtra, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="{ctl:T 'You can change these any time in Settings › Ask RigSight.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                            <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Start asking'}" Command="{Binding StartAskingCommand}" HorizontalAlignment="Left" Margin="0,14,0,0" />
-                        </StackPanel>
-                    </ScrollViewer>
+                    <!-- The approved draft of 2026-10-23: what is kept said truly (with the privacy page), one line per page with
+                         its own switch, the plan's other pages grouped under a small "In Essentials" / "In Complete", an example
+                         of what one question sends, and Start asking always in view under the list. -->
+                    <DockPanel Visibility="{Binding ShowFirstQuestion, Converter={StaticResource Vis}}">
+                        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="18,12">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Left" Style="{StaticResource AccentButton}" Content="{ctl:T 'Start asking'}" Command="{Binding StartAskingCommand}" />
+                                <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Not now'}" Margin="8,0,0,0" Command="{Binding CloseCommand}" />
+                                <TextBlock Text="{Binding FirstExtra}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding FirstExtra, Converter={StaticResource Vis}}" />
+                            </DockPanel>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="18,52,18,12">
+                            <StackPanel>
+                                <TextBlock Text="{ctl:T 'Before your first question'}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding FirstIntro}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,12,0,0">
+                                    <DockPanel>
+                                        <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
+                                        <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                            <Run Text="{Binding FirstWhere, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstWhereText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DockPanel>
+                                </ctl:SmoothBorder>
+                                <!-- RigSight AI: what's kept, and by whom, plainly; the privacy page for the rest. -->
+                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
+                                                  Visibility="{Binding FirstKept, Converter={StaticResource Vis}}">
+                                    <DockPanel>
+                                        <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
+                                        <StackPanel>
+                                            <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                                <Run Text="{ctl:T 'What is kept.'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstKept, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <Button Style="{StaticResource LinkAction}" Content="{ctl:T 'Privacy page'}" AutomationProperties.Name="{ctl:T 'Privacy page'}" HorizontalAlignment="Left"
+                                                    Command="{Binding OpenPrivacyCommand}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </ctl:SmoothBorder>
+                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0">
+                                    <DockPanel>
+                                        <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
+                                        <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                            <Run Text="{Binding FirstMore, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstMoreText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DockPanel>
+                                </ctl:SmoothBorder>
+                                <!-- The heading right above the switches, bigger than their names, so it reads as one. -->
+                                <TextBlock Text="{ctl:T 'Pick the pages it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
+                                <TextBlock Text="{Binding Pages.OpenHeading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="2,0,0,6"
+                                           Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}" />
+                                <!-- One line a page, its own switch: the same pages as Settings › AI › What answers can read. -->
+                                <ItemsControl ItemsSource="{Binding Pages.Tiles}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding Tip}">
+                                                <DockPanel>
+                                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding On, Mode=OneWay}" AutomationProperties.Name="{Binding Name}" VerticalAlignment="Center"
+                                                              Command="{Binding DataContext.Pages.ToggleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                </DockPanel>
+                                            </ctl:SmoothBorder>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- The plan's other pages: grouped, a quiet tag saying which plan, never a grey switch (it looks broken), no price. -->
+                                <TextBlock Text="{ctl:T 'WITH A PLAN'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="2,10,0,6"
+                                           Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}" />
+                                <ItemsControl ItemsSource="{Binding Pages.OutsideGroups}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding All}">
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Right" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="6" Padding="7,1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Names}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0" />
+                                                </DockPanel>
+                                            </ctl:SmoothBorder>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- What one question sends, so it isn't left to the imagination. -->
+                                <ToggleButton x:Name="ExampleToggle" Style="{StaticResource LinkToggle}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                              AutomationProperties.Name="{ctl:T 'See what one question sends'}" Visibility="{Binding FirstExample, Converter={StaticResource Vis}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="ExampleArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Margin="0,1,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'See what one question sends'}" FontSize="12.5" />
+                                    </StackPanel>
+                                </ToggleButton>
+                                <TextBlock Text="{Binding FirstExample}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="15,6,0,0"
+                                           Visibility="{Binding IsChecked, ElementName=ExampleToggle, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding FirstNever}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                                           Visibility="{Binding FirstNever, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{ctl:T 'You can change these any time in Settings › Ask RigSight.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
                 </Grid>
 
 
@@ -1219,7 +1384,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0">
                         <!-- Questions left on RigSight AI (this week's free ones, or today's): amber when few are left; opens the plans. -->
                         <Button Command="{Binding SeePlansCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Height="30" Cursor="Hand"
-                                ToolTip="{ctl:T 'See plans'}" Visibility="{Binding ShowQuestionsLeft, Converter={StaticResource Vis}}">
+                                ToolTip="{ctl:T 'See plans'}" Visibility="{Binding ShowQuestionsPill, Converter={StaticResource Vis}}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="10,0">
@@ -1251,6 +1416,15 @@
                     </Button>
                 </StackPanel>
 
+                <!-- One question left: said before it's used. -->
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12,9" Background="{DynamicResource Surface2Brush}"
+                                  Visibility="{Binding IsLastQuestion, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding LastQuestionTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                        <TextBlock Text="{Binding LastQuestionText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding LastQuestionText, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
                 <!-- RigSight AI with nothing left: where to get more. -->
                 <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding IsOutOfQuestions, Converter={StaticResource Vis}}">
@@ -1260,7 +1434,8 @@
                         <WrapPanel Margin="0,10,0,0" Visibility="{Binding LicenceOff, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <Button Style="{StaticResource AccentButton}" Content="{Binding OutOffer.MainText}" Command="{Binding UseWallCommand}" CommandParameter="{Binding OutOffer}"
                                     Margin="0,0,8,0" Visibility="{Binding OutOffer, Converter={StaticResource Vis}}" />
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" Command="{Binding SeePlansCommand}" />
+                            <!-- On the box's own colour a ghost button vanished into it (read as words): a shade lighter, so it's a button. -->
+                            <Button Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'See plans'}" Command="{Binding SeePlansCommand}" />
                         </WrapPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -1276,7 +1451,7 @@
                                 Command="{Binding StopCommand}" ToolTip="{ctl:T 'Stop'}" AutomationProperties.Name="{ctl:T 'Stop'}"
                                 Visibility="{Binding IsAnswering, Converter={StaticResource Vis}}" />
                         <TextBox x:Name="Question" Style="{StaticResource ComposeBox}" Tag="{ctl:T 'Ask about your PC…'}" AutomationProperties.Name="{ctl:T 'Ask about your PC'}"
-                                 Text="{Binding Draft, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" MinHeight="38"
+                                 Text="{Binding Draft, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" MinHeight="38" MaxLength="4000"
                                  VerticalScrollBarVisibility="Auto" PreviewKeyDown="Question_KeyDown" />
                     </DockPanel>
                 </Border>
@@ -1303,12 +1478,12 @@
                     </Border>
                 </Grid>
                 <!-- The edges it resizes from: top and left while stuck (it grows up and to the left), bottom and right popped out. -->
-                <Thumb x:Name="TopEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Top" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="LeftEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Left" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="TopLeft" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="BottomEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="RightEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" DragDelta="Edge_Drag" Opacity="0" />
-                <Thumb x:Name="BottomRight" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" DragDelta="Edge_Drag" Opacity="0" />
+                <Thumb x:Name="TopEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Top" Cursor="SizeNS" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="LeftEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Left" Cursor="SizeWE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="TopLeft" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="BottomEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="RightEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="BottomRight" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
             </Grid>
         </ctl:SmoothBorder>
     </Grid>

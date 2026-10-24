@@ -113,7 +113,7 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Ai.Plans = Plans;
         Ask.Plans = Plans;
         // The look-ups that read what is on screen now: every reading, and the drives' health.
-        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); };
+        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); tools.DriveScan = DriveScans.Text; };
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
@@ -814,6 +814,19 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "processes":
                 Processes.SortByTotalCommand.Execute(focus == "cpu" ? ProcessesViewModel.ByCpu : ProcessesViewModel.ByMemory);
+                break;
+            // A source of an answer: the days it read (leftover #3, 2026-10-23), on the pages that can show a stretch of days.
+            case "temperatures" when Core.Ai.AiSources.ParseDays(focus) is var (from, to):
+                // Whole hours, up to the end of the hour now at the latest (the graph can't show the future).
+                var end = Core.Reports.ReportBuilder.HourEnd(DateTime.Now);
+                Live.SetChartCustom(from.Date, to.Date.AddDays(1) < end ? to.Date.AddDays(1) : end);
+                break;
+            case "reports" when Core.Ai.AiSources.ParseDays(focus) is var (from, to):
+                if (from.Date == to.Date) ReportsPage.ShowDay(from);
+                else ReportsPage.ShowDays(from, to);
+                break;
+            case "crashes" when Core.Ai.AiSources.ParseDays(focus) is var (from, to):
+                Crashes.ShowDays(from, to, pcOnly: false);
                 break;
         }
     }

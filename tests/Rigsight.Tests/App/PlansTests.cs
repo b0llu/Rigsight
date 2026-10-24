@@ -350,7 +350,7 @@ public sealed class PlansTests
         var answer = AskViewModel.ToAnswer("Your GPU stayed cool.\nThe frame rates are on a page your plan doesn't open.\n[locked: games]\n[locked: network]", []);
         Assert.True(answer.HasLocked);
         Assert.Equal("games", answer.Locked!.Id);
-        Assert.Equal("Couldn't read Games.", answer.LockedTitle);
+        Assert.Equal("Couldn't read Games (not in your plan).", answer.LockedTitle);
         Assert.DoesNotContain(answer.Parts.OfType<AskLine>(), l => l.Text.Contains("locked"));
     }
 

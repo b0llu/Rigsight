@@ -391,6 +391,46 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void A_failed_update_can_be_put_away_and_the_update_stays_a_click_away()
+    {
+        // A user's report (2026-10-24): the "Update didn't finish" card had no way to dismiss it.
+        var vm = Make();
+        Act(vm);
+        var damaged = (byte[])_server.Setup.Clone();
+        damaged[1000] ^= 0xFF;
+        _server.Served = damaged;
+        Act(vm);
+        Assert.Equal(UpdateState.Failed, Ui.Run(() => vm.State));
+        Kit.Wait(() => vm.DismissFailedCommand.ExecuteAsync(null));
+        Ui.Run(() =>
+        {
+            Assert.False(vm.ShowFailed);
+            // Nothing downloaded: the quiet "Update available" line instead.
+            Assert.Equal(UpdateState.Available, vm.State);
+            Assert.True(vm.ShowLine);
+            Assert.Equal("", vm.Error);
+        });
+    }
+
+    [Fact]
+    public void An_installer_that_quits_while_rigsight_is_still_open_didnt_install()
+    {
+        // The same report: with no admin rights the installer asks for an admin's password and, cancelled, quits; the
+        // screen said "Updating RigSight" for two minutes with no way out.
+        var vm = Make();
+        Ui.Run(() => { vm.ShowOverlay = true; vm.State = UpdateState.Installing; });
+        var quits = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c exit 1") { CreateNoWindow = true, UseShellExecute = false })!;
+        Kit.Wait(() => vm.WatchInstallerAsync(quits));
+        Ui.Run(() =>
+        {
+            Assert.Equal(UpdateState.Failed, vm.State);
+            Assert.Equal("The installer stopped before it finished.", vm.Error);
+            // The screen says so in place, with Try again and Close.
+            Assert.True(vm.OverlayFailed);
+        });
+    }
+
+    [Fact]
     public void A_short_download_is_damaged_too()
     {
         var vm = Make();

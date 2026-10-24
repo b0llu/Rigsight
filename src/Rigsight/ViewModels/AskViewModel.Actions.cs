@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
@@ -26,12 +27,18 @@ public sealed partial class AskRefs(IReadOnlyList<AiSource> list) : ObservableOb
     public AiSource First => List[0];
     public bool IsApp => First.IsApp;
     public string Mark => First.Mark;
+    /// <summary>
+    /// RigSight's own record: the icon of the page it came from, the same as in the sidebar (a thermometer for Temperatures),
+    /// so the mark says where it's from (the one chart sign for every page meant nothing, the person asked, 2026-10-23).
+    /// </summary>
+    public string? Icon => !IsApp ? null : PageSwitchesViewModel.Glyph(First.Page ?? (First.Site == Lang.T("Rewind") ? AiPages.Rewind
+        : First.Site == Lang.T("Your dashboards") ? AiPages.Dashboards : AiPages.Parts));
     /// <summary>The web mark's colour, the same for a site every time (0 to 4, one of the palette's own).</summary>
     public int Tone => IsApp ? -1 : First.Site.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xFFFF) % 5;
     public string Label => First.Site.Length > 15 ? First.Site[..14].TrimEnd() + "…" : First.Site;
     public string More => $"+{List.Count - 1}";
     public bool HasMore => List.Count > 1;
-    public string Name => List.Count == 1 ? Lang.T($"Source: {First.Site}") : Lang.T($"{List.Count} sources");
+    public string Name => List.Count == 1 ? Lang.T($"Source: {First.Site}") : Lang.T($"Sources: {First.Site} and {List.Count - 1} more");
     [ObservableProperty] private bool _isOpen;
 }
 
@@ -193,6 +200,9 @@ public sealed partial class AskViewModel
                 case AiActionKind.StartAgent:
                     StartAgent?.Invoke();
                     break;
+                case AiActionKind.ScanDrive:
+                    await ScanDriveAsync(a);
+                    return;
                 case AiActionKind.CopyReport:
                     CopyReport?.Invoke();
                     a.Said = Lang.T("Copied. Paste it in your message to support.");
@@ -207,6 +217,42 @@ public sealed partial class AskViewModel
             a.State = AskActionState.Failed;
         }
         await Task.CompletedTask;
+    }
+
+    /// <summary>Scans a drive (off the window's thread), for the scan itself (tests give their own).</summary>
+    internal Func<string, IProgress<(long Files, long Bytes)>, CancellationToken, Task<ScanResult>> ScanDrive { get; set; } =
+        (root, progress, ct) => StorageScanner.ScanAsync(root, progress, ct);
+
+    /// <summary>
+    /// "Scan the E drive" under an answer (the person's idea, 2026-10-24): the drive is scanned where the button is, how
+    /// far along said on it, and once done the AI is asked by itself what fills it and what could be freed, with the
+    /// scan to look at (get_drive_scan). That question counts like any other; with none left, the scan stays for later.
+    /// </summary>
+    private async Task ScanDriveAsync(AskAction a)
+    {
+        string letter = a.Action.Target, root = letter + @":\";
+        a.State = AskActionState.Working;
+        a.Said = Lang.T($"Scanning {letter}:…");
+        var progress = new Progress<(long Files, long Bytes)>(p => a.Said = Lang.T($"Scanning {letter}: · {p.Files:N0} files · {Units.Bytes(p.Bytes)}"));
+        var talk = Current;
+        try
+        {
+            var result = await ScanDrive(root, progress, CancellationToken.None);
+            DriveScans.Keep(root, result);
+            a.Said = Lang.T($"Scanned {letter}: · {Units.Bytes(result.Root.Size)} in {result.FileCount:N0} files");
+            a.State = AskActionState.Done;
+            Log.Write("ask", $"Scanned {root} from an answer: {result.FileCount} files, {result.Root.Size} bytes in {result.Elapsed.TotalSeconds:0.0} s");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Log.Write("ask", $"Couldn't scan {root} from an answer: {ex.Message}");
+            a.Said = Lang.T($"Couldn't scan {letter}: on this PC.");
+            a.State = AskActionState.Failed;
+            return;
+        }
+        // Asked in the conversation the button is in, if it's still the one open and something can be asked.
+        if (talk is not null && Current == talk && !IsAnswering && !IsOutOfQuestions && !ShowFirstQuestion)
+            Ask(Lang.T($"I scanned {letter}:. What's using the space, and what could I free?"));
     }
 
     [RelayCommand]
@@ -327,7 +373,7 @@ public sealed partial class AskViewModel
     private void OpenSource(AiSource? source)
     {
         if (source is null) return;
-        if (source.IsApp && source.Page is { } page) OpenPageAt?.Invoke(page, null);
+        if (source.IsApp && source.Page is { } page) OpenPageAt?.Invoke(page, source.Focus);
         else if (source.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http")
         {
             try { Launch(uri.AbsoluteUri); } catch (Exception ex) when (ex is Win32Exception or InvalidOperationException) { Log.Write("ask", $"Couldn't open {uri.Host}: {ex.Message}"); }

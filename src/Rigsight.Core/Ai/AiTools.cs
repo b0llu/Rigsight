@@ -41,7 +41,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var all = new JsonArray
         {
             Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version.", new JsonObject()),
-            Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes. Dates are the user's local dates.", Dates()),
+            Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes, and the electricity the CPU and graphics card used (kWh, average and highest watts). Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
             Def("list_games", "The games played on this PC with hours played, sessions, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
@@ -100,7 +100,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (!Allowed(name)) return NotShared(name);
         string key = name + " " + args.ToJsonString();
         // What is running and the readings now are a moment: looked at again every time, never answered from an earlier look.
-        bool moment = name is "get_running_now" or "get_sensors_now";
+        // A drive's scan too: "not scanned yet" was answered again after the scan its own button had just run (2026-10-24).
+        bool moment = name is "get_running_now" or "get_sensors_now" or "get_drive_scan";
         if (!moment && _cache.TryGetValue(key, out var hit)) return hit;
         string result;
         try
@@ -142,7 +143,30 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports))) + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports))) + Energy(report, from, to)
+            + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+    }
+
+    /// <summary>
+    /// What the CPU and the graphics card used over the period, as the Reports page shows it: the report always had it,
+    /// but its text for the model didn't, so "how much electricity did my PC use?" was answered "no record" (2026-10-23).
+    /// Said with what it leaves out, so the model doesn't call it the whole PC's use or a bill.
+    /// </summary>
+    internal static string Energy(Report report, DateTime from, DateTime to)
+    {
+        if (report.EnergyWh is not > 0 || report.PoweredMinutes <= 0) return "";
+        static string Wh(double wh) => wh >= 1000 ? $"{wh / 1000:0.00} kWh" : $"{wh:0} Wh";
+        double wh = report.EnergyWh.Value, hours = report.PoweredMinutes / 60.0;
+        int days = Math.Max(1, (to.Date - from.Date).Days + 1);
+        var sb = new StringBuilder("\nENERGY (CPU and graphics card only)\n");
+        sb.AppendLine($"  Used: {Wh(wh)} over {hours:0.#} hours on" + (days > 1 ? $", about {Wh(wh / days)} a day" : "")
+            + $"; on average {wh / hours:0} W while on.");
+        if (report.CpuEnergyWh is double cpu && report.GpuEnergyWh is double gpu)
+            sb.AppendLine($"  CPU {Wh(cpu)}, graphics card {Wh(gpu)}.");
+        if (report.CpuPowerPeak is { } cp) sb.AppendLine($"  CPU's highest: {cp.Value:0} W at {cp.Time:d MMM h:mm tt}" + (cp.App is { } a ? $" ({a})" : "") + ".");
+        if (report.GpuPowerPeak is { } gp) sb.AppendLine($"  Graphics card's highest: {gp.Value:0} W at {gp.Time:d MMM h:mm tt}" + (gp.App is { } b ? $" ({b})" : "") + ".");
+        sb.AppendLine("  From the two parts' own power readings each minute: the screen, drives, fans, the motherboard and the power supply's own loss aren't in it, so the PC at the wall uses more. No price is known: for a cost, multiply the kWh by the price on the person's electricity bill.");
+        return sb.ToString();
     }
 
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];

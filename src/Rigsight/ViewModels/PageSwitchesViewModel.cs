@@ -54,6 +54,19 @@ public sealed partial class PageSwitchesViewModel : ObservableObject
     public bool HasOutside => Outside.Count > 0;
     public string OutsideTitle => Outside.Any(p => p.Plan < 2) ? Lang.T($"{Outside.Count} more pages with a plan") : Lang.T($"{Outside.Count} more pages with Complete");
     public string OutsideList => string.Join(", ", Outside.Select(p => p.Label));
+    /// <summary>Over the switches when some pages are outside the plan: "IN YOUR PLAN", or "FREE" on Free.</summary>
+    public string OpenHeading => Outside.Any(p => p.Plan == 1) ? Lang.T("FREE") : Lang.T("IN YOUR PLAN");
+
+    /// <summary>
+    /// The pages outside the plan, one line for each plan that opens them ("Crashes, Memory, Storage, Processes, Reports" ·
+    /// In Essentials; "Games, Timeline, Apps and 6 more" · In Complete): the first-question window's draft of 2026-10-23.
+    /// </summary>
+    public IReadOnlyList<OutsideGroup> OutsideGroups => [.. Outside.GroupBy(p => p.Plan).OrderBy(g => g.Key).Select(g =>
+    {
+        var names = g.Select(p => p.Label).ToList();
+        string shown = names.Count <= 5 ? string.Join(", ", names) : Lang.T($"{string.Join(", ", names.Take(3))} and {names.Count - 3} more");
+        return new OutsideGroup(shown, string.Join(", ", names), g.Key >= 2 ? Lang.T("In Complete") : Lang.T("In Essentials"));
+    })];
 
     [RelayCommand]
     private void Toggle(PageTile? tile)
@@ -91,3 +104,6 @@ public sealed partial class PageSwitchesViewModel : ObservableObject
         _ => SidebarViewModel.DashboardIcon,
     };
 }
+
+/// <summary>A line of pages one plan opens, with its tag ("In Essentials"); <see cref="All"/> names every one (on hover).</summary>
+public sealed record OutsideGroup(string Names, string All, string Tag);

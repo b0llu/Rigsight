@@ -122,9 +122,10 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         {
             var popup = Visuals.Descendants<Popup>(Panel()).First(p => p.IsOpen);
             Ui.SavePng((FrameworkElement)popup.Child, Path.Combine(Shots, "ask-2-sources-web.png"));
-            // Each source fills the list's width, so its hover covers the whole row (it covered half a row).
+            // Each source fills the list's width, so its hover covers the whole row (it covered half a row): all but the
+            // card's 4 px inset each side (the hover is a rounded block inside the rounded card) and the shadow's room.
             var list = (FrameworkElement)popup.Child;
-            Assert.All(Visuals.Descendants<Button>(list), b => Assert.True(b.ActualWidth >= list.ActualWidth - 4, $"{b.ActualWidth} of {list.ActualWidth}"));
+            Assert.All(Visuals.Descendants<Button>(list), b => Assert.True(b.ActualWidth >= list.ActualWidth - 20, $"{b.ActualWidth} of {list.ActualWidth}"));
             webRefs.IsOpen = false;
         });
         var appRefs = answer.Parts.OfType<AskLine>().First().Refs!;
@@ -184,5 +185,78 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         Shot("10-small-talk");
         Ui.Run(() => { ask.IsOpen = false; ask.Conversations.Remove(talk); });
         Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
+    /// Every first letter a site can start with sits in the middle of its circle (the person saw an "N" off centre,
+    /// 2026-10-23, and asked for every letter to be checked): A to Z, 0 to 9, accents, other scripts and a lowercase-only
+    /// one, each drawn at 8x and its ink's middle measured against the circle's. Also saved as screens\ask-12-marks.png.
+    /// </summary>
+    [Fact]
+    public void Every_first_letter_sits_in_the_middle_of_its_circle()
+    {
+        Ui.Run(() => Setup(Fast, [Running, Memory, Web]));
+        // The Ask window is built once laid out: waited for, not assumed (run after other tests it wasn't there yet).
+        Assert.True(Ui.WaitFor(() => Ui.Run(() => Visuals.Descendants<AskWindow>(host.Window).Any())), "the Ask window never opened");
+        Ui.Pump(250);
+        var starts = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".Select(c => c.ToString()).Concat(["Ö", "Ç", "Ł", "É", "Я", "Ω", "中", "ß"]).ToList();
+        var problems = new List<string>();
+        Ui.Run(() =>
+        {
+            var template = (DataTemplate)Visuals.Descendants<AskWindow>(host.Window).Single().FindResource("RefPill");
+            var sheet = new WrapPanel { Width = 520, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Background = (System.Windows.Media.Brush)Application.Current.FindResource("SurfaceBrush") };
+            var marks = new List<(string Start, FrameworkElement Mark)>();
+            foreach (var start in starts)
+            {
+                var refs = new AskRefs([new AiSource(false, start.ToLowerInvariant() + "site.com", "A page", null, null, "https://example.com")]);
+                var pill = new ContentControl { Content = refs, ContentTemplate = template, Margin = new Thickness(4) };
+                sheet.Children.Add(pill);
+            }
+            // RigSight's own records: each page's icon in the same circle (the fan and the network screen are drawn, not letters).
+            foreach (var page in AiPages.All)
+            {
+                var refs = new AskRefs([new AiSource(true, page.Label, page.Label, null, page.Id is AiPages.Parts or AiPages.Rewind or AiPages.Dashboards ? null : page.Id, null)]);
+                sheet.Children.Add(new ContentControl { Content = refs, ContentTemplate = template, Margin = new Thickness(4) });
+            }
+            // In the window, so its theme and the template's resources apply.
+            var layer = (Grid)Visuals.Descendants<AskWindow>(host.Window).Single().FindName("Layer");
+            layer.Children.Add(sheet);
+            sheet.UpdateLayout();
+            foreach (ContentControl pill in sheet.Children)
+            {
+                var dot = Visuals.Descendants<System.Windows.Shapes.Ellipse>(pill).First(e => e.Name == "Dot");
+                var r = (AskRefs)pill.Content;
+                marks.Add((r.IsApp ? r.First.Site : r.Mark, (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetParent(dot)));
+            }
+            foreach (var (start, mark) in marks)
+            {
+                const int k = 8;
+                int w = (int)Math.Ceiling(mark.ActualWidth) * k, h = (int)Math.Ceiling(mark.ActualHeight) * k;
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96 * k, 96 * k, System.Windows.Media.PixelFormats.Pbgra32);
+                bitmap.Render(mark);
+                var px = new byte[w * h * 4];
+                bitmap.CopyPixels(px, w * 4, 0);
+                // The circle: every pixel drawn at all. The letter: the dark ink inside it.
+                int cx0 = w, cx1 = -1, cy0 = h, cy1 = -1, lx0 = w, lx1 = -1, ly0 = h, ly1 = -1;
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        int i = (y * w + x) * 4;
+                        byte b = px[i], gg = px[i + 1], r = px[i + 2], a = px[i + 3];
+                        if (a < 128) continue;
+                        (cx0, cx1, cy0, cy1) = (Math.Min(cx0, x), Math.Max(cx1, x), Math.Min(cy0, y), Math.Max(cy1, y));
+                        if (r + gg + b < 150) (lx0, lx1, ly0, ly1) = (Math.Min(lx0, x), Math.Max(lx1, x), Math.Min(ly0, y), Math.Max(ly1, y));
+                    }
+                if (lx1 < 0) { problems.Add($"{start}: no ink drawn"); continue; }
+                double dx = ((lx0 + lx1) - (cx0 + cx1)) / 2.0 / k, dy = ((ly0 + ly1) - (cy0 + cy1)) / 2.0 / k;
+                // Within half a pixel either way: closer than a screen can show.
+                if (Math.Abs(dx) > 0.5 || Math.Abs(dy) > 0.5) problems.Add($"{start}: {dx:+0.00;-0.00} px across, {dy:+0.00;-0.00} px down");
+                // And inside the circle with room to spare (a wide letter or a tall accent mustn't touch its edge).
+                if (lx0 <= cx0 + k || lx1 >= cx1 - k || ly0 <= cy0 + k || ly1 >= cy1 - k) problems.Add($"{start}: touches the circle's edge");
+            }
+            Ui.SavePng(sheet, Path.Combine(Shots, "ask-12-marks.png"));
+            layer.Children.Remove(sheet);
+        });
+        Assert.True(problems.Count == 0, "Off the circle's middle:\n" + string.Join("\n", problems));
     }
 }

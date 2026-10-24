@@ -198,6 +198,9 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         }
     }
 
+    /// <summary>The page's "Space you could free" list, read again (for the AI's look at a scanned drive).</summary>
+    public static List<CleanupItem> CleanupItems() => FindCleanupItems();
+
     private static List<CleanupItem> FindCleanupItems()
     {
         var list = new List<CleanupItem>();
@@ -263,6 +266,8 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             var result = await StorageScanner.ScanAsync(root, progress, scan.Token, _hold);
             if (_scanCts != scan) return;
             Result = result;
+            // A whole drive's scan is there for the AI too ("what's using the space on E?").
+            DriveScans.Keep(root, result);
             Breadcrumbs.Clear();
             Open(Result.Root);
             ScanStatus = Lang.T($"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s");

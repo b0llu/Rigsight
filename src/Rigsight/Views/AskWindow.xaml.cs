@@ -25,8 +25,24 @@ public partial class AskWindow : UserControl
         InitializeComponent();
         DataContextChanged += (_, _) => Attach(DataContext as AskViewModel);
         Layer.SizeChanged += (_, _) => Place();
-        Loaded += (_, _) => Place();
+        Loaded += (_, _) => { Place(); Hook(true); };
+        Unloaded += (_, _) => { Hook(false); CloseRefs(); System.Windows.Media.CompositionTarget.Rendering -= Pull_Frame; };
     }
+
+    private Window? _host;
+
+    /// <summary>
+    /// RigSight going to the back closes a paragraph's sources: a popup stays on top of every window, so the list
+    /// otherwise sat over the browser one of its links had just opened.
+    /// </summary>
+    private void Hook(bool on)
+    {
+        if (_host is not null) _host.Deactivated -= Host_Deactivated;
+        _host = on ? Window.GetWindow(this) : null;
+        if (_host is not null) _host.Deactivated += Host_Deactivated;
+    }
+
+    private void Host_Deactivated(object? sender, EventArgs e) => CloseRefs();
 
     private void Attach(AskViewModel? vm)
     {
@@ -38,7 +54,11 @@ public partial class AskWindow : UserControl
 
     private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AskViewModel.IsPoppedOut) or nameof(AskViewModel.IsBig) or nameof(AskViewModel.ShowHistoryColumn)) Place();
+        // The column's notice comes with every new width (twice the work a frame while resizing): placed again only when it shows or hides.
+        if (e.PropertyName is nameof(AskViewModel.IsPoppedOut) or nameof(AskViewModel.IsBig)
+            || e.PropertyName is nameof(AskViewModel.ShowHistoryColumn) && HistoryColumn.Width.Value != (_vm!.ShowHistoryColumn ? 260 : 0)) Place();
+        // Another conversation: a list left open in the last one would open again by itself on the way back.
+        if (e.PropertyName is nameof(AskViewModel.Current)) CloseRefs();
         // Another conversation opened (and again once a saved one has its messages), or a question asked: the chat goes to its end once laid out. An answer coming in
         // leaves it where it is, so it never jumps while someone reads ("don't scroll down when a new answer comes").
         if (e.PropertyName is nameof(AskViewModel.Current) or nameof(AskViewModel.ShowEnd))
@@ -107,21 +127,57 @@ public partial class AskWindow : UserControl
             Math.Clamp(double.IsNaN(height) ? MinHeight_ : height, MinHeight_, Math.Max(MinHeight_, room.Height - 2 * Gap)));
 
     // ── Resizing from the edges ──────────────────────────────────────────
-    private void Edge_Drag(object sender, DragDeltaEventArgs e)
+    // Every new size lays the whole chat out again (each paragraph re-wraps), so it's done at most once a frame, from
+    // where the pointer is against where the pull started: a fast pull sent several moves a frame, each a full layout,
+    // and the edge trailed the pointer. Measured from the start, not from the edge's last move, so a skipped move loses nothing.
+    private object? _pulling;
+    private Point _pullFrom;
+    private Size _sizeFrom;
+    private bool _pullDue;
+
+    private void Edge_Start(object sender, DragStartedEventArgs e)
     {
         if (_vm is null) return;
+        _pulling = sender;
+        _pullFrom = Mouse.GetPosition(Layer);
+        _sizeFrom = new Size(Panel.Width, Panel.Height);
+        _pullDue = false;
+        System.Windows.Media.CompositionTarget.Rendering += Pull_Frame;
+    }
+
+    private void Edge_Drag(object sender, DragDeltaEventArgs e) => _pullDue = sender == _pulling;
+
+    private void Edge_End(object sender, DragCompletedEventArgs e)
+    {
+        if (sender != _pulling) return;
+        System.Windows.Media.CompositionTarget.Rendering -= Pull_Frame;
+        if (_pullDue) Pull();
+        _pulling = null;
+    }
+
+    private void Pull_Frame(object? sender, EventArgs e)
+    {
+        if (!_pullDue) return;
+        _pullDue = false;
+        Pull();
+    }
+
+    private void Pull()
+    {
+        if (_vm is null || _pulling is null) return;
         var room = Room;
+        var by = Mouse.GetPosition(Layer) - _pullFrom;
         if (!_vm.IsPoppedOut)
         {
             // The bottom-right corner stays put: pulling up or left grows it.
-            double w = Panel.Width - (sender == TopEdge ? 0 : e.HorizontalChange), h = Panel.Height - (sender == LeftEdge ? 0 : e.VerticalChange);
+            double w = _sizeFrom.Width - (_pulling == TopEdge ? 0 : by.X), h = _sizeFrom.Height - (_pulling == LeftEdge ? 0 : by.Y);
             var size = Fit(w, h, room);
             if (_vm.IsBig) _vm.StuckBig = size; else _vm.StuckSmall = size;
         }
         else
         {
             var r = _vm.Floating;
-            double w = r.Width + (sender == BottomEdge ? 0 : e.HorizontalChange), h = r.Height + (sender == RightEdge ? 0 : e.VerticalChange);
+            double w = _sizeFrom.Width + (_pulling == BottomEdge ? 0 : by.X), h = _sizeFrom.Height + (_pulling == RightEdge ? 0 : by.Y);
             var size = Fit(Math.Min(w, room.Width - r.X), Math.Min(h, room.Height - r.Y), room);
             _vm.Floating = new Rect(r.TopLeft, size);
         }
@@ -282,6 +338,19 @@ public partial class AskWindow : UserControl
     }
     private void RefList_Enter(object sender, MouseEventArgs e) => _refsClose?.Stop();
     private void RefList_Leave(object sender, MouseEventArgs e) => LeaveRefs();
+    /// <summary>A source opened: the list goes first (its command then opens the page or the site).</summary>
+    private void RefItem_Click(object sender, RoutedEventArgs e) { _refsClose?.Stop(); CloseRefs(); }
+
+    /// <summary>
+    /// Under the pill, or when that runs off the screen, above it with the list's bottom (its shadow's clear room) on
+    /// the pill's top, so the pointer goes straight from the pill into the list and the list never covers the pill.
+    /// The numbers come in screen pixels; the offset is the XAML's, already scaled.
+    /// </summary>
+    public static readonly CustomPopupPlacementCallback RefsPlacement = (popup, target, offset) =>
+    [
+        new CustomPopupPlacement(new Point(offset.X, target.Height + offset.Y), PopupPrimaryAxis.Horizontal),
+        new CustomPopupPlacement(new Point(offset.X, -popup.Height), PopupPrimaryAxis.Horizontal),
+    ];
 
     /// <summary>Enter sends the question; Shift+Enter starts a new line.</summary>
     private void Question_KeyDown(object sender, KeyEventArgs e)

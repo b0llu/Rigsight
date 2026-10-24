@@ -221,26 +221,41 @@ public static class Ollama
         catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException) { return false; }
     }
 
-    /// <summary>What the Ask window says while a look-up runs.</summary>
-    public static string Reviewing(string tool, JsonObject args) => tool switch
+    /// <summary>
+    /// What the Ask window says while a look-up runs, pulsing (no spinner, the person's word 2026-10-23): what it reads and
+    /// for which days, "Reading your crashes for 16 Oct – 22 Oct…", so the wait says what's going on.
+    /// </summary>
+    public static string Reviewing(string tool, JsonObject args)
     {
-        "search_web" => Lang.T("Searching the web…"),
-        "get_report" => Lang.T("Reviewing your report…"),
-        "get_crashes" => Lang.T("Reviewing your crashes…"),
-        "get_changes" => Lang.T("Reviewing what changed…"),
-        "get_pc_info" => Lang.T("Reviewing your PC's parts…"),
-        "list_games" => Lang.T("Reviewing your games…"),
-        "get_moment" => Lang.T("Reviewing that moment…"),
-        "get_temperatures" => Lang.T("Reviewing your temperatures…"),
-        "get_fans" => Lang.T("Reviewing your fans…"),
-        "get_apps" => Lang.T("Reviewing your apps…"),
-        "get_memory" => Lang.T("Reviewing your memory…"),
-        "get_storage" => Lang.T("Reviewing your drives…"),
-        "get_network" => Lang.T("Reviewing your internet use…"),
-        "get_on_times" => Lang.T("Reviewing when your PC was on…"),
-        "get_game" when (string?)args["name"] is { Length: > 0 } game => Lang.T($"Reviewing {game}…"),
-        _ => Lang.T("Reviewing your PC history…"),
-    };
+        string what = tool switch
+        {
+            "search_web" when (string?)args["query"] is { Length: > 0 } q => Lang.T($"Searching the web for \"{(q.Length > 48 ? q[..47].TrimEnd() + "…" : q)}\""),
+            "search_web" => Lang.T("Searching the web"),
+            "get_report" => Lang.T("Reading your report"),
+            "get_crashes" => Lang.T("Reading your crashes"),
+            "get_changes" => Lang.T("Reading what changed"),
+            "get_pc_info" => Lang.T("Reading your PC's parts"),
+            "list_games" => Lang.T("Reading your games"),
+            "get_moment" => Lang.T("Reading that moment"),
+            "get_temperatures" => Lang.T("Reading your temperatures"),
+            "get_fans" => Lang.T("Reading your fans"),
+            "get_apps" => Lang.T("Reading your apps"),
+            "get_memory" => Lang.T("Reading your memory"),
+            "get_storage" => Lang.T("Reading your drives"),
+            "get_drive_scan" when (string?)args["drive"] is { Length: > 0 } d => Lang.T($"Reading the scan of {d.Trim().TrimEnd(':').ToUpperInvariant()}:"),
+            "get_network" => Lang.T("Reading your internet use"),
+            "get_on_times" => Lang.T("Reading when your PC was on"),
+            "get_today" => Lang.T("Reading today so far"),
+            "get_sensors_now" => Lang.T("Reading every sensor now"),
+            "get_running_now" => Lang.T("Reading what's running now"),
+            "get_rewind" => Lang.T("Reading your rewind"),
+            "get_dashboard" => Lang.T("Reading your dashboards"),
+            "get_game" when (string?)args["name"] is { Length: > 0 } game => Lang.T($"Reading {game}"),
+            _ => Lang.T("Reading your PC history"),
+        };
+        string range = AiSources.Range(new AiLookUp(tool, args, 0));
+        return range.Length > 0 ? Lang.T($"{what} for {range}…") : what + "…";
+    }
 
     private static StringContent Json(JsonNode body) => new(body.ToJsonString(), Encoding.UTF8, "application/json");
 }

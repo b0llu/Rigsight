@@ -446,10 +446,29 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (to > OverlayFill) OverlayFill = to;
     }
 
+    /// <summary>
+    /// "Keep using RigSight" under the bar, once the install takes longer than one does (about 15 seconds): the screen
+    /// goes, the sidebar's card goes on saying how it's going, and it still says so if it didn't install.
+    /// </summary>
+    [ObservableProperty] private bool _overlayCanLeave;
+    public static readonly TimeSpan OverlayLeaveAfter = TimeSpan.FromSeconds(20);
+    private DispatcherTimer? _leaveTimer;
+
+    [RelayCommand]
+    private void LeaveOverlay()
+    {
+        Log.Write("update", "The update screen was left while installing");
+        CloseOverlay();
+    }
+
     /// <summary>The installer is running: the last part of the bar fills over about the time an install takes.</summary>
     private void FillWhileInstalling()
     {
         if (!ShowOverlay) return;
+        _leaveTimer?.Stop();
+        _leaveTimer = new DispatcherTimer { Interval = OverlayLeaveAfter };
+        _leaveTimer.Tick += (_, _) => { _leaveTimer?.Stop(); if (ShowOverlay && !OverlayFailed) OverlayCanLeave = true; };
+        _leaveTimer.Start();
         Fill(66);
         _overlayTimer?.Stop();
         _overlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
@@ -466,8 +485,10 @@ public sealed partial class UpdateViewModel : ObservableObject
     private void CloseOverlay()
     {
         _overlayTimer?.Stop();
+        _leaveTimer?.Stop();
         ShowOverlay = false;
         OverlayFailed = false;
+        OverlayCanLeave = false;
         OverlayFill = 0;
     }
 
@@ -528,6 +549,20 @@ public sealed partial class UpdateViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// "Not now" on the "Update didn't finish" card (it had only Try again, and stayed for good: the same report): it goes,
+    /// and the quiet "Update ready" or "Update available" line takes its place, so the update is still a click away.
+    /// </summary>
+    [RelayCommand]
+    private async Task DismissFailed()
+    {
+        if (State != UpdateState.Failed) return;
+        Error = "";
+        bool here = _release is { } release && await ReleaseFeed.MatchesAsync(UpdateStore.SetupPath(release), release);
+        State = _release is null ? UpdateState.None : here ? UpdateState.Waiting : UpdateState.Available;
+        Log.Write("update", $"The failed update was put away: now {State}");
+    }
+
     /// <summary>"Later": keep the download, and leave a quiet "Restart to update" line in the sidebar.</summary>
     [RelayCommand]
     private void Later() => State = UpdateState.Waiting;
@@ -546,8 +581,9 @@ public sealed partial class UpdateViewModel : ObservableObject
             // On a standard account setup is started as the person and asks for the admin's password itself: started
             // already elevated, it wouldn't know who to open Rigsight for afterwards, and would open it as that admin.
             Fill(34);
-            Process.Start(new ProcessStartInfo(setup, ReleaseFeed.SetupArguments) { UseShellExecute = true, Verb = _needsAdmin() ? "" : "runas" })?.Dispose();
+            var installer = Process.Start(new ProcessStartInfo(setup, ReleaseFeed.SetupArguments) { UseShellExecute = true, Verb = _needsAdmin() ? "" : "runas" });
             WaitForInstaller();
+            if (installer is not null) _ = WatchInstallerAsync(installer);
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
@@ -561,6 +597,35 @@ public sealed partial class UpdateViewModel : ObservableObject
             UpdateStore.ClearAttempt();
             Fail(Lang.T("The installer couldn't start."));
         }
+    }
+
+    /// <summary>
+    /// A user's report (2026-10-24): with no admin rights the installer asks for an admin's password and, cancelled, simply
+    /// quits; the screen still said "Updating RigSight" for two minutes with no way out. Now its quitting is seen: an
+    /// installer that worked closes this window as it goes, so one that quit while the window is still here didn't
+    /// install. A moment's grace after a clean exit, since the new version's own installer may still be taking over.
+    /// </summary>
+    internal async Task WatchInstallerAsync(Process installer)
+    {
+        int code;
+        try
+        {
+            using (installer)
+            {
+                await installer.WaitForExitAsync();
+                code = installer.ExitCode;
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+        {
+            Log.Write("update", $"Couldn't watch the installer: {ex.Message}");
+            return;
+        }
+        await Task.Delay(code == 0 ? TimeSpan.FromSeconds(15) : TimeSpan.FromSeconds(3));
+        if (State != UpdateState.Installing) return;
+        Log.Write("update", $"The installer quit (exit code {code}) and RigSight is still running: it didn't install");
+        UpdateStore.ClearAttempt();
+        Fail(_needsAdmin() ? Lang.T("Installing it needs an admin's password, and none was given.") : Lang.T("The installer stopped before it finished."));
     }
 
     /// <summary>

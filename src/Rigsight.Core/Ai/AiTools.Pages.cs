@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Rewind;
@@ -23,6 +24,12 @@ public sealed partial class AiTools
     /// <summary>Each drive's health right now (SMART status, an SSD's life left), from the app. Null: not known here.</summary>
     public Func<string>? DrivesNow { get; set; }
 
+    /// <summary>
+    /// What the last scan of a drive found (its biggest folders, its biggest files by kind, and the space that could be
+    /// freed on it), from the app's Storage scanner, for a drive letter; null when it hasn't been scanned.
+    /// </summary>
+    public Func<string, string?>? DriveScan { get; set; }
+
     private static IEnumerable<JsonObject> PageDefinitions() =>
     [
         Def("get_today", "What RigSight's Home page shows for today so far: PC health against this PC's usual (temperatures, fans, problems in the last 7 days, drives), and today's report (time on, peaks, what stood out, apps used).", new JsonObject()),
@@ -37,6 +44,12 @@ public sealed partial class AiTools
             },
             ["required"] = new JsonArray("period"),
         }),
+        Def("get_drive_scan", "What is using the space on one drive, from RigSight's scan of it: the biggest folders, the biggest files by kind and folder, and the space that could be freed there (temporary files, caches, old downloads, the Recycle Bin). Only after a scan: when there is none, it says so, and the answer offers [do: scan <letter>].", new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject { ["drive"] = new JsonObject { ["type"] = "string", ["description"] = "The drive's letter, like \"C\" or \"E\"." } },
+            ["required"] = new JsonArray("drive"),
+        }),
         Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names and what tiles each has. With a name: what each of its tiles shows right now.", new JsonObject
         {
             ["type"] = "object",
@@ -50,8 +63,18 @@ public sealed partial class AiTools
         "get_sensors_now" => SensorsText(),
         "get_rewind" => WithDb(db => RewindText(db, (string?)args["period"] ?? "month", (string?)args["when"])),
         "get_dashboard" => (string?)args["name"] is { Length: > 0 } dash ? DashboardText(dash) : DashboardList(),
+        "get_drive_scan" => DriveScanText((string?)args["drive"]),
         _ => null,
     };
+
+    /// <summary>The last scan of a drive, or how to get one (the button the answer may offer).</summary>
+    private string DriveScanText(string? drive)
+    {
+        if (drive is null || Regex.Match(drive, @"^\s*([A-Za-z])") is not { Success: true } m) return "Name a drive by its letter, like \"C\".";
+        string letter = m.Groups[1].Value.ToUpperInvariant();
+        if (DriveScan?.Invoke(letter) is { Length: > 0 } scan) return scan;
+        return $"{letter}: hasn't been scanned, so what fills it isn't known yet. Offer the button [do: scan {letter}]: pressed, RigSight scans the drive (a minute or two) and asks again by itself with what it found.";
+    }
 
     // ── Home: today ──────────────────────────────────────────────────────
     private string Today(RigsightDb db)

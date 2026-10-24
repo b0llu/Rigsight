@@ -551,6 +551,8 @@
                                 <TextBlock Text="{Binding FailedText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
                                 <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Try again'}" Command="{Binding ActionCommand}" HorizontalAlignment="Stretch" />
                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Open download page'}" Command="{Binding OpenDownloadPageCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
+                                <!-- Put away: the quiet update line takes its place (it stayed for good before, a user's report). -->
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Not now'}" Command="{Binding DismissFailedCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0" />
                             </StackPanel>
                         </ctl:SmoothBorder>
                     </StackPanel>
@@ -1251,6 +1253,18 @@
                 <TextBlock Text="{ctl:T 'RigSight closes and opens again by itself.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
                 <TextBlock Text="{ctl:T 'This takes about 15 seconds. Your history and settings stay as they are.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <!-- Longer than an install takes (an admin's password asked for, say): a way back to the app, the sidebar
+                     still saying how it goes. Its room is kept from the start, so nothing moves when it shows. -->
+                <Button Content="{ctl:T 'Keep using RigSight'}" Command="{Binding LeaveOverlayCommand}" HorizontalAlignment="Center" Margin="0,18,0,0">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="Visibility" Value="Hidden" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OverlayCanLeave}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </StackPanel>
             <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}}">

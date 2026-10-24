@@ -36,13 +36,14 @@ RigSight's rules (these always apply, whatever the instructions above say):
 {(canLookUp ? Markers + "\n" : "")}- Only when there is a real check or fix to do, end with a line starting "Next step: " and the one step. A fact, small talk, a how-to or "all normal" needs none.
 - A next step is never "tell me…" or "ask me about…". If you really can't tell what they mean after looking, ask that one short question instead of answering, with no next step.
 {(canLookUp ? Sources + "\n" + Actions + "\n" : "")}- {AskNext}
+- {Title}
 """;
 
     /// <summary>
     /// Where each paragraph's facts came from (AiSources reads the marker; the app draws a pill). The relay's prompt has the
     /// same rule, sent only to app versions that read it.
     /// </summary>
-    internal const string Sources = "- End each paragraph that rests on records or web results with what it used, in brackets: [src: w2 w4] for web results by their number, and for RigSight's records the look-up's word: crashes, temps, fans, apps, games, memory, storage, internet, changes, report, moment, running, parts, on-times (\"[src: crashes changes]\"). Only what that paragraph really used, at most four. None for small talk or a sentence of your own reasoning.";
+    internal const string Sources = "- End each paragraph that rests on records or web results with what it used, in brackets: [src: w2 w4] for web results by their number, and for RigSight's records the look-up's word: crashes, temps, fans, apps, games, memory, storage, internet, changes, report, moment, running, parts, on-times, today, sensors, rewind, dashboards (\"[src: crashes changes]\"). Only what that paragraph really used, at most four. None for small talk or a sentence of your own reasoning.";
 
     /// <summary>
     /// The buttons under an answer (AiActions reads the lines and checks each against the records; the 2026-10-22 audit).
@@ -54,6 +55,7 @@ RigSight's rules (these always apply, whatever the instructions above say):
   [do: check <minutes> <fans|temps|gpu|cpu|memory|internet>] compares those readings over that many minutes (5 to 60) before and after it is pressed. Pair it with a close, or with a step whose effect RigSight records ("[do: check 10 fans]").
   [do: open <page>] opens a RigSight page: crashes, timeline, games, reports, temperatures, fans, memory, storage, network, processes. "[do: open storage C]" opens a drive, "[do: open games <game>]" a game, "[do: open processes memory]" the apps by memory.
   [do: windows <screen>] opens a Windows screen and changes nothing: storage-sense, disk-cleanup, startup-apps, update-history, installed-apps, network-status, and memory-diagnostic only when a blue screen's finding points at memory.
+  [do: scan <drive letter>] scans a drive to see what fills it, for "what is using the space on E" when get_drive_scan has no scan of it yet ("[do: scan E]"). Pressed, RigSight scans and asks again by itself.
   [do: verify <game>] checks a Steam game's files, for a game that keeps crashing or won't start.
   [do: settings] opens Settings › Ask RigSight, when a look-up said a record type is turned off.
   [do: start-agent] when the records stopped because RigSight's agent isn't running.
@@ -67,11 +69,14 @@ RigSight's rules (these always apply, whatever the instructions above say):
     /// The questions offered under an answer (AskViewModel reads the line). The relay's prompt has the same rule, sent only
     /// to app versions that read it.
     /// </summary>
+    /// <summary>The conversation's name, from its first answer (the person's leftover #10, 2026-10-24).</summary>
+    internal const string Title = "Only on the conversation's first answer (no earlier messages before this question), end with one more line after everything else: \"Title: \" and a name for this conversation in 2 to 5 words, in their language, naming what it is about (\"Title: Sudden shut-off at 4:44 PM\"). Never on a later answer.";
+
     internal const string AskNext = "End every answer except small talk with one last line starting \"Ask next: \" and two or three short questions they might want to ask you next, split by \" | \" (\"Ask next: Was it the same last week? | Which game heats the GPU most?\"). Write them as the person would ask them, in their language (keep \"Ask next:\" itself in English), each under 60 characters, following on from this answer and answerable from this PC's records (never about what RigSight doesn't record: how loud something is, ping, frame rates without RivaTuner). Never a question you just answered, and never an offer (\"Want me to…?\"). This line is not an offer to keep talking: it is shown as buttons under the answer.";
 
     // How the model asks for RigSight's own numbers (see AiTools.Blocks).
     private const string Markers = """
-- RigSight can draw its own numbers in the answer as big numbers and bars, always right because they come straight from its records. To show one, put its marker alone on a line where it fits:
+- RigSight can draw its own numbers in the answer as big numbers and bars, always right because they come straight from its records. What you write must agree with the cards you show: their numbers and names are the records, so never say something they contradict (that the records don't say which game was open, above a card naming it). To show one, put its marker alone on a line where it fits:
   [show: crashes] after get_crashes: how many of each kind of problem in that period, and what RigSight found for them.
   [show: temps] after get_report or get_temperatures: the period's temperature peaks, and its temperatures against this PC's usual.
   [show: games] after list_games: with dates, the games played then and for how long; without, the games that keep the graphics card busiest.

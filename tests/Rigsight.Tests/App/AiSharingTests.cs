@@ -28,9 +28,9 @@ public sealed class AiSharingTests
         var all = Names(new AiTools(new RigsightSettings(), NoHistory));
         Assert.Equal(Names(Tools(AiPages.Network, AiPages.Memory, AiPages.Crashes)), all);
         foreach (var name in new[] { "get_moment", "get_temperatures", "get_fans", "get_apps", "get_memory", "get_storage", "get_network", "get_on_times", "get_running_now",
-                     "get_today", "get_sensors_now", "get_rewind", "get_dashboard" })
+                     "get_today", "get_sensors_now", "get_rewind", "get_dashboard", "get_drive_scan" })
             Assert.Contains(name, all);
-        Assert.Equal(19, all.Count);
+        Assert.Equal(20, all.Count);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class AiSharingTests
     public void Own_key_and_Ollama_have_no_plan_so_every_page_is_offered()
     {
         var tools = new AiTools(new RigsightSettings(), NoHistory) { PlanPages = null };
-        Assert.Equal(19, Names(tools).Count);
+        Assert.Equal(20, Names(tools).Count);
     }
 
     [Fact]

@@ -56,7 +56,7 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
     [Fact]
     public void The_four_page_look_ups_are_defined_and_an_unknown_one_is_not_theirs()
     {
-        Assert.Equal(["get_today", "get_sensors_now", "get_rewind", "get_dashboard"], Names());
+        Assert.Equal(["get_today", "get_sensors_now", "get_rewind", "get_drive_scan", "get_dashboard"], Names());
         Assert.Equal("(none)", Run(Tools(), "get_passwords"));
     }
 

@@ -285,6 +285,10 @@ public sealed class Report
     /// power supply's own loss aren't measured.
     /// </summary>
     public double? EnergyWh { get; set; }
+    /// <summary>The CPU's and the graphics card's own parts of <see cref="EnergyWh"/>, and the minutes it was read over.</summary>
+    public double? CpuEnergyWh { get; set; }
+    public double? GpuEnergyWh { get; set; }
+    public int PoweredMinutes { get; set; }
 
     public double GamingSec { get; set; }
     public DateTime? FirstActive { get; set; }

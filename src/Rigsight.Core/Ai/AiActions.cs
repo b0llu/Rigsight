@@ -4,7 +4,7 @@ using Rigsight.Core.Games;
 namespace Rigsight.Core.Ai;
 
 /// <summary>What a button under an answer does.</summary>
-public enum AiActionKind { CloseApp, CheckAgain, OpenPage, OpenWindows, VerifyGame, OpenSharing, StartAgent, CopyReport }
+public enum AiActionKind { CloseApp, CheckAgain, OpenPage, OpenWindows, VerifyGame, OpenSharing, StartAgent, CopyReport, ScanDrive }
 
 /// <summary>
 /// A button under an answer, worked out by RigSight from the model's "[do: …]" line and checked against what is really
@@ -104,6 +104,14 @@ public static class AiActions
                     return (new AiAction(AiActionKind.OpenPage, Lang.T("Open Processes by memory"), "", page, focus.Contains("cpu", StringComparison.OrdinalIgnoreCase) ? "cpu" : "memory"), "");
                 return (new AiAction(AiActionKind.OpenPage, Lang.T($"Open {name}"), "", page), "");
             }
+            case "scan":
+            {
+                // A drive that is there and ready: the model can only name one; RigSight checks it exists.
+                if (Regex.Match(rest, @"^([A-Za-z])(:|\b)") is not { Success: true } d) return (null, $"'{rest}' isn't a drive letter");
+                string letter = d.Groups[1].Value.ToUpperInvariant();
+                if (!DriveReady(letter)) return (null, $"there's no drive {letter}: ready on this PC");
+                return (new AiAction(AiActionKind.ScanDrive, Lang.T($"Scan the {letter} drive"), "", letter), "");
+            }
             case "windows":
                 return Windows.TryGetValue(rest.Replace(' ', '-'), out var screen)
                     ? (new AiAction(AiActionKind.OpenWindows, Lang.T(screen.Label), screen.Glyph, screen.Uri), "")
@@ -126,6 +134,13 @@ public static class AiActions
                 return (null, $"no action called '{verb}'");
         }
     }
+
+    /// <summary>Whether a drive is there and readable (the tests give their own).</summary>
+    internal static Func<string, bool> DriveReady { get; set; } = letter =>
+    {
+        try { return new System.IO.DriveInfo(letter).IsReady; }
+        catch (ArgumentException) { return false; }
+    };
 
     private static InstalledGame? Installed(AiActionContext c, string named)
     {

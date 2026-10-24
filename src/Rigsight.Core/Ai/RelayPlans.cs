@@ -191,4 +191,30 @@ public static partial class Relay
             return false;
         }
     }
+
+    /// <summary>
+    /// Helpful or Not helpful under an answer, with why (wrong_numbers, didnt_answer, too_long, other) and their own words:
+    /// kept by the relay with the question, for the admin site. A second one for the same question replaces the first.
+    /// </summary>
+    public static async Task<bool> FeedbackAsync(string questionId, bool helpful, string? reason, string? words)
+    {
+        try
+        {
+            var body = new JsonObject { ["question_id"] = questionId, ["helpful"] = helpful };
+            if (!helpful && reason is { Length: > 0 }) body["reason"] = reason;
+            if (!helpful && words?.Trim() is { Length: > 0 } w) body["words"] = w.Length > 500 ? w[..500] : w;
+            var req = Request(HttpMethod.Post, "/v1/feedback");
+            req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var res = await Http.SendAsync(req, cts.Token);
+            string text = await res.Content.ReadAsStringAsync(cts.Token);
+            Log.Write("relay", $"Feedback on {questionId[..Math.Min(8, questionId.Length)]} ({(helpful ? "helpful" : $"not helpful, {reason ?? "no reason"}")}): {(res.IsSuccessStatusCode ? "kept" : $"HTTP {(int)res.StatusCode} {Short(text)}")}");
+            return res.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException)
+        {
+            Log.Write("relay", $"Sending feedback: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
 }

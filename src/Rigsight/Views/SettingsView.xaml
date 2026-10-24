@@ -846,7 +846,7 @@
                                 <Run Text="{ctl:T 'When you ask a question, RigSight sends it with the records it needs to answer: crashes, temperatures, the apps and games you used, recent changes and your PC\'s parts.'}" />
                                 <Run Text="{Binding SendingWhere, Mode=OneWay}" />
                             </TextBlock>
-                            <TextBlock Text="{ctl:T 'For the best answers everything is shared. Under What answers can read you can switch off any page you\'d rather keep to yourself. Your Windows user name, file and folder paths and your licence key are never sent.'}"
+                            <TextBlock Text="{ctl:T 'For the best answers everything is shared. Under What answers can read you can switch off any page you\'d rather keep to yourself. Your Windows user name, the names and contents of your files and your licence key are never sent; folder names go only for a drive you press Scan for.'}"
                                        FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                         <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="0,-6,-34,0" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -1231,7 +1231,7 @@
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
-                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, file and folder paths, your licence key.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" />
+                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, the names or contents of your files, your licence key. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 </Border>
