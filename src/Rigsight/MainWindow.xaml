@@ -19,53 +19,120 @@
     </WindowChrome.WindowChrome>
     <Window.Resources>
         <!-- What's new (see the layer at the end of the window). -->
+        <!-- A line of What's new: flat, shaded under the pointer only when it opens a page. -->
+        <Style x:Key="WhatsNewLineButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="8,7">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- An earlier update's row: a filled bar that opens in place. -->
+        <Style x:Key="WhatsNewRowButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,10">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- One line of an update: a coloured square for its kind (the page's icon when it names one), the kind in colour,
+             the words, and the page's name with an arrow when it names one (approved mock-up, 2026-10-24). -->
+        <DataTemplate x:Key="WhatsNewLine">
+            <Button x:Name="Row" Style="{StaticResource WhatsNewLineButton}" Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}"
+                    CommandParameter="{Binding}" IsHitTestVisible="{Binding CanOpen}" Focusable="{Binding CanOpen}" AutomationProperties.Name="{Binding Text}">
+                <DockPanel>
+                    <Border x:Name="Square" DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" VerticalAlignment="Top" Margin="0,1,12,0" Background="{DynamicResource WarmSoftBrush}">
+                        <ContentControl x:Name="Glyph" Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        FontFamily="{StaticResource IconFont}" FontSize="14" Foreground="{DynamicResource WarmBrush}" />
+                    </Border>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}">
+                        <TextBlock Text="{Binding PageName}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Margin="6,1,0,0" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="Kind" Text="{Binding KindTitle}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarmBrush}" />
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" LineHeight="20" Foreground="{DynamicResource TextBrush}" />
+                    </StackPanel>
+                </DockPanel>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="new">
+                    <Setter TargetName="Square" Property="Background" Value="{DynamicResource CpuSoftBrush}" />
+                    <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                    <Setter TargetName="Kind" Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="better">
+                    <Setter TargetName="Square" Property="Background" Value="{DynamicResource GoodSoftBrush}" />
+                    <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                    <Setter TargetName="Kind" Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- What's new (see the layer at the end of the window): the heading with the version, the update in a glance, its
+             feature with a picture, every line, the updates skipped as rows, and real buttons at the foot. -->
         <DataTemplate x:Key="WhatsNewCard">
-                    <ctl:SmoothBorder Width="540" MaxHeight="760" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <ctl:SmoothBorder Width="680" MaxHeight="780" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
                                       AutomationProperties.Name="What's new">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="28,22,16,8">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close" VerticalAlignment="Top">
                                     <TextBlock Text="&#xE711;" />
                                 </Button>
-                                <TextBlock Text="{Binding Heading}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Heading}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding SubHeading}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+                                </StackPanel>
                             </DockPanel>
-                            <!-- Virtualized: "See all updates" builds only the releases in view, not every one of them at once. -->
-                            <ItemsControl ItemsSource="{Binding Shown}" Focusable="False" Margin="28,0,12,0" AlternationCount="100000"
-                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard" VirtualizingPanel.ScrollUnit="Pixel"
-                                          ScrollViewer.CanContentScroll="True">
-                                <ItemsControl.Template>
-                                    <ControlTemplate TargetType="ItemsControl">
-                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,16,0" CanContentScroll="True" Focusable="False">
-                                            <ItemsPresenter Margin="0,0,0,24" />
-                                        </ScrollViewer>
-                                    </ControlTemplate>
-                                </ItemsControl.Template>
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <!-- One version: a line above it (not above the first), then its number, date and groups. -->
-                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,4" Margin="0,8,0,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
-                                                                <Setter Property="BorderThickness" Value="0" />
-                                                                <Setter Property="Padding" Value="0,6,0,4" />
-                                                                <Setter Property="Margin" Value="0" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <StackPanel>
-                                                    <DockPanel>
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding DateText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding Short}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
-                                                    </DockPanel>
-                                                    <!-- The release's headline feature: big, in colour, with what it does and a way straight to it. -->
-                                                    <!-- The feature is the card's data from here in; the card itself is the border inside, so what it looks
-                                                         like can depend on the feature (a style on this one would be read before the feature is its data). -->
-                                                    <Grid Margin="0,16,0,4" Visibility="{Binding Converter={StaticResource Vis}}" DataContext="{Binding Feature}">
+                            <!-- Real buttons at the foot: every update, and Got it (Esc, the x and a click outside close it too). -->
+                            <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="28,12,28,18">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Got it'}" Command="{Binding CloseCommand}" />
+                                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Content="{ctl:T 'Every update'}" Command="{Binding SeeAllCommand}"
+                                            Visibility="{Binding CanSeeAll, Converter={StaticResource Vis}}" />
+                                </DockPanel>
+                            </Border>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,0,28,24" Focusable="False">
+                                <StackPanel>
+                                    <!-- The update in a glance: how many new, better and fixed, before any detail. -->
+                                    <ItemsControl ItemsSource="{Binding Counts}" Focusable="False" Margin="0,4,0,2">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="7" Padding="9,3" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Grid Margin="0,14,0,4" Visibility="{Binding Converter={StaticResource Vis}}" DataContext="{Binding Newest.Feature}">
                                                     <Border CornerRadius="14" Padding="22,20,22,22" BorderThickness="1" AutomationProperties.Name="{Binding Tag}">
                                                         <!-- Something new is in colour. Something taken away is plain and grey: colour says "new". -->
                                                         <Border.Style>
@@ -94,7 +161,12 @@
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </Border.Style>
-                                                        <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel>
                                                             <DockPanel>
                                                                 <Border DockPanel.Dock="Left" Width="52" Height="52" CornerRadius="14" Margin="0,0,16,0">
                                                                     <Border.Style>
@@ -169,74 +241,48 @@
                                                                 </Button.Style>
                                                             </Button>
                                                         </StackPanel>
+                                                            <!-- A picture of the feature beside its words, where it has one (drawn: a screenshot would show one PC's own drives). -->
+                                                            <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Top" Visibility="{Binding HasPicture, Converter={StaticResource Vis}}">
+                                                                <ctl:FeaturePicture Kind="{Binding Picture}" />
+                                                            </StackPanel>
+                                                        </Grid>
                                                     </Border>
                                                     </Grid>
-                                                    <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <StackPanel Margin="0,14,0,0">
-                                                                    <!-- The group as a small coloured badge: new in blue, better in green, fixed in amber. -->
-                                                                    <Border CornerRadius="5" Padding="7,2" HorizontalAlignment="Left" Margin="0,0,0,2">
-                                                                        <Border.Style>
-                                                                            <Style TargetType="Border">
-                                                                                <Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" />
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding Kind}" Value="new">
-                                                                                        <Setter Property="Background" Value="{DynamicResource CpuSoftBrush}" />
-                                                                                    </DataTrigger>
-                                                                                    <DataTrigger Binding="{Binding Kind}" Value="better">
-                                                                                        <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </Border.Style>
-                                                                        <TextBlock Text="{Binding Title}" FontSize="10" FontWeight="Bold">
-                                                                            <TextBlock.Style>
-                                                                                <Style TargetType="TextBlock">
-                                                                                    <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                                                                    <Style.Triggers>
-                                                                                        <DataTrigger Binding="{Binding Kind}" Value="new">
-                                                                                            <Setter Property="Foreground" Value="{DynamicResource CpuBrush}" />
-                                                                                        </DataTrigger>
-                                                                                        <DataTrigger Binding="{Binding Kind}" Value="better">
-                                                                                            <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
-                                                                                        </DataTrigger>
-                                                                                    </Style.Triggers>
-                                                                                </Style>
-                                                                            </TextBlock.Style>
-                                                                        </TextBlock>
-                                                                    </Border>
-                                                                    <ItemsControl ItemsSource="{Binding Items}" Focusable="False">
-                                                                        <ItemsControl.ItemTemplate>
-                                                                            <DataTemplate>
-                                                                                <DockPanel Margin="0,8,0,0">
-                                                                                    <Ellipse x:Name="Dot" DockPanel.Dock="Left" Width="4" Height="4" Margin="2,8,12,0" VerticalAlignment="Top"
-                                                                                             Fill="{DynamicResource FaintBrush}" />
-                                                                                    <TextBlock x:Name="Spark" DockPanel.Dock="Left" Text="&#xE735;" Style="{StaticResource Icon}" FontSize="11" Margin="0,4,8,0"
-                                                                                               VerticalAlignment="Top" Foreground="{DynamicResource CpuBrush}" Visibility="Collapsed" />
-                                                                                    <TextBlock x:Name="Line" Text="{Binding}" TextWrapping="Wrap" FontSize="13.5" LineHeight="20"
-                                                                                               Foreground="{DynamicResource MutedBrush}" />
-                                                                                </DockPanel>
-                                                                                <DataTemplate.Triggers>
-                                                                                    <DataTrigger Binding="{Binding DataContext.Kind, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="new">
-                                                                                        <Setter TargetName="Dot" Property="Visibility" Value="Collapsed" />
-                                                                                        <Setter TargetName="Spark" Property="Visibility" Value="Visible" />
-                                                                                        <Setter TargetName="Line" Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                                                                        <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
-                                                                                    </DataTrigger>
-                                                                                </DataTemplate.Triggers>
-                                                                            </DataTemplate>
-                                                                        </ItemsControl.ItemTemplate>
-                                                                    </ItemsControl>
-                                                                </StackPanel>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                    <ItemsControl ItemsSource="{Binding Newest.Lines}" ItemTemplate="{StaticResource WhatsNewLine}" Focusable="False" Margin="-8,10,-8,0" />
+                                    <!-- The updates before it: one row each, its version and biggest change, opening in place. -->
+                                    <StackPanel Visibility="{Binding HasOlder, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{Binding OlderHeading}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,18,0,2" />
+                                        <ItemsControl ItemsSource="{Binding Older}" Focusable="False" VirtualizingPanel.IsVirtualizing="True">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel>
+                                                        <Button Style="{StaticResource WhatsNewRowButton}" Command="{Binding ToggleCommand}" AutomationProperties.Name="{Binding Version}">
+                                                            <DockPanel>
+                                                                <TextBlock Text="{Binding Version}" FontSize="14" FontWeight="Bold" Width="70" DockPanel.Dock="Left" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                                                <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="11" Margin="12,0,0,0"
+                                                                           Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                    <TextBlock.RenderTransform><RotateTransform /></TextBlock.RenderTransform>
+                                                                </TextBlock>
+                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Notes.MoreText}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding Notes.Summary}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                            </DockPanel>
+                                                        </Button>
+                                                        <ItemsControl x:Name="Body" ItemsSource="{Binding Lines}" ItemTemplate="{StaticResource WhatsNewLine}" Focusable="False" Margin="-8,2,-8,6" Visibility="Collapsed" />
+                                                    </StackPanel>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                            <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+                                                            <Setter TargetName="Chevron" Property="RenderTransform">
+                                                                <Setter.Value><RotateTransform Angle="180" /></Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
                         </DockPanel>
                     </ctl:SmoothBorder>
         </DataTemplate>
@@ -859,7 +905,11 @@
                             <!-- The name may be the user's own: one too long for the sidebar is cut short, as a dashboard's is. -->
                             <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" AutomationProperties.Name="{Binding Title}"
                                          IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding IsVisible, Converter={StaticResource Vis}}" Click="NavClicked">
-                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                <DockPanel>
+                                    <Ellipse DockPanel.Dock="Right" Width="7" Height="7" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource CpuBrush}"
+                                             ToolTip="{Binding NewText}" Visibility="{Binding IsNew, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
                             </RadioButton>
                         </DataTemplate>
                         <!-- A section heading that folds its group: the caption, and a chevron at the right in the muted text colour (white while hovered). -->

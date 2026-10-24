@@ -139,6 +139,39 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void Whats_new_after_an_update_draws_its_summary_feature_lines_and_skipped_updates_without_error()
+    {
+        Ui.TakeProblems();
+        host.Show("home", 900);
+        var seen = Changelog.Releases[Math.Min(4, Changelog.Releases.Count - 1)].Version;
+        Ui.Run(() =>
+        {
+            host.Shell.Settings.Update(s => { s.WhatsNewSeen = seen.ToString(3); s.ShowWhatsNew = true; });
+            host.Shell.WhatsNew.CheckOnStart();
+        });
+        Ui.Pump(600);
+        Ui.Run(() =>
+        {
+            Assert.True(host.Shell.WhatsNew.IsOpen);
+            Ui.SavePng(host.Window, Path.Combine(Shots, "whatsnew-update.png"));
+            host.Shell.WhatsNew.Older[0].ToggleCommand.Execute(null);
+        });
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Ui.SavePng(host.Window, Path.Combine(Shots, "whatsnew-update-open-row.png"));
+            host.Shell.WhatsNew.CloseCommand.Execute(null);
+        });
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Ui.SavePng(host.Window, Path.Combine(Shots, "whatsnew-after-close.png"));
+            host.Shell.Settings.Update(s => { s.NewFeaturePage = null; s.NewFeatureText = null; });
+        });
+        Ui.AssertNoProblems("what's new after an update");
+    }
+
+    [Fact]
     public void Whats_new_for_rewind_opens_its_settings_tab()
     {
         host.Show("home", 900);

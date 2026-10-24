@@ -20,10 +20,71 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     private bool _showingAll;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Heading))]
+    [NotifyPropertyChangedFor(nameof(Heading), nameof(SubHeading), nameof(Newest), nameof(Older), nameof(HasOlder), nameof(OlderHeading), nameof(Counts))]
     private IReadOnlyList<ReleaseNotes> _shown = [];
 
-    partial void OnShownChanged(IReadOnlyList<ReleaseNotes> value) => _ = LoadFactsAsync([.. value.Where(r => r.Feature is not null).Select(r => r.Feature!)]);
+    partial void OnShownChanged(IReadOnlyList<ReleaseNotes> value)
+    {
+        _older = [.. value.Skip(1).Select(r => new ReleaseRow(r))];
+        _ = LoadFactsAsync([.. value.Where(r => r.Feature is not null).Select(r => r.Feature!)]);
+    }
+
+    /// <summary>The newest update shown, in full: its feature, then every line (approved mock-up, 2026-10-24).</summary>
+    public ReleaseNotes? Newest => Shown.Count > 0 ? Shown[0] : null;
+
+    /// <summary>The ones before it, one row each that opens in place.</summary>
+    public IReadOnlyList<ReleaseRow> Older => _older;
+    private IReadOnlyList<ReleaseRow> _older = [];
+    public bool HasOlder => _older.Count > 0;
+    public string OlderHeading => ShowingAll ? Core.Lang.T("EARLIER UPDATES") : Core.Lang.T("EARLIER UPDATES YOU SKIPPED");
+
+    /// <summary>
+    /// Under the heading: the version and date, or how many updates came since the one last seen; every update when
+    /// all are shown.
+    /// </summary>
+    public string SubHeading
+    {
+        get
+        {
+            if (Newest is not { } newest) return "";
+            if (ShowingAll) return Core.Lang.T($"{Shown.Count} updates, newest first");
+            string version = $"{newest.Version.Major}.{newest.Version.Minor}.{Math.Max(newest.Version.Build, 0)}";
+            return Shown.Count > 1 && _seen is { } seen
+                ? Core.Lang.T($"RigSight {version} · {Shown.Count} updates since {seen}, the last you saw")
+                : Core.Lang.T($"RigSight {version} · {newest.DateText}");
+        }
+    }
+
+    private string? _seen;
+
+    /// <summary>
+    /// The whole update in a glance, before any detail: "1 new feature", "2 new", "3 better", "1 fixed", across what's
+    /// shown since the version last seen (not for every update at once, where the counts would say nothing).
+    /// </summary>
+    public IReadOnlyList<string> Counts
+    {
+        get
+        {
+            if (ShowingAll || Shown.Count == 0) return [];
+            int features = Shown.Count(r => r.Feature is { IsRemoval: false });
+            int added = Shown.Sum(r => r.New.Length), better = Shown.Sum(r => r.Better.Length), fixedCount = Shown.Sum(r => r.Fixed.Length);
+            var list = new List<string>();
+            if (features > 0) list.Add(features == 1 ? Core.Lang.T("1 new feature") : Core.Lang.T($"{features} new features"));
+            if (added > 0) list.Add(Core.Lang.T($"{added} new"));
+            if (better > 0) list.Add(Core.Lang.T($"{better} better"));
+            if (fixedCount > 0) list.Add(Core.Lang.T($"{fixedCount} fixed"));
+            return list;
+        }
+    }
+
+    /// <summary>A line naming a page: the card closes and that page opens.</summary>
+    [RelayCommand]
+    private void OpenLine(ReleaseLine line)
+    {
+        if (line.Page is null) return;
+        Close();
+        go?.Invoke(line.Page);
+    }
 
     /// <summary>Asks each shown feature's page what it already has for this PC (most have nothing to add).</summary>
     private async Task LoadFactsAsync(List<ReleaseFeature> features)
@@ -47,7 +108,13 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
         go?.Invoke(feature.Page);
     }
 
-    public string Heading => ShowingAll ? Core.Lang.T("Every update") : Shown.Count > 1 ? Core.Lang.T("What's new since you last looked") : Core.Lang.T("What's new");
+    public string Heading => ShowingAll ? Core.Lang.T("Every update") : Core.Lang.T("What's new");
+
+    /// <summary>"Every update" at the card's foot, for what came before (not while every update is already shown).</summary>
+    public bool CanSeeAll => !ShowingAll;
+    partial void OnShowingAllChanged(bool value) { OnPropertyChanged(nameof(CanSeeAll)); OnPropertyChanged(nameof(OlderHeading)); OnPropertyChanged(nameof(Counts)); }
+
+    private bool _fromUpdate;
 
     /// <summary>The app window opened: show what's new once, if an update brought anything.</summary>
     public void CheckOnStart()
@@ -66,8 +133,10 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
             if (seen < current) MarkSeen();
             return;
         }
-        Shown = since;
+        _seen = $"{seen.Major}.{seen.Minor}.{Math.Max(seen.Build, 0)}";
         ShowingAll = false;
+        Shown = since;
+        _fromUpdate = true;
         IsOpen = true;
     }
 
@@ -75,8 +144,9 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     [RelayCommand]
     private void SeeAll()
     {
-        Shown = Changelog.Releases;
         ShowingAll = true;
+        Shown = Changelog.Releases;
+        _fromUpdate = false;
         IsOpen = true;
     }
 
@@ -85,6 +155,15 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     {
         IsOpen = false;
         MarkSeen();
+        // After an update's own card: its feature's page keeps a dot in the sidebar until it's opened (a feature with a
+        // page of the sidebar's, not one taken away). Someone who switched What's new off never sees the card, so never the dot.
+        if (_fromUpdate && Newest?.Feature is { IsRemoval: false, ShowsButton: true } feature && ViewModels.SidebarViewModel.IconOf(feature.Page) is not null)
+        {
+            string version = $"{Newest.Version.Major}.{Newest.Version.Minor}.{Math.Max(Newest.Version.Build, 0)}", name = feature.Name;
+            string text = Core.Lang.T($"New in {version}: {name}");
+            settings.Update(s => { s.NewFeaturePage = feature.Page; s.NewFeatureText = text; });
+        }
+        _fromUpdate = false;
     }
 
     private void MarkSeen()
@@ -92,4 +171,19 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
         string now = $"{current.Major}.{current.Minor}.{Math.Max(current.Build, 0)}";
         if (settings.Current.WhatsNewSeen != now) settings.Update(s => s.WhatsNewSeen = now);
     }
+}
+
+/// <summary>An earlier update as one row under the newest: its version and biggest change, opening in place to all its lines.</summary>
+public sealed partial class ReleaseRow(ReleaseNotes notes) : ObservableObject
+{
+    public ReleaseNotes Notes { get; } = notes;
+    public string Version => $"{Notes.Version.Major}.{Notes.Version.Minor}.{Math.Max(Notes.Version.Build, 0)}";
+
+    /// <summary>Its headline feature as a line of its own when opened (its name and what it's for), then its lines.</summary>
+    public IReadOnlyList<ReleaseLine> Lines =>
+        Notes.Feature is { } f ? [new ReleaseLine($"{f.Name}: {f.Pitch}", f.IsRemoval ? "fixed" : "new", f.Icon, f.ShowsButton ? f.Page : null, null), .. Notes.Lines] : Notes.Lines;
+
+    [ObservableProperty] private bool _isExpanded;
+
+    [RelayCommand] private void Toggle() => IsExpanded = !IsExpanded;
 }

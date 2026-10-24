@@ -165,6 +165,13 @@ public sealed class RigsightSettings
     /// <summary>What's new opens by itself after an update (Settings › About). Off, it's still there from "See all updates".</summary>
     public bool ShowWhatsNew { get; set; } = true;
 
+    /// <summary>
+    /// The page an update's headline feature is on, dotted in the sidebar after its What's new was closed until it's
+    /// opened ("storage"), with what its hover says ("New in 0.34.0: Storage, rebuilt"). Null when there's none.
+    /// </summary>
+    public string? NewFeaturePage { get; set; }
+    public string? NewFeatureText { get; set; }
+
     /// <summary>The app window's zoom, Ctrl + wheel (1 = 100%; see <see cref="AppZoom"/>).</summary>
     public double Zoom { get; set; } = 1;
 

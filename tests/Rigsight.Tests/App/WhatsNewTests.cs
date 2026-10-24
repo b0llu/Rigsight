@@ -104,7 +104,90 @@ public sealed class WhatsNewTests
         {
             card.CheckOnStart();
             Assert.Equal([V070, new Version(0, 6, 3), new Version(0, 6, 2)], card.Shown.Select(r => r.Version));
-            Assert.Equal("What's new since you last looked", card.Heading);
+            // The heading stays What's new; under it, how many came since the one last seen. The newest in full, the
+            // rest one row each, closed until opened (approved mock-up, 2026-10-24).
+            Assert.Equal("What's new", card.Heading);
+            Assert.Equal("RigSight 0.7.0 · 3 updates since 0.6.1, the last you saw", card.SubHeading);
+            Assert.Equal(V070, card.Newest!.Version);
+            Assert.Equal([new Version(0, 6, 3), new Version(0, 6, 2)], card.Older.Select(r => r.Notes.Version));
+            Assert.All(card.Older, r => Assert.False(r.IsExpanded));
+            card.Older[0].ToggleCommand.Execute(null);
+            Assert.True(card.Older[0].IsExpanded);
+            Assert.NotEmpty(card.Counts);
+        });
+    }
+
+    [Fact]
+    public void The_summary_counts_what_came_and_a_single_update_says_its_version_and_date()
+    {
+        var (card, _) = Make(seen: "0.33.0", current: new Version(0, 34, 0));
+        Ui.Run(() =>
+        {
+            card.CheckOnStart();
+            var r = Changelog.For(new Version(0, 34, 0))!;
+            Assert.Equal($"RigSight 0.34.0 · {r.DateText}", card.SubHeading);
+            Assert.Equal(r.Feature is null ? r.New.Length > 0 : true, card.Counts.Count > 0);
+            if (r.Feature is not null) Assert.Equal("1 new feature", card.Counts[0]);
+            Assert.False(card.HasOlder);
+        });
+    }
+
+    [Theory]
+    [InlineData("Opening the Crashes page is quicker: its list keeps the crashes it already showed.", "crashes")]
+    [InlineData("A game's page on Games no longer jumps back to the top every couple of minutes.", "games")]
+    [InlineData("Switch off Show What's new after an update in Settings, About, and this card won't open by itself any more.", "settings")]
+    [InlineData("You can now select and copy text anywhere in RigSight: drag over it, double-click a word, then press Ctrl+C.", null)]
+    [InlineData("A widget dragged onto the taskbar stays over it.", null)] // "taskbar", not the Taskbar page
+    public void A_line_opens_the_page_it_names_by_its_name(string text, string? page)
+    {
+        var line = ReleaseLine.Of(text, "better");
+        Assert.Equal(page, line.Page);
+        Assert.Equal(page is not null, line.CanOpen);
+        Assert.False(string.IsNullOrEmpty(line.Icon));
+    }
+
+    [Fact]
+    public void After_an_updates_card_its_features_page_keeps_a_dot_until_opened()
+    {
+        var feature = Changelog.Releases.First(r => r.Feature is { IsRemoval: false, ShowsButton: true } f && ViewModels.SidebarViewModel.IconOf(f.Page) is not null);
+        var before = Changelog.Releases.First(r => r.Version < feature.Version).Version;
+        var (card, settings) = Make(seen: before.ToString(3), current: feature.Version);
+        Ui.Run(() =>
+        {
+            var sidebar = new ViewModels.SidebarViewModel(settings, _ => { });
+            var entry = sidebar.Hardware.Concat(sidebar.Main).Concat(sidebar.OnScreen).First(e => e.Key == feature.Feature!.Page);
+            card.CheckOnStart();
+            Assert.False(entry.IsNew); // not while the card is still open
+            card.CloseCommand.Execute(null);
+            Assert.True(entry.IsNew);
+            Assert.StartsWith($"New in {feature.Version.ToString(3)}: ", entry.NewText);
+            sidebar.Select(feature.Feature!.Page);
+            Assert.False(entry.IsNew);
+            Assert.Null(settings.Current.NewFeaturePage);
+        });
+    }
+
+    [Fact]
+    public void Every_update_from_Settings_and_a_card_switched_off_leave_no_dot()
+    {
+        var feature = Changelog.Releases.First(r => r.Feature is { IsRemoval: false, ShowsButton: true } f && ViewModels.SidebarViewModel.IconOf(f.Page) is not null);
+        var before = Changelog.Releases.First(r => r.Version < feature.Version).Version;
+        var (card, settings) = Make(seen: before.ToString(3), current: feature.Version);
+        Ui.Run(() =>
+        {
+            card.SeeAllCommand.Execute(null);
+            card.CloseCommand.Execute(null);
+            Assert.Null(settings.Current.NewFeaturePage);
+        });
+        // Someone who switched What's new off keeps it off: no card, and no dot either.
+        var (off, offSettings) = Make(seen: before.ToString(3), current: feature.Version);
+        Ui.Run(() =>
+        {
+            offSettings.Update(s => s.ShowWhatsNew = false);
+            off.CheckOnStart();
+            Assert.False(off.IsOpen);
+            Assert.False(offSettings.Current.ShowWhatsNew);
+            Assert.Null(offSettings.Current.NewFeaturePage);
         });
     }
 

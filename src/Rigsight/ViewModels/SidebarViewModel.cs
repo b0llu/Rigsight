@@ -39,6 +39,11 @@ public sealed partial class NavEntry(string key, string title, string icon, stri
     /// <summary>Home always stays in the sidebar.</summary>
     public bool CanHide => Key != "home";
 
+    /// <summary>An update's new feature is here and it hasn't been opened since: a dot, and what's new as its hover.</summary>
+    public bool IsNew => owner.NewPage == Key;
+    public string? NewText => IsNew ? owner.NewText : null;
+    internal void NewChanged() { OnPropertyChanged(nameof(IsNew)); OnPropertyChanged(nameof(NewText)); }
+
     /// <summary>Bound two-way to the sidebar button: picking it opens the page.</summary>
     [ObservableProperty] private bool _isSelected;
     partial void OnIsSelectedChanged(bool value)
@@ -164,6 +169,9 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// <summary>A built-in page's sidebar icon (a character, or "fan"/"network" for the drawn ones), or null for one not in the sidebar.</summary>
     public static string? IconOf(string key) => BuiltIn.FirstOrDefault(p => p.Key == key).Icon;
 
+    /// <summary>Every built-in page with its name in the person's language ("games", "Juegos").</summary>
+    public static IEnumerable<(string Key, string Name)> BuiltInNames() => BuiltIn.Select(p => (p.Key, Lang.T(p.Title)));
+
     private readonly SettingsModel _settings;
     private readonly Action<string> _go;
     private readonly List<NavEntry> _entries;
@@ -183,6 +191,7 @@ public sealed partial class SidebarViewModel : ObservableObject
         _entries = [.. BuiltIn.Select(p => new NavEntry(p.Key, Lang.T(p.Title), p.Icon, p.Group, this))];
         foreach (var page in dashboards ?? []) Add(page);
         if (dashboards is not null) dashboards.CollectionChanged += OnDashboardsChanged;
+        _settings.Changed += NewDotChanged;
         Arrange();
         Update();
     }
@@ -280,8 +289,19 @@ public sealed partial class SidebarViewModel : ObservableObject
     }
 
     /// <summary>The page shown changed: tick its entry.</summary>
+    internal string? NewPage => _settings.Current.NewFeaturePage;
+    internal string? NewText => _settings.Current.NewFeatureText;
+
+    /// <summary>The settings changed: the new-feature dot follows (set when What's new closes, gone once its page opens).</summary>
+    private void NewDotChanged()
+    {
+        foreach (var e in _entries) e.NewChanged();
+    }
+
     public void Select(string page)
     {
+        // The page with the dot opened: what's new there has been seen.
+        if (page == NewPage) _settings.Update(s => { s.NewFeaturePage = null; s.NewFeatureText = null; });
         _selected = page;
         _selecting = true;
         foreach (var e in _entries) e.IsSelected = e.Key == page;

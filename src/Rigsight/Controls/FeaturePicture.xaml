@@ -1,0 +1,84 @@
+<UserControl x:Class="Rigsight.Controls.FeaturePicture"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             Focusable="False">
+    <!-- A drawing of a feature's page for its What's new card (approved mock-up, 2026-10-24), in the app's own colours so it
+         follows the theme and accent. Drawn, not a screenshot: a picture of the page on one PC shows its own drives and folders. -->
+    <StackPanel>
+        <Border x:Name="Storage" Width="250" Height="214" CornerRadius="10" BorderThickness="1" Padding="10" Background="{DynamicResource BgBrush}"
+                BorderBrush="{DynamicResource StrokeBrush}" Visibility="Collapsed">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Storage'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                <!-- The drives, fullest first. -->
+                <ItemsControl DockPanel.Dock="Top" Margin="0,7,0,7" Focusable="False" ItemsSource="{Binding Drives, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,0,0,4">
+                                <Border DockPanel.Dock="Left" Width="14" Height="14" CornerRadius="4" Background="{DynamicResource Surface2Brush}" Margin="0,0,6,0">
+                                    <TextBlock Text="{Binding Letter}" FontSize="7" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                </Border>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Percent, StringFormat={}{0}%}" FontSize="8.5" Width="26" TextAlignment="Right" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <Grid Height="4" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="{Binding Used}" />
+                                        <ColumnDefinition Width="{Binding Free}" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.ColumnSpan="2" CornerRadius="2" Background="{DynamicResource HoverBrush}" />
+                                    <Border CornerRadius="2" Background="{DynamicResource TextBrush}" />
+                                </Grid>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <!-- A scan: the folder list beside its map, coloured by kind of file. -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.2*" />
+                    </Grid.ColumnDefinitions>
+                    <ItemsControl Focusable="False" ItemsSource="{Binding Folders, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,6,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Height="11" Margin="0,0,0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="{Binding Used}" />
+                                        <ColumnDefinition Width="{Binding Free}" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                    <TextBlock Grid.ColumnSpan="2" Text="{Binding Letter}" FontSize="7.5" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="46*" />
+                            <ColumnDefinition Width="24*" />
+                            <ColumnDefinition Width="30*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="56*" />
+                            <RowDefinition Height="24*" />
+                            <RowDefinition Height="20*" />
+                        </Grid.RowDefinitions>
+                        <Grid.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4" />
+                                <Setter Property="BorderThickness" Value="1.5" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BgBrush}" />
+                            </Style>
+                        </Grid.Resources>
+                        <Border Grid.RowSpan="3" Background="{DynamicResource CpuBrush}" />
+                        <Border Grid.Column="1" Background="{DynamicResource CpuBrush}" />
+                        <Border Grid.Column="2" Background="{DynamicResource GpuBrush}" />
+                        <Border Grid.Column="1" Grid.Row="1" Grid.RowSpan="2" Background="{DynamicResource PurpleBrush}" />
+                        <Border Grid.Column="2" Grid.Row="1" Background="{DynamicResource PinkBrush}" />
+                        <Border Grid.Column="2" Grid.Row="2" Background="{DynamicResource FaintBrush}" />
+                    </Grid>
+                </Grid>
+            </DockPanel>
+        </Border>
+        <TextBlock x:Name="Caption" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,6,0,0" />
+    </StackPanel>
+</UserControl>

@@ -19,9 +19,71 @@ public sealed record ReleaseNotes(Version Version, DateOnly Date, string[] New, 
         .. new[] { new ReleaseSection(Lang.T("NEW"), "new", New), new ReleaseSection(Lang.T("BETTER"), "better", Better), new ReleaseSection(Lang.T("FIXED"), "fixed", Fixed) }
             .Where(s => s.Items.Length > 0),
     ];
+
+    /// <summary>
+    /// Every line, new first, each with its kind and the page it's about when it names one (approved mock-up,
+    /// 2026-10-24: a coloured square for its kind, and the page's name with an arrow that opens it).
+    /// </summary>
+    public IReadOnlyList<ReleaseLine> Lines =>
+    [
+        .. New.Select(t => ReleaseLine.Of(t, "new")), .. Better.Select(t => ReleaseLine.Of(t, "better")), .. Fixed.Select(t => ReleaseLine.Of(t, "fixed")),
+    ];
+
+    /// <summary>
+    /// A skipped update in one line: its feature's name, or its first line, for its row under "Earlier updates"
+    /// ("Export on every page… and 3 more" is said as the line and a count beside it).
+    /// </summary>
+    public string Summary => Feature?.Name ?? Lines.FirstOrDefault()?.Text ?? "";
+
+    /// <summary>"and 3 more" beside <see cref="Summary"/>; empty when the summary is all there is.</summary>
+    public string MoreText
+    {
+        get
+        {
+            int more = Lines.Count - (Feature is null ? 1 : 0);
+            return more <= 0 ? "" : more == 1 ? Lang.T("and 1 more") : Lang.T($"and {more} more");
+        }
+    }
 }
 
 public sealed record ReleaseSection(string Title, string Kind, string[] Items);
+
+/// <summary>
+/// One line of a release: what it says, its kind (new, better, fixed), its icon (the page's, or the kind's), and the
+/// page it opens when it names one, so "Opening the Crashes page is quicker" opens Crashes.
+/// </summary>
+public sealed record ReleaseLine(string Text, string Kind, string Icon, string? Page, string? PageName)
+{
+    public string KindTitle => Kind switch { "new" => Lang.T("NEW"), "better" => Lang.T("BETTER"), _ => Lang.T("FIXED") };
+    public bool CanOpen => Page is not null;
+
+    // The kind's own icon for a line about no page: a star for new, an arrow up for better, a wrench for a fix.
+    private const string NewIcon = "\uE735", BetterIcon = "\uE74A", FixedIcon = "\uE90F";
+
+    public static ReleaseLine Of(string text, string kind)
+    {
+        var (page, name) = PageIn(text);
+        string icon = page is not null && ViewModels.SidebarViewModel.IconOf(page) is { } own ? own
+            : page == "settings" ? "\uE713" : kind switch { "new" => NewIcon, "better" => BetterIcon, _ => FixedIcon };
+        return new(text, kind, icon, page, name);
+    }
+
+    /// <summary>
+    /// The page a line names, by the name the sidebar gives it in the person's language, as a whole word with its
+    /// capital ("the Games page", "on Home"); the first one named when there are several. Lines are written with the
+    /// pages by their names (see <see cref="Changelog"/>), so a name in a line is that page.
+    /// </summary>
+    internal static (string? Page, string? Name) PageIn(string text)
+    {
+        (string? Page, string? Name, int At) best = (null, null, int.MaxValue);
+        foreach (var (key, name) in ViewModels.SidebarViewModel.BuiltInNames().Append(("settings", Lang.T("Settings"))))
+        {
+            int at = System.Text.RegularExpressions.Regex.Match(text, $@"(?<![\p{{L}}]){System.Text.RegularExpressions.Regex.Escape(name)}(?![\p{{L}}])") is { Success: true } m ? m.Index : -1;
+            if (at >= 0 && at < best.At) best = (key, name, at);
+        }
+        return (best.Page, best.Name);
+    }
+}
 
 /// <summary>
 /// A release's headline feature, for the top of its What's new: its name, one line on what it is, a few things it can
@@ -78,6 +140,13 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
 
     /// <summary>Something true about this PC from the feature's own data ("31 changes already found…"), once known.</summary>
     [ObservableProperty] private string? _fact;
+
+    /// <summary>
+    /// A picture of the feature beside its words ("storage" draws the Storage page; see FeaturePicture), or none. Drawn,
+    /// not a screenshot: a picture of the page as it looks on one PC would show that PC's own drives and folders.
+    /// </summary>
+    public string? Picture { get; init; }
+    public bool HasPicture => Picture is not null;
 }
 
 /// <summary>
@@ -116,7 +185,7 @@ public static class Changelog
                     Lang.T("Scan a drive to see its folders as a list and a map side by side, colored by kind of file."),
                     Lang.T("Open any folder down to its files, and see the space you could free on each drive."),
                     Lang.T("Each drive keeps its last scan, even after a restart, so switching drives needs no new scan.")],
-                "storage", "\uEDA2", isPage: false) { OpenText = Lang.T("Open Storage") },
+                "storage", "\uEDA2", isPage: false) { OpenText = Lang.T("Open Storage"), Picture = "storage" },
             added: [Lang.T("You can now select and copy text anywhere in RigSight: drag over it, double-click a word, then press Ctrl+C.")]),
         V("0.33.0", 10, 23,
             added: [Lang.T("Every page with history now has an Export button that saves just what it shows, for the period it's on and narrowed the way it is, your dashboards too."),
