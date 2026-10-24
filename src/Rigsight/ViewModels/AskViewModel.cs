@@ -251,8 +251,24 @@ public sealed record AskStopped(string Text) : AskMessage;
 /// <summary>The helper is still working on an answer.</summary>
 public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyPropertyChanged
 {
+    /// <summary>
+    /// Between real steps, a thinking word that changes every few seconds, as Claude Code does (the person's call,
+    /// 2026-10-24: "Connecting the dots…" alone read oddly). Only words for thinking, never a claim of something it
+    /// isn't doing; what it really reads ("Reading your crashes for 16 Oct – 22 Oct…") always shows instead.
+    /// </summary>
+    public static readonly string[] Words =
+    [
+        Lang.Key("Thinking…"), Lang.Key("Pondering…"), Lang.Key("Mulling it over…"), Lang.Key("Piecing it together…"),
+        Lang.Key("Weighing it up…"), Lang.Key("Working it out…"), Lang.Key("Sifting through it…"), Lang.Key("Puzzling it out…"),
+        Lang.Key("Crunching the numbers…"), Lang.Key("Considering…"), Lang.Key("Noodling on it…"), Lang.Key("Cross-checking…"),
+    ];
+    public static readonly TimeSpan WordFor = TimeSpan.FromSeconds(2.5);
+    private bool _thinking = true;
+    private DateTime _wordSince = DateTime.Now;
+    private int _word = Random.Shared.Next(Words.Length);
+
     /// <summary>What it's doing now ("Reviewing your report…"), updated as it goes.</summary>
-    public string Step { get; private set; } = Lang.T("Connecting the dots…");
+    public string Step { get; private set; } = Lang.T(Words[0]);
     /// <summary>A fainter second line, only while the model is being loaded.</summary>
     public string? Note { get; private set; }
     public bool HasNote => Note is not null;
@@ -269,17 +285,31 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
     public bool Slow { get; private set; }
     public static readonly TimeSpan DotsFor = TimeSpan.FromSeconds(3);
 
+    /// <param name="step">What it's doing; empty while it's only thinking (a word from <see cref="Words"/> shows).</param>
     public void Show(string step, string? note = null, bool loading = false)
     {
+        _thinking = string.IsNullOrEmpty(step);
+        if (_thinking) { step = Lang.T(Words[_word]); _wordSince = DateTime.Now; }
         (Step, Note, Loading, Since) = (step, note, loading, DateTime.Now);
         foreach (var name in new[] { nameof(Step), nameof(Note), nameof(HasNote) }) PropertyChanged?.Invoke(this, new(name));
         // A real step ("Reading your crashes for 23 Oct…") shows at once, pulsing: the dots are only for the first moments
         // before anything is being read.
-        if (loading || step != Lang.T("Connecting the dots…")) BeSlow();
+        if (loading || !_thinking) BeSlow();
     }
 
-    /// <summary>Called by the window's timer: the dots step aside once the wait passes <see cref="DotsFor"/>.</summary>
-    public void Tick() { if (!Slow && DateTime.Now - Started >= DotsFor) BeSlow(); }
+    /// <summary>
+    /// Called by the window's timer: the dots step aside once the wait passes <see cref="DotsFor"/>; while it's only
+    /// thinking, the next word every <see cref="WordFor"/> (never the same twice in a row).
+    /// </summary>
+    public void Tick()
+    {
+        if (!Slow && DateTime.Now - Started >= DotsFor) BeSlow();
+        if (!_thinking || DateTime.Now - _wordSince < WordFor) return;
+        _word = (_word + 1 + Random.Shared.Next(Words.Length - 1)) % Words.Length;
+        _wordSince = DateTime.Now;
+        Step = Lang.T(Words[_word]);
+        PropertyChanged?.Invoke(this, new(nameof(Step)));
+    }
 
     private void BeSlow()
     {

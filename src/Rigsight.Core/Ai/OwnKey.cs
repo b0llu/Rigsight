@@ -191,7 +191,7 @@ public static class OwnKey
         var definitions = tools.Definitions();
         long tokensIn = 0, tokensOut = 0;
         Log.Write("own-key", $"Asking {model} on {service} ({definitions.Count} look-ups allowed, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
-        step?.Invoke(new AiStep(Lang.T("Connecting the dots…")));
+        step?.Invoke(new AiStep(""));
         for (int round = 0; round < MaxRounds; round++)
         {
             var body = new JsonObject
@@ -257,7 +257,7 @@ public static class OwnKey
                     Log.Write("own-key", $"{model} looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = (string?)call?["id"] ?? "", ["content"] = result });
                 }
-                step?.Invoke(new AiStep(Lang.T("Putting the findings together…")));
+                step?.Invoke(new AiStep(""));
                 continue;
             }
             string answer = got.Text.Trim();

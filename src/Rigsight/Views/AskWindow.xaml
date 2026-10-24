@@ -1255,13 +1255,15 @@
                             <ItemsControl ItemsSource="{Binding Current.Messages}" />
                             <!-- What they might ask next, under the latest answer (approved mock-up 2026-10-24): a short list under a small
                                  heading, full-width rows with an arrow that wrap long questions; quiet until the pointer is on one. -->
-                            <StackPanel Margin="0,4,0,12" Visibility="{Binding HasNextQuestions, Converter={StaticResource Vis}}">
+                            <!-- Full width on every layer: the theme's buttons sit left by default, which made the rows and their line
+                                 only as wide as their words (2026-10-24). -->
+                            <StackPanel Margin="0,4,0,12" HorizontalAlignment="Stretch" Visibility="{Binding HasNextQuestions, Converter={StaticResource Vis}}">
                                 <TextBlock Text="{ctl:T 'Ask next'}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4" />
-                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1">
-                                    <ItemsControl ItemsSource="{Binding NextQuestions}" Focusable="False">
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" HorizontalAlignment="Stretch">
+                                    <ItemsControl ItemsSource="{Binding NextQuestions}" Focusable="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Button Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding}"
+                                                <Button Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                         Command="{Binding DataContext.AskSuggestedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                     <Button.Template>
                                                         <ControlTemplate TargetType="Button">

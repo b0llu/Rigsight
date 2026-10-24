@@ -191,7 +191,7 @@ public static partial class Relay
         var definitions = tools.Definitions();
         bool searchFailed = false;
         Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} look-ups allowed, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
-        step?.Invoke(new AiStep(Lang.T("Connecting the dots…")));
+        step?.Invoke(new AiStep(""));
         for (int round = 0; round < OwnKey.MaxRounds; round++)
         {
             var body = new JsonObject
@@ -259,7 +259,7 @@ public static partial class Relay
                     Log.Write("relay", $"Looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = (string?)call?["id"] ?? "", ["content"] = result });
                 }
-                step?.Invoke(new AiStep(Lang.T("Putting the findings together…")));
+                step?.Invoke(new AiStep(""));
                 continue;
             }
             string answer = got.Text.Trim();

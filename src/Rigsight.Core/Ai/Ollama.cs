@@ -221,7 +221,7 @@ public static class Ollama
         Log.Write("ollama", $"Asking {model} at {root} ({(canLookUp ? $"{definitions!.Count} look-ups allowed" : "no look-ups")}, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         // A model not in memory yet takes a while to load onto the graphics card: say so, so the wait makes sense.
         step?.Invoke(await IsLoadedAsync(root, model, ct)
-            ? new AiStep(Lang.T("Connecting the dots…"))
+            ? new AiStep("")
             : new AiStep(Lang.T($"Getting {model} ready…"), Lang.T("The first answer can take a little longer while it loads."), Loading: true));
         for (int round = 0; round < MaxRounds; round++)
         {
@@ -272,7 +272,7 @@ public static class Ollama
                     Log.Write("ollama", $"{model} looked at {name} {args.ToJsonString()}: {result.Length} chars");
                     messages.Add(new JsonObject { ["role"] = "tool", ["tool_name"] = name, ["content"] = result });
                 }
-                step?.Invoke(new AiStep(Lang.T("Putting the findings together…")));
+                step?.Invoke(new AiStep(""));
                 continue;
             }
             string answer = ((string?)msg?["content"] ?? "").Trim();
