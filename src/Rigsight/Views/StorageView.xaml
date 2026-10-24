@@ -40,10 +40,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
-                            <Trigger Property="Tag" Value="True">
+                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SegmentOnBrush}" />
                                 <Setter Property="Foreground" Value="{DynamicResource SegmentOnTextBrush}" />
-                            </Trigger>
+                            </DataTrigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -234,10 +234,8 @@
                         </ItemsControl>
                     </DockPanel>
 
-                    <!-- The box keeps one height whatever it holds, so nothing below moves. -->
-                    <Grid ctl:Roomy.Height="420">
                         <!-- The drive picked isn't scanned yet. -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}}">
+                        <StackPanel HorizontalAlignment="Center" MaxWidth="460" Margin="0,18,0,22" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding NotScannedText}" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" />
                             <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding ScanCommand}" CommandParameter="{Binding PickedRoot}">
                                 <StackPanel Orientation="Horizontal">
@@ -247,6 +245,8 @@
                             </Button>
                         </StackPanel>
 
+                    <!-- The box keeps one height whatever it holds, so nothing below moves. -->
+                    <Grid ctl:Roomy.Height="420" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <!-- Scanning: how far, how much, where it is now, and Cancel. -->
                         <StackPanel VerticalAlignment="Center" Margin="40,0" Visibility="{Binding ShowScanLoader, Converter={StaticResource Vis}}">
                             <DockPanel Margin="0,0,0,8">
