@@ -407,6 +407,8 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         ScanFolder = root;
         IsScanning = true;
         ScanStatus = Lang.T($"Scanning {root}…");
+        // Logged both ends (a scan from this page wasn't, so a log couldn't say what started one, 2026-10-24).
+        Log.Write("storage", $"Scanning {root} ({(asked ? "asked on the page" : "Refresh")})");
         // A drive's own card says so too (the drives may be read again meanwhile: the card is found by its drive each time).
         VolumeRow? Card() => Volumes.FirstOrDefault(v => string.Equals(v.Root, root, StringComparison.OrdinalIgnoreCase));
         foreach (var v in Volumes) v.ScanText = null;
@@ -433,12 +435,14 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             Breadcrumbs.Clear();
             Open(Result.Root);
             ScanStatus = Lang.T($"{Units.Bytes(Result.Root.Size)} in {Result.FileCount:N0} files · scanned in {Result.Elapsed.TotalSeconds:0.0}s");
+            Log.Write("storage", $"Scanned {root}: {Result.Root.Size} bytes in {Result.FileCount} files, {Result.Elapsed.TotalSeconds:0.0} s");
             CleanupChanged();
             if (asked) ScanDone?.Invoke();
         }
         catch (OperationCanceledException)
         {
             if (_scanCts == scan) ScanStatus = Lang.T("Scan cancelled.");
+            Log.Write("storage", $"Scan of {root} cancelled{(_scanCts == scan ? "" : " (another took over)")}");
         }
         finally
         {
