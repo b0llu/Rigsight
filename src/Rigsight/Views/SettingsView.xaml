@@ -864,8 +864,8 @@
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Off'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=off}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'RigSight AI'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=rigsight}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'My own key'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=own}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Ollama on my PC'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=ollama}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Your API key'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=own}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="AiMode" Content="{ctl:T 'Ollama'}" IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter=ollama}" />
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{ctl:T 'AI helper'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -1290,7 +1290,7 @@
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                                                 <TextBlock Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,8"
-                                                           Visibility="{Binding IsIdle, Converter={StaticResource Vis}}" />
+                                                           Visibility="{Binding ShowSize, Converter={StaticResource Vis}}" />
                                                 <!-- Idle: Download (or Use, or In use when it's on Ollama already) -->
                                                 <Grid Visibility="{Binding IsIdle, Converter={StaticResource Vis}}">
                                                     <Button Style="{StaticResource PickButton}" HorizontalAlignment="Stretch"
@@ -1309,7 +1309,7 @@
                                                             Command="{Binding DataContext.UseOllamaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Tag}"
                                                             Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
                                                     <Border Style="{StaticResource InUse}" HorizontalAlignment="Left" Visibility="{Binding InUse, Converter={StaticResource Vis}}">
-                                                        <TextBlock Text="{ctl:T 'On your Ollama · in use'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
+                                                        <TextBlock Text="{ctl:T 'Active'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
                                                     </Border>
                                                 </Grid>
                                                 <!-- Asked: the size, where it goes (the drive in bold) and how long, then Download N GB or Cancel -->

@@ -325,7 +325,7 @@ public static partial class Relay
             ("licence", "wrong_secret") => Lang.T("This PC's RigSight AI sign-in changed (often after a reinstall). Contact support with your key."),
             ("unavailable", "too_fast") => Lang.T("That's a lot of questions at once. Wait a minute, then ask again. Your question wasn't counted."),
             ("unavailable", "billing") => Lang.T("Your plan couldn't be changed right now. Nothing was charged. Try again in a minute."),
-            ("out_of_questions", "free") => Lang.T("This PC has used its free questions. Buy a pack to keep asking, or use your own key or Ollama."),
+            ("out_of_questions", "free") => Lang.T("This PC has used its free questions. Buy a pack to keep asking, or use your API key or Ollama."),
             ("out_of_questions", _) => Lang.T("You're out of questions, so this one wasn't sent. Buy more in Settings › Ask RigSight."),
             ("licence", "not_found") => Lang.T("That licence key wasn't found. Check it against your receipt email."),
             ("licence", "other_pc") => activating

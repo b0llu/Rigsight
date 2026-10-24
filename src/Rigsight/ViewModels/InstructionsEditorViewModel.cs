@@ -30,7 +30,7 @@ public sealed partial class InstructionsEditorViewModel : ObservableObject
 
     public string RigSightText => AiInstructions.Default(_mode);
 
-    public string ModeName => _mode == AiMode.Ollama ? Lang.T("Ollama on my PC") : Lang.T("My own key");
+    public string ModeName => _mode == AiMode.Ollama ? Lang.T("Ollama") : Lang.T("Your API key");
 
     public string Count => Lang.T($"{Text.Length:N0} characters");
 

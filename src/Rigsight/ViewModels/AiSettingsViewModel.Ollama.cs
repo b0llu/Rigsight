@@ -51,13 +51,15 @@ public sealed partial class OllamaPickCard(OllamaPick pick, string label, Ollama
     public bool HasFitWhy => FitWhy.Length > 0;
     public bool FitIsGood { get; } = fit == OllamaFit.Fits;
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsAsking), nameof(IsDownloading))] private PickState _state;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsAsking), nameof(IsDownloading), nameof(ShowSize))] private PickState _state;
     public bool IsIdle => State == PickState.Idle;
     public bool IsAsking => State == PickState.Asking;
     public bool IsDownloading => State == PickState.Downloading;
 
     /// <summary>Already on Ollama: Use (or In use) in place of Download.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse), nameof(NotOnOllama))] private bool _onOllama;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse), nameof(NotOnOllama), nameof(ShowSize))] private bool _onOllama;
+    /// <summary>The download size, only while there is something to download.</summary>
+    public bool ShowSize => IsIdle && !OnOllama;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse))] private bool _inUse;
     public bool NotOnOllama => !OnOllama;
     public bool CanUse => OnOllama && !InUse;

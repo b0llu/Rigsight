@@ -569,7 +569,7 @@ public sealed partial class AskViewModel : ObservableObject
         : Standing?.Plan is { Weekly: true, ResetsAt: { } at2 } ? Lang.T($"They're back on {TimeText.At(at2, "dddd")}.")
         : Standing?.Plan is { } now && Bigger(now) is { } bigger ? Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day.")
         : Standing?.Plan is not null ? Lang.T("More at midnight.")
-        : Lang.T("Buy more in Settings › Ask RigSight, or switch to your own key there.");
+        : Lang.T("Buy more in Settings › Ask RigSight, or switch to your API key there.");
 
     // ── Before the first question (each way of answering once) ───────────
     /// <summary>
@@ -616,7 +616,7 @@ public sealed partial class AskViewModel : ObservableObject
 
     public string FirstIntro => Ai.Mode switch
     {
-        AiMode.OwnKey => Lang.T("Your own key answers from your PC's records. To do that, RigSight sends your question and the records it needs to the service you picked."),
+        AiMode.OwnKey => Lang.T("With your API key, answers still come from your PC's records: RigSight sends your question and the records it needs to the service you picked."),
         AiMode.Ollama when OllamaHere => Lang.T("Ollama answers from your PC's records, right here on this PC."),
         AiMode.Ollama => Lang.T("Ollama answers from your PC's records. To do that, RigSight sends your question and the records it needs to the computer Ollama runs on."),
         _ => Lang.T("RigSight AI answers from your PC's records. To do that, RigSight sends your question and the records it needs."),
