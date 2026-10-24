@@ -490,10 +490,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool InstructionsOutdated => CanEditInstructions && AiInstructions.DefaultChangedSince(EditMode);
 
     public string InstructionsNote => HasOwnInstructions && AiInstructions.SavedOn(EditMode) is { } on
-        ? Lang.T($"Your own, saved {on:d MMM}.")
-        : Lang.T("How the AI works out and writes its answers.");
-
-    public string EditInstructionsText => HasOwnInstructions ? Lang.T("Edit") : Lang.T("Edit instructions");
+        ? Lang.T($"Your own full instructions, saved {on:d MMM}.")
+        : Lang.T("RigSight's own instructions.");
 
     [RelayCommand] private void EditInstructions() => Editor.Open(EditMode);
 
@@ -503,7 +501,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
 
     private void InstructionsChanged()
     {
-        foreach (var name in new[] { nameof(HasOwnInstructions), nameof(InstructionsOutdated), nameof(InstructionsNote), nameof(EditInstructionsText) })
+        foreach (var name in new[] { nameof(HasOwnInstructions), nameof(InstructionsOutdated), nameof(InstructionsNote) })
             OnPropertyChanged(name);
     }
 

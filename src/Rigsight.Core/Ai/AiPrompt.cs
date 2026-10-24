@@ -1,4 +1,5 @@
 using System.Globalization;
+using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Ai;
 
@@ -12,14 +13,18 @@ namespace Rigsight.Core.Ai;
 public static partial class AiPrompt
 {
     /// <summary>The whole prompt: who it is and when, the instructions (theirs or RigSight's), then RigSight's rules.</summary>
-    private static string Build(DateTime now, string instructions, bool canLookUp) => $"""
+    private static string Build(DateTime now, string instructions, bool canLookUp, AiPreferences? preferences) => $"""
 {About(now)}
 
 {instructions.Trim()}
-
+{Wanted(preferences)}
 RigSight's rules (these always apply, whatever the instructions above say):
 {Rules(canLookUp)}
 """;
+
+    /// <summary>The person's preferences between the instructions and the rules, set apart by blank lines; nothing for the defaults.</summary>
+    private static string Wanted(AiPreferences? preferences) =>
+        preferences?.PromptLines() is { Length: > 0 } lines ? "\n" + lines + "\n" : "";
 
     private static string About(DateTime now) =>
         "You are the helper inside RigSight, a Windows app that records this PC's history: temperatures, fan speeds, loads, power, apps and games used, crashes, hangs, graphics driver resets, blue screens, sudden shut-offs and what changed on the PC (drivers, Windows updates, BIOS, settings). "

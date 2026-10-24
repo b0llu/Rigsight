@@ -183,7 +183,7 @@ public static class OwnKey
             Log.Write("own-key", "Not asked: Windows has no network connection");
             return new AiReply(null, Internet.NoInternet(), []);
         }
-        string system = AiPrompt.OwnKey(started, AiInstructions.Custom(AiMode.OwnKey));
+        string system = AiPrompt.OwnKey(started, AiInstructions.Custom(AiMode.OwnKey), tools.Settings.Ai.OwnKeyPreferences);
         var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = system } };
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });

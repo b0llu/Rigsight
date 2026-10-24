@@ -42,6 +42,11 @@ public sealed class AiSettings
     public string OllamaAddress { get; set; } = "http://localhost:11434";
     public string OllamaModel { get; set; } = "";
 
+    /// <summary>How answers should be (length, tone, language, about them), for Ollama and for their own key apart.</summary>
+    public AiPreferences OllamaPreferences { get; set; } = new();
+    public AiPreferences OwnKeyPreferences { get; set; } = new();
+    public AiPreferences PreferencesFor(AiMode mode) => mode == AiMode.Ollama ? OllamaPreferences : OwnKeyPreferences;
+
     /// <summary>
     /// The pages (AiPages ids) answers may not use, switched off in Settings › AI; null until it was first set, when the old
     /// switches by kind of record below still say what's off (AiPages.FromOldSwitches).

@@ -1,11 +1,13 @@
+using Rigsight.Core.Settings;
+
 namespace Rigsight.Core.Ai;
 
 /// <summary>Ollama's copy: a model on the person's own PC, often small, sometimes without look-ups.</summary>
 public static partial class AiPrompt
 {
     /// <param name="instructions">The person's own instructions from Settings; null for RigSight's.</param>
-    public static string Ollama(bool canLookUp, DateTime now, string? instructions = null) =>
-        Build(now, instructions ?? OllamaInstructions, canLookUp);
+    public static string Ollama(bool canLookUp, DateTime now, string? instructions = null, AiPreferences? preferences = null) =>
+        Build(now, instructions ?? OllamaInstructions, canLookUp, preferences);
 
     /// <summary>RigSight's instructions for Ollama: what Settings shows before anyone changes them, and what Reset brings back.</summary>
     public const string OllamaInstructions = """

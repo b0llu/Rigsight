@@ -33,6 +33,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
 
     private bool InPlan(string name) => PlanPages is null || AiPages.Of(name) is not { } page || PlanPages.Contains(page.Id);
 
+    /// <summary>The settings the look-ups follow (and the person's answer preferences for the prompt).</summary>
+    public RigsightSettings Settings => settings;
+
     /// <summary>A look-up answers when its page is switched on in Settings › AI; otherwise it says it isn't shared.</summary>
     private bool Allowed(string name) => AiPages.Of(name) is { } page && settings.Ai.Sends(page.Id);
 

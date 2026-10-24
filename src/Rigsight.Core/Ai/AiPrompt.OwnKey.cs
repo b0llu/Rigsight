@@ -1,11 +1,13 @@
+using Rigsight.Core.Settings;
+
 namespace Rigsight.Core.Ai;
 
 /// <summary>Your own key's copy: a model the person picks at a service (OpenRouter, OpenAI, Gemini…), always with look-ups.</summary>
 public static partial class AiPrompt
 {
     /// <param name="instructions">The person's own instructions from Settings; null for RigSight's.</param>
-    public static string OwnKey(DateTime now, string? instructions = null) =>
-        Build(now, instructions ?? OwnKeyInstructions, canLookUp: true);
+    public static string OwnKey(DateTime now, string? instructions = null, AiPreferences? preferences = null) =>
+        Build(now, instructions ?? OwnKeyInstructions, canLookUp: true, preferences);
 
     /// <summary>RigSight's instructions for your own key: what Settings shows before anyone changes them, and what Reset brings back.</summary>
     public const string OwnKeyInstructions = """

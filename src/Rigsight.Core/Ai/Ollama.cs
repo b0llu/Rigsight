@@ -195,7 +195,7 @@ public static class Ollama
     {
         var root = Normalise(address);
         var started = DateTime.Now;
-        var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = AiPrompt.Ollama(canLookUp, started, AiInstructions.Custom(Settings.AiMode.Ollama)) } };
+        var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = AiPrompt.Ollama(canLookUp, started, AiInstructions.Custom(Settings.AiMode.Ollama), tools.Settings.Ai.OllamaPreferences) } };
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
