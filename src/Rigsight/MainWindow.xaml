@@ -119,10 +119,12 @@
                                             Visibility="{Binding CanSeeAll, Converter={StaticResource Vis}}" />
                                 </DockPanel>
                             </Border>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,0,28,24" Focusable="False">
+                            <!-- 20 at the sides, and 8 more around everything but the lines, so a line's hover shade has room for its rounded corners
+                                 (a shade pushed out past the padding was cut square by the scroll area). -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20,0,20,24" Focusable="False">
                                 <StackPanel>
                                     <!-- The update in a glance: how many new, better and fixed, before any detail. -->
-                                    <ItemsControl ItemsSource="{Binding Counts}" Focusable="False" Margin="0,4,0,2">
+                                    <ItemsControl ItemsSource="{Binding Counts}" Focusable="False" Margin="8,4,8,2">
                                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -132,7 +134,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <Grid Margin="0,14,0,4" Visibility="{Binding Converter={StaticResource Vis}}" DataContext="{Binding Newest.Feature}">
+                                    <Grid Margin="8,14,8,4" Visibility="{Binding Converter={StaticResource Vis}}" DataContext="{Binding Newest.Feature}">
                                                     <Border CornerRadius="14" Padding="22,20,22,22" BorderThickness="1" AutomationProperties.Name="{Binding Tag}">
                                                         <!-- Something new is in colour. Something taken away is plain and grey: colour says "new". -->
                                                         <Border.Style>
@@ -248,9 +250,9 @@
                                                         </Grid>
                                                     </Border>
                                                     </Grid>
-                                    <ItemsControl ItemsSource="{Binding Newest.Lines}" ItemTemplate="{StaticResource WhatsNewLine}" Focusable="False" Margin="-8,10,-8,0" />
+                                    <ItemsControl ItemsSource="{Binding Newest.Lines}" ItemTemplate="{StaticResource WhatsNewLine}" Focusable="False" Margin="0,10,0,0" />
                                     <!-- The updates before it: one row each, its version and biggest change, opening in place. -->
-                                    <StackPanel Visibility="{Binding HasOlder, Converter={StaticResource Vis}}">
+                                    <StackPanel Margin="8,0,8,0" Visibility="{Binding HasOlder, Converter={StaticResource Vis}}">
                                         <TextBlock Text="{Binding OlderHeading}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,18,0,2" />
                                         <ItemsControl ItemsSource="{Binding Older}" Focusable="False" VirtualizingPanel.IsVirtualizing="True">
                                             <ItemsControl.ItemTemplate>
