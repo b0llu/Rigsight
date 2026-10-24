@@ -281,7 +281,8 @@
                                                             <TextBlock x:Name="Ours" Text="{ctl:T 'RigSight · '}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Visibility="Collapsed" />
                                                             <TextBlock Text="{Binding Site}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                                             <!-- A web page opens in the browser, out of RigSight: said with the arrow. -->
-                                                            <TextBlock x:Name="Out" Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
+                                                            <ctl:InkCentered x:Name="Out" Text="&#xE8A7;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Fill="{DynamicResource FaintBrush}"
+                                                                             Width="9" Height="16" Margin="5,2,0,0" VerticalAlignment="Top" />
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                                         <TextBlock x:Name="Date" Text="{Binding Date}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
@@ -587,10 +588,15 @@
                     <ControlTemplate TargetType="Button">
                         <StackPanel Orientation="Horizontal" Background="Transparent" Margin="0,6,4,6">
                             <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="12.5" />
-                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Margin="5,1,0,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="Go" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Margin="5,1,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                            <!-- Nothing to open (a web search, a look-up with no page): plain words, no arrow, no hand. -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Go" Property="Visibility" Value="Collapsed" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -866,7 +872,7 @@
                     <Ellipse x:Name="Dot3" />
                 </StackPanel>
                 <StackPanel x:Name="Words" Visibility="Collapsed">
-                    <TextBlock x:Name="StepText" Text="{Binding Step}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
+                    <TextBlock x:Name="StepText" Text="{Binding Step}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
                                Visibility="{Binding HasNote, Converter={StaticResource Vis}}" />
                 </StackPanel>
@@ -1079,7 +1085,8 @@
                 </Button>
                 <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search conversations'}" Margin="0,12,0,0"
                          AutomationProperties.Name="{ctl:T 'Search conversations'}" Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged}" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" FocusVisualStyle="{x:Null}">
+                <!-- The bar in its own gutter beside the rows (drawn over them, it covered the titles and their ⋯). -->
+                <ScrollViewer Style="{StaticResource GutterScroll}" FocusVisualStyle="{x:Null}">
                     <StackPanel>
                         <TextBlock Text="{ctl:T 'No conversations yet.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="6,8"
                                    Visibility="{Binding HasHistory, Converter={StaticResource Vis}, ConverterParameter=Invert}" />

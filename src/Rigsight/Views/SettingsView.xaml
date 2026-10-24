@@ -1062,8 +1062,8 @@
 
                 <!-- Ollama on my PC (approved mock-up 2026-10-24): where it runs, the models already on it (each saying if it can
                      be used), then three picked for this PC's graphics card that download through Ollama itself. -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8,20,20" Margin="0,14,0,0" Visibility="{Binding IsOllama, Converter={StaticResource Vis}}">
-                    <ctl:SmoothBorder.Resources>
+                <StackPanel Visibility="{Binding IsOllama, Converter={StaticResource Vis}}">
+                    <StackPanel.Resources>
                         <Style x:Key="Caps" TargetType="TextBlock">
                             <Setter Property="FontSize" Value="11.5" />
                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -1104,7 +1104,16 @@
                             <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
                             <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
-                    </ctl:SmoothBorder.Resources>
+                        <!-- The panel a pick's question and download sit in: set into the pick's box, so it reads as a step of its own. -->
+                        <Style x:Key="PickStep" TargetType="ctl:SmoothBorder">
+                            <Setter Property="CornerRadius" Value="10" />
+                            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Padding" Value="12,10" />
+                        </Style>
+                    </StackPanel.Resources>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8,20,16" Margin="0,14,0,0">
                     <StackPanel>
                         <DockPanel Style="{StaticResource Row}">
                             <!-- The address, Check again, and under them the line that answers them (approved mock-up 2026-10-24):
@@ -1187,9 +1196,9 @@
                             </DockPanel>
                             <!-- Each row 52 tall with 6 between: over three, the box is three and a half rows (200), so the
                                  fourth shows cut in half and the list reads as one that scrolls. -->
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+                            <ScrollViewer CanContentScroll="False">
                                 <ScrollViewer.Style>
-                                    <Style TargetType="ScrollViewer">
+                                    <Style TargetType="ScrollViewer" BasedOn="{StaticResource GutterScroll}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ManyOllamaRows}" Value="True"><Setter Property="Height" Value="200" /></DataTrigger>
                                         </Style.Triggers>
@@ -1232,9 +1241,15 @@
                                        TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding NoneCanLookUp, Converter={StaticResource Vis}}" />
                         </StackPanel>
 
-                        <!-- Picked for this PC: best, smaller, bigger, side by side; Download asks first, then shows its progress. -->
-                        <TextBlock Text="{Binding PicksHeading}" Style="{StaticResource Caps}" Margin="0,16,0,4" />
-                        <TextBlock Text="{Binding DownloadsGo}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                    </StackPanel>
+                    </ctl:SmoothBorder>
+
+                    <!-- Models for this PC: a section of its own, as the page's others (approved mock-up 2026-10-24), with what
+                         they were picked for and where downloads go under the heading. Best, smaller, bigger side by side;
+                         Download asks first, then shows its progress in the same place. -->
+                    <TextBlock Text="{Binding PicksHeading}" Style="{StaticResource SubHead}" />
+                    <TextBlock Text="{Binding PicksLine}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="2,-6,0,10" />
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Padding="16">
                         <ItemsControl ItemsSource="{Binding Picks}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><UniformGrid Rows="1" Margin="0,0,-10,0" /></ItemsPanelTemplate>
@@ -1268,29 +1283,36 @@
                                                         <TextBlock Text="{ctl:T 'On your Ollama · in use'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
                                                     </Border>
                                                 </Grid>
-                                                <!-- Asked: the size and where it goes, then Download or Cancel -->
-                                                <StackPanel Visibility="{Binding IsAsking, Converter={StaticResource Vis}}">
-                                                    <TextBlock Text="{Binding AskText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                                                    <WrapPanel>
-                                                        <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Download'}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Start the download'}"
-                                                                Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                                Visibility="{Binding HasRoom, Converter={StaticResource Vis}}" />
-                                                        <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Don\'t download'}"
-                                                                Command="{Binding DataContext.CancelAskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                    </WrapPanel>
-                                                </StackPanel>
-                                                <!-- Downloading: the bar, how much, how fast, how long, and Cancel -->
-                                                <StackPanel Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
-                                                    <Grid Height="6" ClipToBounds="True">
-                                                        <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
-                                                        <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
-                                                            <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
-                                                        </Border>
-                                                    </Grid>
-                                                    <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
-                                                    <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" HorizontalAlignment="Left" AutomationProperties.Name="{ctl:T 'Stop the download'}"
-                                                            Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                </StackPanel>
+                                                <!-- Asked: the size, where it goes (the drive in bold) and how long, then Download N GB or Cancel -->
+                                                <ctl:SmoothBorder Style="{StaticResource PickStep}" Visibility="{Binding IsAsking, Converter={StaticResource Vis}}">
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,10"><Span ctl:Md.Text="{Binding AskText}" /></TextBlock>
+                                                        <WrapPanel>
+                                                            <Button Style="{StaticResource AccentButton}" Content="{Binding ConfirmText}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Start the download'}"
+                                                                    Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                                    Visibility="{Binding HasRoom, Converter={StaticResource Vis}}" />
+                                                            <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Don\'t download'}"
+                                                                    Command="{Binding DataContext.CancelAskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                        </WrapPanel>
+                                                    </StackPanel>
+                                                </ctl:SmoothBorder>
+                                                <!-- Downloading: the bar and how much, how fast, how long, with Cancel beside them -->
+                                                <ctl:SmoothBorder Style="{StaticResource PickStep}" Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
+                                                    <DockPanel>
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" Padding="11,5" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                                AutomationProperties.Name="{ctl:T 'Stop the download'}"
+                                                                Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <Grid Height="6" ClipToBounds="True">
+                                                                <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
+                                                                <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
+                                                                    <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
+                                                                </Border>
+                                                            </Grid>
+                                                            <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </ctl:SmoothBorder>
                                                 <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
                                                            Visibility="{Binding HasProblem, Converter={StaticResource Vis}}" />
                                             </StackPanel>
@@ -1303,7 +1325,9 @@
                                                         </Border.ToolTip>
                                                         <TextBlock Text="{Binding FitText}" Style="{StaticResource FitText}" />
                                                     </Border>
-                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                                    <Border HorizontalAlignment="Left" VerticalAlignment="Center" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="6" Padding="7,1">
+                                                        <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
+                                                    </Border>
                                                 </DockPanel>
                                                 <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                                                 <TextBlock Text="{Binding Tag}" FontFamily="Cascadia Mono, Consolas" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
@@ -1314,8 +1338,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </StackPanel>
-                </ctl:SmoothBorder>
+                    </ctl:SmoothBorder>
+                </StackPanel>
 
                 <!-- My own key or Ollama: How it answers (approved mock-up 2026-10-24). Length, tone, language and a few words about
                      them are added to RigSight's instructions, never in place of them; the full text stays behind "Edit the full

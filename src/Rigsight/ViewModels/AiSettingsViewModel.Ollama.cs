@@ -51,6 +51,8 @@ public sealed partial class OllamaPickCard(OllamaPick pick, string label, Ollama
 
     /// <summary>"Download 8 GB? It goes to C: (412 GB free)."</summary>
     [ObservableProperty] private string _askText = "";
+    /// <summary>"Download 8 GB": the button says what it does.</summary>
+    [ObservableProperty] private string _confirmText = "";
     [ObservableProperty] private bool _hasRoom = true;
     [ObservableProperty] private double _progress;
     /// <summary>"3.1 of 8 GB · 18.4 MB/s · about 4 min left"</summary>
@@ -117,23 +119,26 @@ public sealed partial class AiSettingsViewModel
 
     public IReadOnlyList<OllamaPickCard> Picks { get; private set; } = [];
 
-    /// <summary>"PICKED FOR THIS PC · RTX 3080 TI, 12 GB · 32 GB MEMORY" (upper case by the view's style).</summary>
-    public string PicksHeading
+    /// <summary>The section's heading: "Models for this PC", or for Ollama on another computer.</summary>
+    public string PicksHeading => OllamaHere ? Lang.T("Models for this PC") : Lang.T($"Models for Ollama on {Ollama.Host(Ai.OllamaAddress)}");
+
+    /// <summary>
+    /// Under the heading: what they were picked for and where downloads go ("Picked for your RTX 3080 Ti (12 GB) and
+    /// 16 GB of memory · downloads go to C:\Users\…\.ollama\models").
+    /// </summary>
+    public string PicksLine
     {
         get
         {
-            if (!OllamaHere) return Lang.T($"Picked for Ollama at {Ollama.Host(Ai.OllamaAddress)}").ToUpper(CultureInfo.CurrentCulture);
-            var bits = new List<string>();
-            if (_card is not null) bits.Add(_vramGb is { } v ? $"{_card}, {v.ToString("0.#", CultureInfo.CurrentCulture)} GB" : _card);
-            if (_ram is not null) bits.Add(Lang.T($"{_ram} memory"));
-            return (bits.Count > 0 ? Lang.T("Picked for this PC") + " · " + string.Join(" · ", bits) : Lang.T("Picked for this PC")).ToUpper(CultureInfo.CurrentCulture);
+            if (!OllamaHere) return Lang.T($"Picked by size; how they fit there can't be checked from here · downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}");
+            string card = _card is null ? "" : _vramGb is { } v ? Lang.T($"your {_card} ({v.ToString("0.#", CultureInfo.CurrentCulture)} GB)") : Lang.T($"your {_card}");
+            string picked = card.Length > 0 && _ram is not null ? Lang.T($"Picked for {card} and {_ram} of memory")
+                : card.Length > 0 ? Lang.T($"Picked for {card}")
+                : _ram is not null ? Lang.T($"Picked for {_ram} of memory")
+                : Lang.T("Picked for this PC");
+            return picked + " · " + Lang.T($"downloads go to {OllamaPicks.ModelsFolder()}");
         }
     }
-
-    /// <summary>Where downloads go: Ollama's own models folder (said as the folder alone, the person's call 2026-10-24).</summary>
-    public string DownloadsGo => OllamaHere
-        ? Lang.T($"Downloads go to {OllamaPicks.ModelsFolder()}")
-        : Lang.T($"Downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}. How a model fits there can't be checked from here.");
 
     /// <summary>The three cards for this PC (or, for another computer, by size alone), with what's on Ollama marked.</summary>
     private void ShowPicks()
@@ -152,7 +157,7 @@ public sealed partial class AiSettingsViewModel
         MarkInUse();
         OnPropertyChanged(nameof(Picks));
         OnPropertyChanged(nameof(PicksHeading));
-        OnPropertyChanged(nameof(DownloadsGo));
+        OnPropertyChanged(nameof(PicksLine));
     }
 
     /// <summary>The model in use: the one picked, or the first that can look things up.</summary>
@@ -367,19 +372,27 @@ public sealed partial class AiSettingsViewModel
         string size = card.Pick.Gb.ToString("0.#", CultureInfo.CurrentCulture);
         card.Problem = null;
         card.HasRoom = true;
-        if (!OllamaHere) card.AskText = Lang.T($"Download {size} GB? It goes to Ollama on {Ollama.Host(Ai.OllamaAddress)}.");
+        card.ConfirmText = Lang.T($"Download {size} GB");
+        if (!OllamaHere) card.AskText = Lang.T($"Download {size} GB? It goes to Ollama on **{Ollama.Host(Ai.OllamaAddress)}**.");
         else if (OllamaPicks.FreeSpace() is { } space)
         {
             card.HasRoom = space.Free > card.Pick.Gb * (1L << 30) * 1.1;
-            card.AskText = card.HasRoom
-                ? Lang.T($"Download {size} GB? It goes to {space.Drive} ({Units.Bytes(space.Free)} free).")
-                : Lang.T($"There isn't room: it needs {size} GB and {space.Drive} has {Units.Bytes(space.Free)} free.");
+            card.AskText = !card.HasRoom
+                ? Lang.T($"There isn't room: it needs {size} GB and **{space.Drive}** has {Units.Bytes(space.Free)} free.")
+                : _lastSpeed is { } speed
+                    ? Lang.T($"Download {size} GB? It goes to **{space.Drive}** ({Units.Bytes(space.Free)} free) and takes about {Minutes(card.Pick.Gb * (1L << 30) / speed)} on your connection.")
+                    : Lang.T($"Download {size} GB? It goes to **{space.Drive}** ({Units.Bytes(space.Free)} free).");
         }
         else card.AskText = Lang.T($"Download {size} GB?");
         card.State = PickState.Asking;
     }
 
     private bool CanAskDownload(OllamaPickCard? card) => OllamaAnswering && !Picks.Any(c => c.IsDownloading);
+
+    /// <summary>The speed the last download here ran at, for how long the next one takes; null until one has run.</summary>
+    private static double? _lastSpeed;
+
+    private static string Minutes(double seconds) => seconds < 90 ? Lang.T("about a minute") : Lang.T($"{Math.Ceiling(seconds / 60):0} minutes");
 
     [RelayCommand] private static void CancelAsk(OllamaPickCard? card) { if (card is { IsAsking: true }) card.State = PickState.Idle; }
 
@@ -403,6 +416,7 @@ public sealed partial class AiSettingsViewModel
             var first = samples.Peek();
             double seconds = (now - first.At).TotalSeconds;
             double speed = seconds >= 1 ? (p.Done - first.Done) / seconds : 0;
+            if (speed > 0 && seconds >= 3) _lastSpeed = speed;
             card.Progress = Math.Clamp((double)p.Done / p.Total, 0, 1);
             card.ProgressText = DownloadText(p.Done, p.Total, speed);
         });

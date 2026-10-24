@@ -15,19 +15,24 @@ public sealed class InkCentered : FrameworkElement
         new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty FontSizeProperty = DependencyProperty.Register(nameof(FontSize), typeof(double), typeof(InkCentered),
         new FrameworkPropertyMetadata(9.0, FrameworkPropertyMetadataOptions.AffectsRender));
+    /// <summary>An icon font ("Segoe Fluent Icons, Segoe MDL2 Assets") for a glyph such as the opens-outside arrow; none for a letter.</summary>
+    public static readonly DependencyProperty FontProperty = DependencyProperty.Register(nameof(Font), typeof(string), typeof(InkCentered),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty FillProperty = DependencyProperty.Register(nameof(Fill), typeof(Brush), typeof(InkCentered),
         new FrameworkPropertyMetadata(Brushes.Black, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public double FontSize { get => (double)GetValue(FontSizeProperty); set => SetValue(FontSizeProperty, value); }
     public Brush Fill { get => (Brush)GetValue(FillProperty); set => SetValue(FillProperty, value); }
+    public string? Font { get => (string?)GetValue(FontProperty); set => SetValue(FontProperty, value); }
 
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
 
     protected override void OnRender(DrawingContext dc)
     {
         if (string.IsNullOrEmpty(Text)) return;
-        var text = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Bold, FontSize, Fill, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var face = Font is { Length: > 0 } font ? new Typeface(new FontFamily(font), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal) : Bold;
+        var text = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, FontSize, Fill, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var ink = text.BuildGeometry(new Point(0, 0));
         var bounds = ink.Bounds;
         if (bounds.IsEmpty) return;

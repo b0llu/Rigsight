@@ -208,7 +208,8 @@ public sealed class PlansTests
         Assert.Equal("Visa ending 4242", plans.CardText);
         Assert.False(plans.HasLastPayment); // the relay sent none
         Assert.True(plans.CanSwitchPlan);
-        Assert.Equal("Switch to Complete", plans.SwitchText);
+        Assert.StartsWith("on ", plans.NextWhen);
+        Assert.Equal(("VISA", "•••• 4242"), (plans.CardBrand, plans.CardDigits));
         Assert.True(plans.Columns[2].CanSwitch);
         Assert.False(plans.Columns[2].CanBuy);
     }

@@ -181,6 +181,22 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool HasNextPayment => IsSubscription && !IsEnding && NextPayment.Length > 0;
     // In place of the old "Receipts: every payment" line (the person's call, 2026-10-24: say something worth knowing).
     public string LastPayment => Plan?.LastPayment is { } last ? Lang.T($"{last.Amount} on {TimeText.At(last.At, "d MMMM")}") : "";
+
+    // The facts as the plan box draws them: the amount in bold, when under it (approved mock-up 2026-10-24).
+    public string NextAmount => Plan?.Price ?? "";
+    public string NextWhen => Plan is { RenewsAt: { } on } ? Lang.T($"on {TimeText.At(on, "d MMMM")}") + " · " + In(on) : "";
+    public string LastAmount => Plan?.LastPayment?.Amount ?? "";
+    public string LastWhen => Plan?.LastPayment is { } last ? Lang.T($"on {TimeText.At(last.At, "d MMMM")}") : "";
+    public string CardBrand => (Plan?.Card?.Brand ?? "").ToUpperInvariant();
+    public bool HasCard => Plan?.Card is not null;
+    public string CardDigits => Plan?.Card is { } c ? "•••• " + c.Last4 : Lang.T("Your card");
+
+    /// <summary>"in 31 days", "tomorrow", "today": how far off, so no one counts days.</summary>
+    internal static string In(DateTime on)
+    {
+        int days = (on.Date - DateTime.Today).Days;
+        return days <= 0 ? Lang.T("today") : days == 1 ? Lang.T("tomorrow") : Lang.T($"in {days} days");
+    }
     public bool HasLastPayment => IsSubscription && LastPayment.Length > 0;
     public bool CanCancel => CanManage && HasNextPayment;
     public string EndingText => Plan is { EndsAt: { } end } p
@@ -194,13 +210,19 @@ public sealed partial class PlansViewModel : ObservableObject
 
     /// <summary>The other paid plan, for "Switch to …" (going up from the cheaper one, down from the dearer).</summary>
     public PlanColumn? Other => Columns.Where(c => !c.Offer.IsFree && Plan is { } p && c.Offer.Id != p.Id).LastOrDefault();
+    /// <summary>
+    /// "Change plan": one neutral button to the plans screen, where switching happens and says what it costs (the
+    /// person's call, 2026-10-24: no button that names a downgrade and invites it; the change stays one press away, as
+    /// Spotify's "Change plan").
+    /// </summary>
     public bool CanSwitchPlan => CanManage && !IsEnding && Other is not null;
-    public string SwitchText => Other is { } o ? Lang.T($"Switch to {o.Name}") : "";
+    /// <summary>Not on the plans screen itself, where the plans are already shown.</summary>
+    public bool ShowChangePlan => CanSwitchPlan && !IsOpen;
     public string OtherText => Other is { } o ? Lang.T($"{o.Name} · {PagesText(o.Offer.Pages.Count)}") : "";
     public bool SwitchGoesUp => Other is { } o && Plan is { } p && Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is { } mine && o.Offer.PriceCents > mine.Offer.PriceCents;
 
     // ── The Plans screen ────────────────────────────────────────────────
-    [ObservableProperty] private bool _isOpen;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowChangePlan))] private bool _isOpen;
     [ObservableProperty] private bool _comparing;
     public string CompareText => Comparing ? Lang.T("Hide the page by page list") : Lang.T("Compare plans page by page");
     partial void OnComparingChanged(bool value) => OnPropertyChanged(nameof(CompareText));

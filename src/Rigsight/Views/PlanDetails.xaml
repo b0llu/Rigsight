@@ -89,30 +89,75 @@
         <!-- Paid: the facts in one row, then the buttons in one row with Cancel set apart on the right (the plan box
              redesign, 2026-10-24: fewer boxes, real buttons). ↗ marks the two that open Lemon Squeezy's page. -->
         <StackPanel Visibility="{Binding IsSubscription, Converter={StaticResource Vis}}">
-            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,10" Margin="0,14,0,0">
+            <!-- The three facts: a small icon with each label (so the icon lines up with one line, not the whole fact), the
+                 amount in bold and when under it; thin lines above, below and between, no grey band (approved mock-up). -->
+            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1" Margin="0,14,0,0">
                 <UniformGrid Rows="1">
-                    <StackPanel Margin="0,0,12,0" Visibility="{Binding HasNextPayment, Converter={StaticResource Vis}}">
-                        <TextBlock Text="{ctl:T 'Next payment'}" Style="{StaticResource Label}" />
-                        <TextBlock Text="{Binding NextPayment}" Style="{StaticResource Value}" FontWeight="SemiBold" />
+                    <UniformGrid.Resources>
+                        <Style x:Key="FactLabel" TargetType="StackPanel">
+                            <Setter Property="Orientation" Value="Horizontal" />
+                            <Setter Property="Margin" Value="0,0,0,3" />
+                        </Style>
+                        <Style x:Key="FactIcon" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                            <Setter Property="Margin" Value="0,0,7,0" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                        <Style x:Key="Amount" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="15" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        </Style>
+                        <Style x:Key="When" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="Margin" Value="0,1,0,0" />
+                        </Style>
+                    </UniformGrid.Resources>
+                    <StackPanel Margin="0,12,16,12" Visibility="{Binding HasNextPayment, Converter={StaticResource Vis}}">
+                        <StackPanel Style="{StaticResource FactLabel}">
+                            <TextBlock Text="&#xE787;" Style="{StaticResource FactIcon}" />
+                            <TextBlock Text="{ctl:T 'Next payment'}" Style="{StaticResource Label}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding NextAmount}" Style="{StaticResource Amount}" />
+                        <TextBlock Text="{Binding NextWhen}" Style="{StaticResource When}" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="{ctl:T 'Paid with'}" Style="{StaticResource Label}" />
-                        <TextBlock Text="{Binding CardText}" Style="{StaticResource Value}" />
-                    </StackPanel>
-                    <StackPanel Visibility="{Binding HasLastPayment, Converter={StaticResource Vis}}">
-                        <TextBlock Text="{ctl:T 'Last payment'}" Style="{StaticResource Label}" />
-                        <TextBlock Text="{Binding LastPayment}" Style="{StaticResource Value}" />
-                    </StackPanel>
+                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0" Padding="16,12">
+                        <StackPanel>
+                            <StackPanel Style="{StaticResource FactLabel}">
+                                <TextBlock Text="&#xE8C7;" Style="{StaticResource FactIcon}" />
+                                <TextBlock Text="{ctl:T 'Paid with'}" Style="{StaticResource Label}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,0,8,0" VerticalAlignment="Center"
+                                        Visibility="{Binding HasCard, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{Binding CardBrand}" FontSize="10" FontWeight="Bold" FontStyle="Italic" Foreground="{DynamicResource TextBrush}" />
+                                </Border>
+                                <TextBlock Text="{Binding CardDigits}" Style="{StaticResource Amount}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0" Padding="16,12,0,12" Visibility="{Binding HasLastPayment, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <StackPanel Style="{StaticResource FactLabel}">
+                                <TextBlock Text="&#xE9F9;" Style="{StaticResource FactIcon}" />
+                                <TextBlock Text="{ctl:T 'Last payment'}" Style="{StaticResource Label}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding LastAmount}" Style="{StaticResource Amount}" />
+                            <TextBlock Text="{Binding LastWhen}" Style="{StaticResource When}" />
+                        </StackPanel>
+                    </Border>
                 </UniformGrid>
-            </ctl:SmoothBorder>
+            </Border>
             <DockPanel Margin="0,12,0,0">
                 <Button DockPanel.Dock="Right" Style="{StaticResource CancelButton}" Content="{ctl:T 'Cancel plan'}" Command="{Binding AskCancelCommand}"
                         VerticalAlignment="Top" Margin="12,0,0,0" Visibility="{Binding CanCancel, Converter={StaticResource Vis}}" />
                 <WrapPanel>
-                    <Button Style="{StaticResource AccentButton}" Content="{Binding SwitchText}" Command="{Binding AskSwitchCommand}" Margin="0,0,8,8"
-                            Visibility="{Binding CanSwitchPlan, Converter={StaticResource Vis}}" />
-                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Compare plans'}" Command="{Binding ShowCommand}" Margin="0,0,8,8"
-                            Visibility="{Binding IsOpen, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Change plan'}" Command="{Binding ShowCommand}" Margin="0,0,8,8"
+                            Visibility="{Binding ShowChangePlan, Converter={StaticResource Vis}}" />
                     <!-- With a failed payment, the box above has the button: one Change card is enough. -->
                     <Button Style="{StaticResource GhostButton}" Command="{Binding ChangeCardCommand}" Margin="0,0,8,8"
                             Visibility="{Binding IsPastDue, Converter={StaticResource Vis}, ConverterParameter=Invert}">
