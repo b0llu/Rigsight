@@ -89,8 +89,10 @@ public partial class AskWindow : UserControl
         SizeButton.ToolTip = _vm.IsBig ? Lang.T("Smaller") : Lang.T("Bigger");
         AutomationProperties_Name(SizeButton, (string)SizeButton.ToolTip);
         bool stuck = !_vm.IsPoppedOut;
-        TopEdge.Visibility = LeftEdge.Visibility = TopLeft.Visibility = stuck ? Visibility.Visible : Visibility.Collapsed;
-        BottomEdge.Visibility = RightEdge.Visibility = BottomRight.Visibility = stuck ? Visibility.Collapsed : Visibility.Visible;
+        // In the corner only the free sides pull (top, left); popped out, all of them.
+        TopEdge.Visibility = LeftEdge.Visibility = TopLeft.Visibility = Visibility.Visible;
+        BottomEdge.Visibility = RightEdge.Visibility = BottomRight.Visibility = TopRight.Visibility = BottomLeft.Visibility =
+            stuck ? Visibility.Collapsed : Visibility.Visible;
         if (stuck)
         {
             var size = Fit(_vm.IsBig ? _vm.StuckBig : _vm.StuckSmall, room);
@@ -133,6 +135,7 @@ public partial class AskWindow : UserControl
     private object? _pulling;
     private Point _pullFrom;
     private Size _sizeFrom;
+    private Rect _rectFrom;
     private bool _pullDue;
 
     private void Edge_Start(object sender, DragStartedEventArgs e)
@@ -141,6 +144,7 @@ public partial class AskWindow : UserControl
         _pulling = sender;
         _pullFrom = Mouse.GetPosition(Layer);
         _sizeFrom = new Size(Panel.Width, Panel.Height);
+        _rectFrom = _vm.Floating;
         _pullDue = false;
         System.Windows.Media.CompositionTarget.Rendering += Pull_Frame;
     }
@@ -176,10 +180,17 @@ public partial class AskWindow : UserControl
         }
         else
         {
-            var r = _vm.Floating;
-            double w = _sizeFrom.Width + (_pulling == BottomEdge ? 0 : by.X), h = _sizeFrom.Height + (_pulling == RightEdge ? 0 : by.Y);
-            var size = Fit(Math.Min(w, room.Width - r.X), Math.Min(h, room.Height - r.Y), room);
-            _vm.Floating = new Rect(r.TopLeft, size);
+            // The side pulled moves and the one across from it stays put, kept on the page.
+            var r = _rectFrom;
+            bool left = _pulling == LeftEdge || _pulling == TopLeft || _pulling == BottomLeft;
+            bool right = _pulling == RightEdge || _pulling == TopRight || _pulling == BottomRight;
+            bool top = _pulling == TopEdge || _pulling == TopLeft || _pulling == TopRight;
+            bool bottom = _pulling == BottomEdge || _pulling == BottomLeft || _pulling == BottomRight;
+            double w = left ? Math.Min(r.Width - by.X, r.Right) : right ? Math.Min(r.Width + by.X, room.Width - r.X) : r.Width;
+            double h = top ? Math.Min(r.Height - by.Y, r.Bottom) : bottom ? Math.Min(r.Height + by.Y, room.Height - r.Y) : r.Height;
+            var size = Fit(w, h, room);
+            double x = left ? Math.Max(0, r.Right - size.Width) : r.X, y = top ? Math.Max(0, r.Bottom - size.Height) : r.Y;
+            _vm.Floating = new Rect(x, y, size.Width, size.Height);
         }
         Place();
     }

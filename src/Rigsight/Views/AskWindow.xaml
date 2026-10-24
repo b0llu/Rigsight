@@ -1530,6 +1530,9 @@
                 <Thumb x:Name="BottomEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
                 <Thumb x:Name="RightEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
                 <Thumb x:Name="BottomRight" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <!-- Popped out, every side and corner pulls (only the right and bottom did, 2026-10-24). -->
+                <Thumb x:Name="TopRight" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="SizeNESW" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
+                <Thumb x:Name="BottomLeft" Grid.RowSpan="3" Grid.ColumnSpan="2" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeNESW" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />
             </Grid>
         </ctl:SmoothBorder>
     </Grid>
