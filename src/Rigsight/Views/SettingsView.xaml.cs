@@ -283,7 +283,6 @@ public partial class SettingsView : UserControl
         if (clicked is Visual inside && PresentationSource.FromVisual(inside) is { } source && source != PresentationSource.FromVisual(this)) return;
         if (vm.Ai is { } ai)
         {
-            if (ai.IsPickingOllama && !On(OllamaSearchBox)) ai.IsPickingOllama = false;
             if (ai.IsPickingModel && !On(ModelButton)) ai.IsPickingModel = false;
         }
         if (vm.Rewind is { IsPicking: true } rewind && !On(LeaveSearchBox)) rewind.IsPicking = false;
@@ -293,7 +292,7 @@ public partial class SettingsView : UserControl
     private void LeaveSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
         (DataContext as ViewModels.SettingsViewModel)?.Rewind?.OpenPickerCommand.Execute(null);
 
-    /// <summary>Reached with the keyboard, the list opens too; a click's own focus waits for the click to end (as Ollama's box).</summary>
+    /// <summary>Reached with the keyboard, the list opens too; a click's own focus waits for the click to end.</summary>
     private void LeaveSearch_Focus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
     {
         if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) LeaveSearch_Open(sender, e);
@@ -307,26 +306,6 @@ public partial class SettingsView : UserControl
 
     /// <summary>Settings › Ask RigSight: the model list opens with its search box ready to type in.</summary>
     private void ModelPopup_Opened(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() => ModelSearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-
-    /// <summary>
-    /// Settings › Ask RigSight → Ollama: the box is the search, and its list opens as the click lets go (opened on the press, the
-    /// list closed again as the button came up, so it only stayed while the mouse was held).
-    /// </summary>
-    private void OllamaSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
-        (DataContext as ViewModels.SettingsViewModel)?.Ai?.OpenOllamaModelsCommand.Execute(null);
-
-    /// <summary>Reached with the keyboard (Tab), the list opens too; a click's own focus waits for the click to end.</summary>
-    private void OllamaSearch_Focus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
-    {
-        if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) OllamaSearch_Open(sender, e);
-    }
-
-    private void OllamaSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (DataContext is not ViewModels.SettingsViewModel { Ai: { } ai }) return;
-        if (e.Key == System.Windows.Input.Key.Escape) { ai.IsPickingOllama = false; e.Handled = true; }
-        else ai.OpenOllamaModelsCommand.Execute(null);
-    }
 
     private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
     {

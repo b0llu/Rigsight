@@ -1060,8 +1060,51 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- Ollama on my PC: where it runs, then one search box that drops down its models. -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8" Margin="0,14,0,0" Visibility="{Binding IsOllama, Converter={StaticResource Vis}}">
+                <!-- Ollama on my PC (approved mock-up 2026-10-24): where it runs, the models already on it (each saying if it can
+                     be used), then three picked for this PC's graphics card that download through Ollama itself. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8,20,20" Margin="0,14,0,0" Visibility="{Binding IsOllama, Converter={StaticResource Vis}}">
+                    <ctl:SmoothBorder.Resources>
+                        <Style x:Key="Caps" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="11.5" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                        </Style>
+                        <!-- A fit pill: good when the model fits the card, warm when it doesn't all fit. -->
+                        <Style x:Key="FitPill" TargetType="Border">
+                            <Setter Property="CornerRadius" Value="9" />
+                            <Setter Property="Padding" Value="8,1" />
+                            <Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FitIsGood}" Value="True"><Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style x:Key="FitText" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="11.5" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FitIsGood}" Value="True"><Setter Property="Foreground" Value="{DynamicResource GoodBrush}" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                        <!-- A button on the boxes below (already Surface2): one step lighter, so it reads as a button. -->
+                        <Style x:Key="BoxButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+                        </Style>
+                        <!-- Off (no Ollama answering, or another download running): dimmed, so it doesn't look pressable. -->
+                        <Style x:Key="PickButton" TargetType="Button" BasedOn="{StaticResource BoxButton}">
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style x:Key="InUse" TargetType="Border">
+                            <Setter Property="CornerRadius" Value="9" />
+                            <Setter Property="Padding" Value="10,3" />
+                            <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </ctl:SmoothBorder.Resources>
                     <StackPanel>
                         <DockPanel Style="{StaticResource Row}">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -1077,52 +1120,150 @@
                         </StackPanel>
                         <TextBlock Text="{Binding OllamaProblem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" TextAlignment="Right" Margin="0,-4,0,6"
                                    Visibility="{Binding HasOllamaProblem, Converter={StaticResource Vis}}" />
-                        <DockPanel Style="{StaticResource Row}">
-                            <Grid DockPanel.Dock="Right" Width="360" VerticalAlignment="Center">
-                                <TextBox x:Name="OllamaSearchBox" Style="{StaticResource SearchBox}" IsEnabled="{Binding OllamaConnected}" Tag="{Binding OllamaModel}" AutomationProperties.Name="{ctl:T 'Search Ollama models'}"
-                                         Text="{Binding OllamaSearch, UpdateSourceTrigger=PropertyChanged}" GotKeyboardFocus="OllamaSearch_Focus" PreviewMouseLeftButtonUp="OllamaSearch_Open" PreviewKeyDown="OllamaSearch_Key" />
-                                <Popup IsOpen="{Binding IsPickingOllama}" PlacementTarget="{Binding ElementName=OllamaSearchBox}" Placement="Bottom" StaysOpen="False"
-                                       AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=OllamaSearchBox}" VerticalOffset="6">
-                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="6">
-                                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
-                                            <ItemsControl ItemsSource="{Binding OllamaShown}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Button Style="{StaticResource PickRow}" AutomationProperties.Name="{Binding Name}"
-                                                                Command="{Binding DataContext.PickOllamaCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
-                                                            <DockPanel>
-                                                                <!-- Only a model that can't look things up says so, with an i that explains on hover. -->
-                                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding CanLookUp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                                    <TextBlock Text="{ctl:T 'Can\'t look things up'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" Background="Transparent"
-                                                                               ToolTipService.InitialShowDelay="150">
-                                                                        <TextBlock.ToolTip>
-                                                                            <TextBlock MaxWidth="300" TextWrapping="Wrap"
-                                                                                       Text="{ctl:T 'This model can\'t read your PC\'s records, so its answers would be guesses.'}" />
-                                                                        </TextBlock.ToolTip>
-                                                                    </TextBlock>
-                                                                </StackPanel>
-                                                                <TextBlock FontSize="13">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding CanLookUp}" Value="False"><Setter Property="Opacity" Value="0.45" /></DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                    <Run Text="{Binding Name, Mode=OneWay}" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Size, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" FontSize="11.5" />
-                                                                </TextBlock>
-                                                            </DockPanel>
-                                                        </Button>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
+
+                        <!-- Not on this PC at all: one line and the way to get it. -->
+                        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,6,0,4"
+                                          Visibility="{Binding OllamaMissing, Converter={StaticResource Vis}}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding GetOllamaCommand}" VerticalAlignment="Center" Margin="14,0,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{ctl:T 'Get Ollama'}" />
+                                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Text="{ctl:T 'Ollama isn\'t on this PC. It\'s free, and runs the models below on your own graphics card.'}" FontSize="12.5"
+                                           Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </ctl:SmoothBorder>
+
+                        <!-- The models already on Ollama, first: the one in use, the others with Use, and those that can't look things up saying so. -->
+                        <StackPanel Margin="0,10,0,0" Visibility="{Binding HasOllamaRows, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{ctl:T 'ON YOUR OLLAMA'}" Style="{StaticResource Caps}" Margin="0,0,0,6" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ManyOllamaRows}" Value="True"><Setter Property="Height" Value="290" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <ItemsControl ItemsSource="{Binding OllamaRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,9" Margin="0,0,0,6">
+                                                <DockPanel>
+                                                    <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                        <Border Style="{StaticResource InUse}" Visibility="{Binding InUse, Converter={StaticResource Vis}}">
+                                                            <TextBlock Text="{ctl:T 'In use'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
+                                                        </Border>
+                                                        <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Use'}"
+                                                                Command="{Binding DataContext.UseOllamaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Name}"
+                                                                Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
+                                                    </Grid>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock FontSize="13" VerticalAlignment="Center">
+                                                                <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Size, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
+                                                            </TextBlock>
+                                                            <Border Style="{StaticResource FitPill}" Margin="10,0,0,0" Visibility="{Binding HasFit, Converter={StaticResource Vis}}">
+                                                                <TextBlock Text="{Binding Fit}" Style="{StaticResource FitText}" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{ctl:T 'Can\'t look up your PC\'s records, so it can\'t be used here.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                                                                   TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding CanLookUp, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </ctl:SmoothBorder>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Text="{ctl:T 'None of the models on your Ollama can look up records yet. Pick one below.'}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}"
+                                       TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding NoneCanLookUp, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+
+                        <!-- Picked for this PC: best, smaller, bigger, side by side; Download asks first, then shows its progress. -->
+                        <TextBlock Text="{Binding PicksHeading}" Style="{StaticResource Caps}" Margin="0,16,0,4" />
+                        <TextBlock Text="{Binding DownloadsGo}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding Picks}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Rows="1" Margin="0,0,-10,0" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,12" Margin="0,0,10,0">
+                                        <!-- The buttons docked at the bottom, so they line up across the three cards. -->
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                                <TextBlock Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,8"
+                                                           Visibility="{Binding IsIdle, Converter={StaticResource Vis}}" />
+                                                <!-- Idle: Download (or Use, or In use when it's on Ollama already) -->
+                                                <Grid Visibility="{Binding IsIdle, Converter={StaticResource Vis}}">
+                                                    <Button Style="{StaticResource PickButton}" HorizontalAlignment="Stretch"
+                                                            Command="{Binding DataContext.AskDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                            Visibility="{Binding NotOnOllama, Converter={StaticResource Vis}}">
+                                                        <Grid>
+                                                            <StackPanel Orientation="Horizontal" Visibility="{Binding DataContext.DownloadOff, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                                <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                                <TextBlock Text="{ctl:T 'Download'}" />
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding DataContext.DownloadOffText, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                       Visibility="{Binding DataContext.DownloadOff, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource Vis}}" />
+                                                        </Grid>
+                                                    </Button>
+                                                    <Button Style="{StaticResource BoxButton}" HorizontalAlignment="Stretch" Content="{ctl:T 'Use'}"
+                                                            Command="{Binding DataContext.UseOllamaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Tag}"
+                                                            Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
+                                                    <Border Style="{StaticResource InUse}" HorizontalAlignment="Left" Visibility="{Binding InUse, Converter={StaticResource Vis}}">
+                                                        <TextBlock Text="{ctl:T 'On your Ollama · in use'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" />
+                                                    </Border>
+                                                </Grid>
+                                                <!-- Asked: the size and where it goes, then Download or Cancel -->
+                                                <StackPanel Visibility="{Binding IsAsking, Converter={StaticResource Vis}}">
+                                                    <TextBlock Text="{Binding AskText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                                    <WrapPanel>
+                                                        <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Download'}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Start the download'}"
+                                                                Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                                Visibility="{Binding HasRoom, Converter={StaticResource Vis}}" />
+                                                        <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Don\'t download'}"
+                                                                Command="{Binding DataContext.CancelAskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                                <!-- Downloading: the bar, how much, how fast, how long, and Cancel -->
+                                                <StackPanel Visibility="{Binding IsDownloading, Converter={StaticResource Vis}}">
+                                                    <Grid Height="6" ClipToBounds="True">
+                                                        <Border CornerRadius="3" Background="{DynamicResource StrokeBrush}" />
+                                                        <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
+                                                            <Border.RenderTransform><ScaleTransform ScaleX="{Binding Progress}" /></Border.RenderTransform>
+                                                        </Border>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                                                    <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" HorizontalAlignment="Left" AutomationProperties.Name="{ctl:T 'Stop the download'}"
+                                                            Command="{Binding DataContext.StopDownloadCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                                           Visibility="{Binding HasProblem, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Right" Style="{StaticResource FitPill}" Margin="8,0,0,0" Visibility="{Binding HasFit, Converter={StaticResource Vis}}"
+                                                            ToolTipService.InitialShowDelay="150" ToolTipService.IsEnabled="{Binding HasFitWhy}">
+                                                        <Border.ToolTip>
+                                                            <TextBlock Text="{Binding FitWhy}" MaxWidth="280" TextWrapping="Wrap" />
+                                                        </Border.ToolTip>
+                                                        <TextBlock Text="{Binding FitText}" Style="{StaticResource FitText}" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Tag}" FontFamily="Cascadia Mono, Consolas" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding Why}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                            </StackPanel>
+                                        </DockPanel>
                                     </ctl:SmoothBorder>
-                                </Popup>
-                            </Grid>
-                            <TextBlock Text="{ctl:T 'Model'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                        </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ctl:SmoothBorder>
 

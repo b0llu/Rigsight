@@ -8,6 +8,9 @@ namespace Rigsight.Core.Ai;
 /// <summary>A model Ollama has: its name, its size on disk, and whether it can call tools (look at RigSight's records).</summary>
 public sealed record OllamaModel(string Name, long Bytes, bool CanLookUp);
 
+/// <summary>A download's progress: bytes done of all its parts, and Ollama's own word for the step.</summary>
+public sealed record OllamaPull(long Done, long Total, string Status);
+
 /// <summary>One record the helper looked at for an answer: the tool, what it asked for, and how much came back.</summary>
 /// <param name="Web">A web search's numbered results (the relay's search only), for the paragraphs' sources.</param>
 public sealed record AiLookUp(string Tool, JsonObject Args, int Chars, IReadOnlyList<WebSource>? Web = null);
@@ -125,6 +128,60 @@ public static class Ollama
             if (ct.IsCancellationRequested) throw;
             Log.Write("ollama", $"No answer from {root}: expected its model list, got {ex.GetType().Name}: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Downloads <paramref name="model"/> through Ollama (its /api/pull, as "ollama pull" does): Ollama fetches it into its
+    /// own models folder, RigSight only asks and shows the progress. Null when done, else the problem in words. Cancelling
+    /// stops it; Ollama keeps what it has and carries on from there next time.
+    /// </summary>
+    public static async Task<string?> PullAsync(string address, string model, IProgress<OllamaPull>? progress = null, CancellationToken ct = default)
+    {
+        var root = Normalise(address);
+        Log.Write("ollama", $"Downloading {model} through {root}");
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, root + "/api/pull") { Content = Json(new JsonObject { ["model"] = model, ["stream"] = true }) };
+            using var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!res.IsSuccessStatusCode)
+            {
+                Log.Write("ollama", $"Download of {model} refused: expected 200, got {(int)res.StatusCode} {await res.Content.ReadAsStringAsync(ct)}");
+                return Lang.T($"Ollama couldn't download {model}.");
+            }
+            using var reader = new StreamReader(await res.Content.ReadAsStreamAsync(ct));
+            // Each part (a "layer") reports its own size and how much of it is done; the whole is their sum.
+            var parts = new Dictionary<string, (long Done, long Total)>();
+            string? line;
+            while ((line = await reader.ReadLineAsync(ct)) is not null)
+            {
+                if (line.Length == 0) continue;
+                JsonNode? n;
+                try { n = JsonNode.Parse(line); } catch (JsonException) { continue; }
+                if ((string?)n?["error"] is { Length: > 0 } error)
+                {
+                    Log.Write("ollama", $"Download of {model} stopped: {error}");
+                    return error.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                        ? Lang.T($"Ollama has no model called {model}.")
+                        : Lang.T($"Ollama couldn't download {model}: {error}");
+                }
+                string status = (string?)n?["status"] ?? "";
+                if ((string?)n?["digest"] is { Length: > 0 } digest && (long?)n?["total"] is long total and > 0)
+                    parts[digest] = ((long?)n?["completed"] ?? parts.GetValueOrDefault(digest).Done, total);
+                progress?.Report(new OllamaPull(parts.Values.Sum(p => p.Done), parts.Values.Sum(p => p.Total), status));
+                if (status == "success")
+                {
+                    Log.Write("ollama", $"Downloaded {model} ({Units.Bytes(parts.Values.Sum(p => p.Total))})");
+                    return null;
+                }
+            }
+            Log.Write("ollama", $"Download of {model} ended without Ollama saying it was done ({Units.Bytes(parts.Values.Sum(p => p.Done))} of {Units.Bytes(parts.Values.Sum(p => p.Total))})");
+            return Lang.T("Ollama stopped before the download finished. Press Download to carry on.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or UriFormatException or InvalidOperationException && !ct.IsCancellationRequested)
+        {
+            Log.Write("ollama", $"Download of {model} failed: {ex.GetType().Name}: {ex.Message}");
+            return Lang.T("Ollama stopped answering during the download. Check that it's running, then press Download to carry on.");
         }
     }
 

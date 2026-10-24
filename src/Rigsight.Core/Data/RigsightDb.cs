@@ -871,6 +871,14 @@ public sealed partial class RigsightDb : IDisposable
         return list;
     }
 
+    /// <summary>The graphics card's own memory (MB) as last recorded, for which Ollama models fit; null before any reading.</summary>
+    public double? GetVramTotalMb()
+    {
+        if (!HasVram) return null;
+        using var cmd = Cmd("SELECT vram_total FROM system_minute WHERE vram_total IS NOT NULL ORDER BY ts DESC LIMIT 1");
+        return cmd.ExecuteScalar() is { } v and not DBNull ? Convert.ToDouble(v, System.Globalization.CultureInfo.InvariantCulture) : null;
+    }
+
     /// <summary>Keeps a crash's close-up, in place of any kept for it before (the before is kept at once, then again with the after).</summary>
     public void SaveCloseUp(CloseUp c)
     {

@@ -21,9 +21,6 @@ public sealed record AiModelOption(string Name, string? PerQuestion, bool Tested
     public string? PriceText => PerQuestion is { } p ? Lang.T($"about {p} a question") : null;
 }
 
-/// <summary>A model Ollama has, its size, and whether it can ask RigSight for records (models that can't are greyed out).</summary>
-public sealed record OllamaModelOption(string Name, string Size, bool CanLookUp);
-
 /// <summary>A heading in a model list ("TESTED WITH RIGSIGHT", "OTHER MODELS (NOT TESTED)") and its models.</summary>
 public sealed record AiModelGroup(string Heading, IReadOnlyList<AiModelOption> Models);
 
@@ -82,18 +79,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             OnPropertyChanged(string.Empty);
             if (mode == AiMode.RigSight) _ = _ask.RefreshQuestionsAsync();
             if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
+            // Ollama picked: its models and the picks for this PC straight away, as if Connect had been pressed.
+            if (mode == AiMode.Ollama && !ConnectOllamaCommand.IsRunning) _ = ConnectOllamaCommand.ExecuteAsync(null);
         }
     }
 
     /// <summary>
-    /// Closes the model lists. Each is a window of its own, so one stays on screen when the box it opened from goes
+    /// Closes the model list. It is a window of its own, so it stays on screen when the box it opened from goes
     /// (another way to answer picked, another tab or page).
     /// </summary>
-    public void ClosePickers()
-    {
-        IsPickingModel = false;
-        IsPickingOllama = false;
-    }
+    public void ClosePickers() => IsPickingModel = false;
 
     public bool IsOff => Ai.Mode == AiMode.Off;
     public bool IsOn => !IsOff;
@@ -445,14 +440,15 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             Set(a => a.OllamaAddress = value ?? "");
             OnPropertyChanged(nameof(SendingWhere));
             // Another address: Connect again before its models show.
-            _ollamaModels = [];
             OllamaConnected = false;
+            OllamaAnswering = false;
+            OllamaMissing = false;
             OllamaProblem = null;
+            ShowRows(null);
         }
     }
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(OllamaStatus), nameof(OllamaModel))] private bool _ollamaConnected;
-    private List<OllamaModelOption> _ollamaModels = [];
-    public string OllamaStatus => _ollamaModels.Count == 1 ? Lang.T("Connected · 1 model on it") : Lang.T($"Connected · {_ollamaModels.Count} models on it");
+    public string OllamaStatus => OllamaRows.Count == 1 ? Lang.T("Connected · 1 model on it") : Lang.T($"Connected · {OllamaRows.Count} models on it");
     /// <summary>Why Connect found no models: Ollama not answering at the address, or nothing downloaded yet.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasOllamaProblem))] private string? _ollamaProblem;
     public bool HasOllamaProblem => OllamaProblem is not null;
@@ -462,41 +458,25 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private async Task ConnectOllama()
     {
         var found = await Ollama.ModelsAsync(Ai.OllamaAddress);
-        _ollamaModels = found is null ? [] : [.. found
-            .OrderByDescending(m => m.CanLookUp).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(m => new OllamaModelOption(m.Name, Units.Bytes(m.Bytes), m.CanLookUp))];
-        OllamaProblem = found is null && !Ollama.IsOnThisPc(Ai.OllamaAddress) && Internet.IsOff() ? Internet.NoInternet(inSettings: true)
+        OllamaAnswering = found is not null;
+        // Not answering on this PC and not installed either: the card says "Ollama isn't on this PC" with Get Ollama.
+        OllamaMissing = found is null && OllamaHere && !OllamaPicks.Installed();
+        OllamaProblem = OllamaMissing ? null
+            : found is null && !OllamaHere && Internet.IsOff() ? Internet.NoInternet(inSettings: true)
             : found is null ? Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running and the address is right.")
-            : found.Count == 0 ? Lang.T("Ollama is running but has no models yet. Download one in Ollama, then press Connect again.")
             : null;
-        OllamaConnected = _ollamaModels.Count > 0;
+        ShowRows(found);
+        OllamaConnected = OllamaRows.Count > 0;
         // A model picked earlier that Ollama no longer has: the first one that can look things up instead.
-        if (OllamaConnected && Ai.OllamaModel.Length > 0 && !_ollamaModels.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
+        if (OllamaConnected && Ai.OllamaModel.Length > 0 && !OllamaRows.Any(m => m.Name == Ai.OllamaModel && m.CanLookUp))
             Set(a => a.OllamaModel = "", nameof(OllamaModel));
-        OnPropertyChanged(nameof(OllamaModel));
-        OnPropertyChanged(nameof(OllamaShown));
+        MarkInUse();
         OnPropertyChanged(nameof(OllamaStatus));
+        OnPropertyChanged(nameof(DownloadOffText));
     }
 
-    /// <summary>The model picked (shown in the search box while nothing is typed), or what has to happen first.</summary>
-    public string OllamaModel => !OllamaConnected ? Lang.T("Connect to see the models on it")
-        : Ai.OllamaModel.Length > 0 ? Ai.OllamaModel : _ollamaModels.FirstOrDefault(m => m.CanLookUp)?.Name ?? "";
-    [ObservableProperty] private bool _isPickingOllama;
-    [ObservableProperty] private string _ollamaSearch = "";
-    partial void OnOllamaSearchChanged(string value) => OnPropertyChanged(nameof(OllamaShown));
-    public IReadOnlyList<OllamaModelOption> OllamaShown => [.. _ollamaModels.Where(m => TextMatch.Has(TextMatch.Words(OllamaSearch), m.Name))];
-
-    [RelayCommand] private void OpenOllamaModels() { if (_ollamaModels.Count > 0) IsPickingOllama = true; }
-
-    [RelayCommand]
-    private void PickOllama(OllamaModelOption? model)
-    {
-        if (model is not { CanLookUp: true }) return;
-        Log.Write("settings", $"Ask RigSight model picked (Ollama): {model.Name}");
-        Set(a => a.OllamaModel = model.Name, nameof(OllamaModel));
-        IsPickingOllama = false;
-        OllamaSearch = "";
-    }
+    /// <summary>The model in use, for the Ask window's wait text and the log.</summary>
+    public string OllamaModel => ChosenOllama;
 
     // ── Instructions (my own key and Ollama) ─────────────────────────────
     /// <summary>The box where they change them, over the window; the shell shows it.</summary>
