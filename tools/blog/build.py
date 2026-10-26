@@ -19,6 +19,7 @@ AUTHOR = "Dhruv Samant"
 SERIES = {
     "build": ("Building RigSight", "What broke, what I got wrong, and how it got fixed."),
     "ai": ("The AI journey", "From a helper I removed to a real one that only says what it can back up."),
+    "fix": ("PC problems", "How RigSight catches a PC problem, why it happens, and how to fix it."),
 }
 RELEASE = json.loads((Path(__file__).resolve().parent / "release.json").read_text(encoding="utf-8"))
 RELEASED = RELEASE["released"]  # slug -> date it went live on rigsight.app
@@ -134,14 +135,17 @@ def post_href(p, mode):
     return f"#{p['slug']}" if mode == "artifact" else f"{p['slug']}"
 
 
-def index_html(posts, mode, img_prefix):
-    newest = list(reversed(posts))
+def index_html(posts, mode, img_prefix, fixes=()):
+    everything = list(posts) + list(fixes)
+    # newest first: a story by when it happened, a PC-problem post by when it went out
+    newest = sorted(everything, key=lambda p: (p["published"] if p["series"] == "fix" else p["happened"], p.get("order", 0)), reverse=True)
     chips = "".join(
-        f'<button class="chip" type="button" data-series="{k}" aria-pressed="false">{v[0]} <span>{sum(1 for p in posts if p["series"] == k)}</span></button>'
-        for k, v in SERIES.items() if any(p["series"] == k for p in posts))
+        f'<button class="chip" type="button" data-series="{k}" aria-pressed="false">{v[0]} <span>{sum(1 for p in everything if p["series"] == k)}</span></button>'
+        for k, v in SERIES.items() if any(p["series"] == k for p in everything))
     rows = []
     for n, p in enumerate(newest):
-        part = f", part {p['part']} of {p['of']}" if p["series"] == "ai" else ""
+        part = f", part {p['part']} of {p['of']}" if p["series"] == "ai" else (f" · {p['topic']}" if p["series"] == "fix" else "")
+        when = nice_date(p["published"] if p["series"] == "fix" else p["happened"])
         rows.append(f'''<li class="row" data-series="{p['series']}">
   <a href="{post_href(p, mode)}">
     <div class="thumb">{cover_img(p, img_prefix, "", eager=n == 0)}</div>
@@ -149,7 +153,7 @@ def index_html(posts, mode, img_prefix):
       <p class="eyebrow"><span class="dot s-{p['series']}"></span>{SERIES[p['series']][0]}{part}</p>
       <h2>{p['title']}</h2>
       <p class="sum">{p['summary']}</p>
-      <p class="meta">{nice_date(p['happened'])} · {p['minutes']} min read</p>
+      <p class="meta">{when} · {p['minutes']} min read</p>
     </div>
   </a>
 </li>''')
@@ -161,12 +165,12 @@ def index_html(posts, mode, img_prefix):
     return f'''<section class="blog-head wrap">
   <p class="kicker">RigSight blog</p>
   <h1>The RigSight log</h1>
-  <p class="intro">Everything that broke and got fixed while building a PC monitor that keeps your PC's history, and the AI helper it is growing into. Every post is about something that really happened, with the version it landed in.</p>
+  <p class="intro">Building a PC monitor that keeps your PC's history: what broke, what got fixed, and the AI helper it is growing into. And the PC problems RigSight catches: why they happen and how to fix them.</p>
   <p class="starts">Start at the beginning: {starts}</p>
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
-    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>{len(posts)}</span></button>{chips}
+    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>{len(everything)}</span></button>{chips}
     {'' if mode == "artifact" else '<a class="rss" href="feed.xml">RSS</a>'}
   </div>
   <ol class="rows" id="rows">
@@ -214,13 +218,13 @@ def article_html(p, posts, mode, img_prefix, keep_review):
 
 HEADER = '''<header class="top"><div class="wrap top-in">
   <a class="brand" href="{home}"><img src="{img}logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
-  <nav aria-label="Site"><a href="{guides}"{on_guides}>Guides</a><a href="{blog}"{on_blog}>Log</a><a href="{home}#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <nav aria-label="Site"><a href="{blog}" class="on">Blog</a><a href="{home}#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
   <a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a>
 </div><div class="progress" aria-hidden="true"><i></i></div></header>'''
 
 FOOTER = '''<footer class="foot"><div class="wrap foot-in">
   <a class="brand" href="{home}"><img src="{img}logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
-  <nav aria-label="Links"><a href="{home}">Home</a><a href="{guides}">Guides</a><a href="{blog}">The RigSight log</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="{home}privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <nav aria-label="Links"><a href="{home}">Home</a><a href="{blog}">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="{home}privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
 </div></footer>'''
 
 PROGRESS_JS = '''<script>
@@ -296,15 +300,16 @@ def live_posts(posts):
 
 def build_site():
     posts = live_posts(load_posts())
+    fixes, _held = live_only(load_guides())
     out = DOCS / "blog"
     if out.exists():
         shutil.rmtree(out)
     out.mkdir()
     img = "../img/"
-    links = dict(home="../", blog="./", guides="../guides/", img=img, on_blog=' class="on"', on_guides="")
+    links = dict(home="../", blog="./", img=img)
     pages = [("", "The RigSight log: building a free PC monitor for Windows",
               "How RigSight, a free PC monitor for Windows, gets made: the bugs, the wrong turns, the fixes and the AI helper it is growing into.",
-              index_html(posts, "site", img), None)]
+              index_html(posts, "site", img, fixes), None)]
     for p in posts:
         pages.append((p["slug"], f"{p['title']} · The RigSight log", p["summary"], article_html(p, posts, "site", img, False), p))
     for slug, title, desc, inner, p in pages:
@@ -365,7 +370,7 @@ def build_artifact(dest):
         shutil.copy(DOCS / "img" / pic, dest / "img" / pic)
     for f in ("geist-latin.woff2", "geist-mono-latin.woff2"):
         shutil.copy(DOCS / "fonts" / f, dest / "fonts" / f)
-    links = dict(home="#all", blog="#all", guides="#guides", img=img, on_blog="", on_guides="")
+    links = dict(home="#all", blog="#all", img=img)
     head_bits = '''<title>The RigSight Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -376,11 +381,10 @@ def build_artifact(dest):
 .rv::before { content: "Note for you, left out of the site: "; font-weight: 600; }
 </style>
 '''
-    views = [f'<div class="view" id="v-all">{index_html(posts, "artifact", img)}</div>']
+    views = [f'<div class="view" id="v-all">{index_html(posts, "artifact", img, guides)}</div>']
     for p in posts:
         views.append(f'<div class="view" id="v-{p["slug"]}" hidden>{article_html(p, posts, "artifact", img, True)}</div>')
     if guides:
-        views.append(f'<div class="view" id="v-guides" hidden>{guides_index_html(guides, "artifact", img)}</div>')
         for g in guides:
             views.append(f'<div class="view" id="v-{g["slug"]}" hidden>{guide_html(g, guides, "artifact", img)}</div>')
     router = '''<script>
@@ -407,7 +411,7 @@ def build_artifact(dest):
         print(f"  {p['happened']}  {p['series']:5} {p['minutes']:2} min  {p['slug']}")
 
 
-from guides import load_guides, guides_index_html, guide_html, build_guides  # noqa: E402
+from guides import load_guides, guide_html, build_guides, live_only  # noqa: E402
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "site":

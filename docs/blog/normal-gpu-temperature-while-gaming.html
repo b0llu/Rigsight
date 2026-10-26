@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Normal GPU temperature while gaming, and when 85°C is too hot · RigSight</title>
+  <meta name="description" content="What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/normal-gpu-temperature-while-gaming" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="Normal GPU temperature while gaming, and when 85°C is too hot · RigSight" />
+  <meta property="og:description" content="What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot." />
+  <meta property="og:url" content="https://rigsight.app/blog/normal-gpu-temperature-while-gaming" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal GPU temperature while gaming, and when 85\u00b0C is too hot", "description": "What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming", "keywords": "normal gpu temperature while gaming, is 85 degrees hot for a gpu while gaming, average gpu temperature while gaming, normal gpu temperature while gaming laptop, what temperature is normal for gpu, when should i worry about gpu temp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal GPU temperature while gaming, and when 85\u00b0C is too hot", "item": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is 85 degrees hot for a GPU while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "It's warm, but it's inside the limit for most current cards. NVIDIA lists a maximum of 90\u00b0C for the RTX 4070 and 4090 and 93\u00b0C for the RTX 3060 and 3080, though the RTX 5070 is listed at 85\u00b0C. If your card sits at 85\u00b0C, check its own maximum, then look at dust, airflow and the fan curve."}}, {"@type": "Question", "name": "What is the average GPU temperature while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "There is no single average that fits every card. Most desktop cards with a clean cooler settle somewhere in the 60s or 70s \u00b0C in a demanding game. Small cases, hot rooms and laptops run warmer."}}, {"@type": "Question", "name": "What is a normal GPU temperature while gaming on a laptop?", "acceptedAnswer": {"@type": "Answer", "text": "Laptops run hotter than desktops because the cooler is small and shared with the CPU. Readings in the high 70s and 80s \u00b0C are common on gaming laptops. The laptop maker sets the limits, so their support page is the place to check."}}, {"@type": "Question", "name": "What is normal GPU temperature while gaming in Fahrenheit?", "acceptedAnswer": {"@type": "Answer", "text": "60 to 80\u00b0C is 140 to 176\u00b0F. 85\u00b0C is 185\u00b0F, and the 90\u00b0C limit on many NVIDIA cards is 194\u00b0F."}}, {"@type": "Question", "name": "When should I worry about GPU temp?", "acceptedAnswer": {"@type": "Answer", "text": "Worry when the card reaches its listed maximum and the frame rate drops, when temperatures climb over weeks in the same game, or when the hot spot runs far above the main reading. A one-off warm day in summer is usually the room."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #ffdd00;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top nav { display: flex; gap: 22px; margin-left: auto; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post */
+.post { padding-block: 40px 40px; }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; max-width: 728px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; max-width: 728px; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
+  <h1>Normal GPU temperature while gaming, and when 85°C is too hot</h1>
+  <p class="dek">What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/normal-gpu-temperature-while-gaming.webp" srcset="../img/blog/normal-gpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-gpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s GPU card on the Temperatures page: an RTX 3080 Ti at 68° with load, power, hot spot and memory junction readings" fetchpriority="high" decoding="async"><figcaption>RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.</figcaption></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>A normal GPU temperature while gaming is roughly 60 to 80°C on a desktop card with a working cooler. Each card has its own limit: NVIDIA lists 85 to 93°C depending on the model. 85°C is warm but within spec for most cards. Worry when it keeps rising, or sits right at the limit.</p></div>
+  <div class="body">
+<p>You're in a game, you glance at a monitoring app, and your graphics card says 82°C. Is that fine? This guide gives the normal GPU temperature while gaming, the limits NVIDIA and AMD actually publish for their cards, and the point where a warm card becomes a problem worth fixing.</p>
+
+<h2>Normal GPU temperature while gaming</h2>
+
+<p>On a desktop card with a working cooler, a demanding game usually puts the GPU somewhere between 60 and 80°C. Where yours lands in that span depends on the card, the cooler the maker put on it, the case and the room.</p>
+
+<ul>
+  <li>A big card with three fans in a case with good airflow often stays in the 60s.</li>
+  <li>A small card with one or two fans, or any card in a tight case, often sits in the high 70s.</li>
+  <li>A card that stops its fans at rest will idle warmer than you expect, around 40 to 50°C. That's by design.</li>
+</ul>
+
+<p>Two things are normal and catch people out. First, the temperature climbs for the first 10 minutes or so of a game, then levels off. Judge the level, not the climb. Second, modern cards boost their clock speed as long as there is room under their limit, so a card running warm is often a card running fast.</p>
+
+<h2>The limits NVIDIA and AMD give</h2>
+
+<p>There is no one safe number for every GPU. Each maker publishes its own, and it changes from model to model. NVIDIA lists a "Maximum GPU Temperature" on each GeForce card's spec page. These are the figures for its own Founders Edition or reference designs:</p>
+
+<ul>
+  <li>RTX 3060, 3060 Ti, 3080 and 3080 Ti: 93°C</li>
+  <li>RTX 4070, 4070 SUPER, 4070 Ti, 4070 Ti SUPER and 4090: 90°C</li>
+  <li>RTX 5090: 90°C</li>
+  <li>RTX 5080 and 5070 Ti: 88°C</li>
+  <li>RTX 5070: 85°C</li>
+</ul>
+
+<p>NVIDIA notes that card makers such as ASUS, MSI or Gigabyte may publish different specs for their own versions, so check your exact card's page too. When a card reaches its maximum, it lowers its clock speed to stay there. That protects the chip, and it also costs you frames.</p>
+
+<p>AMD talks about its limit differently. On Radeon cards the reading to watch against the limit is the junction temperature, also called the hot spot, which is the hottest of many sensors on the chip. In 2019 AMD said that a junction temperature of up to 110°C during typical gaming on the RX 5700 series was "expected and within spec". AMD Software shows this reading as GPU Junction Temperature, next to the main GPU temperature, which sits well below it. If you want to understand that second number, the guide on <a href="gpu-hotspot-temperature">GPU hot spot temperature</a> explains the gap between the two.</p>
+
+<h2>Is 85 degrees hot for a GPU while gaming?</h2>
+
+<p>85°C is warm. For most current cards it is still inside the maker's limit: 5°C under the 90°C of an RTX 4070 or 4090, and 8°C under the 93°C of an RTX 3080. On an RTX 5070, which NVIDIA lists at 85°C, it is right at the line, and the card is already holding itself back.</p>
+
+<p>So the answer depends on your card. Look up its maximum, then ask three questions:</p>
+
+<ol>
+  <li>Does it level off at 85°C, or keep climbing the longer you play?</li>
+  <li>Does your frame rate drop when it gets there?</li>
+  <li>Did it used to run cooler in the same game, at the same settings?</li>
+</ol>
+
+<p>If it levels off and the frame rate holds, your card is doing what it was built to do. If it keeps climbing, loses frames, or runs hotter than it did a few months ago, something has changed and it's worth a clean and a look at the airflow.</p>
+
+<h2>Normal GPU temperature while gaming on a laptop</h2>
+
+<p>Laptops are their own case. The GPU and CPU often share one set of heat pipes and fans, in a body a couple of centimetres thick. Gaming laptops commonly run their GPU in the high 70s and 80s °C, and that is how many are tuned out of the box. The laptop maker, not NVIDIA or AMD alone, sets how hot it is allowed to get and how loud the fans may run, so the maker's support page is the place to look for your model's numbers.</p>
+
+<p>What helps most on a laptop is simple: play on a hard, flat surface so the vents underneath can breathe, keep the vents free of dust, and use the maker's own performance mode app if it has one. A stand that lifts the back edge helps too.</p>
+
+<h2>How to check your GPU temperature in Windows</h2>
+
+<p>Windows 10 version 2004 and Windows 11 show the temperature of a dedicated graphics card in Task Manager. Microsoft notes it needs a graphics driver that supports WDDM 2.4 or later, which any recent driver does:</p>
+
+<ol>
+  <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
+  <li>Open the <strong>Performance</strong> tab.</li>
+  <li>Click <strong>GPU 0</strong> or <strong>GPU 1</strong>, whichever is your graphics card rather than the graphics built into the CPU.</li>
+  <li>Look for <strong>GPU Temperature</strong> in the details under the graphs.</li>
+</ol>
+
+<p>Task Manager only shows the reading right now. To see how hot the card got during a game, you need a tool that records it while you play. The guide on checking GPU temperature history covers the options.</p>
+
+<h2>What to do if your GPU runs hot</h2>
+
+<p>Try these in order. The first ones are free and fix most cases.</p>
+
+<ol>
+  <li>Clean the card and the case filters. Dust packs into the fins of the cooler and the front filter. Hold the fans still while you blow them out so they don't spin up.</li>
+  <li>Check airflow. Cool air should come in at the front or bottom and leave at the back or top. A case pushed against a wall or into a desk cubby traps hot air.</li>
+  <li>Cap your frame rate. If your game runs at 200 frames on a 144 Hz screen, the card is working hard for frames you never see. NVIDIA has <strong>Max Frame Rate</strong> under <strong>Manage 3D settings</strong> in the NVIDIA Control Panel. AMD Software has Radeon Chill, which AMD says lowers power and GPU temperature by lowering the frame rate when you aren't moving much.</li>
+  <li>Check the fans. Make sure every fan on the card spins in a game. If one doesn't, see GPU fan not spinning.</li>
+  <li>Look at the room. A card runs warmer on a hot summer day. That's normal, and it's why comparing this week with last winter can mislead you.</li>
+</ol>
+
+<p>Steps past this, like a new fan curve, undervolting or new thermal paste, are covered in PC overheating while gaming. If your fans are the problem rather than the heat, PC fans loud while gaming is the better read.</p>
+
+<h2>Where RigSight fits in</h2>
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
+
+<p>The more useful part for "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
+
+<p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
+
+<p>Your next step: look up your card's maximum on the maker's spec page, then play your usual game for half an hour and note where the temperature levels off. If it's well under the maximum, you can stop worrying. If it's close, start with the dust.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is 85 degrees hot for a GPU while gaming?</summary><p>It's warm, but it's inside the limit for most current cards. NVIDIA lists a maximum of 90°C for the RTX 4070 and 4090 and 93°C for the RTX 3060 and 3080, though the RTX 5070 is listed at 85°C. If your card sits at 85°C, check its own maximum, then look at dust, airflow and the fan curve.</p></details><details class="qa"><summary>What is the average GPU temperature while gaming?</summary><p>There is no single average that fits every card. Most desktop cards with a clean cooler settle somewhere in the 60s or 70s °C in a demanding game. Small cases, hot rooms and laptops run warmer.</p></details><details class="qa"><summary>What is a normal GPU temperature while gaming on a laptop?</summary><p>Laptops run hotter than desktops because the cooler is small and shared with the CPU. Readings in the high 70s and 80s °C are common on gaming laptops. The laptop maker sets the limits, so their support page is the place to check.</p></details><details class="qa"><summary>What is normal GPU temperature while gaming in Fahrenheit?</summary><p>60 to 80°C is 140 to 176°F. 85°C is 185°F, and the 90°C limit on many NVIDIA cards is 194°F.</p></details><details class="qa"><summary>When should I worry about GPU temp?</summary><p>Worry when the card reaches its listed maximum and the frame rate drops, when temperatures climb over weeks in the same game, or when the hot spot runs far above the main reading. A one-off warm day in summer is usually the room.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>GPU hotspot temperature: what it is and when 100°C is a problem</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>How to find out why your PC crashed on Windows 11</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: what it means and how to fix it</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>

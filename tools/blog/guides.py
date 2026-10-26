@@ -44,6 +44,7 @@ def load_guides():
         g = json.loads(m.group(1))
         g["body"] = m.group(2).strip()
         g["topic"] = topic_of(g.get("topic", ""))
+        g["series"] = "fix"  # every PC-problem piece is a blog post in the "PC problems" series
         words = len(re.findall(r"\w+", re.sub(r"<[^>]+>", " ", g["body"])))
         g["minutes"], g["words"] = max(2, round(words / 220)), words
         g.setdefault("updated", g["published"])
@@ -114,13 +115,13 @@ def related(g, guides, n=4):
 
 def guide_html(g, guides, mode, img):
     home = "#all" if mode == "artifact" else "../"
-    index = "#guides" if mode == "artifact" else "./"
+    index = "#all" if mode == "artifact" else "./"
     rel = "".join(f'<a class="more" href="{href(x, mode)}"><span>{x["topic"]}</span><b>{x["title"]}</b></a>' for x in related(g, guides))
     cap = f"<figcaption>{g['cover_cap']}</figcaption>" if g["cover_cap"] else ""
     upd = B().nice_date(g["updated"])
     return f'''<article class="post wrap-narrow guide">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="{home}">Home</a><span>/</span><a href="{index}">Guides</a><span>/</span><span>{g['topic']}</span></nav>
-  <p class="eyebrow"><span class="dot s-guide"></span>{g['topic']}</p>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="{home}">Home</a><span>/</span><a href="{index}">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · {g['topic']}</p>
   <h1>{g['title']}</h1>
   <p class="dek">{g['summary']}</p>
   <p class="byline"><b>{B().AUTHOR}</b> · Updated {upd} · {g['minutes']} min read</p>
@@ -130,7 +131,7 @@ def guide_html(g, guides, mode, img):
 {B().expand(g['body'], img, mode == "artifact", [x['slug'] for x in guides], mode)}
   {faq_html(g)}
   </div>
-  <nav class="next rel" aria-label="Related guides">{rel}</nav>
+  <nav class="next rel" aria-label="More on PC problems">{rel}</nav>
   <aside class="get">
     <img src="{img}logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
@@ -156,27 +157,38 @@ def live_only(guides):
     return kept, held
 
 
+FORWARD = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Moved · RigSight</title>
+<link rel="canonical" href="{url}"><meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0; url={url}"></head>
+<body><p>This page moved to <a href="{url}">{url}</a>.</p></body></html>
+"""
+
+
 def build_guides():
+    """PC-problem posts are written into docs/blog next to the stories (build_site has made the folder and its index).
+    docs/guides only forwards its old addresses to the blog."""
     b = B()
     guides, held = live_only(load_guides())
-    out = b.DOCS / "guides"
-    if out.exists():
-        shutil.rmtree(out)
+    out = b.DOCS / "blog"
+    fwd = b.DOCS / "guides"
+    if fwd.exists():
+        shutil.rmtree(fwd)
+    fwd.mkdir()
+    (fwd / "index.html").write_text(FORWARD.format(url=f"{b.SITE}/blog/"), encoding="utf-8", newline="\n")
+    for slug in ("find-out-why-pc-crashed", "kernel-power-41", "normal-gpu-temperature-while-gaming", "gpu-hotspot-temperature", "fps-drops-in-games"):
+        (fwd / f"{slug}.html").write_text(FORWARD.format(url=f"{b.SITE}/blog/{slug}"), encoding="utf-8", newline="\n")  # were live at /guides/ on 2026-10-26
     if not guides:
-        print("no guides yet")
         return
-    out.mkdir()
     img = "../img/"
-    links = dict(home="../", blog="../blog/", guides="./", img=img, on_blog="", on_guides=' class="on"')
-    pages = [("", "PC guides: fix crashes, heat, FPS drops and more · RigSight",
-              "Plain answers to common PC problems: why your PC crashed, normal GPU and CPU temperatures, FPS drops, loud fans, full drives. Every fix works without extra software.",
-              guides_index_html(guides, "site", img), None)]
+    links = dict(home="../", blog="./", img=img)
+    pages = []
     for g in guides:
         pages.append((g["slug"], f"{g['title']} · RigSight", g["summary"], guide_html(g, guides, "site", img), g))
     for slug, title, desc, inner, g in pages:
-        url = f"{b.SITE}/guides/{slug}"
+        url = f"{b.SITE}/blog/{slug}"
         crumbs = [{"@type": "ListItem", "position": 1, "name": "Home", "item": f"{b.SITE}/"},
-                  {"@type": "ListItem", "position": 2, "name": "Guides", "item": f"{b.SITE}/guides/"}]
+                  {"@type": "ListItem", "position": 2, "name": "Blog", "item": f"{b.SITE}/blog/"}]
         if g:
             crumbs.append({"@type": "ListItem", "position": 3, "name": g["title"], "item": url})
             ld = [{"@context": "https://schema.org", "@type": "Article", "headline": g["title"], "description": g["summary"],
@@ -199,7 +211,6 @@ def build_guides():
     sm = b.DOCS / "sitemap.xml"
     text = sm.read_text(encoding="utf-8")
     text = re.sub(r"\s*<url><loc>https://rigsight\.app/guides/[^<]*</loc>.*?</url>", "", text, flags=re.S)
-    newest = max(g["updated"] for g in guides)
-    entries = "".join(f"\n  <url><loc>{b.SITE}/guides/{s}</loc><lastmod>{(g or {}).get('updated', newest)}</lastmod></url>" for s, _, _, _, g in pages)
+    entries = "".join(f"\n  <url><loc>{b.SITE}/blog/{s}</loc><lastmod>{g['updated']}</lastmod></url>" for s, _, _, _, g in pages)
     sm.write_text(text.replace("</urlset>", entries + "\n</urlset>"), encoding="utf-8", newline="\n")
-    print(f"{len(guides)} guides live, {len(held)} held back, {sum(g['words'] for g in guides):,} words -> {out}")
+    print(f"{len(guides)} PC-problem posts live, {len(held)} held back, {sum(g['words'] for g in guides):,} words -> {out}")

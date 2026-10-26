@@ -33,8 +33,7 @@ RigSight is a history tool, not only a live monitor. Hardware monitors like HWiN
 ## Links
 
 - [Website](https://rigsight.app/)
-- [PC guides](https://rigsight.app/guides/): plain fixes for common PC problems (why a PC crashed, Kernel-Power 41, normal GPU temperatures, GPU hot spot, FPS drops)
-- [The RigSight log](https://rigsight.app/blog/): notes from building RigSight
+- [Blog](https://rigsight.app/blog/): how RigSight is built, and the PC problems it catches (why a PC crashed, Kernel-Power 41, normal GPU temperatures, GPU hot spot, FPS drops): why they happen and how to fix them
 - [Source code on GitHub](https://github.com/b0llu/Rigsight)
 - [All releases and release notes](https://github.com/b0llu/Rigsight/releases)
 - [Report a problem](https://github.com/b0llu/Rigsight/issues)

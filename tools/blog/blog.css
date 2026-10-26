@@ -57,7 +57,7 @@ img { max-width: 100%; height: auto; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .s-build { background: var(--cpu); }
 .s-ai { background: var(--hot); }
-.s-guide { background: var(--gpu); }
+.s-guide, .s-fix { background: var(--gpu); }
 .meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
 .filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
